@@ -291,27 +291,38 @@ there:
   └── settled.md         the decisions already settled
 ```
 
-**2. Where it is,** in a code block: the six stages of the loop on one line, a marker under outbox
-and one under shipped, then the brainstorm's six stage lines, word for word.
+**2. Where it is,** in a code block: the seven stages of the loop on one line, a marker under
+where the PRD is and one under shipped, then the brainstorm's seven stage lines, word for word.
+On the green ending the feature PR is ready, so "you are here" goes under outbox:
 
 ```text
 Where it is
 
-  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro
-                               ▲           ▲
-                               │           └─ merging the feature PR moves it here
-                               └─ you are here
+  idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro
+                                             ▲          ▲
+                                             │          └─ merging the feature PR moves it here
+                                             └─ you are here
 
-  idea     talked through, nothing written
-  PRD      spec, plan and before/after written, in the phase-0 PR
-  inbox    phase-0 PR merged: approved, ready to build
-  outbox   being built: what the agents decided alone waits for you
-  shipped  feature PR merged: the change is on <repo.defaultBranch>
-  retro    a retro PR tells how the delivery went
+  idea      talked through, nothing written
+  PRD       spec, plan and before/after written, in the phase-0 PR
+  inbox     phase-0 PR merged: approved, ready to build
+  building  a first sub-PR merged: the agents build it in waves
+  outbox    feature PR ready: what the agents decided alone waits for you
+  shipped   feature PR merged: the change is on <repo.defaultBranch>
+  retro     a retro PR tells how the delivery went
 ```
 
-The markers are the same on every ending: "you are here" is always under outbox, and
-"merging the feature PR moves it here" always under shipped, because whatever the gate read, the
+On the red and the held endings the feature PR is still a draft, so "you are here" goes under
+building instead, and the rest of the block is the same:
+
+```text
+  idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro
+                                 ▲                      ▲
+                                 │                      └─ merging the feature PR moves it here
+                                 └─ you are here
+```
+
+"merging the feature PR moves it here" is always under shipped, because whatever the gate read, the
 feature PR is not merged.
 
 **3. What is next?** One of three, by how the run ended: three short numbered steps, then the

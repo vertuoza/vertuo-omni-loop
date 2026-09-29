@@ -300,23 +300,24 @@ PRD <n>'s folder: on the phase-0 PR now, on <repo.defaultBranch> once it merges
   └── before-after.html  today beside after
 ```
 
-**2. Where it is,** in a code block: the six stages of the loop on one line, a marker under PRD and
+**2. Where it is,** in a code block: the seven stages of the loop on one line, a marker under PRD and
 one under inbox, then one plain line per stage.
 
 ```text
 Where it is
 
-  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro
+  idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro
             ▲        ▲
             │        └─ merging the phase-0 PR moves it here
             └─ you are here
 
-  idea     talked through, nothing written
-  PRD      spec, plan and before/after written, in the phase-0 PR
-  inbox    phase-0 PR merged: approved, ready to build
-  outbox   being built: what the agents decided alone waits for you
-  shipped  feature PR merged: the change is on <repo.defaultBranch>
-  retro    a retro PR tells how the delivery went
+  idea      talked through, nothing written
+  PRD       spec, plan and before/after written, in the phase-0 PR
+  inbox     phase-0 PR merged: approved, ready to build
+  building  a first sub-PR merged: the agents build it in waves
+  outbox    feature PR ready: what the agents decided alone waits for you
+  shipped   feature PR merged: the change is on <repo.defaultBranch>
+  retro     a retro PR tells how the delivery went
 ```
 
 The markers never move: "you are here" is always under PRD, because a brainstorm always ends with

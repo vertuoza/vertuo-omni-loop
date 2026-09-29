@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchedAgo, formatOverview } from './format.mjs';
+import { fetchedAgo, formatOverview, STAGES, STAGE_WORDS } from './format.mjs';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -13,24 +13,29 @@ const ME = 'me@example.com';
 const known = ({ rows = [], shipped = [], email = ME } = {}) => ({ state: 'known', email, rows, shipped });
 
 /** An overview as `overviewFor` returns it. */
-function overview({ shipped = 3, inbox = 2, outbox = 0, openItems = 0, inReview = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() } = {}) {
-  const total = shipped + inbox + outbox;
+function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0, shipped = 3, retro = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() } = {}) {
+  const delivered = shipped + retro;
+  const inProgress = inbox + building + outbox;
+  const total = delivered + inProgress;
   return {
     slug,
     base,
     fetchedAt,
-    stages: { shipped: [], outbox: [], inbox: [], inReview: [] },
-    counts: { shipped, inbox, outbox, openItems, inReview },
+    stages: { prd: [], inbox: [], building: [], outbox: [], shipped: [], retro: [] },
+    counts: { prd, inbox, building, openItems, outbox, shipped, retro },
     bar: {
-      delivered: shipped,
+      delivered,
       total,
-      percent: total === 0 ? null : Math.floor((shipped * 100) / total),
-      filled: total === 0 ? 0 : Math.floor((shipped * 30) / total),
+      percent: total === 0 ? null : Math.floor((delivered * 100) / total),
+      filled: total === 0 ? 0 : Math.floor((delivered * 30) / total),
     },
-    inProgress: { total: inbox + outbox, inbox, outbox },
+    inProgress: { total: inProgress, inbox, building, outbox },
     yours,
   };
 }
+
+/** The two count lines of the default overview: three shipped, two in the inbox. */
+const COUNTS = ['  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0', '  SHIPPED 3     RETRO 0'];
 
 const lines = (text) => text.split('\n');
 
@@ -39,7 +44,7 @@ describe('formatOverview', () => {
     expect(formatOverview(overview({ fetchedAt: NOW - 2 * HOUR }), { now: NOW })).toBe([
       'omni status · acme/widgets · origin/main, fetched 2 hours ago',
       '',
-      '  SHIPPED 3     INBOX 2',
+      ...COUNTS,
       '',
       `  delivered  ${'█'.repeat(18)}${'░'.repeat(12)}  3 of 5 · 60%`,
       '             2 in progress: 2 in the inbox',
@@ -73,7 +78,7 @@ describe('formatOverview', () => {
 
   it('says nothing yet with no PRD at all', () => {
     const text = formatOverview(overview({ shipped: 0, inbox: 0 }), { now: NOW });
-    expect(text).toContain('  SHIPPED 0     INBOX 0\n');
+    expect(text).toContain('  IDEA on the app     PRD 0     INBOX 0     BUILDING 0     OUTBOX 0\n  SHIPPED 0     RETRO 0\n');
     expect(text).toContain('\n\n  nothing yet: /omni:brainstorm to start\n\n');
     expect(text).not.toContain('delivered');
     expect(text).not.toContain('░');
@@ -82,53 +87,65 @@ describe('formatOverview', () => {
 
   it('keeps every line within 80 columns', () => {
     for (const shipped of [0, 3, 29, 1234]) {
-      for (const line of lines(formatOverview(overview({ shipped, inbox: 5678, outbox: 1234, openItems: 5678, inReview: 1234, fetchedAt: NOW - 23 * HOUR }), { now: NOW }))) {
+      for (const line of lines(formatOverview(overview({ shipped, inbox: 5678, building: 1234, openItems: 5678, outbox: 1234, prd: 1234, retro: 1234, fetchedAt: NOW - 23 * HOUR }), { now: NOW }))) {
         expect(line.length).toBeLessThanOrEqual(80);
       }
     }
   });
 });
 
-describe('formatOverview — the outbox and in review (PRD 315, slice s2)', () => {
-  it('prints the four counts, the open items beside the outbox, and both stages under the bar', () => {
-    const text = formatOverview(overview({ shipped: 26, inbox: 2, outbox: 1, openItems: 3, inReview: 1 }), { now: NOW });
-    expect(lines(text).slice(2, 6)).toEqual([
-      '  SHIPPED 26     INBOX 2     OUTBOX 1 · 3 open items     IN REVIEW 1',
+describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
+  it('keeps the kit\'s seven stages in the order a PRD goes, in the app\'s words', () => {
+    expect(STAGES).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(STAGES.map((stage) => STAGE_WORDS[stage])).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+  });
+
+  it('prints the seven counts in order, the open items beside building, and the stages in progress under the bar', () => {
+    const text = formatOverview(overview({ prd: 1, inbox: 2, building: 1, openItems: 3, outbox: 1, shipped: 20, retro: 6 }), { now: NOW });
+    expect(lines(text).slice(2, 7)).toEqual([
+      '  IDEA on the app     PRD 1     INBOX 2     BUILDING 1 · 3 open items',
+      '  OUTBOX 1     SHIPPED 20     RETRO 6',
       '',
-      `  delivered  ${'█'.repeat(26)}${'░'.repeat(4)}  26 of 29 · 89%`,
-      '             3 in progress: 2 in the inbox, 1 in the outbox',
+      `  delivered  ${'█'.repeat(26)}${'░'.repeat(4)}  26 of 30 · 86%`,
+      '             4 in progress: 2 in the inbox, 1 being built, 1 in the outbox',
     ]);
+    const words = lines(text).slice(2, 4).join(' ');
+    const at = STAGES.map((stage) => words.indexOf(`${STAGE_WORDS[stage].toUpperCase()} `));
+    expect(at.every((index) => index >= 0)).toBe(true);
+    expect(at).toEqual([...at].sort((a, b) => a - b));
   });
 
   it('says open item for one', () => {
-    expect(formatOverview(overview({ inbox: 0, outbox: 1, openItems: 1 }), { now: NOW })).toContain('  SHIPPED 3     INBOX 0     OUTBOX 1 · 1 open item\n');
+    expect(formatOverview(overview({ inbox: 0, building: 1, openItems: 1 }), { now: NOW })).toContain('     BUILDING 1 · 1 open item\n');
   });
 
-  it('says 0 open items for an outbox with none open', () => {
-    expect(formatOverview(overview({ outbox: 2, openItems: 0 }), { now: NOW })).toContain('     OUTBOX 2 · 0 open items\n');
+  it('says 0 open items while building holds none open, and leaves them out while building is empty', () => {
+    expect(formatOverview(overview({ building: 2, openItems: 0 }), { now: NOW })).toContain('     BUILDING 2 · 0 open items\n');
+    expect(formatOverview(overview(), { now: NOW })).toContain('     BUILDING 0     OUTBOX 0\n');
   });
 
-  it('leaves the outbox and in review out of the counts while they are empty', () => {
-    expect(formatOverview(overview(), { now: NOW })).toContain('\n  SHIPPED 3     INBOX 2\n');
-    expect(formatOverview(overview({ inReview: 2 }), { now: NOW })).toContain('\n  SHIPPED 3     INBOX 2     IN REVIEW 2\n');
+  it('shows every stage, even while it is empty', () => {
+    expect(lines(formatOverview(overview(), { now: NOW })).slice(2, 4)).toEqual(COUNTS);
   });
 
-  it('names only the outbox under the bar when the inbox is empty', () => {
+  it('names only the stages in progress under the bar', () => {
     expect(formatOverview(overview({ inbox: 0, outbox: 1 }), { now: NOW })).toContain('\n             1 in progress: 1 in the outbox\n');
+    expect(formatOverview(overview({ inbox: 0, building: 2 }), { now: NOW })).toContain('\n             2 in progress: 2 being built\n');
   });
 
-  it('keeps in review out of the bar', () => {
-    const text = formatOverview(overview({ shipped: 0, inbox: 0, inReview: 1 }), { now: NOW });
-    expect(text).toContain('  SHIPPED 0     INBOX 0     IN REVIEW 1\n');
+  it('keeps PRD out of the bar', () => {
+    const text = formatOverview(overview({ shipped: 0, inbox: 0, prd: 1 }), { now: NOW });
+    expect(text).toContain('  IDEA on the app     PRD 1     INBOX 0');
     expect(text).toContain('\n  nothing yet: /omni:brainstorm to start\n');
   });
 
   it('wraps the counts within 80 columns, however large they grow', () => {
-    const text = formatOverview(overview({ shipped: 12345, inbox: 67890, outbox: 12345, openItems: 67890, inReview: 12345 }), { now: NOW });
+    const text = formatOverview(overview({ prd: 12345, inbox: 67890, building: 12345, openItems: 67890, outbox: 12345, shipped: 12345, retro: 67890 }), { now: NOW });
     for (const line of lines(text)) expect(line.length).toBeLessThanOrEqual(80);
-    expect(lines(text).slice(2, 4)).toEqual([
-      '  SHIPPED 12345     INBOX 67890     OUTBOX 12345 · 67890 open items',
-      '  IN REVIEW 12345',
+    expect(lines(text).slice(2, 5)).toEqual([
+      '  IDEA on the app     PRD 12345     INBOX 67890',
+      '  BUILDING 12345 · 67890 open items     OUTBOX 12345     SHIPPED 12345',
+      '  RETRO 67890',
     ]);
   });
 });
@@ -148,9 +165,10 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
   it('prints each PRD of yours with where it stands, and the shipped list wrapped under the first line', () => {
     const yours = known({
       rows: [
-        row('outbox', 251, 'outbox-answers', { openItems: 3 }),
+        row('outbox', 240, 'ask-tabs'),
+        row('building', 251, 'outbox-answers', { openItems: 3 }),
         row('inbox', 285, 'home-value'),
-        row('inReview', 310, 'cli-help-status'),
+        row('prd', 310, 'cli-help-status'),
       ],
       shipped: [
         entry(301, 'yolo-what-is-next'),
@@ -161,13 +179,14 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
         entry(238, 'game-app-switch'),
       ],
     });
-    const text = formatOverview(overview({ shipped: 26, inbox: 2, outbox: 1, openItems: 3, inReview: 1, yours }), { now: NOW });
-    expect(lines(text).slice(6)).toEqual([
+    const text = formatOverview(overview({ shipped: 26, inbox: 2, building: 1, openItems: 3, outbox: 1, prd: 1, yours }), { now: NOW });
+    expect(lines(text).slice(7)).toEqual([
       '',
       '  Yours · me@example.com',
-      '  outbox     #251  outbox-answers     3 open items wait for an answer',
+      '  outbox     #240  ask-tabs           its feature PR waits for your review',
+      '  building   #251  outbox-answers     3 open items wait for an answer',
       '  inbox      #285  home-value         ready to build: /omni:yolo 285',
-      '  in review  #310  cli-help-status    its phase-0 PR waits for a merge',
+      '  PRD        #310  cli-help-status    its phase-0 PR waits for a merge',
       '  shipped    6: #301 yolo-what-is-next · #292 what-is-next · #284 omni-theme',
       '             #262 release-notes · #261 home · #238 game-app-switch',
       '',
@@ -175,12 +194,12 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]);
   });
 
-  it('says one open item waits, and being built for an outbox PRD with none open', () => {
-    const yours = known({ rows: [row('outbox', 12, 'twelve', { openItems: 1 }), row('outbox', 7, 'seven', { openItems: 0 })] });
+  it('says one open item waits, and being built for a building PRD with none open', () => {
+    const yours = known({ rows: [row('building', 12, 'twelve', { openItems: 1 }), row('building', 7, 'seven', { openItems: 0 })] });
     expect(yoursLines(formatOverview(overview({ yours }), { now: NOW }))).toEqual([
       '  Yours · me@example.com',
-      '  outbox     #12  twelve    1 open item waits for an answer',
-      '  outbox     #7   seven     being built',
+      '  building   #12  twelve    1 open item waits for an answer',
+      '  building   #7   seven     being built',
     ]);
   });
 
@@ -212,11 +231,11 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
 
   it('cuts with … a topic that would push a row past 80 columns, and keeps the rows aligned', () => {
     const long = 'a-very-long-topic-that-goes-on-and-on-and-on-and-never-seems-to-end';
-    const yours = known({ rows: [row('outbox', 7, long, { openItems: 2 }), row('inReview', 12, 'short')] });
+    const yours = known({ rows: [row('building', 7, long, { openItems: 2 }), row('prd', 12, 'short')] });
     const out = yoursLines(formatOverview(overview({ yours }), { now: NOW }));
     expect(out.slice(1)).toEqual([
-      `  outbox     #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
-      `  in review  #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
+      `  building   #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
+      `  PRD        #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
     ]);
     expect(out[2].length).toBe(80);
   });
@@ -247,7 +266,7 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]) {
       const text = formatOverview(overview({ yours }), { now: NOW });
       expect(yoursLines(text)).toEqual([line]);
-      expect(text).toContain('\n  SHIPPED 3     INBOX 2\n');
+      expect(text).toContain(`\n${COUNTS.join('\n')}\n`);
       expect(text).toContain('  3 of 5 · 60%\n');
       expect(text).not.toContain('Yours');
     }
@@ -259,13 +278,13 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
       email: `${'e'.repeat(75)}@x.io`,
       rows: [
         row('outbox', 123456, topic, { openItems: 98765 }),
-        row('outbox', 1, topic, { openItems: 0 }),
+        row('building', 1, topic, { openItems: 0 }),
         row('inbox', 99999, topic),
-        row('inReview', 7, topic),
+        row('prd', 7, topic),
       ],
       shipped: Array.from({ length: 30 }, (_, index) => entry(100000 - index, index % 2 ? topic : 'c')),
     });
-    const text = formatOverview(overview({ shipped: 30, inbox: 2, outbox: 2, openItems: 98765, inReview: 1, yours }), { now: NOW });
+    const text = formatOverview(overview({ shipped: 30, inbox: 2, building: 1, openItems: 98765, outbox: 1, prd: 1, yours }), { now: NOW });
     for (const line of lines(text)) expect(line.length).toBeLessThanOrEqual(80);
   });
 });

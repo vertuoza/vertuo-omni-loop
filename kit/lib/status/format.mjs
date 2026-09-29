@@ -15,6 +15,18 @@ const LABEL = '  delivered  ';
 const UNDER_BAR = ' '.repeat(LABEL.length);
 const GAP = '     ';
 
+/** The seven stages of the loop, in the order a PRD goes (PRD 587): the kit's one list of them, held
+ * to galaxy's `STAGES` by `kit/test/stage-words.test.mjs`. */
+export const STAGES = Object.freeze(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+
+/** Each stage in words, as the Omni app shows it. */
+export const STAGE_WORDS = Object.freeze({
+  idea: 'idea', prd: 'PRD', inbox: 'inbox', building: 'building', outbox: 'outbox', shipped: 'shipped', retro: 'retro',
+});
+
+/** What the counts show for idea: a draft lives on the Omni app, which the repository cannot show. */
+const IDEA_COUNT = 'on the app';
+
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** When the checkout last fetched, in words: `never fetched`, `fetched just now`, or `fetched N
@@ -32,15 +44,16 @@ function header({ slug, base, fetchedAt }, now) {
   return ['omni status', ...(slug ? [slug] : []), `${base}, ${fetchedAgo(fetchedAt, now)}`].join(' · ');
 }
 
-/** The counts, `GAP` apart: shipped and inbox always, the outbox with its open items and in review
- * only when they hold a PRD. A count that would push the line past `WIDTH` starts the next one. */
-function counts({ shipped, inbox, outbox, openItems, inReview }) {
-  const parts = [
-    `SHIPPED ${shipped}`,
-    `INBOX ${inbox}`,
-    ...(outbox > 0 ? [`OUTBOX ${outbox} · ${plural(openItems, 'open item')}`] : []),
-    ...(inReview > 0 ? [`IN REVIEW ${inReview}`] : []),
-  ];
+/** The counts, `GAP` apart: every one of the seven stages in order, idea pointing at the app and
+ * building followed by its open items while it holds a PRD. A count that would push the line past
+ * `WIDTH` starts the next one. */
+function counts(values) {
+  const parts = STAGES.map((stage) => {
+    const word = STAGE_WORDS[stage].toUpperCase();
+    if (stage === 'idea') return `${word} ${IDEA_COUNT}`;
+    if (stage === 'building' && values.building > 0) return `${word} ${values.building} · ${plural(values.openItems, 'open item')}`;
+    return `${word} ${values[stage]}`;
+  });
   const out = [];
   for (const part of parts) {
     const joined = out.length ? `${out.at(-1)}${GAP}${part}` : null;
@@ -50,18 +63,28 @@ function counts({ shipped, inbox, outbox, openItems, inReview }) {
   return out;
 }
 
-/** The bar and the line under it; one line, `nothing yet`, with no PRD at all. */
+/** The bar and the lines under it, which wrap at `WIDTH` under the bar; one line, `nothing yet`,
+ * with no PRD at all. */
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   if (total === 0) return ['  nothing yet: /omni:brainstorm to start'];
   const cells = `${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}`;
-  const parts = [[inProgress.inbox, 'in the inbox'], [inProgress.outbox, 'in the outbox']].filter(([count]) => count > 0).map(([count, where]) => `${count} ${where}`);
-  const under = inProgress.total === 0 ? 'nothing in progress' : `${inProgress.total} in progress: ${parts.join(', ')}`;
-  return [`${LABEL}${cells}  ${delivered} of ${total} · ${percent}%`, `${UNDER_BAR}${under}`];
+  const top = `${LABEL}${cells}  ${delivered} of ${total} · ${percent}%`;
+  if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
+  const parts = [[inProgress.inbox, 'in the inbox'], [inProgress.building, 'being built'], [inProgress.outbox, 'in the outbox']].filter(([count]) => count > 0).map(([count, where]) => `${count} ${where}`);
+  const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
+  for (const part of parts.slice(1)) {
+    const joined = `${under.at(-1)}, ${part}`;
+    if (joined.length <= WIDTH) under[under.length - 1] = joined;
+    else {
+      under[under.length - 1] += ',';
+      under.push(`${UNDER_BAR}${part}`);
+    }
+  }
+  return [top, ...under];
 }
 
 /** Each row of yours starts with its stage, in a column as wide as the widest stage and a gap: the
  * rows' own columns then start under the line under the bar. */
-const STAGE_WORDS = { outbox: 'outbox', inbox: 'inbox', inReview: 'in review', shipped: 'shipped' };
 /** The gap between a row's PRD number and its topic, and between its topic and what it says. */
 const NUMBER_GAP = '  ';
 const TOPIC_GAP = '    ';
@@ -76,12 +99,14 @@ const stageColumn = (stage) => `${INDENT}${STAGE_WORDS[stage].padEnd(UNDER_BAR.l
 
 /** Where a PRD of yours stands, in words. */
 function standing({ stage, prd, openItems }) {
-  if (stage === 'outbox') return openItems > 0 ? `${plural(openItems, 'open item')} wait${openItems === 1 ? 's' : ''} for an answer` : 'being built';
+  const waiting = openItems > 0 ? `${plural(openItems, 'open item')} wait${openItems === 1 ? 's' : ''} for an answer` : null;
+  if (stage === 'outbox') return waiting ?? 'its feature PR waits for your review';
+  if (stage === 'building') return waiting ?? 'being built';
   if (stage === 'inbox') return `ready to build: /omni:yolo ${prd}`;
   return 'its phase-0 PR waits for a merge';
 }
 
-/** The rows of yours in the outbox, the inbox and in review, their numbers, topics and words each in
+/** The rows of yours in the outbox, building, the inbox and PRD, their numbers, topics and words each in
  * a column. A topic that would push a row past `WIDTH` is cut with `…`. */
 function rows(entries) {
   const lines = entries.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing(row) }));
@@ -122,7 +147,7 @@ function shippedRow(shipped) {
 }
 
 /** The PRDs that are yours: one line when it cannot tell whose they are, else a heading naming you,
- * then a row per PRD in progress or in review and one row for the shipped, or `none yet`. */
+ * then a row per PRD in progress or at PRD and one row for the delivered, or `none yet`. */
 function yours({ state, email, rows: inFlight, shipped }) {
   if (state === 'no-email') return [`${INDENT}set git config user.email to see yours`];
   if (state === 'shallow') return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];

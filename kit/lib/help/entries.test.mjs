@@ -6,6 +6,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.mjs';
+import { STAGES as STAGE_ORDER, STAGE_WORDS } from '../status/format.mjs';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.mjs';
 
 const SKILLS_DIR = fileURLToPath(new URL('../../plugin/skills', import.meta.url));
@@ -161,8 +162,9 @@ describe('the help table in this repository', () => {
     });
   });
 
-  it('names the six stages of the loop in order, each with one line, and three principles', () => {
-    expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'outbox', 'shipped', 'retro']);
+  it('names the seven stages of the loop in order, in the kit\'s stage words, each with one line, and three principles', () => {
+    expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(STAGES.map((stage) => stage.name)).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
     for (const stage of STAGES) expect(oneLine(stage.line), stage.name).toBe(true);
     expect(PRINCIPLES).toHaveLength(3);
   });
