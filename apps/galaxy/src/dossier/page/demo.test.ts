@@ -50,6 +50,17 @@ describe('the demo dossier\'s GitHub summary', () => {
     expect(outbox).toMatchObject({ readOnly: false, sendOff: 'A demo outbox: Send is off here.' });
   });
 
+  it('shows its people as heroes (PRD 652): the opener, who asked and answered, and the outbox\'s @logins, with no GitHub photo', () => {
+    const view = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'outbox', version: null }, NOW);
+    expect(view.openedBy?.face.kind).toBe('hero');
+    const rounds = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'questions', version: null }, NOW).questions.rounds ?? [];
+    expect(rounds.map((r) => r.askedBy.face.kind)).toEqual(rounds.map(() => 'hero'));
+    expect(rounds.flatMap((r) => (r.answeredBy ? [r.answeredBy.person.face.kind] : []))).toContain('hero');
+    const logins = [...view.outbox.open.flatMap((c) => (c.pending ? [c.pending.face] : [])), ...view.outbox.settled.flatMap((e) => (e.by ? [e.face] : []))];
+    expect(logins.length).toBeGreaterThan(0);
+    expect(JSON.stringify(logins)).not.toContain('github.com');
+  });
+
   it('gives a signature that carries its stage and open outbox count', () => {
     expect(signature(pulseOf(demoDossier(NOW)))).toMatch(/#outbox:2:1@2026-09-26T09:12:00Z$/);
   });

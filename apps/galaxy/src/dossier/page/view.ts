@@ -48,6 +48,9 @@
 // Released, each with who and when, read live from GitHub and the pick line (../../fixes/timeline.ts)
 // — and its header carries the fix's state (Asked, In review, Merged, or `—`) and its issue and PR.
 import type { FixPageView } from '../../fixes/timeline';
+import type { Face } from '../../people/face';
+import { peopleOf, type People } from '../../people/load';
+import type { Person } from '../../people/types';
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
@@ -181,7 +184,13 @@ export type DossierRead = {
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
   fix?: FixPageView;
+  /** The workspace's people directory (PRD 652), for the faces; left out, everyone falls back to
+   * their GitHub photo or their initial. */
+  people?: People;
 };
+
+/** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
+const NOBODY: People = peopleOf([], []);
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
  * of asked (`7/10`, or `10/10 answered` once none is left); null when there is nothing yet. `alert` is
@@ -221,6 +230,10 @@ export type DossierView = {
   repos: string[];
   /** `opened by Pierre · 27 Sep 2026, 09:12 UTC`, or `read from GitHub · …` when the fallback made it. */
   opened: string;
+  /** Who opened it, with their face (PRD 652); null when the fallback made it. */
+  openedBy: Person | null;
+  /** When it was opened: `27 Sep 2026, 09:12 UTC`. */
+  openedAt: string;
   /** The page's own path, for Copy link. */
   link: string;
   /** The viewer opened this draft: they may delete it. Nobody deletes a numbered dossier. */
@@ -267,6 +280,8 @@ export type QuickChoice = { label: string; recommended: boolean; description: st
  * first; empty for a viewer who may not answer. */
 export type QuickRound = {
   question: string; choices: QuickChoice[]; canAnswer: boolean; owner: string; next: string | null; names: Record<string, string>;
+  /** The owner's face, and each named member's by account id (PRD 652). */
+  ownerFace: Face; faces: Record<string, Face>;
 };
 
 export type RoundEntry = {
@@ -288,6 +303,12 @@ export type RoundEntry = {
   outcome: string;
   /** `asked by Pierre · 27 Sep 2026, 09:15 UTC`. */
   asked: string;
+  /** Who asked it, with their face, and when: `27 Sep 2026, 09:15 UTC` (PRD 652). */
+  askedBy: Person;
+  askedAt: string;
+  /** An answer someone is named for: who, with their face, and what `outcome` says after their name
+   * (` after 1 min 35 s, on the page`); null when nobody is named (PRD 652). */
+  answeredBy: { person: Person; rest: string } | null;
   /** The category's label, or `unsorted`. */
   category: string;
   categoryValue: Category | null;
@@ -377,7 +398,16 @@ function nextOpen(rows: readonly Opened[], roundId: string): string | null {
   return [...rows].filter((row) => row.status === 'open' && row.round_id !== roundId).sort(askedOrder)[0]?.round_id ?? null;
 }
 
-function quickOf(row: DossierRoundRow, rows: readonly DossierRoundRow[], members: Member[], answerable: readonly string[], now: number): QuickRound | null {
+/** Who answered a round, with their face, and the rest of its outcome after their name. */
+function answeredByOf(row: DossierRoundRow, members: Member[], people: People, outcome: string): RoundEntry['answeredBy'] {
+  if (row.status !== 'answered' || !row.answered_by) return null;
+  const person = people.byId(row.answered_by, nameOf(row.answered_by, members));
+  return { person, rest: outcome.slice(`answered by ${person.name}`.length) };
+}
+
+function quickOf(
+  row: DossierRoundRow, rows: readonly DossierRoundRow[], members: Member[], answerable: readonly string[], now: number, people: People,
+): QuickRound | null {
   if (!isQuick(row, now)) return null;
   const [only] = readQuestions(row.questions);
   const canAnswer = answerable.includes(row.round_id);
@@ -391,6 +421,8 @@ function quickOf(row: DossierRoundRow, rows: readonly DossierRoundRow[], members
     owner: nameOf(row.asked_by, members),
     next: nextOpen(rows, row.round_id),
     names: canAnswer ? Object.fromEntries(members.map((m) => [m.user_id, nameOf(m.user_id, members)])) : {},
+    ownerFace: people.byId(row.asked_by, nameOf(row.asked_by, members)).face,
+    faces: canAnswer ? Object.fromEntries(members.map((m) => [m.user_id, people.byId(m.user_id, nameOf(m.user_id, members)).face])) : {},
   };
 }
 
@@ -430,11 +462,13 @@ function countOf(state: QuestionShape, size: number): string {
 
 export function questionsView(
   rows: DossierRoundRow[] | null, members: Member[], dossierId: string, answerable: readonly string[] = [], now: number = Date.now(),
+  people: People = NOBODY,
 ): QuestionsView {
   if (rows === null) return { rounds: null, asked: 0, answered: 0, open: 0 };
   const rounds = [...rows].sort(askedOrder).map((row): RoundEntry => {
     const questions = roundQuestions(row);
     const state = shapeOf(row);
+    const outcome = outcomeOf(row, members);
     return {
       id: row.round_id,
       rule: row.rule,
@@ -444,12 +478,15 @@ export function questionsView(
       when: whenOf(row.created_at),
       href: roundPath(row.round_id, dossierId),
       questions,
-      outcome: outcomeOf(row, members),
+      outcome,
       asked: `asked by ${nameOf(row.asked_by, members)} · ${stamp(row.created_at)}`,
+      askedBy: people.byId(row.asked_by, nameOf(row.asked_by, members)),
+      askedAt: stamp(row.created_at),
+      answeredBy: answeredByOf(row, members, people, outcome),
       category: isCategory(row.category) ? CATEGORY_LABELS[row.category] : 'unsorted',
       categoryValue: isCategory(row.category) ? row.category : null,
       context: [row.repo, row.branch, row.prd ? `PRD #${row.prd}` : null, row.skill].filter((part): part is string => typeof part === 'string' && part !== ''),
-      quick: quickOf(row, rows, members, answerable, now),
+      quick: quickOf(row, rows, members, answerable, now, people),
     };
   });
   const total = (state: QuestionShape | null) =>
@@ -458,7 +495,7 @@ export function questionsView(
 }
 
 export function dossierView(
-  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, stages, demo = false, fix }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
+  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, stages, demo = false, fix, people = NOBODY }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
 ): DossierView {
   const work = kindOf(dossier);
   const pageTabs = KIND_TABS[work];
@@ -467,10 +504,10 @@ export function dossierView(
   const tab = pick.tab !== null && pageTabs.includes(pick.tab) ? pick.tab : fallback;
   const mine = isArtifactTab(tab) ? ofKind(tab) : [];
   const href = (to: DossierTab, version: number | null = null) => hrefOf(dossier.id, to, version, fallback, null, work);
-  const questions = questionsView(rounds, members, dossier.id, answerable, now);
+  const questions = questionsView(rounds, members, dossier.id, answerable, now, people);
   const context = pick.context ?? 'before-after';
   const outbox = outboxView(dossier.prd === null ? undefined : github, {
-    canAnswer: me !== null, demo, context: tab === 'outbox' ? contextView(dossier.id, versions, questions, context, fallback) : null,
+    canAnswer: me !== null, demo, people, sender: me === null ? null : people.byId(me, nameOf(me, members)).face, context: tab === 'outbox' ? contextView(dossier.id, versions, questions, context, fallback) : null,
   });
   const retro = retroView(dossier.prd === null ? undefined : github);
   const retroPr = dossier.prd !== null && github && github.retro !== UNREAD ? github.retro : null;
@@ -516,6 +553,8 @@ export function dossierView(
     title: dossier.title,
     repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,
+    openedBy: dossier.opened_by === null ? null : people.byId(dossier.opened_by, nameOf(dossier.opened_by, members)),
+    openedAt: stamp(dossier.created_at),
     link: dossierPath(dossier.id, work),
     canDelete: dossier.prd === null && me !== null && dossier.opened_by === me,
     tabs: pageTabs.map((kind) => ({

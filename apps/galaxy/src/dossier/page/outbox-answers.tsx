@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { answered, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
+import type { Face } from '../../people/face';
+import { LoginChip } from './LoginChip';
 import { OutboxSend } from './OutboxSend';
 import { NOT_NUMBERED, type Chip, type SettledEntry } from './outbox-view';
 
@@ -34,7 +36,7 @@ export type ShownCard = {
   steps: string | null;
   bearsOn: Chip[];
   details: { label: string; html: string }[];
-  pending: { text: string; by: string; where: string; when: string | null; url: string | null; counted: boolean } | null;
+  pending: { text: string; by: string; where: string; when: string | null; url: string | null; counted: boolean; face: Face | null } | null;
 };
 
 type Props = {
@@ -49,6 +51,8 @@ type Props = {
   signIn: string | null;
   /** Why Send is off, or null when it may send. */
   sendOff: string | null;
+  /** The viewer's face, shown on a send's result (PRD 652). */
+  sender?: Face | null;
 };
 
 function Html({ html, className }: { html: string | null; className: string }) {
@@ -63,7 +67,7 @@ function Pending({ card }: { card: ShownCard }) {
       <p>
         <span className="outbox-pending-label">Answered</span> <q>{pending.text}</q>{' '}
         <span className="ask-hint">
-          by @{pending.by} {pending.where}{pending.when ? ` · ${pending.when}` : ''}
+          by <LoginChip login={pending.by} face={pending.face} /> {pending.where}{pending.when ? ` · ${pending.when}` : ''}
           {pending.url && <> · <a href={pending.url} target="_blank" rel="noopener noreferrer">the reply</a></>}
         </span>
       </p>
@@ -234,7 +238,7 @@ function Settled({ entry }: { entry: SettledEntry }) {
         <span className="outbox-rank" data-rank="settled">{entry.verdict}</span>{' '}
         <span className="ask-hint">
           {entry.title}
-          {entry.by ? ` · approved by @${entry.by}` : ''}{entry.when ? ` · ${entry.when}` : ''}
+          {entry.by && <> · approved by <LoginChip login={entry.by} face={entry.face} /></>}{entry.when ? ` · ${entry.when}` : ''}
           {entry.url && <> · <a href={entry.url} target="_blank" rel="noopener noreferrer">the reply</a></>}
         </span>
       </p>
@@ -243,7 +247,7 @@ function Settled({ entry }: { entry: SettledEntry }) {
   );
 }
 
-export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, note, signIn, sendOff }: Props) {
+export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, note, signIn, sendOff, sender = null }: Props) {
   const questions = useMemo(() => pickable([...open, ...adopted]), [open, adopted]);
   const [picks, setPicks] = useState<Picks>({});
   const key = picksKey(dossierId);
@@ -298,7 +302,7 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
           <button type="button" className="ask-button quiet" onClick={() => change(recommend(questions, picks))} disabled={!openDecisions}>
             Select every recommendation
           </button>
-          <OutboxSend dossierId={dossierId} questions={questions} picks={picks} count={count} sendOff={sendOff} onDrop={drop} />
+          <OutboxSend dossierId={dossierId} questions={questions} picks={picks} count={count} sendOff={sendOff} onDrop={drop} sender={sender} />
         </div>
       )}
       {open.length === 0 ? (

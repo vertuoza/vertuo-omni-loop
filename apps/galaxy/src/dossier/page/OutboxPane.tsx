@@ -114,6 +114,7 @@ export function OutboxPane({ dossierId, outbox, spec, canSend = sendOpen() }: Pr
           note={outbox.note}
           signIn={outbox.signIn}
           sendOff={sendOffOf(outbox, canSend)}
+          sender={outbox.sender}
         />
       </div>
     </div>
