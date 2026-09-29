@@ -4,7 +4,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { demoGalaxy, loadGalaxy } from '../../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
 import { once, UNREADABLE } from '../part';
-import { demoActivity, demoAnswered, demoRoster, DEMO_VIEWER } from '../board/demo';
+import { demoActivity, demoAnswered, demoPrds, demoRoster, DEMO_VIEWER } from '../board/demo';
 import { supabaseReads } from '../board/load';
 import type { Period } from '../board/period';
 import { fleetOf, loadFleet, type FleetValue } from './load';
@@ -33,7 +33,7 @@ export async function loadFleetBoard(db: SupabaseClient, user: Pick<User, 'id'>,
 export function demoFleetBoard(asked: string | null, period: Period, now: Date, galaxy: GalaxyView = demoGalaxy(now)): FleetBoard {
   const roster = demoRoster(galaxy);
   return fleetOf(
-    { roster, activity: demoActivity(roster, now), answered: demoAnswered(roster), galaxy },
+    { roster, activity: demoActivity(roster, now), answered: demoAnswered(roster), galaxy, prds: demoPrds(roster) },
     { asked, viewerId: DEMO_VIEWER.userId, period, now },
   );
 }

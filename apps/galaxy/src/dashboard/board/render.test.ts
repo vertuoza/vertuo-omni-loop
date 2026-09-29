@@ -26,6 +26,12 @@ const READ = {
     { kind: 'prd-opened', repo: 'vertuo-omni-loop', number: 12, login: 'ada-gh', at: '2026-09-26T08:00:00Z' },
   ],
   answered: [{ user_id: 'u-paul', answered: 9 }],
+  prds: [
+    { stage: 'shipped', login: 'ada-gh', userId: null },
+    { stage: 'shipped', login: 'ada-gh', userId: null },
+    { stage: 'outbox', login: 'ada-gh', userId: null },
+    { stage: 'idea', login: null, userId: 'u-nog' },
+  ],
   galaxy: { heroes: [{ name: 'ada-gh', points: 40 }], teams: [{ name: 'octo', label: 'OCTO', color: '#3355ff', points: 40, rank: 1 }] },
 };
 const REQUEST: BoardRequest = { scope: { kind: 'workspace' }, people: { kind: 'workspace' }, viewerId: 'u-ada', period: '7d', now: NOW };
@@ -49,29 +55,46 @@ describe('the period switch', () => {
 });
 
 describe('a board', () => {
-  it('shows the four tiles, a 0 as 0', () => {
+  it('shows the four tiles, a 0 as 0; PRDs by the seven stages now', () => {
     const t = text(render());
     expect(t).toContain('PRs merged 1');
-    expect(t).toContain('PRDs 1 drafted · 0 in progress · 0 shipped');
+    expect(t).toContain('PRDs 1 idea · 0 PRD · 0 inbox · 0 building · 1 outbox · 2 shipped · 0 retro');
     expect(t).toContain('Repositories 2');
     expect(t).toContain('Questions answered 9');
   });
 
-  it('draws both charts, each with the list a screen reader reads in its place', () => {
+  it('links each PRD count to /prd at its stage, with the scope\'s filter', () => {
+    const all = render();
+    expect(all).toMatch(/<a class="board-stage" href="\/prd\?stage=shipped&amp;who=all"><b>2<\/b>/);
+    expect(all.match(/class="board-stage" href="\/prd\?stage=/g)).toHaveLength(7);
+    const you = render({}, { scope: { kind: 'you', userId: 'u-ada', login: 'ada-gh' } });
+    expect(you).toContain('href="/prd?stage=outbox"');
+    expect(you).not.toContain('who=all');
+  });
+
+  it('with no PRDs read, says the PRDs tile could not load, not 0', () => {
+    const t = text(render({ prds: 'unreadable' }));
+    expect(t).toContain(`PRDs ${UNREADABLE_LINE}`);
+    expect(t).toContain('Couldn’t load the PRDs. Reload in a moment.');
+  });
+
+  it('draws both charts, each with the list a screen reader reads in its place; PRD events read opened · started · shipped', () => {
     const html = render();
     expect(text(html)).toContain('PRs merged per day · last 7 days');
     expect(text(html)).toContain('PRD events per day · last 7 days');
+    expect(html).toMatch(/<ul class="board-legend"[^>]*>.*opened.*started.*shipped.*<\/ul>/);
     expect(html).toContain('Friday 25 September: 1 PR');
-    expect(html).toContain('Saturday 26 September, today: 1 drafted, 0 in progress, 0 shipped');
+    expect(html).toContain('Saturday 26 September, today: 1 opened, 0 started, 0 shipped');
     expect(html.match(/<svg[^>]*aria-hidden="true"/g)).toHaveLength(2);
   });
 
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
     const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(m[1]));
+    expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
     expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
-    expect(rows).toContain('ADA ◀ (you) OCTO 40 0 1 · 0 · 0 0');
-    expect(rows).toContain('NOGIT SOLO – – – 0');
+    expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
+    expect(rows).toContain('NOGIT SOLO – – 1 · 0 · 0 0');
     expect(html).toMatch(/<tr aria-current="true"><th scope="row" class="board-name">ADA/);
   });
 
@@ -91,7 +114,7 @@ describe('a board', () => {
     expect(t).toContain(`PRs merged per day · last 7 days ${UNREADABLE_LINE}`);
     expect(t).toContain(`Repositories involved ${UNREADABLE_LINE}`);
     expect(t).toContain('Questions answered 9');
-    expect(t).toContain('Couldn’t load the PRs and PRDs. Reload in a moment.');
+    expect(t).toContain('Couldn’t load the PRs. Reload in a moment.');
     expect(text(render({ roster: 'unreadable' }))).toContain(`People ${UNREADABLE_LINE}`);
   });
 

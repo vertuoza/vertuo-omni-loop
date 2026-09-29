@@ -34,6 +34,7 @@ function home(viewer: HomeViewer, fail: { roster?: boolean; activity?: boolean }
     activity: fail.activity ? 'unreadable' : ACTIVITY,
     answered: ANSWERED,
     galaxy: GALAXY,
+    prds: [],
   }, { scope: r.scope, people: r.people, viewerId: viewer.userId, period: '7d', now: NOW });
   const dashboard: DashboardData = {
     name: 'ADA', season: seasonBounds(NOW), you: { kind: 'no-player' }, waiting: { count: 1, href: '/ask' }, board, solo: r.solo,

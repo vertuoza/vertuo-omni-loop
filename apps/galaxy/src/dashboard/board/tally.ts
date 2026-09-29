@@ -1,3 +1,4 @@
+import { STAGES, type StageId, type StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
 
@@ -12,8 +13,14 @@ import { brusselsDay, type PeriodWindow } from './period';
 // | the workspace  | every row, a non-member's merges included  | every member                  |
 //
 // Logins match ignoring case. PRD events are credited to the PRD issue's author (the poller writes
-// them so): drafted when the issue opened, in progress when its phase-0 merged, shipped when its
-// feature PR merged.
+// them so): opened when the issue opened, started when its phase-0 merged, shipped when its feature PR
+// merged. They draw the per-day chart only: events of the period, never where a PRD is now.
+//
+// Where a PRD is now (PRD 587) is its current stage (src/stages/stage.ts): the latest stored one for a
+// numbered PRD, idea for a draft with an answered question. The PRDs tile counts the scope's PRDs at
+// each of the seven stages, and the People table groups each person's into open (idea, PRD, inbox),
+// building (building, outbox) and shipped (shipped, retro). A PRD is the scope's when it opened it: by
+// the GitHub login its prd-opened row credits, or by the account that opened its dossier.
 
 /** A workspace member, as workspace_roster returns them. */
 export interface Member {
@@ -87,22 +94,22 @@ export function inPeriod(rows: readonly Activity[], window: Pick<PeriodWindow, '
 
 export const MERGED = 'pr-merged';
 
-/** The PRD stages, and the kind of `contributions` row that marks each. */
-export type Stage = 'drafted' | 'inProgress' | 'shipped';
-export const STAGE_OF: Readonly<Record<string, Stage>> = {
-  'prd-opened': 'drafted',
-  'prd-started': 'inProgress',
+/** The PRD events of the per-day chart, and the kind of `contributions` row that marks each. */
+export type PrdEvent = 'opened' | 'started' | 'shipped';
+export const EVENT_OF: Readonly<Record<string, PrdEvent>> = {
+  'prd-opened': 'opened',
+  'prd-started': 'started',
   'prd-shipped': 'shipped',
 };
-export const STAGES: readonly Stage[] = ['drafted', 'inProgress', 'shipped'];
+export const EVENTS: readonly PrdEvent[] = ['opened', 'started', 'shipped'];
 
-export type Stages = Record<Stage, number>;
-const noStages = (): Stages => ({ drafted: 0, inProgress: 0, shipped: 0 });
+export type Events = Record<PrdEvent, number>;
+const noEvents = (): Events => ({ opened: 0, started: 0, shipped: 0 });
 
 /** One day of the PRs merged chart. */
 export interface ChartDay { date: string; count: number }
 /** One day of the PRD events chart. */
-export type StageDay = { date: string } & Stages;
+export type EventDay = { date: string } & Events;
 
 export function mergesPerDay(rows: readonly DayActivity[], days: readonly string[]): ChartDay[] {
   const counts = new Map(days.map((d) => [d, 0]));
@@ -110,23 +117,86 @@ export function mergesPerDay(rows: readonly DayActivity[], days: readonly string
   return days.map((date) => ({ date, count: counts.get(date)! }));
 }
 
-export function prdEventsPerDay(rows: readonly DayActivity[], days: readonly string[]): StageDay[] {
-  const byDay = new Map(days.map((d) => [d, noStages()]));
+export function prdEventsPerDay(rows: readonly DayActivity[], days: readonly string[]): EventDay[] {
+  const byDay = new Map(days.map((d) => [d, noEvents()]));
   for (const r of rows) {
-    const stage = STAGE_OF[r.kind];
+    const event = EVENT_OF[r.kind];
     const day = byDay.get(r.day);
-    if (stage && day) day[stage] += 1;
+    if (event && day) day[event] += 1;
   }
   return days.map((date) => ({ date, ...byDay.get(date)! }));
 }
 
-export function stageCounts(rows: readonly Activity[]): Stages {
-  const stages = noStages();
+export function eventCounts(rows: readonly Activity[]): Events {
+  const events = noEvents();
   for (const r of rows) {
-    const stage = STAGE_OF[r.kind];
-    if (stage) stages[stage] += 1;
+    const event = EVENT_OF[r.kind];
+    if (event) events[event] += 1;
   }
-  return stages;
+  return events;
+}
+
+// ── PRDs now (PRD 587) ────────────────────────────────────────────────────
+
+/** A PRD as the board counts it: its current stage, and who opened it, as far as is known. */
+export interface PrdNow {
+  stage: StageId;
+  /** The GitHub login its prd-opened row credits, in lower case; null when none was read. */
+  login: string | null;
+  /** The account that opened its dossier; null with no dossier, or one nobody opened. */
+  userId: string | null;
+}
+
+/** What PRDs now are made of: the stored current stages, the prd-opened rows and the dossiers. */
+export interface PrdsInput {
+  stages: readonly { repository: string; prd: number; stage: StoredStage }[];
+  openers: readonly Pick<Activity, 'repo' | 'number' | 'login'>[];
+  dossiers: readonly { home_repo: string; prd: number | null; opened_by: string | null; answered: number }[];
+}
+
+const repoName = (repository: string) => repository.toLowerCase().split('/').pop()!;
+
+/** Each stored PRD at its current stage with who opened it, then each draft with an answered question
+ * at idea. A prd-opened row names the repository as the workspace's sectors do (its name, no owner). */
+export function prdsNow({ stages, openers, dossiers }: PrdsInput): PrdNow[] {
+  const logins = new Map(openers.map((o) => [`${repoName(o.repo)}#${o.number}`, o.login.toLowerCase()]));
+  const openedBy = new Map(dossiers.flatMap((d) => (d.prd === null ? [] : [[`${d.home_repo.toLowerCase()}#${d.prd}`, d.opened_by]])));
+  const numbered = stages.map((s): PrdNow => ({
+    stage: s.stage,
+    login: logins.get(`${repoName(s.repository)}#${s.prd}`) ?? null,
+    userId: openedBy.get(`${s.repository.toLowerCase()}#${s.prd}`) ?? null,
+  }));
+  const ideas = dossiers.filter((d) => d.prd === null && d.answered > 0).map((d): PrdNow => ({ stage: 'idea', login: null, userId: d.opened_by }));
+  return [...numbered, ...ideas];
+}
+
+/** Whether the scope opened this PRD: the workspace every one, else by login or by account. */
+export function openedBy(circle: Circle, prd: PrdNow): boolean {
+  if (circle.logins === 'all' || circle.userIds === 'all') return true;
+  return (prd.login !== null && circle.logins.has(prd.login.toLowerCase())) || (prd.userId !== null && circle.userIds.has(prd.userId));
+}
+
+/** How many PRDs sit at each of the seven stages now, in track order. */
+export type StageTally = Record<StageId, number>;
+
+export function stageTally(prds: readonly PrdNow[]): StageTally {
+  const tally = Object.fromEntries(STAGES.map((s) => [s, 0])) as StageTally;
+  for (const p of prds) tally[p.stage] += 1;
+  return tally;
+}
+
+/** The People table's three groups of a person's PRDs now. */
+export type PrdGroup = 'open' | 'building' | 'shipped';
+export const GROUPS: readonly PrdGroup[] = ['open', 'building', 'shipped'];
+export const GROUP_OF: Readonly<Record<StageId, PrdGroup>> = {
+  idea: 'open', prd: 'open', inbox: 'open', building: 'building', outbox: 'building', shipped: 'shipped', retro: 'shipped',
+};
+export type PrdGroups = Record<PrdGroup, number>;
+
+export function groupsOf(prds: readonly PrdNow[]): PrdGroups {
+  const groups: PrdGroups = { open: 0, building: 0, shipped: 0 };
+  for (const p of prds) groups[GROUP_OF[p.stage]] += 1;
+  return groups;
 }
 
 /** A repository the work touched in the period. */
@@ -135,8 +205,8 @@ export interface RepoRow { repo: string; prs: number; prdEvents: number }
 export function repositoriesOf(rows: readonly Activity[]): RepoRow[] {
   const repos = new Map<string, RepoRow>();
   for (const r of rows) {
-    const merged = r.kind === MERGED, stage = STAGE_OF[r.kind];
-    if (!merged && !stage) continue;
+    const merged = r.kind === MERGED, event = EVENT_OF[r.kind];
+    if (!merged && !event) continue;
     const row = repos.get(r.repo) ?? { repo: r.repo, prs: 0, prdEvents: 0 };
     if (merged) row.prs += 1;
     else row.prdEvents += 1;
@@ -145,13 +215,13 @@ export function repositoriesOf(rows: readonly Activity[]): RepoRow[] {
   return [...repos.values()].sort((a, b) => b.prs + b.prdEvents - (a.prs + a.prdEvents) || a.repo.localeCompare(b.repo));
 }
 
-/** The four tiles. */
-export interface Tiles { prs: number; prds: Stages; repositories: number; answered: number }
+/** The four tiles: the PRDs tile counts the scope's PRDs by where they are now. */
+export interface Tiles { prs: number; prds: StageTally; repositories: number; answered: number }
 
-export function tilesOf(rows: readonly Activity[], answered: number): Tiles {
+export function tilesOf(rows: readonly Activity[], answered: number, prds: readonly PrdNow[]): Tiles {
   return {
     prs: rows.filter((r) => r.kind === MERGED).length,
-    prds: stageCounts(rows),
+    prds: stageTally(prds),
     repositories: repositoriesOf(rows).length,
     answered,
   };
@@ -171,7 +241,8 @@ export interface FleetTag { name: string; label: string; color: string | null }
 export const SOLO = 'solo';
 
 /** One member's row. A GitHub-counted column is null (a dash) for a member with no login, and
- * 'unreadable' for everyone when its read failed. */
+ * 'unreadable' for everyone when its read failed. PRDs count the PRDs they opened, by login or by
+ * account, so a member with no login still has theirs. */
 export interface PersonRow {
   userId: string;
   name: string;
@@ -180,7 +251,7 @@ export interface PersonRow {
   fleet: FleetTag | typeof SOLO;
   points: number | null | typeof UNREADABLE;
   prs: number | null | typeof UNREADABLE;
-  prds: Stages | null | typeof UNREADABLE;
+  prds: PrdGroups | typeof UNREADABLE;
   answered: number | typeof UNREADABLE;
   you: boolean;
 }
@@ -192,6 +263,8 @@ export interface PeopleInput {
   /** The season's heroes, by GitHub login: their points. */
   heroes: Read<readonly { name: string; points: number }[]>;
   fleets: readonly FleetTag[];
+  /** The workspace's PRDs now: each member's own are picked by who opened them. */
+  prds: Read<readonly PrdNow[]>;
 }
 
 const rank = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'number' ? n : -1);
@@ -221,7 +294,8 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       fleet: !m.fleet ? SOLO : fleets.get(m.fleet) ?? { name: m.fleet, label: m.fleet.toUpperCase(), color: null },
       points: byGithub(input.heroes === UNREADABLE, () => points.get(login!) ?? 0),
       prs: byGithub(input.activity === UNREADABLE, () => mine.filter((r) => r.kind === MERGED).length),
-      prds: byGithub(input.activity === UNREADABLE, () => stageCounts(mine)),
+      prds: input.prds === UNREADABLE ? UNREADABLE : groupsOf(input.prds.filter((p) =>
+        (login !== null && p.login?.toLowerCase() === login) || p.userId === m.userId)),
       answered: input.answered === UNREADABLE ? UNREADABLE : input.answered.get(m.userId) ?? 0,
       you: m.userId === viewerId,
     };
