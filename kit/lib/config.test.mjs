@@ -330,7 +330,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'markers', 'signature',
     ]);
   });
 
