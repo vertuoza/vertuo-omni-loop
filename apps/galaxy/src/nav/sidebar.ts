@@ -1,6 +1,6 @@
 // The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask,
-// /knowledge). Since PRD 572 it has three groups, then Omni: Dashboard (the three boards: Home, your
-// fleet's, the workspace's), Work (the workspace's work), Settings (Fleets, at /app/settings/fleets; and
+// /knowledge). Since PRD 572 it has three groups, then Omni: Dashboard (the boards: Home, your
+// fleet's, the workspace's, and since PRD 612 Engineering's, at /app/engineering), Work (the workspace's work), Settings (Fleets, at /app/settings/fleets; and
 // Repositories, at /app/settings/repositories, since PRD 612),
 // and Omni's own pages, which leave the app for the public ones. A new section is one entry here. Two
 // pure reads of a path: the item it falls under, by the longest matching path (so
@@ -9,7 +9,7 @@
 // what waits for the person (PRD 499) carries its count as a badge, none at 0.
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'workspace' | 'prds' | 'questions' | 'for-me' | 'history' | 'knowledge' | 'fleets' | 'repositories' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'workspace' | 'engineering' | 'prds' | 'questions' | 'for-me' | 'history' | 'knowledge' | 'fleets' | 'repositories' | 'docs' | 'releases';
 
 /** One item of the sidebar. */
 export interface SidebarItem {
@@ -38,6 +38,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
       { id: 'home', label: 'Home', path: '/app' },
       { id: 'fleet', label: 'Fleet', path: '/app/fleet' },
       { id: 'workspace', label: 'Workspace', path: '/app/workspace' },
+      { id: 'engineering', label: 'Engineering', path: '/app/engineering' },
     ],
   },
   {

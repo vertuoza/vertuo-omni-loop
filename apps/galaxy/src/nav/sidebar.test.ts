@@ -16,12 +16,13 @@ describe('SIDEBAR', () => {
 
   const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.children ?? []).map((c) => [c.id, c.label, c.path])]);
 
-  it('holds Home, Fleet and Workspace under Dashboard, in that order', () => {
+  it('holds Home, Fleet, Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
     const [dashboard] = SIDEBAR;
     expect(rows(dashboard.items)).toEqual([
       ['home', 'Home', '/app', []],
       ['fleet', 'Fleet', '/app/fleet', []],
       ['workspace', 'Workspace', '/app/workspace', []],
+      ['engineering', 'Engineering', '/app/engineering', []],
     ]);
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
@@ -61,6 +62,8 @@ describe('currentItem and pageTitle', () => {
     ['/app/fleet?fleet=beaver&period=30d', 'fleet', 'Fleet'],
     ['/app/workspace', 'workspace', 'Workspace'],
     ['/app/workspace?period=season', 'workspace', 'Workspace'],
+    ['/app/engineering', 'engineering', 'Engineering'],
+    ['/app/engineering?period=30d&sort=merged', 'engineering', 'Engineering'],
     ['/app/settings/fleets', 'fleets', 'Fleets'],
     ['/app/settings/repositories', 'repositories', 'Repositories'],
     ['/prd', 'prds', 'PRDs'],
@@ -105,6 +108,6 @@ describe('badgeOf', () => {
   it('gives no badge at 0, nor to an item that counts nothing', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
     expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'workspace', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });
