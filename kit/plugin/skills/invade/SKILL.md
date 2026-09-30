@@ -419,7 +419,7 @@ counts as unset. Then the keys the exploration and the map settle:
 | `laws.source` | `knowledge`, whenever the registers hold at least one entry. Safe while every entry is proposed, since a proposed entry floors nothing; each confirmation then takes effect at once |
 | `ci.aggregateCheck` | one check gates a merge for the others: a required check, or the job every other job feeds |
 | `proof.url` | Playwright is among the dependencies and the repository has a preview deploy: `github-deployment` when its pull requests carry GitHub deployments (a Vercel project does), a fixed URL only when the evidence names one |
-| `proof.setup` | `proof.url` is proposed and the tests already have a sign-in helper: the command that runs it and writes a Playwright storageState to `PROOF_STORAGE_STATE` |
+| `proof.setup` | `proof.url` is proposed: `omni proof session` when the app signs in through the same server as `ask.url`, else the tests' own sign-in helper when they have one, as the command that writes a Playwright storageState to `PROOF_STORAGE_STATE` |
 
 `proof.bypassEnv` is proposed by its name only, the environment variable a person fills, never its value.
 Nothing else in the config is proposed. A command for which nothing runs green keeps its value, and
