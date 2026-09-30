@@ -33,6 +33,9 @@ function db({
   products = { data: [{ id: 'p-1', name: 'Vertuoza' }] } as Answer,
   claims = { data: CLAIMS } as Answer,
   citations = { data: CITATIONS } as Answer,
+  receipts = { data: [] } as Answer,
+  pages = { data: [] } as Answer,
+  drafts = { data: [] } as Answer,
 } = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
@@ -45,7 +48,7 @@ function db({
     };
     return q;
   };
-  const tables: Record<string, Answer> = { products, claims, claim_citations: citations };
+  const tables: Record<string, Answer> = { products, claims, claim_citations: citations, claim_receipts: receipts, business_sources: pages, business_drafts: drafts };
   return {
     calls,
     rpc: async (fn: string, args: unknown) => {
@@ -74,11 +77,35 @@ describe('the business page\'s read', () => {
         { id: 'c-2', seq: 2, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', product: 'p-1', cited: 2, lastBy: 'think-big concept #9' },
         { id: 'c-3', seq: 3, kind: 'offering', value: 'developer tool', source: 'pick', state: 'confirmed', product: 'p-2', cited: 0, lastBy: null },
       ],
+      draft: null,
+      pages: [],
     });
     expect(d.calls).toContainEqual(['rpc', 'business_open', { p_workspace: 'ws-1' }]);
     expect(d.calls).toContainEqual(['eq', 'business_id', 'b-1']);
     expect(d.calls).toContainEqual(['order', 'ordinal']);
     expect(d.calls).toContainEqual(['eq', 'workspace_id', 'ws-1']);
+  });
+
+  it('reads each claim\'s receipts, the web pages and the latest draft (PRD 774 s3)', async () => {
+    const d = db({
+      claims: { data: [{ id: 'c-9', seq: 9, kind: 'region', value: 'France', source: 'evidence', state: 'proposed', product_id: null, replaces: null }] },
+      receipts: { data: [{ claim_id: 'c-9', kind: 'file', location: 'acme/app/README.md', quote: 'Sold in France', seen_at: '2026-09-30T10:00:00Z' }] },
+      pages: { data: [{ id: 'w-1', url: 'https://example.com/pricing' }] },
+      drafts: { data: [{ id: 'd-1', kind: 'draft', state: 'done', counts: { readmes: 1 }, scanned: [{ source: 'app · README.md', state: 'read' }], reason: null }] },
+    });
+    const load = await loadBusinessPage(d as never, USER);
+    expect(load).toMatchObject({
+      kind: 'business',
+      claims: [{ id: 'c-9', receipts: [{ kind: 'file', where: 'acme/app/README.md', quote: 'Sold in France', seenAt: '2026-09-30T10:00:00Z' }] }],
+      pages: [{ id: 'w-1', url: 'https://example.com/pricing' }],
+      draft: { id: 'd-1', state: 'done', counts: { readmes: 1 } },
+    });
+    expect(d.calls).toContainEqual(['order', 'started_at', { ascending: false }]);
+  });
+
+  it('reads the page without receipts, web pages or draft when those cannot be read', async () => {
+    const down = { error: { message: 'down' } };
+    expect(await loadBusinessPage(db({ receipts: down, pages: down, drafts: down }) as never, USER)).toMatchObject({ kind: 'business', draft: null, pages: [] });
   });
 
   it('reads an empty business as no claim', async () => {

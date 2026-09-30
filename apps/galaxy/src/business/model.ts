@@ -8,6 +8,8 @@
 // function replaces a claim (claim_pick() adds or confirms, claim_set_state() rejects). Region and rival
 // take several, each tapped on and off.
 
+import { thatsUs, type DraftView, type Mark, type Marks, type WebPage } from './reveal';
+
 export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival';
 export type ClaimState = 'proposed' | 'confirmed' | 'rejected' | 'contradicted' | 'unknown';
 export type ClaimSource = 'pick' | 'suggestion' | 'evidence' | 'answer';
@@ -28,6 +30,20 @@ export interface Claim {
   cited: number;
   /** Who cited it last, with the run (`think-big concept #9`), or null when nobody has. */
   lastBy: string | null;
+  /** Where evidence quoted it (PRD 774), newest first; none for a pick. */
+  receipts?: ClaimReceipt[];
+  /** The confirmed claim a proposed offering or size would replace (PRD 774), or null. */
+  replaces?: string | null;
+}
+
+/** One place a draft quoted a claim (PRD 774, decision 8). */
+export interface ClaimReceipt {
+  kind: 'file' | 'pr' | 'link';
+  /** A repository path (`owner/name/path`) or a URL. */
+  where: string;
+  /** Word for word, at most 300 characters. */
+  quote: string;
+  seenAt: string;
 }
 
 /** A public.claims row, as PostgREST answers it. */
@@ -39,6 +55,16 @@ export interface StoredClaim {
   source: string;
   state: string;
   product_id?: string | null;
+  replaces?: string | null;
+}
+
+/** A public.claim_receipts row, as PostgREST answers it (PRD 774). */
+export interface StoredReceipt {
+  claim_id: string;
+  kind: string;
+  location: string;
+  quote: string;
+  seen_at: string;
 }
 
 /** A public.claim_citations row, as PostgREST answers it. */
@@ -49,9 +75,13 @@ export interface StoredCitation {
   cited_at: string;
 }
 
-export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] = []): Claim => {
+export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] = [], receipts: readonly StoredReceipt[] = []): Claim => {
   const mine = citations.filter((c) => c.claim_id === row.id).sort((a, b) => Date.parse(a.cited_at) - Date.parse(b.cited_at));
   const last = mine.at(-1);
+  const quoted = receipts
+    .filter((r) => r.claim_id === row.id)
+    .sort((a, b) => Date.parse(b.seen_at) - Date.parse(a.seen_at))
+    .map((r): ClaimReceipt => ({ kind: r.kind as ClaimReceipt['kind'], where: r.location, quote: r.quote, seenAt: r.seen_at }));
   return {
     id: row.id,
     seq: row.seq,
@@ -62,6 +92,9 @@ export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] =
     product: row.product_id ?? null,
     cited: mine.length,
     lastBy: last ? [last.cited_by, last.ref].filter(Boolean).join(' ') : null,
+    // Only a quoted claim, and only a replacement, carry these: a pick reads as it did before PRD 774.
+    ...(quoted.length > 0 ? { receipts: quoted } : {}),
+    ...(row.replaces ? { replaces: row.replaces } : {}),
   };
 };
 
@@ -118,7 +151,7 @@ export const citationLine = (claim: Pick<Claim, 'cited' | 'lastBy'>) =>
 
 // ── The sentence ─────────────────────────────────────────────────────────────────
 
-const byOrder = (a: Claim, b: Claim) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.seq - b.seq;
+export const byOrder = (a: Claim, b: Claim) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.seq - b.seq;
 
 /** The confirmed claims, in the sentence's order. */
 export const confirmed = (claims: readonly Claim[]) => claims.filter((c) => c.state === 'confirmed').sort(byOrder);
@@ -137,15 +170,16 @@ const article = (value: string) => (/^[aeiou]/i.test(value) ? 'an' : 'a');
 export type SentencePart = { text: string } | { blank: ClaimKind; filled: string | null };
 
 /** The page's title: "We sell ___ to ___-person ___ in ___, up against ___.", each blank filled by the
- * confirmed claims of its kind. A proposed or rejected claim never shows in it. */
-export function sentence(claims: readonly Claim[]): SentencePart[] {
+ * confirmed claims of its kind. A proposed or rejected claim never shows in it. While a draft's finds
+ * wait (PRD 774), it opens with `We think you sell ` instead. */
+export function sentence(claims: readonly Claim[], lead = 'We sell '): SentencePart[] {
   const values = (kind: ClaimKind) => confirmedOf(claims, kind).map((c) => c.value);
   const fill = (kind: ClaimKind, say: (vs: string[]) => string): SentencePart => {
     const vs = values(kind);
     return { blank: kind, filled: vs.length === 0 ? null : say(vs) };
   };
   return [
-    { text: 'We sell ' },
+    { text: lead },
     fill('offering', (vs) => `${article(vs[0])} ${listed(vs)}`),
     { text: ' to ' },
     fill('size', (vs) => sizeLabel(vs[0])),
@@ -162,8 +196,8 @@ export function sentence(claims: readonly Claim[]): SentencePart[] {
 export const BLANK = '___';
 
 /** The sentence as one line of text. */
-export const sentenceText = (claims: readonly Claim[]) =>
-  sentence(claims).map((p) => ('text' in p ? p.text : p.filled ?? BLANK)).join('');
+export const sentenceText = (claims: readonly Claim[], lead?: string) =>
+  sentence(claims, lead).map((p) => ('text' in p ? p.text : p.filled ?? BLANK)).join('');
 
 // ── What a pick changes ──────────────────────────────────────────────────────────
 
@@ -247,6 +281,19 @@ export interface BusinessState {
   typing: ClaimKind | null;
   /** The size slider while it moves, before it is saved; null when it rests on the stored size. */
   sizeDraft: [number, number] | null;
+  // The draft (PRD 774 s3), read in ./reveal.ts.
+  /** The business's latest draft, or null when none ever ran. */
+  draft: DraftView | null;
+  /** The page started or watched that draft: only then does it say what the draft found. */
+  watched: boolean;
+  /** The web pages pasted on the business. */
+  pages: WebPage[];
+  /** The "+ add a web page" field is open. */
+  addingPage: boolean;
+  /** ✓ / ✗ on the found rows, kept in the page until That's us. */
+  marks: Marks;
+  /** That's us was pressed: the found rows are saved. */
+  saved: boolean;
 }
 
 export type BusinessAction =
@@ -265,11 +312,27 @@ export type BusinessAction =
   | { type: 'unadd-product' }
   /** A product was added: its tab is shown. */
   | { type: 'product-added'; product: Product }
-  | { type: 'show-product'; product: string };
+  | { type: 'show-product'; product: string }
+  /** A draft started, or its row read again while it runs (PRD 774 s3). */
+  | { type: 'draft'; draft: DraftView }
+  /** A draft ended: its last row, and every claim read again. */
+  | { type: 'drafted'; draft: DraftView; claims: Claim[] }
+  | { type: 'mark'; claim: string; mark: Mark }
+  /** That's us was saved. */
+  | { type: 'thats-us' }
+  | { type: 'add-page' }
+  | { type: 'unadd-page' }
+  | { type: 'page-added'; page: WebPage }
+  | { type: 'page-removed'; page: string };
 
-export const initialBusinessState = (claims: Claim[], products: Product[] = []): BusinessState => ({
+export const initialBusinessState = (
+  claims: Claim[],
+  products: Product[] = [],
+  { draft = null, pages = [] }: { draft?: DraftView | null; pages?: WebPage[] } = {},
+): BusinessState => ({
   claims, products, current: products[0]?.id ?? null, adding: false,
   busy: false, refusal: null, skipped: false, typing: null, sizeDraft: null,
+  draft, watched: false, pages, addingPage: false, marks: {}, saved: false,
 });
 
 /** A saved row comes back without its citations: they stay as the page read them. */
@@ -315,5 +378,29 @@ export function businessReducer(state: BusinessState, action: BusinessAction): B
       };
     case 'show-product':
       return { ...state, current: action.product, typing: null, sizeDraft: null, refusal: null };
+    case 'draft':
+      return { ...state, draft: action.draft, watched: true, saved: false };
+    case 'drafted': {
+      const kept = new Map(state.claims.map((c) => [c.id, c]));
+      const claims = action.claims.map((c) => {
+        const was = kept.get(c.id);
+        return was ? { ...c, cited: was.cited, lastBy: was.lastBy } : c;
+      });
+      return { ...state, draft: action.draft, watched: true, claims, marks: {}, saved: false };
+    }
+    case 'mark': {
+      const { [action.claim]: was, ...rest } = state.marks;
+      return { ...state, marks: was === action.mark ? rest : { ...rest, [action.claim]: action.mark } };
+    }
+    case 'thats-us':
+      return { ...state, claims: thatsUs(state.claims, state.marks).claims, marks: {}, saved: true, busy: false };
+    case 'add-page':
+      return { ...state, addingPage: true, refusal: null };
+    case 'unadd-page':
+      return { ...state, addingPage: false };
+    case 'page-added':
+      return { ...state, pages: [...state.pages.filter((p) => p.id !== action.page.id), action.page], addingPage: false, busy: false };
+    case 'page-removed':
+      return { ...state, pages: state.pages.filter((p) => p.id !== action.page), busy: false };
   }
 }

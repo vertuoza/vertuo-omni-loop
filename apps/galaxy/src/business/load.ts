@@ -1,14 +1,17 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { memberWorkspace } from '../data/workspace';
-import { claimOf, type Claim, type Product, type StoredCitation, type StoredClaim } from './model';
+import { claimOf, type Claim, type Product, type StoredCitation, type StoredClaim, type StoredReceipt } from './model';
+import { CLAIM_COLUMNS, DRAFT_COLUMNS, draftOf, RECEIPT_COLUMNS } from './draft-port';
+import type { DraftView, WebPage } from './reveal';
 
 // Settings → Business's read (PRD 748 s2), as the signed-in person, so row-level security decides what
 // it returns: their workspace (the one joined first, as /app's); its business, opened with
 // business_open(), which makes it (and its first product) the first time anyone opens the page and
 // answers it as it is afterwards; its products, first first (PRD 748 s4: one tab each from the second
 // on); every claim, of the business's region and of each product; and the citation log, counted per
-// claim.
+// claim. The draft (PRD 774 s3): each claim's receipts, the web pages pasted on the business and its
+// latest draft; any of these that cannot be read reads as none, so the page still opens.
 // Nothing is seeded: an empty workspace reads no claim.
 
 export type BusinessLoad =
@@ -23,6 +26,10 @@ export type BusinessLoad =
     products: Product[];
     /** Every claim, of the business's region and of every product. */
     claims: Claim[];
+    /** The business's latest draft, or null (PRD 774 s3). */
+    draft: DraftView | null;
+    /** The web pages pasted on the business. */
+    pages: WebPage[];
   };
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
@@ -43,7 +50,7 @@ async function productsOf(db: SupabaseClient, business: string): Promise<Product
 }
 
 async function claimsOf(db: SupabaseClient, business: string): Promise<StoredClaim[]> {
-  const { data, error } = await db.from('claims').select('id, seq, kind, value, source, state, product_id').eq('business_id', business);
+  const { data, error } = await db.from('claims').select(CLAIM_COLUMNS).eq('business_id', business);
   if (error) throw new Error(`Supabase: could not read the claims (${error.message})`);
   return (data ?? []) as StoredClaim[];
 }
@@ -54,14 +61,33 @@ async function citationsOf(db: SupabaseClient, workspace: string): Promise<Store
   return (data ?? []) as StoredCitation[];
 }
 
+/** A read the page can do without: logged, and read as `none`. */
+async function optional<T>(what: string, read: PromiseLike<{ data: unknown; error: { message: string } | null }>, none: T): Promise<T> {
+  const { data, error } = await read;
+  if (error) {
+    console.error(`business: could not read ${what} (${error.message})`);
+    return none;
+  }
+  return (data ?? none) as T;
+}
+
 export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<BusinessLoad> {
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
     const business = await openBusiness(db, workspace.id);
-    const [products, stored, citations] = await Promise.all([productsOf(db, business), claimsOf(db, business), citationsOf(db, workspace.id)]);
-    const claims = stored.map((c) => claimOf(c, citations)).sort((a, b) => a.seq - b.seq);
-    return { kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0], products, claims };
+    const [products, stored, citations, receipts, pages, drafts] = await Promise.all([
+      productsOf(db, business), claimsOf(db, business), citationsOf(db, workspace.id),
+      optional<StoredReceipt[]>('the receipts', db.from('claim_receipts').select(RECEIPT_COLUMNS).eq('workspace_id', workspace.id), []),
+      optional<WebPage[]>('the web pages', db.from('business_sources').select('id, url').eq('business_id', business).order('added_at'), []),
+      optional<Array<Record<string, unknown>>>('the latest draft', db.from('business_drafts').select(DRAFT_COLUMNS).eq('business_id', business).order('started_at', { ascending: false }).limit(1), []),
+    ]);
+    const claims = stored.map((c) => claimOf(c, citations, receipts)).sort((a, b) => a.seq - b.seq);
+    return {
+      kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0], products, claims,
+      draft: drafts[0] ? draftOf(drafts[0]) : null,
+      pages: pages.map(({ id, url }) => ({ id, url })),
+    };
   } catch (err) {
     console.error(`business: the page could not be read (${why(err)})`);
     return { kind: 'unreadable' };

@@ -202,3 +202,116 @@
 .business-product-tab[aria-selected='true'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
 .business-product-tab:disabled { cursor: not-allowed; }
 .business-product-tab:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+/* The draft (PRD 774 s3): Draft from my repos and "+ add a web page" under the title, the pages
+   pasted, the scan of sources, the Sources used line, What we found with a receipt chip per quote and
+   ✓ Right / ✗ Wrong, and the That's us dock. Everything wraps at 393 px; the title types itself only
+   where motion is welcome. */
+.business-draft-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.business-page-field { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; width: 100%; }
+.business-page-field label { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.business-page-field input {
+  font: 16px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.business-pages ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.business-pages li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  font: 13px/1.3 var(--ask-mono);
+  overflow-wrap: anywhere;
+}
+.business-page-remove {
+  font: 700 14px/1 var(--ask-body);
+  color: var(--ask-muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.business-page-remove:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-scan { display: grid; gap: 4px; }
+.business-scan p { margin: 0; }
+.business-scan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.business-scan li { font: 13px/1.5 var(--ask-mono); color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-scan li[data-state='read'] { color: var(--ask-ink); }
+
+.business-used { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-reveal-line { margin: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.business-reveal-line p { margin: 0; }
+.business-saved { color: var(--ask-green); font-weight: 700; }
+.business-unsaved { color: var(--ask-plasma); border-color: var(--ask-plasma); }
+
+.business-found h2 { margin: 0; font-size: 16px; }
+.business-found ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.business-found-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ask-line);
+}
+.business-found-row:first-child { border-top: 0; }
+.business-found-main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.business-found-row[data-mark='wrong'] strong { color: var(--ask-muted); text-decoration: line-through; }
+.business-found-value { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-receipts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.business-receipt {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--ask-muted);
+  border: 1px dashed var(--ask-line-strong);
+  border-radius: 6px;
+  padding: 3px 8px;
+  overflow-wrap: anywhere;
+}
+.business-receipt summary { cursor: pointer; font-family: var(--ask-mono); font-weight: 700; color: var(--ask-cyan); }
+.business-receipt summary:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-quote { display: block; margin-top: 4px; font-style: italic; color: var(--ask-ink); }
+.business-found-verdict { display: flex; gap: 6px; }
+.business-found-verdict button {
+  font: 700 13px/1 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.business-found-verdict .business-right[aria-pressed='true'] { color: var(--ask-green); border-color: var(--ask-green); }
+.business-found-verdict .business-wrong[aria-pressed='true'] { color: var(--ask-red); border-color: var(--ask-red); }
+.business-found-verdict button:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-found-verdict button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--ask-plasma-soft);
+  border: 1px solid var(--ask-plasma);
+  border-radius: 12px;
+}
+.business-dock span { flex: 1 1 200px; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+
+@keyframes business-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .business-typing { animation: business-type 1.2s steps(40, end) both; }
+}

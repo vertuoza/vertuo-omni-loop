@@ -2,8 +2,12 @@ import type { FormEvent, ReactNode } from 'react';
 import {
   BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS,
   sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel, viewClaims,
-  type BusinessState, type Claim, type ClaimKind,
+  type BusinessState, type Claim, type ClaimKind, type SentencePart,
 } from './model';
+import {
+  foundRows, isFound, MAX_PAGES, pagesLeft, receiptLabel, revealOf, scanLine, sourcesUsed, thinkSentence,
+  type Mark, type Reveal, type WebPage,
+} from './reveal';
 
 // Settings → Business drawn from its state (PRD 748 s2). The title is the sentence the confirmed
 // claims write, with a blank for each kind still empty. Below it, Skip (which stores nothing and folds
@@ -17,6 +21,15 @@ import {
 // one "+ Add a product" button at its foot. From the second on, the region is drawn once above one tab
 // per product, and everything else (the sentence, the picks, the rows, the payoff card) is the
 // selected tab's.
+//
+// The draft (PRD 774 s3): Draft from my repos and "+ add a web page" (three at most, the only thing
+// typed) sit under the title on the empty and the filled page. While a draft runs, the scan lists each
+// source as read or skipped. What it found waits as proposed rows: the title types itself as "We think
+// you sell …" with them in it, over a Sources used line and a Nothing saved yet pill; What we found
+// shows one row each, with a receipt chip per quote (tap or hover shows it) and ✓ Right / ✗ Wrong,
+// kept in the page; the dock's That's us saves them all, confirming every row not marked ✗. Then the
+// page reads as the filled page with the saved line. One row found is thin evidence ("We found only 1
+// thing"), none is "Nothing we could quote — pick instead"; the picks follow either way.
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
@@ -37,11 +50,22 @@ export interface BusinessHandlers {
   addProduct(name: string): void;
   /** A product's tab. */
   showProduct(id: string): void;
+  /** Draft from my repos (PRD 774 s3). */
+  draft(): void;
+  /** ✓ Right or ✗ Wrong on a found row, kept in the page until That's us. */
+  mark(claim: Claim, mark: Mark): void;
+  thatsUs(): void;
+  /** "+ add a web page": opens its address field. */
+  openPage(): void;
+  closePage(): void;
+  addPage(url: string): void;
+  removePage(page: WebPage): void;
 }
 
 const IDLE: BusinessHandlers = {
   tap() {}, pick() {}, type() {}, untype() {}, sizeDraft() {}, sizeCommit() {}, confirm() {}, reject() {}, skip() {}, unskip() {},
   openProduct() {}, closeProduct() {}, addProduct() {}, showProduct() {},
+  draft() {}, mark() {}, thatsUs() {}, openPage() {}, closePage() {}, addPage() {}, removePage() {},
 };
 
 export const SKIP = 'Skip — agents work without it';
@@ -51,6 +75,19 @@ export const TRY_LINE = 'omni business show';
 /** The one text that names products while there is one: the button that adds the second. */
 export const ADD_PRODUCT = '+ Add a product';
 export const PRODUCT_NAME = 'The product’s name';
+// The draft (PRD 774 s3).
+export const DRAFT = 'Draft from my repos';
+export const DRAFTING = 'Drafting…';
+export const ADD_PAGE = '+ add a web page';
+export const PAGE_ADDRESS = 'A web page’s address: pricing, home or about';
+export const PAGES_FULL = 'Three web pages at most: remove one to add another.';
+export const NOTHING_SAVED = 'Nothing saved yet';
+export const DOCK = 'Rows you leave alone are confirmed with “That’s us”.';
+export const THATS_US = '✓ That’s us';
+export const SAVED_LINE = '✓ Saved. Every agent reads these from the next run.';
+export const THIN_HINT = 'Your READMEs say what the code does, not who buys it. A pricing or home page usually says more.';
+export const NOTHING_FOUND = 'Nothing we could quote — pick instead';
+export const NOTHING_NEW = 'Nothing new: everything we could quote is already on this page.';
 
 export interface BusinessViewProps {
   state: BusinessState;
@@ -59,10 +96,10 @@ export interface BusinessViewProps {
   on?: BusinessHandlers;
 }
 
-function Sentence({ claims }: { claims: readonly Claim[] }) {
+function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
   return (
-    <h1 id="business-title" className="business-sentence">
-      {sentence(claims).map((part, i) =>
+    <h1 id="business-title" className={typing ? 'business-sentence business-typing' : 'business-sentence'}>
+      {parts.map((part, i) =>
         'text' in part
           ? <span key={i}>{part.text}</span>
           : part.filled === null
@@ -164,7 +201,7 @@ function Guess({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessH
 
 function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
   const rivals = confirmed(state.claims).filter((c) => c.kind === 'rival');
-  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed').sort((a, b) => a.seq - b.seq);
+  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed' && c.source !== 'evidence').sort((a, b) => a.seq - b.seq);
   return (
     <div className="business-group" role="group" aria-labelledby="business-rival-title" data-kind="rival">
       <h2 id="business-rival-title">Up against</h2>
@@ -277,13 +314,141 @@ function Payoff({ claims }: { claims: readonly Claim[] }) {
   );
 }
 
+// ── The draft (PRD 774 s3) ───────────────────────────────────────────────────────
+
+function Scan({ draft }: { draft: NonNullable<BusinessState['draft']> }) {
+  return (
+    <section className="business-scan" aria-label="Sources read" aria-live="polite">
+      {draft.state === 'running' && <p className="ask-muted">Reading your sources…</p>}
+      <ul>{draft.scanned.map((s, i) => <li key={i} data-state={s.state}>{scanLine(s)}</li>)}</ul>
+    </section>
+  );
+}
+
+/** What the draft came to, in one line, above the picks. */
+function RevealLine({ reveal }: { reveal: Reveal }) {
+  switch (reveal.kind) {
+    case 'thin':
+      return (
+        <div className="business-reveal-line">
+          <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
+          <p className="ask-muted">{THIN_HINT}</p>
+        </div>
+      );
+    case 'nothing':
+      return <p className="business-reveal-line"><strong>{NOTHING_FOUND}</strong></p>;
+    case 'known':
+      return <p className="business-reveal-line ask-muted">{NOTHING_NEW}</p>;
+    case 'saved':
+      return <p className="business-reveal-line business-saved">{SAVED_LINE}</p>;
+    case 'failed':
+      return <p className="business-refusal" role="alert">{reveal.reason}</p>;
+    default:
+      return null;
+  }
+}
+
+const pageName = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');
+
+function PageField({ busy, on }: { busy: boolean; on: BusinessHandlers }) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = String(new FormData(event.currentTarget).get('url') ?? '').trim();
+    if (value) on.addPage(value);
+  };
+  return (
+    <form className="business-page-field" onSubmit={submit}>
+      <label>
+        <span className="business-type-label">{PAGE_ADDRESS}</span>
+        <input name="url" type="url" inputMode="url" pattern="https://.*" placeholder="https://" maxLength={2000} required autoFocus autoComplete="off" disabled={busy} />
+      </label>
+      <button type="submit" className="ask-button" disabled={busy}>Add</button>
+      <button type="button" className="ask-button quiet" onClick={on.closePage} disabled={busy}>Cancel</button>
+    </form>
+  );
+}
+
+/** Draft from my repos, "+ add a web page" (three at most) and the pages pasted. */
+function DraftBar({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  const running = state.draft?.state === 'running';
+  const left = pagesLeft(state.pages);
+  return (
+    <>
+      <div className="business-draft-bar">
+        <button type="button" className="ask-button" onClick={on.draft} disabled={state.busy || running}>{running ? DRAFTING : DRAFT}</button>
+        {!state.addingPage && (
+          <button type="button" className="ask-button quiet" onClick={on.openPage} disabled={state.busy || left === 0}>
+            {ADD_PAGE} ({left} of {MAX_PAGES} left)
+          </button>
+        )}
+      </div>
+      {left === 0 && <p className="ask-muted">{PAGES_FULL}</p>}
+      {state.addingPage && <PageField busy={state.busy} on={on} />}
+      {state.pages.length > 0 && (
+        <section className="business-pages" aria-label="Web pages the draft reads">
+          <ul>
+            {state.pages.map((p) => (
+              <li key={p.id}>
+                <span>{pageName(p.url)}</span>
+                <button type="button" className="business-page-remove" aria-label={`Remove ${pageName(p.url)}`} onClick={() => on.removePage(p)} disabled={state.busy}>×</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+}
+
+function FoundRow({ claim, mark, busy, on }: { claim: Claim; mark: Mark | undefined; busy: boolean; on: BusinessHandlers }) {
+  const value = valueLabel(claim);
+  return (
+    <li className="business-found-row" data-found={displayId(claim)} data-mark={mark}>
+      <div className="business-found-main">
+        <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
+        <strong className="business-found-value">{value}</strong>
+        <div className="business-receipts">
+          {(claim.receipts ?? []).map((r, i) => (
+            <details key={i} className="business-receipt" title={r.quote}>
+              <summary>{receiptLabel(r)}</summary>
+              <span className="business-quote">“{r.quote}”</span>
+            </details>
+          ))}
+        </div>
+      </div>
+      <div className="business-found-verdict">
+        <button type="button" className="business-right" aria-pressed={mark === 'right'} aria-label={`Right: ${value}`} onClick={() => on.mark(claim, 'right')} disabled={busy}>✓ Right</button>
+        <button type="button" className="business-wrong" aria-pressed={mark === 'wrong'} aria-label={`Wrong: ${value}`} onClick={() => on.mark(claim, 'wrong')} disabled={busy}>✗ Wrong</button>
+      </div>
+    </li>
+  );
+}
+
+function Found({ rows, state, on }: { rows: readonly Claim[]; state: BusinessState; on: BusinessHandlers }) {
+  return (
+    <>
+      <section className="business-found ask-card" aria-labelledby="business-found-title">
+        <h2 id="business-found-title">What we found</h2>
+        <ul>{rows.map((c) => <FoundRow key={c.id} claim={c} mark={state.marks[c.id]} busy={state.busy} on={on} />)}</ul>
+      </section>
+      <section className="business-dock" aria-label="Save what we found">
+        <span>{DOCK}</span>
+        <button type="button" className="ask-button" onClick={on.thatsUs} disabled={state.busy}>{THATS_US}</button>
+      </section>
+    </>
+  );
+}
+
 export function BusinessView({ state: whole, demo = false, on = IDLE }: BusinessViewProps) {
   // Everything below reads the tab's claims: every claim while there is one product.
   const multi = hasProducts(whole.products);
   const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
   const sure = confirmed(state.claims);
-  const listedRows = state.claims.filter((c) => c.state !== 'rejected').sort(byOrder);
+  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c)).sort(byOrder);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
+  // The draft's finds (PRD 774 s3): until That's us, the title reads them in.
+  const found = foundRows(state.claims);
+  const thinking = found.length > 0;
   return (
     <div className="ask-col business">
       {multi && !state.skipped && (
@@ -297,9 +462,14 @@ export function BusinessView({ state: whole, demo = false, on = IDLE }: Business
           <span className="ask-chip">Business</span>
           <span className="ask-chip">{sure.length === 0 ? 'Empty' : `${sure.length} confirmed`}</span>
           {demo && <span className="ask-chip">Demo</span>}
+          {thinking && <span className="ask-chip business-unsaved">{NOTHING_SAVED}</span>}
         </p>
-        <Sentence claims={state.claims} />
+        {state.watched && state.draft && <Scan draft={state.draft} />}
+        <Sentence parts={thinking ? thinkSentence(state.claims, state.marks) : sentence(state.claims)} typing={thinking} />
+        {thinking && state.draft && <p className="business-used">Sources used: {sourcesUsed(state.draft.counts)}</p>}
+        <RevealLine reveal={revealOf(state)} />
         {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
+        <DraftBar state={state} on={on} />
         {state.skipped
           ? (
             <div className="business-skip">
@@ -314,6 +484,8 @@ export function BusinessView({ state: whole, demo = false, on = IDLE }: Business
             </div>
           )}
       </section>
+
+      {thinking && <Found rows={found} state={state} on={on} />}
 
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
