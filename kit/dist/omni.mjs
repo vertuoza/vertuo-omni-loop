@@ -15580,7 +15580,11 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     readBusiness: (repo) => call("GET", `/api/business?${new URLSearchParams({ repo })}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
-    citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } })
+    citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } }),
+    /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
+     * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
+     * @returns {Promise<{ id: string, state: string, added: boolean }>} */
+    addClaim: ({ repo, kind, value, state, ref }) => call("POST", "/api/business/claims", { body: { repo, kind, value, state, ref } })
   };
 }
 
@@ -17113,8 +17117,11 @@ var care = {
 
 // kit/bin/commands/business.mjs
 init_define_OMNI_BUNDLE();
-var USAGE5 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var CLAIM_USAGE = "usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>";
+var USAGE5 = `usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice("usage: ".length)}`;
 var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var ANSWER_STATES = ["proposed", "confirmed"];
+var STORED_STATES = ["proposed", "confirmed", "rejected", "contradicted", "unknown"];
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
@@ -17165,7 +17172,7 @@ function businessOf(reply) {
 var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence(claims) {
-  const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === "confirmed").map((claim) => claim.value);
+  const of = (kind) => claims.filter((claim2) => claim2.kind === kind && claim2.state === "confirmed").map((claim2) => claim2.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of("size")[0];
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
@@ -17212,15 +17219,43 @@ async function cited(ids, flags, env) {
   println(env.stdout, `cited ${ids.join(", ")} (${[flags.by, ref].filter(Boolean).join(", ")})`);
   return 0;
 }
+function answerOf(positional, flags) {
+  const text4 = (value) => typeof value === "string" && value.trim() ? value.trim() : null;
+  const fields = { kind: text4(flags.kind), value: text4(flags.value), state: text4(flags.state), ref: text4(flags.ref) };
+  if (positional.length !== 1 || positional[0] !== "add" || Object.values(fields).includes(null)) throw usageError(CLAIM_USAGE);
+  if (!KINDS2.includes(fields.kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
+  if (!ANSWER_STATES.includes(fields.state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(" or ")}.`);
+  return fields;
+}
+var storedOf = (reply) => reply && isText4(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === "boolean" ? reply : null;
+async function claim(positional, flags, env) {
+  const answer = answerOf(positional, flags);
+  const skip = (line) => {
+    println(env.stdout, `claim skipped: ${line}`);
+    return 0;
+  };
+  const reached = reach(env);
+  if (!reached.client) return skip(reached.line);
+  let reply;
+  try {
+    reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
+  } catch (error) {
+    return skip(stopped(error).line);
+  }
+  const stored = storedOf(reply);
+  if (!stored) return skip(`refused (the reply is not a claim) ${CARRY_ON}`);
+  println(env.stdout, `claim ${stored.added ? "saved" : "already held"}: ${stored.id} (${stored.state})`);
+  return 0;
+}
 function shown(repo, read2) {
   if (read2.state === "none") {
     const line = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
     return [empty("none", read2), [line, ...personaLines(read2.personas, "persona".length)]];
   }
-  const idWidth = Math.max(...read2.claims.map((claim) => claim.id.length), read2.personas.length ? "persona".length : 0);
+  const idWidth = Math.max(...read2.claims.map((claim2) => claim2.id.length), read2.personas.length ? "persona".length : 0);
   return [read2, [
     sentence(read2.claims),
-    ...read2.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`),
+    ...read2.claims.map((claim2) => `  ${claim2.id.padEnd(idWidth)}  ${claim2.value}${claim2.state === "contradicted" ? CONTRADICTED : ""}`),
     ...personaLines(read2.personas, idWidth)
   ]];
 }
@@ -17249,6 +17284,10 @@ var business = {
     if (args[0] === "cited") {
       const { positional, flags } = parseArgs("business", args.slice(1), { values: ["by", "ref"] });
       return cited(positional, flags, env);
+    }
+    if (args[0] === "claim") {
+      const { positional, flags } = parseArgs("business", args.slice(1), { values: ["kind", "value", "state", "ref"] });
+      return claim(positional, flags, env);
     }
     return show(args, env);
   }
@@ -21231,10 +21270,14 @@ var ENTRIES = deepFreeze([
     name: "business",
     kind: "command",
     who: "you",
-    usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
+    usage: [
+      "omni business show [--json]",
+      "omni business cited <id>\u2026 --by <skill> [--ref <text>]",
+      "omni business claim add --kind <k> --value <v> --state <s> --ref <text>"
+    ],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its receipt the skill and the run: proposed, for a member to confirm on the Business page, or confirmed; a value the business already holds is named, not stored twice, and a failed call prints a skip line and exits 0."
   },
   {
     name: "version",

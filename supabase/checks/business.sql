@@ -18,6 +18,12 @@
 -- the count to check holds proposed evidence and faded claims; business_for_repo() returns confirmed
 -- and contradicted claims with `state`. The service role runs a draft and proposes, and nothing else.
 --
+-- PRD 822 (20261024090000_customer_voice.sql): claim_answer() stores a claim a person answered in a skill
+-- run as source `answer` with its receipt, `proposed` or `confirmed`, on the repository's product (a region
+-- on the business), never twice, and opens a business nobody opened; a bad kind, state, value or ref is
+-- refused (22023), another workspace's member and a stranger too (42501). A `prd` dossier takes the
+-- `voice` artifact, a version per change, and a `visual` or `bug` one refuses it.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -106,6 +112,7 @@ begin
     format('select public.business_open(%L)', pg_temp.ws('vertuoza')),
     'select public.business_for_repo(''vertuoza/vertuo-apps'')',
     'select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#1''], ''think-big'', null)',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', ''r'')',
     format('select public.business_source_add(%L, ''https://vertuoza.com'')', pg_temp.ws('vertuoza')),
     format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('vertuoza')),
     format('select public.business_to_check(%L)', pg_temp.ws('vertuoza'))
@@ -650,6 +657,123 @@ reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 
+-- ── PRD 822: a claim answered in a skill run, proposed or confirmed, with its receipt ──
+do $$
+declare
+  got jsonb;
+  c public.claims;
+  stmt text;
+  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+begin
+  got := public.claim_answer('Vertuoza/Vertuo-Apps', 'size', ' 20-50 ', 'proposed', 'brainstorm · PRD 822');
+  select * into c from public.claims x where x.kind = 'size' and x.kind || '#' || x.seq = got->>'id';
+  if got->>'state' <> 'proposed' or (got->>'added')::boolean is not true
+     or c.value <> '20-50' or c.source <> 'answer' or c.state <> 'proposed' or c.receipt <> 'brainstorm · PRD 822'
+     or c.product_id is distinct from product or c.created_by <> '00000000-0000-4000-8000-0000000074a1' then
+    raise exception 'FAIL: an overrule is not a proposed answer claim on the repository''s product: % %', got, c;
+  end if;
+  insert into made values ('answer-size', c.id);
+  if exists (select 1 from jsonb_array_elements(public.business_for_repo('vertuoza/vertuo-apps')->'claims') x where x->>'value' = '20-50') then
+    raise exception 'FAIL: agents read a proposed answer claim';
+  end if;
+
+  got := public.claim_answer('vertuoza/vertuo-apps', 'region', 'Netherlands', 'confirmed', 'brainstorm · PRD 822');
+  select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
+  if got->>'state' <> 'confirmed' or c.source <> 'answer' or c.state <> 'confirmed' or c.product_id is not null
+     or c.receipt <> 'brainstorm · PRD 822' then
+    raise exception 'FAIL: a gap answer is not a confirmed answer claim on the business: % %', got, c;
+  end if;
+  if not exists (select 1 from jsonb_array_elements(public.business_for_repo('vertuoza/vertuo-apps')->'claims') x
+                  where x->>'id' = got->>'id' and x->>'state' = 'confirmed' and x->>'receipt' = 'brainstorm · PRD 822') then
+    raise exception 'FAIL: agents do not read the confirmed answer claim with its receipt';
+  end if;
+
+  -- A value already held is not stored twice: a proposed answer leaves it, a confirmed one confirms it.
+  got := public.claim_answer('vertuoza/vertuo-apps', 'size', '20-50', 'proposed', 'think-big · concept #9');
+  if (got->>'added')::boolean or got->>'state' <> 'proposed' or (select count(*) from public.claims x where x.value = '20-50') <> 1 then
+    raise exception 'FAIL: a proposed answer of a held value was stored again: %', got;
+  end if;
+  got := public.claim_answer('vertuoza/vertuo-apps', 'size', '20-50', 'confirmed', 'brainstorm · PRD 822');
+  if (got->>'added')::boolean or got->>'state' <> 'confirmed' or (select x.state from public.claims x where x.id = pg_temp.made('answer-size')) <> 'confirmed' then
+    raise exception 'FAIL: a confirmed answer did not confirm the held value: %', got;
+  end if;
+  got := public.claim_answer('vertuoza/vertuo-apps', 'rival', 'Rival Three', 'proposed', 'brainstorm · PRD 822');
+  if (got->>'added')::boolean or got->>'state' <> 'rejected' then
+    raise exception 'FAIL: a proposed answer revived a rejected value: %', got;
+  end if;
+
+  foreach stmt in array array[
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''colour'', ''red'', ''proposed'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', null, ''red'', ''proposed'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''rejected'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''contradicted'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', null, ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''size'', ''3-7'', ''proposed'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''  '', ''proposed'', ''r'')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', ''  '')',
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', null)',
+    format('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', %L)', repeat('r', 201)),
+    'select public.claim_answer(''not a repository'', ''rival'', ''Planted'', ''proposed'', ''r'')'
+  ] loop perform pg_temp.invalid(stmt); end loop;
+  if exists (select 1 from public.claims x where x.value in ('red', 'Planted', '3-7')) then
+    raise exception 'FAIL: a refused answer stored a claim';
+  end if;
+end $$;
+reset role;
+
+-- An answer in a workspace nobody opened the business of opens it, as the page would.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000074c1');
+do $$
+declare got jsonb;
+begin
+  got := public.claim_answer('acme-biz/web', 'trade', 'plumbing', 'confirmed', 'brainstorm · PRD 1');
+  if got <> '{"id": "trade#1", "state": "confirmed", "added": true}'::jsonb
+     or (select count(*) from public.businesses b where b.workspace_id = pg_temp.ws('acme-biz')) <> 1 then
+    raise exception 'FAIL: an answer did not open Acme''s business: %', got;
+  end if;
+end $$;
+reset role;
+-- Acme's business goes again, so the outsiders below read none.
+delete from public.businesses where workspace_id = (select i.id from ids i where i.slug = 'acme-biz');
+
+-- ── PRD 822: the voice artifact, on a PRD's dossier only ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
+do $$
+declare
+  pushed jsonb;
+  k text;
+begin
+  if not public.dossier_takes('prd', 'voice') or public.dossier_takes('visual', 'voice') or public.dossier_takes('bug', 'voice') then
+    raise exception 'FAIL: voice is not taken by a prd dossier alone';
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null,
+              '[{"kind": "spec", "content": "spec one"}, {"kind": "voice", "content": "{\"rounds\": []}"}]');
+  if pushed->'added' <> '[{"kind": "spec", "version": 1}, {"kind": "voice", "version": 1}]'::jsonb then
+    raise exception 'FAIL: a prd dossier did not take voice: %', pushed;
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": []}"}]');
+  if pushed->'unchanged' <> '["voice"]'::jsonb or pushed->'added' <> '[]'::jsonb then
+    raise exception 'FAIL: an unchanged voice added a version: %', pushed;
+  end if;
+  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": [1]}"}]');
+  if pushed->'added' <> '[{"kind": "voice", "version": 2}]'::jsonb then
+    raise exception 'FAIL: a changed voice did not add version 2: %', pushed;
+  end if;
+  foreach k in array array['visual', 'bug'] loop
+    perform pg_temp.invalid(format(
+      'select public.dossier_push(''vertuoza/vertuo-apps'', 823, ''A fix'', null, ''[{"kind": "voice", "content": "{}"}]'', %L)', k));
+  end loop;
+  if exists (select 1 from public.dossiers d where d.prd = 823) then
+    raise exception 'FAIL: a refused voice push made a fix dossier';
+  end if;
+end $$;
+reset role;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
+
 -- ── Nobody writes the tables directly, and a citation is never rewritten ──
 do $$
 declare c text;
@@ -722,10 +846,12 @@ begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000074c1');
   perform pg_temp.forbidden('select public.business_for_repo(''vertuoza/vertuo-apps'')', 'the member of another workspace');
   perform pg_temp.forbidden('select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#7''], ''think-big'', null)', 'the member of another workspace');
+  perform pg_temp.forbidden('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'the member of another workspace');
   -- Sam: in no workspace at all.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000074d1');
   perform pg_temp.forbidden('select public.business_for_repo(''vertuoza/vertuo-apps'')', 'a stranger');
   perform pg_temp.forbidden('select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#7''], ''think-big'', null)', 'a stranger');
+  perform pg_temp.forbidden('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'a stranger');
 end $$;
 reset role;
 

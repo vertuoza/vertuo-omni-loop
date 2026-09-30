@@ -5,7 +5,8 @@
 // `state` to each claim: `confirmed`, or `contradicted` while evidence disputes it and nobody answered;
 // `receipt` is then the newest receipt as `<where> — "<quote>"`. PRD 799 added `personas`: the
 // repository's product's personas, oldest first, `[]` when there are none; they never decide `state`,
-// which comes from claims only. A database from before PRD 799 sends none: they read as `[]`.
+// which comes from claims only. A database from before PRD 799 sends none: they read as `[]`. PRD 822
+// stores a claim a person answered, through claim_answer().
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
@@ -48,6 +49,22 @@ const businessReadSchema = z.object({
 
 type BusinessRead = z.infer<typeof businessReadSchema>;
 
+/** The states a person's answer is stored in (PRD 822): an overrule's, or a gap question's. */
+export const ANSWER_STATES = ['proposed', 'confirmed'] as const;
+export type AnswerState = (typeof ANSWER_STATES)[number];
+export const ANSWER_KINDS = CLAIM_KINDS;
+export type AnswerKind = (typeof CLAIM_KINDS)[number];
+
+/** What claim_answer() answers: the claim's display id and state, and whether it was added (a value
+ * the business already held keeps its own state). */
+const storedClaimSchema = z.object({
+  id: z.string().regex(/^(region|offering|size|trade|rival)#[1-9]\d*$/),
+  state: z.enum(['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown']),
+  added: z.boolean(),
+}).strict();
+
+type StoredClaim = z.infer<typeof storedClaimSchema>;
+
 /** The database refused or failed; `code` is Postgres's: 42501 the caller may not read that
  * repository's business (its reason as the database wrote it), 22023 a malformed repository or claim
  * id, P0002 a claim id the business does not hold. */
@@ -74,6 +91,15 @@ export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
       if (error) throw new BusinessStoreError(error.code, error.message);
       if (typeof data !== 'number') throw new BusinessStoreError(undefined, 'an unexpected answer: not a count');
       return data;
+    },
+    /** Stores a claim a person answered (PRD 822): source `answer`, `state` proposed or confirmed, the
+     * receipt `ref` (the skill and the run), for the business agents in `repo` read. */
+    async answer(repo: string, kind: AnswerKind, value: string, state: AnswerState, ref: string): Promise<StoredClaim> {
+      const { data, error } = await db.rpc('claim_answer', { p_repo: repo, p_kind: kind, p_value: value, p_state: state, p_ref: ref });
+      if (error) throw new BusinessStoreError(error.code, error.message);
+      const stored = storedClaimSchema.safeParse(data);
+      if (!stored.success) throw new BusinessStoreError(undefined, `an unexpected answer: ${stored.error.issues[0]?.message ?? 'malformed'}`);
+      return stored.data;
     },
   };
 }

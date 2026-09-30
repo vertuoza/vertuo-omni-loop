@@ -14,7 +14,8 @@
 // With `business`, it answers `GET /api/business?repo=owner/name` (PRD 748) with what
 // `business(repo)` returns, `{ status, body }` (status 200 when not given; the body, personas included
 // since PRD 799, as given); without it, a 404. With
-// `cite`, it answers `POST /api/business/citations` with what `cite(body)` returns, the same way.
+// `cite`, it answers `POST /api/business/citations` with what `cite(body)` returns, the same way. With
+// `claim`, it answers `POST /api/business/claims` (PRD 822) with what `claim(body)` returns, the same way.
 //
 // It honours `POST /api/ask/heartbeat` (PRD 757): a body of exactly `claudeSessionId`, `repo`, `work`
 // and an optional `ended: true`, else 400; each accepted one is kept in `heartbeats`. With
@@ -101,6 +102,8 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *                                what `GET /api/business?repo=` answers (PRD 748); absent: a 404
  *   cite?: (body: object) => ({ status?: number, body: object }),
  *                                what `POST /api/business/citations` answers (PRD 748); absent: a 404
+ *   claim?: (body: object) => ({ status?: number, body: object }),
+ *                                what `POST /api/business/claims` answers (PRD 822); absent: a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
  *                                how a well-formed heartbeat is answered, and after how long
@@ -120,6 +123,7 @@ export async function startFakeAskServer({
   place = null,
   business = null,
   cite = null,
+  claim = null,
   tokenExtras = {},
   heartbeat = () => ({ status: 204 }),
 } = {}) {
@@ -270,6 +274,10 @@ export async function startFakeAskServer({
     }
     if (method === 'POST' && path === '/api/business/citations' && cite) {
       const { status = 200, body: reply } = cite(body);
+      return json(response, status, reply);
+    }
+    if (method === 'POST' && path === '/api/business/claims' && claim) {
+      const { status = 200, body: reply } = claim(body);
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {
