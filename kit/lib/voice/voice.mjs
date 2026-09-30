@@ -85,22 +85,30 @@ function objectionProblems(objection, names) {
   return problems;
 }
 
+/** The fields of `value` that `known` does not name, one problem each. */
+const unknownFields = (value, known, where) =>
+  Object.keys(value)
+    .filter((key) => !known.includes(key))
+    .map((key) => `\`${key}\` is not a field of ${where}.`);
+
+const personasProblems = (personas) =>
+  Array.isArray(personas) && personas.length > 0
+    ? personas.flatMap(personaProblems)
+    : ['personas must list at least one persona.'];
+
+const fitProblems = (fit) => (fit === undefined || fit === null || isText(fit) ? [] : ['fit must be one line, or null.']);
+
 /** Every problem of one round, each without its round's name. */
 function roundProblems(round) {
   if (!isRecord(round)) return ['must be an object.'];
-  const problems = Object.keys(round)
-    .filter((key) => !ROUND_FIELDS.includes(key))
-    .map((key) => `\`${key}\` is not a field of a round.`);
-  if (!DATE.test(round.date ?? '')) problems.push('date must be YYYY-MM-DD.');
-  const personas = Array.isArray(round.personas) ? round.personas : null;
-  if (!personas || personas.length === 0) problems.push('personas must list at least one persona.');
-  else problems.push(...personas.flatMap(personaProblems));
-  const names = (personas ?? []).map((p) => p?.name);
-  problems.push(...objectionProblems(round.objection ?? null, names));
-  if (round.fit !== undefined && round.fit !== null && !isText(round.fit)) {
-    problems.push('fit must be one line, or null.');
-  }
-  return problems;
+  const names = Array.isArray(round.personas) ? round.personas.map((p) => p?.name) : [];
+  return [
+    ...unknownFields(round, ROUND_FIELDS, 'a round'),
+    ...(DATE.test(round.date ?? '') ? [] : ['date must be YYYY-MM-DD.']),
+    ...personasProblems(round.personas),
+    ...objectionProblems(round.objection ?? null, names),
+    ...fitProblems(round.fit),
+  ];
 }
 
 /**
@@ -117,9 +125,7 @@ export function parseVoice(text) {
   if (!isRecord(voice) || !Array.isArray(voice.rounds)) {
     return { ok: false, voice: null, errors: ['must be an object with a `rounds` list.'] };
   }
-  const errors = Object.keys(voice)
-    .filter((key) => !TOP_FIELDS.includes(key))
-    .map((key) => `\`${key}\` is not a field of voice.json.`);
+  const errors = unknownFields(voice, TOP_FIELDS, 'voice.json');
   if (voice.rounds.length === 0) errors.push('`rounds` holds no round.');
 
   const seen = new Set();
