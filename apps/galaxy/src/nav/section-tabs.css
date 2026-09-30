@@ -1,0 +1,40 @@
+/* One row of section tabs (PRD 733), at the top of the settings and Questions pages. Every colour is
+   a token of src/ask/theme-tokens.ts, as in src/ask/ask.css, so light, dark and system follow the
+   theme switch; the count is the menu's badge (sidebar.css). The row wraps on a narrow window. */
+
+.section-tabs { width: 100%; justify-self: start; min-width: 0; }
+.section-tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  border-bottom: 1.5px solid var(--ask-line);
+}
+.ask a.section-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1.5px;
+  padding: 10px 2px;
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-muted);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+.ask a.section-tab:hover { color: var(--ask-ink); }
+.ask a.section-tab:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask a.section-tab[aria-current='page'] {
+  color: var(--ask-plasma);
+  border-bottom-color: var(--ask-plasma);
+}
+.section-tabs-count {
+  min-width: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font: 700 12px/1 var(--ask-body);
+  text-align: center;
+  color: var(--ask-on-plasma);
+  background: var(--ask-plasma);
+}
