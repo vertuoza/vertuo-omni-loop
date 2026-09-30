@@ -40,7 +40,7 @@ const FILLED = {
 const persona = (name, stance, trade, who, usage) => ({ name, stance, trade, who, usage });
 const CAST = [
   persona('Marc', 'skeptical', 'plumber', 'Runs a company of five plumbers', 'Mostly the quotes'),
-  persona('Lea', 'excited', 'office-manager', 'Keeps the office of a builder', 'The dashboard, every morning'),
+  persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
 ];
 
 let server;
@@ -158,7 +158,7 @@ describe('omni business show', () => {
       'We sell ___ to ___-person ___ in Belgium, up against ___.',
       '  region#1  Belgium',
       '  persona   Marc (skeptical, plumber): Runs a company of five plumbers — uses: Mostly the quotes',
-      '  persona   Lea (excited, office-manager): Keeps the office of a builder — uses: The dashboard, every morning',
+      '  persona   Lea (excited, office): Keeps the office of a builder — uses: The dashboard, every morning',
       '',
     ].join('\n'));
   });

@@ -25,7 +25,7 @@ type Persona = { name: string; stance: string; trade: string; who: string; usage
 
 const CAST: Persona[] = [
   { name: 'Marc', stance: 'skeptical', trade: 'plumber', who: 'Runs a company of five plumbers', usage: 'Mostly the quotes' },
-  { name: 'Lea', stance: 'excited', trade: 'office-manager', who: 'Keeps a builder\'s office', usage: 'The dashboard' },
+  { name: 'Lea', stance: 'excited', trade: 'office', who: 'Keeps a builder\'s office', usage: 'The dashboard' },
 ];
 
 function world({ business = true, claims = CLAIMS, personas = [] as Persona[], database = true, answer }: {
