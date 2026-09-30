@@ -1,6 +1,8 @@
 // The workspace a game script plays for. Every script names one: `--workspace <slug>`, or the
 // variable OMNI_LOOP_WORKSPACE (the game workflow sets it); the flag wins. There is no default: with
 // neither, the script stops rather than read or write the wrong workspace (spec D11).
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { supabaseFromEnv, loadWorkspace } from '../sources/supabase.mjs';
 
 export const WORKSPACE_VARIABLE = 'OMNI_LOOP_WORKSPACE';
@@ -30,6 +32,15 @@ export function githubOf(workspace) {
     if (!workspace[column]) throw new Error(`workspace "${workspace.slug}" has no ${column}: set it before reading its GitHub`);
   }
   return { org: workspace.github_org, planRepo: workspace.plan_repo };
+}
+
+/** Whether the script at `url` (its `import.meta.url`) is the one node was run with, not an import of it. */
+export function runByPath(url, argv = process.argv) {
+  try {
+    return realpathSync(argv[1]) === realpathSync(fileURLToPath(url));
+  } catch {
+    return false;
+  }
 }
 
 /** A script that takes no argument of its own. */

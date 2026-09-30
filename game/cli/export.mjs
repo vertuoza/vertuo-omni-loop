@@ -4,11 +4,10 @@
 // ledger's fleet stamps cannot be rebuilt from GitHub, nor the crew's high scores from anything, so
 // this export is what restores them. Players carry no email (it stays in auth.users). player_xp is
 // left out: the next `pnpm game:xp` rebuilds it from the ledger.
-import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { exportWorkspace } from '../sources/supabase.mjs';
-import { openWorkspace } from './workspace.mjs';
+import { openWorkspace, runByPath } from './workspace.mjs';
 
 /**
  * One workspace's backup, as file name → rows: its row, ledger, sectors, fleets and players, then
@@ -28,15 +27,7 @@ function exportArgs([dir, ...extra]) {
   return { dir };
 }
 
-const isMain = () => {
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-};
-
-if (isMain()) {
+if (runByPath(import.meta.url)) {
   const { rest, workspace, args: { dir } } = await openWorkspace({ usage: 'game:export <dir> --workspace <slug>', parse: exportArgs });
   const files = await backupFiles(rest, workspace.id);
   mkdirSync(dir, { recursive: true });

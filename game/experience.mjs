@@ -5,6 +5,10 @@
 // XP is the sum, over every season in the ledger, of a login's positive personal credits as score()
 // computes them, each multiplied by its kind's weight, rounded once after summing. A debit (a zone
 // reverted) and a clawback never lower it; a fleet credit (a terraform, a decay) is not personal.
+//
+// Fresh start (PRD 728): game:xp and game:score fold only counted() rows, those with a home. A row
+// written before the fresh start has none; it stays stored (the ledger is append-only) and adds
+// nothing, so XP restarted at 0 once. The functions below sum whatever events they are given.
 import { RULEBOOK } from './rulebook.mjs';
 import { score } from './economy.mjs';
 
@@ -25,12 +29,20 @@ export function xpKindOf(reason) {
 
 const loginOf = (login) => login.toLowerCase();
 
+/** The rows a season and XP count: those with a home. A row with none was written before the fresh start (PRD 728). */
+export function counted(events) {
+  return events.filter((e) => e.home);
+}
+
 /**
  * Every login the ledger names (lower-cased), with its XP: 0 for a login that never earned a
  * counted credit. `now` is score()'s; `rules` is an `xp` block, the rulebook's by default.
+ * `logins` are more logins to list, at 0 unless the events pay them: game:xp passes the ones only
+ * old rows name, so their stored XP resets (PRD 728).
  */
-export function experience(events, { now, rules = RULEBOOK.xp }) {
+export function experience(events, { now, rules = RULEBOOK.xp, logins = [] }) {
   const sums = new Map();
+  for (const login of logins) sums.set(loginOf(login), 0);
   for (const e of events) if (e.contributor) sums.set(loginOf(e.contributor), 0);
   const seasons = [...new Set(events.map((e) => e.at.slice(0, 7)))].sort();
   for (const season of seasons) {
@@ -72,8 +84,8 @@ export function unlockedFor(level, stored = [], rules = RULEBOOK.xp) {
  * What `player_xp` holds for each login: [{ login, xp, level, unlocked }], in login order.
  * `stored` maps a lower-cased login to the games already unlocked for it.
  */
-export function playerXp(events, { now, rules = RULEBOOK.xp, stored = {} }) {
-  return Object.entries(experience(events, { now, rules })).map(([login, xp]) => {
+export function playerXp(events, { now, rules = RULEBOOK.xp, stored = {}, logins = [] }) {
+  return Object.entries(experience(events, { now, rules, logins })).map(([login, xp]) => {
     const level = levelFor(xp, rules);
     return { login, xp, level, unlocked: unlockedFor(level, stored[login] ?? [], rules) };
   });

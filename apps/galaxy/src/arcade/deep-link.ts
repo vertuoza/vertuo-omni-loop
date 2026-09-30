@@ -1,5 +1,5 @@
 // The arcade's deep links: the screen an address's hash opens, past the boot and the title (`/#map`,
-// `/#menu`, `/#planet-2332`), and the address the arcade writes for the screen it is on, so a reload
+// `/#menu`, `/#planet-acme/plan/2332`), and the address the arcade writes for the screen it is on, so a reload
 // or a shared address comes back to it. `/#menu` is the game's home, where the app's Game mode lands
 // (PRD 238, src/switch/switch.ts).
 //
@@ -18,18 +18,30 @@ export const DEEP_LINKS: readonly SceneName[] = ['map', 'chart', 'fleets', 'hero
 /** Where a link opens: a screen and, on a planet's, the planet's place in the galaxy. */
 export interface Landing { scene: SceneName; sel?: number }
 
-const PLANET = /^planet-(\d+)$/;
+// A planet's link names its home and its number, `planet-<owner>/<repo>/<n>` (PRD 728: two
+// repositories' PRD 88 are two planets); a planet with no home, or an older link, names the number alone.
+const PLANET = /^planet-(?:([^/#]+\/[^/#]+)\/)?(\d+)$/;
 
 const named = (h: string): h is SceneName => (DEEP_LINKS as readonly string[]).includes(h);
 
-/** The screen a hash names, with or without its `#`; a planet only when the galaxy holds it. */
+/** The planet a link names: its home and number, or its number alone when one planet holds it. */
+function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
+  if (home) return view.planets.findIndex((p) => p.prd === prd && p.home === home.toLowerCase());
+  const holders = view.planets.flatMap((p, i) => (p.prd === prd ? [i] : []));
+  return holders.length === 1 ? holders[0] : -1;
+}
+
+/**
+ * The screen a hash names, with or without its `#`. A planet's link opens the planet when the galaxy
+ * holds it, and the map when it does not (or when its number alone names several).
+ */
 export function readHash(hash: string, view: GalaxyView | null): Landing | null {
   const h = hash.replace(/^#/, '');
   if (named(h)) return { scene: h };
   const m = PLANET.exec(h);
   if (m && view) {
-    const sel = view.planets.findIndex((p) => p.prd === Number(m[1]));
-    if (sel >= 0) return { scene: 'planet', sel };
+    const sel = planetIndex(view, m[1], Number(m[2]));
+    return sel >= 0 ? { scene: 'planet', sel } : { scene: 'map' };
   }
   return null;
 }
@@ -44,8 +56,9 @@ export function landing(hash: string, at: { view: GalaxyView | null; session: Se
 /** The hash of the screen the arcade is on: a deep link's own, or none. */
 function hashOf({ scene, sel }: { scene: SceneName; sel: number }, view: GalaxyView | null): string {
   if (scene === 'planet') {
-    const prd = view?.planets[sel]?.prd;
-    return prd === undefined ? '' : `#planet-${prd}`;
+    const p = view?.planets[sel];
+    if (!p) return '';
+    return p.home ? `#planet-${p.home}/${p.prd}` : `#planet-${p.prd}`;
   }
   return named(scene) ? `#${scene}` : '';
 }

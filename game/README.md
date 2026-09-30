@@ -42,11 +42,74 @@ the workspace `vertuoza`.
 - `pnpm test` — every module is tested on fixtures; nothing touches GitHub or Supabase in tests
 
 Constants live in `game/rulebook.mjs`. Org facts live in Supabase, per workspace: `workspaces`
-(its GitHub organisation, `github_org`, and the repository of its PRD issues, `plan_repo`),
-`sectors` (repositories), `teams` (the fleets) and `players` (the roster), each changed by a
-migration or by the arcade. `game:project` and `game:banner` refuse a workspace that names no
-`github_org` or `plan_repo`. The workspace is a storage column, never an event field: two workspaces
-may each hold a `planet:12:charted`.
+(its GitHub organisation, `github_org`, and its plan repository, `plan_repo`), `repositories` (the
+repositories of Settings → Repositories, and whether each is tracked), `sectors` (the map's groups
+of repositories), `teams` (the fleets) and `players` (the roster), each changed by a migration, the
+arcade or the app. `game:project` and `game:banner` refuse a workspace that names no `github_org` or
+`plan_repo`. The workspace is a storage column, never an event field: two workspaces may each hold a
+`planet:vertuoza/vertuo-omni-loop#12:charted`.
+
+## What the game reads
+
+PRD 728. For each repository the workspace **tracks** in Settings → Repositories
+(`public.repositories`, `tracked = true`), `game:project` lists its `omni:prd` issues through `gh`. An
+untracked repository, or one no longer listed, is not read; a repository `gh` cannot read reads as
+empty and the others still land. A PRD is `<owner>/<repo>#<n>`: its **home** is the repository of
+its issue. For each PRD (`game/sources/github.mjs`):
+
+- its folder in the kit layout, `<delivery>/{inbox,shipped}/<nnnn>-<topic>/`, with the delivery
+  path read from the home's `.omni-loop/config.yml` (`.omni-loop/delivery` when it names none):
+  `spec.md` for `blocked-by`, `plan.md` for the slices, and its outbox
+  (`<delivery>/outbox/<nnnn>-<topic>/` while it is built, `<folder>/outbox/` once shipped) for the
+  open items and `settled.md`. A PRD with no folder is charted and nothing more;
+- its feature PR in its home: a PR into the default branch whose body holds `Closes #<n>`, the one
+  labelled `omni:feature` when one is. An open one is read at its head, a merged one on the default
+  branch;
+- the sub-PRs of that feature PR (`omni:sub`, into its branch), matched to slices by the head ref's
+  `--<slice>` suffix;
+- for a multi-repository PRD (a plan repository's PRD, whose slice table has a `repo` column), one
+  more **region** per other tracked repository holding a feature PR into its default branch whose
+  body starts `Part of <owner>/<home repo>#<n>`. A slice is that region's when its `repo` cell names
+  the repository (its bare name, as `plan.targets` gives it, or its full name); the region's sub-PRs
+  (`omni:sub`, into its feature branch) secure its slices for their authors. The plan and the outbox
+  stay in the home. The planet terraforms at the last merge among every region's feature PR, the
+  home's included; a repository the plan gives slices whose `Part of` PR is not open yet holds the
+  terraform too. A `Part of` naming a PRD whose home is not tracked is ignored, and a slice naming no
+  tracked repository is not read;
+- a settled item's `Approved by` login settles its wound (`nobody`, an item adopted when raised, is
+  no one; a session `delegated by <login>` is that login).
+
+The old `docs/inbox` layout is read nowhere.
+
+**Owner.** The PRD's first assignee, else its issue's author. Their fleet (from the roster) owns the
+planet and takes the terraform credit.
+
+**Names.** Every event of a PRD names its home: its `home` column (`public.ledger_events.home`,
+`<owner>/<repo>`) and its id, `planet:<owner>/<repo>#<n>:charted`,
+`zone:<region repo>:<owner>/<repo>#<n>:<slice>:secured`, `outbox:<region repo>:<owner>/<repo>#<n>/<item>:closed`,
+and so on for every template. The economy, the season view and the arcade key a planet by
+`<home>#<n>`, so two repositories' PRD 88 are two planets that never share an owner, a crew, a
+clawback or a terraform. Rows written before PRD 728 have no `home`.
+
+**Sectors** stay for the map and the cross-sector bonus. A sector names a repository by its full name
+or its bare name; a tracked repository that no sector names counts as a sector of its own.
+
+Scoring does not change: every number stays in `game/rulebook.mjs`.
+
+## The fresh start
+
+PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
+game starts: the migration set it to the moment it was applied for every workspace there was, and a
+workspace made later starts when it is made.
+
+- **Nothing before it is written.** The ledger's append (`supabaseLedger`, `game/sources/supabase.mjs`)
+  reads `game_since` and writes no event whose moment is before it, whoever projected it. A workspace
+  it cannot find, or a failed read, appends nothing.
+- **Old rows count for nothing.** A row written before PRD 728 has no `home`. It stays stored (the
+  ledger is append-only), but `game:score` and `game:xp` read only rows with a `home`
+  (`counted()`, `game/experience.mjs`): no season, no fleet and no XP adds it up.
+- **XP restarted at 0, once.** Every login an old row names keeps its `player_xp` row, rewritten at
+  0 by the next `game:xp`. Games already unlocked stay unlocked: `unlocked` is only ever added to.
 
 ## Fleets and the roster
 
@@ -56,13 +119,15 @@ contributor's fleet at that moment. A contributor who never joined, or never lin
 fleet and scores individually (spec §8). A player whose fleet is retired has none until they choose
 again. Logins match whatever their case.
 
-The roster read is hard (F7): if the sectors, the fleets or the players cannot be read, the poll
+The roster read is hard (F7): if the sectors, the fleets, the players or the tracked repositories cannot be read, the poll
 fails and appends nothing, rather than events stripped of their fleets forever.
 
 ## XP, levels and unlocks
 
 Every point a player earns by delivering also counts as **XP**, and XP never resets: a season
-starts the Hall of Heroes again, never a level. Levels unlock the arcade's games
+starts the Hall of Heroes again, never a level. It reset once, on purpose, at PRD 728's
+[fresh start](#the-fresh-start), and the games unlocked before it stayed. Levels unlock the
+arcade's games
 ([`apps/galaxy/README.md` › The game room](../apps/galaxy/README.md#the-game-room)). The rules are
 one block of `game/rulebook.mjs`, `xp`, applied in one place, `game/experience.mjs`
 (`experience()`, `levelFor()`, `unlockedFor()`), which `game:xp`, the demo seed and the arcade all
@@ -185,9 +250,10 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
    workflow uses too. The workflow sets `OMNI_LOOP_WORKSPACE: vertuoza`, the workspace the
    migration creates with its `github_org` and `plan_repo`.
 2. **Token.** Create a fine-grained token and store it as the secret `OMNI_GAME_TOKEN`:
-   `contents: read`, `pull requests: read` and `issues: read` on every engineering repository in
-   the workspace's `sectors` and on its `plan_repo`. It no longer needs any organisation permission: fleets come from the
-   arcade, not from GitHub teams.
+   `contents: read`, `pull requests: read` and `issues: read` on every repository the workspace
+   tracks in Settings → Repositories (the ledger), and on every repository in its `sectors` (the
+   contributions). It no longer needs any organisation permission: fleets come from the arcade, not
+   from GitHub teams.
 3. **Rankings issue.** Open an issue in this repository (the Hall of Heroes), pin it, and set the
    repository variable `RANKINGS_ISSUE` to its number.
 4. **Switch on.** Set the repository variable `GAME_ENABLED=true`. Do it once the crew has joined in

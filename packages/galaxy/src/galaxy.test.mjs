@@ -61,6 +61,39 @@ describe('buildGalaxy', () => {
   });
 });
 
+describe('planets keyed by their home (PRD 728)', () => {
+  const at = (home) => ({ home });
+  const twin = (home, owner, who) => [
+    ev(`planet:${home}#88:charted`, '2026-09-01T08:00:00Z', 'PLANET_CHARTED', 88, { ...at(home), data: { captain: who, ownerTeam: owner, title: `88 of ${home}` } }),
+    ev(`region:${home}:${home}#88:surveyed`, '2026-09-02T08:00:00Z', 'REGION_SURVEYED', 88, { ...at(home), region: home }),
+    ev(`zone:${home}:${home}#88:s1:opened`, '2026-09-21T08:00:00Z', 'ZONE_OPENED', 88, { ...at(home), region: home, data: { wave: 1 } }),
+    ev(`zone:${home}:${home}#88:s1:secured`, '2026-09-21T12:00:00Z', 'ZONE_SECURED', 88, { ...at(home), region: home, contributor: who, team: owner }),
+    ev(`fire:${home}:${home}#88/s2:opened`, '2026-09-22T12:00:00Z', 'WOUND_OPENED', 88, { ...at(home), region: home, data: { kind: 'under-fire' } }),
+    ev(`zone:${home}:${home}#88:s2:claimed`, '2026-09-22T11:00:00Z', 'ZONE_CLAIMED', 88, { ...at(home), region: home, contributor: who, team: owner }),
+  ];
+
+  it('draws two repositories\' PRD 88 as two planets, each with its own zones, owner and points', () => {
+    const g = buildGalaxy([...twin('acme/plan', 'beaver', 'bob'), ...twin('acme/tools', 'octopod', 'alice')], { projects, now: NOW });
+    expect(g.planets.map((p) => [p.key, p.prd, p.home, p.ownerTeam, p.captain])).toEqual([
+      ['acme/plan#88', 88, 'acme/plan', 'beaver', 'bob'],
+      ['acme/tools#88', 88, 'acme/tools', 'octopod', 'alice'],
+    ]);
+    for (const p of g.planets) {
+      expect(p.zones.map((z) => [z.id, z.region, z.state])).toEqual([['s1', p.home, 'secured'], ['s2', p.home, 'under-fire']]);
+      expect(p.earned).toBe(10 - 6); // its own zone, less its own open fire's decay (2 tranches × 3)
+    }
+  });
+
+  it('counts a repository that no sector names as a sector of its own', () => {
+    const home = 'acme/plan';
+    const g = buildGalaxy([
+      ...twin(home, 'beaver', 'bob'),
+      ev(`region:acme/core-repo:${home}#88:surveyed`, '2026-09-02T08:00:00Z', 'REGION_SURVEYED', 88, { home, region: 'acme/core-repo' }),
+    ], { projects, now: NOW });
+    expect(g.planets[0]).toMatchObject({ sectors: ['core'], sector: 'core', crossSector: true, class: 2 });
+  });
+});
+
 describe('the rules the view carries', () => {
   it('carries the rulebook\'s xp block, so How to play shows the XP rules the ledger job applies', () => {
     const g = buildGalaxy([charted], { projects, now: NOW });

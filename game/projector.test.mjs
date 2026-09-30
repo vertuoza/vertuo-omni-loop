@@ -165,6 +165,41 @@ describe('projectEvents', () => {
     expect(events.find((e) => e.id === 'zone:ai-repo:2332:s1:secured').data.pr).toBe(701);
   });
 
+  describe('a PRD named by its home (PRD 728)', () => {
+    const homed = (home, over = {}) => ({
+      ...snapshot().planets[0], prd: 88, home, ownerTeam: over.ownerTeam ?? 'beaver',
+      regions: [{ repo: home, blockedBy: over.blockedBy ?? [], surveyedAt: '2026-09-02T08:00:00Z' }],
+      featurePr: { repo: home, number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: over.mergedAt ?? null, lastActivityAt: '2026-09-22T12:00:00Z' },
+      zones: [{ id: 's1', repo: home, wave: 1, blockedBy: [], pr: { number: 501, author: over.author ?? 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }],
+      outbox: [{ id: 's1-01-a', repo: home, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: null } }],
+    });
+
+    it('names every event by its home, and stamps each with it', () => {
+      const events = projectEvents({ ...snapshot(), planets: [homed('acme/plan', { mergedAt: '2026-09-22T12:00:00Z' })] }, { config, now: NOW });
+      expect(ids(events)).toEqual([
+        'outbox:acme/plan:acme/plan#88/s1-01-a:closed', 'outbox:acme/plan:acme/plan#88/s1-01-a:opened',
+        'planet:acme/plan#88:charted', 'planet:acme/plan#88:ready', 'planet:acme/plan#88:terraformed',
+        'region:acme/plan:acme/plan#88:surveyed',
+        'zone:acme/plan:acme/plan#88:s1:claimed', 'zone:acme/plan:acme/plan#88:s1:opened', 'zone:acme/plan:acme/plan#88:s1:secured',
+      ].sort());
+      expect(events.every((e) => e.home === 'acme/plan' && e.planet === 88)).toBe(true);
+    });
+
+    it('keeps two homes\' PRD 88 apart: no shared id, and a blocker is the one of its own home', () => {
+      const events = projectEvents({ ...snapshot(), planets: [
+        homed('acme/plan', { mergedAt: '2026-09-22T12:00:00Z' }),
+        homed('acme/tools', { author: 'bob', ownerTeam: 'octopod' }),
+        { ...homed('acme/tools'), prd: 90, zones: [], outbox: [], featurePr: null, regions: [{ repo: 'acme/tools', blockedBy: [88], surveyedAt: '2026-09-02T08:00:00Z' }] },
+      ] }, { config, now: NOW });
+      const all = events.map((e) => e.id);
+      expect(new Set(all).size).toBe(all.length);
+      expect(events.filter((e) => e.type === 'PLANET_TERRAFORMED').map((e) => e.home)).toEqual(['acme/plan']);
+      // acme/tools#90 waits for acme/tools#88, which has not merged: acme/plan#88's terraform does not unlock it.
+      expect(all).toContain('planet:acme/tools#90:locked:88');
+      expect(all.some((id) => id.startsWith('planet:acme/tools#90:unlocked'))).toBe(false);
+    });
+  });
+
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {
     const a = projectEvents(snapshot(), { config, now: NOW });
     const b = projectEvents(snapshot(), { config, now: NOW });

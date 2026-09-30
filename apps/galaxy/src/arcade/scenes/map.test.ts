@@ -3,7 +3,8 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS, type GalaxyView, type Planet } 
 import { gridFor } from '../grid';
 import { planetAt } from '../Screen';
 import { TALL, WIDE, type MapSlot } from './common.ts';
-import { layoutMap, neighbour, TALL_MAP, TALL_SCENES } from './map.ts';
+import { hyperlanes, layoutMap, neighbour, TALL_MAP, TALL_SCENES } from './map.ts';
+import { twinEvents, twinGalaxy } from '../twins.fake';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -135,5 +136,27 @@ describe('the map on the tall grid', () => {
     expect(outside(slots, TALL)).toEqual([]);
     expect(overlaps(slots)).toEqual([]);
     for (const s of slots) expect(reachable(slots, s.index).size).toBe(slots.length);
+  });
+});
+
+describe('two repositories\' PRD 88 on the map (PRD 728)', () => {
+  const twins = twinGalaxy([
+    ...twinEvents('acme/plan', 'beaver', 'bob'),
+    ...twinEvents('acme/tools', 'octopod', 'alice'),
+    ...twinEvents('acme/tools', 'octopod', 'alice', 90, [{ id: 'planet:acme/tools#90:locked:88', at: '2026-09-03T08:00:00Z', type: 'PLANET_LOCKED', data: { blocker: 88 } }]),
+  ]);
+
+  it('are two planets, each in its own slot', () => {
+    for (const grid of [WIDE, TALL]) {
+      const slots = layoutMap(twins, grid);
+      expect(slots.map((s) => twins.planets[s.index].key).sort()).toEqual(['acme/plan#88', 'acme/tools#88', 'acme/tools#90']);
+      expect(overlaps(slots)).toEqual([]);
+    }
+  });
+
+  it('draw a hyperlane to the blocker of the planet\'s own home, never to its twin', () => {
+    const slots = layoutMap(twins, WIDE);
+    const lanes = hyperlanes(twins, slots).map(([from, to]) => [twins.planets[from.index].key, twins.planets[to.index].key]);
+    expect(lanes).toEqual([['acme/tools#90', 'acme/tools#88']]);
   });
 });

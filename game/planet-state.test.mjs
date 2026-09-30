@@ -213,3 +213,27 @@ describe('derivePlanet', () => {
     expect(p.threat).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('a PRD named by its home (PRD 728)', () => {
+  const homed = (over = {}) => planet({ home: 'acme/plan', regions: [{ repo: 'acme/plan', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }], ...over });
+
+  it('keys the planet and its wounds by <home>#<n>', () => {
+    const p = derivePlanet(homed({ outbox: [{ id: 's1-01-a', repo: 'acme/plan', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }] }), ctx());
+    expect(p).toMatchObject({ prd: 2332, home: 'acme/plan', key: 'acme/plan#2332' });
+    expect(p.wounds.map((w) => w.id)).toEqual(['outbox:acme/plan:acme/plan#2332/s1-01-a']);
+  });
+
+  it('is unlocked only by the blocker of its own home', () => {
+    const blocked = homed({ regions: [{ repo: 'acme/plan', blockedBy: [2300], surveyedAt: '2026-09-02T08:00:00Z' }] });
+    expect(derivePlanet(blocked, ctx(['acme/tools#2300'])).state).toBe('locked');
+    expect(derivePlanet(blocked, ctx(['acme/plan#2300'])).state).not.toBe('locked');
+  });
+
+  it('counts a repository that no sector names as a sector of its own', () => {
+    const regions = (...repos) => repos.map((repo) => ({ repo, blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }));
+    expect(derivePlanet(homed({ regions: regions('acme/plan') }), ctx()).crossSector).toBe(false);
+    expect(derivePlanet(homed({ regions: regions('acme/plan', 'acme/tools') }), ctx()).crossSector).toBe(true);
+    expect(derivePlanet(homed({ regions: regions('acme/core-repo', 'acme/plan') }), ctx()).crossSector).toBe(true);
+    expect(derivePlanet(homed({ regions: regions('acme/core-repo') }), ctx()).crossSector).toBe(false);
+  });
+});

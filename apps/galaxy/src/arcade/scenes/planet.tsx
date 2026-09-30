@@ -33,23 +33,34 @@ export const DOSSIER_TAB: number = PLANET_TABS.indexOf('DOSSIER');
 /** What a planet's DOSSIER tab shows: its dossier, none yet, or out of reach. */
 export type DossierShown = PlanetDossier | 'none' | 'unreadable';
 
+/** A planet as a dossier lookup names it: its number, and its home when it has one (PRD 728). */
+export type PlanetRef = number | Pick<Planet, 'prd' | 'home' | 'key'>;
+
 /**
- * The planet `prd`'s dossier among those the page read: 'unreadable' when it, or every dossier, could
- * not be read; 'none' when it has none (or nothing was read: a page that says nothing of dossiers).
+ * The planet's dossier among those the page read: 'unreadable' when it, or every dossier, could not be
+ * read; 'none' when it has none (or nothing was read: a page that says nothing of dossiers).
+ *
+ * A dossier is found by the planet's key, `<home>#<n>` (PRD 728). One kept by its number alone is the
+ * planet's only when no other planet among `planets` holds that number: two repositories' PRD 88 never
+ * share a dossier.
  */
-export function dossierOf(dossiers: DossiersRead | undefined, prd: number): DossierShown {
+export function dossierOf(dossiers: DossiersRead | undefined, planet: PlanetRef, planets: readonly Pick<Planet, 'prd' | 'key'>[] = []): DossierShown {
   if (dossiers === 'unreadable') return 'unreadable';
-  return dossiers?.[prd] ?? 'none';
+  const p = typeof planet === 'number' ? { prd: planet, home: null, key: String(planet) } : planet;
+  const byKey = p.home ? dossiers?.[p.key] : undefined;
+  if (byKey) return byKey;
+  const twin = planets.some((o) => o.prd === p.prd && o.key !== p.key);
+  return (twin ? undefined : dossiers?.[p.prd]) ?? 'none';
 }
 
 /**
- * The page START opens from planet `prd` on `tab`: its dossier's `/prd/<id>`, on the DOSSIER tab only,
+ * The page START opens from the planet on `tab`: its dossier's `/prd/<id>`, on the DOSSIER tab only,
  * and only for a dossier with a page to open. Null otherwise, and START goes back to the map as it does
  * on every other tab.
  */
-export function dossierLink(dossiers: DossiersRead | undefined, prd: number, tab: number): string | null {
+export function dossierLink(dossiers: DossiersRead | undefined, planet: PlanetRef, tab: number, planets: readonly Pick<Planet, 'prd' | 'key'>[] = []): string | null {
   if (tab !== DOSSIER_TAB) return null;
-  const d = dossierOf(dossiers, prd);
+  const d = dossierOf(dossiers, planet, planets);
   return typeof d === 'object' ? d.url : null;
 }
 
@@ -66,7 +77,8 @@ export interface StatusRow {
 /** Everything the status tab says about a planet, in order: the same rows on either grid. */
 export function statusRows(p: Planet, view: GalaxyView): StatusRow[] {
   const owner = fleet(p.ownerTeam);
-  const blockers = p.blockers.map((b) => view.planets.find((x) => x.prd === b));
+  // A blocker is a PRD of the planet's own home (PRD 728): never a twin of another repository.
+  const blockers = p.blockers.map((b) => view.planets.find((x) => x.prd === b && x.home === p.home));
   const rows: (StatusRow | false)[] = [
     { label: 'TERRAFORM', value: <><Bar value={p.progress} label="Terraformed" /> {Math.round(p.progress * 100)}%</> },
     { label: 'THREAT', value: <><Pips value={p.threat} label="Threat" /> {ROMAN[p.threat]}</> },
