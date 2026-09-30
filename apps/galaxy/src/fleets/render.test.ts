@@ -196,6 +196,20 @@ describe('/app/settings/fleets in each situation', () => {
     expect(text(member)).toContain(ONLY_OWNER);
     expect(buttons(member)).toEqual([]);
   });
+
+  it('starts with the Fleets · Repositories tabs in every situation, Fleets marked (PRD 733)', () => {
+    const views: FleetsScreenView[] = [
+      { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
+      { kind: 'fleets', source: { kind: 'demo' }, owner: true, fleets: [BEAVER], mascots: MASCOTS },
+    ];
+    for (const view of views) {
+      const html = screen(view);
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
+      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
+      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false]]);
+    }
+  });
 });
 
 describe('the Fleets page in the sidebar (PRD 438, which replaced /app\'s card; under Settings since PRD 572, a Settings page since PRD 733)', () => {

@@ -1,10 +1,13 @@
 import { Notice } from '../ask/page/Notice';
+import { SectionTabs } from '../nav/SectionTabs';
+import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import { RepositoriesPage, type RepositoriesPageProps } from './RepositoriesPage';
 
 // Settings → Repositories in each situation (PRD 612 s1), decided once by the page: no database here;
 // signed out (sign in on /app, then come back); an account in no workspace; the list that could not be
 // read; or the list itself, the owner's to change and a member's to read.
+// Every situation starts with the Settings tabs, Fleets · Repositories (PRD 733).
 
 export type RepositoriesScreenView =
   | { kind: 'closed' }
@@ -14,6 +17,15 @@ export type RepositoriesScreenView =
   | ({ kind: 'repositories' } & RepositoriesPageProps);
 
 export function RepositoriesScreen({ view }: { view: RepositoriesScreenView }) {
+  return (
+    <>
+      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/repositories" />
+      <RepositoriesBody view={view} />
+    </>
+  );
+}
+
+function RepositoriesBody({ view }: { view: RepositoriesScreenView }) {
   switch (view.kind) {
     case 'closed':
       return (
