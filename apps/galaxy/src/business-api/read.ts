@@ -3,7 +3,9 @@
 // database builds it (business_for_repo(), supabase/migrations/20261019090000_business_store.sql),
 // run as the caller; this module only calls it and checks what came back. PRD 774 (decision 12) added
 // `state` to each claim: `confirmed`, or `contradicted` while evidence disputes it and nobody answered;
-// `receipt` is then the newest receipt as `<where> — "<quote>"`.
+// `receipt` is then the newest receipt as `<where> — "<quote>"`. PRD 799 added `personas`: the
+// repository's product's personas, oldest first, `[]` when there are none; they never decide `state`,
+// which comes from claims only. A database from before PRD 799 sends none: they read as `[]`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
@@ -25,6 +27,15 @@ const businessClaimSchema = z.object({
   lastSeen: z.string().nullable(),
 }).strict();
 
+/** One persona of the repository's product (PRD 799): who the customer is, as the team pictures them. */
+const businessPersonaSchema = z.object({
+  name: z.string().min(1),
+  stance: z.enum(['excited', 'neutral', 'skeptical']),
+  trade: z.string().min(1),
+  who: z.string(),
+  usage: z.string(),
+}).strict();
+
 /** The body of a read. `ok` only with at least one claim; `none` with none (no business, or no
  * confirmed claim for the repository). */
 const businessReadSchema = z.object({
@@ -32,6 +43,7 @@ const businessReadSchema = z.object({
   business: named.nullable(),
   product: named.nullable(),
   claims: z.array(businessClaimSchema),
+  personas: z.array(businessPersonaSchema).default([]),
 }).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims');
 
 type BusinessRead = z.infer<typeof businessReadSchema>;
@@ -47,7 +59,7 @@ export class BusinessStoreError extends Error {
 
 export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
   return {
-    /** The confirmed and contradicted claims agents in `repo` (owner/name) read. */
+    /** The confirmed and contradicted claims, and the personas, agents in `repo` (owner/name) read. */
     async forRepo(repo: string): Promise<BusinessRead> {
       const { data, error } = await db.rpc('business_for_repo', { p_repo: repo });
       if (error) throw new BusinessStoreError(error.code, error.message);

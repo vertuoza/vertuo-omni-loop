@@ -16850,6 +16850,7 @@ var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
 var STATES = ["confirmed", "contradicted"];
+var STANCES = ["excited", "neutral", "skeptical"];
 var BLANK = "___";
 var CONTRADICTED = "  (contradicted: evidence disagrees, nobody answered yet)";
 var isText4 = (value) => typeof value === "string" && value.length > 0;
@@ -16870,13 +16871,22 @@ function claimOf(value) {
     lastSeen: orNull(value.lastSeen)
   };
 }
+function personaOf(value) {
+  if (!value || !isText4(value.name) || !STANCES.includes(value.stance) || !isText4(value.trade)) return null;
+  if (typeof value.who !== "string" || typeof value.usage !== "string") return null;
+  return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
+}
 function businessOf(reply) {
   if (!reply || !["ok", "none"].includes(reply.state) || !Array.isArray(reply.claims)) return null;
   const claims = reply.claims.map(claimOf);
   if (claims.includes(null)) return null;
   if (reply.state === "ok" !== claims.length > 0) return null;
-  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims };
+  if (reply.personas !== void 0 && !Array.isArray(reply.personas)) return null;
+  const personas = (reply.personas ?? []).map(personaOf);
+  if (personas.includes(null)) return null;
+  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
 }
+var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence(claims) {
   const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === "confirmed").map((claim) => claim.value);
@@ -16885,7 +16895,7 @@ function sentence(claims) {
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
   return `We sell ${blankOr(of("offering"))} to ${who2} ${blankOr(of("trade"))} in ${blankOr(of("region"))}, up against ${blankOr(of("rival"))}.`;
 }
-var empty = (state, read2 = null) => ({ state, business: read2?.business ?? null, product: read2?.product ?? null, claims: [] });
+var empty = (state, read2 = null) => ({ state, business: read2?.business ?? null, product: read2?.product ?? null, claims: [], personas: read2?.personas ?? [] });
 function stopped(error) {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return { state: "unreachable", line: `the Omni page could not be reached ${CARRY_ON}` };
@@ -16951,12 +16961,13 @@ var business = {
     if (!read2) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
     if (read2.state === "none") {
       const line = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-      return print(out, empty("none", read2), [line]);
+      return print(out, empty("none", read2), [line, ...personaLines(read2.personas, "persona".length)]);
     }
-    const width = Math.max(...read2.claims.map((claim) => claim.id.length));
+    const idWidth = Math.max(...read2.claims.map((claim) => claim.id.length), read2.personas.length ? "persona".length : 0);
     return print(out, read2, [
       sentence(read2.claims),
-      ...read2.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`)
+      ...read2.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`),
+      ...personaLines(read2.personas, idWidth)
     ]);
   }
 };
@@ -20929,7 +20940,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
   },
   {
     name: "version",

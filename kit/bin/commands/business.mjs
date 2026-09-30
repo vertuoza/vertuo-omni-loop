@@ -3,12 +3,17 @@
 // from the repository's product, read with the terminal's sign-in through `GET /api/business`.
 //
 // It prints the sentence the claims make, then one line per claim with its id (`rival#4`). `--json`
-// prints `{ state, business, product, claims }` (decision 14), the shape the later MCP link returns.
+// prints `{ state, business, product, claims, personas }` (decision 14), the shape the later MCP link returns.
 // Each claim carries its `state` (PRD 774, decision 12): `confirmed`, or `contradicted` while evidence
 // disagrees with it and nobody answered. A contradicted claim is marked on its line and left out of the
 // sentence, so an agent never states it as settled. A server from before PRD 774 sends no state: it
 // only ever sent confirmed claims, so its claims read as confirmed. A proposed or rejected claim never
 // leaves the app, and a reply carrying one is refused.
+//
+// It also carries the product's personas (PRD 799): `personas: [{ name, stance, trade, who, usage }]`,
+// oldest first, `[]` when there are none, and one `persona` line each under the claims. They never
+// decide `state`, which comes from claims only: a product with personas and no confirmed claim reads
+// `none`, and still prints its personas. A server from before PRD 799 sends none: they read as `[]`.
 //
 // It never blocks an agent (decision 13): every reading outcome exits 0. When there is nothing to
 // read it prints one line ending "— agents carry on", and `--json` says which in `state`:
@@ -36,6 +41,7 @@ const CARRY_ON = '— agents carry on';
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
 const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
 const STATES = ['confirmed', 'contradicted'];
+const STANCES = ['excited', 'neutral', 'skeptical'];
 const BLANK = '___';
 const CONTRADICTED = '  (contradicted: evidence disagrees, nobody answered yet)';
 
@@ -55,14 +61,28 @@ function claimOf(value) {
   };
 }
 
+/** One persona as the contract carries it, its fields in the contract's order, or null when it is not one. */
+function personaOf(value) {
+  if (!value || !isText(value.name) || !STANCES.includes(value.stance) || !isText(value.trade)) return null;
+  if (typeof value.who !== 'string' || typeof value.usage !== 'string') return null;
+  return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
+}
+
 /** The server's reply as the contract's body, or null when it does not read as one. */
 function businessOf(reply) {
   if (!reply || !['ok', 'none'].includes(reply.state) || !Array.isArray(reply.claims)) return null;
   const claims = reply.claims.map(claimOf);
   if (claims.includes(null)) return null;
   if ((reply.state === 'ok') !== (claims.length > 0)) return null;
-  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims };
+  if (reply.personas !== undefined && !Array.isArray(reply.personas)) return null;
+  const personas = (reply.personas ?? []).map(personaOf);
+  if (personas.includes(null)) return null;
+  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
 }
+
+/** One printed line per persona, its label padded to the claims' ids. */
+const personaLines = (personas, width) => personas.map((p) =>
+  `  ${'persona'.padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || '—'} — uses: ${p.usage || '—'}`);
 
 /** `a`, `a and b`, `a, b and c`. */
 const joined = (values) => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
@@ -77,7 +97,8 @@ function sentence(claims) {
 }
 
 /** The body `--json` prints when there is nothing to read. */
-const empty = (state, read = null) => ({ state, business: read?.business ?? null, product: read?.product ?? null, claims: [] });
+const empty = (state, read = null) =>
+  ({ state, business: read?.business ?? null, product: read?.product ?? null, claims: [], personas: read?.personas ?? [] });
 
 /** Where the read stopped, as the one line and the `--json` body. */
 function stopped(error) {
@@ -159,12 +180,13 @@ export const business = {
     if (!read) return print(out, empty('refused'), [`refused (the reply is not a business) ${CARRY_ON}`]);
     if (read.state === 'none') {
       const line = read.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-      return print(out, empty('none', read), [line]);
+      return print(out, empty('none', read), [line, ...personaLines(read.personas, 'persona'.length)]);
     }
-    const width = Math.max(...read.claims.map((claim) => claim.id.length));
+    const idWidth = Math.max(...read.claims.map((claim) => claim.id.length), read.personas.length ? 'persona'.length : 0);
     return print(out, read, [
       sentence(read.claims),
-      ...read.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
+      ...read.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
+      ...personaLines(read.personas, idWidth),
     ]);
   },
 };
