@@ -1,4 +1,5 @@
 import type { DesktopState } from '../waiting/alerts';
+import { BUSINESS_HREF } from '../waiting/business';
 import { faceOf } from '../people/face';
 import type { Person } from '../people/types';
 import type { DocumentGroup, DocumentKind } from '../waiting/documents';
@@ -13,10 +14,13 @@ import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/wai
 // PRD 579 adds a third group, New documents, after Outbox: one line per PRD whose spec, plan or
 // before/after landed since its page was last opened, newest first. It is news, not a wait: it never
 // adds to the bell's count or its name.
+// PRD 774 (s5) adds a fourth group, Business, last: one line, "Business · N to check", linking to
+// Settings › Business while proposed evidence, contradicted or faded claims wait there; at 0 it is
+// gone. Like New documents it never adds to the bell's count or its name.
 
 /** What the list's parts could not read: a part whose last read failed, and PRDs whose outbox the
  * last read could not reach. */
-export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean };
+export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean; business?: boolean };
 
 /** The two alert switches at the panel's foot, and what flipping one asks. */
 export type BellAlerts = {
@@ -30,7 +34,7 @@ export type BellAlerts = {
  * ("· shared by", PRD 652). */
 export type BellLine = { id: string; href: string; head: string; text: string; meta: string; sharedBy?: Pick<Person, 'name' | 'face'> };
 
-export type BellGroup = { label: 'Questions' | 'Outbox' | 'New documents'; problem: string | null; lines: BellLine[] };
+export type BellGroup = { label: 'Questions' | 'Outbox' | 'New documents' | 'Business'; problem: string | null; lines: BellLine[] };
 
 export type BellPanel = { groups: BellGroup[]; empty: boolean };
 
@@ -82,6 +86,15 @@ const documentLine = (group: DocumentGroup, now: number): BellLine => ({
   meta: waitedFor(now - group.newestAt),
 });
 
+/** The Business group's one line, while something waits to be checked. */
+const businessLine = (count: number): BellLine => ({
+  id: 'business',
+  href: BUSINESS_HREF,
+  head: `Business · ${count} to check`,
+  text: 'Proposed, disputed or fading claims',
+  meta: '',
+});
+
 const retrying = (label: BellGroup['label']) => `${label} couldn't be read — retrying.`;
 
 function outboxProblem(unread: BellUnread): string | null {
@@ -91,14 +104,16 @@ function outboxProblem(unread: BellUnread): string | null {
 }
 
 /** The panel: its groups, each only when it has items or a problem to say, and whether nothing waits.
- * `documents` are the New documents part's groups, newest first. */
-export function bellPanel(list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = []): BellPanel {
+ * `documents` are the New documents part's groups, newest first; `business`, how many things wait to
+ * be checked on Settings › Business. */
+export function bellPanel(list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = [], business = 0): BellPanel {
   // Questions oldest first; the outbox as the route ordered it (by PRD, then as its outbox holds them).
   const questions = [...list.questions].sort((a, b) => a.askedAt - b.askedAt || a.id.localeCompare(b.id));
   const all: BellGroup[] = [
     { label: 'Questions', problem: unread.questions ? retrying('Questions') : null, lines: questions.map((q) => questionLine(q, now)) },
     { label: 'Outbox', problem: outboxProblem(unread), lines: list.outbox.map(outboxLine) },
     { label: 'New documents', problem: unread.documents ? retrying('New documents') : null, lines: documents.map((g) => documentLine(g, now)) },
+    { label: 'Business', problem: unread.business ? retrying('Business') : null, lines: business > 0 ? [businessLine(business)] : [] },
   ];
   const groups = all.filter((g) => g.lines.length > 0 || g.problem !== null);
   return { groups, empty: groups.length === 0 };

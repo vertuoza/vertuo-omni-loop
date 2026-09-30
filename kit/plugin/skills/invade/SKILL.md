@@ -531,6 +531,10 @@ Report the pull request, the map as answered, the proposed entries per register 
 `omni kb status` map, the number of open questions, the config keys proposed, each command run with
 its result, and every check that ran or did not.
 
+End with one line on the business: what the repository sells, to whom and against whom is not
+invade's to write. The Omni page drafts it from the repositories and the web pages a person points it
+at, at Settings › Business › Draft from my repos, and every drafted claim waits for a person's ✓.
+
 ## Guardrails
 
 - Evidence or nothing: no claim without its file, no command that did not run green, no guess where

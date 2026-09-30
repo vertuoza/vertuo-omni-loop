@@ -3,7 +3,8 @@ import { readBusiness, type BusinessDeps } from './api';
 
 // A fake database of one workspace, Acme (GitHub org acme), whose business holds claims in every
 // state. business_for_repo() is played as the migration writes it: 42501 outside the caller's
-// workspaces, `none` with no business or no confirmed claim, and confirmed claims only.
+// workspaces, `none` with no business or no confirmed claim, and confirmed and contradicted claims only,
+// each with its `state` (PRD 774, decision 12).
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@acme.test', member: true };
 const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@other.test', member: false };
 const INSTALL = 'https://github.com/apps/omni-loop-invader/installations/new';
@@ -16,6 +17,8 @@ const CLAIMS: Row[] = [
   { seq: 3, kind: 'rival', value: 'Guessed', source: 'suggestion', state: 'proposed' },
   { seq: 4, kind: 'rival', value: 'Rival One', source: 'suggestion', state: 'confirmed' },
   { seq: 5, kind: 'rival', value: 'Wrong One', source: 'suggestion', state: 'rejected' },
+  { seq: 6, kind: 'size', value: '2-50', source: 'pick', state: 'contradicted' },
+  { seq: 7, kind: 'size', value: '5-10', source: 'evidence', state: 'proposed' },
 ];
 
 function world({ business = true, claims = CLAIMS, database = true, answer }: {
@@ -37,8 +40,8 @@ function world({ business = true, claims = CLAIMS, database = true, answer }: {
         return { data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } };
       }
       if (!business) return { data: { state: 'none', business: null, product: null, claims: [] }, error: null };
-      const listed = claims.filter((c) => c.state === 'confirmed').map((c) => ({
-        id: `${c.kind}#${c.seq}`, kind: c.kind, value: c.value, source: c.source, receipt: null, lastSeen: null,
+      const listed = claims.filter((c) => c.state === 'confirmed' || c.state === 'contradicted').map((c) => ({
+        id: `${c.kind}#${c.seq}`, kind: c.kind, value: c.value, source: c.source, state: c.state, receipt: null, lastSeen: null,
       }));
       return { data: { state: listed.length ? 'ok' : 'none', business: { name: 'Acme' }, product: null, claims: listed }, error: null };
     },
@@ -89,12 +92,12 @@ describe('GET /api/business', () => {
   });
 
   it('none when the business holds no confirmed claim', async () => {
-    const claims = CLAIMS.filter((c) => c.state !== 'confirmed');
+    const claims = CLAIMS.filter((c) => c.state !== 'confirmed' && c.state !== 'contradicted');
     const { body } = await world({ claims }).get('?repo=acme/widgets');
     expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [] });
   });
 
-  it('the decision-14 body, confirmed claims only, never a proposed or rejected one', async () => {
+  it('the decision-14 body, confirmed and contradicted claims with their state, never a proposed or rejected one', async () => {
     const w = world();
     const { status, body } = await w.get('?repo=Acme/Widgets');
     expect(status).toBe(200);
@@ -104,21 +107,33 @@ describe('GET /api/business', () => {
       business: { name: 'Acme' },
       product: null,
       claims: [
-        { id: 'region#1', kind: 'region', value: 'Belgium', source: 'pick', receipt: null, lastSeen: null },
-        { id: 'offering#2', kind: 'offering', value: 'ERP', source: 'pick', receipt: null, lastSeen: null },
-        { id: 'rival#4', kind: 'rival', value: 'Rival One', source: 'suggestion', receipt: null, lastSeen: null },
+        { id: 'region#1', kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+        { id: 'offering#2', kind: 'offering', value: 'ERP', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+        { id: 'rival#4', kind: 'rival', value: 'Rival One', source: 'suggestion', state: 'confirmed', receipt: null, lastSeen: null },
+        { id: 'size#6', kind: 'size', value: '2-50', source: 'pick', state: 'contradicted', receipt: null, lastSeen: null },
       ],
     });
-    expect(JSON.stringify(body)).not.toMatch(/Guessed|Wrong One/);
+    expect(JSON.stringify(body)).not.toMatch(/Guessed|Wrong One|5-10/);
+  });
+
+  it('an evidence claim carries its newest receipt and when it was last seen', async () => {
+    const seen = { state: 'ok', business: { name: 'Acme' }, product: null, claims: [
+      { id: 'region#8', kind: 'region', value: 'France', source: 'evidence', state: 'confirmed',
+        receipt: 'acme/widgets:README.md — "offices in France"', lastSeen: '2026-09-28T22:00:00+00:00' },
+    ] };
+    const { status, body } = await world({ answer: seen }).get('?repo=acme/widgets');
+    expect(status).toBe(200);
+    expect(body).toEqual(seen);
   });
 
   it('500, and nothing of it sent on, when the database answers outside the contract', async () => {
-    const leaking = { state: 'ok', business: { name: 'Acme' }, product: null, claims: [
-      { id: 'rival#3', kind: 'rival', value: 'Guessed', source: 'suggestion', receipt: null, lastSeen: null, state: 'proposed' },
-    ] };
-    const { status, body } = await world({ answer: leaking }).get('?repo=acme/widgets');
-    expect(status).toBe(500);
-    expect(JSON.stringify(body)).not.toContain('Guessed');
+    const claim = { id: 'rival#3', kind: 'rival', value: 'Guessed', source: 'suggestion', receipt: null, lastSeen: null };
+    for (const leaked of [{ ...claim, state: 'proposed' }, { ...claim, state: 'rejected' }, claim]) {
+      const leaking = { state: 'ok', business: { name: 'Acme' }, product: null, claims: [leaked] };
+      const { status, body } = await world({ answer: leaking }).get('?repo=acme/widgets');
+      expect(status).toBe(500);
+      expect(JSON.stringify(body)).not.toContain('Guessed');
+    }
   });
 
   it('503 when this deployment has no database', async () => {

@@ -228,6 +228,12 @@ describe('the omni plugin in this repository', () => {
     expect(frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8')).name).toBe('invade');
   });
 
+  // PRD 774: invade drafts nothing of the business itself; its hand-off points at the page that does.
+  it("/omni:invade's hand-off names Settings › Business › Draft from my repos", () => {
+    const handOff = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), 'Hand off');
+    expect(handOff).toContain('Settings › Business › Draft from my repos');
+  });
+
   it.skipIf(!claude)(`claude plugin validate passes on the plugin and the marketplace${reason}`, () => {
     expect(claudeValidate(join(repoRoot, PLUGIN_DIR))).toBeNull();
     expect(claudeValidate(repoRoot)).toBeNull();

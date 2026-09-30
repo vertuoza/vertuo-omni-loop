@@ -19,7 +19,8 @@ function memoryTokens(entries = {}) {
 
 const config = (url) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
 
-const claim = (id, value, source = 'pick') => ({ id, kind: id.split('#')[0], value, source, receipt: null, lastSeen: null });
+const claim = (id, value, source = 'pick', state = 'confirmed') =>
+  ({ id, kind: id.split('#')[0], value, source, state, receipt: null, lastSeen: null });
 
 const FILLED = {
   state: 'ok',
@@ -101,14 +102,38 @@ describe('omni business show', () => {
     const printed = JSON.parse(run.out);
     expect(printed).toEqual(withProduct);
     expect(Object.keys(printed)).toEqual(['state', 'business', 'product', 'claims']);
-    expect(Object.keys(printed.claims[0])).toEqual(['id', 'kind', 'value', 'source', 'receipt', 'lastSeen']);
+    expect(Object.keys(printed.claims[0])).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
   });
 
   it('drops any field outside the contract', async () => {
-    const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), state: 'confirmed' }] };
+    const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), seq: 1 }] };
     const c = await checkout({ business: () => ({ body: extra }) });
     const printed = JSON.parse((await show(['show', '--json'], c)).out);
     expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')] });
+  });
+
+  it('a contradicted claim keeps its state in --json, and is marked, not stated, in the text', async () => {
+    const body = { ...FILLED, claims: [
+      claim('region#1', 'Belgium'),
+      { ...claim('offering#2', 'ERP', 'pick', 'contradicted'), receipt: null },
+      { ...claim('region#9', 'France', 'evidence'), receipt: 'acme/widgets:README.md — "offices in France"', lastSeen: '2026-09-28T22:00:00+00:00' },
+    ] };
+    const c = await checkout({ business: () => ({ body }) });
+    expect(JSON.parse((await show(['show', '--json'], c)).out)).toEqual(body);
+    expect((await show(['show'], c)).out).toBe([
+      'We sell ___ to ___-person ___ in Belgium and France, up against ___.',
+      '  region#1    Belgium',
+      '  offering#2  ERP  (contradicted: evidence disagrees, nobody answered yet)',
+      '  region#9    France',
+      '',
+    ].join('\n'));
+  });
+
+  it('reads a claim from a server that sends no state as confirmed', async () => {
+    const { state, ...older } = claim('region#1', 'Belgium');
+    const c = await checkout({ business: () => ({ body: { ...FILLED, claims: [older] } }) });
+    const printed = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(printed.claims).toEqual([claim('region#1', 'Belgium')]);
   });
 });
 
@@ -169,6 +194,11 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       setup: () => checkout({ business: () => ({ body: { state: 'ok', claims: [] } }) }),
       state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
     },
+    ...['proposed', 'rejected', 'unknown'].map((claimState) => ({
+      name: `a reply carrying a ${claimState} claim (refused)`,
+      setup: () => checkout({ business: () => ({ body: { ...FILLED, claims: [claim('rival#3', 'Guessed', 'evidence', claimState)] } }) }),
+      state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
+    })),
   ];
 
   for (const { name, setup, state, line, json } of CASES) {
