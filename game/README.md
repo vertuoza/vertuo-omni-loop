@@ -87,6 +87,21 @@ or its bare name; a tracked repository that no sector names counts as a sector o
 
 Scoring does not change: every number stays in `game/rulebook.mjs`.
 
+## The fresh start
+
+PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
+game starts: the migration set it to the moment it was applied for every workspace there was, and a
+workspace made later starts when it is made.
+
+- **Nothing before it is written.** The ledger's append (`supabaseLedger`, `game/sources/supabase.mjs`)
+  reads `game_since` and writes no event whose moment is before it, whoever projected it. A workspace
+  it cannot find, or a failed read, appends nothing.
+- **Old rows count for nothing.** A row written before PRD 728 has no `home`. It stays stored (the
+  ledger is append-only), but `game:score` and `game:xp` read only rows with a `home`
+  (`counted()`, `game/experience.mjs`): no season, no fleet and no XP adds it up.
+- **XP restarted at 0, once.** Every login an old row names keeps its `player_xp` row, rewritten at
+  0 by the next `game:xp`. Games already unlocked stay unlocked: `unlocked` is only ever added to.
+
 ## Fleets and the roster
 
 A player picks their fleet in the arcade and links their GitHub account once; `players` then maps
@@ -101,7 +116,9 @@ fails and appends nothing, rather than events stripped of their fleets forever.
 ## XP, levels and unlocks
 
 Every point a player earns by delivering also counts as **XP**, and XP never resets: a season
-starts the Hall of Heroes again, never a level. Levels unlock the arcade's games
+starts the Hall of Heroes again, never a level. It reset once, on purpose, at PRD 728's
+[fresh start](#the-fresh-start), and the games unlocked before it stayed. Levels unlock the
+arcade's games
 ([`apps/galaxy/README.md` › The game room](../apps/galaxy/README.md#the-game-room)). The rules are
 one block of `game/rulebook.mjs`, `xp`, applied in one place, `game/experience.mjs`
 (`experience()`, `levelFor()`, `unlockedFor()`), which `game:xp`, the demo seed and the arcade all
