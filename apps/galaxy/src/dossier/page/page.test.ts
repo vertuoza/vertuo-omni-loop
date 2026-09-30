@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createElement, type ReactElement } from 'react';
+import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeStageStore } from '../../stages/store.fake';
@@ -92,6 +92,12 @@ const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 const open = async (id: string, query: Record<string, string> = {}) =>
   settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
+/** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
+const liveOf = (page: ReactElement): ReactElement | undefined => {
+  const props = page.props as { live?: ReactElement; children?: ReactElement | ReactElement[] };
+  if (page.type !== Fragment) return props.live;
+  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh);
+};
 const notFound = { digest: expect.stringContaining('404') };
 
 describe('the page to share', () => {
@@ -204,13 +210,14 @@ describe('the page to share', () => {
     ]);
     given.token = 'bob';
     const page = await open(numbered, { tab: 'spec', v: '1' });
-    const live = (page.props as { live?: ReactElement }).live;
+    const live = liveOf(page);
     expect(live?.type).toBe(LiveRefresh);
     expect(live?.props).toEqual({
       supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
       id: numbered,
-      // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
-      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null, answers: null } }),
+      // Bug #782: started from the database's read, before GitHub answers, so with no GitHub part (the
+      // watch keeps only new work anyway: live-refresh-watch.ts).
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 } }),
       // PRD 757, s4: the play dock, for the viewer, in the dossier's workspace, its question on the Questions tab.
       dock: {
         player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: BOB.id, workspace: FAKE_WORKSPACE,
@@ -226,7 +233,7 @@ describe('the page to share', () => {
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
       name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
     given.token = 'bob';
-    const live = ((await open(numbered)).props as { live?: ReactElement<{ signature: string | null }> }).live;
+    const live = liveOf(await open(numbered)) as ReactElement<{ signature: string | null }> | undefined;
     expect(live?.props.signature).toBeNull();
   });
 
@@ -294,7 +301,7 @@ describe('the page to share', () => {
     expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
     expect(questions).toMatch(/Questions<small>\d+\/\d+( answered)?<\/small>/);
-    expect(((await open('anything')).props as { live?: unknown }).live).toBeUndefined();
+    expect(liveOf(await open('anything'))).toBeUndefined();
   });
 });
 
