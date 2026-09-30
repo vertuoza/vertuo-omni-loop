@@ -112,6 +112,25 @@ describe('omni business show', () => {
     expect(Object.keys(printed.claims[0])).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
   });
 
+  it('prints a Never line (PRD 839) as never#<seq>, out of the sentence', async () => {
+    const line = 'Build for groups of companies, holdings or anyone with more than one legal entity to consolidate';
+    const body = { ...FILLED, claims: [...FILLED.claims, claim('never#13', line)] };
+    const c = await checkout({ business: () => ({ body }) });
+    const run = await show(['show'], c);
+    expect(run.code).toBe(0);
+    const lines = run.out.split('\n');
+    expect(lines[0]).toBe('We sell ERP to 2–50-person construction in Belgium, up against Rival One and Rival Two.');
+    expect(lines).toContain(`  never#13    ${line}`);
+  });
+
+  it('--json carries a Never line as a claim of kind never', async () => {
+    const never = claim('never#13', 'Build for groups of companies');
+    const body = { ...FILLED, claims: [never] };
+    const c = await checkout({ business: () => ({ body }) });
+    const printed = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(printed).toEqual({ ...FILLED, claims: [never] });
+  });
+
   it('drops any field outside the contract', async () => {
     const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), seq: 1 }] };
     const c = await checkout({ business: () => ({ body: extra }) });

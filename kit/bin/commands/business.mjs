@@ -21,6 +21,10 @@
 //   no-sign-in   no Omni page set here (ask.url), no sign-in for it, or a sign-in it no longer honours
 //   unreachable  the Omni page could not be reached in time
 //   refused      the Omni page refused the read (its status, and its reason when it gave one)
+// PRD 839 adds the product's Never lines, the lines the team never crosses: claims of kind `never`,
+// printed as `never#<seq>` lines like any other claim and carried by `--json` as claims. They are no
+// part of the sentence.
+//
 // Exit 2 is only for a usage error, the kit not installed here or a config that does not read.
 //
 // `omni business cited <id>… --by <skill> [--ref <text>]` logs the claims an agent cited through
@@ -51,7 +55,10 @@ const ANSWER_STATES = ['proposed', 'confirmed'];
 /** Every state a stored claim may be in: a value already held keeps its own. */
 const STORED_STATES = ['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown'];
 const CARRY_ON = '— agents carry on';
+/** The kinds a person may answer as a claim. */
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
+/** The kinds a read carries: the answerable ones and the product's Never lines (PRD 839). */
+const READ_KINDS = [...KINDS, 'never'];
 const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
 const STATES = ['confirmed', 'contradicted'];
 const STANCES = ['excited', 'neutral', 'skeptical'];
@@ -63,7 +70,7 @@ const named = (value) => (value && isText(value.name) ? { name: value.name } : n
 
 /** One claim as the contract carries it, its fields in the contract's order, or null when it is not one. */
 function claimOf(value) {
-  if (!value || !isText(value.id) || !KINDS.includes(value.kind) || !isText(value.value) || !SOURCES.includes(value.source)) return null;
+  if (!value || !isText(value.id) || !READ_KINDS.includes(value.kind) || !isText(value.value) || !SOURCES.includes(value.source)) return null;
   if (!value.id.startsWith(`${value.kind}#`)) return null;
   const state = value.state ?? 'confirmed';
   if (!STATES.includes(state)) return null;

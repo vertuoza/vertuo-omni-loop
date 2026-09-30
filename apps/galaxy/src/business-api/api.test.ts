@@ -134,6 +134,16 @@ describe('GET /api/business', () => {
     expect(body).toEqual(seen);
   });
 
+  it('carries a product\'s Never line as a claim of kind never, up to 200 characters (PRD 839)', async () => {
+    const line = 'Build for groups of companies: '.padEnd(200, 'x');
+    const read = { state: 'ok', business: { name: 'Acme' }, product: null, personas: [], claims: [
+      { id: 'never#9', kind: 'never', value: line, source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+    ] };
+    const { status, body } = await world({ answer: read }).get('?repo=acme/widgets');
+    expect(status).toBe(200);
+    expect(body).toEqual(read);
+  });
+
   it('500, and nothing of it sent on, when the database answers outside the contract', async () => {
     const claim = { id: 'rival#3', kind: 'rival', value: 'Guessed', source: 'suggestion', receipt: null, lastSeen: null };
     for (const leaked of [{ ...claim, state: 'proposed' }, { ...claim, state: 'rejected' }, claim]) {
