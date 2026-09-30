@@ -17144,6 +17144,7 @@ var ANSWER_STATES = ["proposed", "confirmed"];
 var STORED_STATES = ["proposed", "confirmed", "rejected", "contradicted", "unknown"];
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
+var READ_KINDS = [...KINDS2, "never"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
 var STATES = ["confirmed", "contradicted"];
 var STANCES = ["excited", "neutral", "skeptical"];
@@ -17152,7 +17153,7 @@ var CONTRADICTED = "  (contradicted: evidence disagrees, nobody answered yet)";
 var isText4 = (value) => typeof value === "string" && value.length > 0;
 var named = (value) => value && isText4(value.name) ? { name: value.name } : null;
 function claimOf(value) {
-  if (!value || !isText4(value.id) || !KINDS2.includes(value.kind) || !isText4(value.value) || !SOURCES.includes(value.source)) return null;
+  if (!value || !isText4(value.id) || !READ_KINDS.includes(value.kind) || !isText4(value.value) || !SOURCES.includes(value.source)) return null;
   if (!value.id.startsWith(`${value.kind}#`)) return null;
   const state = value.state ?? "confirmed";
   if (!STATES.includes(state)) return null;

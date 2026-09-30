@@ -62,6 +62,25 @@ describe('readCandidates', () => {
     ]))).toEqual([{ kind: 'trade', value: 'retail', quote: 'shops and retail' }]);
   });
 
+  it('keeps a Never line of up to 200 characters, and drops a longer one (PRD 839)', () => {
+    const line = 'x'.repeat(200);
+    expect(readCandidates(JSON.stringify([
+      { kind: 'never', value: 'Answer public tenders', quote: 'we don\'t answer public tenders' },
+      { kind: 'Never', value: line, quote: 'long' },
+      { kind: 'never', value: `${line}x`, quote: 'too long' },
+      { kind: 'rival', value: 'x'.repeat(120), quote: 'a rival stays at 80' },
+    ]))).toEqual([
+      { kind: 'never', value: 'Answer public tenders', quote: 'we don\'t answer public tenders' },
+      { kind: 'never', value: line, quote: 'long' },
+    ]);
+  });
+
+  it('asks the model for what the company says it does not do', async () => {
+    const { fetch, calls } = answering('[]');
+    await extractCandidates('We don\'t answer public tenders.', 'x', { apiKey: 'k', fetch });
+    expect(calls[0].body.messages[0].content).toMatch(/"never"/);
+  });
+
   it('finds none in a reply that holds no JSON array', () => {
     expect(readCandidates('I found nothing.')).toEqual([]);
     expect(readCandidates('[not json]')).toEqual([]);

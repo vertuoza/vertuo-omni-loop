@@ -30,13 +30,32 @@ as **omni-loop · inbox**). It grades the PR with the kit's own rules, one summa
 | inbox folder | the kit's inbox rules pass on **this PRD's folder only**; another PRD's broken folder never counts |
 | plan | `plan.md` exists and the kit's plan grading (what `omni plan check <n>` reads from it) finds nothing |
 | PRD issue | issue `<n>` exists, is open, and carries `labels.prd` |
+| canon (PRD 839) | the PRD's `spec.md` breaks no confirmed claim of its repository's business: see below |
 
 | Situation | Conclusion |
 |---|---|
 | No `.omni-loop/config.yml` on the base branch, or a head branch not of the phase-0 shape (feature PR, sub-PR, anything else) | no check run at all, not even `skipped` |
-| All four gates `ok` | `success` |
+| Every gate `ok` or neutral | `success` |
 | Any gate `not ok`, or no inbox folder `<nnnn>-<topic>` for the branch's topic | `failure`, naming the gate |
 | Snapshot over its bound, or any failure after retries | `failure` with the reason |
+
+**The canon gate** (`src/canon/`) reads the PR's `spec.md` (the first 40,000 characters go to the
+model) and the business of the repository through `business_for_repo_app` as the service role: its
+product's confirmed claims, Never lines included, and its personas. It asks the small model
+(`anthropic/claude-haiku-4.5`, whatever `OPENROUTER_MODEL` says for the retro) once for the spec's breaks
+of a Never line or of the size, trade or region claims, each quoting the spec and citing claim ids. A
+finding is kept only when its quote is in the spec word for word (whitespace and case aside) and it
+cites a claim the business holds.
+
+| Canon | Line |
+|---|---|
+| red | `canon ✗ N`, each break listed under it: its claims, the spec's quoted words, and one line from the persona the spec fits worst |
+| green | `canon ✓ · N claims read` |
+| neutral, never red | no business (none tracks the repository, or `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` unset), no confirmed claim for the repository's product, `model not configured` (`OPENROUTER_API_KEY` unset), or a model error |
+
+A verdict is cached in the running instance by the repository, the spec's hash and the claims' latest
+update (`updatedAt`), so a Re-run with nothing changed asks the model nothing; a cold instance asks
+once. The check run's JSON verdict also carries `canon` (state, findings, persona) for its actions.
 
 There is no override label and no comment: the check run's summary is the report. The function runs on
 the outbox check's own event, so every pull request action that re-evaluates one re-evaluates both;
@@ -154,7 +173,8 @@ Inngest ──▶ /api/inngest   function "inbox-check" (debounced per repo + PR
               step "in-progress"  the base config; a phase-0 head branch gets the check run, in_progress
                                   (no base config, or another branch shape: stop here, post nothing)
               step "evaluate"     snapshot the head's inbox + shipped folders into /tmp; the compare and
-                                  the PRD issue; evaluateInbox grades the four gates
+                                  the PRD issue; evaluateInbox grades the five gates (canon: one
+                                  OpenRouter call unless cached)
               step "publish"      complete the check run; no comment
             onFailure          complete the check run as failure — never left in_progress
                                (not a phase-0 PR: post nothing)
@@ -189,6 +209,7 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
 | `publish` — the check run and the comment | `src/publish/` |
 | `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
 | `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.mjs` |
+| `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.mjs`, served at `api/inngest.mjs` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.mjs` |
 | the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
@@ -230,7 +251,10 @@ None of these is taken by the code; a person does each once.
    - `INNGEST_EVENT_KEY`
    - `INNGEST_SIGNING_KEY`
    - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — the same project and service key as galaxy's,
-     for the pr-stats collector (PRD 612). With either unset it logs one line and writes nothing.
+     for the pr-stats collector (PRD 612) and the inbox check's canon gate (PRD 839). With either
+     unset the collector logs one line and writes nothing, and the canon gate is neutral.
+   - `OPENROUTER_API_KEY` — the small model of the canon gate (and the retro's and the harvest's
+     model, below). Unset, the canon gate is neutral, "model not configured".
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.

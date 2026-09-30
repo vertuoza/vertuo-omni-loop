@@ -7,8 +7,12 @@
 // Offering, trade and size take one value: picking another rejects the one confirmed before, since no
 // function replaces a claim (claim_pick() adds or confirms, claim_set_state() rejects). Region and rival
 // take several, each tapped on and off.
+//
+// A Never line (PRD 839, kind `never`) is a line the team never crosses, a product's, typed on the page
+// and confirmed at once, or proposed by the draft with its receipt. It is never part of the sentence and
+// holds several at once; its value is the line itself, 1 to 200 characters (every other kind 1 to 80).
 
-export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival';
+export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival' | 'never';
 export type ClaimState = 'proposed' | 'confirmed' | 'rejected' | 'contradicted' | 'unknown';
 export type ClaimSource = 'pick' | 'suggestion' | 'evidence' | 'answer';
 
@@ -114,15 +118,22 @@ const DEFAULT_SIZE: readonly [number, number] = [1, 5];
 
 /** The kinds that hold one value; the others hold several. */
 const SINGLE: ReadonlySet<ClaimKind> = new Set(['offering', 'size', 'trade']);
-export const KIND_ORDER: readonly ClaimKind[] = ['offering', 'size', 'trade', 'region', 'rival'];
+export const KIND_ORDER: readonly ClaimKind[] = ['offering', 'size', 'trade', 'region', 'rival', 'never'];
 
 export const KIND_LABEL: Record<ClaimKind, string> = {
-  offering: 'Offering', size: 'Size', trade: 'Trade', region: 'Region', rival: 'Rival',
+  offering: 'Offering', size: 'Size', trade: 'Trade', region: 'Region', rival: 'Rival', never: 'Never',
 };
 
-export const SOURCE_LABEL: Record<ClaimSource, string> = {
+/** The most characters a claim's value holds: a Never line 200, every other kind 80. */
+export const maxValue = (kind: ClaimKind) => (kind === 'never' ? 200 : 80);
+
+const SOURCE_LABEL: Record<ClaimSource, string> = {
   pick: 'you picked', suggestion: 'suggested', evidence: 'seen', answer: 'answered',
 };
+
+/** Where a claim came from, as its row says it: a typed Never line was written, not picked. */
+export const sourceLabel = (claim: Pick<Claim, 'kind' | 'source'>) =>
+  claim.kind === 'never' && claim.source === 'pick' ? 'you wrote' : SOURCE_LABEL[claim.source];
 
 /** A list value as a chip says it: its first letter up. */
 export const chipLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
