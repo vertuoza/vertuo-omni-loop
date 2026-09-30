@@ -104,7 +104,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
   });
 
   it('with nothing stuck: says so', () => {
-    expect(text(panel(render(board())))).toBe('Loop health Right now Nothing stuck right now');
+    expect(text(panel(render(board()))).split(' In the period')[0]).toBe('Loop health Right now Nothing stuck right now');
   });
 
   it('lists each pull request: its kind, owner/repo#n linking to it on GitHub, and how long ago it was opened', () => {
@@ -113,7 +113,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const html = panel(render(board([...ROWS, one, two])));
     expect(html).toContain('<a href="https://github.com/acme/gears/pull/42">acme/gears#42</a>');
     expect(html).toContain(`<a href="https://github.com/acme/widgets/pull/${two.number}">acme/widgets#${two.number}</a>`);
-    expect(text(html)).toBe(`Loop health Right now Stuck acme/gears#42 opened 3.0 h ago Stale claim acme/widgets#${two.number} opened 1.5 h ago`);
+    expect(text(html).split(' In the period')[0]).toBe(`Loop health Right now Stuck acme/gears#42 opened 3.0 h ago Stale claim acme/widgets#${two.number} opened 1.5 h ago`);
     expect(html).not.toContain('more');
   });
 
@@ -122,14 +122,35 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const html = panel(render(board([...ROWS, held])));
     expect(html).toContain('<span class="eng-health-kind is-held">Held</span>');
     expect(html).toContain('<a href="https://github.com/acme/gears/pull/77">acme/gears#77</a>');
-    expect(text(html)).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
+    expect(text(html).split(' In the period')[0]).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
   });
 
   it('shows 10 rows, then how many more', () => {
     const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i));
     const html = panel(render(board(rows)));
     expect(html.match(/<li/g)).toHaveLength(10);
-    expect(text(html)).toMatch(/and 1 more$/);
+    expect(text(html)).toMatch(/and 1 more In the period/);
+  });
+});
+
+describe('Loop health, in the period (PRD 714 s4)', () => {
+  const periodPart = (html: string) => html.split('id="eng-health">')[1].split('</section>')[0].split('In the period')[1];
+  const sub = (over: Partial<PullRequestRow> = {}) => mergedAfter(1, { omniSigned: true, base: 'feat/x', head: 'feat/x--s1', ...over });
+
+  it('reads K of M merged sub-PRs got omni:needs-fix first, with the percent', () => {
+    const rows = [...ROWS, sub({ needsFixAt: '2026-09-24T08:30:00Z' }), sub(), sub({ needsFixAt: '2026-09-24T10:00:00Z' })];
+    const html = render(board(rows));
+    expect(text(periodPart(html))).toBe('1 of 3 merged sub-PRs got omni:needs-fix first (33%)');
+    expect(periodPart(html)).toContain('<code>omni:needs-fix</code>');
+  });
+
+  it('with no sub-PR merged in the period: says so', () => {
+    expect(text(periodPart(render(board())))).toBe('No sub-PR merged in this period');
+  });
+
+  it('after the right-now list, empty or not', () => {
+    const t = text(render(board()));
+    expect(t).toContain('Loop health Right now Nothing stuck right now In the period No sub-PR merged in this period');
   });
 });
 

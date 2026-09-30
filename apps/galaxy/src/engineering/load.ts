@@ -14,7 +14,7 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // parallel, the pull requests that can count in the period (opened or merged since its first instant,
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
 // leaves the whole board saying it could not load, its error logged. Loop health (PRD 714 s2) reads the
-// open ones at the request's `now`. Last, the faces (PRD 652 s3):
+// open ones at the request's `now`, and its period rate (s4) the sub-PRs merged in the window. Last, the faces (PRD 652 s3):
 // the workspace's people directory, read only when the three lists show someone, resolves each login.
 // That read fails soft: its error logged, every face falls back to the GitHub photo and the board
 // still renders. A
@@ -115,11 +115,11 @@ type StoredPullRequest = {
   repo: string; number: number; author: string | null; author_is_bot: boolean; opened_at: string; merged_at: string | null;
   closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
   base: string | null; head: string | null; draft: boolean; labels: string[] | null; head_committed_at: string | null;
-  status_state: string | null;
+  status_state: string | null; needs_fix_at: string | null;
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
 
-const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at, status_state';
+const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at, status_state, needs_fix_at';
 
 export function supabaseEngineeringReads(db: SupabaseClient, workspace: string): EngineeringReads {
   return {
@@ -143,7 +143,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
         base: r.base, head: r.head, draft: r.draft, labels: r.labels ?? [], headCommittedAt: r.head_committed_at,
-        statusState: r.status_state,
+        statusState: r.status_state, needsFixAt: r.needs_fix_at,
       }));
     },
     async reviews(from, to, repos) {

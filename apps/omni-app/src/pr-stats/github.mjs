@@ -8,6 +8,9 @@
 // Every query asks for `rateLimit`, and none is sent unless the budget would still hold more than half
 // of its limit after it (`BudgetLow` otherwise): the collector never drives a budget below half.
 //
+// Each pull request's label events come in the same query (PRD 714 s4): `needs_fix_at` is when
+// `omni:needs-fix` was first added, whatever was removed or added after.
+//
 // The loop's status comment (PRD 714 s3) is read in a second, small query, and only for the pull
 // requests of a batch where a status can hold a run: open, Omni-man-signed and into `main`, `master` or
 // `develop`. A batch with none sends no second query.
@@ -25,6 +28,10 @@ const COMMITS_READ = 100;
 const LABELS_READ = 100;
 /** Reviews read per pull request, the first ones. */
 const REVIEWS_READ = 100;
+/** Label events read per pull request, the first ones, for when `omni:needs-fix` was first added (PRD 714 s4). */
+const LABEL_EVENTS_READ = 100;
+/** The label a stuck pull request carries, the kit's default: `omni:needs-fix`. */
+export const NEEDS_FIX_LABEL = parseConfig('kit: 1\n').labels.needsFix;
 /** Comments read per pull request for its status comment, the first ones: `/omni:pr` posts it early. */
 const COMMENTS_READ = 100;
 /** The branches a status comment is read on (PRD 714): the Engineering board's fixed set. */
@@ -109,7 +116,8 @@ const PULL_FIELDS = `number
   baseRefName headRefName isDraft body additions deletions
   labels(first: ${LABELS_READ}) { nodes { name } }
   commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
-  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }`;
+  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }
+  timelineItems(first: ${LABEL_EVENTS_READ}, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }`;
 
 /**
  * Several pull requests as the collector stores them, in one query: for each, its `pull_requests` row
@@ -193,12 +201,23 @@ function recordOf(pull, { workspaceId, fullName }) {
     draft: Boolean(pull.isDraft),
     labels: (pull.labels?.nodes ?? []).map((label) => label?.name).filter(Boolean),
     head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
+    needs_fix_at: firstNeedsFix(pull),
     commits: commits.totalCount,
     additions: pull.additions ?? 0,
     deletions: pull.deletions ?? 0,
     omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) }),
   };
   return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
+}
+
+/** When `omni:needs-fix` was first added to a pull request, of its label events; null when never. */
+function firstNeedsFix(pull) {
+  let first = null;
+  for (const event of pull.timelineItems?.nodes ?? []) {
+    if (event?.label?.name !== NEEDS_FIX_LABEL || !event.createdAt) continue;
+    if (!first || Date.parse(event.createdAt) < Date.parse(first)) first = event.createdAt;
+  }
+  return first;
 }
 
 /** When and by whom a pull request was merged or closed. */

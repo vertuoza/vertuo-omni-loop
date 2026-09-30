@@ -63,3 +63,8 @@
   .eng-meter { border: 1px solid CanvasText; }
   .eng-meter > span { background: Highlight; }
 }
+
+/* Loop health in the period (PRD 714 s4): one line, the rate of sub-PRs that got omni:needs-fix first. */
+.eng-health-rate { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+.eng-health-rate b { color: var(--ask-ink); }
+.eng-health-rate code { font-size: 0.9em; }

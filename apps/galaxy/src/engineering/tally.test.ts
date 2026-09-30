@@ -427,3 +427,50 @@ describe('Loop health, held runs (PRD 714 s3)', () => {
     expect(health(rows).rows.map((r) => [r.kind, r.number])).toEqual([['stale-claim', 31], ['stuck', 33], ['held', 32]]);
   });
 });
+
+describe('Loop health, the period rate (PRD 714 s4)', () => {
+  /** A sub-PR merged in the period, an hour after it opened on 24 September at 08:00. */
+  const sub = (over: Partial<PullRequestRow> = {}) => merged(1, { base: 'feat/loop-health', head: 'feat/loop-health--s4', omniSigned: true, ...over });
+  const before = '2026-09-24T08:30:00Z';
+  const at = '2026-09-24T09:00:00Z';
+  const after = '2026-09-24T09:30:00Z';
+  const rate = (rows: PullRequestRow[], tracked?: string[]) => board(read({ pullRequests: rows, ...(tracked ? { tracked } : {}) })).needsFixRate;
+
+  it('counts the merged sub-PRs that got omni:needs-fix at or before their merge, of every sub-PR merged in the period', () => {
+    const rows = [
+      sub({ needsFixAt: before }),
+      sub({ needsFixAt: at }),
+      sub({ needsFixAt: after }), // after merging: does not count
+      sub({ needsFixAt: null }), // never
+      sub(), // never read
+    ];
+    expect(rate(rows)).toEqual({ got: 2, of: 5, share: 40 });
+  });
+
+  it('leaves out what is not a sub-PR merged in the period', () => {
+    const rows = [
+      sub({ needsFixAt: before }),
+      sub({ needsFixAt: before, omniSigned: false }), // unsigned
+      sub({ needsFixAt: before, mergedAt: null, closedAt: null }), // open
+      sub({ needsFixAt: '2026-08-01T07:30:00Z', openedAt: '2026-08-01T07:00:00Z', mergedAt: '2026-08-01T08:00:00Z', closedAt: '2026-08-01T08:00:00Z' }), // before the period
+      merged(1, { omniSigned: true, needsFixAt: before }), // into main
+      sub({ needsFixAt: before, head: 'develop' }), // a promotion
+      sub({ needsFixAt: before, repo: 'acme/untracked' }), // untracked
+    ];
+    expect(rate(rows)).toEqual({ got: 1, of: 1, share: 100 });
+  });
+
+  it('rounds the percent to a whole number', () => {
+    expect(rate([sub({ needsFixAt: before }), sub(), sub()])).toEqual({ got: 1, of: 3, share: 33 });
+    expect(rate([sub({ needsFixAt: before }), sub({ needsFixAt: before }), sub()])).toEqual({ got: 2, of: 3, share: 67 });
+  });
+
+  it('has no share with no sub-PR merged in the period', () => {
+    expect(rate([])).toEqual({ got: 0, of: 0, share: null });
+  });
+
+  it('counts over one repository alone on its page', () => {
+    const rows = [sub({ repo: 'acme/gears', needsFixAt: before }), sub({ repo: 'acme/gears' }), sub({ repo: 'acme/widgets', needsFixAt: before })];
+    expect(rate(rows, ['acme/gears'])).toEqual({ got: 1, of: 2, share: 50 });
+  });
+});
