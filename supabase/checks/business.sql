@@ -25,7 +25,7 @@
 -- `voice` artifact, a version per change, and a `visual` or `bug` one refuses it.
 -- 20261025090000_business_to_check_answers.sql: the count to check holds a proposed answer claim too.
 --
--- PRD 839 (20261026090000_never_lines.sql): a `never` claim (a product's Never line) is picked `confirmed`
+-- PRD 839 (20261027090000_never_lines.sql): a `never` claim (a product's Never line) is picked `confirmed`
 -- or proposed as evidence with its receipt, up to 200 characters (longer is 22023), never without a
 -- product, suggested or answered; agents read and cite a confirmed one. business_for_repo_app(), the
 -- App's read, runs for the service role only and returns a tracked repository's confirmed claims (Never
