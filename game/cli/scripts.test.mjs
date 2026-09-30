@@ -30,6 +30,7 @@ beforeEach(async () => {
     sectors: [{ workspace_id: VERTUOZA, name: 'core', repos: ['vertuo-core'] }],
     teams: [{ workspace_id: VERTUOZA, name: 'beaver', home: 'core', label: 'BEAVER', color: '#d08a4a', motto: '', mascot: 'beaver', sort: 10, retired_at: null }],
     players: [{ workspace_id: VERTUOZA, user_id: 'u1', display_name: 'ALICE', team: 'beaver', team_since: null, hero: {}, github_id: 1, github_login: 'alice', created_at: 'c', updated_at: 'u' }],
+    repositories: [{ workspace_id: ACME, full_name: 'acme-gh/acme-rockets', tracked: true }, { workspace_id: ACME, full_name: 'acme-gh/old-rockets', tracked: false }],
     ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:12:charted', at: '2026-08-01T08:00:00+00:00', type: 'PLANET_CHARTED', planet: 12, region: null, contributor: null, team: null, data: {} }],
   };
   server = await serveFake(tables);
@@ -88,19 +89,20 @@ describe('the game scripts name their workspace', () => {
     expect(server.calls).toEqual([]);
   });
 
-  it('game:project reads the workspace\'s GitHub organisation and plan repository, and appends rows carrying its workspace', async () => {
+  it('game:project reads the workspace\'s tracked repositories, and appends rows carrying its workspace and each PRD\'s home', async () => {
     const run = await game('project', ['--workspace', 'acme']);
     expect(run.code, run.stderr).toBe(0);
-    expect(ghCalls()[0]).toMatch(/^issue list -R acme-gh\/acme-plan /);
+    expect(ghCalls()[0]).toMatch(/^issue list -R acme-gh\/acme-rockets /);
+    expect(ghCalls().join('\n')).not.toMatch(/old-rockets|acme-plan/); // PRD 728: an untracked repository is not read
     const reads = server.calls.filter((c) => c.method === 'GET' && c.table !== 'workspaces');
-    expect(reads.map((c) => c.table).sort()).toEqual(['players', 'sectors', 'teams']);
+    expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
     const append = server.calls.find((c) => c.method === 'POST');
     expect(append.table).toBe('ledger_events');
     expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
     expect(append.body.map((r) => r.workspace_id)).toEqual(append.body.map(() => ACME));
-    // Vertuoza's planet:12:charted does not hide Acme's: the id is unique per workspace.
-    expect(tables.ledger_events.filter((r) => r.id === 'planet:12:charted').map((r) => r.workspace_id)).toEqual([VERTUOZA, ACME]);
+    // Acme's PRD 12 is named by its home; Vertuoza's old planet:12:charted stays as it was.
+    expect(tables.ledger_events.filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
   });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {
