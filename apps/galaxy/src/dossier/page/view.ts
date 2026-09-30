@@ -96,7 +96,7 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline',
+  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice',
 };
 
 /** The tabs that hold no artifact of the dossier's own. */

@@ -12,9 +12,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const DOSSIER_KINDS = ['spec', 'plan', 'before-after'] as const;
 export type DossierKind = (typeof DOSSIER_KINDS)[number];
 
-/** Every kind of version a dossier may hold (PRD 627): a PRD's three, a visual fix's rounds of
- * variations, and a bug fix's record. */
-export const ARTIFACT_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record'] as const;
+/** Every kind of version a dossier may hold (PRD 627): a PRD's three and, since PRD 822, its personas'
+ * voice (supabase/migrations/20261024090000_customer_voice.sql), a visual fix's rounds of variations,
+ * and a bug fix's record. */
+export const ARTIFACT_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record', 'voice'] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 /** What a dossier is of (PRD 627, supabase/migrations/20261011090000_fix_dossiers.sql): a PRD, a visual
@@ -24,7 +25,7 @@ export type WorkKind = (typeof WORK_KINDS)[number];
 
 /** The versions each kind of dossier takes: the database refuses any other pairing. */
 export const KIND_ARTIFACTS: Readonly<Record<WorkKind, readonly ArtifactKind[]>> = {
-  prd: DOSSIER_KINDS,
+  prd: [...DOSSIER_KINDS, 'voice'],
   visual: ['before-after', 'variations'],
   bug: ['bug-record'],
 };

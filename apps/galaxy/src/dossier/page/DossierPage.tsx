@@ -58,6 +58,7 @@ const EMPTY: Record<ArtifactKind, string> = {
   plan: 'The plan has no version yet.',
   variations: 'No round of variations yet.',
   'bug-record': 'The bug record has no version yet.',
+  voice: 'No voice yet: it appears once a brainstorm runs with personas',
 };
 
 type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase'>;
