@@ -166,6 +166,20 @@ export const ENTRIES = deepFreeze([
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
+    name: 'business',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni business show [--json]'],
+    label: 'omni business show',
+    summary: 'the business this repository serves, as agents read it',
+    detail:
+      "What agents in this repository know of the business it serves: the confirmed claims of the " +
+      "workspace's business, picked on the Settings › Business page, each with its id (such as " +
+      'rival#4) under the sentence they make. --json prints them for an agent. With no business, ' +
+      'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
+      'agents carry on without it.',
+  },
+  {
     name: 'version',
     kind: 'command',
     who: 'you',
