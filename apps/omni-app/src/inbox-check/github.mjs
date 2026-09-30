@@ -126,3 +126,16 @@ function firstLine(reason) {
   const text = String(reason ?? 'unknown error').trim();
   return text.split('\n')[0] || 'unknown error';
 }
+
+/**
+ * Adds the buttons to a completed check run (PRD 839: the canon gate's two actions). A PATCH with the
+ * actions alone leaves its conclusion and output as they are.
+ */
+export async function addCheckActions(octokit, { owner, repo, checkRunId, actions }) {
+  await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+    owner,
+    repo,
+    check_run_id: checkRunId,
+    actions,
+  });
+}

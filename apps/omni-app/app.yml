@@ -9,8 +9,8 @@
 # widened them once: `contents: write` (was `read`) to write its own `branches.retro` branch,
 # `issues: write` for its retro issues and `actions: read` for failed jobs' logs. The actions the app
 # acts on (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited,
-# closed; check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole
-# events.
+# closed; check_run: rerequested, and requested_action for the canon gate's two buttons, PRD 839) are
+# filtered in `src/webhook/` — a manifest subscribes to whole events.
 #
 # `url` and the webhook point at the app's Vercel project, `setup_url` at galaxy's; replace a host with
 # its project's production domain before registering if it differs.

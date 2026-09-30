@@ -21,6 +21,7 @@ import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.mjs';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 import { phase0Verdict } from 'vertuo-omni-plan/kit/lib/policy/phase-0.mjs';
 import { CANON_GATE, neutral } from '../canon/canon.mjs';
+import { canonMarker } from './canon-actions.mjs';
 
 /**
  * @typedef {{ number: number, state: string, labels: string[], isPullRequest: boolean } | null} IssueFacts
@@ -112,7 +113,7 @@ export async function evaluateInbox({ base, head, pr, repo, changes, commits, is
     prd,
     conclusion: gates.every((gate) => gate.ok) ? 'success' : 'failure',
     title: titleOf(gates),
-    summary: summaryOf({ prd, folder: ctx.layout.whereIs(prd).name, gates }),
+    summary: summaryOf({ prd, folder: ctx.layout.whereIs(prd).name, gates, marker: canonMarker({ prd, canon: facts }) }),
     gates,
     canon: facts,
   };
@@ -177,10 +178,11 @@ function issueGate({ prd, issue, label }) {
   return { name: 'PRD issue', ok: true, reason: `issue #${prd} is open and carries ${label}` };
 }
 
-function summaryOf({ prd, folder, gates }) {
+/** The gates line by line; a red canon's facts last, hidden, for its buttons (./canon-actions.mjs). */
+function summaryOf({ prd, folder, gates, marker }) {
   const lines = gates.flatMap((gate) => [
     `- ${gate.neutral ? 'neutral' : gate.ok ? 'ok' : 'not ok'} — ${gate.name}: ${gate.reason}`,
     ...(gate.details ?? []).map((detail) => `  - ${detail}`),
   ]);
-  return [`PRD ${prd} (\`${folder}\`)`, '', ...lines].join('\n');
+  return [`PRD ${prd} (\`${folder}\`)`, '', ...lines, ...(marker ? ['', marker] : [])].join('\n');
 }
