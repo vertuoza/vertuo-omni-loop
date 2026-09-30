@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drafted from evidence</title>
+<style>
+/* Layout: two app windows side by side per moment (today | after), stacking at phone width. Look taken from concept #746's vision tour. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#ffffff;
+ --red:#b3122f;--redSoft:#fbe8ec;--cyan:#0b6f86;--green:#15703f;--greenSoft:#e4f4ea;
+ --shadow:0 1px 0 rgba(23,21,61,.04),0 14px 36px -18px rgba(23,21,61,.35);
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--cyan:#6ff0ff;--green:#4ee08a;--greenSoft:#133b3c;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--cyan:#6ff0ff;--green:#4ee08a;--greenSoft:#133b3c;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:36px}
+header h1{font:900 30px/1.05 var(--display);letter-spacing:.04em;text-transform:uppercase;margin:0}
+header p{margin:6px 0 0;color:var(--muted);max-width:75ch}
+.moment{display:grid;gap:12px}
+.moment>h2{margin:0;font-size:20px;text-wrap:balance}
+.moment>p{margin:0;color:var(--muted);max-width:80ch}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.pair{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;min-width:0;align-content:start}
+.tag{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.top{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:2px solid var(--lineStrong);font-weight:700}
+.top .g{color:var(--muted)}.top .sp{flex:1}
+.bell{position:relative;width:30px;height:30px;border:1px solid var(--line);border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.bell b{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:var(--plasma);color:var(--onPlasma);font:700 11px/18px var(--mono);text-align:center;padding:0 4px}
+.main{background:var(--ground);padding:14px;display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
+.eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:700 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pill{font:700 11px/1 var(--mono);padding:4px 8px;border-radius:999px;border:1px solid currentColor;text-transform:none;letter-spacing:0}
+.pill.p{color:var(--plasma)}.pill.g{color:var(--green)}
+.headline{margin:0;font-size:20px;line-height:1.3;text-wrap:balance}
+.headline .f{color:var(--plasma);border-bottom:2px solid var(--plasma)}
+.headline .soft{color:var(--muted);font-weight:400}
+.scan{list-style:none;margin:0;padding:0;display:grid;gap:2px;font:13px/1.5 var(--mono);color:var(--muted)}
+.scan .k{display:inline-block;width:18px;color:var(--green)}
+.scan .skip .k{color:var(--muted)}
+.src{font-size:13px;color:var(--muted)}
+.link{color:var(--plasma);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;font:700 14px/1 var(--body);padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--plasma);color:var(--onPlasma);border-color:transparent;box-shadow:0 3px 0 0 color-mix(in srgb,var(--plasma) 55%,#000)}
+.rows{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+@media (max-width:480px){.row{grid-template-columns:minmax(0,1fr)}}
+.kind{font:700 11px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.val{font-weight:700}
+.meta{font-size:12px;color:var(--muted)}
+.rc{display:inline-flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-top:4px;font-size:12px;border:1px dashed var(--lineStrong);border-radius:6px;padding:3px 7px;color:var(--muted)}
+.rc b{font-family:var(--mono);font-weight:700;color:var(--cyan)}
+.rc q{font-style:italic}
+.verbs{display:flex;gap:6px}
+.v{font:700 12px/1 var(--body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap}
+.v.r[aria-pressed="true"]{background:var(--greenSoft);border-color:var(--green);color:var(--green)}
+.v.w[aria-pressed="true"]{background:var(--redSoft);border-color:var(--red);color:var(--red)}
+.row.wrong .val{text-decoration:line-through;color:var(--muted)}
+.dock{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--plasmaSoft);border:1px solid var(--plasma);border-radius:12px;padding:10px 14px}
+.dock span{flex:1;min-width:0;font-size:14px}
+.diff{font-size:17px;font-weight:700}
+.diff del{color:var(--red)}.diff ins{color:var(--green);text-decoration:none;border-bottom:2px solid var(--green)}
+.card.drift{border-color:var(--plasma);border-width:2px}
+.row.faded .val,.row.faded .kind{opacity:.5}
+.row.faded .meta{color:var(--red)}
+.empty{color:var(--muted);font-size:14px}
+.notes{display:grid;gap:4px;margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.menu{border:1px solid var(--lineStrong);border-radius:10px;background:var(--surface);padding:6px;display:grid;gap:2px;font-size:14px}
+.menu .gh{font:700 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 8px}
+.menu .it{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px}
+.menu .it.on{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.menu .it .n{margin-left:auto;font:700 11px/18px var(--mono);min-width:18px;text-align:center;border-radius:9px;background:var(--plasma);color:var(--onPlasma)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <h1>Drafted from evidence</h1>
+ <p>PRD 774 · from concept #746, area <code>evidence-draft</code>. Settings › Business today (PRD 748) beside what this PRD adds: a draft read from your repositories and web pages, every claim with a word-for-word receipt, and a weekly recheck that brings what changed to the bell.</p>
+</header>
+
+<section class="moment">
+ <h2>1 · Drafting the business</h2>
+ <p>Today a member taps every fact from memory. After, one click reads the tracked repositories and the pasted pages and proposes claims it can quote. Nothing is saved until someone says Right.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win"><div class="top"><span class="g">Settings</span><span class="g">›</span>Business<span class="sp"></span><span class="bell">◔</span></div>
+    <div class="main">
+     <div class="card"><div class="eyebrow">Business</div>
+      <h3 class="headline">We sell <span class="f">___</span> to <span class="f">___</span>-person <span class="f">___</span> in <span class="f">___</span>, up against <span class="f">___</span>.</h3>
+      <div class="btns"><span class="btn">ERP</span><span class="btn">CRM</span><span class="btn">marketplace</span><span class="btn">…</span><span class="btn">Other</span></div>
+      <div class="meta">size slider · trade chips · region toggles · rivals</div>
+      <div class="btns"><span class="btn">Skip — agents work without it</span></div>
+     </div>
+     <div class="card"><p class="empty">Every fact comes from a person's memory. Nothing says where it was read, and nothing notices when it stops being true.</p></div>
+    </div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="win"><div class="top"><span class="g">Settings</span><span class="g">›</span>Business<span class="sp"></span><span class="bell">◔</span></div>
+    <div class="main">
+     <div class="card"><div class="eyebrow">Draft from your repos <span class="pill p">Nothing saved yet</span></div>
+      <ul class="scan">
+       <li><span class="k">✓</span>vertuo-app · README.md</li>
+       <li><span class="k">✓</span>vertuo-app · docs/positioning.md</li>
+       <li><span class="k">✓</span>vertuo-app · 10 shipped PRDs</li>
+       <li><span class="k">✓</span>vertuoza.com/pricing</li>
+       <li class="skip"><span class="k">–</span>vertuoza.com/about · skipped (no answer in 10 s)</li>
+      </ul>
+      <h3 class="headline"><span class="soft">We think you sell</span> <span class="f">an ERP</span> to <span class="f">2–50</span>-person <span class="f">builders</span> in <span class="f">Belgium</span>, up against <span class="f">Procore</span> and <span class="f">Excel + WhatsApp</span>.</h3>
+      <div class="src">Sources used: <b>1</b> README · <b>1</b> doc · <b>10</b> PRDs · <b>1</b> web page · <span class="link">+ add a web page</span> (2 of 3 left)</div>
+     </div>
+     <div class="card"><div class="eyebrow">What we found</div>
+      <div class="rows">
+       <div class="row"><span class="kind">offering</span><div><div class="val">ERP</div><span class="rc"><b>vertuo-app/README.md</b><q>The ERP for construction companies</q></span></div><div class="verbs"><span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></div></div>
+       <div class="row"><span class="kind">size</span><div><div class="val">2–50</div><span class="rc"><b>vertuoza.com/pricing</b><q>Pro: up to 50 users. Starter for teams of 2.</q></span></div><div class="verbs"><span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></div></div>
+       <div class="row"><span class="kind">region</span><div><div class="val">Belgium</div><span class="rc"><b>vertuo-app/README.md</b><q>Peppol e-invoicing for Belgium, built in.</q></span></div><div class="verbs"><span class="v r" aria-pressed="true">✓ Right</span><span class="v w">✗ Wrong</span></div></div>
+       <div class="row"><span class="kind">rival</span><div><div class="val">Procore</div><span class="rc"><b>docs/positioning.md</b><q>Procore is too heavy for a 10-person firm.</q></span></div><div class="verbs"><span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></div></div>
+       <div class="row wrong"><span class="kind">rival</span><div><div class="val">SAP</div><span class="rc"><b>PRD #288 · shipped</b><q>unlike SAP, nobody needs a consultant</q></span></div><div class="verbs"><span class="v r">✓ Right</span><span class="v w" aria-pressed="true">✗ Wrong</span></div></div>
+      </div>
+     </div>
+     <div class="dock"><span>Rows you leave alone are confirmed with “That’s us”. SAP stays rejected and is never proposed again.</span><span class="btn primary">✓ That’s us</span></div>
+    </div></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>2 · When little is quotable</h2>
+ <p>Today there is no draft, so there is no thin state. After, a draft that finds fewer than two quotable claims says so and falls back to picking. It is never an error.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win"><div class="main"><div class="card"><p class="empty">No draft exists. The pick screen is the only way in.</p></div></div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="win"><div class="main">
+    <div class="card"><div class="eyebrow">Draft from your repos <span class="pill p">1 found</span></div>
+     <h3 class="headline">We found only 1 thing.</h3>
+     <div class="src">Your READMEs say what the code does, not who buys it. A pricing or home page usually says more: <span class="link">+ add a web page</span></div>
+     <div class="rows"><div class="row"><span class="kind">region</span><div><div class="val">Belgium</div><span class="rc"><b>api/README.md</b><q>Belgian VAT rules only</q></span></div><div class="verbs"><span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></div></div></div>
+     <div class="meta">The pick controls follow, as today. With nothing quotable, or no model key: “Nothing we could quote — pick instead”.</div>
+    </div></div></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>3 · Monday, one minute</h2>
+ <p>Today a claim stays as it was typed until someone notices. After, a Sunday-night recheck reads the same sources again. Every member's bell then shows one group, and the page puts what changed on top, one tap each.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win"><div class="top"><span class="g">Settings</span><span class="g">›</span>Business<span class="sp"></span><span class="bell">◔</span></div>
+    <div class="main">
+     <div class="card"><div class="eyebrow">Business <span class="pill g">Confirmed</span></div>
+      <h3 class="headline">We sell <span class="f">an ERP</span> to <span class="f">2–50</span>-person <span class="f">builders</span> in <span class="f">Belgium</span>, up against <span class="f">Procore</span>.</h3></div>
+     <div class="card"><div class="rows">
+      <div class="row"><span class="kind">region</span><div><div class="val">Belgium</div><div class="meta">you picked · cited 3×</div></div><div class="verbs"><span class="v r">✓</span><span class="v w">✗</span></div></div>
+      <div class="row"><span class="kind">rival</span><div><div class="val">Procore</div><div class="meta">suggested · cited 1×</div></div><div class="verbs"><span class="v r">✓</span><span class="v w">✗</span></div></div>
+     </div></div>
+     <div class="card"><p class="empty">The fr-FR locale shipped on Friday. The page still says Belgium, and agents keep saying Belgium.</p></div>
+    </div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="menu" aria-label="Bell"><div class="gh">Waiting for you</div><div class="it on">Business · 2 to check<span class="n">2</span></div><div class="it">PRD 757 · 1 question</div></div>
+   <div class="win"><div class="top"><span class="g">Settings</span><span class="g">›</span>Business<span class="sp"></span><span class="bell">◔<b>2</b></span></div>
+    <div class="main">
+     <div class="card"><div class="eyebrow">Business <span class="pill g">Confirmed</span><span class="pill p">2 to check</span></div>
+      <h3 class="headline">We sell <span class="f">an ERP</span> to <span class="f">2–50</span>-person <span class="f">builders</span> in <span class="f">Belgium</span>, up against <span class="f">Procore</span>.</h3></div>
+     <div class="card drift"><div class="eyebrow">region · new evidence · Sun</div>
+      <div class="diff">Region: Belgium <span class="meta">→</span> <ins>Belgium + France</ins></div>
+      <div><span class="rc"><b>fr-FR PR #731 · vertuo-app</b><q>Add fr-FR locale, French SIRET and TVA numbers on invoices.</q></span></div>
+      <div class="verbs"><span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></div></div>
+     <div class="card"><div class="rows">
+      <div class="row faded"><span class="kind">rival</span><div><div class="val">Procore</div><div class="meta">not seen since 12 Aug · docs/positioning.md no longer says it</div></div><div class="verbs"><span class="v r">✓ Still true</span><span class="v w">✗ Wrong</span></div></div>
+     </div></div>
+     <div class="meta">An offering that changes shows as <span class="diff" style="font-size:14px"><del>ERP</del> → <ins>CRM</ins></span>. Until someone answers, the old claim reaches agents marked <code>contradicted</code>.</div>
+    </div></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>What stays the same</h2>
+ <ul class="notes">
+  <li>Picking, Skip, suggested rivals and products work as PRD 748 made them.</li>
+  <li>Agents read only confirmed claims, plus contradicted ones marked as such. A proposed or rejected claim never leaves the app.</li>
+  <li><code>omni business show --json</code> keeps its shape. Each claim gains one field, <code>state</code>.</li>
+  <li>An empty workspace stays empty until someone clicks. Nothing is seeded, and no rival list exists in the code.</li>
+  <li><code>/omni:invade</code> drafts nothing. Its hand-off only points at Settings › Business › Draft from my repos.</li>
+ </ul>
+</section>
+</div>
+</body>
+</html>
