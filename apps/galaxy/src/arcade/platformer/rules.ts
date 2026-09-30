@@ -30,13 +30,28 @@ export interface Run {
   time: number;
 }
 
+/** The world's stages, in the order they are played: its last flag clears the world. */
+export const WORLD = Object.freeze(['1-1', '1-2', '1-3'] as const);
+
+/** The stage played after `stage`; none after the last. */
+export function nextStage(stage: string): string | null {
+  const i = WORLD.indexOf(stage as (typeof WORLD)[number]);
+  return i >= 0 && i < WORLD.length - 1 ? WORLD[i + 1] : null;
+}
+
 /**
  * What an event leads to: play goes on, a life is lost and the stage starts again, the game is
- * over, or the stage is cleared.
+ * over, the stage is cleared, or the last stage is cleared and with it the world.
  */
-export type Outcome = 'play' | 'life' | 'over' | 'clear';
+export type Outcome = 'play' | 'life' | 'over' | 'clear' | 'world';
 
-export const newRun = (): Run => ({ stage: '1-1', score: 0, coins: 0, lives: LIVES, time: STAGE_SECONDS });
+export const newRun = (): Run => ({ stage: WORLD[0], score: 0, coins: 0, lives: LIVES, time: STAGE_SECONDS });
+
+/** The run on the next stage, once its flag is cleared: the score, the coins and the lives kept, a full clock. */
+export function nextRun(run: Run): Run {
+  const stage = nextStage(run.stage);
+  return stage ? { ...run, stage, time: STAGE_SECONDS } : run;
+}
 
 const loseLife = (run: Run): { run: Run; outcome: Outcome } => {
   const lives = run.lives - 1;
@@ -51,7 +66,7 @@ export function hearRun(run: Run, e: PlatformerEvent): { run: Run; outcome: Outc
     case 'hurt':
     case 'pit': return loseLife(run);
     case 'second': return run.time > 1 ? { run: { ...run, time: run.time - 1 }, outcome: 'play' } : loseLife(run);
-    case 'flag': return { run: { ...run, score: run.score + SCORE.perSecond * run.time }, outcome: 'clear' };
+    case 'flag': return { run: { ...run, score: run.score + SCORE.perSecond * run.time }, outcome: nextStage(run.stage) ? 'clear' : 'world' };
   }
 }
 

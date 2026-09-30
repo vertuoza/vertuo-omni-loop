@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { longestPit } from './rules';
+import { longestPit, WORLD } from './rules';
 import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
 
 // Super Omni World's stages as data (PRD 817): each one a text map, checked here so a stage that
@@ -12,8 +12,9 @@ const FLOOR = '##########';
 const good = (over: Record<number, string> = {}) => map('..........', { 15: '.S......F.', 16: FLOOR, 17: FLOOR, ...over });
 
 describe('every stage', () => {
-  it('starts with 1-1, in the grass palette', () => {
-    expect(STAGES.map((s) => [s.id, s.palette])[0]).toEqual(['1-1', 'grass']);
+  it('is the world\'s three stages, in the order they are played, each in its own palette', () => {
+    expect(STAGES.map((s) => [s.id, s.palette])).toEqual([['1-1', 'grass'], ['1-2', 'underground'], ['1-3', 'castle']]);
+    expect(STAGES.map((s) => s.id)).toEqual([...WORLD]);
   });
 
   it.each(STAGES.map((s) => [s.id, s] as const))('%s passes the stage checks', (_, stage) => {
@@ -27,7 +28,7 @@ describe('every stage', () => {
     expect(new Set(stage.widths)).toEqual(new Set([stage.cols]));
     expect(stage.cols).toBeLessThanOrEqual(MAX_COLS);
     const [start] = stage.starts;
-    expect(stage.tiles[start.row + 1][start.col]).toBe('ground');
+    expect(SOLID.has(stage.tiles[start.row + 1][start.col])).toBe(true);
   });
 
   it.each(STAGES.map((s) => [s.id, s] as const))('%s has pits, none wider than a run-jump', (_, stage) => {
@@ -45,6 +46,28 @@ describe('every stage', () => {
     expect(s.coins.length).toBeGreaterThanOrEqual(10);
     expect(s.enemies.length).toBeGreaterThanOrEqual(5);
     for (const e of s.enemies) expect(SOLID.has(s.tiles[e.row + 1][e.col]), `blob at column ${e.col + 1}`).toBe(true);
+  });
+
+  it.each(STAGES.map((s) => [s.id, s] as const))('%s has coins to take and blobs to stomp, every blob standing on something solid', (_, stage) => {
+    expect(stage.coins.length).toBeGreaterThanOrEqual(10);
+    expect(stage.enemies.length).toBeGreaterThanOrEqual(5);
+    for (const e of stage.enemies) expect(SOLID.has(stage.tiles[e.row + 1][e.col]), `blob at column ${e.col + 1}`).toBe(true);
+  });
+
+  it('1-2 is underground: a brick ceiling over ground, with pipes and ? blocks', () => {
+    const s = STAGES[1];
+    expect(s.tiles[0].filter((t) => t === 'brick').length).toBeGreaterThan(s.cols / 2);
+    const tiles = new Set(s.tiles.flat());
+    for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
+  });
+
+  it('1-3 is a castle: stone underfoot and overhead, and no grass ground', () => {
+    const s = STAGES[2];
+    expect(s.tiles[0].every((t) => t === 'stone')).toBe(true);
+    expect(s.tiles[s.rows - 1].filter((t) => t !== 'empty').every((t) => t === 'stone')).toBe(true);
+    const tiles = new Set(s.tiles.flat());
+    expect(tiles).toContain('block');
+    expect(tiles).not.toContain('ground');
   });
 });
 

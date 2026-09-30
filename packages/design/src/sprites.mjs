@@ -3,6 +3,8 @@
 // frames (`f` is 0 or 1): breathing, tentacles, a coin flip, a flicker, a stride.
 // Materials: see RAMPS and FLAT in forge.mjs; 'k' is an inner line.
 
+import { RAMPS } from './forge.mjs';
+
 const SUIT_STRIPES = (d, x, y, w = 7) => {
   d.rect(x, y, w, 1, '1').rect(x + 2, y + 2, w - 1, 1, '2').rect(x, y + 4, w, 1, '3').rect(x + 2, y + 6, w - 2, 1, '4');
 };
@@ -594,6 +596,15 @@ export const SPRITE_DEFS = Object.freeze({
   'tile-pipe-top-r': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'r', true); } },
   'tile-pipe-l': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'l', false); } },
   'tile-pipe-r': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'r', false); } },
+  'tile-stone': { w: 16, h: 16, outline: false, draw(d) { // castle stone: two dressed blocks, lit edges
+    d.rect(0, 0, 16, 16, 'A', 1);
+    for (const y of [0, 8]) {
+      const x = y ? 0 : 8;
+      d.rect(0, y, 16, 1, 'A', 0).rect(0, y + 7, 16, 1, 'A', 3);
+      d.rect(x, y, 1, 7, 'A', 0).rect((x + 15) % 16, y, 1, 7, 'A', 3);
+      d.pxs([[3, y + 3], [11, y + 4], [6, y + 5]], 'A', 2);
+    }
+  } },
 });
 
 // The tiles' shared parts: the soil under the grass, a block's riveted frame, a pipe's half.
@@ -619,16 +630,21 @@ function pipe(d, side, top) {
 /** Super Omni World's tiles, in the order its tileset lays them out (PRD 817). */
 export const TILES = Object.freeze([
   'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
-  'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r',
+  'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',
 ]);
 
 /**
  * Each stage's palette, as a tint over the tiles' materials: grass is the tiles as drawn, the first
- * stage's; a later stage's palette recolours the grass (`g`), the soil (`B`), the bricks (`O`, `D`)
- * and the blocks (`Y`).
+ * stage's; a later stage's palette recolours the grass and the pipes (`g`), the soil (`B`), the
+ * bricks (`O`, and `D`, their joints and the blocks' frames) and castle stone (`A`), from the forge's
+ * own ramps. The ? block's gold (`Y`) is never recoloured: it reads the same in every stage.
  */
 export const STAGE_PALETTES = Object.freeze({
   grass: Object.freeze({}),
+  // 1-2: cave moss and teal pipes over blue-grey rock, bricks in cold slate.
+  underground: Object.freeze({ g: RAMPS.K, B: RAMPS.n, O: RAMPS.J, D: RAMPS.H, A: RAMPS.J }),
+  // 1-3: steel-grey battlements over dark stone, bricks in castle red, stone in the castle's grey.
+  castle: Object.freeze({ g: RAMPS.L, B: RAMPS.H, O: RAMPS.R, D: RAMPS.H }),
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the
