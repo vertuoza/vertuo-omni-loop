@@ -4,7 +4,7 @@
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
 -- Any member of a workspace opens its business, picks, suggests, confirms and rejects claims, adds and
 -- renames products, points a repository at a product, and cites claims, all through the functions of
--- 20261017090000_business_store.sql; a member of another workspace and anyone signed out are refused
+-- 20261019090000_business_store.sql; a member of another workspace and anyone signed out are refused
 -- (42501), and a bad kind or value is refused (22023). Opening the business points every repository
 -- at its first product. business_for_repo() returns confirmed claims only: the region from the
 -- business and the rest from the repository's product, the business's claims only when the repository

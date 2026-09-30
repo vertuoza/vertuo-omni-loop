@@ -1,6 +1,6 @@
 // What agents read of a workspace's business (PRD 748, decision 14): the shape `GET /api/business`
 // answers and `omni business show --json` prints, which the later MCP link returns unchanged. The
-// database builds it (business_for_repo(), supabase/migrations/20261017090000_business_store.sql),
+// database builds it (business_for_repo(), supabase/migrations/20261019090000_business_store.sql),
 // run as the caller; this module only calls it and checks what came back.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';

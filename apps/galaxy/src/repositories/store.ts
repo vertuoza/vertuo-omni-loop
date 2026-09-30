@@ -4,7 +4,7 @@ import { rowOf, type RepositoryRow, type StoredRepository } from './model';
 // supabase/migrations/20261008090000_repositories.sql, add_repository() and set_repository_tracked(),
 // called as the signed-in person: each answers the public.repositories row it saved, or refuses. In
 // the demo, the same rules kept in memory, so the page can be tried with no database. PRD 748 s4 adds
-// a third, repository_set_product() of supabase/migrations/20261017090000_business_store.sql, any
+// a third, repository_set_product() of supabase/migrations/20261019090000_business_store.sql, any
 // member's: it points a repository at a product of the business, whose claims its agents then read.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
