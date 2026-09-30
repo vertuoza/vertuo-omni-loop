@@ -182,6 +182,20 @@ export const ENTRIES = deepFreeze([
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
+    name: 'proof',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni proof push <n> <dir>'],
+    summary: "sends a proof run to a PRD's Proof tab",
+    detail:
+      "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
+      "tab's link. It reads " +
+      'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
+      '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
+      'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
+      'omni dossier link does.',
+  },
+  {
     name: 'business',
     kind: 'command',
     who: 'you',
@@ -964,6 +978,28 @@ export const ENTRIES = deepFreeze([
     example: {
       type: '/omni:help yolo',
       result: 'what /omni:yolo does, when to use it and an example',
+    },
+  },
+  {
+    name: 'prove',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:prove <n>'],
+    label: '/omni:prove <n>',
+    summary: "film a ready PRD's acceptance criteria as proof",
+    detail:
+      "Records PRD n's acceptance criteria as evidence once its feature PR is ready: one headless " +
+      "Playwright clip per criterion against the PR's preview, at most 10, each capped at " +
+      'proof.maxSeconds, with a pass or fail verdict; a criterion no browser can show is marked ' +
+      "unfilmable, with why. It sends the run to the PRD's Proof tab with omni proof push, then " +
+      'posts one unsigned comment on the feature PR: a line per criterion and the link. It stops ' +
+      'with one line when proof.url is not set, and never blocks: the PR keeps its state, labels ' +
+      "and checks. /omni:yolo runs it after ready when the spec says proof: video.",
+    group: 'everyday',
+    when: "Use it when a PRD's feature PR is ready and the reviewer should see each criterion work before merging.",
+    example: {
+      type: '/omni:prove 798',
+      result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
     },
   },
 

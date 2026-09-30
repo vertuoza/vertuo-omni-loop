@@ -282,6 +282,10 @@ it('refuses a before-after page over the configured cap', () => {
     ),
   ).toMatch(/before-after\.html/);
 });
+it('accepts proof: video and refuses proof: yes, naming the field (PRD 798)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ proof: 'video' }) })).toBe('');
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ proof: 'yes' }) })).toMatch(/0042-a\/spec\.md: proof: /);
+});
 it('still refuses status, branch, value and priority by name', () => {
   for (const field of ['status', 'branch', 'value', 'priority']) {
     expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ [field]: 'x' }) })).toMatch(

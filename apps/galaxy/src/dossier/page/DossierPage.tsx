@@ -13,6 +13,7 @@ import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
+import { ProofPane } from './ProofPane';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
 import { isArtifactTab, TAB_LABELS, type DossierView } from './view';
@@ -42,6 +43,7 @@ import { VoicePane } from './VoicePane';
 // and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
 // PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
 // State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
+// PRD 798, s4: a PRD with a proof run has a Proof tab (ProofPane.tsx): the run, then a row per criterion.
 // PRD 652: "opened by" draws the opener's face (PersonChip) before their name; the words are unchanged.
 // PRD 822: a PRD's User voice tab, after Plan, draws the shown version of its voice.json (VoicePane.tsx)
 // under its version picker; with none, it says so in the spec's words.
@@ -89,6 +91,7 @@ const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactN
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
   timeline: ({ view }) => <TimelinePane fix={view.fix} />,
+  proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
   voice: VoiceTab,
 };
 
