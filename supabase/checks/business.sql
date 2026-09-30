@@ -25,6 +25,13 @@
 -- `voice` artifact, a version per change, and a `visual` or `bug` one refuses it.
 -- 20261025090000_business_to_check_answers.sql: the count to check holds a proposed answer claim too.
 --
+-- PRD 839 (20261026090000_never_lines.sql): a `never` claim (a product's Never line) is picked `confirmed`
+-- or proposed as evidence with its receipt, up to 200 characters (longer is 22023), never without a
+-- product, suggested or answered; agents read and cite a confirmed one. business_for_repo_app(), the
+-- App's read, runs for the service role only and returns a tracked repository's confirmed claims (Never
+-- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
+-- workspace tracks.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -778,6 +785,126 @@ begin
     raise exception 'FAIL: a refused voice push made a fix dossier';
   end if;
 end $$;
+reset role;
+
+-- ── PRD 839: Never lines, a product's, picked confirmed or proposed as evidence ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
+do $$
+declare
+  product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  c public.claims;
+  got jsonb;
+  stmt text;
+  long_line text := 'Build for groups of companies' || repeat('.', 171);
+begin
+  c := public.claim_pick(pg_temp.ws('vertuoza'), product, 'never', ' Build for groups of companies ', 'pick');
+  if c.kind <> 'never' or c.value <> 'Build for groups of companies' or c.source <> 'pick' or c.state <> 'confirmed'
+     or c.product_id is distinct from product then
+    raise exception 'FAIL: a picked Never line is not confirmed on the product: %', c;
+  end if;
+  insert into made values ('never-groups', c.id);
+  c := public.claim_pick(pg_temp.ws('vertuoza'), product, 'never', long_line, 'pick');
+  if char_length(c.value) <> 200 or c.state <> 'confirmed' then
+    raise exception 'FAIL: a Never line of 200 characters was not kept: %', c;
+  end if;
+
+  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), product, 'never', 'Sell to accountants',
+           '[{"kind": "link", "where": "https://vertuoza.com/about", "quote": "we don''t sell to accountants"}]');
+  select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
+  if got->>'outcome' <> 'added' or c.kind <> 'never' or c.source <> 'evidence' or c.state <> 'proposed'
+     or not exists (select 1 from public.claim_receipts x where x.claim_id = c.id and x.quote = 'we don''t sell to accountants') then
+    raise exception 'FAIL: a Never line from evidence is not proposed with its receipt: % %', got, c;
+  end if;
+  insert into made values ('never-proposed', c.id);
+  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), product, 'never', 'Build a mobile game',
+           '[{"kind": "file", "where": "README.md", "quote": "not a game"}]');
+  select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
+  c := public.claim_set_state(pg_temp.ws('vertuoza'), c.id, 'rejected');
+  insert into made values ('never-rejected', c.id);
+
+  foreach stmt in array array[
+    format('select public.claim_pick(%L, %L, ''never'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, long_line || 'x'),
+    format('select public.claim_pick(%L, %L, ''never'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, E'two\nlines'),
+    format('select public.claim_pick(%L, null, ''never'', ''No product'', ''pick'')', pg_temp.ws('vertuoza')),
+    format('select public.claim_pick(%L, %L, ''never'', ''Suggested'', ''suggestion'')', pg_temp.ws('vertuoza'), product),
+    format('select public.claim_propose_evidence(%L, %L, ''never'', %L, ''[{"kind": "file", "where": "a", "quote": "b"}]'')',
+           pg_temp.ws('vertuoza'), product, long_line || 'x'),
+    format('select public.claim_pick(%L, %L, ''rival'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, repeat('x', 81)),
+    'select public.claim_answer(''vertuoza/vertuo-apps'', ''never'', ''Answered'', ''confirmed'', ''r'')'
+  ] loop perform pg_temp.invalid(stmt); end loop;
+  if exists (select 1 from public.claims x where x.value in ('No product', 'Suggested', 'Answered') or char_length(x.value) > 200) then
+    raise exception 'FAIL: a refused Never line was stored';
+  end if;
+
+  -- Agents read and cite a confirmed Never line like any claim, never a proposed or rejected one.
+  got := public.business_for_repo('vertuoza/vertuo-apps');
+  if not exists (select 1 from jsonb_array_elements(got->'claims') x
+                  where x->>'kind' = 'never' and x->>'value' = 'Build for groups of companies' and x->>'state' = 'confirmed') then
+    raise exception 'FAIL: agents do not read the confirmed Never line: %', got->'claims';
+  end if;
+  if exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'value' in ('Sell to accountants', 'Build a mobile game')) then
+    raise exception 'FAIL: agents read a proposed or rejected Never line';
+  end if;
+  select 'never#' || x.seq into stmt from public.claims x where x.id = pg_temp.made('never-groups');
+  if public.claims_cite('vertuoza/vertuo-apps', array[stmt], 'brainstorm', 'PRD 839') <> 1 then
+    raise exception 'FAIL: a Never line could not be cited';
+  end if;
+
+  perform public.persona_add(pg_temp.ws('vertuoza'), product, 'Marc', 'skeptical', 'plumber',
+    '{"v": 1, "skin": 0, "hair": 0, "hairColor": 0, "outfit": 0, "accessory": 0}', 'Runs five plumbers', 'The quotes');
+end $$;
+reset role;
+
+-- An untracked repository: tracked by nobody, or switched off.
+update public.repositories set tracked = false where full_name = 'vertuoza/later-one';
+
+-- ── PRD 839: the App's read, with the service role, by repository ──
+set local role service_role;
+do $$
+declare
+  got jsonb;
+  repo text;
+begin
+  got := public.business_for_repo_app('Vertuoza/Vertuo-Apps');
+  if got->>'state' <> 'ok' or got->'business'->>'name' is null or got->>'updatedAt' is null then
+    raise exception 'FAIL: the App''s read of vertuo-apps: %', got;
+  end if;
+  if exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'state' <> 'confirmed') then
+    raise exception 'FAIL: the App read a claim that is not confirmed: %', got->'claims';
+  end if;
+  if (select string_agg(x.kind || '#' || x.seq, ',' order by x.seq) from public.claims x
+       where x.workspace_id = pg_temp.ws('vertuoza') and x.state = 'confirmed'
+         and (x.product_id is null or x.product_id = (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps')))
+     <> (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'claims') x) then
+    raise exception 'FAIL: the App does not read exactly the region''s and the product''s confirmed claims: %', got->'claims';
+  end if;
+  if not exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'kind' = 'never' and x->>'value' = 'Build for groups of companies') then
+    raise exception 'FAIL: the App does not read the confirmed Never line';
+  end if;
+  if exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'value' in ('Sell to accountants', 'Build a mobile game')) then
+    raise exception 'FAIL: the App read a proposed or rejected Never line';
+  end if;
+  if got->'personas' <> '[{"name": "Marc", "stance": "skeptical", "trade": "plumber", "who": "Runs five plumbers", "usage": "The quotes"}]'::jsonb then
+    raise exception 'FAIL: the App does not read the product''s personas: %', got->'personas';
+  end if;
+
+  foreach repo in array array['vertuoza/nowhere', 'vertuoza/later-one', 'acme-biz/web'] loop
+    got := public.business_for_repo_app(repo);
+    if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "updatedAt": null}'::jsonb then
+      raise exception 'FAIL: the App read something for % (untracked, or no business): %', repo, got;
+    end if;
+  end loop;
+  perform pg_temp.invalid('select public.business_for_repo_app(''not a repository'')');
+end $$;
+reset role;
+
+set local role anon;
+select pg_temp.forbidden('select public.business_for_repo_app(''vertuoza/vertuo-apps'')', 'anon');
+reset role;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
+select pg_temp.forbidden('select public.business_for_repo_app(''vertuoza/vertuo-apps'')', 'a member');
 reset role;
 
 set local role authenticated;
