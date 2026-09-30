@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { JevStoreError, type JevDecisionSettings } from '../store';
-import { COMING, readDecision, saveDecisionFor } from './decision';
+import { readDecision, saveDecisionFor } from './decision';
 
 // Saving one decision's mode, threshold and floor (PRD 812 s2): as the signed-in person, so the
 // database's owner-only function decides; a malformed or coming decision is refused before it is sent;
@@ -28,9 +28,9 @@ describe('readDecision', () => {
     expect(readDecision({ ...ON, threshold: '0.654', floor: 0.3 })).toEqual({ ok: true, settings: { ...ON, threshold: 0.65 } });
   });
 
-  it('refuses an unknown decision, a coming one, a bad mode and numbers outside 0 to 1', () => {
+  it('refuses an unknown decision, a bad mode and numbers outside 0 to 1', () => {
     expect(readDecision({ ...ON, decision: 'nope' })).toMatchObject({ ok: false });
-    expect(readDecision({ ...ON, decision: 'bug-risk' })).toEqual({ ok: false, message: COMING });
+    expect(readDecision({ ...ON, decision: 'bug-risk' })).toEqual({ ok: true, settings: { ...ON, decision: 'bug-risk' } });
     expect(readDecision({ ...ON, mode: 'maybe' })).toMatchObject({ ok: false });
     expect(readDecision({ ...ON, threshold: 1.2 })).toMatchObject({ ok: false });
     expect(readDecision({ ...ON, floor: -0.1 })).toMatchObject({ ok: false });
