@@ -30,7 +30,7 @@ describe('readDecision', () => {
 
   it('refuses an unknown decision, a coming one, a bad mode and numbers outside 0 to 1', () => {
     expect(readDecision({ ...ON, decision: 'nope' })).toMatchObject({ ok: false });
-    expect(readDecision({ ...ON, decision: 'outbox-risk' })).toEqual({ ok: false, message: COMING });
+    expect(readDecision({ ...ON, decision: 'bug-risk' })).toEqual({ ok: false, message: COMING });
     expect(readDecision({ ...ON, mode: 'maybe' })).toMatchObject({ ok: false });
     expect(readDecision({ ...ON, threshold: 1.2 })).toMatchObject({ ok: false });
     expect(readDecision({ ...ON, floor: -0.1 })).toMatchObject({ ok: false });

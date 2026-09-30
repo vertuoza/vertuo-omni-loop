@@ -14901,9 +14901,9 @@ function formatOutboxPrComment({
   return lines.join("\n");
 }
 function omniPageLink(prd2, ctx) {
-  const { answers: answers2, ask: ask4, repo } = ctx.config;
-  if (!answers2?.enabled || !ask4?.url || !repo?.slug || !Number.isInteger(prd2) || prd2 < 1) return null;
-  return `${ask4.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd2}`;
+  const { answers: answers2, ask: ask5, repo } = ctx.config;
+  if (!answers2?.enabled || !ask5?.url || !repo?.slug || !Number.isInteger(prd2) || prd2 < 1) return null;
+  return `${ask5.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd2}`;
 }
 function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ new Date()).toISOString() }, client) {
   const items = openItemsForPrd(prd2, { ctx });
@@ -15580,7 +15580,11 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     readBusiness: (repo) => call("GET", `/api/business?${new URLSearchParams({ repo })}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
-    citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } })
+    citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } }),
+    /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
+     * own answer (`old`); the ref is sent only when there is one.
+     * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
+    decide: ({ decision, repo, state, old, ref = null }) => call("POST", `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...ref ? { ref } : {} } })
   };
 }
 
@@ -16912,30 +16916,30 @@ var FAILED_RUN = /* @__PURE__ */ new Set(["FAILURE", "TIMED_OUT", "CANCELLED", "
 var FAILED_STATUS = /* @__PURE__ */ new Set(["FAILURE", "ERROR"]);
 var CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
 function failedContexts(contexts) {
-  const failed = [];
+  const failed2 = [];
   for (const node of contexts) {
     if (node?.__typename === "StatusContext") {
-      if (FAILED_STATUS.has(node.state)) failed.push({ name: node.context, url: node.targetUrl ?? null });
+      if (FAILED_STATUS.has(node.state)) failed2.push({ name: node.context, url: node.targetUrl ?? null });
     } else if (FAILED_RUN.has(node?.conclusion)) {
-      failed.push({ name: node.name, url: node.detailsUrl ?? null });
+      failed2.push({ name: node.name, url: node.detailsUrl ?? null });
     }
   }
-  return failed;
+  return failed2;
 }
 function rollupOf(pr) {
   return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
 }
-function isFixable(state, failed, gateContexts) {
+function isFixable(state, failed2, gateContexts) {
   if (state !== "red") return false;
   const gates = new Set(gateContexts);
-  return failed.length === 0 || failed.some((run) => !gates.has(run.name));
+  return failed2.length === 0 || failed2.some((run) => !gates.has(run.name));
 }
 function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
   const rollup = rollupOf(pr);
   const state = rollup ? ROLLUP[rollup.state] ?? "running" : "none";
-  const failed = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
-  const fixable = isFixable(state, failed, gateContexts);
-  return { state, failed, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
+  const failed2 = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const fixable = isFixable(state, failed2, gateContexts);
+  return { state, failed: failed2, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
 }
 function readComment(node) {
   return {
@@ -19505,6 +19509,77 @@ var credits = {
   }
 };
 
+// kit/bin/commands/decide.mjs
+init_define_OMNI_BUNDLE();
+var USAGE9 = "usage: omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]";
+var DECIDE_MS = 1e4;
+var UNSET = "unset";
+var isUnit = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+function readReply(reply) {
+  if (reply?.decidedBy === "old") return { reason: "the decision is Off or in Shadow, or Jev did not decide" };
+  if (reply?.decidedBy === "jev" && typeof reply.answer === "string" && reply.answer !== "" && isUnit(reply.confidence)) {
+    return { answer: reply.answer, confidence: reply.confidence };
+  }
+  return { reason: "the reply is not a decision" };
+}
+function failed(error) {
+  if (!(error instanceof AskCallError)) throw error;
+  if (error.status === null) return "the Omni page could not be reached";
+  if (error.status === 401) return "the sign-in was refused (omni signin)";
+  return `refused (${error.status})${error.reason ? `: ${error.reason}` : ""}`;
+}
+function stateOf(ctx, path) {
+  const text4 = readUserFile("decide", ctx, path);
+  try {
+    return JSON.parse(text4);
+  } catch {
+    throw usageError(`omni decide: ${path} is not JSON.`);
+  }
+}
+async function ask3({ ctx, decision, state, old, ref, tokens, home, fetch, callMs }) {
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni decide: no repository slug \u2014 set repo.slug in the config.");
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return { reason: "no Omni page is set here (ask.url)" };
+  const host = credentialsHost(askUrl2);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) return { reason: "no sign-in (omni signin)" };
+  const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch, callMs: callMs ?? DECIDE_MS });
+  try {
+    return readReply(await client.decide({ decision, repo, state, old, ref }));
+  } catch (error) {
+    return { reason: failed(error) };
+  }
+}
+var decide = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
+    const { positional, flags } = parseArgs("decide", args, { values: ["state-file", "old", "ref"], booleans: ["json"] });
+    const stateFile = flags["state-file"];
+    const old = flags.old;
+    if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE9);
+    const [decision] = positional;
+    const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
+    const ctx = loadContext(cwd, { exec });
+    const state = stateOf(ctx, stateFile);
+    const read2 = await ask3({ ctx, decision, state, old, ref, tokens, home, fetch, callMs });
+    const counted3 = read2.answer !== void 0;
+    if (flags.json) {
+      println(stdout, JSON.stringify({
+        decision,
+        answer: counted3 ? read2.answer : null,
+        confidence: counted3 ? read2.confidence : null,
+        decidedBy: counted3 ? "jev" : "old",
+        reason: counted3 ? null : read2.reason
+      }));
+    } else {
+      println(stdout, counted3 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
+    }
+    if (!counted3) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
+    return 0;
+  }
+};
+
 // kit/bin/commands/dossier.mjs
 init_define_OMNI_BUNDLE();
 
@@ -19608,7 +19683,7 @@ function readFixFolder(ctx, kind, issue, { issueTitle: issueTitle2 = null } = {}
 }
 
 // kit/bin/commands/dossier.mjs
-var USAGE9 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
+var USAGE10 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
@@ -19739,7 +19814,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
 }
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
-  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE9);
+  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE10);
   return flag;
 }
 var dossier = {
@@ -19750,9 +19825,9 @@ var dossier = {
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
     const numbered = ["push", "link"].includes(verb);
     const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
-    if (!runnable) throw usageError(USAGE9);
+    if (!runnable) throw usageError(USAGE10);
     const kind = kindOf2(flags.kind, numbered);
-    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE9);
+    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE10);
     const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -19841,7 +19916,7 @@ async function askModel({
     ...schema ? { response_format: { type: "json_schema", json_schema: { name: schema.name, strict: true, schema: schema.schema } } } : {},
     messages: conversation
   });
-  const request = (conversation) => ask3({ fetch, sleep, call, deadline, key, title, body: body(conversation) });
+  const request = (conversation) => ask4({ fetch, sleep, call, deadline, key, title, body: body(conversation) });
   const first = await request(messages);
   if (!first.ok) return failure(UNAVAILABLE, model, unavailable(first.status));
   const checked = runCheck(check2, parseJson(first.content));
@@ -19884,7 +19959,7 @@ function runCheck(check2, value) {
     return { errors: [`the reply could not be checked: ${error?.message ?? error}`], reply: null };
   }
 }
-async function ask3({ fetch, sleep, call, deadline, key, title, body }) {
+async function ask4({ fetch, sleep, call, deadline, key, title, body }) {
   let outcome = { ok: false, status: "timeout", retry: false };
   for (let attempt8 = 1; attempt8 <= call.attempts; attempt8 += 1) {
     const remaining = deadline - Date.now();
@@ -20856,8 +20931,8 @@ function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
       const kept = [];
       for (const entry of result.placed) {
         const trial = attempt8([...kept, entry.id]);
-        const failed = failures(trial);
-        if (failed.length > 0) dropped.set(entry.id, `the checks refused it: ${failed.join("; ")}`);
+        const failed2 = failures(trial);
+        if (failed2.length > 0) dropped.set(entry.id, `the checks refused it: ${failed2.join("; ")}`);
         else kept.push(entry.id);
       }
       result = attempt8(null);
@@ -20878,7 +20953,7 @@ function noEdits(edits) {
 }
 
 // kit/bin/commands/harvest.mjs
-var USAGE10 = "usage: omni harvest <prd> --pr <feature pull request>";
+var USAGE11 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   if (entry.kind === "stays-here") return "stays here";
@@ -20892,7 +20967,7 @@ function checkLine(name, violations) {
 var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
-    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE10);
+    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE11);
     const prd2 = positiveInt("harvest", "<prd>", positional[0]);
     const number = positiveInt("harvest", "--pr", flags.pr);
     if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
@@ -21211,6 +21286,14 @@ var ENTRIES = deepFreeze([
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
     detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+  },
+  {
+    name: "decide",
+    kind: "command",
+    who: "skills",
+    usage: ["omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]"],
+    summary: "asks the workspace's Jev decision, such as outbox-risk, after the agent's own call",
+    detail: "Asks TypeSafe's Jev, through the Omni page and the terminal's sign-in, one decision the workspace owner put On in Settings \u203A Jev, such as outbox-risk (is this decision hard to revert?). The agent makes its own call first and passes it with --old; the state file holds what the decision sends. It prints the answer and its confidence when Jev decided, and unset otherwise (the decision Off or in Shadow, no sign-in, a timeout, a refusal): then the agent keeps its own answer. --json prints who decided. It always exits 0, except on a usage error."
   },
   {
     name: "version",
@@ -22485,7 +22568,7 @@ async function askTerminal(question) {
     rl.close();
   }
 }
-async function resolveCommands(root, flags, { interactive, ask: ask4 }) {
+async function resolveCommands(root, flags, { interactive, ask: ask5 }) {
   const commands = detectCommands(root);
   for (const key of COMMAND_KEYS) {
     if (typeof flags[FLAGS[key]] === "string") commands[key] = flags[FLAGS[key]];
@@ -22493,7 +22576,7 @@ async function resolveCommands(root, flags, { interactive, ask: ask4 }) {
   if (interactive) {
     for (const key of COMMAND_KEYS) {
       if (commands[key] !== null) continue;
-      const answer = String(await ask4(`commands.${key}: ${QUESTIONS[key]} (empty for none): `) ?? "").trim();
+      const answer = String(await ask5(`commands.${key}: ${QUESTIONS[key]} (empty for none): `) ?? "").trim();
       commands[key] = answer || null;
     }
   }
@@ -22501,7 +22584,7 @@ async function resolveCommands(root, flags, { interactive, ask: ask4 }) {
 }
 var init = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask: ask4 = askTerminal, home: userHome, signIn }) {
+  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask: ask5 = askTerminal, home: userHome, signIn }) {
     const { positional, flags } = parseArgs("init", args, { values: Object.values(FLAGS), booleans: ["force"] });
     if (positional.length) throw usageError("usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]");
     const force = flags.force === true;
@@ -22520,7 +22603,7 @@ var init = {
     const branch = switchToInstallBranch(root, { exec });
     const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
     if (!keepConfig) {
-      const commands = await resolveCommands(root, flags, { interactive, ask: ask4 });
+      const commands = await resolveCommands(root, flags, { interactive, ask: ask5 });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
       const rendered = renderConfig({ ...repo, commands, lawsSource });
@@ -22794,7 +22877,7 @@ function renderOutboxItem({
   decisionPlain,
   introFun = null,
   punchlineFun = null,
-  decide,
+  decide: decide2,
   meanwhile,
   cost,
   gaps,
@@ -22843,7 +22926,7 @@ function renderOutboxItem({
     "",
     "## What I had to decide",
     "",
-    decide,
+    decide2,
     "",
     "## What I did meanwhile",
     "",
@@ -22924,7 +23007,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.mjs
 var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
-var USAGE11 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
+var USAGE12 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field3) {
   return external_exports.string().trim().min(1, `${field3} must not be empty`).superRefine((value, refinement) => {
@@ -23175,7 +23258,7 @@ var item = {
     const [sub, ...rest] = args;
     if (sub === "new") return runNew(rest, io);
     if (sub === "relay") return runRelay(rest, io);
-    throw usageError(USAGE11);
+    throw usageError(USAGE12);
   }
 };
 
@@ -23245,7 +23328,7 @@ function readGraph({ ctx }) {
 }
 
 // kit/bin/commands/kb.mjs
-var USAGE12 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
+var USAGE13 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -23368,7 +23451,7 @@ var kb = {
     if (sub === "show") return show(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
-    throw usageError(USAGE12);
+    throw usageError(USAGE13);
   }
 };
 
@@ -23544,7 +23627,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
 }
 
 // kit/bin/commands/phase0.mjs
-var USAGE13 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE14 = "usage: omni phase0 <prd> [--base <ref>]";
 function git3(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -23584,7 +23667,7 @@ function printVerdict(stdout, prd2, base, verdict) {
 var phase0 = {
   async run(args, { ctx, stdout, exec }) {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE13);
+    if (positional.length !== 1) throw usageError(USAGE14);
     const prd2 = positiveInt("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths(ctx, base, exec);
@@ -23786,7 +23869,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.mjs
-var USAGE14 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
+var USAGE15 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
@@ -23818,7 +23901,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE14);
+  if (positional.length !== 1) throw usageError(USAGE15);
   const prd2 = positiveInt("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -23838,9 +23921,9 @@ var plan = {
   async run(args, { ctx, stdout, exec, env }) {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
-    if (sub !== "check") throw usageError(USAGE14);
+    if (sub !== "check") throw usageError(USAGE15);
     const { positional } = parseArgs("plan check", rest);
-    if (positional.length !== 1) throw usageError(USAGE14);
+    if (positional.length !== 1) throw usageError(USAGE15);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
     const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
@@ -24159,7 +24242,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   const adopted = adoptedEntriesForPrd(prd2, { ctx });
   const plan2 = planReplies({ comments, items, adopted, markers: ctx.markers });
   const settled = [];
-  const failed = [];
+  const failed2 = [];
   for (const { number, item: item2, answer, judgement, adoptedEntry } of plan2.settle) {
     const given = {
       text: answer.recorded,
@@ -24184,7 +24267,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
         objection: Boolean(adoptedEntry)
       });
     } else {
-      failed.push({ number, id: item2.id, errors: result.errors });
+      failed2.push({ number, id: item2.id, errors: result.errors });
     }
   }
   let round = null;
@@ -24199,7 +24282,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
   }
   return {
     settled,
-    failed,
+    failed: failed2,
     held: plan2.held.map(({ number, item: item2, answer, due }) => ({
       number,
       id: item2.id,
@@ -24436,7 +24519,7 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.mjs
-var USAGE15 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE16 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
@@ -24530,20 +24613,20 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE15);
+    throw usageError(USAGE16);
   }
 };
 
 // kit/bin/commands/settle.mjs
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
-var USAGE16 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+var USAGE17 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
-    if (positional.length !== 1) throw usageError(USAGE16);
+    if (positional.length !== 1) throw usageError(USAGE17);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
@@ -24603,12 +24686,12 @@ var ship = {
 
 // kit/bin/commands/sign.mjs
 init_define_OMNI_BUNDLE();
-var USAGE17 = "usage: omni sign trailer|footer";
+var USAGE18 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   async run(args, { ctx, stdout }) {
     const { positional } = parseArgs("sign", args);
-    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE17);
+    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE18);
     const line = LINES2[positional[0]](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -25066,7 +25149,7 @@ function formatOverview(overview2, { now }) {
 }
 
 // kit/bin/commands/status.mjs
-var USAGE18 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE19 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
     const failure2 = fetchRemote({ ctx, exec });
@@ -25085,7 +25168,7 @@ var status2 = {
     const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE18);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE19);
     const prd2 = positiveInt("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -25117,11 +25200,11 @@ var status2 = {
 
 // kit/bin/commands/targets.mjs
 init_define_OMNI_BUNDLE();
-var USAGE19 = "usage: omni targets [--json]";
+var USAGE20 = "usage: omni targets [--json]";
 var targets = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE19);
+    if (positional.length) throw usageError(USAGE20);
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
@@ -25726,7 +25809,7 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.mjs
-var USAGE20 = "usage: omni update [--to <version>]";
+var USAGE21 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target2, exec }) {
   const dir = mkdtempSync2(join58(tmpdir2(), "omni-update-"));
   try {
@@ -25770,7 +25853,7 @@ var update = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE20);
+    if (positional.length) throw usageError(USAGE21);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -25872,10 +25955,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, business, version, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, business, decide, version, update, help, statusline, targets });
 
 // kit/bin/omni.mjs
-var USAGE21 = `usage: omni <command> [args]
+var USAGE22 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -25923,7 +26006,7 @@ async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE21);
+    stderr.write(USAGE22);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });

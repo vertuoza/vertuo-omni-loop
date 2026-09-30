@@ -15,6 +15,15 @@ export interface JevDecisionEntry<Input, Value> {
   value(answer: string | number, tuning: Pick<JevDecisionSettings, 'threshold'>): Value | null;
   /** A value as the record keeps it, beside the old answer. */
   show(value: Value): string;
+  /**
+   * How a Claude session asks it through `POST /api/decide/<name>` (PRD 812 s3): the state it sends
+   * read as the input, and its own answer read as the old one, each null when malformed. A decision
+   * without it is made in Galaxy only, and a terminal that names it is refused.
+   */
+  terminal?: {
+    input(state: unknown): Input | null;
+    old(text: string): Value | null;
+  };
 }
 
 /** A decision as Settings › Jev lists it: its name, what a person reads, and what it sends. */

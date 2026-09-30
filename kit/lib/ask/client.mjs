@@ -6,7 +6,8 @@
 // screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
 // PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`, and logs
 // the claims an agent cited (`POST /api/business/citations`), for `omni business cited`. Since
-// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`).
+// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 812 it asks a
+// workspace's Jev decision (`POST /api/decide/<decision>`), for `omni decide`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -217,5 +218,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids, by, ref = null }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
+    /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
+     * own answer (`old`); the ref is sent only when there is one.
+     * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
+    decide: ({ decision, repo, state, old, ref = null }) =>
+      call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
   };
 }

@@ -199,6 +199,20 @@ export const ENTRIES = deepFreeze([
       'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0.',
   },
   {
+    name: 'decide',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]'],
+    summary: "asks the workspace's Jev decision, such as outbox-risk, after the agent's own call",
+    detail:
+      "Asks TypeSafe's Jev, through the Omni page and the terminal's sign-in, one decision the " +
+      "workspace owner put On in Settings › Jev, such as outbox-risk (is this decision hard to " +
+      "revert?). The agent makes its own call first and passes it with --old; the state file holds " +
+      'what the decision sends. It prints the answer and its confidence when Jev decided, and unset ' +
+      'otherwise (the decision Off or in Shadow, no sign-in, a timeout, a refusal): then the agent ' +
+      'keeps its own answer. --json prints who decided. It always exits 0, except on a usage error.',
+  },
+  {
     name: 'version',
     kind: 'command',
     who: 'you',
