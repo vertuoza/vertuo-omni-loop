@@ -124,6 +124,51 @@ describe('polling', () => {
   });
 });
 
+describe('whether the tab\'s terminal is working (PRD 757)', () => {
+  const FRESH = { seen_at: new Date(START).toISOString(), ended_at: null };
+  const OTHER = { seen_at: new Date(START).toISOString(), ended_at: null };
+
+  /** The heartbeats of two terminals, and which ones a read asked for. */
+  function pings() {
+    const asked: string[] = [];
+    const rows: Record<string, typeof FRESH> = { 'claude-this-tab': FRESH, 'claude-other-tab': OTHER };
+    return { asked, read: async (id: string) => { asked.push(id); return rows[id] ?? null; } };
+  }
+
+  it('each poll carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
+    const w = await world();
+    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    const p = pings();
+    const read = sessionReader(w.recording('ada'), w.sessionId, null, p.read);
+    expect((await read())?.ping).toEqual(FRESH);
+    expect((await read())?.ping).toEqual(FRESH);
+    expect(p.asked).toEqual(['claude-this-tab', 'claude-this-tab']);
+  });
+
+  it('the first read carries it too, so the server renders the tab as it stands', async () => {
+    const w = await world();
+    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    const p = pings();
+    expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toEqual(FRESH);
+  });
+
+  it('a session with no Claude session id asks for no heartbeat, and reads none', async () => {
+    const w = await world();
+    const p = pings();
+    expect((await sessionReader(w.recording('ada'), w.sessionId, null, p.read)())?.ping).toBeNull();
+    expect(p.asked).toEqual([]);
+  });
+
+  it('a heartbeat out of reach reads as none, and the session is still read', async () => {
+    const w = await world();
+    await w.ask();
+    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    const state = await sessionReader(w.recording('ada'), w.sessionId, null, async () => { throw new Error('connection lost'); })();
+    expect(state?.ping).toBeNull();
+    expect(state?.rounds).toHaveLength(1);
+  });
+});
+
 describe('sending the answers', () => {
   it('answers an open round, tagged page', async () => {
     const w = await world();
