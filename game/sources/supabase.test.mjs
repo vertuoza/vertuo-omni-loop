@@ -135,7 +135,7 @@ describe('loadConfig', () => {
 
 describe('supabaseLedger', () => {
   it('keeps the ledger contract: new ids only, read back sorted, timestamps as the events wrote them', async () => {
-    const fake = fakeSupabase({});
+    const fake = fakeSupabase({ workspaces: workspaces() });
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     const first = await ledger.append([ev('b', '2026-09-02T10:00:00Z', { contributor: 'alice', team: 'beaver' }), ev('a', '2026-09-01T10:00:00Z')]);
     expect(first.map((e) => e.id)).toEqual(['b', 'a']);
@@ -151,7 +151,7 @@ describe('supabaseLedger', () => {
   });
 
   it('writes and reads back each event\'s home, and an old row without one reads without it (PRD 728)', async () => {
-    const fake = fakeSupabase({ ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:88:charted', at: '2026-09-01T10:00:00+00:00', type: 'PLANET_CHARTED', planet: 88, region: null, contributor: null, team: null, data: {}, home: null }] });
+    const fake = fakeSupabase({ workspaces: workspaces(), ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:88:charted', at: '2026-09-01T10:00:00+00:00', type: 'PLANET_CHARTED', planet: 88, region: null, contributor: null, team: null, data: {}, home: null }] });
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     await ledger.append([ev('planet:acme/plan#88:charted', '2026-09-02T10:00:00Z', { type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' })]);
     expect(fake.tables.ledger_events.find((r) => r.id === 'planet:acme/plan#88:charted').home).toBe('acme/plan');
@@ -161,7 +161,7 @@ describe('supabaseLedger', () => {
   });
 
   it('appends each row with its workspace, keyed by workspace and id', async () => {
-    const fake = fakeSupabase({});
+    const fake = fakeSupabase({ workspaces: workspaces() });
     await supabaseLedger(restOn(fake), VERTUOZA).append([ev('a', '2026-09-01T10:00:00Z')]);
     const post = fake.calls.find((c) => c.method === 'POST');
     expect(post.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
@@ -169,22 +169,51 @@ describe('supabaseLedger', () => {
   });
 
   it('holds one id in two workspaces, and reads back only its own', async () => {
-    const fake = fakeSupabase({});
+    const fake = fakeSupabase({ workspaces: workspaces() });
     const acme = supabaseLedger(restOn(fake), ACME);
     const vertuoza = supabaseLedger(restOn(fake), VERTUOZA);
     expect((await acme.append([ev('planet:12:charted', '2026-09-01T10:00:00Z', { planet: 12 })])).map((e) => e.id)).toEqual(['planet:12:charted']);
     expect((await vertuoza.append([ev('planet:12:charted', '2026-09-03T10:00:00Z', { planet: 12 })])).map((e) => e.id)).toEqual(['planet:12:charted']);
     expect((await vertuoza.read()).map((e) => e.at)).toEqual(['2026-09-03T10:00:00Z']);
-    const reads = fake.calls.filter((c) => c.method === 'GET');
+    const reads = fake.calls.filter((c) => c.method === 'GET' && c.table === 'ledger_events');
     expect(reads.map((c) => c.url.searchParams.get('workspace_id'))).toEqual([`eq.${VERTUOZA}`]);
   });
 
+  it('appends nothing whose moment is before the workspace\'s game_since: the fresh start (PRD 728)', async () => {
+    const fake = fakeSupabase({ workspaces: [{ ...workspaces()[0], game_since: '2026-09-30T08:00:00.123456+00:00' }, { ...workspaces()[1], game_since: '2026-01-01T00:00:00+00:00' }] });
+    const ledger = supabaseLedger(restOn(fake), VERTUOZA);
+    const appended = await ledger.append([
+      ev('before', '2026-09-29T10:00:00Z'),
+      ev('just-before', '2026-09-30T08:00:00Z'),
+      ev('after', '2026-09-30T08:00:01Z'),
+    ]);
+    expect(appended.map((e) => e.id)).toEqual(['after']);
+    expect(fake.tables.ledger_events.map((r) => r.id)).toEqual(['after']);
+    const read = fake.calls.find((c) => c.table === 'workspaces');
+    expect(read.url.searchParams.get('id')).toBe(`eq.${VERTUOZA}`);
+  });
+
+  it('writes nothing when every event is before game_since', async () => {
+    const fake = fakeSupabase({ workspaces: [{ ...workspaces()[0], game_since: '2026-09-30T08:00:00+00:00' }] });
+    expect(await supabaseLedger(restOn(fake), VERTUOZA).append([ev('old', '2026-09-29T10:00:00Z')])).toEqual([]);
+    expect(fake.tables.ledger_events ?? []).toEqual([]);
+  });
+
+  it('appends nothing for a workspace it cannot find, or whose game_since it cannot read', async () => {
+    const ghost = fakeSupabase({ workspaces: [] });
+    await expect(supabaseLedger(restOn(ghost), VERTUOZA).append([ev('a', '2026-09-01T10:00:00Z')])).rejects.toThrow(/no workspace/);
+    expect(ghost.calls.filter((c) => c.method === 'POST')).toEqual([]);
+    const down = fakeSupabase({ workspaces: workspaces() }, { failOn: 'workspaces' });
+    await expect(supabaseLedger(restOn(down), VERTUOZA).append([ev('a', '2026-09-01T10:00:00Z')])).rejects.toThrow(/read workspaces failed/);
+    expect(down.calls.filter((c) => c.method === 'POST')).toEqual([]);
+  });
+
   it('refuses a ledger without a workspace', () => {
-    expect(() => supabaseLedger(restOn(fakeSupabase({})))).toThrow(/workspace/);
+    expect(() => supabaseLedger(restOn(fakeSupabase({ workspaces: workspaces() })))).toThrow(/workspace/);
   });
 
   it('refuses a malformed batch before writing any of it', async () => {
-    const fake = fakeSupabase({});
+    const fake = fakeSupabase({ workspaces: workspaces() });
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     await expect(ledger.append([ev('ok', '2026-09-01T10:00:00Z'), { id: 'x', at: 'nope', type: 'ZONE_SECURED', planet: 1 }])).rejects.toThrow();
     expect(fake.calls).toEqual([]);

@@ -5,7 +5,9 @@ every slice a zone, every open question or bug an Entropy unit on its surface. S
 GitHub makes you a member of the workspace of every GitHub org of yours that has Omni Loop installed
 (the `vertuoza` workspace, for the vertuoza org), and a **player** at once: you pick a
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
-counts as XP, which never resets, and levels open arcade games in the game room, the first of them
+counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
+game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
+and levels open arcade games in the game room, the first of them
 Entropy Invaders ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).

@@ -1,13 +1,14 @@
 // game/cli/xp.mjs --workspace <slug> — recompute every login's XP, level and unlocked games from the
 // workspace's whole ledger with the rulebook's `xp` block of the day, and write them all to
 // public.player_xp in one request. The ledger job runs it right after `pnpm game:project`.
-// It never writes the ledger. A failed read writes nothing and exits 1: the ledger step has already
+// Fresh start (PRD 728): only rows with a home count. A login only older rows name keeps its row,
+// rewritten at 0; its unlocked games stay. It never writes the ledger. A failed read writes nothing and exits 1: the ledger step has already
 // succeeded, so XP catches up at the next poll.
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { supabaseLedger } from '../sources/supabase.mjs';
-import { playerXp } from '../experience.mjs';
+import { counted, playerXp } from '../experience.mjs';
 import { RULEBOOK } from '../rulebook.mjs';
 import { openWorkspace } from './workspace.mjs';
 
@@ -29,7 +30,8 @@ export async function runXp({ rest, workspaceId, now = new Date(), rules = RULEB
   ]);
   const unlocked = Object.fromEntries(StoredRows.parse(stored).map((r) => [r.github_login.toLowerCase(), r.unlocked]));
   const computedAt = now.toISOString();
-  const rows = playerXp(events, { now, rules, stored: unlocked }).map(({ login, xp, level, unlocked: games }) => ({
+  const logins = events.filter((e) => e.contributor).map((e) => e.contributor);
+  const rows = playerXp(counted(events), { now, rules, stored: unlocked, logins }).map(({ login, xp, level, unlocked: games }) => ({
     workspace_id: workspaceId, github_login: login, xp, level, unlocked: games, computed_at: computedAt,
   }));
   if (rows.length) await rest.upsert('player_xp', rows, 'workspace_id,github_login');

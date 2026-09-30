@@ -135,16 +135,27 @@ const fromRow = (r) => makeEvent({
 /**
  * One workspace's ledger in public.ledger_events: the same contract as fileLedger and memoryLedger
  * (ledger.mjs). An event id is unique within its workspace: two workspaces may each hold one.
+ *
+ * Fresh start (PRD 728): append writes no event whose moment is before the workspace's
+ * `game_since`, whoever projected it. It reads `game_since` at every append; a workspace it cannot
+ * find, or a failed read, appends nothing.
  */
 export function supabaseLedger(rest, workspaceId) {
   const inWorkspace = scope(workspaceId);
+  const gameSince = async () => {
+    const rows = await rest.select('workspaces', `select=game_since&id=eq.${encodeURIComponent(workspaceId)}`);
+    if (!rows.length) throw new Error(`Supabase: no workspace ${workspaceId}: the ledger appends nothing without its game_since`);
+    return rows[0].game_since ? Date.parse(rows[0].game_since) : null; // not null in the database; a fixture may leave it out
+  };
   return {
     async read() {
       const rows = await rest.select('ledger_events', `select=id,at,type,planet,home,region,contributor,team,data&${inWorkspace}&order=at.asc,id.asc`);
       return rows.map(fromRow).sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
     },
     async append(events) {
-      const valid = [...new Map(events.map(makeEvent).map((e) => [e.id, e])).values()]; // validates before anything is written
+      const all = [...new Map(events.map(makeEvent).map((e) => [e.id, e])).values()]; // validates before anything is read or written
+      const since = await gameSince();
+      const valid = since === null ? all : all.filter((e) => Date.parse(e.at) >= since);
       const rows = valid.map((e) => ({ workspace_id: workspaceId, ...toRow(e) }));
       const inserted = new Set((await rest.insertNew('ledger_events', rows, 'workspace_id,id', 'id')).map((r) => r.id));
       return valid.filter((e) => inserted.has(e.id));
