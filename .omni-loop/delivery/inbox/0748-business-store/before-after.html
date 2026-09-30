@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Business Store Before/After</title>
+<style>
+/* ASK tokens (packages/design/src/tokens.mjs), light then dark, as in the concept #746 vision tour. */
+:root{
+  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#ffffff;
+  --red:#b3122f;--redSoft:#fbe8ec;--cyan:#0b6f86;--green:#15703f;--greenSoft:#e4f4ea;
+  --term:#0b0a26;--termBar:#1a1845;--termInk:#e6e8ff;--termMuted:#8a90d6;--termY:#ffd84a;--termG:#4ee08a;--termC:#6ff0ff;--termP:#c9a2ff;--termR:#ff8fa3;
+  --shadow:0 1px 0 rgba(23,21,61,.04),0 14px 36px -18px rgba(23,21,61,.35);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+    --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+    --red:#ff6b86;--redSoft:#3a1633;--cyan:#6ff0ff;--green:#4ee08a;--greenSoft:#133b3c;
+    --term:#07061c;--termBar:#141238;--shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+  --red:#ff6b86;--redSoft:#3a1633;--cyan:#6ff0ff;--green:#4ee08a;--greenSoft:#133b3c;
+  --term:#07061c;--termBar:#141238;--shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.spr{display:inline-block;vertical-align:middle;flex:none}
+
+/* ---------- page chrome ---------- */
+.page{max-width:1280px;margin:0 auto;padding:22px 24px 72px}
+.thead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--plasma);display:grid;place-items:center;color:var(--onPlasma);flex:none}
+.thead .t{min-width:0;flex:1}
+.thead .t b{display:block;font:900 17px/1 Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.thead .t small{display:block;color:var(--muted);font-size:13px;margin-top:3px}
+.ib{width:38px;height:38px;border-radius:8px;border:1px solid var(--lineStrong);background:var(--surface);display:grid;place-items:center;color:var(--muted);flex:none}
+.ib:hover{color:var(--ink)}
+.intro{margin:20px 0 8px;display:grid;gap:10px;max-width:92ch}
+.intro h1{margin:0;font-size:clamp(26px,3.4vw,38px);line-height:1.15;letter-spacing:-.01em}
+.intro h1 small{display:block;font:700 12px/1.4 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan);margin-bottom:6px}
+.intro p{margin:0;color:var(--muted);font-size:16px}
+.intro p b{color:var(--ink)}
+.note{display:flex;gap:10px;align-items:flex-start;border:1px dashed var(--lineStrong);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:14px;color:var(--muted)}
+.note b{color:var(--ink)}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.toc a{font:700 13px/1 "JetBrains Mono",monospace;color:var(--plasma);text-decoration:none;border:1px solid var(--lineStrong);border-radius:999px;padding:7px 11px;background:var(--surface)}
+.toc a:hover{border-color:var(--plasma)}
+
+.pair{margin-top:44px;scroll-margin-top:12px}
+.pair>header{display:grid;gap:4px;margin-bottom:14px}
+.pair>header .n{font:700 12px/1 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pair>header h2{margin:0;font-size:clamp(20px,2.4vw,26px);line-height:1.2}
+.pair>header p{margin:0;color:var(--muted);max-width:90ch}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:18px;align-items:start}
+.col{display:grid;gap:12px;min-width:0}
+.tag{display:flex;align-items:center;gap:8px;font:700 12px/1 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase}
+.tag i{font-style:normal;border-radius:999px;padding:6px 10px;border:1px solid currentColor}
+.tag.today{color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.tag.after i{background:var(--plasmaSoft)}
+.tag span{color:var(--muted);letter-spacing:0;text-transform:none;font:13px/1.3 "Atkinson Hyperlegible",system-ui,sans-serif}
+.say{margin:0;font-size:14px;color:var(--muted)}
+.say b{color:var(--ink)}
+.say.bad b{color:var(--red)}
+.say.good b{color:var(--green)}
+
+/* ---------- app frame (sidebar.css, app-bar.css, section-tabs.css, ask.css) ---------- */
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow);container-type:inline-size}
+.app{display:grid;grid-template-columns:168px minmax(0,1fr)}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:1px;font-size:13px}
+.brand{display:flex;align-items:center;gap:8px;padding:2px 6px 8px}
+.brand .logo{width:24px;height:24px;border-radius:6px}
+.brand b{font:900 13px/1 Impact,"Arial Narrow Bold",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.grp{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 6px 3px}
+.item{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px;border:1px solid transparent;font-weight:700;white-space:nowrap;overflow:hidden}
+.item.on{color:var(--plasma);border-color:var(--plasma);background:var(--plasmaSoft)}
+.side .foot{margin-top:auto;border-top:1px solid var(--line);padding-top:6px}
+.appmain{min-width:0;background:var(--ground);display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border-bottom:2px solid var(--lineStrong);min-width:0}
+.tile{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--lineStrong);background:var(--sunk);display:grid;place-items:center;color:var(--plasma);flex:none}
+.crumb{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;font-size:15px}
+.crumb .g{color:var(--muted);font-weight:600}.crumb .s{color:var(--muted);margin:0 6px}
+.av{width:30px;height:30px;border-radius:50%;background:conic-gradient(from 200deg,var(--plasma),var(--cyan),var(--plasma));display:grid;place-items:center;color:#fff;font-weight:700;font-size:11px;flex:none}
+.burger{display:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);place-items:center;color:var(--muted);flex:none}
+.content{padding:14px;display:grid;gap:12px;align-content:start;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:4px 20px;border-bottom:1.5px solid var(--lineStrong);margin:0;padding:0;list-style:none}
+.tabs li{display:inline-flex;align-items:center;gap:6px;margin-bottom:-1.5px;padding:8px 2px;font-weight:700;font-size:15px;color:var(--muted);border-bottom:3px solid transparent}
+.tabs li.on{color:var(--plasma);border-bottom-color:var(--plasma)}
+.tabs li.new::after{content:"new";font:700 10px/1 "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--onPlasma);background:var(--plasma);border-radius:999px;padding:3px 6px}
+.missing{display:inline-flex;align-items:center;gap:6px;font:700 12px/1 "JetBrains Mono",monospace;color:var(--red);border:1px dashed var(--red);border-radius:999px;padding:5px 9px;background:var(--redSoft)}
+
+.card{background:var(--surface);border:1px solid var(--lineStrong);border-radius:12px;padding:16px;min-width:0}
+.card h3{margin:0;font-size:15px}
+.card h3 .muted{font-weight:400;font-size:13px}
+.hint{color:var(--muted);margin:0;font-size:13.5px}
+.muted{color:var(--muted)}
+.head{position:relative;overflow:hidden}
+.head::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,var(--plasma),var(--cyan))}
+.eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:700 11px/1 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.pill{display:inline-flex;align-items:center;gap:5px;font:700 10.5px/1 "JetBrains Mono",monospace;padding:4px 7px;border-radius:999px;border:1px solid var(--line);background:var(--sunk);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.pill.p{color:var(--plasma);border-color:var(--plasma);background:var(--plasmaSoft)}
+.pill.g{color:var(--green);border-color:var(--green);background:var(--greenSoft)}
+.headline{font-size:clamp(19px,2.2vw,25px);line-height:1.3;font-weight:800;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.headline .val{color:var(--plasma)}
+.headline .slot{color:var(--muted);font-weight:700;border-bottom:3px dashed var(--lineStrong)}
+.headline .nw{white-space:nowrap}
+.skipline{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:14px;line-height:1;padding:9px 13px;border-radius:8px;border:1px solid var(--lineStrong);background:var(--surface);color:var(--ink);white-space:nowrap}
+.btn.primary{background:var(--plasma);color:var(--onPlasma);border-color:transparent;box-shadow:0 3px 0 0 color-mix(in srgb,var(--plasma) 55%,#000)}
+.link{background:none;border:0;padding:0;color:var(--plasma);font-weight:700;text-decoration:underline;text-underline-offset:3px;font-size:14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--lineStrong);border-radius:999px;padding:5px 11px;background:var(--surface);font-weight:700;font-size:13px}
+.chip.on{border-color:var(--plasma);color:var(--plasma);background:var(--plasmaSoft)}
+.chip.on::before{content:"";width:7px;height:7px;background:var(--plasma);border-radius:2px}
+.chip.guess{border-style:dashed;border-width:1.5px;color:var(--ink);background:var(--surface);padding:4px 5px 4px 11px}
+.chip.guess em{font:700 10px/1 "JetBrains Mono",monospace;font-style:normal;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border:1px dashed var(--lineStrong);border-radius:999px;padding:3px 5px}
+.chip.guess .v{padding:3px 7px;font-size:12px}
+.chip.guess.done{border-style:solid;border-color:var(--green);background:var(--greenSoft)}
+.range{position:relative;height:28px;margin:8px 6px 0}
+.range .track{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:3px;background:var(--sunk);border:1px solid var(--line)}
+.range .fill{position:absolute;top:11px;height:6px;background:var(--plasma);border-radius:3px}
+.range .h{position:absolute;top:2px;width:16px;height:22px;margin-left:-8px;border-radius:6px;background:var(--surface);border:2px solid var(--plasma);box-shadow:0 2px 0 var(--plasma)}
+.ticks{position:relative;height:16px;margin:2px 6px 0;font:10px/1 "JetBrains Mono",monospace;color:var(--muted)}
+.ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.ticks span:first-child{transform:none}
+.ticks span:last-child{transform:translateX(-100%)}
+.ticks span.on{color:var(--plasma);font-weight:700}
+
+.claims{display:grid;gap:8px}
+.claim{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:4px 12px;align-items:center;border:1px solid var(--lineStrong);border-radius:12px;padding:10px 12px;background:linear-gradient(90deg,var(--greenSoft),var(--surface) 55%)}
+.claim .kind{font:700 10.5px/1.3 "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.claim .ct{font-weight:700;font-size:15px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.claim .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center}
+.rc{display:inline-flex;align-items:center;gap:5px;font:11.5px/1 "JetBrains Mono",monospace;border:1px solid var(--line);background:var(--sunk);border-radius:6px;padding:4px 6px;color:var(--muted);white-space:nowrap}
+.rc.cid{color:var(--plasma);border-color:color-mix(in srgb,var(--plasma) 45%,var(--line));background:var(--plasmaSoft);font-weight:700}
+.src{font:700 10.5px/1 "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:4px 7px;border:1px solid var(--lineStrong);color:var(--muted)}
+.src.sug{border-style:dashed}
+.cited{font-size:12.5px;color:var(--muted)}
+.cited b{color:var(--ink)}
+.verbs{display:flex;gap:6px}
+.v{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:12.5px;padding:5px 9px;border-radius:8px;border:1px solid var(--lineStrong);background:var(--surface);white-space:nowrap}
+.v.r.on{background:var(--green);border-color:var(--green);color:var(--surface)}
+.v.w.on{background:var(--sunk);color:var(--muted)}
+.cite{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cite span{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:16px;padding:7px 11px;border-radius:10px;border:2px solid var(--plasma);background:var(--plasmaSoft);color:var(--plasma)}
+.cite span small{font:700 10.5px "JetBrains Mono",monospace;color:var(--muted);letter-spacing:.02em}
+.mini{background:var(--term);color:var(--termInk);border-radius:10px;padding:10px 12px;font:12px/1.6 "JetBrains Mono",monospace;white-space:pre-wrap;word-break:break-word;margin-top:10px}
+.shared{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--lineStrong);border-radius:12px;background:var(--surface);font-size:14px}
+.shared b{font-weight:700}
+.repo{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:10px 12px;background:var(--surface);border:1px solid var(--lineStrong);border-radius:12px}
+.repo .nm{flex:1 1 170px;min-width:0;display:grid;gap:1px}
+.repo .nm strong{overflow-wrap:anywhere;font-size:14px}
+.repo .nm small{color:var(--muted);font-size:12.5px}
+.sel{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--lineStrong);border-radius:8px;padding:6px 10px;background:var(--surface);font-weight:700;font-size:13.5px}
+.sel::after{content:"";width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px)}
+.tog{position:relative;width:40px;height:22px;border-radius:11px;border:1.5px solid var(--plasma);background:var(--plasmaSoft);flex:none}
+.tog::after{content:"";position:absolute;top:2px;left:20px;width:15px;height:15px;border-radius:50%;background:var(--plasma)}
+.sw{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.fleetrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--lineStrong);border-radius:12px;background:var(--surface);font-size:14px}
+.fleetrow b{flex:1}
+.ghostline{height:10px;border-radius:5px;background:var(--sunk)}
+
+@container (max-width:560px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .burger{display:grid}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .claim{grid-template-columns:minmax(0,1fr)}
+  .ticks span.x{display:none}
+}
+
+/* ---------- terminal and files ---------- */
+.term{background:var(--term);color:var(--termInk);border-radius:14px;overflow:hidden;border:1px solid var(--lineStrong);box-shadow:var(--shadow)}
+.term .tb{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--termBar);font:12px "JetBrains Mono",monospace;color:var(--termMuted)}
+.term .tb i{width:10px;height:10px;border-radius:50%;background:#3a3870;display:inline-block}
+.term .tb span{flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.term pre{margin:0;padding:14px 16px 16px;font:12.5px/1.65 "JetBrains Mono",ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.term .y{color:var(--termY)}.term .m{color:var(--termMuted)}.term .gr{color:var(--termG)}.term .c{color:var(--termC)}.term .p{color:var(--termP)}.term .r{color:var(--termR)}.term b{color:#fff}
+.term .sep{display:block;border-top:1px dashed #34327a;margin:8px 0}
+.states{display:grid;gap:6px}
+.states div{display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border:1px solid var(--lineStrong);border-radius:10px;background:var(--surface);font-size:13.5px}
+.states code{font-size:12px;color:var(--plasma);font-weight:700}
+.states .ex{font:700 11px/1 "JetBrains Mono",monospace;color:var(--green);border:1px solid var(--green);background:var(--greenSoft);border-radius:999px;padding:4px 7px;white-space:nowrap}
+.file{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.file .fh{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sunk);border-bottom:1px solid var(--line);font:12px "JetBrains Mono",monospace;color:var(--muted)}
+.file .fh b{color:var(--ink)}
+.file .fb{padding:12px 16px 16px;font:13px/1.65 "JetBrains Mono",ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:var(--muted)}
+.file .fb .h{color:var(--ink);font-weight:700}
+.file .fb .id{color:var(--plasma);font-weight:700}
+.file .fb .add{display:block;background:var(--greenSoft);border-left:3px solid var(--green);margin:0 -16px;padding:0 13px;color:var(--ink)}
+.file .fb .gap{display:block;background:var(--redSoft);border-left:3px solid var(--red);margin:0 -16px;padding:0 13px;color:var(--red)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:600px){
+  .page{padding:14px 16px 56px}
+  .card{padding:14px}
+  .content{padding:10px}
+  .term pre{padding:12px;font-size:11.5px}
+  .file .fb{font-size:12px;padding:10px 12px 12px}
+  .file .fb .add,.file .fb .gap{margin:0 -12px;padding:0 9px}
+  .states div{grid-template-columns:minmax(0,1fr) auto}
+  .states div span:nth-child(2){grid-column:1/-1;grid-row:2}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="s-omni" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M2 0h4v1H2zM1 1h1v1H1zM6 1h1v1H6zM0 2h1v4H0zM7 2h1v4H7zM3 2h2v1H3zM2 3h1v2H2zM5 3h1v2H5zM3 5h2v1H3zM1 6h1v1H1zM6 6h1v1H6zM2 7h4v1H2z"/><path fill="var(--cyan)" d="M3 3h2v2H3z"/></symbol>
+    <symbol id="s-biz" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M2 0h4v1H2zM2 1h1v1H2zM5 1h1v1H5zM0 2h8v1H0zM0 3h1v5H0zM7 3h1v5H7zM1 4h2v1H1zM5 4h2v1H5zM1 7h6v1H1z"/><path fill="var(--cyan)" d="M3 4h2v1H3z"/></symbol>
+    <symbol id="s-gear" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M3 0h2v1H3zM1 1h1v1H1zM6 1h1v1H6zM2 1h4v1H2zM1 2h6v1H1zM0 3h2v2H0zM6 3h2v2H6zM1 5h6v1H1zM2 6h4v1H2zM1 6h1v1H1zM6 6h1v1H6zM3 7h2v1H3z"/><path fill="var(--cyan)" d="M3 3h2v2H3z"/></symbol>
+    <symbol id="s-dash" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h3v3H0zM4 0h4v3H4zM0 4h4v4H0zM5 4h3v4H5z"/></symbol>
+    <symbol id="s-doc" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M1 0h5v1H1zM1 1h1v6H1zM6 1h1v6H6zM1 7h6v1H1z"/><path fill="var(--cyan)" d="M3 2h3v1H3zM3 4h3v1H3zM3 6h2v1H3z"/></symbol>
+    <symbol id="s-bulb" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="currentColor" d="M2 0h4v1H2zM1 1h1v3H1zM6 1h1v3H6zM2 4h1v1H2zM5 4h1v1H5zM2 5h4v2H2zM3 7h2v1H3z"/><path fill="var(--cyan)" d="M2 1h4v3H2z"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <header class="thead">
+    <span class="logo"><svg class="spr" width="18" height="18"><use href="#s-omni"/></svg></span>
+    <span class="t"><b>Omni Loop</b><small>Before / after · PRD 748</small></span>
+    <button class="ib" id="themebtn" type="button" aria-label="Switch between light and dark">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 2.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <section class="intro">
+    <h1><small>PRD 748 · from concept #746 · area business-core (the wedge)</small>The business store</h1>
+    <p>Omni Loop ships software for a business it knows nothing about: no agent knows who the product is sold to, or who it competes with, so every think-big brief designs for nobody in particular. This PRD gives each workspace <b>one business with one or more products</b>, made of <b>claims</b> with an id such as <code>rival#4</code>. A member fills it on a new <b>Settings › Business</b> tab by tapping choices, never typing unless the answer is missing. Agents read the confirmed claims with <code>omni business show</code>, and <code>/omni:think-big</code> cites them in its fuel sheet and logs what it cited. An empty workspace still works: every read says so in one line and exits 0.</p>
+    <div class="note"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 4.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Illustrative content.</b> Vertuoza, ERP, construction, Belgium, Procore and the other rivals are examples only. Nothing is seeded: a new workspace starts empty, and no list in the code names a company.</span></div>
+    <nav class="toc" aria-label="Pairs"><a href="#settings">1 · Settings</a><a href="#terminal">2 · The terminal</a><a href="#thinkbig">3 · think-big</a></nav>
+  </section>
+
+  <!-- ===================== 1. SETTINGS ===================== -->
+  <section class="pair" id="settings">
+    <header><span class="n">Pair 1 of 3</span><h2>Settings gains a Business tab</h2><p>Vision steps 1 “Pick” and 8 “Payoff” of concept #746, changed only where the approved design moved: rivals are suggested guesses, never a curated list; filled rows carry their id, source and citations.</p></header>
+    <div class="cols">
+      <div class="col">
+        <div class="tag today"><i>Today</i><span>Settings has Fleets and Repositories only</span></div>
+        <div class="win"><div class="app">
+          <aside class="side">
+            <div class="brand"><span class="logo"><svg class="spr" width="14" height="14"><use href="#s-omni"/></svg></span><span><b>Omni Loop</b><small>vertuoza ▾</small></span></div>
+            <div class="grp">Dashboard</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-dash"/></svg>Home</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-dash"/></svg>Engineering</div>
+            <div class="grp">Work</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-doc"/></svg>PRDs</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-bulb"/></svg>Knowledge</div>
+            <div class="foot"><div class="item on"><svg class="spr" width="14" height="14"><use href="#s-gear"/></svg>Settings</div><div class="item muted">Docs</div></div>
+          </aside>
+          <div class="appmain">
+            <div class="bar"><span class="burger" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="2"/></svg></span><span class="tile"><svg class="spr" width="18" height="18"><use href="#s-gear"/></svg></span><div class="crumb"><span class="g">Settings</span><span class="s">›</span>Fleets</div><span class="av">PD</span></div>
+            <div class="content">
+              <ul class="tabs"><li class="on">Fleets</li><li>Repositories</li></ul>
+              <div class="fleetrow"><b>beaver</b><span class="pill">3 people</span></div>
+              <div class="fleetrow"><b>octopod</b><span class="pill">2 people</span></div>
+              <div class="card" style="display:grid;gap:8px"><span class="missing">✗ no Business tab</span><p class="hint">Nowhere to say what we sell, to whom, where, or against whom. Each brief retypes it, or goes without.</p></div>
+            </div>
+          </div>
+        </div></div>
+        <p class="say bad"><b>No business anywhere.</b> Agents design for nobody in particular.</p>
+      </div>
+
+      <div class="col">
+        <div class="tag after"><i>After</i><span>Settings › Business, empty, the blanks filling as a member taps</span></div>
+        <div class="win"><div class="app">
+          <aside class="side">
+            <div class="brand"><span class="logo"><svg class="spr" width="14" height="14"><use href="#s-omni"/></svg></span><span><b>Omni Loop</b><small>vertuoza ▾</small></span></div>
+            <div class="grp">Dashboard</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-dash"/></svg>Home</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-dash"/></svg>Engineering</div>
+            <div class="grp">Work</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-doc"/></svg>PRDs</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-bulb"/></svg>Knowledge</div>
+            <div class="foot"><div class="item on"><svg class="spr" width="14" height="14"><use href="#s-gear"/></svg>Settings</div><div class="item muted">Docs</div></div>
+          </aside>
+          <div class="appmain">
+            <div class="bar"><span class="burger" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="2"/></svg></span><span class="tile"><svg class="spr" width="18" height="18"><use href="#s-biz"/></svg></span><div class="crumb"><span class="g">Settings</span><span class="s">›</span>Business</div><span class="av">PD</span></div>
+            <div class="content">
+              <ul class="tabs"><li>Fleets</li><li>Repositories</li><li class="on new">Business</li></ul>
+              <div class="card head">
+                <div class="eyebrow"><svg class="spr" width="12" height="12"><use href="#s-biz"/></svg> Business <span class="pill">Empty · filling</span></div>
+                <h3 class="headline">We sell <span class="val">an ERP</span> to <span class="val nw">2–50‑person</span> <span class="val">construction</span> firms in <span class="val">Belgium</span>, up against <span class="slot">whom?</span></h3>
+                <div class="skipline"><button class="btn" type="button">Skip — agents work without it</button><span class="hint">Skip stores nothing.</span></div>
+              </div>
+              <div class="grid2">
+                <div class="card"><h3>What you sell</h3><div class="chips"><span class="chip on">ERP</span><span class="chip">CRM</span><span class="chip">Marketplace</span><span class="chip">Developer tool</span><span class="chip">Analytics</span><span class="chip">E-commerce</span><span class="chip">Other</span></div></div>
+                <div class="card"><h3>Customer size <span class="muted">· 2–50 people</span></h3>
+                  <div class="range" role="img" aria-label="Two-handle slider from 2 to 50"><div class="track"></div><div class="fill" style="left:11.11%;width:44.44%"></div><span class="h" style="left:11.11%"></span><span class="h" style="left:55.55%"></span></div>
+                  <div class="ticks"><span style="left:0">1</span><span class="on" style="left:11.11%">2</span><span class="x" style="left:22.22%">5</span><span style="left:33.33%">10</span><span class="x" style="left:44.44%">20</span><span class="on" style="left:55.55%">50</span><span style="left:66.66%">100</span><span class="x" style="left:77.77%">250</span><span class="x" style="left:88.88%">500</span><span style="left:100%">1000+</span></div>
+                </div>
+                <div class="card"><h3>Trade</h3><div class="chips"><span class="chip on">Construction</span><span class="chip">Retail</span><span class="chip">Healthcare</span><span class="chip">Finance</span><span class="chip">Logistics</span><span class="chip">Manufacturing</span><span class="chip">Software</span><span class="chip">Other</span></div></div>
+                <div class="card"><h3>Region</h3><div class="chips"><span class="chip on">Belgium</span><span class="chip">France</span><span class="chip">Netherlands</span><span class="chip">Germany</span><span class="chip">United Kingdom</span><span class="chip">Europe</span><span class="chip">North America</span><span class="chip">Worldwide</span><span class="chip">Other</span></div></div>
+              </div>
+              <div class="card">
+                <h3>Up against <span class="muted">· suggested for ERP · construction · Belgium</span></h3>
+                <p class="hint" style="margin-top:3px">A small model guesses. Nothing is read by agents until you tap ✓ Right.</p>
+                <div class="chips">
+                  <span class="chip guess done"><em>guess</em>Procore <span class="v r on">✓ Right</span><span class="v w">✗ Wrong</span></span>
+                  <span class="chip guess"><em>guess</em>Buildertrend <span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></span>
+                  <span class="chip guess"><em>guess</em>Excel + WhatsApp <span class="v r">✓ Right</span><span class="v w">✗ Wrong</span></span>
+                </div>
+                <div class="chips"><button class="link" type="button">+ add a rival</button></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="tag after"><i>After</i><span>Filled: one row per claim, then the payoff</span></div>
+        <div class="win"><div class="app">
+          <aside class="side">
+            <div class="brand"><span class="logo"><svg class="spr" width="14" height="14"><use href="#s-omni"/></svg></span><span><b>Omni Loop</b><small>vertuoza ▾</small></span></div>
+            <div class="grp">Dashboard</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-dash"/></svg>Home</div>
+            <div class="grp">Work</div>
+            <div class="item"><svg class="spr" width="14" height="14"><use href="#s-doc"/></svg>PRDs</div>
+            <div class="foot"><div class="item on"><svg class="spr" width="14" height="14"><use href="#s-gear"/></svg>Settings</div></div>
+          </aside>
+          <div class="appmain">
+            <div class="bar"><span class="burger" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="2"/></svg></span><span class="tile"><svg class="spr" width="18" height="18"><use href="#s-biz"/></svg></span><div class="crumb"><span class="g">Settings</span><span class="s">›</span>Business</div><span class="av">PD</span></div>
+            <div class="content">
+              <ul class="tabs"><li>Fleets</li><li>Repositories</li><li class="on">Business</li></ul>
+              <div class="card head">
+                <div class="eyebrow"><svg class="spr" width="12" height="12"><use href="#s-biz"/></svg> Business <span class="pill g">5 confirmed</span></div>
+                <h3 class="headline">We sell <span class="val">an ERP</span> to <span class="val nw">2–50‑person</span> <span class="val">construction</span> firms in <span class="val">Belgium</span>, up against <span class="val">Procore</span>.</h3>
+              </div>
+              <div class="claims">
+                <div class="claim"><span class="kind">Offering</span><div><div class="ct">ERP</div><div class="meta"><span class="rc cid">offering#1</span><span class="src">you picked</span><span class="cited">cited <b>3×</b> · last by think-big #746</span></div></div><div class="verbs"><span class="v r on">✓</span><span class="v w">✗</span></div></div>
+                <div class="claim"><span class="kind">Size</span><div><div class="ct">2–50 people</div><div class="meta"><span class="rc cid">size#2</span><span class="src">you picked</span><span class="cited">cited <b>3×</b> · last by think-big #746</span></div></div><div class="verbs"><span class="v r on">✓</span><span class="v w">✗</span></div></div>
+                <div class="claim"><span class="kind">Trade</span><div><div class="ct">Construction</div><div class="meta"><span class="rc cid">trade#3</span><span class="src">you picked</span><span class="cited">cited <b>2×</b> · last by think-big #746</span></div></div><div class="verbs"><span class="v r on">✓</span><span class="v w">✗</span></div></div>
+                <div class="claim"><span class="kind">Region</span><div><div class="ct">Belgium</div><div class="meta"><span class="rc cid">region#5</span><span class="src">you picked</span><span class="cited">cited <b>2×</b> · last by think-big #746</span></div></div><div class="verbs"><span class="v r on">✓</span><span class="v w">✗</span></div></div>
+                <div class="claim"><span class="kind">Rival</span><div><div class="ct">Procore</div><div class="meta"><span class="rc cid">rival#4</span><span class="src sug">suggested</span><span class="cited">cited <b>3×</b> · last by think-big #746</span></div></div><div class="verbs"><span class="v r on">✓</span><span class="v w">✗</span></div></div>
+              </div>
+              <div><button class="link" type="button">+ Add a product</button> <span class="hint" style="display:inline">· only if some repositories serve another product</span></div>
+              <div class="card head">
+                <div class="eyebrow"><svg class="spr" width="12" height="12"><use href="#s-biz"/></svg> Saved · read by every agent from the next run</div>
+                <h3 class="headline">Next think-big will cite:</h3>
+                <div class="cite"><span><small>offering#1</small>ERP</span><span><small>size#2</small>2–50</span><span><small>trade#3</small>construction</span><span><small>region#5</small>Belgium</span><span><small>rival#4</small>Procore</span></div>
+                <div class="mini"><span style="color:var(--termY)">$</span> omni business show</div>
+                <p class="hint" style="margin-top:8px">Try it in any tracked repository.</p>
+              </div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="tag after"><i>After</i><span>Two products: tabs, region shared above, a product per repository</span></div>
+        <div class="win"><div class="appmain">
+          <div class="bar"><span class="tile"><svg class="spr" width="18" height="18"><use href="#s-biz"/></svg></span><div class="crumb"><span class="g">Settings</span><span class="s">›</span>Business</div><span class="av">PD</span></div>
+          <div class="content">
+            <div class="shared"><span class="kind muted mono" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Region · every product</span><b>Belgium</b><span class="rc cid">region#5</span></div>
+            <ul class="tabs"><li class="on">Vertuoza ERP</li><li>Omni Loop</li><li style="color:var(--plasma)">+ Add a product</li></ul>
+            <p class="hint">Each product has its own sentence and picks: <b style="color:var(--ink)">Omni Loop</b> sells a developer tool to software teams.</p>
+          </div>
+          <div class="bar" style="border-top:2px solid var(--lineStrong)"><span class="tile"><svg class="spr" width="18" height="18"><use href="#s-gear"/></svg></span><div class="crumb"><span class="g">Settings</span><span class="s">›</span>Repositories</div></div>
+          <div class="content">
+            <div class="repo"><div class="nm"><strong>vertuoza/vertuo-erp-api</strong><small>tracked</small></div><span class="sel">Vertuoza ERP</span><span class="sw">Tracked <span class="tog"></span></span></div>
+            <div class="repo"><div class="nm"><strong>vertuoza/vertuo-omni-loop</strong><small>tracked</small></div><span class="sel">Omni Loop</span><span class="sw">Tracked <span class="tog"></span></span></div>
+            <p class="hint">With one product, neither page says “Product”. The select appears once a second product exists.</p>
+          </div>
+        </div></div>
+        <p class="say good"><b>One page, every agent.</b> Tap, confirm, and the claims carry ids that agents cite.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 2. TERMINAL ===================== -->
+  <section class="pair" id="terminal">
+    <header><span class="n">Pair 2 of 3</span><h2>The terminal reads the business</h2><p><code>omni business show</code> prints the confirmed claims for the repository it runs in. <code>--json</code> is the contract the later MCP link returns unchanged. Every reading outcome exits 0.</p></header>
+    <div class="cols">
+      <div class="col">
+        <div class="tag today"><i>Today</i><span>No such command</span></div>
+        <div class="term"><div class="tb"><i></i><i></i><i></i><span>vertuo-erp-api — zsh</span></div>
+<pre><span class="y">$</span> omni business show
+<span class="r">usage: omni &lt;command&gt; [args]</span>
+<span class="m">commands: config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, concept, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets</span>
+<span class="m">omni help: what each command does</span>
+<span class="y">$</span> echo $?
+<span class="r">2</span>
+<span class="sep"></span><span class="y">$</span> grep -ci business &lt;scratch&gt;/fuel.md
+0
+<span class="m"># think-big's fuel sheet says nothing about the business</span></pre></div>
+        <p class="say bad"><b>Unknown command, exit 2.</b> No agent can ask who we sell to.</p>
+      </div>
+      <div class="col">
+        <div class="tag after"><i>After</i><span>The sentence, then one line per claim with its id</span></div>
+        <div class="term"><div class="tb"><i></i><i></i><i></i><span>vertuo-erp-api — zsh</span></div>
+<pre><span class="y">$</span> omni business show
+<b>We sell an ERP to 2–50-person construction firms in Belgium, up against Procore.</b>
+  <span class="p">offering#1</span>  ERP            <span class="m">you picked</span>
+  <span class="p">size#2    </span>  2-50           <span class="m">you picked</span>
+  <span class="p">trade#3   </span>  construction   <span class="m">you picked</span>
+  <span class="p">region#5  </span>  Belgium        <span class="m">you picked</span>
+  <span class="p">rival#4   </span>  Procore        <span class="m">suggested</span>
+<span class="gr">5 confirmed</span>
+<span class="sep"></span><span class="y">$</span> omni business show --json
+{
+  <span class="c">"state"</span>: <span class="gr">"ok"</span>,
+  <span class="c">"business"</span>: { <span class="c">"name"</span>: <span class="gr">"Vertuoza"</span> },
+  <span class="c">"product"</span>: null,
+  <span class="c">"claims"</span>: [
+    { <span class="c">"id"</span>: <span class="gr">"offering#1"</span>, <span class="c">"kind"</span>: <span class="gr">"offering"</span>, <span class="c">"value"</span>: <span class="gr">"ERP"</span>,
+      <span class="c">"source"</span>: <span class="gr">"pick"</span>, <span class="c">"receipt"</span>: null, <span class="c">"lastSeen"</span>: <span class="gr">"2026-09-30"</span> },
+    { <span class="c">"id"</span>: <span class="gr">"size#2"</span>, <span class="c">"kind"</span>: <span class="gr">"size"</span>, <span class="c">"value"</span>: <span class="gr">"2-50"</span>, <span class="m">…</span> },
+    <span class="m">…</span>
+    { <span class="c">"id"</span>: <span class="gr">"rival#4"</span>, <span class="c">"kind"</span>: <span class="gr">"rival"</span>, <span class="c">"value"</span>: <span class="gr">"Procore"</span>,
+      <span class="c">"source"</span>: <span class="gr">"suggestion"</span>, <span class="c">"receipt"</span>: null, <span class="c">"lastSeen"</span>: <span class="gr">"2026-09-30"</span> }
+  ]
+}
+<span class="m"># product is null while the business has one product; proposed and rejected claims never leave the app</span>
+<span class="sep"></span><span class="m"># in an empty workspace</span>
+<span class="y">$</span> omni business show
+No business yet — agents carry on.
+<span class="y">$</span> echo $?
+<span class="gr">0</span></pre></div>
+        <div class="states" aria-label="Every reading outcome">
+          <div><code>"ok"</code><span>the sentence and the claim lines</span><span class="ex">exit 0</span></div>
+          <div><code>"none"</code><span>no business, or no confirmed claim for this repository</span><span class="ex">exit 0</span></div>
+          <div><code>"no-sign-in"</code><span>one line, then the agent carries on</span><span class="ex">exit 0</span></div>
+          <div><code>"unreachable"</code><span>the app cannot be reached; one line</span><span class="ex">exit 0</span></div>
+          <div><code>"refused"</code><span>the app said no; one line</span><span class="ex">exit 0</span></div>
+        </div>
+        <p class="say good"><b>Never blocks an agent.</b> Exit 2 only for a usage or configuration error.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 3. THINK-BIG ===================== -->
+  <section class="pair" id="thinkbig">
+    <header><span class="n">Pair 3 of 3</span><h2>think-big cites the business, then logs what it cited</h2><p>Step 2, Fuel, reads <code>omni business show --json</code> into the fuel sheet under the claim ids. Step 6, Record, names the ids in <code>concept.md</code>'s Fuel section and runs <code>omni business cited</code>.</p></header>
+    <div class="cols">
+      <div class="col">
+        <div class="tag today"><i>Today</i><span>The fuel sheet has today's product only</span></div>
+        <div class="file"><div class="fh"><b>&lt;scratch&gt;/fuel.md</b><span>· read by every studio agent</span></div>
+<div class="fb"><span class="h"># Fuel sheet</span>
+
+<span class="h">## Today's product</span>
+- Screens: /prd, /app/settings, /ask …
+- Look: packages/design tokens, ask.css
+- Knowledge: principles, rules, invariants
+
+<span class="h">## World-class references</span>
+- Linear — keyboard-first triage (link)
+- Figma — multiplayer cursors (link)
+<span class="gap">? Who buys this, how big, where, against whom
+  — not here; the person retypes it, or nobody does</span></div></div>
+        <p class="say bad"><b>Concepts for nobody in particular.</b> The panel cannot say “a 10-person builder would never…”.</p>
+      </div>
+      <div class="col">
+        <div class="tag after"><i>After</i><span>A “The business” section citing claim ids</span></div>
+        <div class="file"><div class="fh"><b>&lt;scratch&gt;/fuel.md</b><span>· read by every studio agent</span></div>
+<div class="fb"><span class="h"># Fuel sheet</span>
+
+<span class="h">## Today's product</span>
+- Screens, look, knowledge (as today)
+<span class="add"><span class="h">## The business</span>  (omni business show --json)
+We sell an ERP to 2–50-person construction firms
+in Belgium, up against Procore.
+- <span class="id">offering#1</span> ERP
+- <span class="id">size#2</span> 2–50 people
+- <span class="id">trade#3</span> construction
+- <span class="id">region#5</span> Belgium
+- <span class="id">rival#4</span> Procore</span>
+<span class="h">## World-class references</span>
+- …</div></div>
+
+        <div class="file"><div class="fh"><b>concept.md</b><span>· ## Fuel</span></div>
+<div class="fb"><span class="h">## Fuel</span>
+<span class="add">Business claims cited: <span class="id">offering#1</span>, <span class="id">size#2</span>, <span class="id">rival#4</span></span>- Today's product: …</div></div>
+
+        <div class="term"><div class="tb"><i></i><i></i><i></i><span>think-big · step 6, Record</span></div>
+<pre><span class="y">$</span> omni business cited offering#1 size#2 rival#4 --by think-big --ref 'concept #9'
+<span class="gr">cited 3 claims</span> <span class="m">· by think-big · concept #9</span>
+<span class="sep"></span><span class="m"># when the app cannot be reached</span>
+<span class="y">$</span> omni business cited rival#4 --by think-big --ref 'concept #9'
+<span class="m">business cited: skipped, the app is unreachable — agents carry on.</span>
+<span class="y">$</span> echo $?
+<span class="gr">0</span></pre></div>
+        <p class="say good"><b>The success test.</b> A think-big on a Vertuoza repository cites the ICP and a named rival without anyone typing them, and Settings › Business counts each citation on its claim.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('themebtn');
+  try{var t=localStorage.getItem('ba-theme');if(t)root.setAttribute('data-theme',t)}catch(e){}
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+    var next=cur==='dark'?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem('ba-theme',next)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
