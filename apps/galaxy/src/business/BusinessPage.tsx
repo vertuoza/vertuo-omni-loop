@@ -10,7 +10,7 @@ import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type Bu
 import { suggestKey } from './suggest';
 import { databaseDraft, demoDraftPort, type DraftDb, type DraftPort } from './draft-port';
 import { thatsUs, type DraftView, type WebPage } from './reveal';
-import { canUndo, initialPersonasState, personasReducer, type Persona } from './personas';
+import { canUndo, initialPersonasState, personasReducer, type Persona, type PersonasState } from './personas';
 import { databasePersonas, demoPersonasPort, type PersonaPort } from './personas-store';
 import { PersonasSection, type PersonaHandlers } from './PersonasSection';
 
@@ -59,6 +59,63 @@ const POLL_MS = 1500;
 
 /** A seed for a new persona's avatar and the picker's order. */
 const freshSeed = () => `${Date.now()}-${Math.random()}`;
+
+/** The product a new persona goes on: the tab shown, else the source's product, else the first. */
+const newPersonaProduct = (source: BusinessSource, current: string | null, products: readonly Product[]) =>
+  current ?? (source.kind === 'database' ? source.product : products[0]?.id ?? null);
+
+/**
+ * The personas section's state and handlers (PRD 799 s3): `newProduct` is the product a new persona
+ * goes on, the tab shown.
+ */
+function usePersonas(source: BusinessSource, personas: Persona[], newProduct: string | null): [PersonasState, PersonaHandlers] {
+  const [cast, act] = useReducer(personasReducer, personas, initialPersonasState);
+  const castPort = useRef<PersonaPort | null>(null);
+  const getCast = () => (castPort.current ??= source.kind === 'demo'
+    ? demoPersonasPort(personas)
+    : databasePersonas(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+  // Undo goes once its 5 seconds have passed.
+  const until = cast.undo?.until ?? null;
+  useEffect(() => {
+    if (until === null) return;
+    const timer = setTimeout(() => act({ type: 'tick', at: Date.now() }), Math.max(0, until - Date.now()));
+    return () => clearTimeout(timer);
+  }, [until]);
+  const save = async () => {
+    const drawer = cast.drawer;
+    if (cast.busy || !drawer) return;
+    if (drawer.editing === null && !drawer.product) return;
+    act({ type: 'busy' });
+    const saved = drawer.editing === null
+      ? await getCast().add(drawer.product as string, drawer.fields)
+      : await getCast().edit(drawer.editing, drawer.fields);
+    act(saved.ok ? { type: 'saved', persona: saved.persona } : { type: 'refused', message: saved.message });
+  };
+  const remove = async () => {
+    const editing = cast.drawer?.editing;
+    if (cast.busy || !editing) return;
+    act({ type: 'busy' });
+    const removed = await getCast().remove(editing);
+    act(removed.ok ? { type: 'deleted', persona: removed.persona, at: Date.now() } : { type: 'refused', message: removed.message });
+  };
+  const undo = async () => {
+    if (cast.busy || !cast.undo || !canUndo(cast, Date.now())) return;
+    act({ type: 'busy' });
+    const back = await getCast().restore(cast.undo.persona.id);
+    act(back.ok ? { type: 'restored', persona: back.persona } : { type: 'refused', message: back.message });
+  };
+  const handlers: PersonaHandlers = {
+    open: () => act({ type: 'new', product: newProduct, seed: freshSeed() }),
+    edit: (p) => act({ type: 'edit', persona: p.id, seed: freshSeed() }),
+    change: (fields) => act({ type: 'change', fields }),
+    shuffle: () => act({ type: 'shuffle' }),
+    close: () => act({ type: 'close' }),
+    save: () => void save(),
+    remove: () => void remove(),
+    undo: () => void undo(),
+  };
+  return [cast, handlers];
+}
 
 export function BusinessPage({ source, claims, products, draft = null, pages = [], personas = [] }: BusinessPageProps) {
   const [whole, dispatch] = useReducer(businessReducer, null, () => initialBusinessState(claims, products, { draft, pages }));
@@ -244,49 +301,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   };
 
   // The personas (PRD 799 s3).
-  const [cast, act] = useReducer(personasReducer, personas, initialPersonasState);
-  const castPort = useRef<PersonaPort | null>(null);
-  const getCast = () => (castPort.current ??= source.kind === 'demo'
-    ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
-  // Undo goes once its 5 seconds have passed.
-  const until = cast.undo?.until ?? null;
-  useEffect(() => {
-    if (until === null) return;
-    const timer = setTimeout(() => act({ type: 'tick', at: Date.now() }), Math.max(0, until - Date.now()));
-    return () => clearTimeout(timer);
-  }, [until]);
-  const newProduct = whole.current ?? (source.kind === 'database' ? source.product : products[0]?.id ?? null);
-  const persona: PersonaHandlers = {
-    open: () => act({ type: 'new', product: newProduct, seed: freshSeed() }),
-    edit: (p) => act({ type: 'edit', persona: p.id, seed: freshSeed() }),
-    change: (fields) => act({ type: 'change', fields }),
-    shuffle: () => act({ type: 'shuffle' }),
-    close: () => act({ type: 'close' }),
-    save: () => void (async () => {
-      const drawer = cast.drawer;
-      if (cast.busy || !drawer) return;
-      if (drawer.editing === null && !drawer.product) return;
-      act({ type: 'busy' });
-      const saved = drawer.editing === null
-        ? await getCast().add(drawer.product as string, drawer.fields)
-        : await getCast().edit(drawer.editing, drawer.fields);
-      act(saved.ok ? { type: 'saved', persona: saved.persona } : { type: 'refused', message: saved.message });
-    })(),
-    remove: () => void (async () => {
-      const editing = cast.drawer?.editing;
-      if (cast.busy || !editing) return;
-      act({ type: 'busy' });
-      const removed = await getCast().remove(editing);
-      act(removed.ok ? { type: 'deleted', persona: removed.persona, at: Date.now() } : { type: 'refused', message: removed.message });
-    })(),
-    undo: () => void (async () => {
-      if (cast.busy || !cast.undo || !canUndo(cast, Date.now())) return;
-      act({ type: 'busy' });
-      const back = await getCast().restore(cast.undo.persona.id);
-      act(back.ok ? { type: 'restored', persona: back.persona } : { type: 'refused', message: back.message });
-    })(),
-  };
+  const [cast, persona] = usePersonas(source, personas, newPersonaProduct(source, whole.current, products));
 
   return (
     <BusinessView

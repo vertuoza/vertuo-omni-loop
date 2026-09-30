@@ -68,15 +68,26 @@ function personaOf(value) {
   return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
 }
 
+/** The reply's claims, or null when one is not a claim or they disagree with its state. */
+function claimsOf(reply) {
+  const claims = reply.claims.map(claimOf);
+  if (claims.includes(null)) return null;
+  return (reply.state === 'ok') === (claims.length > 0) ? claims : null;
+}
+
+/** The reply's personas (`[]` when it sends none), or null when one is not a persona. */
+function personasOf(value) {
+  if (value !== undefined && !Array.isArray(value)) return null;
+  const personas = (value ?? []).map(personaOf);
+  return personas.includes(null) ? null : personas;
+}
+
 /** The server's reply as the contract's body, or null when it does not read as one. */
 function businessOf(reply) {
   if (!reply || !['ok', 'none'].includes(reply.state) || !Array.isArray(reply.claims)) return null;
-  const claims = reply.claims.map(claimOf);
-  if (claims.includes(null)) return null;
-  if ((reply.state === 'ok') !== (claims.length > 0)) return null;
-  if (reply.personas !== undefined && !Array.isArray(reply.personas)) return null;
-  const personas = (reply.personas ?? []).map(personaOf);
-  if (personas.includes(null)) return null;
+  const claims = claimsOf(reply);
+  const personas = claims && personasOf(reply.personas);
+  if (!personas) return null;
   return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
 }
 
@@ -154,6 +165,41 @@ async function cited(ids, flags, env) {
   return 0;
 }
 
+/** What `show` prints of a business it read: the `--json` body and the lines. */
+function shown(repo, read) {
+  if (read.state === 'none') {
+    const line = read.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
+    return [empty('none', read), [line, ...personaLines(read.personas, 'persona'.length)]];
+  }
+  const idWidth = Math.max(...read.claims.map((claim) => claim.id.length), read.personas.length ? 'persona'.length : 0);
+  return [read, [
+    sentence(read.claims),
+    ...read.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
+    ...personaLines(read.personas, idWidth),
+  ]];
+}
+
+/** `omni business show [--json]`: reads the business and prints it, or the one line saying why not. */
+async function show(args, env) {
+  const { positional, flags } = parseArgs('business', args, { booleans: ['json'] });
+  if (positional.length !== 1 || positional[0] !== 'show') throw usageError(USAGE);
+  const out = { json: flags.json === true, stdout: env.stdout };
+
+  const reached = reach(env);
+  if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+  const { repo, client } = reached;
+  let reply;
+  try {
+    reply = await client.readBusiness(repo);
+  } catch (error) {
+    const { state, line } = stopped(error);
+    return print(out, empty(state), [line]);
+  }
+  const read = businessOf(reply);
+  if (!read) return print(out, empty('refused'), [`refused (the reply is not a business) ${CARRY_ON}`]);
+  return print(out, ...shown(repo, read));
+}
+
 export const business = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
@@ -162,31 +208,6 @@ export const business = {
       const { positional, flags } = parseArgs('business', args.slice(1), { values: ['by', 'ref'] });
       return cited(positional, flags, env);
     }
-    const { positional, flags } = parseArgs('business', args, { booleans: ['json'] });
-    if (positional.length !== 1 || positional[0] !== 'show') throw usageError(USAGE);
-    const out = { json: flags.json === true, stdout };
-
-    const reached = reach(env);
-    if (!reached.client) return print(out, empty(reached.state), [reached.line]);
-    const { repo, client } = reached;
-    let reply;
-    try {
-      reply = await client.readBusiness(repo);
-    } catch (error) {
-      const { state, line } = stopped(error);
-      return print(out, empty(state), [line]);
-    }
-    const read = businessOf(reply);
-    if (!read) return print(out, empty('refused'), [`refused (the reply is not a business) ${CARRY_ON}`]);
-    if (read.state === 'none') {
-      const line = read.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-      return print(out, empty('none', read), [line, ...personaLines(read.personas, 'persona'.length)]);
-    }
-    const idWidth = Math.max(...read.claims.map((claim) => claim.id.length), read.personas.length ? 'persona'.length : 0);
-    return print(out, read, [
-      sentence(read.claims),
-      ...read.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
-      ...personaLines(read.personas, idWidth),
-    ]);
+    return show(args, env);
   },
 };

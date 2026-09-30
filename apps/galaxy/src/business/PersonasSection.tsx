@@ -31,13 +31,13 @@ export interface PersonaHandlers {
 
 const IDLE: PersonaHandlers = { open() {}, edit() {}, change() {}, shuffle() {}, close() {}, save() {}, remove() {}, undo() {} };
 
-export const PERSONAS_TITLE = 'Personas';
+const PERSONAS_TITLE = 'Personas';
 export const ADD_PERSONA = '+ Add a persona';
 export const NO_PERSONAS = 'No personas yet — agents carry on';
-export const PERSONAS_HINT = 'Who agents picture when they design. Describe a kind of customer, never a real one by name.';
+const PERSONAS_HINT = 'Who agents picture when they design. Describe a kind of customer, never a real one by name.';
 export const SHUFFLE = '⟳ Shuffle';
 export const UNDO = 'Undo';
-export const STANCE_LABEL: Readonly<Record<Stance, string>> = { excited: 'Excited', neutral: 'Neutral', skeptical: 'Skeptical' };
+const STANCE_LABEL: Readonly<Record<Stance, string>> = { excited: 'Excited', neutral: 'Neutral', skeptical: 'Skeptical' };
 
 export interface PersonasSectionProps {
   state: PersonasState;

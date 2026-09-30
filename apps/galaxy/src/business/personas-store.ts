@@ -66,16 +66,22 @@ export function databasePersonas(db: Rpc, workspace: string): PersonaPort {
   };
 }
 
+const badName = (name: string) => name.length < 1 || name.length > NAME_MAX || /[\r\n\t]/.test(name);
+const badText = (text: string) => text.trim().length > TEXT_MAX;
+
+/** persona_fields()'s checks, in its order: each field, and whether a value breaks it. */
+const FIELD_CHECKS: ReadonlyArray<readonly [string, (f: PersonaFields) => boolean]> = [
+  ['name', (f) => badName(f.name.trim())],
+  ['stance', (f) => !STANCES.includes(f.stance)],
+  ['trade', (f) => !/^[a-z]+$/.test(f.trade) || f.trade.length > 40],
+  ['avatar', (f) => !validPersonaAvatar(f.avatar)],
+  ['who', (f) => badText(f.who)],
+  ['usage', (f) => badText(f.usage)],
+];
+
 /** persona_fields()'s checks: the field a value breaks, or null. */
-export function invalidField(f: PersonaFields): string | null {
-  const name = f.name.trim();
-  if (name.length < 1 || name.length > NAME_MAX || /[\r\n\t]/.test(name)) return 'name';
-  if (!STANCES.includes(f.stance)) return 'stance';
-  if (!/^[a-z]+$/.test(f.trade) || f.trade.length > 40) return 'trade';
-  if (!validPersonaAvatar(f.avatar)) return 'avatar';
-  if (f.who.trim().length > TEXT_MAX) return 'who';
-  if (f.usage.trim().length > TEXT_MAX) return 'usage';
-  return null;
+function invalidField(f: PersonaFields): string | null {
+  return FIELD_CHECKS.find(([, breaks]) => breaks(f))?.[0] ?? null;
 }
 
 const trimmed = (f: PersonaFields): PersonaFields => ({ ...f, name: f.name.trim(), who: f.who.trim(), usage: f.usage.trim() });

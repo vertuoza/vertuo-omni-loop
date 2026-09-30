@@ -141,7 +141,7 @@ export const initialPersonasState = (personas: Persona[] = []): PersonasState =>
 /** The first trade: where a new persona starts. */
 const FIRST_TRADE = PERSONA_TRADES[0].id;
 
-export const blankFields = (seed: string): PersonaFields => ({
+const blankFields = (seed: string): PersonaFields => ({
   name: '', stance: 'neutral', trade: FIRST_TRADE, avatar: randomAvatar(seed), who: '', usage: '',
 });
 
