@@ -1008,3 +1008,89 @@ describe('the think-big skill in this repository', () => {
     expect(lastFencedLine(handOff)).toBe('/omni:brainstorm --concept <n> <wedge id>');
   });
 });
+
+// PRD 798: /omni:prove films a ready PRD's acceptance criteria and reports them, never blocking; the
+// brainstorm asks for it, the yolo follows it after ready, and /omni:invade proposes its config.
+describe('the prove skill and the skills that lead to it (PRD 798)', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const inOrder = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named prove, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read('prove')) ?? {};
+    expect(name).toBe('prove');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:prove/);
+  });
+
+  it('stops with one line when proof.url is unset, and when the preview does not answer', () => {
+    const step = skillSection(read('prove'), '1.');
+    expect(step).toContain('omni.mjs config proof');
+    expect(step).toContain('proof is not configured here: run /omni:invade --refresh, or set proof.url in .omni-loop/config.yml');
+    expect(step).toMatch(/writes nothing and posts nothing/);
+    const target = skillSection(read('prove'), '2.');
+    for (const phrase of ['github-deployment', '10 minutes', 'proof.bypassEnv', 'x-vercel-protection-bypass', 'proof.setup', 'PROOF_STORAGE_STATE', 'preview not reachable: <status>']) {
+      expect(target, phrase).toContain(phrase);
+    }
+  });
+
+  it('films at most 10 criteria, each capped at proof.maxSeconds, and says why a criterion is unfilmable', () => {
+    const film = skillSection(read('prove'), '3.');
+    for (const phrase of ['at most 10', 'proof.maxSeconds', '**unfilmable**', '**filmed**', '<k>-<slug>.spec.ts', '1280×720', 'recordVideo', '<worktrees>/proof-<n>/<run>/', 'preview.gif', 'ffmpeg', 'never committed']) {
+      expect(film, phrase).toContain(phrase);
+    }
+    expect(film).toContain('{commit, url, criteria: [{text, verdict, note?, video?, script?}]}');
+    expect(film).toMatch(/`pass`, `fail` or `unfilmable`/);
+  });
+
+  it('pushes the run with omni proof push, and keeps the files when it fails', () => {
+    const push = skillSection(read('prove'), '4.');
+    expect(push).toContain('omni.mjs proof push <n> <dir>');
+    expect(push).toContain('upload failed: rerun omni proof push <n> <dir>');
+  });
+
+  it('posts one unsigned comment on the feature PR, one line per criterion, the link and the GIF', () => {
+    const comment = skillSection(read('prove'), '5.');
+    expect(inOrder(comment, ['gh pr comment', 'Proof — <commit short sha>', '✓', '✗', '—', 'Proof tab', 'preview.gif'])).toEqual([]);
+    expect(comment).toMatch(/[Uu]nsigned/);
+    expect(read('prove')).not.toMatch(/omni(?:\.mjs|`)?\s+sign\b/);
+  });
+
+  it('never blocks: it leaves the PR state, its labels and its checks alone, and never merges', () => {
+    const text = read('prove');
+    expect(skillSection(text, 'Never')).toMatch(/Nothing blocks/);
+    for (const verb of [/\bgh pr ready\b/, /\bgh pr merge\b/, /--add-label/, /--remove-label/, /\bgit commit\b/]) expect(text).not.toMatch(verb);
+  });
+
+  it('/omni:brainstorm asks the proof question only when proof.url is set, and a yes writes proof: video', () => {
+    const text = read('brainstorm');
+    const design = skillSection(text, '1.');
+    expect(inOrder(design, ['**The gate.**', 'proof.url', 'Record a proof video once it ships?', '`proof: video`'])).toEqual([]);
+    // Step 4 holds the spec's own `## ` headings in a template, so it is read up to step 5.
+    const spec = text.slice(text.indexOf('## 4. Write the spec'), text.indexOf('## 5. '));
+    expect(spec).toMatch(/^- `proof: video` only when the person said yes/m);
+  });
+
+  it('/omni:yolo follows /omni:prove after it marks the PR ready, only when the spec says proof: video', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(inOrder(step.slice(0, red), ['gh pr ready', '`proof: video`', '/omni:prove <prd>'])).toEqual([]);
+    expect(step.slice(red)).not.toContain('/omni:prove');
+  });
+
+  it('/omni:invade step 7 proposes proof.url and proof.setup, with when, and only the name of proof.bypassEnv', () => {
+    const step = skillSection(read('invade'), '7.');
+    const row = (key) => step.split('\n').find((line) => line.startsWith(`| \`${key}\``)) ?? '';
+    expect(row('proof.url')).toMatch(/Playwright/);
+    expect(row('proof.url')).toMatch(/preview/);
+    expect(row('proof.setup')).toMatch(/sign-in helper/);
+    expect(step).toMatch(/proof\.bypassEnv[^\n]*name/);
+  });
+});
