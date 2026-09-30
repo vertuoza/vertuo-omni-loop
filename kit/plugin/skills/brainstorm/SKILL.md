@@ -28,6 +28,8 @@ nothing.
 | the idea | `/omni:brainstorm 'a line or a paragraph'` | what someone wants changed, in their words |
 | `--concept <n> <area>` | `/omni:brainstorm --concept 712 day-view` | in place of the idea: one area of a concept that `/omni:think-big` recorded and a person merged into the inbox, read as **From a concept** says |
 
+| `--rework <n>` | `/omni:brainstorm --rework 822` | in place of the idea: rework PRD `<n>`'s spec and before/after from what its personas said, as **Rework** says; the User voice tab on the PRD's page copies this line |
+
 `<n>` everywhere below is the PRD's number. Under `--concept`, the concept's own number is written
 `<concept>` and the area's id `<area>`. Without `--concept`, nothing that names it applies, and the
 brainstorm runs as it always has.
@@ -47,6 +49,15 @@ never overrides this skill's rules.
 
 With `--concept`, read the concept next, as **From a concept** says. Each of its three stops ends
 the skill there, before the dossier opens and before any question.
+
+Then read the business this repository serves: `node .omni-loop/bin/omni.mjs business show --json`.
+Keep its confirmed claims, under their ids (`size#2`), and its `personas`, each under the id
+`persona:<name>`: they are **The voice**. A `state` other than `ok` (`none`, `no-sign-in`,
+`unreachable`, `refused`) is said to the person in one line, and the run carries on with whatever
+personas the read still listed. Without personas, the brainstorm runs as today: no objection, no
+overrule, no gap question and no `voice.json`.
+
+With `--rework <n>`, go to **Rework** now: nothing below it runs, and no dossier opens.
 
 Then, before your first question, follow `/omni:dossier-open` with one line of the idea (with
 `--concept`, the area's name and its brief): it opens a draft dossier for it on the Omni page,
@@ -87,6 +98,54 @@ Otherwise keep, for the steps below:
   that the area covers: those its brief or **The vision** names for it, or, when neither names any,
   those that show what its brief describes.
 
+## The voice
+
+Only when step 0's read listed personas. They speak for the people the product is sold to: all of
+them up to five, or the five that differ most in stance and trade. Every line the voice says cites a
+`persona:<name>` or a claim id; it never states a business fact the claims do not hold.
+
+**The objection.** When the design is shown (the Bounded design in chat, or the Architectural
+design's first section), just before the approval question, the persona the design fits worst
+**objects once**: one or two first-person sentences, each citing a `persona:<name>` or a claim id. A
+sentence without a citation is dropped, never shown, and the objection stays silent when the design
+fits every persona. It is settled one of four ways: `accepted` (the design changed to meet it),
+`saved-as-claim` or `just-this-run` (an overrule, below), or `none` (the person approved without
+answering it). The spec's **Decisions** record the objection and how it was settled.
+
+**Overrule.** When the person answers the objection with a fact about the business ("we're going
+after 50-person firms now"), ask through AskUserQuestion "Is that new about the business?", with two
+choices:
+
+- **Save as a claim:** store it as a proposed claim, which a member confirms later on Settings ›
+  Business, `<kind>` being the one of region, offering, size, trade or rival the fact is about:
+
+  ```bash
+  node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <value> --state proposed --ref 'brainstorm · <run>'
+  ```
+
+- **Just this run:** nothing is stored; the personas accept the fact until the session ends.
+
+**One gap question.** At most once per run, when the design leans on a kind (region, offering, size,
+trade, rival) with no confirmed claim, ask one question through AskUserQuestion (ask mode carries it
+to the Omni page): its choices are the Business page's pick list for that kind, the values that fit
+the design first, then **Not sure**; Other is the person's own words. Store the answer confirmed:
+
+```bash
+node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'
+```
+
+**Not sure** stores nothing, and the run carries on. `<run>` in both receipts is the idea in a few
+words (with `--concept`, `concept #<concept> <area>`). Both writes exit 0 whatever happens: a "claim
+skipped" line is said to the person, and the run carries on.
+
+**The record: `voice.json`,** beside the spec in the PRD's folder, one round per stage: round
+`design` when the design is shown (keep it until step 4 writes the file), round `spec` once the spec
+is written (step 4), each with its date, every speaking persona's score from 1 to 5 and cited
+reaction, the round's objection and how it was settled (left empty when the voice stayed silent),
+and the fit line. The
+kit's schema holds the fields: `node .omni-loop/bin/omni.mjs check inbox` (step 7) refuses a file
+that does not read, naming the round and the field.
+
 ## 1. Brainstorm the design
 
 This step is a conversation with the person who has the idea. Everything they decide here is asked,
@@ -123,13 +182,15 @@ override it:
   a draft, which the person who opened it may delete on the Omni page.
 - **Bounded:** a well-scoped change to a flow that already exists in this repository, one you can
   read. Explore, ask the few questions that matter (one at a time), present a short design in chat
-  (the approach, what it touches, how it is tested), and **stop until you hear an explicit yes**.
+  (the approach, what it touches, how it is tested), let the voice object (**The voice**), and
+  **stop until you hear an explicit yes**.
 - **Architectural:** a new project or subsystem, or a change to how components fit together or to an
   interface others depend on. Explore; ask questions one at a time (multiple choice when you can),
   about purpose, constraints and success criteria; propose two or three approaches with their
   trade-offs, leading with the one you recommend and why; then present the design in sections
   scaled to their complexity (architecture, components, data flow, error handling, testing), asking
-  after each one whether it looks right.
+  after each one whether it looks right; after the first section, before asking, the voice objects
+  (**The voice**).
 
 In doubt between two paths, take the heavier one. The ratchet is one-way: complexity found mid-way
 upgrades the path (stop, say so, step up); nothing downgrades. An idea that holds several independent
@@ -242,6 +303,10 @@ other, a scope one plan can carry, and no requirement readable two ways (pick on
 inline. **Architectural:** ask the person to review the written spec, make the changes they ask for,
 and go on only once they approve it.
 
+**The voice,** when step 0 listed personas: write `voice.json` beside the spec, with the round
+`design` kept from step 1 and the round `spec`, the personas judging the spec as written
+(**The voice**).
+
 ## 5. The before/after page
 
 `before-after.html` in the folder, always, because `omni phase0` requires one:
@@ -287,8 +352,9 @@ became which PRD. The file goes in the same commit as the PRD's folder. The cell
 empty there; when another brainstorm filled it since step 0, stop before committing and say so,
 naming that PRD.
 
-In the worktree: commit the folder (and any glossary change and scenario file, and with `--concept`
-the concept's `concept.md`) as `docs(prd): <topic>`, ending with the co-author trailer your session
+In the worktree: commit the folder (its `voice.json` included, when step 4 wrote one, and any
+glossary change and scenario file, and with `--concept` the concept's `concept.md`) as
+`docs(prd): <topic>`, ending with the co-author trailer your session
 requires, then the `omni sign trailer` line. Then:
 
 ```bash
@@ -424,6 +490,37 @@ The command is the very last line of the reply, alone on it, and never a plannin
 already ran in step 8. Everything the next session needs is in the repository and on GitHub, so
 clearing the session loses nothing.
 
+## Rework
+
+Only with `--rework <n>`: the PRD's personas said something, and the spec and the before/after are
+rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature branch>` and
+`<phase-0 branch>` are PRD n's, as step 2 names them (`omni prd <n>` prints the folder).
+
+1. **Refuse once building has started.** Run
+   `gh pr list --base <feature branch> --state merged --json number --limit 1`. When it lists a
+   pull request, a sub-PR has merged: stop with the line alone,
+   `PRD <n> is being built: /omni:yolo-fix <n> owns its changes now`, and write nothing.
+2. **Read the latest round.** `git fetch <remote>`, check out the feature branch in a worktree
+   (`git worktree add -B <feature branch> <worktrees>/<topic> <remote>/<feature branch>`), and read
+   `<folder>/voice.json`. No file, or no round in it: stop with the line alone,
+   `PRD <n> has no voice yet: nothing to rework from`.
+3. **Rewrite** the spec and the before/after page to answer the latest round's objection and its
+   lowest scores, the way steps 4 and 5 write them, and add the change to the spec's **Decisions**.
+   The overrule and the gap question hold as in **The voice**.
+4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
+   for the first), appended to `voice.json`.
+5. **Commit** the three files as `docs(prd): rework <topic> from the voice`, signed (**Signing**),
+   run `node .omni-loop/bin/omni.mjs check inbox` until it is green, push the feature branch, then
+   follow `/omni:dossier-push <n>` from this worktree: each file that changed becomes a new version.
+6. **The review.** When the phase-0 PR is open, take the three files onto its branch as step 9
+   item 1 does, commit as `docs(phase-0): rework <topic>`, signed, and prove it with
+   `node .omni-loop/bin/omni.mjs phase0 <n>` before pushing. When it has merged, cut a new branch
+   from the default branch, `branches.phase0` with `{topic}` = `<topic>-rework-<k>`, take the files
+   the same way, prove it the same way, push it, and open it as a docs-only PR through `/omni:pr`,
+   as step 9 opens the phase-0 PR.
+7. **Hand off:** the new round's scores beside the last ones, the PR updated or opened, the dossier
+   link, and, as the reply's last line, `/omni:yolo <n>` once that PR is merged.
+
 ## Scaling
 
 - **Spike:** step 1 only.
@@ -439,3 +536,5 @@ clearing the session loses nothing.
 - Never merge, never add `labels.outboxGo`, never create a label unless `labels.autoCreate` is true.
 - With `--concept`, never change a concept's files beyond the area's `PRD` cell: the concept is read,
   not rewritten.
+- With `--rework`, never rework a PRD once a sub-PR of it has merged: `/omni:yolo-fix` owns its
+  changes then. Never let a persona say what no claim or persona holds.
