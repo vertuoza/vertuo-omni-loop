@@ -667,3 +667,45 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .fix-moment-done::before { background: var(--ask-plasma); border-color: var(--ask-plasma); }
 .fix-moment-label { font-weight: 700; }
 .fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
+
+/* ── The Proof tab (PRD 798, s4): the run's facts and counts, then a row per criterion with its mark,
+   its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its
+   script behind a fold that scrolls sideways rather than widen the page. ── */
+
+.proof-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.proof-facts > div { display: grid; gap: 2px; min-width: 0; }
+.proof-facts dt { font-size: 12px; color: var(--ask-muted); }
+.proof-facts dd { margin: 0; overflow-wrap: anywhere; }
+.proof-counts { display: flex; gap: 12px; }
+.proof-mark { font-weight: 700; flex: none; }
+.proof-mark.proof-pass { color: var(--ask-green); }
+.proof-mark.proof-fail { color: var(--ask-red); }
+.proof-mark.proof-unfilmable { color: var(--ask-muted); }
+.proof-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; max-width: 960px; min-width: 0; }
+.proof-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-left-width: 4px;
+  border-radius: 12px;
+}
+.proof-row.proof-pass { border-left-color: var(--ask-green); }
+.proof-row.proof-fail { border-left-color: var(--ask-red); }
+.proof-criterion { display: flex; gap: 10px; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.proof-note { margin: 0; color: var(--ask-muted); font: 13px/1.5 var(--ask-mono); overflow-wrap: anywhere; }
+.proof-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--ask-sunk); border-radius: 8px; }
+.proof-script { min-width: 0; }
+.proof-script > summary { cursor: pointer; font-weight: 700; }
+.proof-script[open] > summary { margin-bottom: 8px; }
+.proof-script pre {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 480px;
+  overflow: auto;
+  font: 12px/1.5 var(--ask-mono);
+  background: var(--ask-sunk);
+  border-radius: 8px;
+}
