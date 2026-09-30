@@ -15571,7 +15571,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
-    readBusiness: (repo) => call("GET", `/api/business?${new URLSearchParams({ repo })}`)
+    readBusiness: (repo) => call("GET", `/api/business?${new URLSearchParams({ repo })}`),
+    /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
+     * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
+    citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } })
   };
 }
 
@@ -16767,7 +16770,8 @@ var board = {
 
 // kit/bin/commands/business.mjs
 init_define_OMNI_BUNDLE();
-var USAGE4 = "usage: omni business show [--json]";
+var USAGE4 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
@@ -16808,21 +16812,48 @@ function print({ json, stdout }, body, lines) {
   else for (const line of lines) println(stdout, line);
   return 0;
 }
+function reach({ cwd, exec, tokens, home, fetch, callMs }) {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError("omni business: no repository slug \u2014 set repo.slug in the config.");
+  const askUrl2 = ctx.config.ask.url;
+  if (!askUrl2) return { state: "no-sign-in", line: `no Omni page is set here (ask.url) ${CARRY_ON}` };
+  const host = credentialsHost(askUrl2);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) return { state: "no-sign-in", line: `no sign-in (omni signin) ${CARRY_ON}` };
+  return { repo, client: askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }) };
+}
+async function cited(ids, flags, env) {
+  if (ids.length === 0 || typeof flags.by !== "string" || !flags.by.trim()) throw usageError(CITED_USAGE);
+  const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
+  const skip = (line) => {
+    println(env.stdout, `citation skipped: ${line}`);
+    return 0;
+  };
+  const reached = reach(env);
+  if (!reached.client) return skip(reached.line);
+  try {
+    await reached.client.citeClaims({ repo: reached.repo, ids, by: flags.by, ref });
+  } catch (error) {
+    return skip(stopped(error).line);
+  }
+  println(env.stdout, `cited ${ids.join(", ")} (${[flags.by, ref].filter(Boolean).join(", ")})`);
+  return 0;
+}
 var business = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
+    const env = { cwd, stdout, exec, tokens, home, fetch, callMs };
+    if (args[0] === "cited") {
+      const { positional: positional2, flags: flags2 } = parseArgs("business", args.slice(1), { values: ["by", "ref"] });
+      return cited(positional2, flags2, env);
+    }
     const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
     if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE4);
     const out = { json: flags.json === true, stdout };
-    const ctx = loadContext(cwd, { exec });
-    const repo = ctx.config.repo.slug;
-    if (!repo) throw usageError("omni business: no repository slug \u2014 set repo.slug in the config.");
-    const askUrl2 = ctx.config.ask.url;
-    if (!askUrl2) return print(out, empty("no-sign-in"), [`no Omni page is set here (ask.url) ${CARRY_ON}`]);
-    const host = credentialsHost(askUrl2);
-    const store = tokens ?? homeTokens(home ? { home } : void 0);
-    if (!store.read(host)) return print(out, empty("no-sign-in"), [`no sign-in (omni signin) ${CARRY_ON}`]);
-    const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
+    const reached = reach(env);
+    if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+    const { repo, client } = reached;
     let reply;
     try {
       reply = await client.readBusiness(repo);
@@ -20675,10 +20706,10 @@ var ENTRIES = deepFreeze([
     name: "business",
     kind: "command",
     who: "you",
-    usage: ["omni business show [--json]"],
+    usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. --json prints them for an agent. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. --json prints them for an agent. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
   },
   {
     name: "version",
@@ -22674,8 +22705,8 @@ function buildGraph(knowledge2, { repo }) {
   for (const entry of entries3) {
     const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
-    const cited = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
-    for (const id of cited) {
+    const cited2 = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
+    for (const id of cited2) {
       if (id !== entry.id && byId.has(id)) links.push({ from: entry.id, to: id, kind: "cites" });
     }
   }

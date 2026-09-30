@@ -13,6 +13,10 @@
 //   refused      the Omni page refused the read (its status, and its reason when it gave one)
 // Exit 2 is only for a usage error, the kit not installed here or a config that does not read.
 //
+// `omni business cited <id>… --by <skill> [--ref <text>]` logs the claims an agent cited through
+// `POST /api/business/citations`, so the page shows how often each is cited. It never blocks either:
+// any failed call prints one "citation skipped: … — agents carry on" line and exits 0.
+//
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
 import { askClient, AskCallError } from '../../lib/ask/client.mjs';
@@ -21,7 +25,8 @@ import { credentialsHost } from '../../lib/ask/credentials.mjs';
 import { loadContext } from '../../lib/context.mjs';
 import { parseArgs, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni business show [--json]';
+const USAGE = 'usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>]';
+const CITED_USAGE = 'usage: omni business cited <id>… --by <skill> [--ref <text>]';
 const CARRY_ON = '— agents carry on';
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
 const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
@@ -77,24 +82,60 @@ function print({ json, stdout }, body, lines) {
   return 0;
 }
 
+/**
+ * This repository's slug and a client signed in to its Omni page, or `{ state, line }` when there is
+ * none to call: no Omni page set here, or no sign-in for it.
+ */
+function reach({ cwd, exec, tokens, home, fetch, callMs }) {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  if (!repo) throw usageError('omni business: no repository slug — set repo.slug in the config.');
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) return { state: 'no-sign-in', line: `no Omni page is set here (ask.url) ${CARRY_ON}` };
+  const host = credentialsHost(askUrl);
+  const store = tokens ?? homeTokens(home ? { home } : undefined);
+  if (!store.read(host)) return { state: 'no-sign-in', line: `no sign-in (omni signin) ${CARRY_ON}` };
+  return { repo, client: askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) }) };
+}
+
+/**
+ * `omni business cited <id>… --by <skill> [--ref <text>]`: appends one citation per id to the
+ * business's log. The ids are the server's to judge, so a skill line naming a wrong one never stops a
+ * run: every failed call prints one "citation skipped" line and exits 0.
+ */
+async function cited(ids, flags, env) {
+  if (ids.length === 0 || typeof flags.by !== 'string' || !flags.by.trim()) throw usageError(CITED_USAGE);
+  const ref = typeof flags.ref === 'string' && flags.ref.trim() ? flags.ref : null;
+  const skip = (line) => {
+    println(env.stdout, `citation skipped: ${line}`);
+    return 0;
+  };
+  const reached = reach(env);
+  if (!reached.client) return skip(reached.line);
+  try {
+    await reached.client.citeClaims({ repo: reached.repo, ids, by: flags.by, ref });
+  } catch (error) {
+    return skip(stopped(error).line);
+  }
+  println(env.stdout, `cited ${ids.join(', ')} (${[flags.by, ref].filter(Boolean).join(', ')})`);
+  return 0;
+}
+
 export const business = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
+    const env = { cwd, stdout, exec, tokens, home, fetch, callMs };
+    if (args[0] === 'cited') {
+      const { positional, flags } = parseArgs('business', args.slice(1), { values: ['by', 'ref'] });
+      return cited(positional, flags, env);
+    }
     const { positional, flags } = parseArgs('business', args, { booleans: ['json'] });
     if (positional.length !== 1 || positional[0] !== 'show') throw usageError(USAGE);
     const out = { json: flags.json === true, stdout };
 
-    const ctx = loadContext(cwd, { exec });
-    const repo = ctx.config.repo.slug;
-    if (!repo) throw usageError('omni business: no repository slug — set repo.slug in the config.');
-    const askUrl = ctx.config.ask.url;
-    if (!askUrl) return print(out, empty('no-sign-in'), [`no Omni page is set here (ask.url) ${CARRY_ON}`]);
-
-    const host = credentialsHost(askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : undefined);
-    if (!store.read(host)) return print(out, empty('no-sign-in'), [`no sign-in (omni signin) ${CARRY_ON}`]);
-
-    const client = askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
+    const reached = reach(env);
+    if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+    const { repo, client } = reached;
     let reply;
     try {
       reply = await client.readBusiness(repo);

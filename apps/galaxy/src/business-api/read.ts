@@ -33,7 +33,8 @@ export type BusinessClaim = z.infer<typeof businessClaimSchema>;
 export type BusinessRead = z.infer<typeof businessReadSchema>;
 
 /** The database refused or failed; `code` is Postgres's: 42501 the caller may not read that
- * repository's business (its reason as the database wrote it), 22023 a malformed repository. */
+ * repository's business (its reason as the database wrote it), 22023 a malformed repository or claim
+ * id, P0002 a claim id the business does not hold. */
 export class BusinessStoreError extends Error {
   constructor(readonly code: string | undefined, readonly reason: string) {
     super(`read the business: ${reason}`);
@@ -49,6 +50,14 @@ export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
       const read = businessReadSchema.safeParse(data);
       if (!read.success) throw new BusinessStoreError(undefined, `an unexpected answer: ${read.error.issues[0]?.message ?? 'malformed'}`);
       return read.data;
+    },
+    /** Appends one citation per claim id (`rival#4`) to the business's log, as `by` (the skill) in the
+     * run `ref`; all or none. The number appended. */
+    async cite(repo: string, ids: string[], by: string, ref: string | null): Promise<number> {
+      const { data, error } = await db.rpc('claims_cite', { p_repo: repo, p_ids: ids, p_by: by, p_ref: ref });
+      if (error) throw new BusinessStoreError(error.code, error.message);
+      if (typeof data !== 'number') throw new BusinessStoreError(undefined, 'an unexpected answer: not a count');
+      return data;
     },
   };
 }

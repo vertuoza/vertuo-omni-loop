@@ -4,7 +4,8 @@
 // them will do. Since PRD 459 it also asks where a repository's questions land (`GET
 // /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
 // screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
-// PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`.
+// PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`, and logs
+// the claims an agent cited (`POST /api/business/citations`), for `omni business cited`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -204,5 +205,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
     readBusiness: (repo) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
+    /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
+     * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
+    citeClaims: ({ repo, ids, by, ref = null }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
   };
 }
