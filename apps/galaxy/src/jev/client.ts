@@ -2,16 +2,28 @@ import { z } from 'zod';
 import { maskSecrets, maskState } from './mask';
 
 // The Jev client (PRD 812, decisions 6, 8 and 10): one question to TypeSafe AI's Jev, which answers
-// a typed question about a state, and writes no text.
+// a typed question about a state, and writes no text. The wire shape is TypeSafe's published one: a
+// state, and questions keyed by a name the model never reads, each with its type, instructions and
+// criteria. One question is asked, named `q`:
 //
 //   POST https://api.typesafe.ai/v1/systemone
 //   Authorization: Bearer <the workspace's key>
-//   { model: 'jev-1.13.0', state, question }
-//     question: { type: 'choice', instructions, options: [{ key, description }] }
-//             | { type: 'score',  instructions, levels:  [{ key, description }] }   (lowest first)
-//             | { type: 'noul',   statement }                                       (how true, 0 to 1)
-//   200 { model, answer, confidence, probabilities? }
-//     answer: an option's or a level's key, or a Noul's number in [0, 1]; confidence in [0, 1]
+//   { model: 'jev-1.13.0', state, questions: { q: question } }
+//     question: { type: 'choice', instructions, criteria: { <key>: <description>, … } }
+//             | { type: 'score',  instructions, criteria: ['<key>: <description>', …] }   (lowest first)
+//             | { type: 'noul',   instructions: <the statement> }                          (how true, 0 to 1)
+//   200 { model?, answers: { q: answer } }
+//     answer: { type: 'choice', choice, confidence, probabilities? }
+//           | { type: 'score',  score, confidence?, probabilities? }
+//           | { type: 'noul',   noul }
+//
+// The caller gets the same back for every type: `answer` (an option's or a level's key, or a Noul's
+// number in [0, 1]) and `confidence` in [0, 1]. A Noul carries no confidence, so it is read from how
+// far the number sits from 0.5 (|2p - 1|, TypeSafe's peakedness rule for two options). A Score's level
+// is the most probable one when Jev sends probabilities (keyed by a level's index, key or criterion),
+// and otherwise its `score` read as a position from 0 (the lowest level) to 1 (the highest), rounded;
+// without a confidence it gets the peakedness of its probabilities, or 1 minus twice its distance to
+// that level. A reply without a model is logged under the pinned one.
 //
 // The model is pinned (decision 8): a TypeSafe release cannot move answers under a tuned threshold.
 // Every string of the state and the question is masked before it is sent (./mask.ts). The call waits
@@ -52,36 +64,87 @@ export interface AskJev {
 
 const unit = z.number().finite().min(0).max(1);
 
-const REPLY = z.object({
-  model: z.string().min(1),
-  answer: z.union([z.string(), z.number()]),
-  confidence: unit,
-  probabilities: z.record(z.string(), z.number()).optional().nullable(),
-});
+/** The name the one question is asked under; the model never reads it. */
+const Q = 'q';
 
-/** The question as it is sent: masked, and only its own keys. */
-function sent(question: JevQuestion): JevQuestion {
-  const option = (o: JevOption): JevOption => ({ key: o.key, description: maskSecrets(o.description) });
+const probabilities = z.record(z.string(), z.number().finite().min(0)).optional().nullable();
+
+const REPLY = z.object({
+  model: z.string().min(1).optional().nullable(),
+  answers: z.object({
+    [Q]: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('choice'), choice: z.string(), confidence: unit, probabilities }),
+      z.object({ type: z.literal('score'), score: z.number().finite(), confidence: unit.optional().nullable(), probabilities }),
+      z.object({ type: z.literal('noul'), noul: unit }),
+    ]),
+  }),
+});
+type Answer = z.infer<typeof REPLY>['answers']['q'];
+type Read = { answer: string | number; confidence: number; probabilities: Record<string, number> | null };
+
+const levelLine = (o: JevOption) => `${o.key}: ${maskSecrets(o.description)}`;
+
+/** The question as it is sent: masked, in TypeSafe's shape. */
+function sent(question: JevQuestion): Record<string, unknown> {
   switch (question.type) {
     case 'choice':
-      return { type: 'choice', instructions: maskSecrets(question.instructions), options: question.options.map(option) };
+      return {
+        type: 'choice',
+        instructions: maskSecrets(question.instructions),
+        criteria: Object.fromEntries(question.options.map((o) => [o.key, maskSecrets(o.description)])),
+      };
     case 'score':
-      return { type: 'score', instructions: maskSecrets(question.instructions), levels: question.levels.map(option) };
+      return { type: 'score', instructions: maskSecrets(question.instructions), criteria: question.levels.map(levelLine) };
     case 'noul':
-      return { type: 'noul', statement: maskSecrets(question.statement) };
+      return { type: 'noul', instructions: maskSecrets(question.statement) };
   }
 }
 
-/** Whether the answer fits the question: a listed key, or a Noul's number in [0, 1]. */
-function fits(question: JevQuestion, answer: string | number): boolean {
-  switch (question.type) {
-    case 'choice':
-      return typeof answer === 'string' && question.options.some((o) => o.key === answer);
-    case 'score':
-      return typeof answer === 'string' && question.levels.some((l) => l.key === answer);
-    case 'noul':
-      return unit.safeParse(answer).success;
+/** TypeSafe's peakedness rule: (n × largest − 1) / (n − 1) over n options; null without a spread. */
+function peakedness(values: number[]): number | null {
+  const n = values.length;
+  const total = values.reduce((a, b) => a + b, 0);
+  if (n < 2 || total <= 0) return null;
+  const largest = Math.max(...values) / total;
+  return Math.min(1, Math.max(0, (n * largest - 1) / (n - 1)));
+}
+
+/** A Score's answer as a level: the most probable one, else its position from 0 to 1, rounded. */
+function readScore(levels: JevOption[], answer: Extract<Answer, { type: 'score' }>): Read | null {
+  const n = levels.length;
+  let byLevel: Record<string, number> | null = null;
+  let index: number | null = null;
+  if (answer.probabilities && Object.keys(answer.probabilities).length) {
+    byLevel = {};
+    for (const [name, p] of Object.entries(answer.probabilities)) {
+      const at = /^\d+$/.test(name) ? Number(name) : levels.findIndex((l) => name === l.key || name === levelLine(l));
+      if (!(at >= 0 && at < n)) return null;
+      byLevel[levels[at].key] = p;
+    }
+    const values = levels.map((l) => byLevel![l.key] ?? 0);
+    index = values.indexOf(Math.max(...values));
+  } else {
+    if (answer.score < 0 || answer.score > 1) return null;
+    index = Math.round(answer.score * (n - 1));
   }
+  const confidence =
+    answer.confidence ??
+    (byLevel ? peakedness(levels.map((l) => byLevel![l.key] ?? 0)) : null) ??
+    Math.max(0, 1 - 2 * Math.abs(answer.score * (n - 1) - index));
+  return { answer: levels[index].key, confidence, probabilities: byLevel };
+}
+
+/** The answer as the caller reads it, or null when it does not fit the question. */
+function read(question: JevQuestion, answer: Answer): Read | null {
+  if (answer.type === 'choice' && question.type === 'choice') {
+    if (!question.options.some((o) => o.key === answer.choice)) return null;
+    return { answer: answer.choice, confidence: answer.confidence, probabilities: answer.probabilities ?? null };
+  }
+  if (answer.type === 'noul' && question.type === 'noul') {
+    return { answer: answer.noul, confidence: Math.abs(2 * answer.noul - 1), probabilities: null };
+  }
+  if (answer.type === 'score' && question.type === 'score') return readScore(question.levels, answer);
+  return null;
 }
 
 /** TypeSafe's reason for a refusal, in its own words when it gave any. */
@@ -111,7 +174,7 @@ export async function askJev({ key, state, question, fetch, timeoutMs = JEV_TIME
     response = await fetch(JEV_URL, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: JEV_MODEL, state: maskState(state), question: sent(question) }),
+      body: JSON.stringify({ model: JEV_MODEL, state: maskState(state), questions: { [Q]: sent(question) } }),
       signal: abort.signal,
     });
   } catch (err) {
@@ -123,9 +186,9 @@ export async function askJev({ key, state, question, fetch, timeoutMs = JEV_TIME
     if (!response.ok) return failed('status', await reasonOf(response), response.status);
     const body: unknown = await response.json().catch(() => undefined);
     const reply = REPLY.safeParse(body);
-    if (!reply.success || !fits(question, reply.data.answer)) return failed('schema', 'Jev answered outside the question\'s schema.', response.status);
-    const { model, answer, confidence, probabilities } = reply.data;
-    return { kind: 'answered', model, answer, confidence, probabilities: probabilities ?? null, ms: now() - started };
+    const answer = reply.success ? read(question, reply.data.answers[Q]) : null;
+    if (!reply.success || !answer) return failed('schema', 'Jev answered outside the question\'s schema.', response.status);
+    return { kind: 'answered', model: reply.data.model ?? JEV_MODEL, ...answer, ms: now() - started };
   } catch (err) {
     if (abort.signal.aborted) return failed('timeout', `Jev did not answer within ${timeoutMs / 1000} s.`);
     return failed('network', `Jev's answer could not be read (${err instanceof Error ? err.message : String(err)}).`);

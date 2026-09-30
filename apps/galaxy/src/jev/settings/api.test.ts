@@ -136,10 +136,10 @@ describe('the test call', () => {
     const bodies: unknown[] = [];
     const fetch = (async (_url: string, init: RequestInit) => {
       bodies.push(JSON.parse(String(init.body)));
-      return Response.json({ model: 'jev-1.13.0', answer: 0.4, confidence: 0.7 });
+      return Response.json({ model: 'jev-1.13.0', answers: { q: { type: 'noul', noul: 0.4 } } });
     }) as unknown as typeof globalThis.fetch;
     expect(await keyCheck(KEY, fetch)).toMatchObject({ kind: 'answered' });
-    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: expect.any(String), question: KEY_CHECK }]);
+    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: expect.any(String), questions: { q: { type: 'noul', instructions: KEY_CHECK.type === 'noul' ? KEY_CHECK.statement : '' } } }]);
   });
 
   it('says why in plain words', () => {
