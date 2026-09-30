@@ -92,7 +92,7 @@ const PULL_FIELDS = `number
   author { login __typename }
   createdAt mergedAt closedAt
   mergedBy { login __typename }
-  baseRefName body additions deletions
+  baseRefName headRefName body additions deletions
   commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message } } }
   reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }`;
 
@@ -136,6 +136,7 @@ function recordOf(pull, { workspaceId, fullName }) {
     opened_at: pull.createdAt,
     ...closing(pull),
     base: pull.baseRefName ?? null,
+    head: pull.headRefName ?? null,
     commits: commits.totalCount,
     additions: pull.additions ?? 0,
     deletions: pull.deletions ?? 0,
