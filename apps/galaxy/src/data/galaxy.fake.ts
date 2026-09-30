@@ -24,7 +24,7 @@ export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams'
 export type FakeTables = Record<FakeTable, Row[]>;
 
 /** A filter other than `eq`, as PostgREST's builder names it. */
-export type FakeFilterOp = 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like' | 'ilike' | 'is';
+export type FakeFilterOp = 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like' | 'ilike' | 'is' | 'not-is';
 export type FakeFilter = { column: string; op: FakeFilterOp; value: unknown };
 
 /** One call the client received: a table's query with its `eq` filters (and its other filters, when
@@ -66,6 +66,7 @@ function passes(row: Row, { column, op, value }: FakeFilter): boolean {
     case 'like': return typeof cell === 'string' && likeOf(String(value)).test(cell);
     case 'ilike': return typeof cell === 'string' && likeOf(String(value), 'i').test(cell);
     case 'is': return (cell ?? null) === value;
+    case 'not-is': return (cell ?? null) !== value;
   }
 }
 
@@ -158,6 +159,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     like(column: string, pattern: string) { return this.where(column, 'like', pattern); }
     ilike(column: string, pattern: string) { return this.where(column, 'ilike', pattern); }
     is(column: string, value: null | boolean) { return this.where(column, 'is', value); }
+    /** Only `not(column, 'is', value)`, the one negation the app sends. */
+    not(column: string, op: 'is', value: null | boolean) { return this.where(column, `not-${op}`, value); }
     order(column: string, options: { ascending?: boolean } = {}) { this.orders.push({ column, ascending: options.ascending ?? true }); return this; }
     range(from: number, to: number) { this.window = [from, to]; return this; }
     limit(count: number) { this.most = count; return this; }
@@ -323,7 +326,7 @@ const fleet = (workspace_id: string, name: string, sort: number, retired_at: str
 });
 const charted = (workspace_id: string, title: string) => ({
   workspace_id, id: 'planet:12:charted', at: '2026-09-20T10:00:00Z', type: 'PLANET_CHARTED', planet: 12,
-  region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
+  home: workspace_id === VERTUOZA ? 'vertuoza/vertuo-omni-loop' : 'acme/acme-plan', region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
 });
 const xpRow = (workspace_id: string, github_login: string, xp: number, level: number, unlocked: string[]) => ({
   workspace_id, github_login, xp, level, unlocked, computed_at: '2026-09-26T09:45:00Z',

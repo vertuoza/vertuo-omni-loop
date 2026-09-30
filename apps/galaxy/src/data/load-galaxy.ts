@@ -61,6 +61,7 @@ async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest
     .from('ledger_events')
     .select('id, at', { count: 'exact' })
     .eq('workspace_id', workspace)
+    .not('home', 'is', null)
     .order('at', { ascending: false })
     .order('id', { ascending: false })
     .limit(1);
@@ -73,7 +74,8 @@ type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; hom
 
 /**
  * A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out.
- * Its home (PRD 728) keys its planet by `<home>#<n>`; a row written before has none.
+ * Its home (PRD 728) keys its planet by `<home>#<n>`. Rows written before the fresh start have none
+ * and are never read: they count for nothing and show no planet (PRD 728, the fresh start).
  */
 function eventOf(row: LedgerRow): LedgerEvent {
   return {
@@ -91,6 +93,7 @@ async function ledgerPage(db: SupabaseClient, workspace: string, from: number): 
     .from('ledger_events')
     .select('id, at, type, planet, home, region, contributor, team, data')
     .eq('workspace_id', workspace)
+    .not('home', 'is', null)
     .order('at', { ascending: true })
     .order('id', { ascending: true })
     .range(from, from + PAGE - 1);

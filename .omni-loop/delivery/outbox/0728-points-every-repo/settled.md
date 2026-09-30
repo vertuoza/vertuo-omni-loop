@@ -388,3 +388,237 @@ None: the edit is the test of code this slice owns.
 ```
 
 <!-- /omni-outbox-settled: s1-05-scripts-test-outside-territory -->
+
+<!-- omni-outbox-settled: s2-01-game-since-at-append -->
+
+## s2-01-game-since-at-append — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-game-since-at-append
+prd: 728
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Where should the game drop the events that happened before its fresh start: when it works them out, or when it writes them down?
+
+## The decision, in plain words
+
+It drops them when it writes them down. The step that writes reads the workspace's start moment each time and keeps nothing older, whoever worked the events out.
+
+## The intro, for fun
+
+The ledger got a bouncer who checks every event's birth date at the door.
+
+## The punchline, for fun
+
+No date, no entry, and fake moustaches are not accepted.
+
+## The options, in plain words
+
+A. A. At the write, in the ledger's append, the option built: every caller is covered, one read per poll.
+B. B. In the projector, with the start moment passed by the command: pure and visible, but the command must remember to pass it.
+C. C. Both: the projector filters and the write refuses anything older as a last guard.
+
+## What I had to decide
+
+The plan puts the fresh start in the projector, but the command that runs the projector (game/cli/project.mjs) is outside this slice's territory, so the projector cannot be handed game_since without leaving the territory.
+
+## What I did meanwhile
+
+supabaseLedger.append (game/sources/supabase.mjs) reads workspaces.game_since at every append and drops every event whose moment is before it; an unknown workspace or a failed read appends nothing. projectEvents is unchanged.
+
+## What it costs to change later
+
+A constant's worth: moving the filter into projectEvents is a new option plus one line in game/cli/project.mjs. Nothing stored changes either way. The append costs one extra read of one row per poll.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person prefers the filter visible in the projector too, for the demo seed and other callers of projectEvents that never append to Supabase.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-game-since-at-append -->
+
+<!-- omni-outbox-settled: s4-01-old-rows-still-shown -->
+
+## s4-01-old-rows-still-shown — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-old-rows-still-shown
+prd: 728
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Should the game's pages in the app hide the points and planets recorded before the fresh start, or only the scorer on the command line?
+
+## The decision, in plain words
+
+Option B, taken at the wave 2 check: the app's loader reads only rows with a home, so rows from before the fresh start show no planet and add nothing to the Points column, as the spec's acceptance criteria and the fresh-start decision require. The slice had built option A; the wave check added the filter and gave the app's test fixtures a home.
+
+## The intro, for fun
+
+The old ledger rows were told they no longer count, but nobody told the app.
+
+## The punchline, for fun
+
+They are still waving from the back of the room.
+
+## The options, in plain words
+
+A. A. Read every row, as built: old planets and their points stay visible in the app until a filter lands.
+B. B. Drop home-less rows in the loader: the app matches the scorer, the map starts empty until the first run.
+C. C. Keep old planets on the map but score only rows with a home, in the economy.
+
+## What I had to decide
+
+Whether the app's galaxy (map, planet scenes, the dashboard's Points column) drops ledger rows that carry no home, as the spec asks of every season, fleet and XP. The loader is in this slice; the scorer and XP are s2's.
+
+## What I did meanwhile
+
+load-galaxy reads the home column and passes it on; a row without one keeps its planet keyed by number alone and still counts in the current month's season. No filter was added, because every data and dashboard test fixture outside this slice's territory holds home-less rows and would need a home.
+
+## What it costs to change later
+
+One filter in the loader (home is not null) plus a home on the fixtures of the season-cache, arcade and dashboard tests. Nothing stored changes. If the rollout lands in a new month, old rows fall outside the season anyway and only the map still shows old planets.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the fresh start should also empty the map of old planets, or only zero their points
+
+```
+
+<!-- /omni-outbox-settled: s4-01-old-rows-still-shown -->
+
+<!-- omni-outbox-settled: s4-02-dossiers-by-number -->
+
+## s4-02-dossiers-by-number — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-dossiers-by-number
+prd: 728
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+A planet's dossier is still looked up by its number in the main planning repository only. What should a planet from another repository show?
+
+## The decision, in plain words
+
+The arcade looks a dossier up by repository and number first, and by number alone only when no other planet shares that number, so a twin never shows the wrong dossier. Other repositories' planets show no dossier until the reading side names the repository too.
+
+## The intro, for fun
+
+Two planets numbered 88 each reached for the same folder.
+
+## The punchline, for fun
+
+The arcade now checks the name on the tab before handing it over.
+
+## The options, in plain words
+
+A. A. Key first, number only when unambiguous, as built: twins show none, other repositories show none.
+B. B. Always fall back to the number: every planet shows a dossier, twins may show the wrong one.
+C. C. Widen this slice to the reading side and the stored dossier list, so every repository's planets show their own dossier now.
+
+## What I had to decide
+
+How the planet's DOSSIER tab and START find a dossier when data/dossiers.ts (outside this slice) still reads only the plan repository's dossiers, keyed by PRD number. The same number-only match lives in dossier_list's regions and its test fake (apps/galaxy/src/dossier/store.fake.ts), which also prefix the org onto region names that now already carry it.
+
+## What I did meanwhile
+
+dossierOf and dossierLink take the planet: key <home>#<n> first, the number only when no other planet in the galaxy holds it. DossiersRead accepts either key, so readDossiers keeps working unchanged.
+
+## What it costs to change later
+
+readDossiers keying its map by <home>#<n> and reading every tracked repository's dossiers; dossier_list's regions matching the home column and no longer prefixing the org. Neither touches stored rows.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a follow-up slice or a bug fix should carry the readDossiers and dossier_list change
+
+```
+
+<!-- /omni-outbox-settled: s4-02-dossiers-by-number -->

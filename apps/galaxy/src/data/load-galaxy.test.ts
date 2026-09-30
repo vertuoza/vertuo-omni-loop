@@ -44,9 +44,9 @@ describe('loadGalaxy keys a planet by its home (PRD 728)', () => {
     expect(Object.fromEntries(view.heroes.map((h) => [h.name, h.points]))).toEqual({ 'ada-gh': 10, 'paul-gh': 10 });
   });
 
-  it('leaves out the home of a row written before PRD 728, which keys its planet by number alone', async () => {
+  it('never reads a row written before the fresh start: it has no home, shows no planet and counts for nothing', async () => {
     const db = world([row(null, 'planet:88:charted', 'PLANET_CHARTED', { data: { title: 'Old' } })]);
     const view = await loadGalaxy(db, VERTUOZA, NOW, null);
-    expect(view.planets.map((p) => [p.key, p.home])).toEqual([['88', null]]);
+    expect(view.planets).toEqual([]);
   });
 });
