@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { FLAT, RAMPS, forge } from './forge.mjs';
-import { SPRITE_DEFS, MASCOTS, WOUND_TINT, woundTint } from './sprites.mjs';
+import { SPRITE_DEFS, MASCOTS, STAGE_PALETTES, TILES, WOUND_TINT, woundTint } from './sprites.mjs';
 import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spritePixels } from './draw.mjs';
 import { heroLook, heroPose, OMNI_POSES } from './heroes.mjs';
 import { WOUND_KINDS } from '../../../game/events.mjs';
@@ -34,6 +34,10 @@ const FORGED = {
   'menu-visual': '3c58704c0f80c755', 'menu-questions': '808ea02264e853ae', 'menu-knowledge': '461492a56cc425b0',
   // The foot's Settings entry (PRD 733), pinned as first drawn.
   'menu-settings': '4d318dd6a80f7bbc',
+  // Super Omni World's tiles (PRD 817), pinned as first drawn.
+  'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
+  'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
+  'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -315,5 +319,39 @@ describe('planetTexture', () => {
     const half = order.filter((o) => o < 0.5).length / order.length;
     expect(half).toBeGreaterThan(0.4);
     expect(half).toBeLessThan(0.6);
+  });
+});
+
+describe('the platformer\'s tiles (PRD 817)', () => {
+  it('draws every tile a 16×16 square with no hole, so a row of them tiles without a seam', () => {
+    expect(TILES).toEqual([
+      'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
+      'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r',
+    ]);
+    for (const name of TILES) {
+      for (const frame of [0, 1]) {
+        const { w, h, pixels } = spritePixels(name, { frame });
+        expect([w, h], name).toEqual([16, 16]);
+        expect(pixels.every(Boolean), `${name} frame ${frame}`).toBe(true);
+      }
+    }
+  });
+
+  it('draws the tiles in the grass palette, the first stage\'s, from its colours only', () => {
+    expect(Object.keys(STAGE_PALETTES)).toContain('grass');
+    for (const name of TILES) {
+      const { pixels } = spritePixels(name, { tint: STAGE_PALETTES.grass });
+      for (const p of pixels) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('keeps the grass on top of the ground and the ? block lit, so a stage reads at a glance', () => {
+    const ground = spritePixels('tile-ground').pixels;
+    expect(RAMPS.g).toContain(ground[0]);
+    expect(RAMPS.g).not.toContain(ground[15 * 16]);
+    const block = new Set(spritePixels('tile-block').pixels);
+    expect([...block].some((p) => RAMPS.Y.includes(p))).toBe(true);
+    expect(block.has(FLAT.Q)).toBe(true);
+    expect([...new Set(spritePixels('tile-block-empty').pixels)].some((p) => RAMPS.Y.includes(p))).toBe(false);
   });
 });
