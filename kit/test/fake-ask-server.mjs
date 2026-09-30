@@ -241,7 +241,7 @@ export async function startFakeAskServer({
       if (session.status === 'closed') return json(response, 409, { error: 'session closed' });
       if (!Array.isArray(body?.questions)) return json(response, 400, { error: 'questions' });
       const round = {
-        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null,
+        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null, lead: body.lead ?? null,
         status: 'open', answers: null, answeredVia: null,
       };
       rounds.set(round.id, round);
