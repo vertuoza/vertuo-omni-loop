@@ -451,3 +451,84 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     expect(season.individuals).toEqual({ paul: 60, alice: 60, pierre: 40 });
   });
 });
+
+// PRD 728's done-when for s3: a PRD of a plan repository whose slices land in target repositories,
+// each target's feature PR saying `Part of <owner>/<plan>#<n>`. Each target is a region: its sub-PRs
+// secure zones for their authors, and the planet terraforms only once every region's feature PR merged.
+describe('a multi-repository PRD: each `Part of` feature PR is one more region (PRD 728)', () => {
+  const PLAN_REPO = 'vertuoza/vertuo-automation-plan';
+  const APPS = 'vertuoza/vertuo-apps';
+  const PHP = 'vertuoza/vertuo-backend-php';
+  const SHIPPED = '.omni-loop/delivery/shipped/0088-points';
+  const cfg = configFrom({
+    sectors: [{ name: 'front', repos: ['vertuo-apps'] }, { name: 'back', repos: ['vertuo-backend-php'] }],
+    teams: [{ name: 'beaver', home: 'front' }, { name: 'octopod', home: 'back' }],
+    roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'beaver' }, { github_login: 'bob', team: 'octopod' }],
+    repositories: [PLAN_REPO, APPS, PHP].map((full_name) => ({ full_name, tracked: true })),
+  });
+  const MULTI_PLAN = [
+    '## Slices', '',
+    '| id | repo | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- | --- |',
+    '| s1 | vertuo-backend-php | API | `src/` | — | 1 |',
+    '| s2 | vertuo-apps | Screen | `apps/` | s1 | 2 |', '',
+  ].join('\n');
+  const feature = (number, over = {}) => ({ number, headRefName: 'feat/points', createdAt: '2026-09-29T07:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-29T09:00:00Z', labels: [{ name: 'omni:feature' }], body: `Part of ${PLAN_REPO}#88\n\n## Slices`, ...over });
+  const sub = (number, slice, author, mergedAt) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: `Part of ${PLAN_REPO}#88 · slice ${slice}`, state: 'MERGED' });
+  const now = new Date('2026-09-30T10:00:00Z');
+  const merged = (at) => ({ mergedAt: at, updatedAt: at });
+  const world = ({ apps = [feature(284, merged('2026-09-29T15:00:00Z'))], php = [feature(40, merged('2026-09-29T12:00:00Z'))] } = {}, seen = null) => fakeExec([
+    [`issue list -R ${PLAN_REPO} --label omni:prd`, [{ number: 88, title: 'Points', assignees: [], author: { login: 'paul' }, createdAt: '2026-09-28T08:00:00Z', closedAt: null }]],
+    [`issue list -R ${APPS} --label omni:prd`, []],
+    [`issue list -R ${PHP} --label omni:prd`, []],
+    ...repoCalls(PLAN_REPO, { shipped: '0088-points\n' }),
+    [`api repos/${PLAN_REPO}/contents/${SHIPPED}/spec.md`, '---\nprd: 88\nblocked-by: none\n---\n'],
+    [`api repos/${PLAN_REPO}/commits?path=`, '2026-09-28T09:00:00Z\n'],
+    [`pr list -R ${PLAN_REPO} --search "Closes #88" in:body --base main`, [{ number: 89, headRefName: 'feat/points', createdAt: '2026-09-29T07:00:00Z', isDraft: false, mergedAt: '2026-09-29T14:00:00Z', updatedAt: '2026-09-29T14:00:00Z', labels: [{ name: 'omni:feature' }], body: 'Closes #88' }]],
+    [`api repos/${PLAN_REPO}/contents/${SHIPPED}/plan.md?ref=main`, MULTI_PLAN],
+    [`api repos/${APPS} --jq`, 'develop\n'],
+    [`api repos/${PHP} --jq`, 'main\n'],
+    // Two more PRs into vertuo-apps' default branch: one names a PRD whose home is not tracked, one says Closes.
+    [`pr list -R ${APPS} --search "Part of" in:body --base develop`, [...apps, feature(290, { body: 'Part of vertuoza/old-plan#88' }), feature(291, { body: 'Closes #88' })]],
+    [`pr list -R ${PHP} --search "Part of" in:body --base main`, php],
+    [`pr list -R ${APPS} --base feat/points`, [sub(285, 's2', 'alice', '2026-09-29T13:00:00Z')]],
+    [`pr list -R ${PHP} --base feat/points`, [sub(41, 's1', 'bob', '2026-09-29T11:00:00Z')]],
+    [`api repos/${PLAN_REPO}/issues/`, ''],
+    [`api repos/${APPS}/issues/`, ''],
+    [`api repos/${PHP}/issues/`, ''],
+    [`issue list -R ${PLAN_REPO} --label bug`, []],
+  ], seen);
+
+  it('makes each target a region whose sub-PRs secure zones for their authors', async () => {
+    const s = await buildSnapshot({ config: cfg, exec: world(), now });
+    const p = s.planets[0];
+    expect(p.regions.map((r) => [r.repo, r.featurePr?.number])).toEqual([[PLAN_REPO, 89], [APPS, 284], [PHP, 40]]);
+    expect(p.regions[1]).toMatchObject({ blockedBy: [], surveyedAt: '2026-09-29T07:00:00Z' });
+    expect(p.zones.map((z) => [z.id, z.repo, z.pr?.number, z.pr?.author])).toEqual([['s2', APPS, 285, 'alice'], ['s1', PHP, 41, 'bob']]);
+    const events = projectEvents(s, { config: cfg, now });
+    expect(events.filter((e) => e.type === 'ZONE_SECURED').map((e) => [e.id, e.contributor])).toEqual([
+      [`zone:${PHP}:${PLAN_REPO}#88:s1:secured`, 'bob'],
+      [`zone:${APPS}:${PLAN_REPO}#88:s2:secured`, 'alice'],
+    ]);
+    expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T15:00:00Z' });
+    // Each author: 10 for the zone and the 50 expedition bonus at the last region's merge.
+    expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 60, bob: 60 });
+  });
+
+  it('terraforms only when every region\'s feature PR has merged', async () => {
+    const s = await buildSnapshot({ config: cfg, exec: world({ apps: [feature(284)] }), now });
+    expect(s.planets[0].featurePr.mergedAt).toBeNull();
+    expect(projectEvents(s, { config: cfg, now }).filter((e) => e.type === 'PLANET_TERRAFORMED')).toEqual([]);
+    // A target the plan gives slices, whose `Part of` PR is not open yet: its zone waits, and so does the terraform.
+    const unopened = (await buildSnapshot({ config: cfg, exec: world({ apps: [] }), now })).planets[0];
+    expect(unopened.regions.map((r) => r.repo)).toEqual([PLAN_REPO, PHP]);
+    expect(unopened.zones.find((z) => z.id === 's2')).toMatchObject({ repo: APPS, pr: null });
+    expect(unopened.featurePr.mergedAt).toBeNull();
+  });
+
+  it('ignores a `Part of` PR naming a PRD whose home is not tracked, and a sub-PR is never a region', async () => {
+    const s = await buildSnapshot({ config: cfg, exec: world(), now });
+    expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
+    expect(s.planets[0].regions.map((r) => r.featurePr.number)).toEqual([89, 284, 40]);
+    expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
+  });
+});

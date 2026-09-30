@@ -67,6 +67,15 @@ its issue. For each PRD (`game/sources/github.mjs`):
   branch;
 - the sub-PRs of that feature PR (`omni:sub`, into its branch), matched to slices by the head ref's
   `--<slice>` suffix;
+- for a multi-repository PRD (a plan repository's PRD, whose slice table has a `repo` column), one
+  more **region** per other tracked repository holding a feature PR into its default branch whose
+  body starts `Part of <owner>/<home repo>#<n>`. A slice is that region's when its `repo` cell names
+  the repository (its bare name, as `plan.targets` gives it, or its full name); the region's sub-PRs
+  (`omni:sub`, into its feature branch) secure its slices for their authors. The plan and the outbox
+  stay in the home. The planet terraforms at the last merge among every region's feature PR, the
+  home's included; a repository the plan gives slices whose `Part of` PR is not open yet holds the
+  terraform too. A `Part of` naming a PRD whose home is not tracked is ignored, and a slice naming no
+  tracked repository is not read;
 - a settled item's `Approved by` login settles its wound (`nobody`, an item adopted when raised, is
   no one; a session `delegated by <login>` is that login).
 
