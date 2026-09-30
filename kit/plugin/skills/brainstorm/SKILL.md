@@ -98,54 +98,6 @@ Otherwise keep, for the steps below:
   that the area covers: those its brief or **The vision** names for it, or, when neither names any,
   those that show what its brief describes.
 
-## The voice
-
-Only when step 0's read listed personas. They speak for the people the product is sold to: all of
-them up to five, or the five that differ most in stance and trade. Every line the voice says cites a
-`persona:<name>` or a claim id; it never states a business fact the claims do not hold.
-
-**The objection.** When the design is shown (the Bounded design in chat, or the Architectural
-design's first section), just before the approval question, the persona the design fits worst
-**objects once**: one or two first-person sentences, each citing a `persona:<name>` or a claim id. A
-sentence without a citation is dropped, never shown, and the objection stays silent when the design
-fits every persona. It is settled one of four ways: `accepted` (the design changed to meet it),
-`saved-as-claim` or `just-this-run` (an overrule, below), or `none` (the person approved without
-answering it). The spec's **Decisions** record the objection and how it was settled.
-
-**Overrule.** When the person answers the objection with a fact about the business ("we're going
-after 50-person firms now"), ask through AskUserQuestion "Is that new about the business?", with two
-choices:
-
-- **Save as a claim:** store it as a proposed claim, which a member confirms later on Settings ›
-  Business, `<kind>` being the one of region, offering, size, trade or rival the fact is about:
-
-  ```bash
-  node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <value> --state proposed --ref 'brainstorm · <run>'
-  ```
-
-- **Just this run:** nothing is stored; the personas accept the fact until the session ends.
-
-**One gap question.** At most once per run, when the design leans on a kind (region, offering, size,
-trade, rival) with no confirmed claim, ask one question through AskUserQuestion (ask mode carries it
-to the Omni page): its choices are the Business page's pick list for that kind, the values that fit
-the design first, then **Not sure**; Other is the person's own words. Store the answer confirmed:
-
-```bash
-node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'
-```
-
-**Not sure** stores nothing, and the run carries on. `<run>` in both receipts is the idea in a few
-words (with `--concept`, `concept #<concept> <area>`). Both writes exit 0 whatever happens: a "claim
-skipped" line is said to the person, and the run carries on.
-
-**The record: `voice.json`,** beside the spec in the PRD's folder, one round per stage: round
-`design` when the design is shown (keep it until step 4 writes the file), round `spec` once the spec
-is written (step 4), each with its date, every speaking persona's score from 1 to 5 and cited
-reaction, the round's objection and how it was settled (left empty when the voice stayed silent),
-and the fit line. The
-kit's schema holds the fields: `node .omni-loop/bin/omni.mjs check inbox` (step 7) refuses a file
-that does not read, naming the round and the field.
-
 ## 1. Brainstorm the design
 
 This step is a conversation with the person who has the idea. Everything they decide here is asked,
@@ -206,6 +158,54 @@ include only the improvements this work needs. Cut every feature the brief does 
 **The gate.** A reply approves the stage it was shown, nothing later. Bounded: the chat design is
 approved. Architectural: the design is approved section by section, then the written spec (step 4)
 is reviewed before `/omni:plan` runs.
+
+## The voice
+
+Only when step 0's read listed personas. They speak for the people the product is sold to: all of
+them up to five, or the five that differ most in stance and trade. Every line the voice says cites a
+`persona:<name>` or a claim id; it never states a business fact the claims do not hold.
+
+**The objection.** When the design is shown (the Bounded design in chat, or the Architectural
+design's first section), just before the approval question, the persona the design fits worst
+**objects once**: one or two first-person sentences, each citing a `persona:<name>` or a claim id. A
+sentence without a citation is dropped, never shown, and the objection stays silent when the design
+fits every persona. It is settled one of four ways: `accepted` (the design changed to meet it),
+`saved-as-claim` or `just-this-run` (an overrule, below), or `none` (the person approved without
+answering it). The spec's **Decisions** record the objection and how it was settled.
+
+**Overrule.** When the person answers the objection with a fact about the business ("we're going
+after 50-person firms now"), ask through AskUserQuestion "Is that new about the business?", with two
+choices:
+
+- **Save as a claim:** store it as a proposed claim, which a member confirms later on Settings ›
+  Business, `<kind>` being the one of region, offering, size, trade or rival the fact is about:
+
+  ```bash
+  node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <value> --state proposed --ref 'brainstorm · <run>'
+  ```
+
+- **Just this run:** nothing is stored; the personas accept the fact until the session ends.
+
+**One gap question.** At most once per run, when the design leans on a kind (region, offering, size,
+trade, rival) with no confirmed claim, ask one question through AskUserQuestion (ask mode carries it
+to the Omni page): its choices are the Business page's pick list for that kind, the values that fit
+the design first, then **Not sure**; Other is the person's own words. Store the answer confirmed:
+
+```bash
+node .omni-loop/bin/omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'
+```
+
+**Not sure** stores nothing, and the run carries on. `<run>` in both receipts is the idea in a few
+words (with `--concept`, `concept #<concept> <area>`). Both writes exit 0 whatever happens: a "claim
+skipped" line is said to the person, and the run carries on.
+
+**The record: `voice.json`,** beside the spec in the PRD's folder, one round per stage: round
+`design` when the design is shown (keep it until step 4 writes the file), round `spec` once the spec
+is written (step 4), each with its date, every speaking persona's score from 1 to 5 and cited
+reaction, the round's objection and how it was settled (left empty when the voice stayed silent),
+and the fit line. The
+kit's schema holds the fields: `node .omni-loop/bin/omni.mjs check inbox` (step 7) refuses a file
+that does not read, naming the round and the field.
 
 ## 2. Open the PRD issue
 
