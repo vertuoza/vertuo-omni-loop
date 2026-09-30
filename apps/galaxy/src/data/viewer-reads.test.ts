@@ -37,7 +37,8 @@ describe('who is looking, read once', () => {
   });
 
   it.each([
-    ['app/app/engineering/page.tsx', 'memberSession'], ['app/app/settings/repositories/page.tsx', 'memberSession'], ['app/prd/page.tsx', 'dossierSession'],
+    ['app/app/engineering/page.tsx', 'memberSession'], ['app/app/settings/repositories/page.tsx', 'memberSession'],
+    ['app/app/settings/business/page.tsx', 'memberSession'], ['app/prd/page.tsx', 'dossierSession'],
   ])('%s reads the person through %s, itself read through viewer()', (path, gate) => {
     expect(read(path)).toMatch(new RegExp(`\\b${gate}\\(`));
   });

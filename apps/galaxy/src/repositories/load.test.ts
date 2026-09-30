@@ -25,12 +25,18 @@ const STORED = [
 
 type Answer = { data?: unknown; error?: unknown };
 
-function db({ owner = { data: true } as Answer | Error, repositories = { data: STORED } as Answer, workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } } as Answer } = {}) {
+function db({
+  owner = { data: true } as Answer | Error,
+  repositories = { data: STORED } as Answer,
+  workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } } as Answer,
+  products = { data: [{ id: 'p-1', name: 'Vertuoza' }] } as Answer,
+} = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
     const q = {
       select: (...a: unknown[]) => { calls.push(['select', ...a]); return q; },
       eq: (...a: unknown[]) => { calls.push(['eq', ...a]); return q; },
+      order: (...a: unknown[]) => { calls.push(['order', ...a]); return q; },
       maybeSingle: async () => ({ data: answer.data ?? null, error: answer.error ?? null }),
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
     };
@@ -43,7 +49,10 @@ function db({ owner = { data: true } as Answer | Error, repositories = { data: S
       if (owner instanceof Error) throw owner;
       return { data: owner.data ?? null, error: owner.error ?? null };
     },
-    from: (table: string) => { calls.push(['from', table]); return query(table === 'repositories' ? repositories : workspace); },
+    from: (table: string) => {
+      calls.push(['from', table]);
+      return query(table === 'repositories' ? repositories : table === 'products' ? products : workspace);
+    },
   };
 }
 
@@ -73,9 +82,10 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404' },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, product: null },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', product: null },
       ],
+      products: [{ id: 'p-1', name: 'Vertuoza' }],
       access: {
         kind: 'installed',
         settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001',
@@ -85,6 +95,24 @@ describe('the repositories page\'s read', () => {
     expect(d.calls).toContainEqual(['rpc', 'is_owner', { workspace: 'ws-1' }]);
     expect(d.calls).toContainEqual(['eq', 'workspace_id', 'ws-1']);
     expect(a.asked).toEqual(['installation 5001', 'repositories 5001']);
+  });
+
+  it('reads the business\'s products, first first, and each repository\'s (PRD 748 s4)', async () => {
+    const d = db({
+      repositories: { data: [{ ...STORED[0], product_id: 'p-2' }] },
+      products: { data: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
+    });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL)).toMatchObject({
+      repositories: [{ fullName: 'vertuoza/vertuo-apps', product: 'p-2' }],
+      products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }],
+    });
+    expect(d.calls).toContainEqual(['from', 'products']);
+    expect(d.calls).toContainEqual(['order', 'ordinal']);
+  });
+
+  it('keeps the list, with no product, when the products cannot be read', async () => {
+    expect(await loadRepositoriesPage(db({ products: { error: { message: 'down' } } }) as never, USER, app(), INSTALL))
+      .toMatchObject({ kind: 'repositories', products: [], repositories: [{ fullName: 'vertuoza/vertuo-apps' }, { fullName: 'vertuoza/pdf-builder' }] });
   });
 
   it('reads a member, or anyone whose role cannot be read, as no owner', async () => {

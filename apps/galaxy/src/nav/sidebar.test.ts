@@ -55,9 +55,9 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets and Repositories (PRD 733)', () => {
+  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories and Business (PRD 733, PRD 748)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories']]],
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
@@ -97,6 +97,7 @@ describe('currentItem and pageTrail', () => {
     ['/app/settings/fleets', 'settings', 'Settings › Fleets'],
     ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
     ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
+    ['/app/settings/business', 'settings', 'Settings › Business'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/prd', 'prds', 'Work › PRDs'],
     ['/prd/3f2a', 'prds', 'Work › PRDs'],
@@ -155,6 +156,10 @@ describe('currentItem and pageTrail', () => {
     expect(pageTrail('/app/settings/repositories')?.crumbs).toEqual([
       { label: 'Settings', path: '/app/settings' },
       { label: 'Repositories' },
+    ]);
+    expect(pageTrail('/app/settings/business')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Business' },
     ]);
   });
 
