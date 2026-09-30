@@ -43,7 +43,7 @@ export const foundRows = (claims: readonly Claim[]) => claims.filter((c) => isFo
 const thought = (claims: readonly Claim[], marks: Marks) =>
   claims.map((c) => (isFound(c) && marks[c.id] !== 'wrong' ? { ...c, state: 'confirmed' as const } : c));
 
-export const THINK = 'We think you sell ';
+const THINK = 'We think you sell ';
 
 export const thinkSentence = (claims: readonly Claim[], marks: Marks): SentencePart[] => sentence(thought(claims, marks), THINK);
 

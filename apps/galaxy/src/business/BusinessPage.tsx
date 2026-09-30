@@ -2,8 +2,9 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import {
-  businessReducer, initialBusinessState, planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
+  planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
 } from './model';
+import { businessReducer, initialBusinessState } from './state';
 import { BusinessView, type BusinessHandlers } from './BusinessView';
 import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type BusinessPort, type Saved } from './store';
 import { suggestKey } from './suggest';

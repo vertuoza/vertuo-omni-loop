@@ -16,7 +16,7 @@ type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 const GITHUB = 'https://api.github.com';
 const CONFIG_PATH = '.omni-loop/config.yml';
 /** The most characters of one file kept: a larger file is cut. */
-export const MAX_FILE_CHARS = 200_000;
+const MAX_FILE_CHARS = 200_000;
 
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
 

@@ -53,6 +53,31 @@ async function bodyOf(request: Request): Promise<Record<string, unknown> | Respo
   return sent as Record<string, unknown>;
 }
 
+/** The store as the signed-in person and what `parse` reads of the request's JSON object, or the
+ * refusal to send instead: 401 signed out, 400 a malformed body or `malformed` when `parse` finds nothing. */
+async function opened<S, T>(request: Request, open: () => Promise<S | null>, parse: (body: Record<string, unknown>) => T | null, malformed: string): Promise<{ store: S; sent: T } | Response> {
+  const store = await open();
+  if (!store) return refuse(401, 'Sign in first.');
+  const body = await bodyOf(request);
+  if (body instanceof Response) return body;
+  const sent = parse(body);
+  return sent === null ? refuse(400, malformed) : { store, sent };
+}
+
+const workspaceSent = (body: Record<string, unknown>) => id(body.workspace);
+
+const pageSent = (body: Record<string, unknown>) => {
+  const workspace = id(body.workspace);
+  if (!workspace || typeof body.url !== 'string' || body.url.length > 2000) return null;
+  return { workspace, url: body.url.trim() };
+};
+
+const removalSent = (body: Record<string, unknown>) => {
+  const workspace = id(body.workspace);
+  const source = id(body.source);
+  return workspace && source ? { workspace, source } : null;
+};
+
 function refusal(error: unknown, what: string, gone = 'This workspace has no business yet.'): Response {
   const code = error instanceof DraftStoreError ? error.code : undefined;
   if (code === '42501') return refuse(403, 'Only a member of the workspace can change its business.');
@@ -62,12 +87,9 @@ function refusal(error: unknown, what: string, gone = 'This workspace has no bus
 }
 
 export async function draftRoute(request: Request, deps: DraftRouteDeps): Promise<Response> {
-  const store = await deps.store();
-  if (!store) return refuse(401, 'Sign in first.');
-  const body = await bodyOf(request);
-  if (body instanceof Response) return body;
-  const workspace = id(body.workspace);
-  if (!workspace) return refuse(400, '`workspace` must be the id the page shows.');
+  const got = await opened(request, deps.store, workspaceSent, '`workspace` must be the id the page shows.');
+  if (got instanceof Response) return got;
+  const { store, sent: workspace } = got;
   const now = (deps.now ?? Date.now)();
   try {
     const running = await store.running(workspace);
@@ -82,13 +104,9 @@ export async function draftRoute(request: Request, deps: DraftRouteDeps): Promis
 }
 
 export async function addSourceRoute(request: Request, deps: SourcesRouteDeps): Promise<Response> {
-  const store = await deps.store();
-  if (!store) return refuse(401, 'Sign in first.');
-  const body = await bodyOf(request);
-  if (body instanceof Response) return body;
-  const workspace = id(body.workspace);
-  if (!workspace || typeof body.url !== 'string' || body.url.length > 2000) return refuse(400, '`workspace` and `url` must be sent.');
-  const url = body.url.trim();
+  const got = await opened(request, deps.store, pageSent, '`workspace` and `url` must be sent.');
+  if (got instanceof Response) return got;
+  const { store, sent: { workspace, url } } = got;
   try {
     await deps.check(url);
   } catch (error) {
@@ -104,13 +122,9 @@ export async function addSourceRoute(request: Request, deps: SourcesRouteDeps): 
 }
 
 export async function removeSourceRoute(request: Request, deps: SourcesRouteDeps): Promise<Response> {
-  const store = await deps.store();
-  if (!store) return refuse(401, 'Sign in first.');
-  const body = await bodyOf(request);
-  if (body instanceof Response) return body;
-  const workspace = id(body.workspace);
-  const source = id(body.source);
-  if (!workspace || !source) return refuse(400, '`workspace` and `source` must be the ids the page shows.');
+  const got = await opened(request, deps.store, removalSent, '`workspace` and `source` must be the ids the page shows.');
+  if (got instanceof Response) return got;
+  const { store, sent: { workspace, source } } = got;
   try {
     await store.remove(workspace, source);
     return reply(200, { removed: source });

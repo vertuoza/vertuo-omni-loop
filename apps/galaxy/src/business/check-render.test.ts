@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { businessReducer, initialBusinessState, type BusinessAction, type Claim } from './model';
+import type { Claim } from './model';
+import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import { BusinessView, CHECK_TITLE, STILL_TRUE, type BusinessHandlers } from './BusinessView';
 
 // Settings › Business after the weekly recheck (PRD 774 s4), as the server renders it: on top of the

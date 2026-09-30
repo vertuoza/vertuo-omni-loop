@@ -7,9 +7,9 @@ import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 // And how each source a draft read or skipped is named on the page. Pure: ./github.ts reads the listing.
 
 /** The most files read in one repository. */
-export const MAX_FILES_PER_REPO = 12;
+const MAX_FILES_PER_REPO = 12;
 /** The most shipped PRD specs read in one repository. */
-export const MAX_SPECS = 10;
+const MAX_SPECS = 10;
 
 /** What a repository holds, as far as a draft needs to know. */
 export interface RepoListing {

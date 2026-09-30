@@ -2,8 +2,9 @@ import type { FormEvent, ReactNode } from 'react';
 import {
   BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS,
   sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel, viewClaims,
-  type BusinessState, type Claim, type ClaimKind, type SentencePart,
+  type Claim, type ClaimKind, type SentencePart,
 } from './model';
+import type { BusinessState } from './state';
 import {
   foundRows, isFound, MAX_PAGES, pagesLeft, receiptLabel, revealOf, scanLine, sourcesUsed, thinkSentence,
   type Mark, type Reveal, type WebPage,
@@ -90,7 +91,7 @@ export const PRODUCT_NAME = 'The product’s name';
 export const DRAFT = 'Draft from my repos';
 export const DRAFTING = 'Drafting…';
 export const ADD_PAGE = '+ add a web page';
-export const PAGE_ADDRESS = 'A web page’s address: pricing, home or about';
+const PAGE_ADDRESS = 'A web page’s address: pricing, home or about';
 export const PAGES_FULL = 'Three web pages at most: remove one to add another.';
 export const NOTHING_SAVED = 'Nothing saved yet';
 export const DOCK = 'Rows you leave alone are confirmed with “That’s us”.';
@@ -514,6 +515,70 @@ function Check({ rows, busy, on }: { rows: readonly CheckRow[]; busy: boolean; o
   );
 }
 
+function SkipLine({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  if (state.skipped) {
+    return (
+      <div className="business-skip">
+        <p className="ask-muted">{SKIPPED}</p>
+        <button type="button" className="ask-button quiet" onClick={on.unskip}>Pick now</button>
+      </div>
+    );
+  }
+  return (
+    <div className="business-skip">
+      <button type="button" className="ask-button quiet" onClick={on.skip} disabled={state.busy}>{SKIP}</button>
+      <span className="ask-muted">Skip stores nothing.</span>
+    </div>
+  );
+}
+
+function Kicker({ sure, demo, thinking }: { sure: number; demo: boolean; thinking: boolean }) {
+  return (
+    <p className="business-kicker">
+      <span className="ask-chip">Business</span>
+      <span className="ask-chip">{sure === 0 ? 'Empty' : `${sure} confirmed`}</span>
+      {demo && <span className="ask-chip">Demo</span>}
+      {thinking && <span className="ask-chip business-unsaved">{NOTHING_SAVED}</span>}
+    </p>
+  );
+}
+
+/** The title card: the sentence (read with the draft's finds while they wait), the scan, and the draft's controls. */
+function Head({ state, sure, demo, thinking, on }: { state: BusinessState; sure: number; demo: boolean; thinking: boolean; on: BusinessHandlers }) {
+  return (
+    <section className="ask-card business-head" aria-labelledby="business-title">
+      <Kicker sure={sure} demo={demo} thinking={thinking} />
+      {state.watched && state.draft && <Scan draft={state.draft} />}
+      <Sentence parts={thinking ? thinkSentence(state.claims, state.marks) : sentence(state.claims)} typing={thinking} />
+      {thinking && state.draft && <p className="business-used">Sources used: {sourcesUsed(state.draft.counts)}</p>}
+      <RevealLine reveal={revealOf(state)} />
+      {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
+      <DraftBar state={state} on={on} />
+      <SkipLine state={state} on={on} />
+    </section>
+  );
+}
+
+/** The claims agents read, then the ones marked wrong, folded. */
+function ClaimLists({ listed, wrong, busy, on }: { listed: readonly Claim[]; wrong: readonly Claim[]; busy: boolean; on: BusinessHandlers }) {
+  return (
+    <>
+      {listed.length > 0 && (
+        <section className="business-claims" aria-label="The claims agents read">
+          <ul>{listed.map((c) => <Row key={c.id} claim={c} busy={busy} on={on} />)}</ul>
+        </section>
+      )}
+
+      {wrong.length > 0 && (
+        <details className="business-wrong-list">
+          <summary>Marked wrong · {wrong.length}</summary>
+          <ul>{wrong.map((c) => <Row key={c.id} claim={c} busy={busy} on={on} />)}</ul>
+        </details>
+      )}
+    </>
+  );
+}
+
 export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now() }: BusinessViewProps) {
   // Everything below reads the tab's claims: every claim while there is one product.
   const multi = hasProducts(whole.products);
@@ -536,50 +601,13 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
       )}
       {multi && <ProductTabs state={state} on={on} />}
       {toCheck.length > 0 && <Check rows={toCheck} busy={state.busy} on={on} />}
-      <section className="ask-card business-head" aria-labelledby="business-title">
-        <p className="business-kicker">
-          <span className="ask-chip">Business</span>
-          <span className="ask-chip">{sure.length === 0 ? 'Empty' : `${sure.length} confirmed`}</span>
-          {demo && <span className="ask-chip">Demo</span>}
-          {thinking && <span className="ask-chip business-unsaved">{NOTHING_SAVED}</span>}
-        </p>
-        {state.watched && state.draft && <Scan draft={state.draft} />}
-        <Sentence parts={thinking ? thinkSentence(state.claims, state.marks) : sentence(state.claims)} typing={thinking} />
-        {thinking && state.draft && <p className="business-used">Sources used: {sourcesUsed(state.draft.counts)}</p>}
-        <RevealLine reveal={revealOf(state)} />
-        {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
-        <DraftBar state={state} on={on} />
-        {state.skipped
-          ? (
-            <div className="business-skip">
-              <p className="ask-muted">{SKIPPED}</p>
-              <button type="button" className="ask-button quiet" onClick={on.unskip}>Pick now</button>
-            </div>
-          )
-          : (
-            <div className="business-skip">
-              <button type="button" className="ask-button quiet" onClick={on.skip} disabled={state.busy}>{SKIP}</button>
-              <span className="ask-muted">Skip stores nothing.</span>
-            </div>
-          )}
-      </section>
+      <Head state={state} sure={sure.length} demo={demo} thinking={thinking} on={on} />
 
       {thinking && <Found rows={found} state={state} on={on} />}
 
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
-      {listedRows.length > 0 && (
-        <section className="business-claims" aria-label="The claims agents read">
-          <ul>{listedRows.map((c) => <Row key={c.id} claim={c} busy={state.busy} on={on} />)}</ul>
-        </section>
-      )}
-
-      {wrong.length > 0 && (
-        <details className="business-wrong-list">
-          <summary>Marked wrong · {wrong.length}</summary>
-          <ul>{wrong.map((c) => <Row key={c.id} claim={c} busy={state.busy} on={on} />)}</ul>
-        </details>
-      )}
+      <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
 
       {sure.length > 0 && <Payoff claims={sure} />}
 

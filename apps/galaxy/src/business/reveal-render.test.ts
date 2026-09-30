@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { businessReducer, initialBusinessState, type BusinessAction, type Claim } from './model';
+import type { Claim } from './model';
+import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import type { DraftView, WebPage } from './reveal';
 import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS } from './BusinessScreen';
 import {

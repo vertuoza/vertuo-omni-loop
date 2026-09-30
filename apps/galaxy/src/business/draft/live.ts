@@ -33,6 +33,16 @@ async function signedIn(): Promise<{ db: SupabaseClient; token: string } | null>
   return session ? { db: db as unknown as SupabaseClient, token: session.access_token } : null;
 }
 
+type WorkspaceRow = { github_org: string | null; github_installation_id: number | string | null };
+
+/** A workspaces row as the installation lookup reads it: the installation id as a number. */
+const installationRow = (row: WorkspaceRow) => ({
+  github_org: row.github_org,
+  github_installation_id: row.github_installation_id === null ? null : Number(row.github_installation_id),
+});
+
+const why = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 /** A draft's run over `db`, the person's session or (for the recheck) the service role's. */
 export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
   return {
@@ -40,14 +50,9 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
     async installation(workspace) {
       try {
         const { data } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
-        if (!data) return null;
-        const row = data as { github_org: string | null; github_installation_id: number | string | null };
-        return await github().installationFor({
-          github_org: row.github_org,
-          github_installation_id: row.github_installation_id === null ? null : Number(row.github_installation_id),
-        });
+        return data ? await github().installationFor(installationRow(data as WorkspaceRow)) : null;
       } catch (error) {
-        console.error(`business draft: no GitHub installation for ${workspace} (${error instanceof Error ? error.message : String(error)})`);
+        console.error(`business draft: no GitHub installation for ${workspace} (${why(error)})`);
         return null;
       }
     },

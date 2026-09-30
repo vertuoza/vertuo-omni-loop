@@ -13,7 +13,7 @@ import type { Candidate } from './verify';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const EXTRACT_TIMEOUT_MS = 30_000;
 /** The most characters of one source the model reads; the quote check still reads all of it. */
-export const MAX_SOURCE_CHARS = 24_000;
+const MAX_SOURCE_CHARS = 24_000;
 /** The most candidates kept from one source. */
 const MAX_CANDIDATES = 20;
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const satisfies readonly ClaimKind[];

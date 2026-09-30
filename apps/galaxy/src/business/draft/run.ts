@@ -120,105 +120,139 @@ function grouped(candidates: readonly Candidate[]): Array<{ kind: ClaimKind; val
   return [...groups.values()];
 }
 
+/** One run under way: what it reads with, and what it has counted and scanned so far. */
+interface Run {
+  deps: DraftDeps;
+  workspace: string;
+  draft: string;
+  counts: DraftCounts;
+  scanned: Scanned[];
+  /** Every claim of the business, with the ones this run proposed. */
+  held: StoredClaim[];
+}
+
+type Group = ReturnType<typeof grouped>[number];
+
+/** claim_propose_evidence() for one group; null when the store refuses the value itself (22023). */
+async function proposed(run: Run, on: string | null, group: Group, where: string, kind: Receipt['kind']): Promise<MergeOutcome | null> {
+  try {
+    return await run.deps.store.propose(run.workspace, on, group.kind, group.value, group.quotes.map((quote) => ({ kind, where, quote })));
+  } catch (error) {
+    if (error instanceof DraftStoreError && error.code === '22023') return null;
+    throw error;
+  }
+}
+
+/** What the run now holds once `outcome` is stored: a new proposed claim, and the one it replaces contradicted. */
+function hold(held: StoredClaim[], group: Group, on: string | null, outcome: MergeOutcome, replaces: string | null) {
+  if (outcome === 'added' || outcome === 'replacing') {
+    held.push({ id: `new-${held.length}`, seq: Number.MAX_SAFE_INTEGER, kind: group.kind, value: group.value, source: 'evidence', state: 'proposed', product_id: on });
+  }
+  if (outcome !== 'replacing' || !replaces) return;
+  const old = held.find((c) => c.id === replaces);
+  if (old) old.state = 'contradicted';
+}
+
+/** Merges one group of a source's candidates into the store. */
+async function mergeGroup(run: Run, group: Group, where: string, kind: Receipt['kind'], product: string | null) {
+  const on = productFor(group.kind, product);
+  if (group.kind !== 'region' && on === null) return;
+  const merged = mergeOf(run.held, group.kind, group.value, on);
+  if (merged.outcome === 'rejected') {
+    run.counts.rejected += 1;
+    return;
+  }
+  const outcome = await proposed(run, on, group, where, kind);
+  if (outcome === null) return;
+  run.counts[outcome] += 1;
+  hold(run.held, group, on, outcome, merged.replaces);
+}
+
+/** Reads one source's candidates into the store. */
+async function merge(run: Run, extract: Extractor, text: string, where: string, kind: Receipt['kind'], product: string | null) {
+  const answered = await extract(text, where);
+  const kept = verified(text, answered);
+  run.counts.found += answered.length;
+  run.counts.kept += kept.length;
+  for (const group of grouped(kept)) await mergeGroup(run, group, where, kind, product);
+}
+
+/** Reads one source; it is scanned as read, or skipped with why. Only the store failing throws. */
+async function read(run: Run, label: string, work: () => Promise<boolean>) {
+  let ok = false;
+  let why: string | undefined;
+  try {
+    ok = await work();
+    if (!ok) why = 'nothing there';
+  } catch (error) {
+    if (error instanceof DraftStoreError) throw error;
+    why = plainError(error);
+  }
+  if (!ok) run.counts.skipped += 1;
+  run.scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', why });
+  await run.deps.store.progress(run.workspace, run.draft, run.counts, run.scanned);
+}
+
+/** Reads the files ./sources.ts picks in one repository, or skips it when it cannot be listed. */
+async function readRepo(run: Run, extract: Extractor, installation: number | null, repo: { full_name: string; product_id: string | null }, first: string | null) {
+  const name = repo.full_name;
+  if (installation === null) {
+    await read(run, repoLabel(name), async () => { throw new Error('The Omni Loop App is not installed here.'); });
+    return;
+  }
+  let listing: RepoListing;
+  try {
+    listing = await run.deps.github.listing(installation, name);
+  } catch (error) {
+    await read(run, repoLabel(name), async () => { throw error; });
+    return;
+  }
+  for (const file of repoFiles(listing)) {
+    await read(run, fileLabel(name, file.path), async () => {
+      const text = await run.deps.github.file(installation, name, file.path);
+      if (text === null || !text.trim()) return false;
+      run.counts[COUNTED[file.kind]] += 1;
+      await merge(run, extract, text, fileWhere(name, file.path), 'file', repo.product_id ?? first);
+      return true;
+    });
+  }
+}
+
+/** Reads one pasted web page. */
+async function readPage(run: Run, extract: Extractor, url: string, first: string | null) {
+  await read(run, pageLabel(url), async () => {
+    const text = await run.deps.page(url);
+    if (!text.trim()) return false;
+    run.counts.pages += 1;
+    await merge(run, extract, text, url, 'link', first);
+    return true;
+  });
+}
+
+/** Reads every source of the business with `extract`. */
+async function readAll(run: Run, extract: Extractor) {
+  const { store } = run.deps;
+  const [repositories, pages, first, held] = await Promise.all([
+    store.repositories(run.workspace), store.webPages(run.workspace), store.firstProduct(run.workspace), store.claims(run.workspace),
+  ]);
+  run.held = held;
+  const installation = repositories.length ? await run.deps.installation(run.workspace) : null;
+  for (const repo of repositories) await readRepo(run, extract, installation, repo, first);
+  for (const url of pages) await readPage(run, extract, url, first);
+}
+
 /** Runs draft `draft` of `workspace` to its end; never throws. */
 export async function runDraft(deps: DraftDeps, workspace: string, draft: string): Promise<void> {
   const { store } = deps;
-  const counts = zero();
-  const scanned: Scanned[] = [];
+  const run: Run = { deps, workspace, draft, counts: zero(), scanned: [], held: [] };
   const failed = async (why: string) => {
-    await store.finish(workspace, draft, 'failed', counts, scanned, why).catch((error) => deps.log(`business draft: ${draft} could not be marked failed — ${plainError(error)}`));
+    await store.finish(workspace, draft, 'failed', run.counts, run.scanned, why).catch((error) => deps.log(`business draft: ${draft} could not be marked failed — ${plainError(error)}`));
   };
 
   try {
-    const extract = deps.extract;
-    if (!extract) {
-      await store.finish(workspace, draft, 'done', counts, scanned);
-      return;
-    }
-    const [repositories, pages, first, held] = await Promise.all([
-      store.repositories(workspace), store.webPages(workspace), store.firstProduct(workspace), store.claims(workspace),
-    ]);
-
-    /** Reads one source's candidates into the store. */
-    const merge = async (text: string, where: string, kind: Receipt['kind'], product: string | null) => {
-      const answered = await extract(text, where);
-      const kept = verified(text, answered);
-      counts.found += answered.length;
-      counts.kept += kept.length;
-      for (const { kind: claimKind, value, quotes } of grouped(kept)) {
-        const on = productFor(claimKind, product);
-        if (claimKind !== 'region' && on === null) continue;
-        const merged = mergeOf(held, claimKind, value, on);
-        if (merged.outcome === 'rejected') {
-          counts.rejected += 1;
-          continue;
-        }
-        let outcome: MergeOutcome;
-        try {
-          outcome = await store.propose(workspace, on, claimKind, value, quotes.map((quote) => ({ kind, where, quote })));
-        } catch (error) {
-          if (error instanceof DraftStoreError && error.code === '22023') continue;
-          throw error;
-        }
-        counts[outcome] += 1;
-        if (outcome === 'added' || outcome === 'replacing') {
-          held.push({ id: `new-${held.length}`, seq: Number.MAX_SAFE_INTEGER, kind: claimKind, value, source: 'evidence', state: 'proposed', product_id: on });
-        }
-        if (outcome === 'replacing' && merged.replaces) {
-          const old = held.find((c) => c.id === merged.replaces);
-          if (old) old.state = 'contradicted';
-        }
-      }
-    };
-    const read = async (label: string, work: () => Promise<boolean>) => {
-      let ok = false;
-      let why: string | undefined;
-      try {
-        ok = await work();
-        if (!ok) why = 'nothing there';
-      } catch (error) {
-        if (error instanceof DraftStoreError) throw error;
-        why = plainError(error);
-      }
-      if (!ok) counts.skipped += 1;
-      scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', why });
-      await store.progress(workspace, draft, counts, scanned);
-    };
-
-    const installation = repositories.length ? await deps.installation(workspace) : null;
-    for (const repo of repositories) {
-      const name = repo.full_name;
-      if (installation === null) {
-        await read(repoLabel(name), async () => { throw new Error('The Omni Loop App is not installed here.'); });
-        continue;
-      }
-      let listing: RepoListing;
-      try {
-        listing = await deps.github.listing(installation, name);
-      } catch (error) {
-        await read(repoLabel(name), async () => { throw error; });
-        continue;
-      }
-      for (const file of repoFiles(listing)) {
-        await read(fileLabel(name, file.path), async () => {
-          const text = await deps.github.file(installation, name, file.path);
-          if (text === null || !text.trim()) return false;
-          counts[COUNTED[file.kind]] += 1;
-          await merge(text, fileWhere(name, file.path), 'file', repo.product_id ?? first);
-          return true;
-        });
-      }
-    }
-    for (const url of pages) {
-      await read(pageLabel(url), async () => {
-        const text = await deps.page(url);
-        if (!text.trim()) return false;
-        counts.pages += 1;
-        await merge(text, url, 'link', first);
-        return true;
-      });
-    }
-    await store.finish(workspace, draft, 'done', counts, scanned);
+    // With no model key nothing is read at all.
+    if (deps.extract) await readAll(run, deps.extract);
+    await store.finish(workspace, draft, 'done', run.counts, run.scanned);
   } catch (error) {
     deps.log(`business draft: ${draft} failed — ${plainError(error)}`);
     await failed('The business database could not answer. Try again.');

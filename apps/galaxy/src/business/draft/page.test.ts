@@ -28,6 +28,14 @@ describe('privateAddress', () => {
   it.each(['76.76.21.21', '172.32.0.1', '8.8.8.8', '2606:4700::6810:84e5', '::ffff:8.8.8.8'])('lets %s through', (address) => {
     expect(privateAddress(address)).toBe(false);
   });
+
+  it.each(['0.255.255.255', '100.127.255.255', '192.0.0.255', '198.18.0.1', '198.19.255.255', '255.255.255.255'])('refuses the edge of a range, %s', (address) => {
+    expect(privateAddress(address)).toBe(true);
+  });
+
+  it.each(['1.0.0.0', '100.63.255.255', '100.128.0.0', '169.253.255.255', '172.15.255.255', '192.0.1.0', '192.167.255.255', '198.17.255.255', '198.20.0.0', '223.255.255.255'])('lets the address just past a range through, %s', (address) => {
+    expect(privateAddress(address)).toBe(false);
+  });
 });
 
 describe('checkUrl', () => {

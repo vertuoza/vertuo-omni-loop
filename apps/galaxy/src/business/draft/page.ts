@@ -23,20 +23,26 @@ const MAX_REDIRECTS = 5;
 export type Lookup = (host: string) => Promise<string[]>;
 
 /** Node's resolver: every address of `host`. */
-export const dnsLookup: Lookup = async (host) => {
+const dnsLookup: Lookup = async (host) => {
   const { lookup } = await import('node:dns/promises');
   return (await lookup(host, { all: true })).map((a) => a.address);
 };
 
+/** An IPv4 address as one unsigned 32-bit number. */
+const ipv4Number = (address: string) => address.split('.').reduce((n, part) => n * 256 + Number(part), 0);
+
+/** The IPv4 ranges not on the public internet: unspecified, private, loopback, multicast and reserved
+ * (224/3), carrier-grade NAT, link-local, IETF protocol assignments and benchmarking. */
+const IPV4_PRIVATE: ReadonlyArray<readonly [base: number, bits: number]> = (
+  [['0.0.0.0', 8], ['10.0.0.0', 8], ['127.0.0.0', 8], ['224.0.0.0', 3], ['100.64.0.0', 10], ['169.254.0.0', 16],
+    ['172.16.0.0', 12], ['192.168.0.0', 16], ['192.0.0.0', 24], ['198.18.0.0', 15]] as const
+).map(([base, bits]) => [ipv4Number(base), bits] as const);
+
+const inRange = (ip: number, [base, bits]: readonly [number, number]) => Math.floor(ip / 2 ** (32 - bits)) === Math.floor(base / 2 ** (32 - bits));
+
 function ipv4Private(address: string): boolean {
-  const [a, b] = address.split('.').map(Number);
-  return a === 0 || a === 10 || a === 127 || a >= 224
-    || (a === 100 && b >= 64 && b <= 127)
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168)
-    || (a === 192 && b === 0 && Number(address.split('.')[2]) === 0)
-    || (a === 198 && (b === 18 || b === 19));
+  const ip = ipv4Number(address);
+  return IPV4_PRIVATE.some((range) => inRange(ip, range));
 }
 
 /** Whether an address is not on the public internet. */
@@ -121,31 +127,42 @@ async function cut(response: Response, max: number): Promise<string> {
 
 export type PageOptions = { fetch?: typeof globalThis.fetch; lookup?: Lookup; timeoutMs?: number; maxBytes?: number };
 
+const TOO_SLOW = 'The page did not answer in time.';
+
+/** One request of the read, redirects left to follow by hand. */
+async function ask(fetch: typeof globalThis.fetch, url: URL, signal: AbortSignal): Promise<Response> {
+  try {
+    return await fetch(url, { redirect: 'manual', signal, headers: { accept: 'text/html, text/plain;q=0.9' }, cache: 'no-store' });
+  } catch {
+    throw new PageRefused(TOO_SLOW);
+  }
+}
+
+const isRedirect = (response: Response) => response.status >= 300 && response.status < 400;
+
+/** The text of a final answer: refused unless it is 2xx and text; HTML reduced to its text. */
+async function textOf(response: Response, maxBytes: number): Promise<string> {
+  if (!response.ok) throw new PageRefused(`The page answered ${response.status}.`);
+  const type = response.headers.get('content-type') ?? '';
+  if (type && !/^text\/|html|xml/i.test(type)) throw new PageRefused('The page is not text.');
+  let body: string;
+  try {
+    body = await cut(response, maxBytes);
+  } catch {
+    throw new PageRefused(TOO_SLOW);
+  }
+  return /html|xml/i.test(type) || /^\s*</.test(body) ? htmlText(body) : body.trim();
+}
+
 /** A pasted page's text, read safely. Throws PageRefused when the address, a redirect or the answer is refused. */
 export async function fetchPage(raw: string, { fetch = globalThis.fetch, lookup = dnsLookup, timeoutMs = PAGE_TIMEOUT_MS, maxBytes = MAX_PAGE_BYTES }: PageOptions = {}): Promise<string> {
   const signal = AbortSignal.timeout(timeoutMs);
   let url = await checkUrl(raw, lookup);
   for (let hop = 0; ; hop += 1) {
-    let response: Response;
-    try {
-      response = await fetch(url, { redirect: 'manual', signal, headers: { accept: 'text/html, text/plain;q=0.9' }, cache: 'no-store' });
-    } catch {
-      throw new PageRefused('The page did not answer in time.');
-    }
-    if (response.status >= 300 && response.status < 400) {
-      const next = response.headers.get('location');
-      if (!next || hop >= MAX_REDIRECTS) throw new PageRefused('The page sends us on too far.');
-      url = await checkUrl(new URL(next, url).toString(), lookup);
-      continue;
-    }
-    if (!response.ok) throw new PageRefused(`The page answered ${response.status}.`);
-    const type = response.headers.get('content-type') ?? '';
-    if (type && !/^text\/|html|xml/i.test(type)) throw new PageRefused('The page is not text.');
-    try {
-      const body = await cut(response, maxBytes);
-      return /html|xml/i.test(type) || /^\s*</.test(body) ? htmlText(body) : body.trim();
-    } catch {
-      throw new PageRefused('The page did not answer in time.');
-    }
+    const response = await ask(fetch, url, signal);
+    if (!isRedirect(response)) return textOf(response, maxBytes);
+    const next = response.headers.get('location');
+    if (!next || hop >= MAX_REDIRECTS) throw new PageRefused('The page sends us on too far.');
+    url = await checkUrl(new URL(next, url).toString(), lookup);
   }
 }

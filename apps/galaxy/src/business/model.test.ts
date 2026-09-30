@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  businessReducer, citationLine, claimOf, displayId, hasProducts, initialBusinessState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
+  citationLine, claimOf, displayId, hasProducts, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
   sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product,
 } from './model';
+import { businessReducer, initialBusinessState } from './state';
 
 // Settings → Business as pure data (PRD 748 s2): the sentence the confirmed claims write, what a pick
 // changes (a kind that holds one value rejects the old claim before the new one is picked, since no

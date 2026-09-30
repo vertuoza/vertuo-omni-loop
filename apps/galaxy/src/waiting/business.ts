@@ -24,22 +24,32 @@ export type BusinessRead = { ok: true; count: number } | { ok: false; kind: stri
 
 type Fetch = (url: string, init: { cache: 'no-store' }) => Promise<Response>;
 
+/** The route's answer, or null when the network failed. */
+async function answerOf(fetch: Fetch): Promise<Response | null> {
+  try {
+    return await fetch(BUSINESS_ROUTE, { cache: 'no-store' });
+  } catch {
+    return null;
+  }
+}
+
+const NOT_JSON = Symbol('not JSON');
+
+/** The answer's body, or NOT_JSON when it is not JSON. */
+async function jsonOf(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return NOT_JSON;
+  }
+}
+
 /** Reads the route once. Never throws. */
 export async function readBusinessCount(fetch: Fetch): Promise<BusinessRead> {
-  let response: Response;
-  try {
-    response = await fetch(BUSINESS_ROUTE, { cache: 'no-store' });
-  } catch {
-    return { ok: false, kind: 'network' };
-  }
+  const response = await answerOf(fetch);
+  if (!response) return { ok: false, kind: 'network' };
   if (response.status !== 200) return { ok: false, kind: `status ${response.status}` };
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    return { ok: false, kind: 'shape' };
-  }
-  const count = (body as { count?: unknown } | null)?.count;
+  const count = ((await jsonOf(response)) as { count?: unknown } | null)?.count;
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return { ok: false, kind: 'shape' };
   return { ok: true, count };
 }

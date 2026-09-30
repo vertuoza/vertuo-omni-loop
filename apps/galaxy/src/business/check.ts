@@ -90,15 +90,21 @@ export function additionText(row: Extract<CheckRow, { kind: 'addition' }>): { la
 export function settled(claims: readonly Claim[], saved: Claim): Claim[] {
   const was = claims.find((c) => c.id === saved.id);
   const replaces = saved.replaces ?? was?.replaces ?? null;
-  return claims.map((c) => {
-    if (c.id === saved.id) {
-      return { ...saved, cited: was?.cited ?? saved.cited, lastBy: was?.lastBy ?? saved.lastBy, ...(was?.receipts ? { receipts: was.receipts } : {}) };
-    }
-    if (replaces && c.id === replaces && c.state === 'contradicted' && (saved.state === 'confirmed' || saved.state === 'rejected')) {
-      return { ...c, state: saved.state === 'confirmed' ? 'rejected' as const : 'confirmed' as const };
-    }
-    return c;
-  });
+  return claims.map((c) => (c.id === saved.id ? keptAsRead(saved, was) : otherSide(c, replaces, saved)));
+}
+
+/** The saved row, with the receipts and citations the page read. */
+function keptAsRead(saved: Claim, was: Claim | undefined): Claim {
+  if (!was) return saved;
+  return { ...saved, cited: was.cited ?? saved.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
+}
+
+/** The old side of an answered replacement takes the other state; any other claim stays as it is. */
+function otherSide(c: Claim, replaces: string | null, saved: Claim): Claim {
+  if (!replaces || c.id !== replaces || c.state !== 'contradicted') return c;
+  if (saved.state === 'confirmed') return { ...c, state: 'rejected' };
+  if (saved.state === 'rejected') return { ...c, state: 'confirmed' };
+  return c;
 }
 
 /** ✓ Still true: the claim was seen `at`, so it no longer fades. */

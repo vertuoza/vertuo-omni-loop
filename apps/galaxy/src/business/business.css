@@ -65,7 +65,8 @@
 .business-type { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .business-type label { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
 .business-type-label { font-size: 14px; color: var(--ask-muted); }
-.business-type input {
+.business-type input,
+.business-page-field input {
   font: 16px/1.3 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
@@ -229,17 +230,6 @@
 .business-draft-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .business-page-field { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; width: 100%; }
 .business-page-field label { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
-.business-page-field input {
-  font: 16px/1.3 var(--ask-body);
-  color: var(--ask-ink);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 8px;
-  padding: 10px 12px;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
 .business-pages ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
 .business-pages li {
   display: inline-flex;

@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { reply as json } from '../../business-api/reply';
 import type { DraftRow } from '../draft/run';
 
 // POST /api/business/recheck (PRD 774, s4): the weekly recheck. .github/workflows/business-recheck.yml
@@ -26,7 +27,6 @@ export interface RecheckDeps {
 
 type Skipped = { workspace: string; reason: string };
 
-const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 const why = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0].slice(0, 300);
 const digest = (text: string) => createHash('sha256').update(text).digest();
 

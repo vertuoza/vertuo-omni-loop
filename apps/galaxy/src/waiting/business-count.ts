@@ -1,3 +1,5 @@
+import { reply as json } from '../business-api/reply';
+
 // GET /api/waiting/business (PRD 774, s5): for the signed-in person, how many things wait to be checked
 // in the business of their workspace (the one joined first, as Settings › Business reads it):
 // business_to_check() counts the proposed evidence claims, the contradictions and the faded claims.
@@ -17,17 +19,15 @@ export type BusinessCountDeps = {
   workspace: (db: BusinessCountDb, user: string) => Promise<{ id: string } | null>;
 };
 
-export type BusinessCount = { count: number };
-
-const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+type BusinessCount = { count: number };
 
 const why = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 async function signedIn(deps: BusinessCountDeps): Promise<{ db: BusinessCountDb; user: string } | null> {
   try {
     const db = await deps.db();
-    const { data: { user } } = await db.auth.getUser();
-    return user ? { db, user: user.id } : null;
+    const user = (await db.auth.getUser()).data.user?.id;
+    return user ? { db, user } : null;
   } catch (error) {
     console.error(`Waiting business: nobody can sign in: ${why(error)}`);
     return null;
