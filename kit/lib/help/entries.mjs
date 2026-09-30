@@ -499,6 +499,18 @@ export const ENTRIES = deepFreeze([
       'status for you.',
   },
   {
+    name: 'heartbeat',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni heartbeat [--end]'],
+    summary: 'tells the Omni page this Claude session is working',
+    detail:
+      "What the plugin's hooks run after every tool call: at most once a minute per Claude session, " +
+      'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
+      "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
+      'are on, sends no path, command or text, prints nothing and always exits 0.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
