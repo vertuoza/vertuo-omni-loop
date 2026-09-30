@@ -55,6 +55,7 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app/engineering', AppLayout, '/app/engineering', 'Dashboard › Engineering'],
   ['/app/settings/fleets', AppLayout, '/app/settings', 'Settings › Fleets'],
   ['/app/settings/repositories', AppLayout, '/app/settings', 'Settings › Repositories'],
+  ['/app/settings/business', AppLayout, '/app/settings', 'Settings › Business'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
   ['/ask', AskLayout, '/ask', 'Work › Questions'],

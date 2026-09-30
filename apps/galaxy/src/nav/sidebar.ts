@@ -89,6 +89,7 @@ export const SETTINGS: SidebarItem = {
   pages: [
     { label: 'Fleets', path: SETTINGS_LANDING },
     { label: 'Repositories', path: '/app/settings/repositories' },
+    { label: 'Business', path: '/app/settings/business' },
   ],
 };
 

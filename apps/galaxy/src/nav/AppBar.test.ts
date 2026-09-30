@@ -151,6 +151,7 @@ describe('the top bar', () => {
     ['/app/workspace', 'Dashboard › Workspace'],
     ['/app/settings/fleets', 'Settings › Fleets'],
     ['/app/settings/repositories', 'Settings › Repositories'],
+    ['/app/settings/business', 'Settings › Business'],
     ['/ask/for-me', 'Work › Questions › Shared with me'],
     ['/prd/3f2a', 'Work › PRDs'],
     ['/ask/history', 'Work › Questions › History'],
