@@ -34,7 +34,14 @@ const FILLED = {
     claim('rival#5', 'Rival One', 'suggestion'),
     claim('rival#12', 'Rival Two'),
   ],
+  personas: [],
 };
+
+const persona = (name, stance, trade, who, usage) => ({ name, stance, trade, who, usage });
+const CAST = [
+  persona('Marc', 'skeptical', 'plumber', 'Runs a company of five plumbers', 'Mostly the quotes'),
+  persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
+];
 
 let server;
 afterEach(async () => {
@@ -101,7 +108,7 @@ describe('omni business show', () => {
     expect(run.out.endsWith('\n')).toBe(true);
     const printed = JSON.parse(run.out);
     expect(printed).toEqual(withProduct);
-    expect(Object.keys(printed)).toEqual(['state', 'business', 'product', 'claims']);
+    expect(Object.keys(printed)).toEqual(['state', 'business', 'product', 'claims', 'personas']);
     expect(Object.keys(printed.claims[0])).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
   });
 
@@ -109,7 +116,7 @@ describe('omni business show', () => {
     const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), seq: 1 }] };
     const c = await checkout({ business: () => ({ body: extra }) });
     const printed = JSON.parse((await show(['show', '--json'], c)).out);
-    expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')] });
+    expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')], personas: [] });
   });
 
   it('a contradicted claim keeps its state in --json, and is marked, not stated, in the text', async () => {
@@ -135,10 +142,48 @@ describe('omni business show', () => {
     const printed = JSON.parse((await show(['show', '--json'], c)).out);
     expect(printed.claims).toEqual([claim('region#1', 'Belgium')]);
   });
+
+  it('--json carries the product\'s personas, oldest first, in the contract\'s shape (PRD 799)', async () => {
+    const body = { ...FILLED, personas: CAST.map((p) => ({ ...p, avatar: { v: 1 } })) };
+    const c = await checkout({ business: () => ({ body }) });
+    const printed = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(printed.personas).toEqual(CAST);
+    expect(Object.keys(printed.personas[0])).toEqual(['name', 'stance', 'trade', 'who', 'usage']);
+  });
+
+  it('prints one line per persona under the claims', async () => {
+    const body = { ...FILLED, claims: [claim('region#1', 'Belgium')], personas: CAST };
+    const c = await checkout({ business: () => ({ body }) });
+    expect((await show(['show'], c)).out).toBe([
+      'We sell ___ to ___-person ___ in Belgium, up against ___.',
+      '  region#1  Belgium',
+      '  persona   Marc (skeptical, plumber): Runs a company of five plumbers — uses: Mostly the quotes',
+      '  persona   Lea (excited, office): Keeps the office of a builder — uses: The dashboard, every morning',
+      '',
+    ].join('\n'));
+  });
+
+  it('reads a server that sends no personas as none', async () => {
+    const { personas, ...older } = FILLED;
+    const c = await checkout({ business: () => ({ body: older }) });
+    expect(JSON.parse((await show(['show', '--json'], c)).out).personas).toEqual([]);
+  });
+
+  it('state stays none without a confirmed claim, and the personas still come back', async () => {
+    const body = { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [CAST[0]] };
+    const c = await checkout({ business: () => ({ body }) });
+    expect(JSON.parse((await show(['show', '--json'], c)).out)).toEqual(body);
+    const text = await show(['show'], c);
+    expect(text).toEqual({ code: 0, err: '', out: [
+      'no confirmed claim for acme/widgets yet — agents carry on',
+      '  persona  Marc (skeptical, plumber): Runs a company of five plumbers — uses: Mostly the quotes',
+      '',
+    ].join('\n') });
+  });
 });
 
 describe('omni business show never blocks an agent: exit 0 and one line in every other state', () => {
-  const NONE_BODY = { state: 'none', business: null, product: null, claims: [] };
+  const NONE_BODY = { state: 'none', business: null, product: null, claims: [], personas: [] };
   const CASES = [
     {
       name: 'no business (none)',
@@ -149,7 +194,7 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       name: 'a business with no confirmed claim for this repository (none)',
       setup: () => checkout({ business: () => ({ body: { ...NONE_BODY, business: { name: 'Acme' } } }) }),
       state: 'none', line: 'no confirmed claim for acme/widgets yet — agents carry on',
-      json: { state: 'none', business: { name: 'Acme' }, product: null, claims: [] },
+      json: { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [] },
     },
     {
       name: 'no sign-in (no-sign-in)',
@@ -199,6 +244,15 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       setup: () => checkout({ business: () => ({ body: { ...FILLED, claims: [claim('rival#3', 'Guessed', 'evidence', claimState)] } }) }),
       state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
     })),
+    ...[
+      ['a bad stance', { ...CAST[0], stance: 'angry' }],
+      ['no name', { ...CAST[0], name: '' }],
+      ['not a persona', 'Marc'],
+    ].map(([what, bad]) => ({
+      name: `a reply carrying a persona with ${what} (refused)`,
+      setup: () => checkout({ business: () => ({ body: { ...FILLED, personas: [bad] } }) }),
+      state: 'refused', line: 'refused (the reply is not a business) — agents carry on',
+    })),
   ];
 
   for (const { name, setup, state, line, json } of CASES) {
@@ -209,7 +263,7 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       const asJson = await show(['show', '--json'], c);
       expect(asJson.code).toBe(0);
       expect(asJson.err).toBe('');
-      expect(JSON.parse(asJson.out)).toEqual(json ?? { state, business: null, product: null, claims: [] });
+      expect(JSON.parse(asJson.out)).toEqual(json ?? { state, business: null, product: null, claims: [], personas: [] });
     });
   }
 });

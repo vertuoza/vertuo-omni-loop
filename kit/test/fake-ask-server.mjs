@@ -12,7 +12,8 @@
 // With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
 // returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
 // With `business`, it answers `GET /api/business?repo=owner/name` (PRD 748) with what
-// `business(repo)` returns, `{ status, body }` (status 200 when not given); without it, a 404. With
+// `business(repo)` returns, `{ status, body }` (status 200 when not given; the body, personas included
+// since PRD 799, as given); without it, a 404. With
 // `cite`, it answers `POST /api/business/citations` with what `cite(body)` returns, the same way.
 //
 // It honours `POST /api/ask/heartbeat` (PRD 757): a body of exactly `claudeSessionId`, `repo`, `work`

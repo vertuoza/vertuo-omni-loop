@@ -7,3 +7,4 @@ export * from './tokens.mjs';
 export * from './fonts.mjs';
 export * from './logo.mjs';
 export * from './brand.mjs';
+export * from './personas.mjs';

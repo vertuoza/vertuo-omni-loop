@@ -4,6 +4,7 @@ import { memberWorkspace } from '../data/workspace';
 import { claimOf, type Claim, type Product, type StoredCitation, type StoredClaim, type StoredReceipt } from './model';
 import { CLAIM_COLUMNS, DRAFT_COLUMNS, draftOf, RECEIPT_COLUMNS } from './draft-port';
 import type { DraftView, WebPage } from './reveal';
+import { PERSONA_COLUMNS, personaOf, type Persona, type StoredPersona } from './personas';
 
 // Settings → Business's read (PRD 748 s2), as the signed-in person, so row-level security decides what
 // it returns: their workspace (the one joined first, as /app's); its business, opened with
@@ -12,7 +13,8 @@ import type { DraftView, WebPage } from './reveal';
 // on); every claim, of the business's region and of each product; and the citation log, counted per
 // claim. The draft (PRD 774 s3): each claim's receipts, the web pages pasted on the business and its
 // latest draft; any of these that cannot be read reads as none, so the page still opens.
-// Nothing is seeded: an empty workspace reads no claim.
+// The personas (PRD 799 s3): every product's, oldest first; unreadable, they read as none.
+// Nothing is seeded: an empty workspace reads no claim and no persona.
 
 export type BusinessLoad =
   | { kind: 'no-workspace' }
@@ -30,6 +32,8 @@ export type BusinessLoad =
     draft: DraftView | null;
     /** The web pages pasted on the business. */
     pages: WebPage[];
+    /** Every persona of every product, oldest first (PRD 799 s3). */
+    personas: Persona[];
   };
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
@@ -76,17 +80,19 @@ export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
     const business = await openBusiness(db, workspace.id);
-    const [products, stored, citations, receipts, pages, drafts] = await Promise.all([
+    const [products, stored, citations, receipts, pages, drafts, cast] = await Promise.all([
       productsOf(db, business), claimsOf(db, business), citationsOf(db, workspace.id),
       optional<StoredReceipt[]>('the receipts', db.from('claim_receipts').select(RECEIPT_COLUMNS).eq('workspace_id', workspace.id), []),
       optional<WebPage[]>('the web pages', db.from('business_sources').select('id, url').eq('business_id', business).order('added_at'), []),
       optional<Array<Record<string, unknown>>>('the latest draft', db.from('business_drafts').select(DRAFT_COLUMNS).eq('business_id', business).order('started_at', { ascending: false }).limit(1), []),
+      optional<StoredPersona[]>('the personas', db.from('personas').select(PERSONA_COLUMNS).eq('workspace_id', workspace.id).order('ordinal'), []),
     ]);
     const claims = stored.map((c) => claimOf(c, citations, receipts)).sort((a, b) => a.seq - b.seq);
     return {
       kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0], products, claims,
       draft: drafts[0] ? draftOf(drafts[0]) : null,
       pages: pages.map(({ id, url }) => ({ id, url })),
+      personas: cast.map(personaOf),
     };
   } catch (err) {
     console.error(`business: the page could not be read (${why(err)})`);
