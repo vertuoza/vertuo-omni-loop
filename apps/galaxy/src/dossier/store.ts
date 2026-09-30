@@ -23,9 +23,13 @@ export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export const WORK_KINDS = ['prd', 'visual', 'bug'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
 
+/** The kinds a PRD's page watches (its change check): its three artifacts and, since PRD 822, its voice. */
+export const PULSE_KINDS = [...DOSSIER_KINDS, 'voice'] as const;
+export type PulseKind = (typeof PULSE_KINDS)[number];
+
 /** The versions each kind of dossier takes: the database refuses any other pairing. */
 export const KIND_ARTIFACTS: Readonly<Record<WorkKind, readonly ArtifactKind[]>> = {
-  prd: [...DOSSIER_KINDS, 'voice'],
+  prd: PULSE_KINDS,
   visual: ['before-after', 'variations'],
   bug: ['bug-record'],
 };
@@ -35,7 +39,7 @@ export const ARTIFACT_MAX_BYTES = 512 * 1024;
 /** The longest title a dossier takes. */
 export const TITLE_MAX = 200;
 
-export const isDossierKind = (value: unknown): value is DossierKind => DOSSIER_KINDS.includes(value as DossierKind);
+export const isPulseKind = (value: unknown): value is PulseKind => PULSE_KINDS.includes(value as PulseKind);
 export const isArtifactKind = (value: unknown): value is ArtifactKind => ARTIFACT_KINDS.includes(value as ArtifactKind);
 export const isWorkKind = (value: unknown): value is WorkKind => WORK_KINDS.includes(value as WorkKind);
 
@@ -276,15 +280,16 @@ export async function dossierList(db: Pick<SupabaseClient, 'rpc'>, dossierId: st
 // latest version number of each artifact. dossier_list() with the dossier named answers exactly that in
 // one row, as the caller, so the page's own access rule decides: no new function, no migration.
 
-/** What the change check compares: counts, never rows. */
-export type DossierPulse = { asked: number; answered: number; latest: Partial<Record<DossierKind, number>> };
+/** What the change check compares: counts, never rows; the latest version of a PRD's kinds, its voice's
+ * included (PRD 822), so a new voice.json version refreshes the page. */
+export type DossierPulse = { asked: number; answered: number; latest: Partial<Record<PulseKind, number>> };
 
 /** The dossier's pulse, or null when the caller may not read it, or it is gone. */
 export async function dossierPulse(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierPulse | null> {
   const row = (await dossierList(db, dossierId))[0];
   if (!row) return null;
-  const latest: Partial<Record<DossierKind, number>> = {};
-  for (const kind of DOSSIER_KINDS) {
+  const latest: Partial<Record<PulseKind, number>> = {};
+  for (const kind of PULSE_KINDS) {
     const version = row.latest?.[kind]?.version;
     if (typeof version === 'number') latest[kind] = version;
   }

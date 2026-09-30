@@ -246,6 +246,12 @@ describe('reading the change check', () => {
     expect(calls).toEqual([{ name: 'dossier_list', args: { p_dossier: 'd1' } }]);
   });
 
+  it('reads the User voice\'s latest version too, and no fix\'s rounds (PRD 822)', async () => {
+    const at = (version: number) => ({ id: `v${version}`, version, source: 'kit', created_at: 'x' });
+    const row = { id: 'd1', repos: ['acme/widgets'], asked: 0, answered: 0, latest: { spec: at(1), voice: at(3), variations: at(2) } };
+    expect(await dossierPulse(recording({ data: [row], error: null }).db, 'd1')).toEqual({ asked: 0, answered: 0, latest: { spec: 1, voice: 3 } });
+  });
+
   it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {
     expect(await dossierPulse(recording({ data: [], error: null }).db, 'd1')).toBeNull();
     const error = await dossierPulse(recording({ data: null, error: { message: 'down' } }).db, 'd1').catch((e) => e);
