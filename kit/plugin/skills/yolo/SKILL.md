@@ -167,6 +167,9 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
 4. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
+5. **The proof,** only when the spec's front matter says `proof: video` (PRD 798): follow
+   `/omni:prove <prd>`. Whatever it prints, a stop line included, this run goes on to step 6: a proof
+   never changes the PR's state, its labels or its checks.
 
 The **omni-loop** GitHub App, when installed on the repository, posts this same gate on the feature
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
