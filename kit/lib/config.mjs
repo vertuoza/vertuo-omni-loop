@@ -38,7 +38,7 @@ const httpsUrl = z.string().refine((value) => {
 
 // PRD 798: where `/omni:prove` films — the feature PR's preview (`github-deployment`), or a fixed
 // absolute http(s) URL.
-export const PROOF_GITHUB_DEPLOYMENT = 'github-deployment';
+const PROOF_GITHUB_DEPLOYMENT = 'github-deployment';
 const proofUrl = z.string().refine((value) => {
   if (value === PROOF_GITHUB_DEPLOYMENT) return true;
   if (/\s/.test(value)) return false;

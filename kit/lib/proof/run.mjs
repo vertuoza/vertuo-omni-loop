@@ -11,14 +11,14 @@ import { join } from 'node:path';
 
 export const RUN_FILE = 'run.json';
 /** The GIF excerpt's name in the run's folder, as the app recognises it. */
-export const PROOF_GIF_NAME = 'preview.gif';
+const PROOF_GIF_NAME = 'preview.gif';
 /** The largest file the app's bucket takes. */
 export const PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
 /** The most files one run uploads. */
-export const PROOF_FILES_MAX = 25;
+const PROOF_FILES_MAX = 25;
 /** The most criteria one run films. */
-export const PROOF_CRITERIA_MAX = 10;
-export const VERDICTS = Object.freeze(['pass', 'fail', 'unfilmable']);
+const PROOF_CRITERIA_MAX = 10;
+const VERDICTS = Object.freeze(['pass', 'fail', 'unfilmable']);
 
 /** Each extension the bucket takes, and the type it is sent as. */
 const TYPES = Object.freeze({ webm: 'video/webm', gif: 'image/gif', ts: 'text/plain', txt: 'text/plain' });
@@ -52,24 +52,40 @@ function isHttpUrl(value) {
   }
 }
 
-function criterionOf(item, index) {
-  const at = `criterion ${index + 1}`;
-  if (!isRecord(item) || typeof item.text !== 'string' || !item.text.trim() || item.text.length > TEXT_MAX) {
-    refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
-  }
+const isBlank = (value) => value === undefined || value === null;
+
+/** A criterion's trimmed text, or the refusal. */
+function textOf(item, at) {
+  const valid = isRecord(item) && typeof item.text === 'string' && item.text.trim() && item.text.length <= TEXT_MAX;
+  if (!valid) refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
+  return item.text.trim();
+}
+
+/** A criterion's verdict, or the refusal. */
+function verdictOf(item, at) {
   if (!VERDICTS.includes(item.verdict)) refuse(`${at}: a verdict is ${VERDICTS.slice(0, -1).join(', ')} or ${VERDICTS.at(-1)}, not ${String(item.verdict)}`);
-  const criterion = { text: item.text.trim(), verdict: item.verdict };
-  if (item.note !== undefined && item.note !== null) {
+  return item.verdict;
+}
+
+/** A criterion's optional note and file names, copied onto `criterion`, or the refusal. */
+function extrasOf(item, at, criterion) {
+  if (!isBlank(item.note)) {
     if (typeof item.note !== 'string' || item.note.length > NOTE_MAX) refuse(`${at}: its note is at most ${NOTE_MAX} characters`);
     criterion.note = item.note;
   }
   for (const key of ['video', 'script']) {
     const name = item[key];
-    if (name === undefined || name === null) continue;
+    if (isBlank(name)) continue;
     if (typeof name !== 'string' || !FILE_NAME.test(name)) refuse(`${at}: its ${key} is a file name in the run folder`);
     criterion[key] = name;
   }
   return criterion;
+}
+
+function criterionOf(item, index) {
+  const at = `criterion ${index + 1}`;
+  const text = textOf(item, at);
+  return extrasOf(item, at, { text, verdict: verdictOf(item, at) });
 }
 
 /** The file `name` of the folder, with its size and type, or the refusal. */

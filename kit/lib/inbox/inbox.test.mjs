@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
-import { parseFrontMatterLines, parseSpec, readInbox } from './inbox.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
+import { parseSpec, readInbox } from './inbox.mjs';
 
 const IN = '.omni-loop/delivery/inbox';
 

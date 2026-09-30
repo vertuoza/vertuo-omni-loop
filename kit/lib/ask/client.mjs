@@ -18,7 +18,7 @@
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
 /** How long one proof file's upload may take: a clip is up to 50 MB. */
-export const UPLOAD_TIMEOUT_MS = 120_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 export class AskCallError extends Error {
   /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */

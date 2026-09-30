@@ -13285,6 +13285,42 @@ import { isAbsolute as isAbsolute3, relative as relative2 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync12, readdirSync as readdirSync7 } from "node:fs";
 import { join as join15 } from "node:path";
+
+// kit/lib/front-matter.mjs
+init_define_OMNI_BUNDLE();
+var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
+function withFile2(file, message) {
+  return file ? `${file}: ${message}` : message;
+}
+function stripQuotes(value) {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2) {
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+    if (first === '"' && last === '"' || first === "'" && last === "'") {
+      return trimmed.slice(1, -1);
+    }
+  }
+  return trimmed;
+}
+function parseFrontMatterLines(rawFrontMatter) {
+  const data = {};
+  const errors = [];
+  for (const rawLine of rawFrontMatter.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = line.match(FRONT_MATTER_LINE);
+    if (!match) {
+      errors.push(`front matter line is not "key: value": "${rawLine}"`);
+      continue;
+    }
+    const [, key, rawValue] = match;
+    data[key] = stripQuotes(rawValue);
+  }
+  return { data, errors };
+}
+
+// kit/lib/outbox/outbox.mjs
 var SETTLED_FILE = "settled.md";
 var RANK_VALUES = (
   /** @type {const} */
@@ -13326,38 +13362,7 @@ var FrontMatterSchema2 = external_exports.object({
   wave: external_exports.coerce.number({ message: "wave must be a number" }).int().positive()
 }).strict();
 var FRONT_MATTER_BLOCK2 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 var HEADING_LINE = /^##\s+(.+?)\s*$/;
-function withFile2(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-function parseFrontMatterLines(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key, rawValue] = match;
-    data[key] = stripQuotes(rawValue);
-  }
-  return { data, errors };
-}
 function parseHeadingSections(body) {
   const sections = [];
   let current = null;
@@ -14165,41 +14170,10 @@ var FrontMatterSchema3 = external_exports.object({
   graded: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/, "graded must be a YYYY-MM-DD date")
 }).strict();
 var FRONT_MATTER_BLOCK3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-var FRONT_MATTER_LINE2 = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 var HEADING_LINE2 = /^##\s+(.+?)\s*$/;
 var ENTRY_PATH_LINE = /^-\s+`([^`]+)`$/;
 var ENTRY_RULE_LINE = /^([a-z][a-z0-9-]*)$/;
 var ENTRY_ACCOUNT_LINE = /^(item|spec)\s+(.+)$/;
-function withFile3(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-function stripQuotes2(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-function parseFrontMatterLines2(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE2);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key, rawValue] = match;
-    data[key] = stripQuotes2(rawValue);
-  }
-  return { data, errors };
-}
 function parseHeadingSections2(body) {
   const sections = [];
   let current = null;
@@ -14286,22 +14260,22 @@ function parseAccount(text4, { file = null } = {}) {
   if (!blockMatch) {
     return {
       ok: false,
-      errors: [withFile3(file, 'missing a front-matter block (a "---" fenced header)')]
+      errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')]
     };
   }
   const [, rawFrontMatter, body] = blockMatch;
   const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines2(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile3(file, message)));
+  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
+  errors.push(...lineErrors.map((message) => withFile2(file, message)));
   const parsedFrontMatter = FrontMatterSchema3.safeParse(data);
   if (!parsedFrontMatter.success) {
     for (const issue of parsedFrontMatter.error.issues) {
       const field3 = issue.path.length > 0 ? issue.path.join(".") : "(front matter)";
-      errors.push(withFile3(file, `${field3}: ${issue.message}`));
+      errors.push(withFile2(file, `${field3}: ${issue.message}`));
     }
   }
   const { errors: bodyErrors, entries: entries3 } = validateBody(body);
-  errors.push(...bodyErrors.map((message) => withFile3(file, message)));
+  errors.push(...bodyErrors.map((message) => withFile2(file, message)));
   if (errors.length > 0) return { ok: false, errors };
   const fm = parsedFrontMatter.data;
   const account = {
@@ -14341,7 +14315,7 @@ function readAccounts(prd2, { ctx }) {
       return {
         ok: false,
         errors: unresolved.map(
-          (entry) => withFile3(
+          (entry) => withFile2(
             file,
             `item account names an id no outbox file carries: "${entry.account.id}"`
           )
@@ -15472,7 +15446,7 @@ var withLead = (body, lead) => typeof lead === "string" && lead !== "" ? { ...bo
 function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
   const root = baseUrl.replace(/\/+$/, "");
   const segment = (value) => encodeURIComponent(value);
-  async function send(method, path, { body, token, timeoutMs }) {
+  async function send2(method, path, { body, token, timeoutMs }) {
     const headers = { accept: "application/json" };
     if (body !== void 0) headers["content-type"] = "application/json";
     if (token) headers.authorization = `Bearer ${token}`;
@@ -15502,7 +15476,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!current.refresh_token) return null;
     let response;
     try {
-      response = await send("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send2("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return null;
     }
@@ -15516,11 +15490,11 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
   async function call(method, path, { body, timeoutMs = callMs } = {}) {
     const current = tokens.read(host);
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
-    let response = await send(method, path, { body, token: current.access_token, timeoutMs });
+    let response = await send2(method, path, { body, token: current.access_token, timeoutMs });
     if (response.status === 401) {
       const fresh = await refresh2(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
-      response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
+      response = await send2(method, path, { body, token: fresh.access_token, timeoutMs });
     }
     if (!response.ok) {
       const reason2 = reasonOf(await bodyOf(response));
@@ -15533,7 +15507,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!current?.refresh_token) return "refused";
     let response;
     try {
-      response = await send("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send2("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return "unreachable";
     }
@@ -17480,40 +17454,9 @@ var PROOF_VALUES = (
   ["video"]
 );
 var FRONT_MATTER_BLOCK4 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-var FRONT_MATTER_LINE3 = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
 var FORBIDDEN_STATUS_LIKE_FIELDS = ["status", "branch", "value", "priority"];
-function withFile4(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-function stripQuotes3(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-function parseFrontMatterLines3(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE3);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key, rawValue] = match;
-    data[key] = stripQuotes3(rawValue);
-  }
-  return { data, errors };
-}
 var BlockedBySchema = external_exports.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
   const match = raw.match(BLOCKED_BY_LIST);
@@ -17560,24 +17503,24 @@ function parseSpec(text4, { file = null } = {}) {
   if (!blockMatch) {
     return {
       ok: false,
-      errors: [withFile4(file, 'missing a front-matter block (a "---" fenced header)')]
+      errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')]
     };
   }
   const [, rawFrontMatter] = blockMatch;
   const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines3(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile4(file, message)));
+  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
+  errors.push(...lineErrors.map((message) => withFile2(file, message)));
   const parsed = FrontMatterSchema4.safeParse(data);
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       if (issue.code === "unrecognized_keys") {
         for (const key of issue.keys) {
-          errors.push(withFile4(file, unrecognizedKeyMessage(key)));
+          errors.push(withFile2(file, unrecognizedKeyMessage(key)));
         }
         continue;
       }
       const field3 = issue.path.length > 0 ? issue.path.join(".") : "(front matter)";
-      errors.push(withFile4(file, `${field3}: ${issue.message}`));
+      errors.push(withFile2(file, `${field3}: ${issue.message}`));
     }
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -18934,7 +18877,7 @@ function fieldFault(field3, value) {
   return `${field3} is "${value}", not one of ${allowed.join(", ")}.`;
 }
 function frontMatter(raw) {
-  const { data, errors: lineErrors } = parseFrontMatterLines3(raw);
+  const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
   const scale = CONCEPT_SCALES.includes(data.scale) ? data.scale : null;
   const parsed = FrontMatterSchema5.safeParse(data);
@@ -19584,7 +19527,7 @@ var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function frontMatterTitle(text4) {
   const block = FRONT_MATTER2.exec(text4);
   if (!block) return null;
-  const title = parseFrontMatterLines3(block[1]).data.title?.trim();
+  const title = parseFrontMatterLines(block[1]).data.title?.trim();
   return title || null;
 }
 var sha256 = (content) => createHash("sha256").update(content, "utf8").digest("hex");
@@ -24092,24 +24035,33 @@ function isHttpUrl(value) {
     return false;
   }
 }
-function criterionOf(item2, index) {
-  const at = `criterion ${index + 1}`;
-  if (!isRecord(item2) || typeof item2.text !== "string" || !item2.text.trim() || item2.text.length > TEXT_MAX) {
-    refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
-  }
+var isBlank = (value) => value === void 0 || value === null;
+function textOf2(item2, at) {
+  const valid = isRecord(item2) && typeof item2.text === "string" && item2.text.trim() && item2.text.length <= TEXT_MAX;
+  if (!valid) refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
+  return item2.text.trim();
+}
+function verdictOf(item2, at) {
   if (!VERDICTS2.includes(item2.verdict)) refuse(`${at}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
-  const criterion = { text: item2.text.trim(), verdict: item2.verdict };
-  if (item2.note !== void 0 && item2.note !== null) {
+  return item2.verdict;
+}
+function extrasOf(item2, at, criterion) {
+  if (!isBlank(item2.note)) {
     if (typeof item2.note !== "string" || item2.note.length > NOTE_MAX) refuse(`${at}: its note is at most ${NOTE_MAX} characters`);
     criterion.note = item2.note;
   }
   for (const key of ["video", "script"]) {
     const name = item2[key];
-    if (name === void 0 || name === null) continue;
+    if (isBlank(name)) continue;
     if (typeof name !== "string" || !FILE_NAME.test(name)) refuse(`${at}: its ${key} is a file name in the run folder`);
     criterion[key] = name;
   }
   return criterion;
+}
+function criterionOf(item2, index) {
+  const at = `criterion ${index + 1}`;
+  const text4 = textOf2(item2, at);
+  return extrasOf(item2, at, { text: text4, verdict: verdictOf(item2, at) });
 }
 function fileOf(dir, name) {
   const path = join54(dir, name);
@@ -24153,13 +24105,47 @@ function skipLine2(error) {
   if (error.status === 404) return "none";
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
+function argsOf(args) {
+  const { positional } = parseArgs("proof", args);
+  const [verb, number, dir, ...rest] = positional;
+  if (verb !== "push" || dir === void 0 || rest.length) throw usageError(USAGE15);
+  return { prd: positiveInt("proof push", "<n>", number), dir };
+}
+function localRun(cwd, dir) {
+  const folder = isAbsolute5(dir) ? dir : resolve3(cwd, dir);
+  let run;
+  try {
+    run = readRun(folder);
+  } catch (error) {
+    if (!(error instanceof ProofRunRefused)) throw error;
+    return { line: `refused (${error.status}): ${error.message}` };
+  }
+  if (!run) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
+  return { run };
+}
+async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
+  const host = credentialsHost(toggle.askUrl);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) {
+    println(stderr, NO_SIGN_IN2);
+    return 1;
+  }
+  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
+  let pushed;
+  try {
+    pushed = await pushProof({ client, repo, prd: prd2, run });
+  } catch (error) {
+    println(stderr, skipLine2(error));
+    return 1;
+  }
+  println(stdout, pushed.tab);
+  if (pushed.gif) println(stdout, pushed.gif);
+  return 0;
+}
 var proof = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { positional } = parseArgs("proof", args);
-    const [verb, number, dir, ...rest] = positional;
-    if (verb !== "push" || dir === void 0 || rest.length) throw usageError(USAGE15);
-    const prd2 = positiveInt("proof push", "<n>", number);
+    const { prd: prd2, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
@@ -24168,33 +24154,12 @@ var proof = {
     }
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError("omni proof: no repository slug \u2014 set repo.slug in the config.");
-    const folder = isAbsolute5(dir) ? dir : resolve3(cwd, dir);
-    let run;
-    try {
-      run = readRun(folder);
-    } catch (error) {
-      if (!(error instanceof ProofRunRefused)) throw error;
-      println(stderr, `refused (${error.status}): ${error.message}`);
+    const local = localRun(cwd, dir);
+    if (local.line) {
+      println(stderr, local.line);
       return 1;
     }
-    if (!run) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
-    const host = credentialsHost(toggle.askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : void 0);
-    if (!store.read(host)) {
-      println(stderr, NO_SIGN_IN2);
-      return 1;
-    }
-    const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
-    let pushed;
-    try {
-      pushed = await pushProof({ client, repo, prd: prd2, run });
-    } catch (error) {
-      println(stderr, skipLine2(error));
-      return 1;
-    }
-    println(stdout, pushed.tab);
-    if (pushed.gif) println(stdout, pushed.gif);
-    return 0;
+    return send({ toggle, repo, prd: prd2, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
   }
 };
 

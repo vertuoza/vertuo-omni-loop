@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { dossierReader } from '../dossier/store';
 
 /** The bucket, private (the migration's). */
-export const PROOF_BUCKET = 'proof-videos';
+const PROOF_BUCKET = 'proof-videos';
 /** The largest file the bucket takes: 50 MB. */
 export const PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
 /** The most files one run uploads. */
@@ -67,7 +67,7 @@ export type ProofRunRow = {
   created_at: string;
 };
 
-export const PROOF_RUN_COLUMNS = 'id, dossier_id, commit_sha, url, criteria, gif, created_by, created_at';
+const PROOF_RUN_COLUMNS = 'id, dossier_id, commit_sha, url, criteria, gif, created_by, created_at';
 
 /** The path of a run's file in the bucket. */
 export const proofPath = (dossierId: string, runId: string, name: string) => `${dossierId}/${runId}/${name}`;

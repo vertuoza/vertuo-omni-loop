@@ -37,14 +37,53 @@ function skipLine(error) {
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 
+/** The PRD number and folder `omni proof push <n> <dir>` names, or a usage error. */
+function argsOf(args) {
+  const { positional } = parseArgs('proof', args);
+  const [verb, number, dir, ...rest] = positional;
+  if (verb !== 'push' || dir === undefined || rest.length) throw usageError(USAGE);
+  return { prd: positiveInt('proof push', '<n>', number), dir };
+}
+
+/** The run in `dir`, or the one line a local refusal is reported with. */
+function localRun(cwd, dir) {
+  const folder = isAbsolute(dir) ? dir : resolve(cwd, dir);
+  let run;
+  try {
+    run = readRun(folder);
+  } catch (error) {
+    if (!(error instanceof ProofRunRefused)) throw error;
+    return { line: `refused (${error.status}): ${error.message}` };
+  }
+  if (!run) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
+  return { run };
+}
+
+/** Sends the run and prints its links, or the one line that stopped it; the exit code. */
+async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
+  const host = credentialsHost(toggle.askUrl);
+  const store = tokens ?? homeTokens(home ? { home } : undefined);
+  if (!store.read(host)) {
+    println(stderr, NO_SIGN_IN);
+    return 1;
+  }
+  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
+  let pushed;
+  try {
+    pushed = await pushProof({ client, repo, prd, run });
+  } catch (error) {
+    println(stderr, skipLine(error));
+    return 1;
+  }
+  println(stdout, pushed.tab);
+  if (pushed.gif) println(stdout, pushed.gif);
+  return 0;
+}
+
 export const proof = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { positional } = parseArgs('proof', args);
-    const [verb, number, dir, ...rest] = positional;
-    if (verb !== 'push' || dir === undefined || rest.length) throw usageError(USAGE);
-    const prd = positiveInt('proof push', '<n>', number);
-
+    const { prd, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
@@ -53,34 +92,11 @@ export const proof = {
     }
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError('omni proof: no repository slug — set repo.slug in the config.');
-
-    const folder = isAbsolute(dir) ? dir : resolve(cwd, dir);
-    let run;
-    try {
-      run = readRun(folder);
-    } catch (error) {
-      if (!(error instanceof ProofRunRefused)) throw error;
-      println(stderr, `refused (${error.status}): ${error.message}`);
+    const local = localRun(cwd, dir);
+    if (local.line) {
+      println(stderr, local.line);
       return 1;
     }
-    if (!run) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
-
-    const host = credentialsHost(toggle.askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : undefined);
-    if (!store.read(host)) {
-      println(stderr, NO_SIGN_IN);
-      return 1;
-    }
-    const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    let pushed;
-    try {
-      pushed = await pushProof({ client, repo, prd, run });
-    } catch (error) {
-      println(stderr, skipLine(error));
-      return 1;
-    }
-    println(stdout, pushed.tab);
-    if (pushed.gif) println(stdout, pushed.gif);
-    return 0;
+    return send({ toggle, repo, prd, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
   },
 };
