@@ -59,7 +59,7 @@
 
 /* ── The header: the crest, OMNI LOOP, the workspace ─────────────────────── */
 
-.app-sidebar-head { display: grid; gap: 6px; }
+.app-sidebar-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
 .ask a.app-sidebar-crest {
   display: inline-flex;
   align-items: center;
@@ -68,6 +68,7 @@
 }
 .app-sidebar-logo { display: inline-flex; line-height: 0; }
 .app-sidebar-workspace {
+  grid-column: 1 / -1;
   margin: 0;
   font-size: 14px;
   color: var(--ask-muted);
@@ -126,17 +127,86 @@
 
 /* ── The foot: Docs · Release notes in one small row, the release running under it (issue 561) ── */
 
+/* The foot has no side padding of its own, so Settings lines up with the entries above it; the small
+   row and the version keep the entries' 10 px inset. */
 .app-sidebar-foot {
   align-self: end;
   display: grid;
   gap: 6px;
-  padding: 12px 10px 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--ask-line);
 }
-.app-sidebar-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.app-sidebar-links { list-style: none; margin: 0; padding: 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .app-sidebar-links li + li::before { content: '·'; margin-right: 6px; color: var(--ask-muted); }
 .ask .app-sidebar-links a.app-sidebar-item { display: inline-flex; gap: 4px; padding: 2px 0; border: 0; font-size: 13px; font-weight: 600; }
 .ask .app-sidebar-links a.app-sidebar-item:hover { text-decoration: underline; }
 .app-sidebar-links .app-sidebar-out { margin-left: 0; }
 .app-sidebar-links .app-sidebar-out svg { width: 11px; height: 11px; }
-.app-sidebar-version { margin: 0; font: 500 12px/1.2 var(--ask-mono); color: var(--ask-muted); }
+.app-sidebar-version { margin: 0; padding: 0 10px; font: 500 12px/1.2 var(--ask-mono); color: var(--ask-muted); }
+
+/* ── « and », and the rail (PRD 733) ─────────────────────────────────────────
+   From 900 px, « in the header folds the menu to a 56 px rail, and » in the rail opens it again. The
+   app shell carries data-menu="rail" (src/nav/menu-rail.ts, set before the first paint from the
+   omni-menu cookie). The rail keeps the crest, each section's sprite and the Settings gear; the names
+   stay for screen readers (visually hidden, and each entry's title), a count becomes a dot, and the
+   workspace, Docs, Release notes and the version are not shown. Below 900 px neither button shows
+   and the drawer is unchanged. */
+
+.app-sidebar-fold,
+.app-sidebar-unfold { display: none; }
+.ask .app-sidebar-fold,
+.ask .app-sidebar-unfold {
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--ask-line);
+  border-radius: 6px;
+  background: transparent;
+  font: 700 16px/1 var(--ask-body);
+  color: var(--ask-muted);
+  cursor: pointer;
+}
+.ask .app-sidebar-fold:hover,
+.ask .app-sidebar-unfold:hover { border-color: var(--ask-line-strong); color: var(--ask-ink); }
+
+@media (min-width: 900px) {
+  .app-shell:not([data-menu='rail']) > .app-sidebar .app-sidebar-fold,
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-unfold { display: inline-grid; }
+
+  .ask.app-shell[data-menu='rail'] { grid-template-columns: 56px minmax(0, 1fr); }
+  .app-shell[data-menu='rail'] > .app-sidebar { gap: 12px; padding: 12px 8px; }
+
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-head { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; }
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-logo svg { width: 28px; height: auto; image-rendering: pixelated; }
+
+  /* The names, the group titles and OMNI LOOP: not drawn, still said. */
+  .app-shell[data-menu='rail'] > .app-sidebar .ask-mark,
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-text,
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-workspace,
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-links,
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-version { display: none; }
+
+  /* Dashboard and Work apart by a thin line. */
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-nav { gap: 12px; }
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-group + .app-sidebar-group { padding-top: 12px; border-top: 1px solid var(--ask-line); }
+
+  .ask.app-shell[data-menu='rail'] > .app-sidebar a.app-sidebar-item { position: relative; justify-content: center; gap: 0; padding: 8px 0; }
+
+  /* A count becomes a dot on the sprite's corner; the entry's spoken name keeps the number. */
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-badge {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    min-width: 0;
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border: 1px solid var(--ask-surface);
+    font-size: 0;
+  }
+}

@@ -3,11 +3,13 @@ import { logoSvg, spritePixels } from '@omni/design';
 import { version } from '../../../../package.json';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { MouseEvent } from 'react';
 import { pixelSvg } from '../design/pixel-svg';
 import { APP_HOME } from '../switch/switch';
 import { useWaiting } from '../waiting/WaitingProvider';
 import type { WaitingCounts } from '../waiting/waiting';
 import { useDrawer } from './drawer-context';
+import { setMenu, type MenuState } from './menu-rail';
 import { OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, type SidebarId, type SidebarItem } from './sidebar.ts';
 import type { ViewerView } from './viewer-view';
 import './sidebar.css';
@@ -24,7 +26,12 @@ import './drawer.css';
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).
 // They sit at the sidebar's foot, under Settings, in one small row without a label, above the release running
 // ("Omni Loop v0.0.54", the root package.json the release workflow stamps; issue 561).
-// Below 900 px it is the phone drawer: hidden until the top bar's ☰ opens it over the page, a scrim
+// From 900 px, « in the header folds it to a 56 px rail and » opens it again (PRD 733;
+// src/nav/menu-rail.ts): the shell carries data-menu="rail", kept in the omni-menu cookie and drawn
+// before the first paint, and sidebar.css draws the rail from it: the crest, each section's sprite,
+// named by its title and its spoken name, a dot for a count, and the Settings gear. Both buttons are
+// always there, each with the aria-expanded it means; the stylesheet shows the one that applies.
+// Below 900 px it is the phone drawer, with neither button: hidden until the top bar's ☰ opens it over the page, a scrim
 // behind it. Escape, a tap on the scrim or choosing an item closes it (src/nav/drawer-context.tsx).
 // Every entry is a next/link (PRD 657): a click changes the page without a document load, so the
 // layout, the waiting polls and the bell's count stay. Docs and Release notes, which open a new tab,
@@ -57,14 +64,22 @@ function Item({ item, current, counts, choose }: { item: SidebarItem; current: S
   const waiting = badgeOf(item.id, counts);
   return (
     <li>
-      <Link className="app-sidebar-item" href={item.path} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
+      <Link className="app-sidebar-item" href={item.path} title={item.sprite ? item.label : undefined} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
         <SectionSprite name={item.sprite} />
-        {item.label}
+        <span className="app-sidebar-text">{item.label}</span>
         {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}
       </Link>
     </li>
   );
+}
+
+/** « and »: fold the menu to the rail and open it again, on the app shell around the sidebar, then
+ * hand the focus to the other button, the one now shown. */
+function fold(event: MouseEvent<HTMLButtonElement>, state: MenuState) {
+  const sidebar = event.currentTarget.closest('.app-sidebar');
+  setMenu(sidebar?.closest('.app-shell') ?? null, document, state);
+  sidebar?.querySelector<HTMLButtonElement>(state === 'rail' ? '.app-sidebar-unfold' : '.app-sidebar-fold')?.focus();
 }
 
 export function Sidebar({ viewer }: { viewer: ViewerView }) {
@@ -81,6 +96,8 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
             <span className="app-sidebar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
             <span className="ask-mark">OMNI LOOP</span>
           </Link>
+          <button type="button" className="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu" aria-expanded="true" aria-controls="app-sidebar" onClick={(event) => fold(event, 'rail')}>«</button>
+          <button type="button" className="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar" onClick={(event) => fold(event, 'open')}>»</button>
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
         </div>
         <nav className="app-sidebar-nav" aria-label="Sections">
