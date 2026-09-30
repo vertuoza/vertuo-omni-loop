@@ -71,10 +71,10 @@ async function push(args, { root, tokens = signedIn(), fetch }) {
 }
 
 describe('omni proof push', () => {
-  it('uploads every file to its signed link, then registers the run, and prints the Proof tab\'s link', async () => {
+  it('uploads every file to its signed link, then registers the run, and prints the Proof tab\'s link, then the GIF\'s', async () => {
     const { root } = checkout();
     const { calls, fetch } = fakeApp();
-    expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 0, out: `${TAB}\n`, err: '' });
+    expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 0, out: `${TAB}\n${BASE}/api/proofs/${RUN_ID}/preview.gif\n`, err: '' });
 
     expect(calls.map(({ method, url, authorization, type }) => [method, url, authorization ?? null, type ?? null])).toEqual([
       ['POST', `${BASE}/api/proofs/uploads`, 'Bearer access-1', 'application/json'],

@@ -23726,6 +23726,7 @@ import { isAbsolute as isAbsolute5, resolve as resolve3 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
 import { readFileSync as readFileSync43 } from "node:fs";
+var GIF = "preview.gif";
 var ProofReplyError = class extends Error {
   constructor(message) {
     super(message);
@@ -23755,7 +23756,9 @@ async function pushProof({ client, repo, prd: prd2, run, read: read2 = readFileS
   }
   const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
   if (!isText6(registered?.url)) throw new ProofReplyError("no link in the reply");
-  return registered.url;
+  const tab = registered.url;
+  if (!run.files.some(({ name }) => name === GIF)) return { tab };
+  return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
 }
 
 // kit/lib/proof/run.mjs
@@ -23886,14 +23889,15 @@ var proof = {
       return 1;
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
-    let tab;
+    let pushed;
     try {
-      tab = await pushProof({ client, repo, prd: prd2, run });
+      pushed = await pushProof({ client, repo, prd: prd2, run });
     } catch (error) {
       println(stderr, skipLine2(error));
       return 1;
     }
-    println(stdout, tab);
+    println(stdout, pushed.tab);
+    if (pushed.gif) println(stdout, pushed.gif);
     return 0;
   }
 };

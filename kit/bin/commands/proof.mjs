@@ -1,5 +1,6 @@
 // `omni proof push <n> <dir>` — sends a proof run `/omni:prove` recorded to PRD n's dossier on the Omni page
-// (PRD 798's spec, "The Omni page"), and prints the Proof tab's link.
+// (PRD 798's spec, "The Omni page"), and prints the Proof tab's link, then the GIF's stable link on a
+// second line when the run sent a `preview.gif`.
 //
 // It reads `<dir>/run.json` and the files it names (`../../lib/proof/run.mjs`), refusing before anything
 // is sent what the app would refuse: a type other than .webm, .gif, .ts or .txt is `refused (400)`, a
@@ -71,14 +72,15 @@ export const proof = {
       return 1;
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    let tab;
+    let pushed;
     try {
-      tab = await pushProof({ client, repo, prd, run });
+      pushed = await pushProof({ client, repo, prd, run });
     } catch (error) {
       println(stderr, skipLine(error));
       return 1;
     }
-    println(stdout, tab);
+    println(stdout, pushed.tab);
+    if (pushed.gif) println(stdout, pushed.gif);
     return 0;
   },
 };

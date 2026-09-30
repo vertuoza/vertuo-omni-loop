@@ -37,7 +37,7 @@ const read = (path) => new TextEncoder().encode(`bytes of ${path}`);
 describe('pushProof', () => {
   it('asks for links, puts each file to its own, then registers the run and hands back the tab', async () => {
     const { client, calls } = fakeClient();
-    expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: RUN, read })).toBe(TAB);
+    expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: RUN, read })).toEqual({ tab: TAB });
     expect(calls).toEqual([
       ['requestProofUploads', { repo: 'acme/widgets', prd: 7, files: [{ name: '1.webm', bytes: 3, type: 'video/webm' }, { name: '1.spec.ts', bytes: 4, type: 'text/plain' }] }],
       ['upload', 'https://files.example/1', read('/run/1.webm'), 'video/webm'],
@@ -46,12 +46,21 @@ describe('pushProof', () => {
     ]);
   });
 
+  it('a run that sent preview.gif also hands back the GIF\'s stable link, on the tab\'s origin', async () => {
+    const { client } = fakeClient({
+      requestProofUploads: async () => ({ run: 'r-1', files: [...LINKS, { name: 'preview.gif', path: 'd/r-1/preview.gif', url: 'https://files.example/3' }] }),
+    });
+    const withGif = { ...RUN, files: [...RUN.files, { name: 'preview.gif', path: '/run/preview.gif', bytes: 5, type: 'image/gif' }] };
+    expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: withGif, read }))
+      .toEqual({ tab: TAB, gif: 'https://omni.example/api/proofs/r-1/preview.gif' });
+  });
+
   it('a run with no file asks for no link and registers straight away', async () => {
     const { client, calls } = fakeClient();
     const bare = { ...RUN, criteria: [{ text: 'A key.', verdict: 'unfilmable' }], files: [] };
     const runId = '1b4e28ba-2fa1-11d2-883f-0016d3cca427';
     // No upload call means no run id from the app: one is minted here.
-    expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: bare, read, newRunId: () => runId })).toBe(TAB);
+    expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: bare, read, newRunId: () => runId })).toEqual({ tab: TAB });
     expect(calls.map(([name]) => name)).toEqual(['registerProof']);
     expect(calls[0][1].run).toBe(runId);
   });

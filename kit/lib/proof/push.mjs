@@ -8,6 +8,9 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+/** The run's GIF, found by its name (PRD 798, settled item s2-01). */
+const GIF = 'preview.gif';
+
 export class ProofReplyError extends Error {
   constructor(message) {
     super(message);
@@ -33,7 +36,8 @@ function linksOf(reply, files) {
  * @param {{ client: { requestProofUploads: Function, upload: Function, registerProof: Function }, repo: string, prd: number,
  *   run: { commit: string, url: string, criteria: object[], files: Array<{ name: string, path: string, bytes: number, type: string }> },
  *   read?: (path: string) => Uint8Array, newRunId?: () => string }} options
- * @returns {Promise<string>} the Proof tab's link
+ * @returns {Promise<{ tab: string, gif?: string }>} the Proof tab's link and, for a run that sent a
+ *   `preview.gif`, its stable link: the one link GitHub's image proxy can read without signing in
  */
 export async function pushProof({ client, repo, prd, run, read = readFileSync, newRunId = randomUUID }) {
   let runId;
@@ -47,5 +51,7 @@ export async function pushProof({ client, repo, prd, run, read = readFileSync, n
   }
   const registered = await client.registerProof({ repo, prd, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
   if (!isText(registered?.url)) throw new ProofReplyError('no link in the reply');
-  return registered.url;
+  const tab = registered.url;
+  if (!run.files.some(({ name }) => name === GIF)) return { tab };
+  return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
 }
