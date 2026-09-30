@@ -783,3 +783,159 @@ One rule in the page's pure logic and one line of text; nothing stored changes.
 ```
 
 <!-- /omni-outbox-settled: s3-02-draft-outcome-lines-after-watching -->
+
+<!-- omni-outbox-settled: s4-01-thats-us-also-confirms-an-addition -->
+
+## s4-01-thats-us-also-confirms-an-addition — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-thats-us-also-confirms-an-addition
+prd: 774
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 4
+---
+
+## The question, in plain words
+
+When the weekly check finds a new region next to ones already confirmed, it waits at the top of the page. If someone presses That's us for other finds while it waits, should it be confirmed too?
+
+## The decision, in plain words
+
+Yes: That's us confirms every waiting find the database holds, the new region included, and the page shows it confirmed right away. Someone who disagrees can still mark it wrong in the list afterwards.
+
+## The intro, for fun
+
+Two buttons, one database, and a new region caught in the middle.
+
+## The punchline, for fun
+
+That's us means everyone, even the newcomer at the top.
+
+## The options, in plain words
+
+A. A. That's us confirms waiting additions too, as the database does today
+B. B. That's us leaves additions alone; only their own buttons settle them (a follow-up migration)
+C. C. Additions stay in the found list and are never shown on top after a member's own draft
+
+## What I had to decide
+
+Whether That's us should leave a waiting new value alone so it is only settled at the top of the page.
+
+## What I did meanwhile
+
+The top of the page shows new values beside confirmed ones as additions with their own buttons; That's us confirms them too, as the database already does, and the page says so by showing them confirmed.
+
+## What it costs to change later
+
+Passing the waiting additions to the database call as left alone needs a small follow-up migration of the confirm function; the page side is one filter.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says That's us confirms every proposed row not marked wrong, and that additions sit on top with their own buttons, without saying which wins when both wait at once.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-thats-us-also-confirms-an-addition -->
+
+<!-- omni-outbox-settled: s4-02-recheck-one-workspace-at-a-time -->
+
+## s4-02-recheck-one-workspace-at-a-time — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-recheck-one-workspace-at-a-time
+prd: 774
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 4
+---
+
+## The question, in plain words
+
+The weekly check reads every workspace's sources again. Should it read them one workspace after another, or all at once?
+
+## The decision, in plain words
+
+One after another, inside the single weekly call, so the shared GitHub allowance is never spent in one burst. If many workspaces grow large, the call may run out of time before the last ones.
+
+## The intro, for fun
+
+Sunday night, a queue of workspaces, and only five minutes on the clock.
+
+## The punchline, for fun
+
+First come, first checked, and the rest wait for next Sunday.
+
+## The options, in plain words
+
+A. A. One workspace after another, in one call of at most five minutes
+B. B. All workspaces at once in the same call, faster but harder on the GitHub allowance
+C. C. One call per workspace from the weekly job, each with its own time limit
+
+## What I had to decide
+
+Whether one call, one workspace at a time, is enough, or the check should be split per workspace.
+
+## What I did meanwhile
+
+The weekly route rechecks the workspaces in turn within its five-minute limit; a workspace that fails is skipped and named in the answer, and the others carry on.
+
+## What it costs to change later
+
+Running them side by side is a one-line change; splitting into one call per workspace means a new small route and a loop in the weekly job.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say how many workspaces one weekly run must reach, nor how long one draft takes on a large repository.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-recheck-one-workspace-at-a-time -->
