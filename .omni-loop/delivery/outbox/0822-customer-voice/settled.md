@@ -158,3 +158,159 @@ A one-line change in a follow-up migration to refuse instead; a business opened 
 ```
 
 <!-- /omni-outbox-settled: s1-02-an-answer-opens-the-business -->
+
+<!-- omni-outbox-settled: s2-01-voice-tab-name-set-early -->
+
+## s2-01-voice-tab-name-set-early — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-voice-tab-name-set-early
+prd: 822
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the voice record to the PRD page's list of documents forced the page to know its tab name and empty line before the tab itself is built. Should this step set them now?
+
+## The decision, in plain words
+
+It set the tab name to User voice and the empty line to the spec's own words, and shows no tab yet. The next step builds the tab itself and can change both.
+
+## The intro, for fun
+
+The page wanted a name for a tab that does not exist yet.
+
+## The punchline, for fun
+
+So it got a name tag before it got a room.
+
+## The options, in plain words
+
+A. Set both strings now, outside this slice's territory, taken from the spec's words (built).
+B. Keep the page untouched and leave the type check red until the tab slice lands.
+C. Keep voice out of the page's artifact kinds with a second list of stored kinds, merged later by the tab slice.
+
+## What I had to decide
+
+Whether the tab's name and empty line may be set by the step that adds the record, ahead of the step that builds the tab.
+
+## What I did meanwhile
+
+The label 'User voice' and the empty line from the spec sit in the page's two lookup tables (DossierPage.tsx EMPTY, view.ts TAB_LABELS); no tab lists voice yet, so nothing changes on screen.
+
+## What it costs to change later
+
+Two strings; the tab slice s3 may reword or move them for the price of a constant.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- None: the words are the spec's own (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-voice-tab-name-set-early -->
+
+<!-- omni-outbox-settled: s2-02-a-silent-round-has-no-objection -->
+
+## s2-02-a-silent-round-has-no-objection — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-a-silent-round-has-no-objection
+prd: 822
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+When every persona is happy with a stage, nobody objects. How should the voice record say that a round had no objection at all?
+
+## The decision, in plain words
+
+A round where nobody objected keeps an empty objection and may leave its fit line empty too. The settled value none is kept for an objection that was raised but never answered.
+
+## The intro, for fun
+
+Sometimes the whole panel nods along and nobody grumbles.
+
+## The punchline, for fun
+
+The record now knows the difference between silence and a shrug.
+
+## The options, in plain words
+
+A. Objection null when nobody objected; settled none for an objection left unanswered (built).
+B. Always an objection; settled none also means nobody objected, with empty text.
+C. Leave the objection out of the round entirely when nobody objected.
+
+## What I had to decide
+
+Whether a round with no objection is an empty objection, or an objection whose settlement is none.
+
+## What I did meanwhile
+
+voice.json accepts objection null and fit null; settled none means an objection raised with no answer. The skills in s4 and the tab in s3 read it this way.
+
+## What it costs to change later
+
+A rule in the voice schema and its readers; changing it is a constant, since no voice.json exists yet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec lists none among the settlements without saying whether it also means no objection (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-02-a-silent-round-has-no-objection -->
