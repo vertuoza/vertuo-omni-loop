@@ -1,10 +1,12 @@
 import type { JevDecisionEntry, JevDecisionRow } from './entry';
+import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
 
 // The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The three
 // rows are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
-// not registered yet is shown on Settings › Jev as coming, and cannot be switched on. `outbox-risk`
-// arrives with PRD 812 s3, `bug-risk` with s5.
+// not registered yet is shown on Settings › Jev as coming, and cannot be switched on. `bug-risk`
+// arrives with PRD 812 s5. An entry with `terminal` can also be asked from a Claude session, through
+// `POST /api/decide/<name>` (./decide-route.ts).
 
 export type { JevDecisionEntry, JevDecisionRow } from './entry';
 
@@ -31,6 +33,7 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
 
 const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.freeze({
   [questionCategory.name]: questionCategory,
+  [outboxRisk.name]: outboxRisk,
 });
 
 /** The decision's registry entry, or null when it has none (yet). */
