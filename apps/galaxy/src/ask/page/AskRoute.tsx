@@ -9,7 +9,8 @@ import { Notice } from './Notice';
 import { QuestionsTabs } from './QuestionsTabs';
 import { SignInCard } from './SignInCard';
 import { callbackPath, isSessionId } from './sign-in';
-import { readMembers, readSession, readTabs } from './source';
+import { readAskDock } from './dock-player';
+import { readMembers, readSession, readTabs, sessionPings } from './source';
 import { rowOf, startPage } from './tabs';
 
 // /ask and /ask/<id>: the person's page, one tab per terminal, rendered per request as the
@@ -21,7 +22,9 @@ import { rowOf, startPage } from './tabs';
 // found, exactly like one that never was (row-level security hides it). Without a database it plays
 // the demo terminals in development, and says ask mode is not open in any other build. Everything
 // but a teammate's session starts with the Questions tabs, Open questions marked (PRD 733): /ask and
-// the person's own /ask/<id>, which a terminal tab opens, are the same page.
+// the person's own /ask/<id>, which a terminal tab opens, are the same page. The selected tab also
+// carries its terminal's heartbeat and who plays in its play dock (PRD 757); a teammate's session gets
+// no dock.
 
 export type AskQuery = Record<string, string | string[] | undefined>;
 
@@ -77,7 +80,7 @@ export async function AskRoute({ id, query }: { id: string | null; query: AskQue
   try {
     rows = await readTabs(db, user.id, now);
     const selected = id ?? startPage(rows, null, null, now).selected;
-    pane = selected === null ? null : await readSession(db, selected);
+    pane = selected === null ? null : await readSession(db, selected, sessionPings(db));
   } catch (error) {
     console.error(error);
     return tabbed(
@@ -93,7 +96,11 @@ export async function AskRoute({ id, query }: { id: string | null; query: AskQue
     return <AskSession key={pane.session.id} source={source} initial={pane} serverNow={Date.now()} viewer="member" me={user.id} />;
   }
   // Whom the owner may share an open round with; nobody to offer when the list cannot be read.
-  const members = pane ? await readMembers(db, pane.session.workspace_id) : [];
+  // Who plays in the tab's play dock (PRD 757), read as the arcade reads it.
+  const [members, dock] = await Promise.all([
+    pane ? readMembers(db, pane.session.workspace_id) : [],
+    pane ? readAskDock(db, user, env) : null,
+  ]);
   const page = startPage(rows, pane?.session.id ?? null, pane && rowOf(pane), now);
-  return tabbed(<AskPage key={page.selected ?? ''} source={source} page={page} pane={pane} serverNow={Date.now()} me={user.id} members={members} />);
+  return tabbed(<AskPage key={page.selected ?? ''} source={source} page={page} pane={pane} serverNow={Date.now()} me={user.id} members={members} dock={dock} />);
 }
