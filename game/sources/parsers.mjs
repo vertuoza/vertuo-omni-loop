@@ -76,23 +76,44 @@ export function parseSettled(text) {
   return entries;
 }
 
+// A plan's lines, each split into its trimmed `|` cells, beside the slice table's header the lines
+// above it named (its cells in lower case; null before one). A header line is not itself a row.
+function* sliceTableRows(text) {
+  let header = null;
+  for (const line of (text ?? '').split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    const names = cells.map((c) => c.toLowerCase());
+    if (names.includes('id') && names.includes('blocked by') && names.includes('wave')) header = names;
+    else yield { cells, header };
+  }
+}
+
+const FIXED_COLUMNS = { id: 1, blocked: 5, wave: 6, min: 8 };
+
 // A plan's slice table. Its columns are found by the header (`id`, `blocked by`, `wave`), so the
 // kit's table (`| id | slice | territory | blocked by | wave |`) and older ones with more columns
 // read alike; with no such header, the older fixed positions.
 export function parsePlanSlices(text) {
   const rows = [];
-  let cols = { id: 1, blocked: 5, wave: 6, min: 8 };
-  for (const line of (text ?? '').split('\n')) {
-    const cells = line.split('|').map((c) => c.trim());
-    const header = cells.map((c) => c.toLowerCase());
-    if (header.includes('id') && header.includes('blocked by') && header.includes('wave')) {
-      cols = { id: header.indexOf('id'), blocked: header.indexOf('blocked by'), wave: header.indexOf('wave'), min: 0 };
-      continue;
-    }
+  for (const { cells, header } of sliceTableRows(text)) {
+    const cols = header ? { id: header.indexOf('id'), blocked: header.indexOf('blocked by'), wave: header.indexOf('wave'), min: 0 } : FIXED_COLUMNS;
     if (cells.length < cols.min || !/^s\d+$/.test(cells[cols.id] ?? '')) continue;
     const cell = cells[cols.blocked] ?? '';
     const blocked = cell === '—' || cell === '-' || cell === '' ? [] : cell.split(',').map((s) => s.trim()).filter(Boolean);
     rows.push({ id: cells[cols.id], blockedBy: blocked, wave: Number(cells[cols.wave]) });
   }
   return rows;
+}
+
+// A plan repository's slice table names the repository each slice lands in, in a `repo` column
+// (PRD 549, as kit/lib/inbox/territory.mjs reads it): slice id → that cell, null when empty. An
+// ordinary plan has no such column, and every slice is its home's.
+export function parsePlanRepos(text) {
+  const out = new Map();
+  for (const { cells, header } of sliceTableRows(text)) {
+    if (!header?.includes('repo')) continue;
+    const id = cells[header.indexOf('id')] ?? '';
+    if (/^s\d+$/.test(id)) out.set(id, (cells[header.indexOf('repo')] ?? '').replace(/`/g, '').trim() || null);
+  }
+  return out;
 }

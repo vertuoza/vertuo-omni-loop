@@ -4,7 +4,7 @@ import { buildGalaxy, type GalaxyView, type LedgerEvent, type Projects } from '@
 
 export const TWIN_NOW = new Date('2026-09-23T14:00:00Z');
 
-export const TWIN_PROJECTS: Projects = {
+const TWIN_PROJECTS: Projects = {
   sectors: { plan: { repos: ['acme/plan'] }, tools: { repos: ['acme/tools'] } },
   teams: { beaver: { home: 'plan' }, octopod: { home: 'tools' } },
 };
@@ -23,7 +23,7 @@ export function twinEvents(home: string, team: string, who: string, prd = 88, ex
 }
 
 /** Both PRD 88s: acme/plan's, owned by beaver and secured by bob; acme/tools', by octopod and alice. */
-export function twinEventsBoth(): LedgerEvent[] {
+function twinEventsBoth(): LedgerEvent[] {
   return [...twinEvents('acme/plan', 'beaver', 'bob'), ...twinEvents('acme/tools', 'octopod', 'alice')];
 }
 

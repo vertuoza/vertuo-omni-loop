@@ -36,7 +36,7 @@
 // `id` or carrying a rank outside {medium, high, human-action} is skipped rather than pushed.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, deliveryOf, prdOfFolder } from './parsers.mjs';
+import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder } from './parsers.mjs';
 
 const run = promisify(execFile);
 export const ghExec = async (args) => (await run('gh', args, { maxBuffer: 64 * 1024 * 1024 })).stdout;
@@ -132,13 +132,17 @@ function partOfRegions(exec, tracked) {
   return async (home, prd) => {
     const regions = [];
     for (const slug of tracked.filter((t) => t !== home)) {
-      const prs = (await indexOf(slug)).get(`${home.toLowerCase()}#${prd}`) ?? [];
-      const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
-      const fp = (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
+      const fp = pickFeaturePr((await indexOf(slug)).get(`${home.toLowerCase()}#${prd}`) ?? []);
       if (fp) regions.push({ slug, fp });
     }
     return regions;
   };
+}
+
+// Among a PRD's feature PR candidates, the `omni:feature` one first, else the lowest number.
+function pickFeaturePr(prs) {
+  const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
+  return (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
 }
 
 // One tracked repository's default branch, delivery folder and PRD folders on its default branch, all
@@ -158,15 +162,8 @@ async function readRepository(exec, home) {
 }
 
 async function readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }) {
-  const prd = issue.number;
-  const createdAt = toIso(issue.createdAt);
-  // The owner: the first assignee, else the issue's author (PRD 728). Their fleet owns the planet.
-  const captain = issue.assignees?.[0]?.login ?? issue.author?.login ?? null;
-  const planet = {
-    prd, home, title: issue.title, captain, ownerTeam: captain ? teams[captain.toLowerCase()] ?? null : null,
-    issue: { createdAt, closedAt: toIso(issue.closedAt) },
-    regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
-  };
+  const planet = chartPlanet(home, issue, teams);
+  const { prd, issue: { createdAt } } = planet;
   const folder = repo.folders.get(prd);
   // No folder: charted, never surveyed. No birth time (F4): the projector skips the charting.
   if (!createdAt || !folder) return planet;
@@ -175,12 +172,7 @@ async function readPlanet(exec, { home, repo, issue, teams, specOf, tracked, reg
   const surveyedAt = firstIso(await soft(exec(['api', `repos/${home}/commits?path=${folder.dir}/spec.md&per_page=100`, '--jq', '.[-1].commit.committer.date']))) ?? createdAt;
   planet.regions.push({ repo: home, blockedBy: (await specOf(prd)).blockedBy, surveyedAt, featurePr: null });
 
-  const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
-  const prs = json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body']))
-    .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
-  const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
-  const fp = (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
-
+  const fp = await homeFeaturePr(exec, { home, repo, prd });
   // Multi-repository (PRD 728): each `Part of <home>#<n>` feature PR in another tracked repository is
   // one more region, surveyed when that PR opened. The PRD's blockers stay on its home region.
   const parts = await regionsOf(home, prd);
@@ -189,59 +181,76 @@ async function readPlanet(exec, { home, repo, issue, teams, specOf, tracked, reg
     features.set(slug, part);
     planet.regions.push({ repo: slug, blockedBy: [], surveyedAt: toIso(part.createdAt), featurePr: null });
   }
-  const planned = new Set(); // the regions the plan gives slices (F3)
-  if (features.size) {
-    for (const r of planet.regions) if (features.has(r.repo)) r.featurePr = await readFeaturePr(exec, r.repo, features.get(r.repo));
-    // The plan and the outbox live in the home: at its feature PR's head while that PR is open (the
-    // folder may have moved to shipped/ there), else on the default branch (its head may be gone).
-    const ref = fp && !fp.mergedAt ? fp.headRefName : repo.defaultBranch;
-    const planText = await readPlan(exec, { home, repo, folder, ref });
-    const slices = parsePlanSlices(planText);
-    const repoCell = sliceRepos(planText);
-    const regionOf = regionResolver({ home, tracked, parts });
-    const bySlug = new Map([...features.keys()].map((slug) => [slug, []]));
-    for (const slice of slices) {
-      const slug = regionOf(repoCell.get(slice.id));
-      if (slug) bySlug.set(slug, [...(bySlug.get(slug) ?? []), slice]); // a slice of no tracked repository is not read
-    }
-    const subs = [];
-    for (const [slug, own] of bySlug) {
-      if (own.length) planned.add(slug);
-      subs.push(...await readZones(exec, { planet, slug, fp: features.get(slug) ?? null, slices: own }));
-    }
-    await readOutbox(exec, { planet, home, repo, folder, ref, subs });
-  }
-  if (fp) {
-    const bugs = json(await soft(exec(['issue', 'list', '-R', home, '--label', 'bug', '--state', 'all', '--search', `#${prd}`, '--json', 'number,createdAt,closedAt,closedBy'])));
-    for (const b of bugs) {
-      const bugCreatedAt = toIso(b.createdAt);
-      if (!bugCreatedAt) continue;
-      const bugClosedAt = toIso(b.closedAt);
-      const fixedBy = bugClosedAt ? await bugFixedBy(exec, home, b.number) : null;
-      planet.bugs.push({ repo: home, number: b.number, createdAt: bugCreatedAt, closedAt: bugClosedAt, closedBy: b.closedBy?.login ?? null, fixedBy });
-    }
-  }
+  // The regions the plan gives slices (F3).
+  const planned = features.size ? await readWork(exec, { planet, home, repo, folder, tracked, fp, parts, features }) : new Set();
+  if (fp) planet.bugs.push(...await readBugs(exec, home, prd));
   planet.featurePr = aggregateFeaturePr(planet.regions, planned);
   return planet;
 }
 
-// A plan repository's slice table names the repository each slice lands in, in a `repo` column
-// (PRD 549, as kit/lib/inbox/territory.mjs reads it): slice id → that cell, null when empty. An
-// ordinary plan has no such column, and every slice is its home's.
-function sliceRepos(text) {
-  const out = new Map();
-  let cols = null;
-  for (const line of (text ?? '').split('\n')) {
-    const cells = line.split('|').map((c) => c.trim());
-    const header = cells.map((c) => c.toLowerCase());
-    if (header.includes('id') && header.includes('blocked by') && header.includes('wave')) {
-      cols = { id: header.indexOf('id'), repo: header.indexOf('repo') };
-      continue;
-    }
-    if (!cols || cols.repo === -1 || !/^s\d+$/.test(cells[cols.id] ?? '')) continue;
-    out.set(cells[cols.id], (cells[cols.repo] ?? '').replace(/`/g, '').trim() || null);
+// A PRD issue as a planet, charted and not yet surveyed. The owner: the first assignee, else the
+// issue's author (PRD 728). Their fleet owns the planet.
+function chartPlanet(home, issue, teams) {
+  const captain = issue.assignees?.[0]?.login ?? issue.author?.login ?? null;
+  return {
+    prd: issue.number, home, title: issue.title, captain, ownerTeam: captain ? teams[captain.toLowerCase()] ?? null : null,
+    issue: { createdAt: toIso(issue.createdAt), closedAt: toIso(issue.closedAt) },
+    regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
+  };
+}
+
+// The home's feature PR: a PR into its default branch whose body says `Closes #<n>`.
+async function homeFeaturePr(exec, { home, repo, prd }) {
+  const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
+  const prs = json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body']))
+    .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
+  return pickFeaturePr(prs);
+}
+
+// A planet with a feature PR in some region: each region's feature PR, its zones and its outbox.
+// Returns the regions the plan gives slices.
+async function readWork(exec, { planet, home, repo, folder, tracked, fp, parts, features }) {
+  for (const r of planet.regions) if (features.has(r.repo)) r.featurePr = await readFeaturePr(exec, r.repo, features.get(r.repo));
+  // The plan and the outbox live in the home: at its feature PR's head while that PR is open (the
+  // folder may have moved to shipped/ there), else on the default branch (its head may be gone).
+  const ref = fp && !fp.mergedAt ? fp.headRefName : repo.defaultBranch;
+  const planText = await readPlan(exec, { home, repo, folder, ref });
+  const bySlug = slicesByRegion(planText, { home, tracked, parts, regions: features.keys() });
+  const planned = new Set();
+  const subs = [];
+  for (const [slug, own] of bySlug) {
+    if (own.length) planned.add(slug);
+    subs.push(...await readZones(exec, { planet, slug, fp: features.get(slug) ?? null, slices: own }));
   }
-  return out;
+  await readOutbox(exec, { planet, home, repo, folder, ref, subs });
+  return planned;
+}
+
+// The plan's slices, by the region each lands in: every region with a feature PR first (with none
+// yet), then any other the slices name. A slice of no tracked repository is not read.
+function slicesByRegion(planText, { home, tracked, parts, regions }) {
+  const repoCell = parsePlanRepos(planText);
+  const regionOf = regionResolver({ home, tracked, parts });
+  const bySlug = new Map([...regions].map((slug) => [slug, []]));
+  for (const slice of parsePlanSlices(planText)) {
+    const slug = regionOf(repoCell.get(slice.id));
+    if (slug) bySlug.set(slug, [...(bySlug.get(slug) ?? []), slice]);
+  }
+  return bySlug;
+}
+
+// The home's bugs that name the PRD, each with who fixed it once closed (F5c). A bug without a
+// readable creation time is skipped (F4).
+async function readBugs(exec, home, prd) {
+  const bugs = [];
+  for (const b of json(await soft(exec(['issue', 'list', '-R', home, '--label', 'bug', '--state', 'all', '--search', `#${prd}`, '--json', 'number,createdAt,closedAt,closedBy'])))) {
+    const createdAt = toIso(b.createdAt);
+    if (!createdAt) continue;
+    const closedAt = toIso(b.closedAt);
+    const fixedBy = closedAt ? await bugFixedBy(exec, home, b.number) : null;
+    bugs.push({ repo: home, number: b.number, createdAt, closedAt, closedBy: b.closedBy?.login ?? null, fixedBy });
+  }
+  return bugs;
 }
 
 // A slice's `repo` cell → the tracked repository it lands in. None named: the home. A full name: that
@@ -304,32 +313,55 @@ async function readZones(exec, { planet, slug, fp, slices }) {
 // The outbox, in the home: `<delivery>/outbox/<folder>/` while the PRD is built, `<folder>/outbox/`
 // once shipped. `subs` are every region's sub-PRs: a drift's rework is looked for among them.
 async function readOutbox(exec, { planet, home, repo, folder, ref, subs }) {
-  const shipped = `${repo.delivery}/shipped/${folder.name}`;
-  const outbox = `${repo.delivery}/outbox/${folder.name}`;
-  let dir = null;
-  let names = [];
-  for (const candidate of folder.stage === 'shipped' ? [`${shipped}/outbox`, outbox] : [outbox, `${shipped}/outbox`]) {
-    names = lines(await soft(exec(['api', `repos/${home}/contents/${candidate}?ref=${ref}`, '--jq', '.[].name'])));
-    if (names.length) { dir = candidate; break; }
-  }
+  const { dir, names } = await findOutbox(exec, { home, repo, folder, ref });
   if (!dir) return;
+  const at = { home, dir, ref };
   const settled = names.includes('settled.md') ? parseSettled(await soft(exec(['api', `repos/${home}/contents/${dir}/settled.md?ref=${ref}`, ...RAW]))) : new Map();
   for (const name of names.filter((n) => n.endsWith('.md') && n !== 'settled.md' && n !== 'README.md')) {
-    const item = parseOutboxItem(await soft(exec(['api', `repos/${home}/contents/${dir}/${name}?ref=${ref}`, ...RAW])));
-    if (!item.id || !OUTBOX_RANKS.has(item.rank) || settled.has(item.id)) continue; // spec §8: a malformed outbox file is ignored
-    // F4: first commit, else the `raised` date at 07:00Z, else the item is skipped.
-    const raisedAt = firstIso(await soft(exec(['api', `repos/${home}/commits?path=${dir}/${name}&sha=${ref}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))
-      ?? (/^\d{4}-\d{2}-\d{2}$/.test(item.raised ?? '') ? toIso(`${item.raised}T07:00:00Z`) : null);
-    if (!raisedAt) continue;
-    planet.outbox.push({ id: item.id, repo: home, rank: item.rank, raisedAt, settled: null });
+    const item = await readOpenItem(exec, at, name, settled);
+    if (item) planet.outbox.push(item);
   }
   for (const [id, s] of settled) {
-    const at = toIso(s.at);
-    if (!at) continue; // F4: a settle without a readable `Approved at` is skipped
-    // F6: the rework sub-PR's author is who closes the fault line a drift opened.
-    const rework = s.verdict === 'drifted' ? subs.find((x) => x.mergedAt && new RegExp(`\\b${id}\\b`).test(x.body ?? '')) : null;
-    planet.outbox.push({ id, repo: home, rank: s.rank ?? 'medium', raisedAt: at, settled: { verdict: s.verdict, at, by: s.by, reworkMergedAt: rework?.mergedAt ?? null, reworkBy: rework?.author?.login ?? null } });
+    const item = settledItem(id, s, { home, subs });
+    if (item) planet.outbox.push(item);
   }
+}
+
+// The outbox folder that lists files, the shipped one first once the PRD has shipped: { dir, names },
+// dir null when neither does.
+async function findOutbox(exec, { home, repo, folder, ref }) {
+  const shipped = `${repo.delivery}/shipped/${folder.name}/outbox`;
+  const outbox = `${repo.delivery}/outbox/${folder.name}`;
+  for (const dir of folder.stage === 'shipped' ? [shipped, outbox] : [outbox, shipped]) {
+    const names = lines(await soft(exec(['api', `repos/${home}/contents/${dir}?ref=${ref}`, '--jq', '.[].name'])));
+    if (names.length) return { dir, names };
+  }
+  return { dir: null, names: [] };
+}
+
+// One open outbox item, or null: a malformed file (spec §8), an item already settled, or one with no
+// readable raise time. F4: its first commit, else the `raised` date at 07:00Z, else it is skipped.
+async function readOpenItem(exec, { home, dir, ref }, name, settled) {
+  const item = parseOutboxItem(await soft(exec(['api', `repos/${home}/contents/${dir}/${name}?ref=${ref}`, ...RAW])));
+  if (!item.id || !OUTBOX_RANKS.has(item.rank) || settled.has(item.id)) return null;
+  const raisedAt = firstIso(await soft(exec(['api', `repos/${home}/commits?path=${dir}/${name}&sha=${ref}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))
+    ?? raisedDay(item.raised);
+  return raisedAt ? { id: item.id, repo: home, rank: item.rank, raisedAt, settled: null } : null;
+}
+
+const raisedDay = (raised) => (/^\d{4}-\d{2}-\d{2}$/.test(raised ?? '') ? toIso(`${raised}T07:00:00Z`) : null);
+
+// One settled outbox item, or null when its `Approved at` is unreadable (F4).
+function settledItem(id, s, { home, subs }) {
+  const at = toIso(s.at);
+  if (!at) return null;
+  const rework = reworkOf(id, s.verdict, subs);
+  return { id, repo: home, rank: s.rank ?? 'medium', raisedAt: at, settled: { verdict: s.verdict, at, by: s.by, reworkMergedAt: rework?.mergedAt ?? null, reworkBy: rework?.author?.login ?? null } };
+}
+
+// F6: the rework sub-PR's author is who closes the fault line a drift opened.
+function reworkOf(id, verdict, subs) {
+  return verdict === 'drifted' ? subs.find((x) => x.mergedAt && new RegExp(`\\b${id}\\b`).test(x.body ?? '')) : null;
 }
 
 // F3: the planet's feature PR, aggregated over its regions (same shape as a region's, so every
@@ -359,24 +391,42 @@ function aggregateFeaturePr(regions, planned) {
 // `closedByPullRequestsReferences`, the timeline's last `closed` event stands in: a closing commit
 // (`commit_id`) counts as a fix by that event's actor; anything unknown is not fixed. All soft.
 async function bugFixedBy(exec, slug, number) {
-  const org = slug.split('/')[0];
-  let refs = null;
+  const refs = await closingRefs(exec, slug, number);
+  if (!Array.isArray(refs)) return closedByCommit(exec, slug, number);
+  const merged = [];
+  for (const ref of refs) {
+    const fix = await mergedFix(exec, refSlug(ref, slug), ref.number);
+    if (fix) merged.push(fix);
+  }
+  return merged.sort((a, b) => a.mergedAt.localeCompare(b.mergedAt))[0]?.by ?? null;
+}
+
+// A gh read parsed as JSON; a read or a parse that fails reads as null.
+async function readJson(read) {
   try {
-    refs = JSON.parse(await exec(['issue', 'view', String(number), '-R', slug, '--json', 'closedByPullRequestsReferences'])).closedByPullRequestsReferences;
+    return JSON.parse(await read());
   } catch {
-    refs = null;
+    return null;
   }
-  if (Array.isArray(refs)) {
-    const merged = [];
-    for (const ref of refs) {
-      const prSlug = ref.repository?.name ? `${ref.repository.owner?.login ?? org}/${ref.repository.name}` : slug;
-      let pr = {};
-      try { pr = JSON.parse(await exec(['pr', 'view', String(ref.number), '-R', prSlug, '--json', 'mergedAt,author'])); } catch { pr = {}; }
-      const mergedAt = toIso(pr?.mergedAt);
-      if (mergedAt && pr.author?.login) merged.push({ mergedAt, by: pr.author.login });
-    }
-    return merged.sort((a, b) => a.mergedAt.localeCompare(b.mergedAt))[0]?.by ?? null;
-  }
+}
+
+// The PRs that closed a bug, or null where the gh in use cannot say (or the read fails).
+async function closingRefs(exec, slug, number) {
+  return (await readJson(() => exec(['issue', 'view', String(number), '-R', slug, '--json', 'closedByPullRequestsReferences'])))?.closedByPullRequestsReferences ?? null;
+}
+
+// A closing PR reference's repository: its own when it names one (the bug's owner by default), else the bug's.
+const refSlug = (ref, slug) => (ref.repository?.name ? `${ref.repository.owner?.login ?? slug.split('/')[0]}/${ref.repository.name}` : slug);
+
+// One closing PR: `{ mergedAt, by }` once merged by a known author, else null.
+async function mergedFix(exec, prSlug, prNumber) {
+  const pr = await readJson(() => exec(['pr', 'view', String(prNumber), '-R', prSlug, '--json', 'mergedAt,author']));
+  const mergedAt = toIso(pr?.mergedAt);
+  return mergedAt && pr.author?.login ? { mergedAt, by: pr.author.login } : null;
+}
+
+// The fallback: the timeline's last `closed` event, a fix by its actor when a commit closed it.
+async function closedByCommit(exec, slug, number) {
   const closed = lines(await soft(exec(['api', `repos/${slug}/issues/${number}/timeline`, '--paginate', '--jq', '.[] | select(.event=="closed") | "\\(.commit_id) \\(.actor.login)"']))).at(-1);
   const [commitId, actor] = (closed ?? '').split(/\s+/);
   return commitId && commitId !== 'null' && actor && actor !== 'null' ? actor : null;

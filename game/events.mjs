@@ -11,7 +11,7 @@ export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 
 
 // A PRD's home: the repository of its issue, `owner/name` in lower case, as public.repositories
 // spells it (PRD 728).
-export const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
+const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 
 export const EventSchema = z.object({
   id: z.string().min(1),

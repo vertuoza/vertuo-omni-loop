@@ -15,12 +15,37 @@ export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
   const terraformedAt = new Map(snapshot.planets.filter((p) => p.featurePr?.mergedAt).map((p) => [planetKey(p.home, p.prd), p.featurePr.mergedAt]));
   const terraformedPlanets = new Set(terraformedAt.keys());
   const events = [];
+  const push = pusher(events, snapshot.teams, onSkip);
+
+  for (const planet of snapshot.planets) {
+    const key = planetKey(planet.home, planet.prd);
+    let state;
+    try {
+      state = derivePlanet(planet, { config, terraformedPlanets, now });
+    } catch (err) {
+      onSkip({ id: `planet:${key}`, message: err.message });
+      continue;
+    }
+    const at = { planet, state, key, on: { planet: planet.prd, ...(planet.home ? { home: planet.home } : {}) } }; // every event names its home
+    push({ id: `planet:${key}:charted`, at: planet.issue.createdAt, type: 'PLANET_CHARTED', ...at.on, data: { captain: planet.captain, ownerTeam: planet.ownerTeam, title: planet.title } });
+    regionEvents(push, at, terraformedAt);
+    zoneEvents(push, at);
+    distressEvents(push, at, now);
+    woundEvents(push, at);
+    finishEvents(push, at);
+    endEvents(push, at);
+  }
+  return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+}
+
+// Validates and keeps one event, or reports it skipped.
+function pusher(events, teams, onSkip) {
   // Logins are case-insensitive; the roster is keyed in lower case.
-  const teamOf = (login) => snapshot.teams[login] ?? snapshot.teams[String(login).toLowerCase()];
+  const teamOf = (login) => teams[login] ?? teams[String(login).toLowerCase()];
   // Controller ruling: EventSchema accepts `contributor` as a string or absent, never `null`.
   // When a login is null/undefined (e.g. an unclaimed zone's author, a wound's closedBy),
   // omit both `contributor` and `team` instead of passing `null`.
-  const push = (fields) => {
+  return (fields) => {
     const { contributor, ...rest } = fields;
     try {
       events.push(makeEvent({
@@ -31,60 +56,60 @@ export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
       onSkip({ id: fields.id, message: err.issues ? err.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') : err.message });
     }
   };
+}
 
-  for (const planet of snapshot.planets) {
-    const prd = planet.prd;
-    const key = planetKey(planet.home, prd);
-    const on = { planet: prd, ...(planet.home ? { home: planet.home } : {}) }; // every event names its home
-    let state;
-    try {
-      state = derivePlanet(planet, { config, terraformedPlanets, now });
-    } catch (err) {
-      onSkip({ id: `planet:${key}`, message: err.message });
-      continue;
+function regionEvents(push, { planet, key, on }, terraformedAt) {
+  for (const r of planet.regions) {
+    push({ id: `region:${r.repo}:${key}:surveyed`, at: r.surveyedAt, type: 'REGION_SURVEYED', ...on, region: r.repo });
+    for (const blocker of r.blockedBy) {
+      push({ id: `planet:${key}:locked:${blocker}`, at: r.surveyedAt, type: 'PLANET_LOCKED', ...on, data: { blocker } });
+      if (terraformedAt.has(planetKey(planet.home, blocker))) push({ id: `planet:${key}:unlocked:${blocker}`, at: terraformedAt.get(planetKey(planet.home, blocker)), type: 'PLANET_UNLOCKED', ...on, data: { blocker } });
     }
-    push({ id: `planet:${key}:charted`, at: planet.issue.createdAt, type: 'PLANET_CHARTED', ...on, data: { captain: planet.captain, ownerTeam: planet.ownerTeam, title: planet.title } });
-
-    for (const r of planet.regions) {
-      push({ id: `region:${r.repo}:${key}:surveyed`, at: r.surveyedAt, type: 'REGION_SURVEYED', ...on, region: r.repo });
-      for (const blocker of r.blockedBy) {
-        push({ id: `planet:${key}:locked:${blocker}`, at: r.surveyedAt, type: 'PLANET_LOCKED', ...on, data: { blocker } });
-        if (terraformedAt.has(planetKey(planet.home, blocker))) push({ id: `planet:${key}:unlocked:${blocker}`, at: terraformedAt.get(planetKey(planet.home, blocker)), type: 'PLANET_UNLOCKED', ...on, data: { blocker } });
-      }
-    }
-
-    for (const z of state.zones) {
-      const zoneKey = `zone:${z.repo}:${key}:${z.id}`;
-      const base = { ...on, region: z.repo };
-      if (z.openedAt) push({ id: `${zoneKey}:opened`, at: z.openedAt, type: 'ZONE_OPENED', ...base, data: { wave: z.wave } });
-      if (z.claimedAt) push({ id: `${zoneKey}:claimed`, at: z.claimedAt, type: 'ZONE_CLAIMED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
-      if (z.securedAt) push({ id: `${zoneKey}:secured`, at: z.securedAt, type: 'ZONE_SECURED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
-      if (z.revertedAt) push({ id: `${zoneKey}:reverted`, at: z.revertedAt, type: 'ZONE_REVERTED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
-    }
-
-    // F5b: one DISTRESS per planet-level idle episode, and a RESCUE for the claim that answered it.
-    // The RESCUE is always emitted; the economy pays it only when the claimer is from another team.
-    for (const ep of distressEpisodes(state.zones, now)) {
-      push({ id: `planet:${key}:distress:${ep.start}`, at: ep.distressAt, type: 'DISTRESS', ...on });
-      if (ep.rescue) push({ id: `planet:${key}:rescue:${ep.start}`, at: ep.rescue.at, type: 'RESCUE', ...on, region: ep.rescue.repo, contributor: ep.rescue.author, data: { pr: prNumber(planet, ep.rescue.zone, ep.rescue.repo), zone: ep.rescue.zone } });
-    }
-
-    for (const w of state.wounds) {
-      const data = { kind: w.kind, ...(w.rank ? { rank: w.rank } : {}) };
-      push({ id: `${w.id}:opened`, at: w.openedAt, type: 'WOUND_OPENED', ...on, region: w.repo, data });
-      if (w.closedAt) push({ id: `${w.id}:closed`, at: w.closedAt, type: 'WOUND_CLOSED', ...on, region: w.repo, contributor: w.closedBy, data: { ...data, ...(w.verdict ? { verdict: w.verdict } : {}) } });
-    }
-
-    const fp = planet.featurePr;
-    if (fp?.readyAt && state.zones.length && state.zones.every((z) => z.state === 'secured')) push({ id: `planet:${key}:ready`, at: fp.readyAt, type: 'PLANET_READY', ...on });
-    if (fp?.mergedAt) push({ id: `planet:${key}:terraformed`, at: fp.mergedAt, type: 'PLANET_TERRAFORMED', ...on, data: { ownerTeam: planet.ownerTeam, class: state.class, crossSector: state.crossSector } });
-    if (state.state === 'lost') {
-      const at = planet.issue.closedAt ?? iso(addWorkingMinutes(new Date(state.lastActivityAt), RULEBOOK.lostAfterWorkingMinutes));
-      push({ id: `planet:${key}:lost`, at, type: 'PLANET_LOST', ...on, data: { ownerTeam: planet.ownerTeam, reason: planet.issue.closedAt ? 'closed' : 'silence' } });
-    }
-    if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
   }
-  return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+}
+
+function zoneEvents(push, { planet, state, key, on }) {
+  for (const z of state.zones) {
+    const zoneKey = `zone:${z.repo}:${key}:${z.id}`;
+    const base = { ...on, region: z.repo };
+    if (z.openedAt) push({ id: `${zoneKey}:opened`, at: z.openedAt, type: 'ZONE_OPENED', ...base, data: { wave: z.wave } });
+    if (z.claimedAt) push({ id: `${zoneKey}:claimed`, at: z.claimedAt, type: 'ZONE_CLAIMED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+    if (z.securedAt) push({ id: `${zoneKey}:secured`, at: z.securedAt, type: 'ZONE_SECURED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+    if (z.revertedAt) push({ id: `${zoneKey}:reverted`, at: z.revertedAt, type: 'ZONE_REVERTED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+  }
+}
+
+// F5b: one DISTRESS per planet-level idle episode, and a RESCUE for the claim that answered it.
+// The RESCUE is always emitted; the economy pays it only when the claimer is from another team.
+function distressEvents(push, { planet, state, key, on }, now) {
+  for (const ep of distressEpisodes(state.zones, now)) {
+    push({ id: `planet:${key}:distress:${ep.start}`, at: ep.distressAt, type: 'DISTRESS', ...on });
+    if (ep.rescue) push({ id: `planet:${key}:rescue:${ep.start}`, at: ep.rescue.at, type: 'RESCUE', ...on, region: ep.rescue.repo, contributor: ep.rescue.author, data: { pr: prNumber(planet, ep.rescue.zone, ep.rescue.repo), zone: ep.rescue.zone } });
+  }
+}
+
+function woundEvents(push, { state, on }) {
+  for (const w of state.wounds) {
+    const data = { kind: w.kind, ...(w.rank ? { rank: w.rank } : {}) };
+    push({ id: `${w.id}:opened`, at: w.openedAt, type: 'WOUND_OPENED', ...on, region: w.repo, data });
+    if (w.closedAt) push({ id: `${w.id}:closed`, at: w.closedAt, type: 'WOUND_CLOSED', ...on, region: w.repo, contributor: w.closedBy, data: { ...data, ...(w.verdict ? { verdict: w.verdict } : {}) } });
+  }
+}
+
+// A planet built: ready once its feature PR is and every zone is secured, terraformed once it merged.
+function finishEvents(push, { planet, state, key, on }) {
+  const fp = planet.featurePr;
+  if (fp?.readyAt && state.zones.length && state.zones.every((z) => z.state === 'secured')) push({ id: `planet:${key}:ready`, at: fp.readyAt, type: 'PLANET_READY', ...on });
+  if (fp?.mergedAt) push({ id: `planet:${key}:terraformed`, at: fp.mergedAt, type: 'PLANET_TERRAFORMED', ...on, data: { ownerTeam: planet.ownerTeam, class: state.class, crossSector: state.crossSector } });
+}
+
+// A planet given up: lost, or decommissioned.
+function endEvents(push, { planet, state, key, on }) {
+  if (state.state === 'lost') {
+    const at = planet.issue.closedAt ?? iso(addWorkingMinutes(new Date(state.lastActivityAt), RULEBOOK.lostAfterWorkingMinutes));
+    push({ id: `planet:${key}:lost`, at, type: 'PLANET_LOST', ...on, data: { ownerTeam: planet.ownerTeam, reason: planet.issue.closedAt ? 'closed' : 'silence' } });
+  }
+  if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
 }
 
 function prNumber(planet, zoneId, repo) {

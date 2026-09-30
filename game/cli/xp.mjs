@@ -4,13 +4,11 @@
 // Fresh start (PRD 728): only rows with a home count. A login only older rows name keeps its row,
 // rewritten at 0; its unlocked games stay. It never writes the ledger. A failed read writes nothing and exits 1: the ledger step has already
 // succeeded, so XP catches up at the next poll.
-import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { supabaseLedger } from '../sources/supabase.mjs';
 import { counted, playerXp } from '../experience.mjs';
 import { RULEBOOK } from '../rulebook.mjs';
-import { openWorkspace } from './workspace.mjs';
+import { openWorkspace, runByPath } from './workspace.mjs';
 
 // What game:xp reads back of a stored row: the games already unlocked, which a new run only adds to.
 const StoredRows = z.array(z.object({ github_login: z.string().min(1), unlocked: z.array(z.string()) }));
@@ -38,15 +36,7 @@ export async function runXp({ rest, workspaceId, now = new Date(), rules = RULEB
   return rows;
 }
 
-const isMain = () => {
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-};
-
-if (isMain()) {
+if (runByPath(import.meta.url)) {
   const { rest, workspace } = await openWorkspace({ usage: 'game:xp --workspace <slug>' });
   try {
     const rows = await runXp({ rest, workspaceId: workspace.id });
