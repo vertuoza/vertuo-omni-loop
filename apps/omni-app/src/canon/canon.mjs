@@ -17,16 +17,15 @@
 // `null` when the App cannot read businesses) and `ask(request)` (the kit's OpenRouter client, bound to
 // its key and model). ./live.mjs binds them to the environment.
 import { createHash } from 'node:crypto';
+import { NO_KEY } from 'vertuo-omni-plan/kit/lib/openrouter.mjs';
 
 export const CANON_GATE = 'canon';
 /** The most characters of the spec the model reads; the quote check still reads all of it. */
 export const CANON_SPEC_LIMIT = 40_000;
 /** The longest quote a finding may carry, as a receipt's. */
-export const MAX_QUOTE = 300;
+const MAX_QUOTE = 300;
 /** Verdicts kept in the cache, oldest dropped first. */
-export const CACHE_LIMIT = 200;
-
-const NO_KEY = 'no-key';
+const CACHE_LIMIT = 200;
 
 const plain = (text) => String(text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -74,21 +73,22 @@ const SCHEMA = Object.freeze({
 });
 
 /** The model's reply, checked for its shape: `{ errors, reply }`, as the kit's client expects. */
-export function checkReply(value) {
-  const errors = [];
+function checkReply(value) {
   if (!value || typeof value !== 'object') return { errors: ['the reply must be one JSON object'], reply: null };
-  if (!Array.isArray(value.findings)) errors.push('findings: an array');
-  const findings = [];
-  for (const [i, item] of (Array.isArray(value.findings) ? value.findings : []).entries()) {
-    if (!item || typeof item.quote !== 'string' || !Array.isArray(item.claims) || item.claims.some((id) => typeof id !== 'string')) {
-      errors.push(`findings.${i}: {"quote": string, "claims": string[], "why": string}`);
-      continue;
-    }
-    findings.push({ quote: item.quote.trim(), claims: item.claims.map((id) => id.trim()), why: String(item.why ?? '').trim() });
-  }
-  const persona = value.persona && typeof value.persona === 'object' ? value.persona : { name: '', line: '' };
+  if (!Array.isArray(value.findings)) return { errors: ['findings: an array'], reply: null };
+  const errors = value.findings
+    .map((item, i) => (isFinding(item) ? null : `findings.${i}: {"quote": string, "claims": string[], "why": string}`))
+    .filter(Boolean);
   if (errors.length > 0) return { errors, reply: null };
-  return { errors, reply: { findings, persona: { name: String(persona.name ?? '').trim(), line: String(persona.line ?? '').trim() } } };
+  const findings = value.findings.map((item) => ({ quote: item.quote.trim(), claims: item.claims.map((id) => id.trim()), why: text(item.why) }));
+  const persona = value.persona ?? {};
+  return { errors, reply: { findings, persona: { name: text(persona.name), line: text(persona.line) } } };
+}
+
+const text = (value) => String(value ?? '').trim();
+
+function isFinding(item) {
+  return Boolean(item) && typeof item.quote === 'string' && Array.isArray(item.claims) && item.claims.every((id) => typeof id === 'string');
 }
 
 function userPrompt({ spec, claims, personas }) {
@@ -150,9 +150,24 @@ function judged({ claims, findings, persona }) {
   return { name: CANON_GATE, ok: false, neutral: false, title: reason, reason, details, canon: { state: 'red', reason, claimsRead, findings, persona } };
 }
 
+/** The repository's business, its claims and personas; or `{ gate }`, neutral, when there is none to judge by. */
+async function canonOf(readBusiness, repo) {
+  let business;
+  try {
+    business = await readBusiness(repo);
+  } catch (error) {
+    return { gate: neutral(`no business: the read failed (${error?.message ?? error})`) };
+  }
+  if (!business) return { gate: neutral('no business: the App cannot read businesses here') };
+  if (!business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
+  const claims = business.claims ?? [];
+  if (claims.length === 0) return { gate: neutral("no confirmed claim for this repository's product") };
+  return { business, claims, personas: business.personas ?? [] };
+}
+
 /**
  * @param {{
- *   readBusiness: (repo: string) => Promise<object | null>,
+ *   readBusiness:(repo: string) => Promise<object | null>,
  *   ask: (request: { system: string, user: string, check: Function, schema: object }) =>
  *     Promise<{ ok: boolean, error: string | null, reply: unknown, reason: string | null }>,
  *   cache?: Map<string, object>,
@@ -163,17 +178,9 @@ export function createCanon({ readBusiness, ask, cache = new Map(), limit = CACH
   return {
     /** @param {{ repo: string, spec: string }} input */
     async grade({ repo, spec }) {
-      let business;
-      try {
-        business = await readBusiness(repo);
-      } catch (error) {
-        return neutral(`no business: the read failed (${error?.message ?? error})`);
-      }
-      if (business === null || business === undefined) return neutral('no business: the App cannot read businesses here');
-      if (!business.business) return neutral(`no business: no workspace tracking ${repo} has one`);
-      const claims = Array.isArray(business.claims) ? business.claims : [];
-      const personas = Array.isArray(business.personas) ? business.personas : [];
-      if (claims.length === 0) return neutral("no confirmed claim for this repository's product");
+      const read = await canonOf(readBusiness, repo);
+      if (read.gate) return read.gate;
+      const { business, claims, personas } = read;
 
       const key = [repo, createHash('sha256').update(spec).digest('hex'), business.updatedAt ?? ''].join('\n');
       const hit = cache.get(key);
