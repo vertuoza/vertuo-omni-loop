@@ -14,6 +14,10 @@ describe('makeMarkers', () => {
     expect('<!-- vertuo-outbox-numbers: {"a":1} -->'.match(m.numbersRe)[1]).toBe('{"a":1}');
     expect('<!-- vertuo-outbox-announced: a,b -->'.match(m.announcedRe)[1]).toBe('a,b');
   });
+  it('names the status comment /omni:pr keeps on every pull request (PRD 714)', () => {
+    expect(makeMarkers('omni-outbox').status).toBe('<!-- omni-outbox-status -->');
+    expect(makeMarkers('vertuo-outbox').status).toBe('<!-- vertuo-outbox-status -->');
+  });
   it('uses the configured prefix', () => {
     expect(makeMarkers('omni-outbox').settledOpen('x')).toBe('<!-- omni-outbox-settled: x -->');
   });
