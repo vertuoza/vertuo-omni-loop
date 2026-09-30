@@ -1,5 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { ContextLine } from './ContextLine';
+import { LeadMessage } from './LeadMessage';
+import { QuestionText } from './QuestionText';
 import { screenshotsNote, type HistoryEntry } from './view';
 
 // Earlier rounds, folded into a quiet list below the open one, newest first: one line each (the
@@ -19,7 +21,7 @@ export function AnswerList({ lines, className }: { lines: { question: string; an
     <dl className={className}>
       {lines.map((line, i) => (
         <Fragment key={i}>
-          <dt>{line.question}</dt>
+          <dt><QuestionText text={line.question} /></dt>
           <dd>{line.answer ?? '—'}<Screenshots count={line.screenshots} before=" " /></dd>
         </Fragment>
       ))}
@@ -66,6 +68,7 @@ export function History({ history, chip }: { history: HistoryEntry[]; chip?: (en
                 <Summary entry={entry} />
                 <span className="ask-via" data-via={entry.via ?? entry.outcome}>{TAG[entry.outcome](entry.via)}</span>
               </summary>
+              <LeadMessage lead={entry.lead} />
               <AnswerList lines={entry.lines} />
             </details>
             <ContextLine parts={entry.context} />

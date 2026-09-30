@@ -65,6 +65,18 @@ describe('the ask contract client', () => {
     expect(server.calls[2].body).toEqual({ questions: QUESTIONS });
   });
 
+  it('sends a lead with a round only when there is one (PRD 752)', async () => {
+    const { client } = await setUp();
+    const session = await client.openSession('acme/widgets · main');
+    const { roundId } = await client.openRound(session.id, QUESTIONS, undefined, '## The design');
+    expect(server.calls[1].body).toEqual({ questions: QUESTIONS, lead: '## The design' });
+    expect(server.rounds.get(roundId).lead).toBe('## The design');
+    await client.openRound(session.id, QUESTIONS, undefined, null);
+    await client.openRound(session.id, QUESTIONS, undefined, '');
+    expect(server.calls[2].body).toEqual({ questions: QUESTIONS });
+    expect(server.calls[3].body).toEqual({ questions: QUESTIONS });
+  });
+
   it('keeps a path under ask.url, with or without a trailing slash', async () => {
     server = await startFakeAskServer();
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1' } });

@@ -42,6 +42,9 @@ const renewed = (current, fresh) => ({
 /** `body` with `context` added only when there is one: an older server never sees the field. */
 const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
 
+/** `body` with `lead` added only when there is one (PRD 752): an older server never sees the field. */
+const withLead = (body, lead) => (typeof lead === 'string' && lead !== '' ? { ...body, lead } : body);
+
 /**
  * @typedef {{ access_token: string, refresh_token?: string, expires_at?: number, email?: string }} Tokens
  * @typedef {{ read(host: string): Tokens | null, write(host: string, tokens: Tokens): void }} TokenStore
@@ -170,9 +173,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
     closeSession: (sessionId) => call('POST', `/api/ask/sessions/${segment(sessionId)}/close`),
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
-     * from and what it cost (`./context.mjs`). @returns {Promise<{ roundId: string }>} */
-    openRound: (sessionId, questions, context) =>
-      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withContext({ questions }, context) }),
+     * from and what it cost (`./context.mjs`); `lead`, when given, is the text Claude wrote before
+     * asking (`./lead.mjs`, PRD 752). @returns {Promise<{ roundId: string }>} */
+    openRound: (sessionId, questions, context, lead) =>
+      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,

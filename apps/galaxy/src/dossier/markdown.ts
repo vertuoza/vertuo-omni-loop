@@ -3,7 +3,9 @@
 // becomes markup on the galaxy's origin. markdown-it also refuses to link a javascript:, vbscript:,
 // file: or data: URL. The front matter (the block between two `---` lines that opens a spec) is not
 // part of the body: it comes back as one line of text, its lines joined by ` · `, to show above it.
-// Runs on the server only: the page ships the HTML, never the renderer.
+// The dossier renders on the server and ships the HTML. The ask page (PRD 752, decision 6) runs the
+// same renderer, with the same settings, in the browser: it reads its rounds there, so it renders a
+// question's lead and an option's description as one line, and the rest of a question as a body.
 import MarkdownIt from 'markdown-it';
 
 const renderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
@@ -23,4 +25,14 @@ export function renderMarkdown(text: string): RenderedMarkdown {
   const lines = match ? match[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
   const body = match ? text.slice(match[0].length) : text;
   return { front: lines.length ? lines.join(' · ') : null, html: renderer.render(body) };
+}
+
+/** One line as HTML, with no paragraph around it: code, emphasis and links, raw HTML escaped. */
+export function renderInlineMarkdown(text: string): string {
+  return renderer.renderInline(text);
+}
+
+/** A body as HTML, with no front matter taken out: a question's text can open with `---`. */
+export function renderMarkdownBody(text: string): string {
+  return renderer.render(text);
 }

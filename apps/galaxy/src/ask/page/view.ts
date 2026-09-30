@@ -8,6 +8,7 @@
 import { readQuestions, type AskQuestion } from '../answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { sessionClosed, type AskRound, type AskSession } from '../store';
+import { leadOf } from './lead';
 
 /** How long the hook waits for the page before the question goes to the terminal (the spec's
  * 540 s, within the hook's 600 s timeout). A round still open after that is no longer the page's. */
@@ -16,7 +17,7 @@ export const HOOK_WAIT_MS = 540_000;
 /** Where a session came from; missing on a row read before PRD 144's columns, or left out by a demo. */
 export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
-export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments'>>;
+export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments' | 'lead'>>;
 
 export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace
   & Partial<Pick<AskSession, 'workspace_id'>>;
@@ -40,6 +41,8 @@ export type HistoryEntry = {
   /** The round's category and who set it (see categoryChip). */
   category?: Category | null;
   category_by?: string | null;
+  /** What Claude wrote before asking (PRD 752); left out when the round has none. */
+  lead?: string;
 };
 
 export type SessionView =
@@ -93,9 +96,10 @@ export function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry
     ...Object.entries(answers).filter(([question]) => !named.has(question)).map(([question, answer]) => line('', question, answer)),
   ];
   const outcome = round.status === 'answered' ? 'answered' : round.status === 'abandoned' ? 'moved' : 'unanswered';
+  const lead = leadOf(round);
   return {
     id: round.id, lines, outcome, via: round.answered_via, at: round.answered_at ?? round.created_at, context: contextParts(session, round),
-    category: round.category ?? null, category_by: round.category_by ?? null,
+    category: round.category ?? null, category_by: round.category_by ?? null, ...(lead ? { lead } : {}),
   };
 }
 
