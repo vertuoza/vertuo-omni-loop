@@ -109,8 +109,9 @@ function hasCommitBeyondClaim(pr) {
 /** A claim gone cold: a draft that has moved no further than the commit it was claimed with, and
  * whose claim itself (`createdAt`) is older than `staleMinutes`. Never reads `updatedAt` — a
  * comment or a label change updates that field without moving the branch at all, which would let a
- * genuinely cold claim keep reading as fresh. */
-function isClaimedStale(pr, now, staleMinutes) {
+ * genuinely cold claim keep reading as fresh. Exported so the Engineering board's Loop health panel
+ * (PRD 714) calls the kit's own rule, and it and `omni board` always agree. */
+export function isClaimedStale(pr, now, staleMinutes) {
   if (!pr.isDraft) return false;
   if (hasCommitBeyondClaim(pr)) return false;
   const ageMs = now - new Date(pr.createdAt).getTime();

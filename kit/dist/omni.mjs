@@ -12073,6 +12073,8 @@ function makeMarkers(prefix) {
     any: `<!-- ${prefix}`,
     comment: `<!-- ${prefix} -->`,
     prComment: `<!-- ${prefix}-pr -->`,
+    // The status comment `/omni:pr` keeps on every pull request, read by the Engineering board (PRD 714).
+    status: `<!-- ${prefix}-status -->`,
     settledOpen: (id) => `<!-- ${prefix}-settled: ${id} -->`,
     settledClose: (id) => `<!-- /${prefix}-settled: ${id} -->`,
     settledOpenRe: new RegExp(`^<!-- ${p}-settled: (.+?) -->$`),
