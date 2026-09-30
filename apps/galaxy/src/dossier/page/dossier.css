@@ -132,6 +132,19 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
+   conflict, grey while CI runs. */
+.care-chip {
+  display: inline-block;
+  font: 600 12px/1 var(--ask-mono);
+  border: 1px solid var(--ask-green);
+  color: var(--ask-ink);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.care-chip.care-red { border-color: var(--ask-red); color: var(--ask-red); }
+.care-chip.care-grey { border-color: var(--ask-line-strong); color: var(--ask-muted); }
 
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {
