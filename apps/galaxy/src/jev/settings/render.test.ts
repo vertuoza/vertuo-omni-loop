@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { JevKeyStatus } from '../store';
+import type { JevDecisionSettings, JevKeyStatus } from '../store';
 import { initialState, jevReducer, type JevAction } from './model';
 import { JevScreen, NOT_AVAILABLE_TITLE, type JevScreenView } from './JevScreen';
 import { ONLY_OWNER, SENDS, SWITCH_OFF, JevView } from './JevView';
@@ -17,8 +17,13 @@ const STORED: JevKeyStatus = { stored: true, lastFour: '1a2b', setAt: '2026-09-3
 const MEMBER_STORED: JevKeyStatus = { stored: true, lastFour: null, setAt: null };
 
 const state = (key: JevKeyStatus, ...actions: JevAction[]) => actions.reduce(jevReducer, initialState(key));
-const render = (key: JevKeyStatus, { owner = true, actions = [] as JevAction[] } = {}) =>
-  renderToStaticMarkup(createElement(JevView, { state: state(key, ...actions), owner }));
+const page = (key: JevKeyStatus, { owner = true, actions = [] as JevAction[], decisions = [] as JevDecisionSettings[] } = {}) =>
+  renderToStaticMarkup(createElement(JevView, { state: actions.reduce(jevReducer, initialState(key, decisions)), owner }));
+/** The head and the key card: the page before its decision rows (PRD 812 s2). */
+const render = (key: JevKeyStatus, options: { owner?: boolean; actions?: JevAction[] } = {}) => {
+  const html = page(key, options);
+  return html.slice(0, html.indexOf('<section class="ask-card jev-decisions"'));
+};
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
 const theSwitch = (html: string) => buttons(html).find((b) => b.attrs.includes('role="switch"'));
@@ -103,11 +108,92 @@ describe('a member\'s view', () => {
   });
 });
 
+describe('the decision rows (PRD 812 s2)', () => {
+  const CATEGORY_ON: JevDecisionSettings = { decision: 'question-category', mode: 'on', threshold: 0.65, floor: 0.3 };
+  const rows = (html: string) => [...html.matchAll(/<li class="jev-decision" data-decision="([^"]+)">([\s\S]*?)<\/li>/g)].map((m) => ({ name: m[1], html: m[2] }));
+  const row = (html: string, name: string) => rows(html).find((r) => r.name === name)!.html;
+  const valueOf = (html: string, name: string) => new RegExp(`name="${name}"[^>]*value="([^"]*)"|value="([^"]*)"[^>]*name="${name}"`).exec(html)?.slice(1).find(Boolean);
+
+  it('lists the three decisions, each with what it sends, Off at the defaults', () => {
+    const html = page(STORED);
+    expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk']);
+    expect(text(row(html, 'question-category'))).toContain('Sends: The round’s questions, their options and descriptions (never a preview)');
+    expect(text(row(html, 'outbox-risk'))).toContain('Sends: The item’s decision text and options');
+    expect(text(row(html, 'bug-risk'))).toContain('Sends: The issue’s title and body');
+    expect(row(html, 'question-category')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(valueOf(row(html, 'question-category'), 'threshold')).toBe('0.50');
+    expect(valueOf(row(html, 'question-category'), 'floor')).toBe('0.40');
+  });
+
+  it('gives the owner a form for the question category, and shows the two coming decisions read-only', () => {
+    const html = page(STORED, { decisions: [CATEGORY_ON] });
+    const category = row(html, 'question-category');
+    expect(category).toMatch(/<option value="on" selected="">On<\/option>/);
+    expect(valueOf(category, 'threshold')).toBe('0.65');
+    expect(valueOf(category, 'floor')).toBe('0.30');
+    expect(buttons(category).map((b) => b.text)).toEqual(['Save']);
+    for (const name of ['outbox-risk', 'bug-risk']) {
+      expect(text(row(html, name))).toContain('Coming in this PRD');
+      expect(text(row(html, name))).toContain('Mode Off Threshold 0.50 Confidence floor 0.40');
+      expect(row(html, name)).not.toContain('<select');
+      expect(buttons(row(html, name))).toEqual([]);
+    }
+  });
+
+  it('offers Shadow and On only once Jev is on', () => {
+    const off = row(page(NONE), 'question-category');
+    expect(off).toMatch(/<option value="shadow" disabled="">Shadow<\/option>/);
+    expect(off).toMatch(/<option value="on" disabled="">On<\/option>/);
+    expect(text(page(NONE))).toContain('Switch Jev on above to put a decision in Shadow or On.');
+    const on = row(page(STORED), 'question-category');
+    expect(on).toMatch(/<option value="shadow">Shadow<\/option>/);
+  });
+
+  it('shows a member every decision read-only: no form, no control', () => {
+    const html = page(MEMBER_STORED, { owner: false, decisions: [CATEGORY_ON] });
+    expect(html).not.toContain('<select');
+    expect(inputs(html)).toHaveLength(0);
+    expect(text(row(html, 'question-category'))).toContain('Mode On Threshold 0.65 Confidence floor 0.30');
+    expect(buttons(html).filter((b) => !b.attrs.includes('disabled'))).toEqual([]);
+  });
+
+  it('moves only the saved decision, and says why a save was refused on its own row', () => {
+    const other: JevDecisionSettings = { decision: 'outbox-risk', mode: 'off', threshold: 0.7, floor: 0.5 };
+    const saved = state(STORED, { type: 'decision-saving', decision: 'question-category' }, { type: 'decision-saved', settings: CATEGORY_ON });
+    expect(saved.savingDecision).toBeNull();
+    const after = jevReducer(initialState(STORED, [other]), { type: 'decision-saved', settings: CATEGORY_ON });
+    expect(after.decisions).toEqual(expect.arrayContaining([other, CATEGORY_ON]));
+    expect(after.decisions).toHaveLength(2);
+    const again = jevReducer(after, { type: 'decision-saved', settings: { ...CATEGORY_ON, mode: 'shadow' } });
+    expect(again.decisions.find((d) => d.decision === 'outbox-risk')).toEqual(other);
+    expect(again.decisions.filter((d) => d.decision === 'question-category')).toEqual([{ ...CATEGORY_ON, mode: 'shadow' }]);
+
+    const html = page(STORED, { actions: [{ type: 'decision-saving', decision: 'question-category' }, { type: 'decision-refused', decision: 'question-category', message: 'Mode: switch Jev on with a key first.' }] });
+    expect(/<p class="jev-refusal" role="alert">([^<]*)<\/p>/.exec(row(html, 'question-category'))?.[1]).toBe('Mode: switch Jev on with a key first.');
+    expect(row(html, 'outbox-risk')).not.toContain('jev-refusal');
+  });
+
+  it('waits on every row while one is saved', () => {
+    const html = page(STORED, { actions: [{ type: 'decision-saving', decision: 'question-category' }] });
+    const b = buttons(row(html, 'question-category'))[0];
+    expect(b.text).toBe('Saving…');
+    expect(b.attrs).toContain('disabled');
+  });
+
+  it('sets every decision Off, tuning kept, once the key is removed', () => {
+    const removed = state(STORED, { type: 'busy' }, { type: 'saved', key: NONE });
+    expect(removed.decisions).toEqual([]);
+    const after = ([{ type: 'busy' }, { type: 'saved', key: NONE }] as JevAction[]).reduce(jevReducer, initialState(STORED, [CATEGORY_ON]));
+    expect(after.decisions).toEqual([{ ...CATEGORY_ON, mode: 'off' }]);
+    expect(text(row(page(NONE, { decisions: after.decisions }), 'question-category'))).not.toContain('Mode On');
+  });
+});
+
 describe('the page\'s situations', () => {
   const screen = (view: JevScreenView) => renderToStaticMarkup(createElement(JevScreen, { view }));
   const VIEWS: JevScreenView[] = [
     { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' }, { kind: 'unavailable' },
-    { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: NONE },
+    { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: NONE, decisions: [] },
   ];
 
   it('says what is wrong when there are no settings to show', () => {

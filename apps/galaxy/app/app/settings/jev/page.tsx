@@ -4,6 +4,7 @@ import { memberSession } from '../../../../src/data/member-session';
 import { loadJevPage } from '../../../../src/jev/settings/load';
 import { JevScreen, type JevScreenView } from '../../../../src/jev/settings/JevScreen';
 import { masterKey } from '../../../../src/jev/secret-box';
+import { saveJevDecision } from './actions';
 
 // /app/settings/jev (PRD 812 s1): the workspace's Jev settings, under the app's shared top bar
 // (app/app/layout.tsx). Its owner switches Jev on with a TypeSafe key, tested with one call and saved
@@ -17,13 +18,19 @@ export const metadata: Metadata = { title: 'Jev · OMNI LOOP' };
 async function viewOf(): Promise<JevScreenView> {
   const session = await memberSession();
   if (session.kind === 'demo') {
-    return { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: { stored: false, lastFour: null, setAt: null } };
+    return { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: { stored: false, lastFour: null, setAt: null }, decisions: [] };
   }
   if (session.kind !== 'signed-in') return session;
   const load = await loadJevPage(session.db, session.user);
   if (load.kind !== 'jev') return load;
   if (!masterKey(process.env)) return { kind: 'unavailable' };
-  return { kind: 'jev', source: { kind: 'database', workspace: load.workspace.id }, owner: load.owner, keyStatus: load.keyStatus };
+  return {
+    kind: 'jev',
+    source: { kind: 'database', workspace: load.workspace.id, saveDecision: saveJevDecision },
+    owner: load.owner,
+    keyStatus: load.keyStatus,
+    decisions: load.decisions,
+  };
 }
 
 export default async function JevRoute() {
