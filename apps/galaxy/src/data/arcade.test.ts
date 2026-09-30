@@ -238,6 +238,7 @@ describe('the crew\'s high scores', () => {
         ],
         mine: 1240,
       },
+      platformer: { top: [], mine: null },
     });
     expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [expect.objectContaining({ name: 'WILE', best: 9210 })], mine: null });
   });
@@ -253,7 +254,7 @@ describe('the crew\'s high scores', () => {
   it('says the scores are out of reach when only they cannot be read, and keeps the galaxy and the XP', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
-    expect(data.scores).toEqual({ invaders: 'unreadable' });
+    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable' });
     expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();

@@ -207,7 +207,7 @@ describe('returns from GitHub', () => {
 
 describe('the one door', () => {
   it('shows nothing past INSERT COIN without a session, whatever the route', () => {
-    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup']) {
+    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'platformer', 'levelup']) {
       expect(allowed(scene, null), scene).toBe('coin');
       expect(allowed(scene, crew), scene).toBe(scene);
     }

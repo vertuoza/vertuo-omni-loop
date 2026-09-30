@@ -102,7 +102,7 @@ describe('the rules the view carries', () => {
       weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
-      unlocks: { invaders: 1 },
+      unlocks: { invaders: 1, platformer: 2 },
     });
   });
 

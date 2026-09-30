@@ -13,6 +13,7 @@ import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from 
 import { drawMap } from './map.ts';
 import { drawBriefing, drawMenu } from './menu.ts';
 import { drawPlanetScene } from './planet.ts';
+import { drawPlatformer } from './platformer.ts';
 import { drawBuilder, drawName, drawSelect } from './recruit.ts';
 import type { FrameState } from './common.ts';
 
@@ -49,6 +50,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'system': return drawSystem(ctx, s);
     case 'games': return drawGames(ctx, s);
     case 'invaders': return drawInvaders(ctx, s);
+    case 'platformer': return drawPlatformer(ctx, s);
     case 'levelup': return drawLevelUp(ctx, s);
   }
 }
