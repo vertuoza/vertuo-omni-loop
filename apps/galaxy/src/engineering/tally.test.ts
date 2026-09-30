@@ -384,3 +384,46 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     expect(health([stuck(60 * 24 * 60)]).rows).toHaveLength(1);
   });
 });
+
+describe('Loop health, held runs (PRD 714 s3)', () => {
+  const MINUTE = 60_000;
+  const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
+  /** An open signed pull request into main whose status comment says `state: stuck`, opened `minutes` ago. */
+  const held = (minutes: number, over: Partial<PullRequestRow> = {}) => pr({
+    openedAt: ago(minutes), omniSigned: true, base: 'main', head: 'feat/loop-health', labels: [], statusState: 'stuck', ...over,
+  });
+  const health = (rows: PullRequestRow[]) => board(read({ pullRequests: rows })).health;
+
+  it('lists an open signed pull request into main, master or develop whose status says stuck as held', () => {
+    const rows = [held(300, { number: 11 }), held(200, { number: 12, base: 'master' }), held(100, { number: 13, base: 'develop' })];
+    expect(health(rows).rows.map((r) => [r.kind, r.number])).toEqual([['held', 11], ['held', 12], ['held', 13]]);
+    expect(health([held(61, { number: 14 })]).rows[0]).toEqual({
+      kind: 'held', repo: 'acme/widgets', number: 14, url: 'https://github.com/acme/widgets/pull/14', openedAt: ago(61), age: 61 * MINUTE,
+    });
+  });
+
+  it('does not list another state, no state, unsigned, into a feature branch, closed or merged', () => {
+    const rows = [
+      held(60, { statusState: 'waiting for CI (run 42)' }),
+      held(60, { statusState: 'done' }),
+      held(60, { statusState: null }),
+      held(60, { statusState: undefined }),
+      held(60, { omniSigned: false }),
+      held(60, { base: 'feat/x' }),
+      held(60, { closedAt: ago(1) }),
+      held(60, { mergedAt: ago(1), closedAt: ago(1) }),
+    ];
+    expect(health(rows)).toEqual({ rows: [], more: 0 });
+  });
+
+  it('shows a held pull request also labelled omni:needs-fix once, as stuck', () => {
+    const both = held(60, { labels: ['omni:needs-fix'] });
+    expect(health([both]).rows.map((r) => [r.kind, r.number])).toEqual([['stuck', both.number]]);
+  });
+
+  it('comes after stuck and before stale claim, one row per pull request, oldest first across the kinds', () => {
+    const claim = pr({ number: 31, openedAt: ago(120), headCommittedAt: ago(120), draft: true, omniSigned: true, base: 'feat/x', head: 'feat/x--s1' });
+    const rows = [claim, held(90, { number: 32 }), pr({ number: 33, openedAt: ago(100), labels: ['omni:needs-fix'] })];
+    expect(health(rows).rows.map((r) => [r.kind, r.number])).toEqual([['stale-claim', 31], ['stuck', 33], ['held', 32]]);
+  });
+});

@@ -12,7 +12,7 @@
  *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
  *                              base, head, draft, labels, commits, additions, deletions, body, reviews?,
  *                              commitMessages?, commit_dates? (each commit's committed date, the pull
- *                              request's created_at when left out)
+ *                              request's created_at when left out), comments? (each comment's body, oldest first)
  *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
  *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
  *                              per details query)
@@ -72,9 +72,9 @@ export function fakeGitHub(repos, budgets = {}) {
       spend('core');
       switch (route) {
         case 'GET /repos/{owner}/{repo}/pulls':
-          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, ...pull }) => pull) };
+          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, comments, ...pull }) => pull) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}': {
-          const { reviews, commitMessages, ...pull } = pullOf(params, true);
+          const { reviews, commitMessages, comments, ...pull } = pullOf(params, true);
           return { headers: headers(), data: pull };
         }
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews':
@@ -113,6 +113,15 @@ export function fakeGitHub(repos, budgets = {}) {
       for (const number of numbers) {
         const pull = pulls.find((candidate) => candidate.number === number);
         repository[`p${number}`] = pull ? asGraphql(pull) : null;
+      }
+      return { repository };
+    },
+    PullStatus(variables, numbers) {
+      const pulls = graphqlRepo(variables).pulls ?? [];
+      const repository = {};
+      for (const number of numbers) {
+        const pull = pulls.find((candidate) => candidate.number === number);
+        repository[`p${number}`] = pull ? { comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } } : null;
       }
       return { repository };
     },

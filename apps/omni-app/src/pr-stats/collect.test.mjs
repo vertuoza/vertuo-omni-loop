@@ -13,6 +13,7 @@ function run({ store, github, now = NOW }) {
 }
 
 const pullsListed = (github, repo) => github.queries.filter((query) => query.operation === 'PullsUpdated' && query.repo === repo);
+const statusRead = (github) => github.queries.filter((query) => query.operation === 'PullStatus').flatMap((query) => query.numbers);
 const detailsRead = (github) => github.queries.filter((query) => query.operation === 'PullDetails').flatMap((query) => query.numbers);
 
 describe('prStats — collecting a tracked repository', () => {
@@ -51,6 +52,7 @@ describe('prStats — collecting a tracked repository', () => {
       draft: false,
       labels: [],
       head_committed_at: daysAgo(5),
+      status_state: null,
       commits: 1,
       additions: 10,
       deletions: 2,
@@ -169,6 +171,54 @@ describe('prStats — collecting a tracked repository', () => {
     await run({ store, github: fakeGitHub({ 'vertuoza/apps': { pulls: [] } }) });
     expect(store.state.repositories[0].collectError).toBeNull();
     expect(store.state.repositories[0].collectedAt).toBe(new Date(NOW).toISOString());
+  });
+
+  describe('the status comment (PRD 714 s3)', () => {
+    const trailer = `Co-authored-by: ${SIGNATURE.name} <${SIGNATURE.email}>`;
+    const signed = { commitMessages: [`feat: a\n\n${trailer}`] };
+    const status = (state) => `<!-- omni-outbox-status -->\n**Agent status** · updated 2026-09-29 10:00 UTC\n\n- state: ${state}\n- attempt: 3 / 3\n- human steps: none`;
+    const merged = { merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' } };
+
+    it('reads the state line of the marked comment, for open signed pull requests into main, master or develop only', async () => {
+      const github = fakeGitHub({
+        'vertuoza/apps': {
+          pulls: [
+            pull(1, { updated_at: daysAgo(9), ...signed, comments: ['Looks good', status('stuck'), 'later'] }),
+            pull(2, { updated_at: daysAgo(8), ...signed, base: { ref: 'develop' }, comments: [status('waiting for CI (run 42)')] }),
+            pull(3, { updated_at: daysAgo(7), ...signed, base: { ref: 'master' }, comments: ['no marker here', '<!-- vertuo-outbox-status -->\n- state: stuck'] }),
+            pull(4, { updated_at: daysAgo(6), ...signed, base: { ref: 'feat/x' }, head: { ref: 'feat/x--s1' }, comments: [status('stuck')] }),
+            pull(5, { updated_at: daysAgo(5), ...signed, ...merged, comments: [status('done')] }),
+            pull(6, { updated_at: daysAgo(4), ...signed, closed_at: daysAgo(1), comments: [status('stuck')] }),
+            pull(7, { updated_at: daysAgo(3), comments: [status('stuck')] }),
+          ],
+        },
+      });
+      const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+      await run({ store, github });
+
+      expect(statusRead(github)).toEqual([1, 2, 3]);
+      const state = (n) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`).status_state;
+      expect([1, 2, 3, 4, 5, 6, 7].map(state)).toEqual(['stuck', 'waiting for CI (run 42)', null, null, null, null, null]);
+    });
+
+    it('sends no status query for a batch with no open signed pull request into a main branch', async () => {
+      const github = fakeGitHub({
+        'vertuoza/apps': {
+          pulls: [
+            pull(1, { updated_at: daysAgo(3), comments: [status('stuck')] }),
+            pull(2, { updated_at: daysAgo(2), ...signed, ...merged, comments: [status('done')] }),
+            pull(3, { updated_at: daysAgo(1), ...signed, base: { ref: 'feat/x' }, comments: [status('claimed')] }),
+          ],
+        },
+      });
+      const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+      await run({ store, github });
+
+      expect(github.queries.map((query) => query.operation)).not.toContain('PullStatus');
+      expect(store.state.pulls.size).toBe(3);
+    });
   });
 
   it('marks omni_signed by trailer, footer marker and bot author, and false otherwise', async () => {

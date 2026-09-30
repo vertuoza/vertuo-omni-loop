@@ -21,8 +21,9 @@ import type { Face } from '../people/face';
 //   the people lists; Omni-man has the Omni Loop panel instead.
 // - Loop health right now (PRD 714 s2): the open pull requests of the tracked repositories the loop has
 //   stuck, whatever the period, one row each under the first kind it meets: stuck (labelled
-//   omni:needs-fix), then stale claim (an open draft sub-PR the kit's own rule calls stale, with the
-//   kit's default minutes). At most 10 rows, oldest first; the rest counted.
+//   omni:needs-fix), then held (s3: an open signed pull request into main, master or develop whose
+//   status comment says `state: stuck`), then stale claim (an open draft sub-PR the kit's own rule
+//   calls stale, with the kit's default minutes). At most 10 rows, oldest first; the rest counted.
 
 /** Omni-man's GitHub login: the Omni Loop App's bot. */
 export const OMNI_MAN = 'omni-loop-invader[bot]';
@@ -51,6 +52,9 @@ export interface PullRequestRow {
   labels?: string[];
   /** The committed date of its latest commit (PRD 714 s2); null when not read. */
   headCommittedAt?: string | null;
+  /** The `state:` of the loop's status comment (PRD 714 s3), read only for open signed pull requests into
+   * a main branch; null otherwise or with no status comment. */
+  statusState?: string | null;
 }
 
 /** The branches a pull request must merge into to count on the board (PRD 714): a fixed set. */
@@ -74,7 +78,10 @@ export const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
 /** The most rows Loop health lists right now. */
 export const HEALTH_ROWS = 10;
 
-export type HealthKind = 'stuck' | 'stale-claim';
+/** The status comment's state of a run that ended held: how `/omni:yolo` and `/omni:pr` leave one. */
+export const HELD_STATE = 'stuck';
+
+export type HealthKind = 'stuck' | 'held' | 'stale-claim';
 
 /** One of the loop's pull requests stuck right now. `age` is how long ago it was opened, in milliseconds. */
 export interface HealthRow { kind: HealthKind; repo: string; number: number; url: string; openedAt: string; age: number }
@@ -86,6 +93,7 @@ const isOpen = (p: PullRequestRow) => !p.mergedAt && !p.closedAt;
 /** The kinds, in the order a pull request is checked: it shows under the first one it meets. */
 const KINDS: readonly { kind: HealthKind; meets: (p: PullRequestRow, now: Date) => boolean }[] = [
   { kind: 'stuck', meets: (p) => (p.labels ?? []).includes(NEEDS_FIX_LABEL) },
+  { kind: 'held', meets: (p) => p.omniSigned && isMain(p.base) && p.statusState === HELD_STATE },
   {
     kind: 'stale-claim',
     meets: (p, now) => isSubPr(p)
