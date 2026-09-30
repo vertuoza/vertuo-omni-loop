@@ -22,6 +22,8 @@ describe('mergeOf, decision 9', () => {
     { holds: 'another offering, only proposed', held: [row(1, 'offering', 'ERP', 'proposed')], kind: 'offering', value: 'CRM', outcome: 'added' },
     { holds: 'another offering, rejected', held: [row(1, 'offering', 'ERP', 'rejected')], kind: 'offering', value: 'CRM', outcome: 'added' },
     { holds: 'another confirmed trade: trade holds several here', held: [row(1, 'trade', 'retail', 'confirmed')], kind: 'trade', value: 'construction', outcome: 'added' },
+    { holds: 'another confirmed Never line: several are held at once', held: [row(1, 'never', 'Build for groups of companies', 'confirmed')], kind: 'never', value: 'Answer public tenders', outcome: 'added' },
+    { holds: 'the Never line, rejected', held: [row(1, 'never', 'Answer public tenders', 'rejected')], kind: 'never', value: 'answer public tenders', outcome: 'rejected' },
     { holds: 'the offering, on another product', held: [row(1, 'offering', 'ERP', 'confirmed', 'p-2')], kind: 'offering', value: 'CRM', outcome: 'added' },
   ];
 
