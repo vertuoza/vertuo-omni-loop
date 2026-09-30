@@ -21437,9 +21437,9 @@ var ENTRIES = deepFreeze([
     name: "proof",
     kind: "command",
     who: "skills",
-    usage: ["omni proof push <n> <dir>"],
-    summary: "sends a proof run to a PRD's Proof tab",
-    detail: "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof tab's link. It reads run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, .ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. It never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni dossier link does."
+    usage: ["omni proof push <n> <dir>", "omni proof session [<file>]"],
+    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
+    detail: "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof tab's link. It reads run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, .ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. It never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni dossier link does. omni proof session writes the signed-in browser session a run films with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it."
   },
   {
     name: "business",
@@ -24211,6 +24211,7 @@ var prd = {
 
 // kit/bin/commands/proof.mjs
 init_define_OMNI_BUNDLE();
+import { writeFileSync as writeFileSync18 } from "node:fs";
 import { isAbsolute as isAbsolute5, resolve as resolve3 } from "node:path";
 
 // kit/lib/proof/push.mjs
@@ -24347,8 +24348,58 @@ function readRun(dir) {
   return { commit: sent.commit, url: sent.url, criteria, files };
 }
 
+// kit/lib/proof/session.mjs
+init_define_OMNI_BUNDLE();
+var CHUNK = 3180;
+var SessionRefused = class extends Error {
+};
+function claimsOf2(token) {
+  const parts = typeof token === "string" ? token.split(".") : [];
+  if (parts.length !== 3) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString());
+  } catch {
+    return null;
+  }
+}
+function projectRef(claims) {
+  try {
+    const { hostname, pathname } = new URL(claims.iss);
+    return pathname.startsWith("/auth/v1") ? hostname.split(".")[0] : null;
+  } catch {
+    return null;
+  }
+}
+function sessionOf(token, claims, nowSeconds) {
+  const user = { id: claims.sub, aud: claims.aud, role: claims.role, email: claims.email, app_metadata: claims.app_metadata ?? {}, user_metadata: claims.user_metadata ?? {} };
+  return { access_token: token, refresh_token: "", token_type: "bearer", expires_at: claims.exp, expires_in: claims.exp - nowSeconds, user };
+}
+function cookiesOf(name, value, host, expires) {
+  const chunks = [];
+  for (let at = 0; at < value.length; at += CHUNK) chunks.push(value.slice(at, at + CHUNK));
+  return chunks.map((chunk, index) => ({
+    name: chunks.length > 1 ? `${name}.${index}` : name,
+    value: chunk,
+    domain: host,
+    path: "/",
+    expires,
+    httpOnly: false,
+    secure: true,
+    sameSite: "Lax"
+  }));
+}
+function storageState(accessToken, { host, now = Date.now() }) {
+  const claims = claimsOf2(accessToken);
+  const ref = claims && projectRef(claims);
+  if (!ref) throw new SessionRefused("the sign-in is not a Supabase session");
+  const nowSeconds = Math.floor(now / 1e3);
+  if (!(claims.exp > nowSeconds)) throw new SessionRefused("the sign-in has expired");
+  const value = `base64-${Buffer.from(JSON.stringify(sessionOf(accessToken, claims, nowSeconds))).toString("base64url")}`;
+  return { state: { cookies: cookiesOf(`sb-${ref}-auth-token`, value, host, claims.exp), origins: [] }, email: claims.email, expiresAt: claims.exp };
+}
+
 // kit/bin/commands/proof.mjs
-var USAGE16 = "usage: omni proof push <n> <dir>";
+var USAGE16 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN2 = "no sign-in (omni signin)";
 function skipLine2(error) {
   if (error instanceof ProofReplyError) return `refused (${error.message})`;
@@ -24357,11 +24408,16 @@ function skipLine2(error) {
   if (error.status === 404) return "none";
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
-function argsOf(args) {
+function argsOf(args, env) {
   const { positional } = parseArgs("proof", args);
-  const [verb, number, dir, ...rest] = positional;
-  if (verb !== "push" || dir === void 0 || rest.length) throw usageError(USAGE16);
-  return { prd: positiveInt("proof push", "<n>", number), dir };
+  const [verb, first, second, ...rest] = positional;
+  if (verb === "session") {
+    const file = first ?? env?.PROOF_STORAGE_STATE;
+    if (!file || second !== void 0) throw usageError(`${USAGE16} (session needs <file> or PROOF_STORAGE_STATE)`);
+    return { verb, file };
+  }
+  if (verb !== "push" || second === void 0 || rest.length) throw usageError(USAGE16);
+  return { verb, prd: positiveInt("proof push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir) {
   const folder = isAbsolute5(dir) ? dir : resolve3(cwd, dir);
@@ -24394,11 +24450,46 @@ async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, 
   if (pushed.gif) println(stdout, pushed.gif);
   return 0;
 }
+var clock = (seconds) => new Date(seconds * 1e3).toTimeString().slice(0, 5);
+async function renewedToken(askUrl2, { tokens, home, fetch, callMs }) {
+  const host = credentialsHost(askUrl2);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) return { line: NO_SIGN_IN2 };
+  const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }).renew();
+  if (outcome === "renewed") return { host, token: store.read(host).access_token };
+  return { line: outcome === "refused" ? NO_SIGN_IN2 : "unreachable" };
+}
+function sessionFor(token, host) {
+  try {
+    return storageState(token, { host });
+  } catch (error) {
+    if (error instanceof SessionRefused) return null;
+    throw error;
+  }
+}
+async function writeSession({ askUrl: askUrl2, file }, { stdout, stderr, ...io }) {
+  const renewed2 = await renewedToken(askUrl2, io);
+  const made = renewed2.token ? sessionFor(renewed2.token, renewed2.host) : null;
+  if (!made) {
+    println(stderr, renewed2.line ?? NO_SIGN_IN2);
+    return 1;
+  }
+  writeFileSync18(file, JSON.stringify(made.state), { mode: 384 });
+  println(stdout, `signed in as ${made.email ?? "you"} until ${clock(made.expiresAt)}`);
+  return 0;
+}
 var proof = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { prd: prd2, dir } = argsOf(args);
+  async run(args, { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }) {
+    const parsed = argsOf(args, env);
     const ctx = loadContext(cwd, { exec });
+    if (parsed.verb === "session") {
+      const askUrl2 = ctx.config.ask?.url;
+      if (!askUrl2) throw usageError("omni proof session: no sign-in server here \u2014 set ask.url in the config.");
+      const file = isAbsolute5(parsed.file) ? parsed.file : resolve3(cwd, parsed.file);
+      return writeSession({ askUrl: askUrl2, file }, { stdout, stderr, tokens, home, fetch, callMs });
+    }
+    const { prd: prd2, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
       println(stderr, "off");
@@ -24420,7 +24511,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync46, readFileSync as readFileSync45, writeFileSync as writeFileSync18 } from "node:fs";
+import { existsSync as existsSync46, readFileSync as readFileSync45, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join55 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
@@ -24621,7 +24712,7 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     judgement,
     markers: ctx.markers
   });
-  writeFileSync18(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync19(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
@@ -24734,7 +24825,7 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync46, writeFileSync as writeFileSync19 } from "node:fs";
+import { readFileSync as readFileSync46, writeFileSync as writeFileSync20 } from "node:fs";
 import { join as join56 } from "node:path";
 
 // kit/lib/policy/rework.mjs
@@ -24989,7 +25080,7 @@ async function runClose(args, { ctx, stdout }) {
   } catch (error) {
     throw usageError(error.message.split("\n")[0]);
   }
-  writeFileSync19(join56(ctx.root, settledFile), closedText);
+  writeFileSync20(join56(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -25093,7 +25184,7 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync14 } from "node:child_process";
-import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync10, utimesSync, writeFileSync as writeFileSync20 } from "node:fs";
+import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync10, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 function git4(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -25171,7 +25262,7 @@ function putBack(saved) {
     if (saved.bytes === null) {
       rmSync8(saved.path, { force: true });
     } else {
-      writeFileSync20(saved.path, saved.bytes);
+      writeFileSync21(saved.path, saved.bytes);
       utimesSync(saved.path, saved.atime, saved.mtime);
     }
   } catch {
@@ -25612,7 +25703,7 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { closeSync, existsSync as existsSync47, mkdirSync as mkdirSync16, openSync, readFileSync as readFileSync48, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync11, writeFileSync as writeFileSync21 } from "node:fs";
+import { closeSync, existsSync as existsSync47, mkdirSync as mkdirSync16, openSync, readFileSync as readFileSync48, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync11, writeFileSync as writeFileSync22 } from "node:fs";
 import { join as join57 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var BOARD_DIR = join57(LOCAL_DIR, "statusline");
@@ -25691,14 +25782,14 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
 function ensureBoardDir(root) {
   mkdirSync16(join57(root, BOARD_DIR), { recursive: true });
   const ignore = join57(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync47(ignore)) writeFileSync21(ignore, "*\n");
+  if (!existsSync47(ignore)) writeFileSync22(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
   const path = boardFile(root, prd2);
   const temporary = `${path}.${process.pid}.${randomUUID2()}.tmp`;
   try {
-    writeFileSync21(temporary, `${JSON.stringify(entry)}
+    writeFileSync22(temporary, `${JSON.stringify(entry)}
 `);
     renameSync3(temporary, path);
   } finally {
@@ -25715,7 +25806,7 @@ function createLock(path, now) {
     throw error;
   }
   try {
-    writeFileSync21(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
+    writeFileSync22(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
 `);
   } finally {
     closeSync(fd);

@@ -185,15 +185,16 @@ export const ENTRIES = deepFreeze([
     name: 'proof',
     kind: 'command',
     who: 'skills',
-    usage: ['omni proof push <n> <dir>'],
-    summary: "sends a proof run to a PRD's Proof tab",
+    usage: ['omni proof push <n> <dir>', 'omni proof session [<file>]'],
+    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
     detail:
       "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
       "tab's link. It reads " +
       'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
       '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
-      'omni dossier link does.',
+      'omni dossier link does. omni proof session writes the signed-in browser session a run films ' +
+      'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
   },
   {
     name: 'business',
