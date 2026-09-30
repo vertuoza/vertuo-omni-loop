@@ -472,3 +472,159 @@ One line in the dock's keyboard handling; nothing stored.
 ```
 
 <!-- /omni-outbox-settled: s4-02-dock-select-stays-with-the-page -->
+
+<!-- omni-outbox-settled: s3-01-stage-clear-goes-on -->
+
+## s3-01-stage-clear-goes-on — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-stage-clear-goes-on
+prd: 817
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+When a stage is cleared, which buttons go on to the next stage, and can the player leave the game from there?
+
+## The decision, in plain words
+
+A or START goes on to the next stage's ready screen with the score and lives kept, and B does nothing there, so a game can only end at the game over or at the world's end, where its score is saved.
+
+## The intro, for fun
+
+A flag reached, a whole new stage ahead, and one button between them.
+
+## The punchline, for fun
+
+B stays quiet on the way, so no score slips out the back door.
+
+## The options, in plain words
+
+A. A or START goes on, B does nothing, as built.
+B. A or START goes on, and B quits to the room without saving the score.
+C. A or START goes on, and B quits to the room after saving the score reached so far.
+
+## What I had to decide
+
+Whether the stage clear screen only goes forward, or also lets the player quit the game.
+
+## What I did meanwhile
+
+The stage clear screen shows A for the next stage; the new stage appears once START is pressed on its ready screen.
+
+## What it costs to change later
+
+One line in the game's press rules and one hint on the screen: a different answer is a small change, no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names the game over and WORLD CLEAR as the only ends, and says nothing of the buttons on a stage clear (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-stage-clear-goes-on -->
+
+<!-- omni-outbox-settled: s3-02-blob-colours-per-stage -->
+
+## s3-02-blob-colours-per-stage — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-blob-colours-per-stage
+prd: 817
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+Which colours do the enemies wear in each of the three stages?
+
+## The decision, in plain words
+
+The first stage keeps the enemy's own pink, the underground stage dresses them in the cyan of one kind of wound, and the castle in the red of another, so each stage looks different.
+
+## The intro, for fun
+
+Three stages, three wardrobes, and one very stubborn blob.
+
+## The punchline, for fun
+
+It kept its pink for the meadow and changed only for the dark places.
+
+## The options, in plain words
+
+A. Pink in the first stage, cyan underground, red in the castle, as built.
+B. Give the first stage a wound colour too, so every stage is tinted.
+C. Pick other wound colours for the underground and the castle.
+
+## What I had to decide
+
+Whether the first stage's enemies keep their own colour or also take a wound's colour.
+
+## What I did meanwhile
+
+Grass stage enemies are pink as before; underground ones are cyan; castle ones are red.
+
+## What it costs to change later
+
+One small table of colours in the game's drawing code: a different pick is a one-line change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the enemies are tinted per stage but names no colour for any stage (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-blob-colours-per-stage -->
