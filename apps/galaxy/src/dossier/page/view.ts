@@ -77,6 +77,7 @@ import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
+import { reworkCommand } from './voice';
 import { pad, shortDay, stamp } from './dates';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 
@@ -89,8 +90,9 @@ export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro
  * the before/after, the spec and the plan. The history lists these. */
 export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'before-after', 'spec', 'plan'];
 
-/** Every tab of the page, in order: the dossier's, then what GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox', 'care', 'retro'];
+/** Every tab of the page, in order: the dossier's, the User voice beside them (PRD 822), then what
+ * GitHub holds (PRD 426). */
+export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'voice', 'outbox', 'care', 'retro'];
 
 /** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
@@ -101,7 +103,7 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', proof: 'Proof',
+  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice', proof: 'Proof',
 };
 
 /** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
@@ -287,6 +289,8 @@ export type DossierView = {
   care: CareView | null;
   /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
   fix: FixPageView | null;
+  /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
+  rework: string | null;
   /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
   proof: ProofView | null;
 };
@@ -658,6 +662,14 @@ function badgeOf(kind: DossierTab, badges: Badges): string | null {
   return badges.count(kind) ? `v${badges.count(kind)}` : null;
 }
 
+/** The tabs drawn dimmed while they hold nothing; any other tab never is. */
+const EMPTY_WHEN: Partial<Record<DossierTab, (badges: Badges, retro: RetroView, care: CareView | null) => boolean>> = {
+  outbox: (badges) => badges.outbox.state !== 'items',
+  retro: (_badges, retro) => retro.state !== 'text',
+  care: (_badges, _retro, care) => care?.state !== 'care',
+  voice: (badges) => badges.count('voice') === 0,
+};
+
 function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView, care: CareView | null): TabEntry {
   return {
     kind,
@@ -666,8 +678,7 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
     alert: kind === 'questions' ? badges.counted.alert : null,
     href: href(kind),
     current: kind === tab,
-    empty: (kind === 'outbox' && badges.outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text')
-      || (kind === 'care' && care?.state !== 'care'),
+    empty: EMPTY_WHEN[kind]?.(badges, retro, care) ?? false,
   };
 }
 
@@ -694,6 +705,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     retro,
     care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
   };
 }

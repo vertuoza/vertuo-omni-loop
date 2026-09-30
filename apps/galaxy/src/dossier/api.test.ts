@@ -474,6 +474,27 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     expect(w.dossier(body.id)).toMatchObject({ kind: 'bug', prd: 571 });
   });
 
+  it('takes voice on a PRD\'s dossier, a version only when it changed, and refuses it on a fix\'s (PRD 822)', async () => {
+    const w = world();
+    const VOICE = '{"rounds": []}\n';
+    const first = await w.push({ ...PUSH, artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }] });
+    expect(first).toMatchObject({ status: 200, body: { added: [{ kind: 'spec', version: 1 }, { kind: 'voice', version: 1 }], unchanged: [] } });
+    const same = await w.push({ ...PUSH, artifacts: [{ kind: 'voice', content: VOICE }] });
+    expect(same.body).toMatchObject({ added: [], unchanged: ['voice'] });
+    const changed = await w.push({ ...PUSH, artifacts: [{ kind: 'voice', content: '{"rounds": [1]}\n' }] });
+    expect(changed.body).toMatchObject({ added: [{ kind: 'voice', version: 2 }], unchanged: [] });
+
+    for (const push of [
+      { ...VISUAL, artifacts: [{ kind: 'voice', content: VOICE }] },
+      { repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'Numbers', artifacts: [{ kind: 'voice', content: VOICE }] },
+      { ...PUSH, artifacts: [{ kind: 'voice', content: VOICE }, { kind: 'voice', content: VOICE }] },
+    ]) {
+      const { status, body } = await w.push(push);
+      expect(status, JSON.stringify(push).slice(0, 120)).toBe(400);
+      expect(body.error).toEqual(expect.any(String));
+    }
+  });
+
   it('refuses 400 an unknown kind, a version the kind does not take, a kind twice but variations, and a fix naming a draft', async () => {
     const w = world();
     const draft = (await w.open({ title: 'A draft', repo: 'acme/widgets' })).body.id;

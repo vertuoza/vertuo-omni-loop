@@ -21,8 +21,9 @@ import type { StageRow } from '../../stages/stage';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
+import type { VoiceCast } from './voice';
 
-export const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
+const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
 export const DEMO_VIEWER = DEMO_OWNER;
 
 const MIN = 60_000;
@@ -79,7 +80,52 @@ const PAGE_V1 = `<!doctype html>
 `;
 
 /** Every version's content, by version id. */
-const CONTENT: Record<string, string> = { 'demo-spec-1': SPEC_V1, 'demo-spec-2': SPEC_V2, 'demo-page-1': PAGE_V1 };
+// Its User voice (PRD 822): three personas over a design, a spec and a rework round, each score moving,
+// an objection per round settled a different way; Marc and Sofia have portraits, Els only her initial.
+const said = (name: string, stance: string, score: number, reaction: string, ...cite: string[]) =>
+  ({ name, stance, score, reaction, citations: [`persona:${name}`, ...cite] });
+const VOICE_V1 = JSON.stringify({
+  rounds: [
+    {
+      stage: 'design', date: '2026-09-25',
+      personas: [
+        said('Marc', 'skeptical', 2, 'I answer from the van. A page I have to open is one more thing.', 'size#2'),
+        said('Sofia', 'excited', 4, 'Reading the question on a real page is what I wanted.'),
+        said('Els', 'neutral', 3, 'Fine, if the terminal still works when the page does not.'),
+      ],
+      objection: { persona: 'Marc', text: 'Let me answer from my phone, or I will not answer at all.', citations: ['persona:Marc', 'size#2'], settled: 'accepted' },
+      fit: 'fits persona:Marc ✗ · persona:Sofia ✓ · persona:Els ✓',
+    },
+    {
+      stage: 'spec', date: '2026-09-26',
+      personas: [
+        said('Marc', 'skeptical', 4, 'It works on my phone now.', 'size#2'),
+        said('Sofia', 'excited', 4, 'Still the page I wanted.'),
+        said('Els', 'neutral', 2, 'A tab per terminal is a lot of tabs for one foreman.', 'trade#1'),
+      ],
+      objection: { persona: 'Els', text: 'Six terminals means six tabs, and I will lose the one that matters.', citations: ['persona:Els', 'trade#1'], settled: 'just-this-run' },
+      fit: 'fits persona:Marc ✓ · persona:Sofia ✓ · persona:Els ✗',
+    },
+    {
+      stage: 'rework-1', date: '2026-09-27',
+      personas: [
+        said('Marc', 'neutral', 4, 'Same as before, and that is fine.'),
+        said('Sofia', 'excited', 5, 'The waiting tab now stands out.'),
+        said('Els', 'neutral', 4, 'The tab that waits is marked, so I find it.', 'trade#1'),
+      ],
+      objection: null,
+      fit: 'fits persona:Marc ✓ · persona:Sofia ✓ · persona:Els ✓',
+    },
+  ],
+});
+
+const CONTENT: Record<string, string> = { 'demo-spec-1': SPEC_V1, 'demo-spec-2': SPEC_V2, 'demo-page-1': PAGE_V1, 'demo-voice-1': VOICE_V1 };
+
+/** The demo workspace's personas, for the User voice's portraits (PRD 799's sprites). */
+export const DEMO_VOICE_CAST: VoiceCast[] = [
+  { name: 'Marc', trade: 'plumber', avatar: { v: 1, skin: 2, hair: 1, hairColor: 1, outfit: 2, accessory: 1 } },
+  { name: 'Sofia', trade: 'office', avatar: { v: 1, skin: 1, hair: 3, hairColor: 2, outfit: 1, accessory: 2 } },
+];
 
 const [PAULA, UMA] = [DEMO_MEMBERS[1].user_id, DEMO_MEMBERS[2].user_id];
 
@@ -263,6 +309,7 @@ export function demoDossier(now: number): DossierRead {
       version('demo-spec-1', 'spec', opened + 90 * MIN),
       version('demo-page-1', 'before-after', opened + 91 * MIN),
       version('demo-spec-2', 'spec', opened + 2 * 24 * 60 * MIN, { source: 'github', uploaded_by: null, commit_sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
+      version('demo-voice-1', 'voice', opened + 2 * 24 * 60 * MIN + 5 * MIN),
     ],
     members: DEMO_MEMBERS,
     rounds: demoRounds(opened),

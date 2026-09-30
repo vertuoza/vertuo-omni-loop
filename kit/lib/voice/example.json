@@ -1,0 +1,112 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-09-30",
+      "personas": [
+        {
+          "name": "Marc",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Six entities is not my company. I run five plumbers from one office.",
+          "citations": ["persona:Marc", "size#2"]
+        },
+        {
+          "name": "Sofia",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Seeing every site in one place is what I lose an hour a day to.",
+          "citations": ["persona:Sofia", "trade#1"]
+        }
+      ],
+      "objection": {
+        "persona": "Marc",
+        "text": "I would never set up six entities. Sell me the one-office version first.",
+        "citations": ["persona:Marc", "size#2"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Marc ✗ · persona:Sofia ✓ · size#2 ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-09-30",
+      "personas": [
+        {
+          "name": "Marc",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "One office, one screen: that is my week.",
+          "citations": ["persona:Marc", "size#2"]
+        },
+        {
+          "name": "Sofia",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Still every site in one place.",
+          "citations": ["persona:Sofia"]
+        }
+      ],
+      "objection": {
+        "persona": "Sofia",
+        "text": "We are going after 50-person firms now, so keep the holding view.",
+        "citations": ["persona:Sofia", "size#3"],
+        "settled": "saved-as-claim"
+      },
+      "fit": "fits persona:Marc ✓ · persona:Sofia ✓ · size#2 ✓"
+    },
+    {
+      "stage": "rework-1",
+      "date": "2026-10-01",
+      "personas": [
+        {
+          "name": "Marc",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Still mine, with one screen more than I need.",
+          "citations": ["persona:Marc"]
+        },
+        {
+          "name": "Sofia",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The holding view is back. Now it fits us both.",
+          "citations": ["persona:Sofia", "size#3"]
+        }
+      ],
+      "objection": {
+        "persona": "Marc",
+        "text": "Hide the holding view until I ask for it.",
+        "citations": ["persona:Marc"],
+        "settled": "just-this-run"
+      },
+      "fit": "fits persona:Marc ✓ · persona:Sofia ✓ · beats rival#20 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "Marc",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "It shipped as promised.",
+          "citations": ["persona:Marc"]
+        },
+        {
+          "name": "Sofia",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Exactly the release note I hoped for.",
+          "citations": ["persona:Sofia"]
+        }
+      ],
+      "objection": {
+        "persona": "Marc",
+        "text": "I still have to scroll past the holding view.",
+        "citations": ["persona:Marc"],
+        "settled": "none"
+      },
+      "fit": null
+    }
+  ]
+}

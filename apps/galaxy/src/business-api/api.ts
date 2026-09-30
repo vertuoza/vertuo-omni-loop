@@ -3,6 +3,7 @@
 //
 //   GET /api/business?repo=<owner/name>   → 200 {state, business, product, claims, personas}   (decision 14, PRD 799)
 //   POST /api/business/citations {repo, ids, by, ref?}   → 200 {cited}   the citation log (decision 6)
+//   POST /api/business/claims {repo, kind, value, state, ref}   → 200 {id, state, added}   an answered claim (PRD 822)
 //
 // The kit calls it with the terminal's sign-in. Only confirmed and contradicted claims come back, each
 // with its `state` (decision 15, and PRD 774's decision 12): the database's business_for_repo() picks
@@ -15,7 +16,7 @@
 // citation too large, 503 no database here or the sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
-import { businessReader, BusinessStoreError } from './read';
+import { ANSWER_KINDS, ANSWER_STATES, businessReader, BusinessStoreError, type AnswerKind, type AnswerState } from './read';
 import { refuse, reply } from './reply';
 
 /** A Supabase client acting as one access token: the Auth server's check and the functions. */
@@ -33,6 +34,7 @@ const REPO = /^[\w.-]+\/[\w.-]+$/;
 const MAX_BODY_BYTES = 16 * 1024;
 
 type Citation = { repo: string; ids: string[]; by: string; ref: string | null };
+type Answer = { repo: string; kind: AnswerKind; value: string; state: AnswerState; ref: string };
 
 function refusal(error: BusinessStoreError, deps: BusinessDeps): Response {
   if (error.code === '42501') return refuse(403, withInstallLink(error.reason, deps.installLink));
@@ -107,13 +109,58 @@ function parsed(text: string): unknown {
   }
 }
 
+/** The JSON body a call sent, or the refusal of one over the cap. */
+async function bodyOf(request: Request, what: string): Promise<{ json: unknown } | Response> {
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return refuse(413, `${what} carries ${MAX_BODY_BYTES / 1024} KiB at most.`);
+  return { json: parsed(text) };
+}
+
 /** Appends to the citation log the claims an agent in `repo` cited, by which skill, in which run. */
 export async function citeClaims(request: Request, deps: BusinessDeps): Promise<Response> {
   const reader = await readerFor(request, deps);
   if (reader instanceof Response) return reader;
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return refuse(413, `A citation carries ${MAX_BODY_BYTES / 1024} KiB at most.`);
-  const citation = citationOf(parsed(text));
+  const body = await bodyOf(request, 'A citation');
+  if (body instanceof Response) return body;
+  const citation = citationOf(body.json);
   if (typeof citation === 'string') return refuse(400, citation);
   return answer(deps, async () => ({ cited: await reader.cite(citation.repo, citation.ids, citation.by, citation.ref) }));
+}
+
+const isLine = (max: number) => (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() !== '' && value.length <= max && !/[\r\n]/.test(value);
+const isValue = isLine(80);
+const isReceipt = isLine(200);
+const isKind = (kind: unknown): kind is AnswerKind => (ANSWER_KINDS as readonly unknown[]).includes(kind);
+const isAnswerState = (state: unknown): state is AnswerState => (ANSWER_STATES as readonly unknown[]).includes(state);
+
+/** What is wrong with an answered claim's fields, or null when nothing is. A size's own shape is the database's to judge. */
+function answerProblem({ repo, kind, value, state, ref }: Record<string, unknown>): string | null {
+  if (!isRepo(repo)) return '`repo` must be the repository as owner/name.';
+  if (!isKind(kind)) return `\`kind\` must be one of ${ANSWER_KINDS.join(', ')}.`;
+  if (!isAnswerState(state)) return `\`state\` must be ${ANSWER_STATES.join(' or ')}.`;
+  if (!isValue(value)) return '`value` must be 1 to 80 characters, on one line.';
+  if (!isReceipt(ref)) return '`ref` must say which skill and run gave the answer, up to 200 characters on one line.';
+  return null;
+}
+
+/** The answered claim a call sent, or the reason it is not one. */
+function answerOf(value: unknown): Answer | string {
+  if (!isRecord(value)) return 'The body must be a JSON object.';
+  const problem = answerProblem(value);
+  if (problem) return problem;
+  const { repo, kind, value: text, state, ref } = value as Answer;
+  return { repo, kind, value: text.trim(), state, ref: ref.trim() };
+}
+
+/** Stores a claim a person gave as an answer in a skill run in `repo` (PRD 822): `proposed` when it
+ * overrules the voice, for a member to confirm, or `confirmed` when it answers the gap question. */
+export async function addClaim(request: Request, deps: BusinessDeps): Promise<Response> {
+  const reader = await readerFor(request, deps);
+  if (reader instanceof Response) return reader;
+  const body = await bodyOf(request, 'A claim');
+  if (body instanceof Response) return body;
+  const claim = answerOf(body.json);
+  if (typeof claim === 'string') return refuse(400, claim);
+  return answer(deps, () => reader.answer(claim.repo, claim.kind, claim.value, claim.state, claim.ref));
 }

@@ -26,6 +26,12 @@ describe('the signature', () => {
     expect(signature({ ...PULSE, latest: { ...PULSE.latest, plan: 1 } })).not.toBe(base);
   });
 
+  it('moves when a new User voice version is pushed (PRD 822)', () => {
+    const voiced = { ...PULSE, latest: { ...PULSE.latest, voice: 1 } };
+    expect(signature(voiced)).not.toBe(signature(PULSE));
+    expect(signature({ ...voiced, latest: { ...voiced.latest, voice: 2 } })).not.toBe(signature(voiced));
+  });
+
   it('reads a dossier that is gone as a signature of its own', () => {
     expect(signature(null)).not.toBe(signature({ asked: 0, answered: 0, latest: {} }));
   });
@@ -148,6 +154,11 @@ describe('the pulse of what the page rendered', () => {
     expect(pulseOf(read([round('answered'), round('open'), round('abandoned')]))).toEqual({
       asked: 3, answered: 1, latest: { spec: 2, 'before-after': 1 },
     });
+  });
+
+  it('counts the User voice versions too, as dossier_list() pulses them (PRD 822)', () => {
+    const voiced: DossierRead = { ...read([]), versions: [version('spec', 1), version('voice', 1), version('voice', 2)] };
+    expect(pulseOf(voiced)?.latest).toEqual({ spec: 1, voice: 2 });
   });
 
   it('is null when the rounds could not be read: the first check then sets the baseline', () => {

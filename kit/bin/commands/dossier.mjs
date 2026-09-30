@@ -4,7 +4,8 @@
 // - `open` opens a draft for this repository, sending the Claude session id `CLAUDE_CODE_SESSION_ID`
 //   gives when it is set, prints the draft's link, and records the draft in the main checkout's
 //   `.omni-loop/local/dossiers.json` (`../../lib/dossier/local.mjs`).
-// - `push <n>` sends whichever of PRD n's `spec.md`, `plan.md` and `before-after.html` exist, whole,
+// - `push <n>` sends whichever of PRD n's `spec.md`, `plan.md`, `before-after.html` and `voice.json`
+//   (PRD 822, as the `voice` artifact) exist, whole,
 //   with the spec's title. It names the draft to number when one is recorded for it
 //   (`../../lib/dossier/draft.mjs`), prints the dossier's link and the versions it added, and records
 //   the draft as numbered. A draft the server no longer has is forgotten, and the push goes by the key.

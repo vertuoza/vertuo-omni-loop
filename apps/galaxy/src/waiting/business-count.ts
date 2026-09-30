@@ -2,7 +2,8 @@ import { reply as json } from '../business-api/reply';
 
 // GET /api/waiting/business (PRD 774, s5): for the signed-in person, how many things wait to be checked
 // in the business of their workspace (the one joined first, as Settings › Business reads it):
-// business_to_check() counts the proposed evidence claims, the contradictions and the faded claims.
+// business_to_check() counts the proposed evidence claims, the contradictions and the faded claims,
+// and since PRD 822 the proposed claims a person answered in a skill run (an overrule saved as a claim).
 // Any member gets it, since any member can confirm (PRD 774, decision 4). With no workspace, 0. It
 // reads as the person (their cookie session), never with a service key (ADR-0032).
 

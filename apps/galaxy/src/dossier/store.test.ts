@@ -7,13 +7,15 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
-  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
   ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 627: the kind of a dossier, its new version kinds and dossier_push() taking the kind.
 const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261011090000_fix_dossiers.sql', import.meta.url)), 'utf8');
+// PRD 822: the voice artifact, on a PRD's dossier only.
+const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261024090000_customer_voice.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {
@@ -72,7 +74,11 @@ describe('the dossier store', () => {
     expect(MIGRATION).toContain(`kind in (${DOSSIER_KINDS.map((k) => `'${k}'`).join(', ')})`);
     expect(MIGRATION).toContain(`bytes between 0 and ${ARTIFACT_MAX_BYTES}`);
     expect(MIGRATION).toContain(`char_length(title) between 1 and ${TITLE_MAX}`);
-    expect(FIX_MIGRATION).toContain(`kind in (${ARTIFACT_KINDS.map((k) => `'${k}'`).join(', ')})`);
+    expect(VOICE_MIGRATION).toContain(`kind in (${ARTIFACT_KINDS.map((k) => `'${k}'`).join(', ')})`);
+    for (const kind of WORK_KINDS) {
+      const takes = KIND_ARTIFACTS[kind];
+      expect(VOICE_MIGRATION).toContain(takes.length === 1 ? `when '${kind}' then p_version_kind = '${takes[0]}'` : `when '${kind}' then p_version_kind in (${takes.map((k) => `'${k}'`).join(', ')})`);
+    }
     expect(FIX_MIGRATION).toContain(`kind in (${WORK_KINDS.map((k) => `'${k}'`).join(', ')})`);
   });
 });
@@ -238,6 +244,12 @@ describe('reading the change check', () => {
     const { calls, db } = recording({ data: [row], error: null });
     expect(await dossierPulse(db, 'd1')).toEqual({ asked: 3, answered: 2, latest: { spec: 2, 'before-after': 1 } });
     expect(calls).toEqual([{ name: 'dossier_list', args: { p_dossier: 'd1' } }]);
+  });
+
+  it('reads the User voice\'s latest version too, and no fix\'s rounds (PRD 822)', async () => {
+    const at = (version: number) => ({ id: `v${version}`, version, source: 'kit', created_at: 'x' });
+    const row = { id: 'd1', repos: ['acme/widgets'], asked: 0, answered: 0, latest: { spec: at(1), voice: at(3), variations: at(2) } };
+    expect(await dossierPulse(recording({ data: [row], error: null }).db, 'd1')).toEqual({ asked: 0, answered: 0, latest: { spec: 1, voice: 3 } });
   });
 
   it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {

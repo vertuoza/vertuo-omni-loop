@@ -49,15 +49,26 @@ describe('the rows to check', () => {
     expect(checkRows([evidence(2, 'offering', 'CRM', { replaces: 'gone' })], NOW)).toEqual([]);
   });
 
-  it('comes on top in order: replacements, additions, then faded claims', () => {
+  it('an answer: a proposed claim a person gave in a skill run (PRD 822), never a found row', () => {
+    const claims = [claim(1, 'size', '20-50', { source: 'answer', state: 'proposed' })];
+    expect(checkRows(claims, NOW)).toEqual([{ kind: 'answer', claim: claims[0] }]);
+    expect(foundRows(claims)).toEqual([]);
+  });
+
+  it('an answer once confirmed or rejected waits no more', () => {
+    expect(checkRows([claim(1, 'size', '20-50', { source: 'answer' }), claim(2, 'rival', 'X', { source: 'answer', state: 'rejected' })], NOW)).toEqual([]);
+  });
+
+  it('comes on top in order: replacements, additions, answers, then faded claims', () => {
     const claims = [
       claim(1, 'region', 'Belgium'),
       claim(2, 'rival', 'Brick & Co', { receipts: [receipt(ago(9 * WEEK))], lastSeen: ago(9 * WEEK) }),
       evidence(3, 'region', 'France'),
       claim(4, 'offering', 'ERP', { state: 'contradicted' }),
       evidence(5, 'offering', 'CRM', { replaces: 'c-4' }),
+      claim(6, 'trade', 'plumbing', { source: 'answer', state: 'proposed' }),
     ];
-    expect(checkRows(claims, NOW).map((r) => `${r.kind} ${r.claim.id}`)).toEqual(['replacement c-5', 'addition c-3', 'faded c-2']);
+    expect(checkRows(claims, NOW).map((r) => `${r.kind} ${r.claim.id}`)).toEqual(['replacement c-5', 'addition c-3', 'answer c-6', 'faded c-2']);
   });
 });
 

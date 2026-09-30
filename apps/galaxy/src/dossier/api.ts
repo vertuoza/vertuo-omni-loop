@@ -9,7 +9,7 @@
 //
 // Since PRD 627 a dossier has a kind: a PRD's (`prd`, the kind of every call that sends none, so an older
 // kit pushes and finds as before), a visual fix's (`visual`) or a bug fix's (`bug`), numbered by its issue.
-// Each kind takes its own artifacts — a PRD spec, plan and before-after; a visual fix before-after and
+// Each kind takes its own artifacts — a PRD spec, plan, before-after and (PRD 822) voice; a visual fix before-after and
 // variations, a round each, oldest first; a bug fix bug-record — and each is sent once but the rounds. A
 // fix is never a draft. The link goes to the kind's own page: /prd/<id>, /visual/<id> or /bugs/<id>.
 //
