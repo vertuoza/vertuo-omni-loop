@@ -9,11 +9,11 @@ import { runOf, type ProofRead } from './proof';
 /** How long a clip's or a script's signed link lives: an hour of watching. */
 export const PROOF_LINK_SECONDS = 60 * 60;
 /** The most of a script's text the fold shows. */
-export const SCRIPT_MAX_CHARS = 64 * 1024;
+const SCRIPT_MAX_CHARS = 64 * 1024;
 const SCRIPT_TIMEOUT_MS = 3000;
 
 /** A script's text, through its signed link; throws when it could not be fetched. */
-export async function fetchScript(url: string): Promise<string> {
+async function fetchScript(url: string): Promise<string> {
   const response = await fetch(url, { signal: AbortSignal.timeout(SCRIPT_TIMEOUT_MS), cache: 'no-store' });
   if (!response.ok) throw new Error(`fetch the script: ${response.status}`);
   return (await response.text()).slice(0, SCRIPT_MAX_CHARS);

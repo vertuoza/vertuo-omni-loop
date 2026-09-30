@@ -8,7 +8,8 @@
 // could not be signed reads as missing, never as an error.
 import { nameOf, type Member } from '../../ask/page/question';
 import type { ProofRunRow, Verdict } from '../../proof/store';
-import { shortDay, stamp, type VersionEntry } from './view';
+import { shortDay, stamp } from './dates';
+import type { VersionEntry } from './view';
 
 /** What the route read: every run the viewer may read, newest first, and for the shown one (null when
  * it was not read for, as on another tab) its files' signed links and its scripts' text, by name; a
@@ -18,7 +19,7 @@ export type ProofRead = {
   shown: { id: string; links: Record<string, string | null>; scripts: Record<string, string | null> } | null;
 };
 
-export const MARKS: Readonly<Record<Verdict, string>> = { pass: '✓', fail: '✗', unfilmable: '—' };
+const MARKS: Readonly<Record<Verdict, string>> = { pass: '✓', fail: '✗', unfilmable: '—' };
 
 /** One criterion of the shown run. `video` is its clip's signed link; `videoMissing` says a clip was
  * recorded but its link could not be made. `script` is its script's name, text and link, each null
@@ -44,7 +45,7 @@ export type ProofView = {
 };
 
 /** The number of the run the picker names, else the newest's; runs are numbered oldest first. */
-export function shownNumber(count: number, version: number | null): number {
+function shownNumber(count: number, version: number | null): number {
   return version !== null && version >= 1 && version <= count ? version : count;
 }
 

@@ -67,6 +67,7 @@ import { isDossierId } from './source';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
+import { pad, shortDay, stamp } from './dates';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
@@ -152,20 +153,7 @@ function hrefOf(id: string, tab: DossierTab, version: number | null, fallback: D
   return String(query) ? `${dossierPath(id, kind)}?${query}` : dossierPath(id, kind);
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/** `27 Sep`, in UTC: the same on the server and in any browser. */
-export function shortDay(iso: string): string {
-  const at = new Date(iso);
-  return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]}`;
-}
-
-/** `27 Sep 2026, 09:12 UTC`. */
-export function stamp(iso: string): string {
-  const at = new Date(iso);
-  return `${shortDay(iso)} ${at.getUTCFullYear()}, ${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
-}
+export { shortDay, stamp };
 
 /** Who sent a version: the member who pushed it (kit), or the commit the fallback read it at (github). */
 export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploaded_by' | 'commit_sha'>, members: Member[]): string {
