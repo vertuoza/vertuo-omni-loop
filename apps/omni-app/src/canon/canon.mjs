@@ -110,7 +110,8 @@ function userPrompt({ spec, claims, personas }) {
   ].join('\n');
 }
 
-const neutral = (reason) => ({
+/** The gate when it cannot judge: ok, neutral, with one line saying why. */
+export const neutral = (reason) => ({
   name: CANON_GATE,
   ok: true,
   neutral: true,

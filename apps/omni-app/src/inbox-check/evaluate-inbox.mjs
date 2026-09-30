@@ -8,7 +8,10 @@
 // Every rule is the kit's, imported unchanged: `phase0Verdict` (what `omni phase0 <n>` prints),
 // `inboxViolationsFor` (the inbox rules for this PRD's folder only, so a broken folder of another PRD
 // never turns this PR red) and `gradePlan` (the part of `omni plan check <n>` that reads `plan.md`).
-// The fourth gate, the PRD issue, is read here from what the caller fetched.
+// The fourth gate, the PRD issue, is read here from what the caller fetched. The fifth, canon (PRD 839),
+// grades the PRD's `spec.md` against the repository's business through the injected `canon` gate
+// (../canon/canon.mjs); it is neutral, never red, when it cannot judge, so it never fails a PR on its
+// own failure.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
@@ -17,12 +20,16 @@ import { inboxViolationsFor } from 'vertuo-omni-plan/kit/lib/inbox/check-inbox.m
 import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.mjs';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 import { phase0Verdict } from 'vertuo-omni-plan/kit/lib/policy/phase-0.mjs';
+import { CANON_GATE, neutral } from '../canon/canon.mjs';
 
 /**
  * @typedef {{ number: number, state: string, labels: string[], isPullRequest: boolean } | null} IssueFacts
  *   `null`: GitHub has no issue of that number
- * @typedef {{ name: string, ok: boolean, reason: string }} Gate
- * @typedef {{ name: string, prd: number | null, conclusion: 'success' | 'failure', title: string, summary: string, gates: Gate[] }} InboxVerdict
+ * @typedef {{ name: string, ok: boolean, reason: string, neutral?: boolean, title?: string, details?: string[] }} Gate
+ *   `neutral`: the gate could not judge; it counts as ok. `title`: how a failed gate reads in the title.
+ * @typedef {{ state: 'green' | 'red' | 'neutral', reason: string, claimsRead: number,
+ *   findings: { quote: string, claims: string[], why: string }[], persona: { name: string, line: string } | null }} CanonFacts
+ * @typedef {{ name: string, prd: number | null, conclusion: 'success' | 'failure', title: string, summary: string, gates: Gate[], canon: CanonFacts | null }} InboxVerdict
  */
 
 /** The `{topic}` a head branch was cut for, read back through `branches.phase0`, or `null`. */
@@ -62,13 +69,15 @@ export function inboxPrd({ head, config, topic }) {
  *   base: string,
  *   head: string,
  *   pr: { headRef: string },
+ *   repo?: string,
  *   changes: { path: string, status?: string }[],
  *   commits: { sha: string, message: string }[],
  *   issue: IssueFacts,
- * }} input
- * @returns {InboxVerdict | null}
+ *   canon?: { grade: (input: { repo: string, spec: string }) => Promise<Gate & { canon: CanonFacts }> },
+ * }} input  `repo`: the PR's `owner/name`; `canon`: the canon gate, neutral when none is given
+ * @returns {Promise<InboxVerdict | null>}
  */
-export function evaluateInbox({ base, head, pr, changes, commits, issue }) {
+export async function evaluateInbox({ base, head, pr, repo, changes, commits, issue, canon }) {
   const config = readConfigAt(base);
   if (!config) return null;
   const topic = phase0Topic(pr.headRef, config.branches.phase0);
@@ -85,6 +94,7 @@ export function evaluateInbox({ base, head, pr, changes, commits, issue }) {
       title,
       summary: `${title} under \`${config.paths.delivery}\` on the head branch \`${pr.headRef}\`.`,
       gates: [],
+      canon: null,
     };
   }
 
@@ -95,18 +105,35 @@ export function evaluateInbox({ base, head, pr, changes, commits, issue }) {
     planGate({ ctx, prd, head }),
     issueGate({ prd, issue, label: config.labels.prd }),
   ];
-  const failed = gates.filter((gate) => !gate.ok);
+  const { canon: facts, ...canonGate } = await canonGateOf({ canon, ctx, prd, head, repo });
+  gates.push(canonGate);
   return {
     name,
     prd,
-    conclusion: failed.length === 0 ? 'success' : 'failure',
-    title:
-      failed.length === 0
-        ? `Phase-0 PR complete: ${gates.length} of ${gates.length} gates ok`
-        : `Not ok: ${failed.map((gate) => gate.name).join(', ')}`,
+    conclusion: gates.every((gate) => gate.ok) ? 'success' : 'failure',
+    title: titleOf(gates),
     summary: summaryOf({ prd, folder: ctx.layout.whereIs(prd).name, gates }),
     gates,
+    canon: facts,
   };
+}
+
+/** The canon gate on the PRD's `spec.md`; neutral when no gate is wired or there is no spec to read. */
+async function canonGateOf({ canon, ctx, prd, head, repo }) {
+  if (!canon || !repo) return neutral('the canon gate is not wired here');
+  const file = join(head, ctx.layout.specPath(prd));
+  if (!existsSync(file)) return neutral(`no spec.md in ${ctx.layout.whereIs(prd).dir}`);
+  return canon.grade({ repo, spec: readFileSync(file, 'utf8') });
+}
+
+/** Every failed gate by its title; else how many judged gates are ok, with the canon gate's word. */
+function titleOf(gates) {
+  const failed = gates.filter((gate) => !gate.ok);
+  if (failed.length > 0) return `Not ok: ${failed.map((gate) => gate.title ?? gate.name).join(', ')}`;
+  const judged = gates.filter((gate) => !gate.neutral);
+  const canon = gates.find((gate) => gate.name === CANON_GATE);
+  const tail = canon.neutral ? ' · canon neutral' : ` · ${canon.reason}`;
+  return `Phase-0 PR complete: ${judged.length} of ${judged.length} gates ok${tail}`;
 }
 
 function phase0Gate({ ctx, prd, changes, commits }) {
@@ -151,6 +178,9 @@ function issueGate({ prd, issue, label }) {
 }
 
 function summaryOf({ prd, folder, gates }) {
-  const lines = gates.map((gate) => `- ${gate.ok ? 'ok' : 'not ok'} — ${gate.name}: ${gate.reason}`);
+  const lines = gates.flatMap((gate) => [
+    `- ${gate.neutral ? 'neutral' : gate.ok ? 'ok' : 'not ok'} — ${gate.name}: ${gate.reason}`,
+    ...(gate.details ?? []).map((detail) => `  - ${detail}`),
+  ]);
   return [`PRD ${prd} (\`${folder}\`)`, '', ...lines].join('\n');
 }
