@@ -11723,8 +11723,10 @@ var ConfigSchema = external_exports.object({
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+  // `deployment` names the GitHub deployment environment to film when a commit has several previews.
   proof: section({
     url: proofUrl.nullable().default(null),
+    deployment: nullableText.default(null),
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
     maxSeconds: external_exports.number().int().positive().default(60)
@@ -24467,9 +24469,17 @@ function sessionFor(token, host) {
     throw error;
   }
 }
-async function writeSession({ askUrl: askUrl2, file }, { stdout, stderr, ...io }) {
+function targetHost(url) {
+  if (!url) return void 0;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    throw usageError(`omni proof session: PROOF_URL is not a URL: ${url}`);
+  }
+}
+async function writeSession({ askUrl: askUrl2, file, target: target2 }, { stdout, stderr, ...io }) {
   const renewed2 = await renewedToken(askUrl2, io);
-  const made = renewed2.token ? sessionFor(renewed2.token, renewed2.host) : null;
+  const made = renewed2.token ? sessionFor(renewed2.token, target2 ?? renewed2.host) : null;
   if (!made) {
     println(stderr, renewed2.line ?? NO_SIGN_IN2);
     return 1;
@@ -24487,7 +24497,7 @@ var proof = {
       const askUrl2 = ctx.config.ask?.url;
       if (!askUrl2) throw usageError("omni proof session: no sign-in server here \u2014 set ask.url in the config.");
       const file = isAbsolute5(parsed.file) ? parsed.file : resolve3(cwd, parsed.file);
-      return writeSession({ askUrl: askUrl2, file }, { stdout, stderr, tokens, home, fetch, callMs });
+      return writeSession({ askUrl: askUrl2, file, target: targetHost(env?.PROOF_URL) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
     const { prd: prd2, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);

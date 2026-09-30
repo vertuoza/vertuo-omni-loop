@@ -49,13 +49,15 @@ Neither open nor merged: say `PRD <n> has no feature PR`, and stop.
 
 - **The URL.** With `proof.url: github-deployment`, it is the preview of the feature PR's head
   commit: `gh api repos/<repo.slug>/deployments?sha=<headRefOid>`, then the newest deployment's
-  statuses, whose `success` status carries `environment_url`. Wait for it up to **10 minutes**,
+  statuses, whose `success` status carries `environment_url`. When `proof.deployment` is set, only
+  the deployments whose `environment` is exactly that count: a commit may have several previews. Wait for it up to **10 minutes**,
   looking again every 20 seconds. Otherwise `proof.url` is the fixed URL itself.
 - **The bypass.** When `proof.bypassEnv` names an environment variable, every request sends its value
   as the `x-vercel-protection-bypass` header (and `x-vercel-set-bypass-cookie: true`). Never print
   the value, and never write it to a file.
 - **Signed in.** When `proof.setup` is set, run that command once, from the repository's root, with
-  `PROOF_STORAGE_STATE=<run dir>/storage-state.json` in its environment. It writes a Playwright
+  `PROOF_STORAGE_STATE=<run dir>/storage-state.json` and `PROOF_URL=<the URL>` in its environment, so
+  that a sign-in can target the address filmed, a preview's included. It writes a Playwright
   storageState file there, which every script then loads. A setup that fails stops the run with
   `proof setup failed: <its last line>`.
 - **Reachable, or stop.** Fetch the URL once, with the bypass header and the storageState's cookies.

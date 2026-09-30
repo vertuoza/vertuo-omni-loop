@@ -209,8 +209,10 @@ export const ConfigSchema = z
     // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
     // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
     // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+    // `deployment` names the GitHub deployment environment to film when a commit has several previews.
     proof: section({
       url: proofUrl.nullable().default(null),
+      deployment: nullableText.default(null),
       setup: nullableText.default(null),
       bypassEnv: envName.nullable().default(null),
       maxSeconds: z.number().int().positive().default(60),
