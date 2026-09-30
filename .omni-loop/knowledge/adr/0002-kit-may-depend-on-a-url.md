@@ -1,6 +1,6 @@
 # ADR-0002 — The kit may depend on a URL the game's app serves, and still never names the game
 
-**Status:** accepted · **Date:** 2026-09-25 · **PRD:** #71 · **Amends:** PRD 3's spec
+**Status:** accepted · **Date:** 2026-09-25 (amended 2026-09-30, PRD #752: the round's `lead`) · **PRD:** #71 · **Amends:** PRD 3's spec
 (`.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md`), §2 principle 7
 
 ## Context
@@ -32,6 +32,14 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    claudeSessionId, skill, model, tokens}`, each field null when the kit could not read it. Only
    names and counts leave the machine, never transcript text, and the kit holds no price. An older
    kit sends neither and keeps working; a server that ignores the field still honours the contract.
+   **One exception, since PRD 752:** the same round call takes an optional top-level `lead`, a text
+   or null: the text blocks of Claude's last assistant message before the AskUserQuestion call, read
+   from the transcript (`kit/lib/ask/lead.mjs`), capped at 16 KB and ending with "… (shortened, the
+   rest is in the terminal)" when cut. It is shown above that round's questions on the page, to the
+   round's readers. No other transcript text leaves the machine: never a tool call, a tool result, a
+   file's content, thinking, or the person's own messages. The lead is never in `context`, and the
+   classifier never reads it. The server refuses a `lead` that is not text, or is longer, with 400.
+   An older kit sends no `lead`, and an older server ignores it.
    The galaxy's own pages add calls the kit never makes: `POST /api/ask/rounds/:id/shares` (the
    owner shares a round with a member of the session's workspace; any round may be shared, and an
    answered one is then read-only), `PATCH /api/ask/rounds/:id/category` and

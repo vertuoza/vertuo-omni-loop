@@ -5,7 +5,7 @@
 //   POST /api/ask/sessions                {title, context?}    → {id, url}
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
-//   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
+//   POST /api/ask/sessions/:id/rounds     {questions, context?, lead?} → {roundId}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
@@ -30,6 +30,11 @@
 // tokens}`, each field null or missing when the kit could not read it. A field this API does not know
 // is ignored; a known one of the wrong shape is refused with 400. The round's cost comes from the one
 // price table (./prices.ts). Who answered is never taken from a body: the database sets it.
+//
+// `lead` is optional on a round (PRD 752): the text Claude wrote before asking, as the kit read it from
+// the transcript (ADR-0002), at most LEAD_MAX_BYTES plus the kit's shortened note. It is text or null;
+// anything else, an empty text or a longer one is refused with 400. It is stored with the round and
+// read back with it, and the classifier never reads it.
 //
 // A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
@@ -65,6 +70,11 @@ export const WAIT_MS = 50_000;
 export const POLL_MS = 1_000;
 /** The largest body a call accepts (a round's questions, previews included). */
 export const MAX_BODY_BYTES = 256 * 1024;
+
+/** The most a round's lead carries (PRD 752), as the kit caps it, before its shortened note. */
+export const LEAD_MAX_BYTES = 16 * 1024;
+/** Room for the kit's shortened note after a cut lead, and the blank line before it. */
+export const LEAD_NOTE_BYTES = 256;
 
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
 export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
@@ -273,6 +283,14 @@ function questionsProblem(questions: unknown): string | null {
   return fine ? null : 'Each question needs its `question` text.';
 }
 
+/** The lead a round body carries — null when it carries none — or why it is refused. */
+function readLead(sent: Record<string, unknown>): { lead: string | null } | { problem: string } {
+  const lead = sent.lead;
+  if (lead === undefined || lead === null) return { lead: null };
+  const fine = typeof lead === 'string' && lead.trim() !== '' && new TextEncoder().encode(lead).length <= LEAD_MAX_BYTES + LEAD_NOTE_BYTES;
+  return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
+}
+
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
@@ -282,6 +300,8 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
     const read = readContext(sent, ROUND_KEYS);
     if ('problem' in read) return refuse(400, read.problem);
     const { context } = read;
+    const sentLead = readLead(sent);
+    if ('problem' in sentLead) return refuse(400, sentLead.problem);
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
@@ -291,6 +311,7 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
       model: context.model,
       tokens: context.tokens,
       cost_usd: costUsd(context.model, context.tokens),
+      lead: sentLead.lead,
     };
     try {
       const round = await who.store.addRound(session.id, sent.questions as unknown[], facts);

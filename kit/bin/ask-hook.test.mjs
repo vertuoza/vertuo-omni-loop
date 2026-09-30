@@ -142,6 +142,35 @@ describe('omni ask hook, with the mode on', () => {
     });
   });
 
+  it('pre sends the lead: only the text Claude wrote before asking, never tool input, tool output, thinking or a user message (PRD 752)', async () => {
+    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const transcript = join(root, 'transcript.jsonl');
+    writeFileSync(transcript, [
+      { type: 'user', message: { role: 'user', content: 'design it, the password is hunter2' } },
+      { type: 'assistant', message: { id: 'm1', content: [{ type: 'thinking', thinking: 'private reasoning' }] } },
+      { type: 'assistant', message: { id: 'm1', content: [{ type: 'tool_use', id: 'toolu_r', name: 'Read', input: { file_path: '/tool-input.txt' } }] } },
+      { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_r', content: 'tool output' }] } },
+      { type: 'assistant', message: { id: 'm2', content: [{ type: 'text', text: '## The design' }] } },
+      { type: 'assistant', message: { id: 'm2', content: [{ type: 'text', text: 'A lead and a fold.' }] } },
+      { type: 'assistant', message: { id: 'm2', content: [{ type: 'tool_use', id: 'toolu_01', name: 'AskUserQuestion', input: { questions: [QUESTION] } }] } },
+    ].map((entry) => JSON.stringify(entry)).join('\n'));
+    const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: transcript, cwd: root });
+    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin, tokens })).toBe(0);
+    const sent = server.calls.find((call) => call.path.endsWith('/rounds'));
+    expect(sent.body.lead).toBe('## The design\n\nA lead and a fold.');
+    for (const word of ['hunter2', 'private reasoning', 'tool-input', 'tool output']) expect(JSON.stringify(sent.body)).not.toContain(word);
+    expect([...server.rounds.values()][0].lead).toBe('## The design\n\nA lead and a fold.');
+  });
+
+  it('pre sends no lead, and still asks, when the transcript cannot be read', async () => {
+    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: join(root, 'gone.jsonl') });
+    const s = io();
+    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin, tokens })).toBe(0);
+    expect(JSON.parse(s.out.join('')).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).not.toHaveProperty('lead');
+  });
+
   it('a session open sends context.repo, read from the config', async () => {
     server = await startFakeAskServer({ answer: (round) => firstOptionAnswers(round.questions) });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n` } });

@@ -7,12 +7,14 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
+import { LeadMessage } from './LeadMessage';
 import { poll } from './poll';
 import type { Member } from './question';
 import { shareCandidates } from './share';
 import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
+import { QuestionList } from './QuestionText';
 import {
   categoryChip, contextParts, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
 } from './view';
@@ -195,6 +197,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         <>
           <ContextLine parts={contextParts(state.session, view.round)} />
           {chip(view.round)}
+          <LeadMessage key={view.round.id} lead={view.round.lead} />
         </>
       )}
 
@@ -202,9 +205,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         <section className="ask-card" aria-live="polite">
           <h1>Waiting for the owner&apos;s answer</h1>
           <p className="ask-muted">Only the person who opened this session answers it. The answer shows below once given.</p>
-          <ul className="ask-card-list">
-            {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-          </ul>
+          <QuestionList questions={view.questions} />
         </section>
       )}
 
@@ -250,9 +251,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
               : 'The page did not get an answer in time, so Claude asks this in the terminal instead. The answer shows below once given.'}
           </p>
           {view.questions.length > 0 && (
-            <ul className="ask-card-list">
-              {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-            </ul>
+            <QuestionList questions={view.questions} />
           )}
         </section>
       )}

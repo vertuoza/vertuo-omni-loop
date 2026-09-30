@@ -7,7 +7,8 @@
 // - `pre` (PreToolUse on AskUserQuestion): opens this terminal's session on its first question
 //   (with `context.repo`, PRD 144), posts the round with its best-effort `context` (`./context.mjs`:
 //   where it came from, what the session had cost; a context that cannot be read is sent as nulls, or
-//   not at all, and never stops the question), waits on it up to 540 s in all (the hook's own timeout
+//   not at all, and never stops the question) and its `lead` (`./lead.mjs`, PRD 752: the text Claude
+//   wrote before asking; none when it cannot be read), waits on it up to 540 s in all (the hook's own timeout
 //   is 600 s), and hands the page's answer back through `updatedInput.answers`. On any other outcome
 //   it abandons the round when it can, and answers nothing. A closed session is forgotten: the next
 //   question opens anew. Before it opens a round, it removes the screenshot folders older than 7 days.
@@ -21,6 +22,7 @@
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
 import { loadConfig } from '../config.mjs';
 import { askContext, sessionContext } from './context.mjs';
+import { roundLead } from './lead.mjs';
 import {
   clearOldShots, clearRound, clearTerminal, isSafeId, isShotName, readMode, readRound, readTerminal, writeRound, writeShot, writeTerminal,
 } from './local-state.mjs';
@@ -169,12 +171,13 @@ function preInput(input) {
 }
 
 /** The round opened for this question in this terminal's session, or `null` when none could be. */
-async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId }) {
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId }) {
   let roundId;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
     try {
-      ({ roundId } = await client.openRound(sessionId, questions, contextOf(() => readContext({ root, input })) ?? undefined));
+      const context = contextOf(() => readContext({ root, input })) ?? undefined;
+      ({ roundId } = await client.openRound(sessionId, questions, context, contextOf(() => readLead({ input }))));
     } catch (error) {
       // Closed or gone on the server: this question goes to the terminal, the next opens anew.
       if (SESSION_GONE.includes(error?.status)) clearTerminal(root, terminalId);
@@ -189,7 +192,7 @@ async function openRoundFor({ root, host, client, input, title, readContext, rea
 /**
  * @param {{ root: string, host: string, client: ReturnType<import('./client.mjs').askClient>,
  *   input: any, title: () => string, limits?: { totalMs: number, callMs: number }, now?: () => number,
- *   readContext?: typeof askContext, readSessionContext?: typeof sessionContext }} options
+ *   readContext?: typeof askContext, readSessionContext?: typeof sessionContext, readLead?: typeof roundLead }} options
  *   `title` names a session this terminal opens: `<repo slug> · <branch>`.
  * @returns {Promise<object | null>} the hook's output, or `null` for none
  */
@@ -203,6 +206,7 @@ export async function preHook({
   now = Date.now,
   readContext = askContext,
   readSessionContext = sessionContext,
+  readLead = roundLead,
 }) {
   const pre = preInput(input);
   if (!pre) return null;
@@ -210,7 +214,7 @@ export async function preHook({
   const deadline = now() + limits.totalMs;
   sweepOldShots(root, now);
 
-  const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId });
+  const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId });
   if (!roundId) return null;
   const keep = (status) => writeRound(root, toolUseId, { roundId, status });
   keep('open');
