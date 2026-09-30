@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import { ContextLine } from './ContextLine';
+import { QuestionText } from './QuestionText';
 import { screenshotsNote, type HistoryEntry } from './view';
 
 // Earlier rounds, folded into a quiet list below the open one, newest first: one line each (the
@@ -19,7 +20,7 @@ export function AnswerList({ lines, className }: { lines: { question: string; an
     <dl className={className}>
       {lines.map((line, i) => (
         <Fragment key={i}>
-          <dt>{line.question}</dt>
+          <dt><QuestionText text={line.question} /></dt>
           <dd>{line.answer ?? '—'}<Screenshots count={line.screenshots} before=" " /></dd>
         </Fragment>
       ))}

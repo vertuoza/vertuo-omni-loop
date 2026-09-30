@@ -13,6 +13,7 @@ import { shareCandidates } from './share';
 import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
+import { QuestionText } from './QuestionText';
 import {
   categoryChip, contextParts, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
 } from './view';
@@ -194,7 +195,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
           <h1>Waiting for the owner&apos;s answer</h1>
           <p className="ask-muted">Only the person who opened this session answers it. The answer shows below once given.</p>
           <ul className="ask-card-list">
-            {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
+            {view.questions.map((q, i) => <li key={i}><QuestionText text={q.question} /></li>)}
           </ul>
         </section>
       )}
@@ -242,7 +243,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
           </p>
           {view.questions.length > 0 && (
             <ul className="ask-card-list">
-              {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
+              {view.questions.map((q, i) => <li key={i}><QuestionText text={q.question} /></li>)}
             </ul>
           )}
         </section>
