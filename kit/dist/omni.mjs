@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.134" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.135" };
   }
 });
 
@@ -15595,6 +15595,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids, by, ref = null }) => call("POST", "/api/business/citations", { body: { repo, ids, by, ref } }),
+    /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
+     * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
+     * @returns {Promise<{ id: string, state: string, added: boolean }>} */
+    addClaim: ({ repo, kind, value, state, ref }) => call("POST", "/api/business/claims", { body: { repo, kind, value, state, ref } }),
     /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
      * own answer (`old`); the ref is sent only when there is one.
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
@@ -17131,8 +17135,11 @@ var care = {
 
 // kit/bin/commands/business.mjs
 init_define_OMNI_BUNDLE();
-var USAGE5 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var CLAIM_USAGE = "usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>";
+var USAGE5 = `usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice("usage: ".length)}`;
 var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var ANSWER_STATES = ["proposed", "confirmed"];
+var STORED_STATES = ["proposed", "confirmed", "rejected", "contradicted", "unknown"];
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
@@ -17183,7 +17190,7 @@ function businessOf(reply) {
 var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence(claims) {
-  const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === "confirmed").map((claim) => claim.value);
+  const of = (kind) => claims.filter((claim2) => claim2.kind === kind && claim2.state === "confirmed").map((claim2) => claim2.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of("size")[0];
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
@@ -17230,15 +17237,43 @@ async function cited(ids, flags, env) {
   println(env.stdout, `cited ${ids.join(", ")} (${[flags.by, ref].filter(Boolean).join(", ")})`);
   return 0;
 }
+function answerOf(positional, flags) {
+  const text4 = (value) => typeof value === "string" && value.trim() ? value.trim() : null;
+  const fields = { kind: text4(flags.kind), value: text4(flags.value), state: text4(flags.state), ref: text4(flags.ref) };
+  if (positional.length !== 1 || positional[0] !== "add" || Object.values(fields).includes(null)) throw usageError(CLAIM_USAGE);
+  if (!KINDS2.includes(fields.kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
+  if (!ANSWER_STATES.includes(fields.state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(" or ")}.`);
+  return fields;
+}
+var storedOf = (reply) => reply && isText4(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === "boolean" ? reply : null;
+async function claim(positional, flags, env) {
+  const answer = answerOf(positional, flags);
+  const skip = (line) => {
+    println(env.stdout, `claim skipped: ${line}`);
+    return 0;
+  };
+  const reached = reach(env);
+  if (!reached.client) return skip(reached.line);
+  let reply;
+  try {
+    reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
+  } catch (error) {
+    return skip(stopped(error).line);
+  }
+  const stored = storedOf(reply);
+  if (!stored) return skip(`refused (the reply is not a claim) ${CARRY_ON}`);
+  println(env.stdout, `claim ${stored.added ? "saved" : "already held"}: ${stored.id} (${stored.state})`);
+  return 0;
+}
 function shown(repo, read2) {
   if (read2.state === "none") {
     const line = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
     return [empty("none", read2), [line, ...personaLines(read2.personas, "persona".length)]];
   }
-  const idWidth = Math.max(...read2.claims.map((claim) => claim.id.length), read2.personas.length ? "persona".length : 0);
+  const idWidth = Math.max(...read2.claims.map((claim2) => claim2.id.length), read2.personas.length ? "persona".length : 0);
   return [read2, [
     sentence(read2.claims),
-    ...read2.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`),
+    ...read2.claims.map((claim2) => `  ${claim2.id.padEnd(idWidth)}  ${claim2.value}${claim2.state === "contradicted" ? CONTRADICTED : ""}`),
     ...personaLines(read2.personas, idWidth)
   ]];
 }
@@ -17267,6 +17302,10 @@ var business = {
     if (args[0] === "cited") {
       const { positional, flags } = parseArgs("business", args.slice(1), { values: ["by", "ref"] });
       return cited(positional, flags, env);
+    }
+    if (args[0] === "claim") {
+      const { positional, flags } = parseArgs("business", args.slice(1), { values: ["kind", "value", "state", "ref"] });
+      return claim(positional, flags, env);
     }
     return show(args, env);
   }
@@ -17471,6 +17510,101 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync18, readdirSync as readdirSync11, statSync as statSync5 } from "node:fs";
 import { basename as basename5, dirname as dirname7, join as join24 } from "node:path";
 
+// kit/lib/voice/voice.mjs
+init_define_OMNI_BUNDLE();
+var VOICE_FILE = "voice.json";
+var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
+var STAGES_SAID = "design, spec, rework-<k>, shipped";
+var STANCES2 = ["excited", "neutral", "skeptical"];
+var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
+var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
+var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
+var MAX_SENTENCES = 2;
+var TOP_FIELDS = ["rounds"];
+var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isText5 = (value) => typeof value === "string" && value.trim().length > 0;
+function countSentences2(text4) {
+  return text4.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+}
+function citationProblems(citations, field3) {
+  if (!Array.isArray(citations) || citations.length === 0) {
+    return [`${field3} must cite at least one persona:<name> or claim id.`];
+  }
+  return citations.flatMap(
+    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
+  );
+}
+function lineProblems(text4, field3) {
+  if (!isText5(text4)) return [`${field3} must be a sentence.`];
+  const count3 = countSentences2(text4);
+  return count3 > MAX_SENTENCES ? [`${field3} holds ${count3} sentences; two at most.`] : [];
+}
+function personaProblems(persona, i) {
+  const at = `personas[${i}]`;
+  if (!isRecord(persona)) return [`${at} must be an object.`];
+  const problems = [];
+  if (!isText5(persona.name)) problems.push(`${at}.name must be a name.`);
+  if (!STANCES2.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES2.join(", ")}.`);
+  if (!Number.isInteger(persona.score) || persona.score < 1 || persona.score > 5) {
+    problems.push(`${at}.score must be a whole number from 1 to 5.`);
+  }
+  problems.push(...lineProblems(persona.reaction, `${at}.reaction`));
+  problems.push(...citationProblems(persona.citations, `${at}.citations`));
+  return problems;
+}
+function objectionProblems(objection, names) {
+  if (objection === null) return [];
+  if (!isRecord(objection)) return ["objection must be an object, or null when no persona objected."];
+  const problems = [];
+  if (!isText5(objection.persona)) problems.push("objection.persona must be a name.");
+  else if (names.length > 0 && !names.includes(objection.persona)) {
+    problems.push(`objection.persona ${JSON.stringify(objection.persona)} is not one of the round's personas.`);
+  }
+  problems.push(...lineProblems(objection.text, "objection.text"));
+  problems.push(...citationProblems(objection.citations, "objection.citations"));
+  if (!SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
+  return problems;
+}
+var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
+var personasProblems = (personas) => Array.isArray(personas) && personas.length > 0 ? personas.flatMap(personaProblems) : ["personas must list at least one persona."];
+var fitProblems = (fit2) => fit2 === void 0 || fit2 === null || isText5(fit2) ? [] : ["fit must be one line, or null."];
+function roundProblems(round) {
+  if (!isRecord(round)) return ["must be an object."];
+  const names = Array.isArray(round.personas) ? round.personas.map((p) => p?.name) : [];
+  return [
+    ...unknownFields(round, ROUND_FIELDS, "a round"),
+    ...DATE2.test(round.date ?? "") ? [] : ["date must be YYYY-MM-DD."],
+    ...personasProblems(round.personas),
+    ...objectionProblems(round.objection ?? null, names),
+    ...fitProblems(round.fit)
+  ];
+}
+function parseVoice(text4) {
+  let voice;
+  try {
+    voice = JSON.parse(text4);
+  } catch {
+    return { ok: false, voice: null, errors: ["not valid JSON."] };
+  }
+  if (!isRecord(voice) || !Array.isArray(voice.rounds)) {
+    return { ok: false, voice: null, errors: ["must be an object with a `rounds` list."] };
+  }
+  const errors = unknownFields(voice, TOP_FIELDS, "voice.json");
+  if (voice.rounds.length === 0) errors.push("`rounds` holds no round.");
+  const seen = /* @__PURE__ */ new Set();
+  voice.rounds.forEach((round, i) => {
+    const stage2 = isRecord(round) ? round.stage : void 0;
+    const known = typeof stage2 === "string" && STAGE.test(stage2);
+    const name = known ? `round ${stage2}` : `round ${i + 1}`;
+    if (!known) errors.push(`${name}: stage ${JSON.stringify(stage2 ?? null)} is not one of ${STAGES_SAID}.`);
+    else if (seen.has(stage2)) errors.push(`${name}: the stage comes twice.`);
+    if (known) seen.add(stage2);
+    errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
+  });
+  return errors.length ? { ok: false, voice: null, errors } : { ok: true, voice, errors: [] };
+}
+
 // kit/lib/inbox/inbox.mjs
 init_define_OMNI_BUNDLE();
 var SPEC_VALUES = (
@@ -17617,6 +17751,10 @@ function beforeAfterViolation(file, ctx) {
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
+function voiceViolations(file, ctx) {
+  if (!existsSync18(join24(ctx.root, file))) return [];
+  return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
+}
 function gradeFolder(specFile, ctx) {
   const folder = basename5(dirname7(specFile));
   const violations = [];
@@ -17631,6 +17769,7 @@ function gradeFolder(specFile, ctx) {
   }
   const beforeAfter = beforeAfterViolation(`${dirname7(specFile)}/before-after.html`, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...voiceViolations(`${dirname7(specFile)}/${VOICE_FILE}`, ctx));
   return { violations, record };
 }
 function findInboxViolations({ ctx }) {
@@ -19621,7 +19760,8 @@ var TITLE_MAX3 = 200;
 var ARTIFACT_KINDS = Object.freeze([
   { kind: "spec", pathOf: (layout, prd2) => layout.specPath(prd2) },
   { kind: "plan", pathOf: (layout, prd2) => layout.planPath(prd2) },
-  { kind: "before-after", pathOf: (layout, prd2) => layout.beforeAfterPath(prd2) }
+  { kind: "before-after", pathOf: (layout, prd2) => layout.beforeAfterPath(prd2) },
+  { kind: "voice", pathOf: (layout, prd2) => `${layout.whereIs(prd2).dir}/${VOICE_FILE}` }
 ]);
 var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function frontMatterTitle(text4) {
@@ -19711,10 +19851,10 @@ function skipLine(error) {
   if (error.status === null) return "unreachable";
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
-var isText5 = (value) => typeof value === "string" && value.length > 0;
+var isText6 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
-  const got = Array.isArray(added) ? added.filter((a) => isText5(a?.kind) && Number.isInteger(a?.version)) : [];
-  const kept = Array.isArray(unchanged) ? unchanged.filter(isText5) : [];
+  const got = Array.isArray(added) ? added.filter((a) => isText6(a?.kind) && Number.isInteger(a?.version)) : [];
+  const kept = Array.isArray(unchanged) ? unchanged.filter(isText6) : [];
   const parts = [`added: ${got.length ? got.map(({ kind, version: version2 }) => `${kind} v${version2}`).join(", ") : "none"}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(", ")}`);
   return parts.join(" \xB7 ");
@@ -19727,7 +19867,7 @@ async function open(title, { ctx, repo, client, home, claudeSessionId, stdout, s
     println(stderr, skipLine(error));
     return 1;
   }
-  if (!isText5(draft?.id) || !isText5(draft?.url)) {
+  if (!isText6(draft?.id) || !isText6(draft?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
@@ -19749,7 +19889,7 @@ function issueTitle(issue, { ctx, repo, exec }) {
   }
 }
 function reportPush(result, tooLarge, { stdout, stderr }) {
-  if (!isText5(result?.id) || !isText5(result?.url)) {
+  if (!isText6(result?.id) || !isText6(result?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
@@ -19793,7 +19933,7 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
     }
     forgetDraft(where, draft.id);
   }
-  if (!isText5(result?.id) || !isText5(result?.url)) return reportPush(result, [], { stdout, stderr });
+  if (!isText6(result?.id) || !isText6(result?.url)) return reportPush(result, [], { stdout, stderr });
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd: prd2, id: result.id, url: result.url });
   }
@@ -19820,7 +19960,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
     }
     found = recorded;
   }
-  if (!isText5(found?.url)) {
+  if (!isText6(found?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
@@ -21305,10 +21445,14 @@ var ENTRIES = deepFreeze([
     name: "business",
     kind: "command",
     who: "you",
-    usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
+    usage: [
+      "omni business show [--json]",
+      "omni business cited <id>\u2026 --by <skill> [--ref <text>]",
+      "omni business claim add --kind <k> --value <v> --state <s> --ref <text>"
+    ],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its receipt the skill and the run: proposed, for a member to confirm on the Business page, or confirmed; a value the business already holds is named, not stored twice, and a failed call prints a skip line and exits 0."
   },
   {
     name: "decide",
@@ -24080,13 +24224,13 @@ var ProofReplyError = class extends Error {
     this.name = "ProofReplyError";
   }
 };
-var isText6 = (value) => typeof value === "string" && value.length > 0;
+var isText7 = (value) => typeof value === "string" && value.length > 0;
 function linksOf(reply, files) {
-  if (!isText6(reply?.run)) throw new ProofReplyError("no run in the reply");
+  if (!isText7(reply?.run)) throw new ProofReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
   const links = files.map(({ name }) => {
     const url = given.find((file) => file?.name === name)?.url;
-    if (!isText6(url)) throw new ProofReplyError(`no upload link for ${name} in the reply`);
+    if (!isText7(url)) throw new ProofReplyError(`no upload link for ${name} in the reply`);
     return url;
   });
   return { runId: reply.run, links };
@@ -24102,7 +24246,7 @@ async function pushProof({ client, repo, prd: prd2, run, read: read2 = readFileS
     runId = newRunId();
   }
   const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
-  if (!isText6(registered?.url)) throw new ProofReplyError("no link in the reply");
+  if (!isText7(registered?.url)) throw new ProofReplyError("no link in the reply");
   const tab = registered.url;
   if (!run.files.some(({ name }) => name === GIF)) return { tab };
   return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
@@ -24134,7 +24278,7 @@ var ProofRunRefused = class extends Error {
 var refuse = (message, status3 = 400) => {
   throw new ProofRunRefused(status3, message);
 };
-var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function isHttpUrl(value) {
   if (typeof value !== "string" || value.length > URL_MAX) return false;
   try {
@@ -24145,7 +24289,7 @@ function isHttpUrl(value) {
 }
 var isBlank = (value) => value === void 0 || value === null;
 function textOf2(item2, at) {
-  const valid = isRecord(item2) && typeof item2.text === "string" && item2.text.trim() && item2.text.length <= TEXT_MAX;
+  const valid = isRecord2(item2) && typeof item2.text === "string" && item2.text.trim() && item2.text.length <= TEXT_MAX;
   if (!valid) refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
   return item2.text.trim();
 }
@@ -24189,7 +24333,7 @@ function readRun(dir) {
   } catch {
     sent = null;
   }
-  if (!isRecord(sent)) refuse(`${RUN_FILE} is not a JSON object`);
+  if (!isRecord2(sent)) refuse(`${RUN_FILE} is not a JSON object`);
   if (typeof sent.commit !== "string" || !COMMIT2.test(sent.commit)) refuse(`${RUN_FILE}: commit is the hash of the commit the run proved`);
   if (!isHttpUrl(sent.url)) refuse(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
   if (!Array.isArray(sent.criteria) || sent.criteria.length === 0 || sent.criteria.length > PROOF_CRITERIA_MAX) {

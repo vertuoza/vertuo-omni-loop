@@ -1085,6 +1085,129 @@ describe('the think-big skill in this repository', () => {
   });
 });
 
+// PRD 822: the product's personas speak through the skills. think-big copies them into its fuel and
+// seats them as its User panelists; the persona a concept or a design fits worst objects once, citing
+// a persona or a claim; the brainstorm saves an overrule or a gap answer as a claim through
+// `omni business claim add`, and writes the voice.json rounds; the yolo writes the shipped one.
+// Without personas, both skills run as today.
+describe('the customer voice in the skills (PRD 822)', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** A `## ` section of a skill, its line breaks and indents folded into single spaces. */
+  const section = (skill, start) => skillSection(read(skill), start).replace(/\s+/g, ' ');
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it("think-big's fuel copies the personas under persona:<name>, beside the claim ids", () => {
+    const fuel = section('think-big', '2.');
+    expect(orderGaps(fuel, ['**The business.**', 'omni.mjs business show --json', '**The personas.**', '`personas`', '`persona:<name>`'])).toEqual([]);
+    expect(fuel).toMatch(/Without personas, the studio runs as today/);
+  });
+
+  it("think-big's User panelists are the personas, five at most, the widest spread of stance and trade", () => {
+    const studio = section('think-big', 'The studio');
+    expect(studio).toMatch(/the User panelists are those personas/);
+    expect(studio).toMatch(/all of them up to five, or the five that differ most in stance and trade/);
+    expect(studio).toMatch(/cites `persona:<name>` or a claim id in each post/);
+    expect(studio).toMatch(/Without personas, the Users are drawn from the brief/);
+  });
+
+  it('in think-big, the persona a concept fits worst objects once, cited, then a fit line, on every board', () => {
+    const studio = section('think-big', 'The studio');
+    const voice = studio.slice(studio.indexOf('### The voice'));
+    expect(orderGaps(voice, ['fits worst', '**objects once**', 'citing', 'is dropped', 'stays silent', 'fit line'])).toEqual([]);
+    expect(voice).toContain('fits persona:Marc ✓ · size#2 ✓ · beats rival#20 ✓');
+    expect(voice).toMatch(/Without personas, no objection and no fit line/);
+    expect(section('think-big', 'Boards')).toMatch(/the objection and the fit line/);
+    expect(orderGaps(studio, ['**Converge.**', '**The voice**', '### The voice'])).toEqual([]);
+  });
+
+  it('think-big logs the claim ids it cited, never a persona id', () => {
+    expect(section('think-big', '6.')).toMatch(/never a `persona:<name>`: personas are not claims/);
+  });
+
+  it('brainstorm reads the business at step 0, after the briefing and before the dossier opens', () => {
+    const step = section('brainstorm', 'Step 0');
+    expect(orderGaps(step, ['kb show briefing', 'omni.mjs business show --json', '/omni:dossier-open'])).toEqual([]);
+    expect(step).toMatch(/Without personas, the brainstorm runs as today/);
+  });
+
+  it("brainstorm's voice objects once, cited, just before the design's approval question", () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, ['fits worst', '**objects once**', 'citing', 'is dropped', 'stays silent'])).toEqual([]);
+    expect(voice).toMatch(/just before the approval question/);
+    expect(voice).toMatch(/the spec's \*\*Decisions\*\* record the objection and how it was settled/i);
+    const design = section('brainstorm', '1.');
+    expect(orderGaps(design, ['**Bounded:**', '**The voice**', 'explicit yes'])).toEqual([]);
+    expect(orderGaps(design, ['**Architectural:**', 'first section', '**The voice**'])).toEqual([]);
+  });
+
+  it("brainstorm's overrule question saves a proposed claim, or keeps it for this run", () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, [
+      '"Is that new about the business?"', '**Save as a claim:**',
+      "omni.mjs business claim add --kind <kind> --value <value> --state proposed --ref 'brainstorm · <run>'",
+      '**Just this run:**', 'nothing is stored',
+    ])).toEqual([]);
+  });
+
+  it('brainstorm asks one gap question at most, stored confirmed, and Not sure stores nothing', () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, [
+      '**One gap question.**', 'At most once per run', 'no confirmed claim', 'AskUserQuestion',
+      "omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'",
+      '**Not sure** stores nothing',
+    ])).toEqual([]);
+  });
+
+  it('brainstorm writes the voice.json rounds design and spec, beside the spec, and commits them', () => {
+    expect(orderGaps(section('brainstorm', 'The voice'), ['`voice.json`', 'round `design`', 'round `spec`', 'omni.mjs check inbox'])).toEqual([]);
+    // Step 4 is read up to step 5's heading: the spec it templates has `## ` headings of its own.
+    const brainstorm = read('brainstorm');
+    expect(brainstorm.slice(brainstorm.indexOf('\n## 4.'), brainstorm.indexOf('\n## 5.'))).toMatch(/`voice\.json`/);
+    expect(section('brainstorm', '7.')).toMatch(/`voice\.json`/);
+  });
+
+  it('brainstorm --rework writes a rework-<k> round, and is refused once a sub-PR merged', () => {
+    expect(section('brainstorm', 'Inputs')).toContain('`--rework <n>`');
+    const rework = section('brainstorm', 'Rework');
+    expect(orderGaps(rework, [
+      'gh pr list --base <feature branch> --state merged', 'PRD <n> is being built: /omni:yolo-fix <n> owns its changes now',
+      'rework-<k>', '/omni:dossier-push <n>', 'omni.mjs phase0 <n>',
+    ])).toEqual([]);
+    expect(section('brainstorm', 'Guardrails')).toMatch(/--rework/);
+  });
+
+  it('yolo writes the shipped round on its green path, before omni ship, and sends it to the dossier', () => {
+    const step = section('yolo', '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(orderGaps(step.slice(0, red), [
+      'docs(release): PRD <prd> release note', '**The shipped round**', 'round `shipped`', 'omni.mjs ship <prd>',
+      '/omni:dossier-push <prd>', 'gh pr ready',
+    ])).toEqual([]);
+    expect(step.slice(red)).not.toContain('round `shipped`');
+  });
+
+  it('the unknown-command guard finds business claim in COMMAND_TABLE', () => {
+    for (const skill of ['brainstorm', 'think-big', 'yolo']) {
+      for (const name of commandMentions(read(skill))) expect(Object.hasOwn(COMMAND_TABLE, name), `${skill}: omni ${name}`).toBe(true);
+    }
+    expect(read('brainstorm')).toContain('omni.mjs business claim add');
+    const shim = join(repoRoot, '.omni-loop/bin/omni.mjs');
+    const usage = spawnSync(process.execPath, [shim, 'business', 'claim', 'add'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(usage.status).toBe(2);
+    expect(usage.stderr).toContain('omni business claim add');
+  });
+});
+
 // PRD 798: /omni:prove films a ready PRD's acceptance criteria and reports them, never blocking; the
 // brainstorm asks for it, the yolo follows it after ready, and /omni:invade proposes its config.
 describe('the prove skill and the skills that lead to it (PRD 798)', () => {

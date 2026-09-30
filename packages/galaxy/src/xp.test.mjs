@@ -37,7 +37,7 @@ describe('borrowedXp', () => {
 
   it('reads the rules it is given', () => {
     const rules = { ...RULEBOOK.xp, weights: { ...RULEBOOK.xp.weights, zoneSecured: 6 } };
-    expect(borrowedXp([secured('alice', 's1')], { now: NOW, rules })).toEqual({ login: 'alice', xp: 60, level: 2, unlocked: ['invaders'] });
+    expect(borrowedXp([secured('alice', 's1')], { now: NOW, rules })).toEqual({ login: 'alice', xp: 60, level: 2, unlocked: ['invaders', 'platformer'] });
   });
 
   it('gives the demo guest a level and the first game, so the demo shows the game room lit', () => {

@@ -11,7 +11,7 @@
 // nothing; the last one known is kept between reads. PRD 251 (s9) adds the pending answers (how many,
 // and the latest one's time), so a reply typed on GitHub shows on the Outbox tab within a minute.
 import { UNREAD, type GithubSummary } from '../github/summary';
-import { DOSSIER_KINDS, isDossierKind, type DossierKind, type DossierListRow, type DossierPulse } from '../store';
+import { isPulseKind, PULSE_KINDS, type DossierListRow, type DossierPulse, type PulseKind } from '../store';
 import { stageOf, type StageId } from './stage';
 import type { DossierRead } from './view';
 
@@ -52,7 +52,7 @@ const SEPARATOR = '#';
  * a signature of its own. */
 export function signature(pulse: LivePulse | null): string {
   if (!pulse) return 'gone';
-  const versions = DOSSIER_KINDS.map((kind) => `${kind}:${pulse.latest[kind] ?? 0}`).join(',');
+  const versions = PULSE_KINDS.map((kind) => `${kind}:${pulse.latest[kind] ?? 0}`).join(',');
   const counts = `${pulse.asked}/${pulse.answered}|${versions}`;
   if (!pulse.github) return counts;
   const { stage, open, answers } = pulse.github;
@@ -69,9 +69,10 @@ function partsOf(value: string): [string, string | null] {
  * its rounds could not be read, and the first check sets the baseline instead. */
 export function pulseOf(read: DossierRead): LivePulse | null {
   if (!read.rounds) return null;
-  const latest: Partial<Record<DossierKind, number>> = {};
-  // A PRD's three kinds, as dossier_list() pulses them; a fix's rounds and record are not watched (PRD 627).
-  for (const version of read.versions) if (isDossierKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
+  const latest: Partial<Record<PulseKind, number>> = {};
+  // A PRD's three kinds and its voice (PRD 822), as dossier_list() pulses them; a fix's rounds and record
+  // are not watched (PRD 627).
+  for (const version of read.versions) if (isPulseKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
   const pulse: LivePulse = { asked: read.rounds.length, answered: read.rounds.filter((r) => r.status === 'answered').length, latest };
   const github = githubPulse(read.dossier.prd, read.github);
   return github ? { ...pulse, github } : pulse;

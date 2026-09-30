@@ -77,7 +77,7 @@ Read it before step 3; it holds at every round.
 | **Craft** | the whole run | Interaction, motion, density, the empty and error states | Is every pixel and every transition deliberate? |
 | **Skeptic** | the whole run | What breaks, what it costs, the smallest proof | What must be true for this to work? |
 | **Value** | the whole run | Who it matters to, what moves, why now | What changes for the business if this ships? |
-| **User**, 1 or 2 | the whole run | A real person drawn from the brief and the product's knowledge | Would I use this at 7am on Monday, on site, on my phone? |
+| **User**, 1 or 2, or the personas (five at most) | the whole run | A real person drawn from the brief and the product's knowledge, or one of the product's personas | Would I use this at 7am on Monday, on site, on my phone? |
 | **Moderator** | the main session: you | Run the turns, relay, keep the transcript, write the verdict; never votes | — |
 
 The **panel** is the Visionary, Craft, Skeptic, Value and the users.
@@ -110,6 +110,12 @@ only under `<scratch>`, never in the repository; spawn no agent of your own.
   device in their hand, drawn from the brief and from the product's knowledge, never invented past
   them; the personas the kind sets (**The kind shapes the studio**). Their question: "Would I use
   this at 7am on Monday, on site, on my phone?", said in their own situation.
+- **User, from the personas.** When the fuel sheet lists the product's personas (step 2), the User
+  panelists are those personas: all of them up to five, or the five that differ most in stance and
+  trade, so a product with twelve does not flood a board. Each gets the User card above filled from
+  its own name, stance, who and usage, never invented past them; it scores and debates by name, and
+  cites `persona:<name>` or a claim id in each post. Without personas, the Users are drawn from the
+  brief and the product's knowledge, as above.
 
 The **Skeptic's** card adds the dial: in round 1 it may not veto on cost, only ask what must be true.
 
@@ -135,8 +141,19 @@ Between the person's reactions and the next board, one debate, in three moves:
 2. **Cross-talk.** The moderator relays every post to everyone. Each panelist
    answers the others by name (builds on, challenges, changes its mind) and may revise its remix.
    One or two such turns, stopping early when nobody moves.
-3. **Converge.** The moderator turns the remixes into one direction per survivor; the prototypers
-   render the next board from it.
+3. **Converge.** The moderator turns the remixes into one direction per survivor, answering each
+   concept's objection (**The voice**) where the person's reactions allow; the prototypers render
+   the next board from it.
+
+### The voice
+
+Only when the fuel sheet lists personas. For each standing concept on each board, the persona it
+fits worst **objects once**: one or two first-person sentences, each citing a `persona:<name>` or a
+claim id of the fuel sheet. A sentence without a citation is dropped, never shown, and the objection
+stays silent when every persona fits. The voice never states a business fact the claims do not hold.
+Once the concept is reshaped, it gets one fit line, each persona or claim it leans on marked ✓ or ✗,
+such as `fits persona:Marc ✓ · size#2 ✓ · beats rival#20 ✓`. Without personas, no objection and no
+fit line: the run is as it was.
 
 ### The "go crazy" dial
 
@@ -168,7 +185,8 @@ board is drawn, two concepts that differ in shade and not in direction; the arti
 Each round's board is one self-contained HTML page, `<scratch>/board-r<k>.html`, k = 1, 2, … in the
 order shown. The moderator builds it from the round's cards or prototypes, copied in, never linked.
 Per concept: its letter, its name, its wow moment, its axis, the card or the prototype, the panel's
-scores, each stance, and the dissent beside the consensus.
+scores, each stance, and the dissent beside the consensus; with personas, the objection and the fit
+line too (**The voice**).
 
 Each concept carries four toggles, **keep**, **kill**, **merge** (into another letter) and
 **push further**, and a note. The page carries a **copy my reactions** button that builds one line
@@ -238,6 +256,10 @@ nothing in the repository changes.
   for that customer and cites a claim by its id wherever it leans on one. Any other `state` (`none`,
   `no-sign-in`, `unreachable`, `refused`) is said in one line to the person, and the run carries on
   without it; never type a business fact the claims do not hold.
+- **The personas.** The same read's `personas`, whatever its `state`: when it lists any, copy each
+  into the fuel sheet under the id `persona:<name>`, with its stance, trade, who and usage, beside
+  the claim ids. They become the panel's User panelists (**Role cards**) and its voice (**The
+  voice**). Without personas, the studio runs as today.
 - **World-class references,** when the session can search the web: patterns from other products and
   other industries (consumer apps, games, professional tools), each with its link and what to take
   from it. **No reference is cited that was not looked at.** When the session cannot search, say
@@ -396,7 +418,7 @@ crowned concept.
    | `2` | The kit is not installed here, or its config does not read: say so and stop. |
 
 6. **Log the citations,** only when the Fuel section names a business claim id: pass every id it
-   lists, once each.
+   lists, once each, and never a `persona:<name>`: personas are not claims.
 
    ```bash
    node .omni-loop/bin/omni.mjs business cited <id>… --by think-big --ref 'concept #<n>'

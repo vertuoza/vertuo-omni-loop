@@ -58,7 +58,7 @@ describe('the Proof tab', () => {
 
   it('comes after Outbox and PR care and before Retro once a run exists, counting the runs', () => {
     const v = page({ runs: RUNS, shown: null });
-    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'outbox', 'care', 'proof', 'retro']);
+    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'voice', 'outbox', 'care', 'proof', 'retro']);
     const tab = v.tabs.find((t) => t.kind === 'proof');
     expect(tab).toMatchObject({ label: 'Proof', badge: '2 runs', href: `/prd/${ID}?tab=proof`, current: false, empty: false });
   });

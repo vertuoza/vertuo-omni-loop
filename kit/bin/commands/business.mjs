@@ -27,6 +27,14 @@
 // `POST /api/business/citations`, so the page shows how often each is cited. It never blocks either:
 // any failed call prints one "citation skipped: … — agents carry on" line and exits 0.
 //
+// `omni business claim add --kind <kind> --value <value> --state proposed|confirmed --ref <text>` stores a
+// claim a person gave as an answer (PRD 822): source `answer`, the receipt `ref` (`<skill> · <run>`),
+// `proposed` when it overrules the voice (a member confirms it on Settings › Business) or `confirmed` when
+// it answers the gap question, through `POST /api/business/claims`. A value the business already holds is
+// not added twice: the reply says so. It never blocks either: any failed call prints one
+// "claim skipped: … — agents carry on" line and exits 0. A missing flag, an unknown kind or state, or a
+// blank value or ref is a usage error, exit 2.
+//
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
 import { askClient, AskCallError } from '../../lib/ask/client.mjs';
@@ -35,8 +43,13 @@ import { credentialsHost } from '../../lib/ask/credentials.mjs';
 import { loadContext } from '../../lib/context.mjs';
 import { parseArgs, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>]';
+const CLAIM_USAGE = 'usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>';
+const USAGE = `usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice('usage: '.length)}`;
 const CITED_USAGE = 'usage: omni business cited <id>… --by <skill> [--ref <text>]';
+/** The states an answered claim is stored in: an overrule's (proposed) or a gap question's (confirmed). */
+const ANSWER_STATES = ['proposed', 'confirmed'];
+/** Every state a stored claim may be in: a value already held keeps its own. */
+const STORED_STATES = ['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown'];
 const CARRY_ON = '— agents carry on';
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
 const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
@@ -165,6 +178,45 @@ async function cited(ids, flags, env) {
   return 0;
 }
 
+/** The claim `claim add` was given, or a `UsageError` saying what is missing or wrong. */
+function answerOf(positional, flags) {
+  const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  const fields = { kind: text(flags.kind), value: text(flags.value), state: text(flags.state), ref: text(flags.ref) };
+  if (positional.length !== 1 || positional[0] !== 'add' || Object.values(fields).includes(null)) throw usageError(CLAIM_USAGE);
+  if (!KINDS.includes(fields.kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS.join(', ')}.`);
+  if (!ANSWER_STATES.includes(fields.state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(' or ')}.`);
+  return fields;
+}
+
+/** The server's reply to a stored claim, or null when it does not read as one. */
+const storedOf = (reply) =>
+  (reply && isText(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === 'boolean' ? reply : null);
+
+/**
+ * `omni business claim add …`: stores a claim a person answered. The kind, value and state are the
+ * server's to judge in the end, so a refusal never stops a run: every failed call prints one
+ * "claim skipped" line and exits 0.
+ */
+async function claim(positional, flags, env) {
+  const answer = answerOf(positional, flags);
+  const skip = (line) => {
+    println(env.stdout, `claim skipped: ${line}`);
+    return 0;
+  };
+  const reached = reach(env);
+  if (!reached.client) return skip(reached.line);
+  let reply;
+  try {
+    reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
+  } catch (error) {
+    return skip(stopped(error).line);
+  }
+  const stored = storedOf(reply);
+  if (!stored) return skip(`refused (the reply is not a claim) ${CARRY_ON}`);
+  println(env.stdout, `claim ${stored.added ? 'saved' : 'already held'}: ${stored.id} (${stored.state})`);
+  return 0;
+}
+
 /** What `show` prints of a business it read: the `--json` body and the lines. */
 function shown(repo, read) {
   if (read.state === 'none') {
@@ -207,6 +259,10 @@ export const business = {
     if (args[0] === 'cited') {
       const { positional, flags } = parseArgs('business', args.slice(1), { values: ['by', 'ref'] });
       return cited(positional, flags, env);
+    }
+    if (args[0] === 'claim') {
+      const { positional, flags } = parseArgs('business', args.slice(1), { values: ['kind', 'value', 'state', 'ref'] });
+      return claim(positional, flags, env);
     }
     return show(args, env);
   },

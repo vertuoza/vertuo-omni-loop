@@ -5,7 +5,8 @@
 // /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
 // screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
 // PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`, and logs
-// the claims an agent cited (`POST /api/business/citations`), for `omni business cited`. Since
+// the claims an agent cited (`POST /api/business/citations`), for `omni business cited`; since PRD 822
+// it stores a claim a person answered (`POST /api/business/claims`), for `omni business claim add`. Since
 // PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 798 it sends a
 // proof run: asks for signed upload links (`POST /api/proofs/uploads`), puts each file to its link (a
 // signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
@@ -247,6 +248,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids, by, ref = null }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
+    /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
+     * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
+     * @returns {Promise<{ id: string, state: string, added: boolean }>} */
+    addClaim: ({ repo, kind, value, state, ref }) => call('POST', '/api/business/claims', { body: { repo, kind, value, state, ref } }),
     /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
      * own answer (`old`); the ref is sent only when there is one.
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */

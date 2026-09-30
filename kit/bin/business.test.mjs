@@ -369,3 +369,119 @@ describe('omni business cited', () => {
     });
   }
 });
+
+describe('omni business claim add (PRD 822)', () => {
+  /** A checkout whose fake server stores claims with `claim`, or answers 404 without it. */
+  async function claiming({ claim: store, signedIn = true, url } = {}) {
+    server = await startFakeAskServer({ claim: store });
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
+    const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
+    return { root, tokens };
+  }
+  const ADD = ['claim', 'add', '--kind', 'size', '--value', '20-50', '--ref', 'brainstorm · PRD 822'];
+  const stored = (sent) => (body) => {
+    sent.push(body);
+    return { body: { id: 'size#12', state: body.state, added: true } };
+  };
+
+  for (const state of ['proposed', 'confirmed']) {
+    it(`stores a ${state} claim through POST /api/business/claims, and says so`, async () => {
+      const sent = [];
+      const c = await claiming({ claim: stored(sent) });
+      const run = await show([...ADD, '--state', state], c);
+      expect(run).toEqual({ code: 0, err: '', out: `claim saved: size#12 (${state})\n` });
+      expect(sent).toEqual([{ repo: 'acme/widgets', kind: 'size', value: '20-50', state, ref: 'brainstorm · PRD 822' }]);
+      expect(server.calls.map(({ method, path, authorization }) => ({ method, path, authorization }))).toEqual([
+        { method: 'POST', path: '/api/business/claims', authorization: 'Bearer access-1' },
+      ]);
+    });
+  }
+
+  it('says when the business already held that value, in the state it now has', async () => {
+    const c = await claiming({ claim: () => ({ body: { id: 'size#3', state: 'confirmed', added: false } }) });
+    const run = await show([...ADD, '--state', 'proposed'], c);
+    expect(run).toEqual({ code: 0, err: '', out: 'claim already held: size#3 (confirmed)\n' });
+  });
+
+  it('a value the business once rejected is named as rejected, not stored again', async () => {
+    const c = await claiming({ claim: () => ({ body: { id: 'rival#7', state: 'rejected', added: false } }) });
+    const run = await show(['claim', 'add', '--kind', 'rival', '--value', 'Old Rival', '--state', 'proposed', '--ref', 'r'], c);
+    expect(run).toEqual({ code: 0, err: '', out: 'claim already held: rival#7 (rejected)\n' });
+  });
+
+  const SKIPS = [
+    {
+      name: 'a refusal, with its reason',
+      setup: () => claiming({ claim: () => ({ status: 403, body: { error: 'you are not a member of Acme, which owns acme/widgets' } }) }),
+      line: 'claim skipped: refused (403): you are not a member of Acme, which owns acme/widgets — agents carry on',
+    },
+    {
+      name: 'a server older than the call',
+      setup: () => claiming(),
+      line: 'claim skipped: refused (404): no such call — agents carry on',
+    },
+    {
+      name: 'a reply that is not a claim',
+      setup: () => claiming({ claim: () => ({ body: { cited: 1 } }) }),
+      line: 'claim skipped: refused (the reply is not a claim) — agents carry on',
+    },
+    {
+      name: 'no sign-in',
+      setup: () => claiming({ claim: stored([]), signedIn: false }),
+      line: 'claim skipped: no sign-in (omni signin) — agents carry on',
+    },
+    {
+      name: 'a sign-in the app no longer honours',
+      setup: async () => {
+        const c = await claiming({ claim: stored([]) });
+        server.denyAccess();
+        return c;
+      },
+      line: 'claim skipped: the sign-in was refused (omni signin) — agents carry on',
+    },
+    {
+      name: 'no Omni page set here',
+      setup: () => claiming({ claim: stored([]), url: null }),
+      line: 'claim skipped: no Omni page is set here (ask.url) — agents carry on',
+    },
+    {
+      name: 'the app unreachable',
+      setup: async () => {
+        const c = await claiming({ claim: stored([]) });
+        await server.close();
+        return c;
+      },
+      line: 'claim skipped: the Omni page could not be reached — agents carry on',
+    },
+  ];
+
+  for (const { name, setup, line } of SKIPS) {
+    it(`a failed call prints a skip line and exits 0: ${name}`, async () => {
+      const c = await setup();
+      const run = await show([...ADD, '--state', 'proposed'], c);
+      expect(run).toEqual({ code: 0, out: `${line}\n`, err: '' });
+    });
+  }
+
+  const flags = (without, extra = []) => {
+    const all = { '--kind': 'size', '--value': '20-50', '--state': 'proposed', '--ref': 'brainstorm · PRD 822' };
+    return ['claim', 'add', ...Object.entries(all).filter(([flag]) => flag !== without).flat(), ...extra];
+  };
+  for (const args of [
+    ['claim'], ['claim', 'remove'], flags('--kind'), flags('--value'), flags('--state'), flags('--ref'),
+    flags(null, ['extra']), flags(null, ['--json']),
+    ['claim', 'add', '--kind', 'colour', '--value', 'red', '--state', 'proposed', '--ref', 'r'],
+    ['claim', 'add', '--kind', 'size', '--value', '20-50', '--state', 'rejected', '--ref', 'r'],
+    ['claim', 'add', '--kind', 'size', '--value', '  ', '--state', 'proposed', '--ref', 'r'],
+    ['claim', 'add', '--kind', 'size', '--value', '20-50', '--state', 'proposed', '--ref', ' '],
+  ]) {
+    it(`a usage error exits 2: omni business ${args.join(' ')}`, async () => {
+      const c = await claiming({ claim: stored([]) });
+      const run = await show(args, c);
+      expect(run.code).toBe(2);
+      expect(run.out).toBe('');
+      expect(run.err).toMatch(/omni business/);
+      expect(server.calls).toEqual([]);
+    });
+  }
+});

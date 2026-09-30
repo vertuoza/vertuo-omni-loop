@@ -199,7 +199,11 @@ export const ENTRIES = deepFreeze([
     name: 'business',
     kind: 'command',
     who: 'you',
-    usage: ['omni business show [--json]', 'omni business cited <id>… --by <skill> [--ref <text>]'],
+    usage: [
+      'omni business show [--json]',
+      'omni business cited <id>… --by <skill> [--ref <text>]',
+      'omni business claim add --kind <k> --value <v> --state <s> --ref <text>',
+    ],
     label: 'omni business show',
     summary: 'the business this repository serves, as agents read it',
     detail:
@@ -212,7 +216,11 @@ export const ENTRIES = deepFreeze([
       'as personas, [] when there are none. With no business, ' +
       'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
       'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
-      'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0.',
+      'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. ' +
+      'claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its ' +
+      'receipt the skill and the run: proposed, for a member to confirm on the Business page, or ' +
+      'confirmed; a value the business already holds is named, not stored twice, and a failed call ' +
+      'prints a skip line and exits 0.',
   },
   {
     name: 'decide',

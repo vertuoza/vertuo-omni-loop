@@ -79,9 +79,9 @@ function tab({ github = summary() as GithubSummary | null, query = {} as Record<
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 describe('the tab', () => {
-  it('is Outbox, after Plan, with n open in its label, and current; the other tabs are unchanged', () => {
+  it('is Outbox, after Plan and the User voice, with n open in its label, and current; the other tabs are unchanged', () => {
     const html = tab();
-    expect(html).toMatch(/Plan<\/a><a class="dossier-tab" href="\/prd\/[^"]+\?tab=outbox" aria-current="page">Outbox<small>2 open<\/small><\/a>/);
+    expect(html).toMatch(/User voice<\/a><a class="dossier-tab" href="\/prd\/[^"]+\?tab=outbox" aria-current="page">Outbox<small>2 open<\/small><\/a>/);
     expect(html).toContain('>Before/after<small>v1</small></a>');
     expect(html).toContain('>Spec<small>v1</small></a>');
   });

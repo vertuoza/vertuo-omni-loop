@@ -5,10 +5,10 @@ import { randomHero, type Hero } from '@omni/design';
 import {
   chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
 } from './scenes';
-import { useForm } from './form';
+import { useForm, type Form } from './form';
 import { useFullscreen } from './fullscreen';
 import { FullscreenButton, useFullscreenState } from './FullscreenButton';
-import { frameFor, gridFor, pagesFor, TALL, turnPage, WIDE } from './grid';
+import { frameFor, gridFor, pagesFor, TALL, turnPage, WIDE, type Grid } from './grid';
 import { planetAt, Screen, type GridPoint, type ScreenInfo } from './Screen';
 import { Handheld, Lens } from './Handheld';
 import { Advance } from './Advance';
@@ -31,12 +31,16 @@ import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
+import { PlatformerOverlay } from './scenes/platformer.tsx';
+import { PlatformerScreen } from './platformer/PlatformerScreen';
+import { ended, newSession, pressSession } from './platformer/session';
+import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
 import { cabinetDoor, cabinets, xpStatus } from './games/room';
 import { GAMES } from './games';
 import {
   hudOf, newGame, OVER_SECONDS, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
 } from './games/invaders';
-import { failed, hiOf, overPress, saved, sending, withBest, type ScoreSend } from './scenes/invaders-score';
+import { hiOf, overPress, sending, submitSend, withBest, type ScoreSend } from './scenes/invaders-score';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
@@ -63,6 +67,17 @@ const playGame = (e: GameEvent, g: Game) => (e === 'march' ? march(g.marchStep) 
 const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 // Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
 const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
+// Super Omni World's key in the registry: its scores are sent under it (PRD 817).
+const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
+// The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
+const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer']);
+
+/** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
+function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null): Grid {
+  if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
+  if (scene === 'platformer' && pf) return pf.grid;
+  return gridFor(form, scene);
+}
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
@@ -211,8 +226,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     hudRef.current = next;
     setHud(next);
   }, []);
-  // The crew's tables, and the game over's score: sent once (`send`), for the game `run` counts, so
-  // an answer that comes back after a new game started changes the table but not the new game.
+  // The crew's tables, and the score at a game's end: sent once (`send`) under the game's key, for
+  // the game `run` counts, so an answer that comes back after a new game started changes the table
+  // but not the new game. Only one game plays at a time, so they share it.
   const [scores, setScores] = useState<Record<string, ScoresRead>>(scores0 ?? {});
   const scoresRef = useRef(scores);
   scoresRef.current = scores;
@@ -220,30 +236,34 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const sendRef = useRef<ScoreSend | null>(null);
   const runRef = useRef(0);
   const showSend = useCallback((s: ScoreSend | null) => { sendRef.current = s; setSend(s); }, []);
-  const sendScore = useCallback((score: number, tries = 1) => {
+  const sendScore = useCallback((game: string, score: number, tries = 1) => {
     const run = runRef.current;
     const attempt = sending(score, tries);
-    const board = scoresRef.current[INVADERS];
+    const board = scoresRef.current[game];
     const before = board && board !== 'unreadable' ? board.mine : null;
+    // Super Omni World is silent (PRD 817): only Invaders sounds its score.
+    const loud = game === INVADERS;
     showSend(attempt);
-    account.submitScore(INVADERS, score).then((best) => {
-      const m = meRef.current;
-      if (m) setScores((all) => ({ ...all, [INVADERS]: withBest(all[INVADERS], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
-      // Then the table as stored, with whatever the crew scored meanwhile.
-      account.scores(INVADERS).then((b) => setScores((all) => ({ ...all, [INVADERS]: b }))).catch(() => { /* the line above stands */ });
+    void submitSend(account, game, attempt, before).then(({ send: done, best }) => {
+      if (best !== null) {
+        const m = meRef.current;
+        if (m) setScores((all) => ({ ...all, [game]: withBest(all[game], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
+        // Then the table as stored, with whatever the crew scored meanwhile.
+        account.scores(game).then((b) => setScores((all) => ({ ...all, [game]: b }))).catch(() => { /* the line above stands */ });
+      }
       if (run !== runRef.current) return;
-      const done = saved(attempt, best, before);
       showSend(done);
-      if (done.state === 'saved' && done.newBest) sfx('linked');
-    }).catch((err: Error) => {
-      console.error(err);
-      if (run !== runRef.current) return;
-      showSend(failed(attempt));
-      sfx('buzz');
+      if (loud && done.state === 'saved' && done.newBest) sfx('linked');
+      if (loud && done.state === 'failed') sfx('buzz');
     });
   }, [account, showSend]);
   const sendScoreRef = useRef(sendScore);
   sendScoreRef.current = sendScore;
+
+  // Super Omni World (PRD 817): the game as the arcade holds it around the Phaser scene; a pause
+  // from outside reaches it only while it is the scene up.
+  const { pf, pfRef, setPf, onEvent: onPlatformerEvent, onStatus: onPlatformerStatus, pause: pausePlatformer } =
+    usePlatformer(sendScoreRef, PLATFORMER, () => uiRef.current.scene === 'platformer');
 
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
@@ -295,6 +315,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     go({ scene: 'invaders' }, 'start');
   }, [view, problem, go, showHud, showSend, held]);
 
+  /** A on Super Omni World's unlocked cabinet: a new game from 1-1, on the grid it is shown on. */
+  const playPlatformer = useCallback(() => {
+    held.clear();
+    runRef.current += 1;
+    showSend(null);
+    setPf({ session: newSession(), status: 'loading', retry: 0, grid: gridFor(formRef.current, 'platformer') });
+    go({ scene: 'platformer' }, 'start');
+  }, [go, held, showSend]);
+
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
    * row and from the Game Boy's switch alike. A game in play pauses first, so B comes back to the
@@ -305,9 +334,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const g = uiRef.current.scene === 'invaders' ? gameRef.current : null;
     const under = openOver(g);
     if (under !== g) { gameRef.current = under; showHud(under); }
+    pausePlatformer();
     held.clear();
     go({ ...patch, leaving: true }, 'select');
-  }, [app, go, showHud, held]);
+  }, [app, go, showHud, held, pausePlatformer]);
 
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
@@ -382,12 +412,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     if (ui.scene === 'invaders' && !gameRef.current) go({ scene: 'games' });
     if (ui.scene !== 'invaders' && gameRef.current) { gameRef.current = null; showHud(null); }
+    if (ui.scene === 'platformer' && !pfRef.current) go({ scene: 'games' });
+    if (ui.scene !== 'platformer' && pfRef.current) setPf(null);
   }, [ui.scene, go, showHud]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
     const lost = () => {
       held.clear();
+      pausePlatformer();
       const g = gameRef.current;
       if (uiRef.current.scene !== 'invaders' || !g) return;
       gameRef.current = pauseGame(g);
@@ -400,7 +433,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [held, showHud]);
+  }, [held, showHud, pausePlatformer]);
 
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
@@ -645,6 +678,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'start') {
           const door = cabinetDoor(room[at], status);
           if (!('scene' in door)) return go({ toast: door.refused }, 'buzz');
+          if (door.scene === 'platformer') return playPlatformer();
           return door.scene === 'invaders' ? playInvaders() : go({ scene: door.scene }, 'select');
         }
         if (action === 'b') return go({ scene: 'menu' }, 'back');
@@ -658,6 +692,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (u.levelUp && login) seen.set(login, u.levelUp.xp.level);
         const game = action === 'b' ? null : u.levelUp?.game ?? null;
         if (game?.scene === 'invaders') return view ? playInvaders() : open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+        if (game?.scene === 'platformer') return playPlatformer();
         if (game?.scene) return go({ scene: game.scene }, 'start');
         return open('menu', {}, action === 'b' ? 'back' : 'select');
       }
@@ -669,7 +704,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const s = sendRef.current;
         if (g.over && s && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry' && s.state === 'failed') {
           sfx('select');
-          return sendScore(s.score, s.tries + 1);
+          return sendScore(INVADERS, s.score, s.tries + 1);
         }
         const { game: next, leave } = pressGame(g, action);
         if (leave) {
@@ -681,6 +716,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         gameRef.current = next;
         sfx(next.paused ? 'back' : 'select');
         return showHud(next);
+      }
+      case 'platformer': {
+        // The scene reads ◀ ▶, A and B held itself; a press answers START, SELECT and the screens. Silent (PRD 817).
+        const p = pfRef.current;
+        if (!p) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        // At the game's end, A retries a score that was not saved, once; the rest is the game's.
+        const s = sendRef.current;
+        if (ended(p.session) && s && overPress(s, action) === 'retry' && s.state === 'failed') return sendScore(PLATFORMER, s.score, s.tries + 1);
+        const r = pressSession(p.session, action, p.status);
+        if (r.leave) { setPf(null); return go({ scene: 'games' }, 'back'); }
+        if (r.retry) return setPf({ ...p, retry: p.retry + 1 });
+        if (r.session !== p.session) setPf({ ...p, session: r.session });
+        return;
       }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
@@ -704,7 +752,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, showHud, sendScore, seen, problem, dossiers, app]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -743,7 +791,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       e.preventDefault();
       held.keyDown(e.key);
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;
-      if (e.repeat && uiRef.current.scene === 'invaders') return; // a game reads a held key as held, never as repeats
+      if (e.repeat && HELD_SCENES.has(uiRef.current.scene)) return; // a game reads a held key as held, never as repeats
       act(action);
     };
     const onKeyUp = (e: KeyboardEvent) => held.keyUp(e.key);
@@ -765,7 +813,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = ui.scene === 'invaders' && hud ? GAME_GRID[hud.layout] : gridFor(form, ui.scene);
+  const grid = sceneGrid(ui.scene, form, hud, pf);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
@@ -789,7 +837,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         gameRef.current = game;
         for (const e of game.events) playGame(e, game);
         showHud(game);
-        if (game.over && !sendRef.current) sendScoreRef.current(game.score); // once a game: sendRef is set at once
+        if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
@@ -880,6 +928,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
+      case 'platformer': return pf ? (
+        <>
+          <PlatformerScreen grid={pf.grid} hero={me?.hero ?? ui.hero} team={me?.team ?? null} held={held.buttons}
+            paused={pf.session.phase !== 'play' || ui.leaving} retry={pf.retry} onEvent={onPlatformerEvent} onStatus={onPlatformerStatus} />
+          <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
+        </>
+      ) : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} owner={owner} /> : null;
@@ -909,7 +964,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           </Screen>
         </Lens>
         <FullscreenButton form={form} {...fullscreenState} fullscreen={fullscreen} />
-        <HeldPad.Provider value={ui.scene === 'invaders' ? held : null}>
+        <HeldPad.Provider value={HELD_SCENES.has(ui.scene) ? held : null}>
           {form === 'handheld' && <Handheld {...body} />}
           {form === 'advance' && <Advance {...body} />}
         </HeldPad.Provider>
