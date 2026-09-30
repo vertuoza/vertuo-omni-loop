@@ -1,7 +1,7 @@
 // The business read of the kit's contract (PRD 748's spec, "The read"), as a plain function of a
 // Request, so it is tested with a stubbed Supabase client and app/api/business/route.ts stays one line:
 //
-//   GET /api/business?repo=<owner/name>   → 200 {state, business, product, claims}   (decision 14)
+//   GET /api/business?repo=<owner/name>   → 200 {state, business, product, claims, personas}   (decision 14, PRD 799)
 //   POST /api/business/citations {repo, ids, by, ref?}   → 200 {cited}   the citation log (decision 6)
 //
 // The kit calls it with the terminal's sign-in. Only confirmed and contradicted claims come back, each

@@ -36,6 +36,7 @@ function db({
   receipts = { data: [] } as Answer,
   pages = { data: [] } as Answer,
   drafts = { data: [] } as Answer,
+  personas = { data: [] } as Answer,
 } = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
@@ -48,7 +49,7 @@ function db({
     };
     return q;
   };
-  const tables: Record<string, Answer> = { products, claims, claim_citations: citations, claim_receipts: receipts, business_sources: pages, business_drafts: drafts };
+  const tables: Record<string, Answer> = { products, claims, claim_citations: citations, claim_receipts: receipts, business_sources: pages, business_drafts: drafts, personas };
   return {
     calls,
     rpc: async (fn: string, args: unknown) => {
@@ -79,6 +80,7 @@ describe('the business page\'s read', () => {
       ],
       draft: null,
       pages: [],
+      personas: [],
     });
     expect(d.calls).toContainEqual(['rpc', 'business_open', { p_workspace: 'ws-1' }]);
     expect(d.calls).toContainEqual(['eq', 'business_id', 'b-1']);
@@ -106,6 +108,26 @@ describe('the business page\'s read', () => {
   it('reads the page without receipts, web pages or draft when those cannot be read', async () => {
     const down = { error: { message: 'down' } };
     expect(await loadBusinessPage(db({ receipts: down, pages: down, drafts: down }) as never, USER)).toMatchObject({ kind: 'business', draft: null, pages: [] });
+  });
+
+  it('reads every product\'s personas, oldest first (PRD 799 s3)', async () => {
+    const avatar = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
+    const d = db({ personas: { data: [
+      { id: 'pe-1', product_id: 'p-1', ordinal: 1, name: 'Marc', stance: 'skeptical', trade: 'plumber', avatar, who: 'Runs five plumbers', usage: 'Quotes' },
+      { id: 'pe-2', product_id: 'p-2', ordinal: '2', name: 'Anne', stance: 'neutral', trade: 'accountant', avatar, who: '', usage: '' },
+    ] } });
+    expect(await loadBusinessPage(d as never, USER)).toMatchObject({
+      kind: 'business',
+      personas: [
+        { id: 'pe-1', product: 'p-1', ordinal: 1, name: 'Marc', stance: 'skeptical', trade: 'plumber', avatar, who: 'Runs five plumbers', usage: 'Quotes' },
+        { id: 'pe-2', product: 'p-2', ordinal: 2, name: 'Anne', stance: 'neutral', trade: 'accountant', avatar, who: '', usage: '' },
+      ],
+    });
+    expect(d.calls).toContainEqual(['from', 'personas']);
+  });
+
+  it('reads the page with no persona when they cannot be read', async () => {
+    expect(await loadBusinessPage(db({ personas: { error: { message: 'down' } } }) as never, USER)).toMatchObject({ kind: 'business', personas: [] });
   });
 
   it('reads an empty business as no claim', async () => {

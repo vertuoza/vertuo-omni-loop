@@ -6,8 +6,10 @@
 // screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
 // PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`, and logs
 // the claims an agent cited (`POST /api/business/citations`), for `omni business cited`. Since
-// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 812 it asks a
-// workspace's Jev decision (`POST /api/decide/<decision>`), for `omni decide`.
+// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 798 it sends a
+// proof run: asks for signed upload links (`POST /api/proofs/uploads`), puts each file to its link (a
+// signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
+// (`POST /api/decide/<decision>`), for `omni decide`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -16,6 +18,8 @@
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long one proof file's upload may take: a clip is up to 50 MB. */
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 export class AskCallError extends Error {
   /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
@@ -169,9 +173,27 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
   }
 
+  /**
+   * Puts `bytes` to a signed upload link as `type`. The link is its own permission: no bearer token
+   * goes with it. Anything but a 2xx, a network failure or a timeout is an `AskCallError`.
+   */
+  async function upload(url, bytes, type, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
+    let response;
+    try {
+      response = await fetch(url, { method: 'PUT', headers: { 'content-type': type }, body: bytes, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      throw new AskCallError(`PUT a proof file: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+    }
+    if (!response.ok) {
+      const reason = reasonOf(await bodyOf(response));
+      throw new AskCallError(`PUT a proof file: ${response.status}`, { status: response.status, reason });
+    }
+  }
+
   return {
     renew,
     download,
+    upload,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
     openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
@@ -211,6 +233,13 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
     findDossier: ({ repo, prd, kind = 'prd' }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
+    /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
+     * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
+    requestProofUploads: ({ repo, prd, files }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
+    /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
+     * @returns {Promise<{ url: string }>} */
+    registerProof: ({ repo, prd, run, commit, url, criteria }) =>
+      call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */

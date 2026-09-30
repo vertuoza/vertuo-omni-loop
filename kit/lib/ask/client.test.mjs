@@ -346,3 +346,53 @@ describe('downloading a screenshot (PRD 620)', () => {
     await expect(down.client.download('https://files.example/x')).rejects.toBeInstanceOf(AskCallError);
   });
 });
+
+describe('the proof calls (PRD 798)', () => {
+  function stubbed(answer) {
+    const requests = [];
+    const tokens = memoryTokens({ 'ask.example': { access_token: 'access-1' } });
+    const client = askClient({
+      baseUrl: 'https://ask.example',
+      host: 'ask.example',
+      tokens,
+      fetch: async (url, init) => {
+        requests.push({ url, method: init.method, headers: init.headers, body: init.body });
+        return answer(url, init);
+      },
+    });
+    return { client, requests };
+  }
+  const json = (status, body) => new Response(JSON.stringify(body), { status });
+
+  it('asks for upload links and registers the run with the bearer token, sending the bodies as given', async () => {
+    const { client, requests } = stubbed((url) =>
+      json(200, url.endsWith('/uploads') ? { run: 'r-1', files: [{ name: '1.webm', path: 'd/r-1/1.webm', url: 'https://files.example/1' }] } : { url: 'https://ask.example/prd/d?tab=proof' }));
+    const files = [{ name: '1.webm', bytes: 3, type: 'video/webm' }];
+    expect(await client.requestProofUploads({ repo: 'acme/widgets', prd: 7, files })).toEqual({
+      run: 'r-1', files: [{ name: '1.webm', path: 'd/r-1/1.webm', url: 'https://files.example/1' }],
+    });
+    const criteria = [{ text: 'It shows.', verdict: 'pass', video: '1.webm' }];
+    expect(await client.registerProof({ repo: 'acme/widgets', prd: 7, run: 'r-1', commit: 'abcdef1', url: 'https://p.example', criteria }))
+      .toEqual({ url: 'https://ask.example/prd/d?tab=proof' });
+    expect(requests.map(({ url, method, headers }) => [method, url, headers.authorization])).toEqual([
+      ['POST', 'https://ask.example/api/proofs/uploads', 'Bearer access-1'],
+      ['POST', 'https://ask.example/api/proofs', 'Bearer access-1'],
+    ]);
+    expect(JSON.parse(requests[0].body)).toEqual({ repo: 'acme/widgets', prd: 7, files });
+    expect(JSON.parse(requests[1].body)).toEqual({ repo: 'acme/widgets', prd: 7, run: 'r-1', commit: 'abcdef1', url: 'https://p.example', criteria });
+  });
+
+  it('puts a file to its signed link as its type, with no bearer token', async () => {
+    const { client, requests } = stubbed(() => new Response('{}', { status: 200 }));
+    const bytes = new Uint8Array([1, 2, 3]);
+    await client.upload('https://files.example/1?token=t', bytes, 'video/webm');
+    expect(requests).toEqual([{ url: 'https://files.example/1?token=t', method: 'PUT', headers: { 'content-type': 'video/webm' }, body: bytes }]);
+  });
+
+  it('an upload refused or out of reach is an AskCallError', async () => {
+    await expect(stubbed(() => json(413, { error: 'too big' })).client.upload('https://files.example/x', new Uint8Array(), 'video/webm'))
+      .rejects.toMatchObject({ name: 'AskCallError', status: 413 });
+    await expect(stubbed(() => { throw new TypeError('fetch failed'); }).client.upload('https://files.example/x', new Uint8Array(), 'video/webm'))
+      .rejects.toMatchObject({ name: 'AskCallError', status: null });
+  });
+});

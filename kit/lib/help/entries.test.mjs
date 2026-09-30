@@ -92,11 +92,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 38 commands and the 22 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(38);
-    expect(skillFolders()).toHaveLength(22);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(38);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(22);
+  it('holds the 39 commands and the 23 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(39);
+    expect(skillFolders()).toHaveLength(23);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(39);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(23);
   });
 
   it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
@@ -224,7 +224,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'status'],
+      everyday: ['ask', 'help', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });

@@ -13,7 +13,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseFrontMatterLines } from '../inbox/inbox.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
 import { parseFolderName } from '../layout.mjs';
 
 /** The largest artifact the contract takes. */

@@ -14,7 +14,7 @@
  *    concept and one for a lite one, and each `PRD` cell empty or `#<number>`.
  */
 import { z } from 'zod';
-import { parseFrontMatterLines } from '../inbox/inbox.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
 export const CONCEPT_KINDS = /** @type {const} */ (['product', 'identity', 'platform']);

@@ -124,7 +124,7 @@ do $$
 declare got jsonb;
 begin
   got := public.business_for_repo('vertuoza/vertuo-apps');
-  if got <> '{"state": "none", "business": null, "product": null, "claims": []}'::jsonb then
+  if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": []}'::jsonb then
     raise exception 'FAIL: business_for_repo with no business answered %', got;
   end if;
   begin
