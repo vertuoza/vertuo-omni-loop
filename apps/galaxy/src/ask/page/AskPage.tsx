@@ -10,6 +10,7 @@ import { databaseTabs, type TabsPort } from './source';
 import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, toggleList, type Page, type Tab } from './tabs';
 import type { Member } from './question';
 import type { SessionState } from './view';
+import type { AskDock } from './dock-player';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
@@ -32,6 +33,8 @@ type Props = {
   me: string;
   /** The selected session's workspace, whom its owner may share an open round with (PRD 144). */
   members?: Member[];
+  /** Who plays in the selected tab's play dock (PRD 757); none, no dock. */
+  dock?: AskDock | null;
 };
 
 function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
@@ -44,7 +47,7 @@ function TabState({ tab }: { tab: Tab }) {
   return <span className="ask-tab-state">{tab.state === 'closed' ? 'closed' : 'working'}</span>;
 }
 
-export function AskPage({ source, page: initial, pane, serverNow, query = '', me, members = [] }: Props) {
+export function AskPage({ source, page: initial, pane, serverNow, query = '', me, members = [], dock = null }: Props) {
   const [page, setPage] = useState(initial);
   const [offset] = useState(() => serverNow - Date.now());
   const [now, setNow] = useState(serverNow);
@@ -136,7 +139,7 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
       </nav>
       <div className="ask-pane">
         {pane && page.selected === pane.session.id ? (
-          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} viewer="owner" me={me} members={members} />
+          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} viewer="owner" me={me} members={members} dock={dock} />
         ) : (
           <div className="ask-col">
             <section className="ask-card">

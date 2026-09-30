@@ -31,8 +31,8 @@ export interface DossierStreamProps {
   /** The shown Spec or Plan, rendered: it does not wait for GitHub. */
   markdown: Promise<RenderedMarkdown | null>;
   supabase: { url: string; key: string };
-  /** The change check, from the page as read with its summary. */
-  live: (read: DossierRead) => ReactNode;
+  /** The change check, from the page as read with its summary (and, PRD 757, its play dock's player). */
+  live: (read: DossierRead) => ReactNode | Promise<ReactNode>;
 }
 
 type Props = Omit<DossierStreamProps, 'live'>;
@@ -48,7 +48,7 @@ async function Pending({ read, me, pick, reads, markdown, supabase }: Props) {
 export async function completePage({ read, me, pick, reads, markdown, supabase, live }: DossierStreamProps) {
   const [github, slices, stages, shown] = await Promise.all([reads.github, reads.slices, reads.stages, markdown]);
   const withGithub: DossierRead = { ...read, github, slices, stages };
-  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} supabase={supabase} live={live(withGithub)} />;
+  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} supabase={supabase} live={await live(withGithub)} />;
 }
 
 async function Complete(props: DossierStreamProps) {

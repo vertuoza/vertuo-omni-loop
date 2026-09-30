@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type SessionState,
+  categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type SessionState,
 } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
@@ -252,5 +252,31 @@ describe('screenshots on an answer (PRD 620)', () => {
     expect(screenshotsNote(0)).toBeNull();
     expect(screenshotsNote(1)).toBe('📎 1 screenshot');
     expect(screenshotsNote(3)).toBe('📎 3 screenshots');
+  });
+});
+
+describe('whether the tab\'s terminal is working (PRD 757)', () => {
+  const ping = (ago: number, ended = false) => ({ seen_at: at(ago), ended_at: ended ? at(0) : null });
+  const withPing = (s: SessionState, p: SessionState['ping']): SessionState => ({ ...s, ping: p });
+
+  it('is working while its Claude session sent a heartbeat under 3 minutes ago and nothing is asked', () => {
+    expect(tabWorking(withPing(state([]), ping(30_000)), NOW)).toBe('working');
+    expect(tabWorking(withPing(state([answered(10 * MIN, 'page')]), ping(2 * MIN)), NOW)).toBe('working');
+  });
+
+  it('is asking while a round is open, over working', () => {
+    expect(tabWorking(withPing(state([round({ ago: MIN })]), ping(30_000)), NOW)).toBe('asking');
+    expect(tabWorking(withPing(state([round({ ago: MIN })]), null), NOW)).toBe('asking');
+  });
+
+  it('is idle with no heartbeat, a stale one, or an ended one', () => {
+    expect(tabWorking(state([]), NOW)).toBe('idle');
+    expect(tabWorking(withPing(state([]), null), NOW)).toBe('idle');
+    expect(tabWorking(withPing(state([]), ping(3 * MIN)), NOW)).toBe('idle');
+    expect(tabWorking(withPing(state([]), ping(30_000, true)), NOW)).toBe('idle');
+  });
+
+  it('is idle once the session is closed, whatever it reads', () => {
+    expect(tabWorking(withPing(state([round({ ago: MIN })], { status: 'closed' }), ping(30_000)), NOW)).toBe('idle');
   });
 });
