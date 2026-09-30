@@ -40,6 +40,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     facing = 1;
     t = 0;
     done = false;
+    skyTop = 0;
 
     constructor() { super({ key: `stage-${stage.id}` }); }
 
@@ -68,8 +69,12 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       this.hero.setCollideWorldBounds(true);
       this.physics.add.collider(this.hero, layer);
 
-      this.cameras.main.setBounds(0, 0, width, height).setBackgroundColor(art.sky);
-      this.cameras.main.setScroll(0, 0);
+      // The stage stands on the screen's floor: on the wide grid, taller than the stage, the sky
+      // goes on above it.
+      const cam = this.cameras.main;
+      this.skyTop = Math.min(0, height - cam.height);
+      cam.setBounds(0, this.skyTop, width, height - this.skyTop).setBackgroundColor(art.sky);
+      cam.setScroll(0, this.skyTop);
     }
 
     update(_time: number, delta: number) {
@@ -97,7 +102,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
 
       // The camera follows to the right only.
       const target = Math.min(width - cam.width, this.hero.x - cam.width / 2);
-      if (target > cam.scrollX) cam.setScroll(Math.round(target), 0);
+      if (target > cam.scrollX) cam.setScroll(Math.round(target), this.skyTop);
 
       if (this.hero.y - PHYSICS.heroH / 2 > height) {
         o.onEvent('pit');
@@ -115,7 +120,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       this.hero.setPosition(startX, startY);
       (this.hero.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
       this.jump = JUMP_IDLE;
-      this.cameras.main.setScroll(0, 0);
+      this.cameras.main.setScroll(0, this.skyTop);
     }
   };
 }
