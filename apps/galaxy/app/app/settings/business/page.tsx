@@ -8,7 +8,8 @@ import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, type BusinessScreenView } f
 // (app/app/layout.tsx). Any member picks what it sells, to whom, where and against whom, each pick a
 // confirmed claim stored through the claim functions; agents read the confirmed ones with
 // `omni business show`. Rendered per request, as the signed-in person, so row-level security decides
-// what the read returns; opening it makes the business the first time. In development (or
+// what the read returns; opening it makes the business the first time. With the draft (PRD 774 s3), it
+// also reads each claim's receipts, the web pages pasted and the latest draft. In development (or
 // OMNI_LOOP_DEMO=1), the demo: a filled business, whose changes stay in the page.
 
 export const metadata: Metadata = { title: 'Business · OMNI LOOP' };
@@ -24,6 +25,8 @@ async function viewOf(): Promise<BusinessScreenView> {
     source: { kind: 'database', ...session.env, workspace: load.workspace.id, product: load.product.id },
     claims: load.claims,
     products: load.products,
+    draft: load.draft,
+    pages: load.pages,
   };
 }
 
