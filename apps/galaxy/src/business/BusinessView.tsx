@@ -1,7 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import {
-  BLANK, chipLabel, citationLine, confirmed, displayId, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS, sentence,
-  SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel,
+  BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS,
+  sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel, viewClaims,
   type BusinessState, type Claim, type ClaimKind,
 } from './model';
 
@@ -11,8 +11,12 @@ import {
 // and the rivals, each list ending in Other; Other and "+ add a rival" are the only fields a person
 // types in. Then one row per claim, with its id, its source, how often agents cited it and ✓ / ✗; the
 // claims marked wrong, folded; and the payoff card, what the next think-big will cite. Drawn on the
-// server first; BusinessPage.tsx wires the handlers. Nothing here says "Product": while the business
-// has one, the page never mentions products.
+// server first; BusinessPage.tsx wires the handlers.
+//
+// Products (PRD 748 s4): while the business has one, the page never mentions products but for the
+// one "+ Add a product" button at its foot. From the second on, the region is drawn once above one tab
+// per product, and everything else (the sentence, the picks, the rows, the payoff card) is the
+// selected tab's.
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
@@ -27,16 +31,26 @@ export interface BusinessHandlers {
   reject(claim: Claim): void;
   skip(): void;
   unskip(): void;
+  /** "+ Add a product": opens its name field (PRD 748 s4). */
+  openProduct(): void;
+  closeProduct(): void;
+  addProduct(name: string): void;
+  /** A product's tab. */
+  showProduct(id: string): void;
 }
 
 const IDLE: BusinessHandlers = {
   tap() {}, pick() {}, type() {}, untype() {}, sizeDraft() {}, sizeCommit() {}, confirm() {}, reject() {}, skip() {}, unskip() {},
+  openProduct() {}, closeProduct() {}, addProduct() {}, showProduct() {},
 };
 
 export const SKIP = 'Skip — agents work without it';
 export const SKIPPED = 'Skipped. Nothing was stored: agents carry on without it.';
 export const ADD_RIVAL = '+ add a rival';
 export const TRY_LINE = 'omni business show';
+/** The one text that names products while there is one: the button that adds the second. */
+export const ADD_PRODUCT = '+ Add a product';
+export const PRODUCT_NAME = 'The product’s name';
 
 export interface BusinessViewProps {
   state: BusinessState;
@@ -164,15 +178,65 @@ function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
   );
 }
 
-function Picks({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+/** The picks; with products, the region is drawn once above the tabs instead. */
+function Picks({ state, region, on }: { state: BusinessState; region: boolean; on: BusinessHandlers }) {
   return (
     <section className="ask-card business-picks" aria-label="Pick">
       <ChipGroup kind="offering" title="What you sell" list={OFFERINGS} state={state} on={on} />
       <SizeSlider state={state} on={on} />
       <ChipGroup kind="trade" title="Trade" list={TRADES} state={state} on={on} />
-      <ChipGroup kind="region" title="Region" list={REGIONS} state={state} on={on} />
+      {region && <ChipGroup kind="region" title="Region" list={REGIONS} state={state} on={on} />}
       <Rivals state={state} on={on} />
     </section>
+  );
+}
+
+function ProductField({ busy, on }: { busy: boolean; on: BusinessHandlers }) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = String(new FormData(event.currentTarget).get('name') ?? '').trim();
+    if (value) on.addProduct(value);
+  };
+  return (
+    <form className="business-type" onSubmit={submit}>
+      <label>
+        <span className="business-type-label">{PRODUCT_NAME}</span>
+        <input name="name" type="text" maxLength={80} required autoFocus autoComplete="off" disabled={busy} />
+      </label>
+      <button type="submit" className="ask-button" disabled={busy}>Add</button>
+      <button type="button" className="ask-button quiet" onClick={on.closeProduct} disabled={busy}>Cancel</button>
+    </form>
+  );
+}
+
+function AddProduct({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  return state.adding
+    ? <ProductField busy={state.busy} on={on} />
+    : <button type="button" className="ask-button quiet business-add-product" onClick={on.openProduct} disabled={state.busy}>{ADD_PRODUCT}</button>;
+}
+
+/** One tab per product, then "+ Add a product" (PRD 748 s4). */
+function ProductTabs({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  return (
+    <div className="business-products-bar">
+      <div className="business-products" role="tablist" aria-label="Products">
+        {state.products.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            className="business-product-tab"
+            aria-selected={p.id === state.current}
+            onClick={() => on.showProduct(p.id)}
+            disabled={state.busy}
+          >
+            {p.name}
+          </button>
+        ))}
+        {!state.adding && <AddProduct state={state} on={on} />}
+      </div>
+      {state.adding && <ProductField busy={state.busy} on={on} />}
+    </div>
   );
 }
 
@@ -213,12 +277,21 @@ function Payoff({ claims }: { claims: readonly Claim[] }) {
   );
 }
 
-export function BusinessView({ state, demo = false, on = IDLE }: BusinessViewProps) {
+export function BusinessView({ state: whole, demo = false, on = IDLE }: BusinessViewProps) {
+  // Everything below reads the tab's claims: every claim while there is one product.
+  const multi = hasProducts(whole.products);
+  const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
   const sure = confirmed(state.claims);
   const listedRows = state.claims.filter((c) => c.state !== 'rejected').sort(byOrder);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
   return (
     <div className="ask-col business">
+      {multi && !state.skipped && (
+        <section className="ask-card business-region" aria-label="Shared by every product">
+          <ChipGroup kind="region" title="Region · shared by every product" list={REGIONS} state={state} on={on} />
+        </section>
+      )}
+      {multi && <ProductTabs state={state} on={on} />}
       <section className="ask-card business-head" aria-labelledby="business-title">
         <p className="business-kicker">
           <span className="ask-chip">Business</span>
@@ -242,7 +315,7 @@ export function BusinessView({ state, demo = false, on = IDLE }: BusinessViewPro
           )}
       </section>
 
-      {!state.skipped && <Picks state={state} on={on} />}
+      {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
       {listedRows.length > 0 && (
         <section className="business-claims" aria-label="The claims agents read">
@@ -258,6 +331,12 @@ export function BusinessView({ state, demo = false, on = IDLE }: BusinessViewPro
       )}
 
       {sure.length > 0 && <Payoff claims={sure} />}
+
+      {!multi && (
+        <section className="business-more" aria-label="Sell something else">
+          <AddProduct state={state} on={on} />
+        </section>
+      )}
     </div>
   );
 }

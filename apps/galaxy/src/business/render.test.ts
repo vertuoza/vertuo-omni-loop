@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { businessReducer, initialState, type BusinessAction, type Claim } from './model';
-import { BusinessScreen, DEMO_CLAIMS, type BusinessScreenView } from './BusinessScreen';
-import { ADD_RIVAL, BusinessView, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
+import { businessReducer, initialState, type BusinessAction, type Claim, type Product } from './model';
+import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, type BusinessScreenView } from './BusinessScreen';
+import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
 // blanks, the picks, Skip), a filled one (the sentence as the title, a row per claim with its id,
@@ -144,9 +144,76 @@ describe('a filled business', () => {
     expect(text(payoff)).not.toContain('Old Co');
   });
 
-  it('never says "Product" while the business has one', () => {
-    expect(text(render(FILLED))).not.toMatch(/product/i);
-    expect(text(render([]))).not.toMatch(/product/i);
+  it('never says "Product" while the business has one, but for the one button that adds a second', () => {
+    const but = (html: string) => text(html).replace(ADD_PRODUCT, '');
+    expect(buttons(render(FILLED)).map((b) => b.text)).toContain(ADD_PRODUCT);
+    expect(but(render(FILLED))).not.toMatch(/product/i);
+    expect(but(render([]))).not.toMatch(/product/i);
+    expect(but(renderProducts(FILLED, [VERTUOZA]))).not.toMatch(/product/i);
+    expect(renderProducts(FILLED, [VERTUOZA])).not.toContain('role="tablist"');
+  });
+});
+
+const VERTUOZA: Product = { id: 'p-1', name: 'Vertuoza' };
+const LOOP: Product = { id: 'p-2', name: 'Omni Loop' };
+const renderProducts = (claims: Claim[], products: Product[], actions: BusinessAction[] = []) =>
+  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialState(claims, products)) }));
+
+describe('products (PRD 748 s4)', () => {
+  const TWO: Claim[] = [
+    claim(1, 'offering', 'ERP', { product: 'p-1' }),
+    claim(2, 'trade', 'construction', { product: 'p-1' }),
+    claim(3, 'region', 'Belgium', { product: null }),
+    claim(4, 'offering', 'developer tool', { product: 'p-2' }),
+    claim(5, 'rival', 'Acme Build', { product: 'p-1' }),
+  ];
+  const tabs = (html: string) => [...html.matchAll(/<button\b([^>]*role="tab"[^>]*)>([\s\S]*?)<\/button>/g)]
+    .map((m) => [text(m[2]), m[1].includes('aria-selected="true"')]);
+
+  it('opens a name field on "+ Add a product", the only field then', () => {
+    const html = renderProducts(FILLED, [VERTUOZA], [{ type: 'add-product' }]);
+    const fields = inputs(html).filter((i) => i.includes('type="text"'));
+    expect(fields).toHaveLength(1);
+    expect(text(html)).toContain(PRODUCT_NAME);
+    expect(buttons(html).map((b) => b.text)).not.toContain(ADD_PRODUCT);
+  });
+
+  it('shows one tab per product once there are two, the first selected, then "+ Add a product"', () => {
+    const html = renderProducts(TWO, [VERTUOZA, LOOP]);
+    expect(tabs(html)).toEqual([['Vertuoza', true], ['Omni Loop', false]]);
+    const bar = html.slice(html.indexOf('role="tablist"'), html.indexOf('</div>', html.indexOf('role="tablist"')));
+    expect(buttons(bar).map((b) => b.text)).toEqual(['Vertuoza', 'Omni Loop', ADD_PRODUCT]);
+  });
+
+  it('gives each tab its own sentence, picks and rows', () => {
+    const first = renderProducts(TWO, [VERTUOZA, LOOP]);
+    expect(h1(first)).toBe('We sell an ERP to ___-person construction firms in Belgium, up against Acme Build.');
+    expect(rowOf(first, 'offering#4')).toBe('');
+    const second = renderProducts(TWO, [VERTUOZA, LOOP], [{ type: 'show-product', product: 'p-2' }]);
+    expect(tabs(second)).toEqual([['Vertuoza', false], ['Omni Loop', true]]);
+    expect(h1(second)).toBe('We sell a developer tool to ___-person ___ in Belgium, up against ___.');
+    expect(rowOf(second, 'offering#1')).toBe('');
+    expect(text(rowOf(second, 'offering#4'))).toContain('Developer tool');
+    expect(buttons(groupOf(second, 'offering')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Developer tool']);
+  });
+
+  it('keeps the region shared above the tabs, once', () => {
+    const html = renderProducts(TWO, [VERTUOZA, LOOP]);
+    expect(html.match(/data-kind="region"/g)).toHaveLength(1);
+    expect(html.indexOf('data-kind="region"')).toBeLessThan(html.indexOf('role="tablist"'));
+    expect(html.indexOf('data-kind="offering"')).toBeGreaterThan(html.indexOf('role="tablist"'));
+    expect(buttons(groupOf(html, 'region')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Belgium']);
+  });
+
+  it('folds the shared region away on Skip, with the picks', () => {
+    expect(renderProducts(TWO, [VERTUOZA, LOOP], [{ type: 'skip' }])).not.toContain('data-kind="region"');
+  });
+
+  it('wraps the tabs at 393 px, and breaks a long name', () => {
+    const css = readFileSync(fileURLToPath(new URL('./business.css', import.meta.url)), 'utf8');
+    const rule = (selector: string) => css.slice(css.lastIndexOf(`${selector} {`), css.indexOf('}', css.lastIndexOf(`${selector} {`)));
+    expect(rule('.business-products')).toContain('flex-wrap: wrap');
+    expect(rule('.business-product-tab')).toContain('overflow-wrap: anywhere');
   });
 });
 
@@ -208,7 +275,7 @@ describe('the page\'s situations', () => {
   const screen = (view: BusinessScreenView) => renderToStaticMarkup(createElement(BusinessScreen, { view }));
   const VIEWS: BusinessScreenView[] = [
     { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
-    { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS },
+    { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS },
   ];
 
   it('says what is wrong when there is no business to show', () => {
@@ -219,7 +286,7 @@ describe('the page\'s situations', () => {
   });
 
   it('draws the business otherwise', () => {
-    expect(text(screen({ kind: 'business', source: { kind: 'demo' }, claims: [] }))).toContain('We sell ___');
+    expect(text(screen({ kind: 'business', source: { kind: 'demo' }, claims: [], products: DEMO_PRODUCTS }))).toContain('We sell ___');
   });
 
   it('starts with the Fleets · Repositories · Business tabs in every situation, Business marked', () => {

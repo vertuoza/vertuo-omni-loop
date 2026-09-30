@@ -182,3 +182,23 @@
   overflow-wrap: anywhere;
 }
 .business-try code { font-family: var(--ask-mono); }
+
+/* Products (PRD 748 s4): the shared region above one tab per product, and "+ Add a product" at the
+   foot while there is one. The tabs wrap, and a long name breaks. */
+.business-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-products-bar { display: grid; gap: 10px; min-width: 0; }
+.business-products { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.business-product-tab {
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 8px 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.business-product-tab[aria-selected='true'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+.business-product-tab:disabled { cursor: not-allowed; }
+.business-product-tab:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }

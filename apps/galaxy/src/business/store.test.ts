@@ -21,7 +21,7 @@ function db(answers: Array<{ data?: unknown; error?: unknown } | Error>) {
 }
 
 const row = (over: Record<string, unknown> = {}) => ({ id: 'c-1', seq: 1, kind: 'offering', value: 'ERP', source: 'pick', state: 'confirmed', product_id: 'p-1', ...over });
-const CLAIM: Claim = { id: 'c-1', seq: 1, kind: 'offering', value: 'ERP', source: 'pick', state: 'confirmed', cited: 0, lastBy: null };
+const CLAIM: Claim = { id: 'c-1', seq: 1, kind: 'offering', value: 'ERP', source: 'pick', state: 'confirmed', product: 'p-1', cited: 0, lastBy: null };
 
 describe('the database calls', () => {
   it('picks with claim_pick(), confirmed with source pick, on the product the page shows', async () => {
@@ -121,7 +121,7 @@ describe('suggested rivals', () => {
   it('asks the suggest-rivals route for the workspace and product the page shows, and reads the proposed rivals', async () => {
     const s = stubFetch({ ok: true, body: { claims: [row({ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed' })] } });
     const found = await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest();
-    expect(found).toEqual([{ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed', cited: 0, lastBy: null }]);
+    expect(found).toEqual([{ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed', product: 'p-1', cited: 0, lastBy: null }]);
     expect(s.calls[0][0]).toBe('/api/business/suggest-rivals');
     expect(s.calls[0][1].method).toBe('POST');
     expect(JSON.parse(String(s.calls[0][1].body))).toEqual({ workspace: 'ws-1', product: 'p-1' });
@@ -140,5 +140,46 @@ describe('suggested rivals', () => {
 
   it('guesses nothing in the demo', async () => {
     expect(await demoBusinessPort([CLAIM]).suggest()).toEqual([]);
+  });
+
+  it('asks for the product it is given (PRD 748 s4)', async () => {
+    const s = stubFetch({ ok: true, body: { claims: [] } });
+    await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest('p-2');
+    expect(JSON.parse(String(s.calls[0][1].body))).toEqual({ workspace: 'ws-1', product: 'p-2' });
+  });
+});
+
+describe('products (PRD 748 s4)', () => {
+  it('picks on the product it is given, a region still on the business', async () => {
+    const d = db([{ data: row({ product_id: 'p-2' }) }, { data: row({ kind: 'region', product_id: null }) }]);
+    const port = databaseBusiness(d, 'ws-1', 'p-1');
+    await port.pick('offering', 'ERP', 'p-2');
+    await port.pick('region', 'Belgium', 'p-2');
+    expect(d.calls[0][1]).toMatchObject({ p_product: 'p-2' });
+    expect(d.calls[1][1]).toMatchObject({ p_product: null });
+  });
+
+  it('makes a plan\'s pick on the product it is given', async () => {
+    const d = db([{ data: row({ product_id: 'p-2' }) }]);
+    await run(callsOf(databaseBusiness(d, 'ws-1', 'p-1'), 'offering', planPick([], 'offering', 'ERP'), 'p-2'), () => {});
+    expect(d.calls[0]).toEqual(['claim_pick', expect.objectContaining({ p_product: 'p-2' })]);
+  });
+
+  it('adds a product with product_add(), answering it, or a refusal', async () => {
+    const d = db([{ data: { id: 'p-2', name: 'Omni Loop', workspace_id: 'ws-1' } }]);
+    expect(await databaseBusiness(d, 'ws-1', 'p-1').addProduct('Omni Loop')).toEqual({ ok: true, product: { id: 'p-2', name: 'Omni Loop' } });
+    expect(d.calls).toEqual([['product_add', { p_workspace: 'ws-1', p_name: 'Omni Loop' }]]);
+    expect(await databaseBusiness(db([{ error: { code: '22023' } }]), 'ws-1', 'p-1').addProduct('Omni Loop')).toEqual({ ok: false, message: INVALID });
+    expect(await databaseBusiness(db([new Error('offline')]), 'ws-1', 'p-1').addProduct('x')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+
+  it('adds a product in the demo, refusing a name already taken, and picks on it', async () => {
+    const port = demoBusinessPort([CLAIM], [{ id: 'demo-product-1', name: 'Acme ERP' }]);
+    const added = await port.addProduct(' Widgets ');
+    expect(added).toMatchObject({ ok: true, product: { name: 'Widgets' } });
+    expect(await port.addProduct('widgets')).toEqual({ ok: false, message: INVALID });
+    const id = added.ok ? added.product.id : '';
+    expect(await port.pick('offering', 'ERP', id)).toMatchObject({ ok: true, claim: { seq: 2, product: id, state: 'confirmed' } });
+    expect(await port.pick('region', 'Belgium', id)).toMatchObject({ ok: true, claim: { product: null } });
   });
 });

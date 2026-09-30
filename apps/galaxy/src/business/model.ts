@@ -21,6 +21,9 @@ export interface Claim {
   value: string;
   source: ClaimSource;
   state: ClaimState;
+  /** The product it belongs to (PRD 748 s4); null for a region, which is the business's. Left out, it
+   * counts as the first product's. */
+  product?: string | null;
   /** How many times agents cited it. */
   cited: number;
   /** Who cited it last, with the run (`think-big concept #9`), or null when nobody has. */
@@ -56,6 +59,7 @@ export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] =
     value: row.value,
     source: row.source as ClaimSource,
     state: row.state as ClaimState,
+    product: row.product_id ?? null,
     cited: mine.length,
     lastBy: last ? [last.cited_by, last.ref].filter(Boolean).join(' ') : null,
   };
@@ -202,10 +206,37 @@ export function sizeOf(claims: readonly Claim[]): { stops: [number, number]; pic
   return stops ? { stops, picked: true } : { stops: [...DEFAULT_SIZE] as [number, number], picked: false };
 }
 
+// ── Products (PRD 748 s4) ────────────────────────────────────────────────────────
+
+/** A public.products row: what the business sells. The first is made with the business. */
+export interface Product {
+  id: string;
+  name: string;
+}
+
+/** Products show only from the second one on: while there is one, the page never mentions them. */
+export const hasProducts = (products: readonly Product[]) => products.length >= 2;
+
+/** The claims one product's tab shows: every claim while there is one product; else the business's
+ * region, shared by every product, and that product's own claims. A claim that names no product counts
+ * as the first product's. */
+export function viewClaims(claims: readonly Claim[], products: readonly Product[], current: string | null): Claim[] {
+  if (!hasProducts(products)) return [...claims];
+  const first = products[0].id;
+  return claims.filter((c) => c.kind === 'region' || (c.product ?? first) === current);
+}
+
 // ── The page's state ─────────────────────────────────────────────────────────────
 
 export interface BusinessState {
+  /** Every claim of the business, of every product. */
   claims: Claim[];
+  /** The business's products, first first. */
+  products: Product[];
+  /** The product whose tab is shown (the first one while there is one), or null with none known. */
+  current: string | null;
+  /** The "+ Add a product" field is open. */
+  adding: boolean;
   /** A call is on its way: every control waits. */
   busy: boolean;
   /** What the last call was refused with, or null. */
@@ -229,10 +260,17 @@ export type BusinessAction =
   | { type: 'unskip' }
   | { type: 'type'; kind: ClaimKind }
   | { type: 'untype' }
-  | { type: 'size-draft'; stops: [number, number] };
+  | { type: 'size-draft'; stops: [number, number] }
+  | { type: 'add-product' }
+  | { type: 'unadd-product' }
+  /** A product was added: its tab is shown. */
+  | { type: 'product-added'; product: Product }
+  | { type: 'show-product'; product: string };
 
-export const initialState = (claims: Claim[]): BusinessState =>
-  ({ claims, busy: false, refusal: null, skipped: false, typing: null, sizeDraft: null });
+export const initialState = (claims: Claim[], products: Product[] = []): BusinessState => ({
+  claims, products, current: products[0]?.id ?? null, adding: false,
+  busy: false, refusal: null, skipped: false, typing: null, sizeDraft: null,
+});
 
 /** A saved row comes back without its citations: they stay as the page read them. */
 function withSaved(claims: Claim[], saved: Claim): Claim[] {
@@ -265,5 +303,17 @@ export function businessReducer(state: BusinessState, action: BusinessAction): B
       const [lo, hi] = action.stops;
       return { ...state, sizeDraft: [Math.min(lo, hi), Math.max(lo, hi)] };
     }
+    case 'add-product':
+      return { ...state, adding: true, typing: null, refusal: null };
+    case 'unadd-product':
+      return { ...state, adding: false };
+    case 'product-added':
+      return {
+        ...state,
+        products: [...state.products.filter((p) => p.id !== action.product.id), action.product],
+        current: action.product.id, adding: false, busy: false, typing: null, sizeDraft: null,
+      };
+    case 'show-product':
+      return { ...state, current: action.product, typing: null, sizeDraft: null, refusal: null };
   }
 }

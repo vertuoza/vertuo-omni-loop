@@ -2,7 +2,7 @@ import { Notice } from '../ask/page/Notice';
 import { SectionTabs } from '../nav/SectionTabs';
 import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
-import type { Claim } from './model';
+import type { Claim, Product } from './model';
 import { BusinessPage, type BusinessPageProps } from './BusinessPage';
 
 // Settings → Business in each situation (PRD 748 s2), decided once by the page: no database here;
@@ -25,6 +25,9 @@ export const DEMO_CLAIMS: Claim[] = [
   { id: 'demo-4', seq: 4, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', cited: 1, lastBy: 'think-big concept #9' },
   { id: 'demo-5', seq: 5, kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', cited: 0, lastBy: null },
 ];
+
+/** The demo's one product (PRD 748 s4): "+ Add a product" adds a second, in the page only. */
+export const DEMO_PRODUCTS: Product[] = [{ id: 'demo-product-1', name: 'Acme ERP' }];
 
 export function BusinessScreen({ view }: { view: BusinessScreenView }) {
   return (

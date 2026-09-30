@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import '../../../../src/business/business.css';
 import { memberSession } from '../../../../src/data/member-session';
 import { loadBusinessPage } from '../../../../src/business/load';
-import { BusinessScreen, DEMO_CLAIMS, type BusinessScreenView } from '../../../../src/business/BusinessScreen';
+import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, type BusinessScreenView } from '../../../../src/business/BusinessScreen';
 
 // /app/settings/business (PRD 748 s2): the workspace's business, under the app's shared top bar
 // (app/app/layout.tsx). Any member picks what it sells, to whom, where and against whom, each pick a
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: 'Business · OMNI LOOP' };
 
 async function viewOf(): Promise<BusinessScreenView> {
   const session = await memberSession();
-  if (session.kind === 'demo') return { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS };
+  if (session.kind === 'demo') return { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS };
   if (session.kind !== 'signed-in') return session;
   const load = await loadBusinessPage(session.db, session.user);
   if (load.kind !== 'business') return load;
@@ -23,6 +23,7 @@ async function viewOf(): Promise<BusinessScreenView> {
     kind: 'business',
     source: { kind: 'database', ...session.env, workspace: load.workspace.id, product: load.product.id },
     claims: load.claims,
+    products: load.products,
   };
 }
 
