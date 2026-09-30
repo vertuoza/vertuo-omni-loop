@@ -3,6 +3,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { memberWorkspace } from '../data/workspace';
 import { installationSettingsUrl } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
+import type { Product } from '../business/model';
 import { rowOf, type RepositoryRow, type StoredRepository } from './model';
 import type { Access } from './RepositoriesView';
 
@@ -12,7 +13,9 @@ import type { Access } from './RepositoriesView';
 // App client: the installation (the one the workspace stored, else the App's installation on its
 // GitHub account, as the knowledge map finds it), and the repositories it can see. A role that cannot
 // be read reads as a member's; an installation or a listing that cannot be read leaves the page
-// without Add repository's offer and without the no-access marks, never without its list.
+// without Add repository's offer and without the no-access marks, never without its list. PRD 748 s4
+// adds each repository's product and the business's products, as the signed-in person too; products
+// that cannot be read leave the page without its product selects, never without its list.
 
 /** What the page asks GitHub, as the Omni App (src/signup/github-app.ts). */
 export interface RepositoriesApp {
@@ -25,7 +28,15 @@ export interface RepositoriesApp {
 export type RepositoriesLoad =
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | { kind: 'repositories'; workspace: { id: string; name: string }; owner: boolean; repositories: RepositoryRow[]; access: Access };
+  | {
+    kind: 'repositories';
+    workspace: { id: string; name: string };
+    owner: boolean;
+    repositories: RepositoryRow[];
+    access: Access;
+    /** The business's products, first first (PRD 748 s4); a select shows from the second on. */
+    products: Product[];
+  };
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
 
@@ -40,10 +51,23 @@ async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> 
   }
 }
 
+/** The business's products, first first (PRD 748 s4). None when there is no business yet, or when
+ * they cannot be read: the page then shows no product select, never no list. */
+async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
+  try {
+    const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
+    if (error) throw error;
+    return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
+  } catch (err) {
+    console.error(`repositories: the products could not be read (${why(err)})`);
+    return [];
+  }
+}
+
 async function rowsOf(db: SupabaseClient, workspace: string): Promise<RepositoryRow[]> {
   const { data, error } = await db
     .from('repositories')
-    .select('full_name, tracked, collected_at, collect_error')
+    .select('full_name, tracked, collected_at, collect_error, product_id')
     .eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
   return ((data ?? []) as StoredRepository[]).map(rowOf);
@@ -100,14 +124,17 @@ export async function loadRepositoriesPage(
   let repositories: RepositoryRow[];
   let owner: boolean;
   let github: GithubOf;
+  let products: Product[];
   try {
     workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
-    [repositories, owner, github] = await Promise.all([rowsOf(db, workspace.id), ownerOf(db, workspace.id), githubOf(db, workspace.id)]);
+    [repositories, owner, github, products] = await Promise.all([
+      rowsOf(db, workspace.id), ownerOf(db, workspace.id), githubOf(db, workspace.id), productsOf(db, workspace.id),
+    ]);
   } catch (err) {
     console.error(`repositories: the page could not be read (${why(err)})`);
     return { kind: 'unreadable' };
   }
   const access = await accessOf(github, app, installUrl);
-  return { kind: 'repositories', workspace: { id: workspace.id, name: workspace.name }, owner, repositories, access };
+  return { kind: 'repositories', workspace: { id: workspace.id, name: workspace.name }, owner, repositories, access, products };
 }
