@@ -10,7 +10,9 @@
 /**
  * @param {Record<string, {
  *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
- *                              base, head, commits, additions, deletions, body, reviews?, commitMessages?
+ *                              base, head, draft, labels, commits, additions, deletions, body, reviews?,
+ *                              commitMessages?, commit_dates? (each commit's committed date, the pull
+ *                              request's created_at when left out)
  *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
  *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
  *                              per details query)
@@ -131,6 +133,7 @@ export function fakeGitHub(repos, budgets = {}) {
 function asGraphql(pull) {
   const actor = (user) => (user ? { login: user.type === 'Bot' ? user.login.replace(/\[bot\]$/, '') : user.login, __typename: user.type === 'Bot' ? 'Bot' : 'User' } : null);
   const messages = pull.commitMessages ?? [];
+  const dates = pull.commit_dates ?? [];
   return {
     number: pull.number,
     author: actor(pull.user),
@@ -140,10 +143,12 @@ function asGraphql(pull) {
     mergedBy: actor(pull.merged_by),
     baseRefName: pull.base?.ref ?? null,
     headRefName: pull.head?.ref ?? null,
+    isDraft: Boolean(pull.draft),
+    labels: { nodes: (pull.labels ?? []).map((label) => ({ name: label.name })) },
     body: pull.body ?? '',
     additions: pull.additions,
     deletions: pull.deletions,
-    commits: { totalCount: pull.commits, nodes: messages.slice(-100).map((message) => ({ commit: { message } })) },
+    commits: { totalCount: pull.commits, nodes: messages.map((message, i) => ({ commit: { message, committedDate: dates[i] ?? pull.created_at } })).slice(-100) },
     reviews: { nodes: (pull.reviews ?? []).slice(0, 100).map((review) => ({ author: actor(review.user), submittedAt: review.submitted_at ?? null })) },
   };
 }
@@ -210,6 +215,8 @@ export function pull(number, fields = {}) {
     merged_by: null,
     base: { ref: 'main' },
     head: { ref: 'feature' },
+    draft: false,
+    labels: [],
     commits: 1,
     additions: 10,
     deletions: 2,
