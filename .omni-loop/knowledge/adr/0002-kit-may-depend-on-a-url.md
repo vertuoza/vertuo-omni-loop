@@ -62,7 +62,8 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    neither call; a server without them answers 404, which the kit reports as `refused (404)`.
    Since PRD 757, the kit makes one more call, with the bearer token, when this computer is signed in
    and `dossier.enabled` is true with `ask.url` set, whether ask mode is on or off (`omni heartbeat`,
-   run by the plugin's `PostToolUse` hook on every tool and by its `SessionEnd` hook):
+   run by the plugin's `PostToolUse` hook on every tool and by a `SessionEnd` hook step of its own,
+   beside ask mode's, so the end is sent whether ask mode is on or off; answered on PR #760):
    - `POST /api/ask/heartbeat {claudeSessionId, repo, work, ended?}` → `204` says a Claude session is
      working. `work` is what it works on, found on this computer: `{kind: 'draft', draftId}`,
      `{kind: 'prd' | 'visual' | 'bug', number}`, or `null` for the session alone; `ended: true` comes
