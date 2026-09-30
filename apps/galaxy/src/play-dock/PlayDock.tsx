@@ -1,8 +1,8 @@
 'use client';
 // The play dock (PRD 757): the corner pill "● ▶ Play while Claude works" while the page says Claude
-// works, and, once pressed, a mini Game Boy about 260 px wide playing Entropy Invaders (DockGame,
-// loaded on first open). Its open or folded state is kept for the tab, so it stays open across the
-// page's tabs. Who plays is the arcade's rule (dockDoor): anyone else sees the arcade's own line and
+// works, and, once pressed, a mini Game Boy about 260 px wide playing Entropy Invaders, or, from LV 2,
+// a picker between it and SUPER OMNI WORLD (PRD 817) (DockGame, loaded on first open). Its open or
+// folded state, and the game picked last, are kept for the tab, so it stays open across the page's tabs. Who plays is the arcade's rule (dockDoor): anyone else sees the arcade's own line and
 // a way to it. A question pauses the game and points at it; Claude done lets the game end.
 //
 // A page mounts it with what it reads: the working state, the player's XP, and where the question
@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/design';
-import { ARCADE_PATH, DOCK_LINE, dockDoor, dockView, readOpen, writeOpen, type DockPlayer, type DockState, type DockView } from './dock';
+import { ARCADE_PATH, DOCK_LINE, dockDoor, dockView, readDock, writeDock, writeOpen, type DockGameId, type DockPlayer, type DockState, type DockView } from './dock';
 import type { DockGameProps } from './DockGame';
 import type { DockAccount } from './send';
 import './play-dock.css';
@@ -50,13 +50,13 @@ export function DockFrame({ view, answerHref, onOpen, onFold, children }: {
   if (view.kind === 'hidden') return null;
   if (view.kind === 'folded') {
     return (
-      <button type="button" className="pd-pill" onClick={onOpen} aria-label="Play Entropy Invaders while Claude works">
+      <button type="button" className="pd-pill" onClick={onOpen} aria-label="Play a game while Claude works">
         <span className="pd-dot" aria-hidden="true">●</span> {DOCK_LINE.pill}
       </button>
     );
   }
   return (
-    <section className={`pd-device pd-${view.kind}`} aria-label="Entropy Invaders">
+    <section className={`pd-device pd-${view.kind}`} aria-label="Play dock">
       <header className="pd-top">
         <span className="pd-stripe">OMNI LOOP · PLAY DOCK</span>
         <button type="button" className="pd-fold" onClick={onFold} aria-label="Fold (Esc)" title="Fold (Esc)">✕</button>
@@ -106,11 +106,16 @@ function useGameCode(playing: boolean, load: () => Promise<ComponentType<DockGam
 
 export function PlayDock({ state, player, hero = null, team = null, answerHref, values, supabase = null, workspace = null, account = null, load = loadGame }: PlayDockProps) {
   const [open, setOpen] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const door = dockDoor(player);
 
   // The state kept for the tab, once in the browser.
-  useEffect(() => { setOpen(readOpen(() => window.sessionStorage)); }, []);
+  useEffect(() => {
+    const kept = readDock(() => window.sessionStorage);
+    setOpen(kept.open);
+    setChosen(kept.game);
+  }, []);
   const width = useWindowWidth();
 
   const view = dockView({ state, door, open, game: started, width });
@@ -123,11 +128,15 @@ export function PlayDock({ state, player, hero = null, team = null, answerHref, 
     if (!next) setStarted(false);
     writeOpen(() => window.sessionStorage, next);
   }, []);
+  const choose = useCallback((game: DockGameId) => {
+    setChosen(game);
+    writeDock(() => window.sessionStorage, { game });
+  }, []);
 
   return (
     <DockFrame view={view} answerHref={answerHref} onOpen={() => show(true)} onFold={() => show(false)}>
       {Game && playing
-        ? <Game asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => show(false)} />
+        ? <Game games={door.play ? door.games : undefined} chosen={chosen} onChoose={choose} asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => show(false)} />
         : <p className="pd-loading">LOADING…</p>}
     </DockFrame>
   );

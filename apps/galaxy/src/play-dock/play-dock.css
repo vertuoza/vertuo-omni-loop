@@ -35,6 +35,14 @@
 .pd-go { justify-self: center; padding: 6px 8px 5px; font-size: 8px; color: #0b0a26; background: var(--white); text-decoration: none; box-shadow: 2px 2px 0 var(--plasma); }
 .pd-go:hover, .pd-go:focus-visible { background: var(--yellow); outline: none; }
 
+/* The picker (PRD 817): the games open to the player, one line each, the cursor on the chosen one. */
+.pd-picker { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px; text-align: center; }
+.pd-pick-title { margin: 0; font-size: 10px; letter-spacing: 1px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red); }
+.pd-pick-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; justify-items: start; }
+.pd-pick { padding: 0; font: inherit; font-size: 9px; letter-spacing: 1px; white-space: pre; color: var(--dim); background: none; border: 0; cursor: pointer; }
+.pd-pick[aria-current="true"], .pd-pick:hover { color: var(--white); }
+.pd-pick-hint { margin: 0; font-size: 8px; color: var(--white); }
+
 /* Over the field: the question to answer, or Claude done. */
 .pd-banner {
   position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 2; margin: 0;

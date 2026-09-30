@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { XP_LINE } from '../arcade/games/room';
-import { DOCK_KEY, DOCK_MIN_WIDTH, dockDoor, dockView, readOpen, writeOpen, type DockInput } from './dock';
+import { backFromGame, DOCK_KEY, DOCK_MIN_WIDTH, DOCK_TITLE, dockDoor, dockStart, dockView, pickerPress, readDock, readOpen, writeDock, writeOpen, type DockInput } from './dock';
 
 const PLAYER = { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } };
-const base: DockInput = { state: 'working', door: { play: true }, open: false, game: false, width: 1280 };
+const BOTH = { linked: true, xp: { xp: 400, level: 2, unlocked: ['invaders', 'platformer'] } };
+const base: DockInput = { state: 'working', door: { play: true, games: ['invaders'] }, open: false, game: false, width: 1280 };
 const view = (patch: Partial<DockInput> = {}) => dockView({ ...base, ...patch });
 
 describe('dockDoor: the arcade\'s own rule on who plays', () => {
-  it('lets a player at LV 1 or more play', () => {
-    expect(dockDoor(PLAYER)).toEqual({ play: true });
-    expect(dockDoor({ linked: true, xp: { xp: 1, level: 1, unlocked: ['invaders'] } })).toEqual({ play: true });
+  it('lets a player at LV 1 or more play Entropy Invaders, and only it below LV 2', () => {
+    expect(dockDoor(PLAYER)).toEqual({ play: true, games: ['invaders'] });
+    expect(dockDoor({ linked: true, xp: { xp: 1, level: 1, unlocked: ['invaders'] } })).toEqual({ play: true, games: ['invaders'] });
+  });
+
+  it('gives a player at LV 2 both games, Invaders first, as the room\'s cabinets stand', () => {
+    expect(dockDoor(BOTH)).toEqual({ play: true, games: ['invaders', 'platformer'] });
   });
 
   it('refuses a visitor, with or without a row, with the room\'s line', () => {
@@ -71,6 +76,39 @@ describe('dockView', () => {
   });
 });
 
+describe('the picker, when more than one game is open', () => {
+  it('goes straight into Invaders when it is the only game open', () => {
+    expect(dockStart(['invaders'], null)).toEqual({ kind: 'game', game: 'invaders' });
+    expect(dockStart(['invaders'], 'platformer')).toEqual({ kind: 'game', game: 'invaders' });
+  });
+
+  it('opens on the picker when both are open, on the game chosen last, or the first', () => {
+    expect(dockStart(['invaders', 'platformer'], null)).toEqual({ kind: 'picker', sel: 0 });
+    expect(dockStart(['invaders', 'platformer'], 'platformer')).toEqual({ kind: 'picker', sel: 1 });
+    expect(dockStart(['invaders', 'platformer'], 'tetris')).toEqual({ kind: 'picker', sel: 0 });
+  });
+
+  it('names the games as the room\'s marquees do', () => {
+    expect(DOCK_TITLE).toEqual({ invaders: 'ENTROPY INVADERS', platformer: 'SUPER OMNI WORLD' });
+  });
+
+  it('moves with up and down, wrapping, plays the chosen game on A, and folds on B', () => {
+    const games = ['invaders', 'platformer'] as const;
+    expect(pickerPress(games, 0, 'down')).toEqual({ sel: 1 });
+    expect(pickerPress(games, 1, 'down')).toEqual({ sel: 0 });
+    expect(pickerPress(games, 0, 'up')).toEqual({ sel: 1 });
+    expect(pickerPress(games, 1, 'a')).toEqual({ play: 'platformer' });
+    expect(pickerPress(games, 0, 'start')).toEqual({ play: 'invaders' });
+    expect(pickerPress(games, 0, 'b')).toEqual({ fold: true });
+    expect(pickerPress(games, 0, 'left')).toBeNull();
+  });
+
+  it('comes back to the picker from a game when there is one, on the game just left', () => {
+    expect(backFromGame(['invaders', 'platformer'], 'platformer')).toEqual({ kind: 'picker', sel: 1 });
+    expect(backFromGame(['invaders'], 'invaders')).toEqual({ kind: 'fold' });
+  });
+});
+
 describe('the open or folded state, kept for the tab', () => {
   const memory = () => {
     const kept = new Map<string, string>();
@@ -81,10 +119,29 @@ describe('the open or folded state, kept for the tab', () => {
     const s = memory();
     expect(readOpen(() => s)).toBe(false);
     writeOpen(() => s, true);
-    expect(s.getItem(DOCK_KEY)).toBe('open');
+    expect(JSON.parse(s.getItem(DOCK_KEY)!)).toEqual({ open: true, game: null });
     expect(readOpen(() => s)).toBe(true);
     writeOpen(() => s, false);
     expect(readOpen(() => s)).toBe(false);
+  });
+
+  it('reads an entry kept before the picker, the bare word open', () => {
+    const s = memory();
+    s.setItem(DOCK_KEY, 'open');
+    expect(readDock(() => s)).toEqual({ open: true, game: null });
+    s.setItem(DOCK_KEY, '{broken');
+    expect(readDock(() => s)).toEqual({ open: false, game: null });
+  });
+
+  it('keeps the game chosen last in the same entry, across a fold and a reopen', () => {
+    const s = memory();
+    writeOpen(() => s, true);
+    writeDock(() => s, { game: 'platformer' });
+    writeOpen(() => s, false);
+    expect(readDock(() => s)).toEqual({ open: false, game: 'platformer' });
+    writeOpen(() => s, true);
+    expect(readDock(() => s)).toEqual({ open: true, game: 'platformer' });
+    expect(dockStart(['invaders', 'platformer'], readDock(() => s).game)).toEqual({ kind: 'picker', sel: 1 });
   });
 
   it('is folded when the storage throws, and writing to it never throws', () => {
@@ -94,5 +151,8 @@ describe('the open or folded state, kept for the tab', () => {
     const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('quota'); } };
     expect(readOpen(() => broken)).toBe(false);
     expect(() => writeOpen(() => broken, true)).not.toThrow();
+    expect(readDock(refusing)).toEqual({ open: false, game: null });
+    expect(() => writeDock(refusing, { game: 'platformer' })).not.toThrow();
+    expect(() => writeDock(() => broken, { game: 'platformer' })).not.toThrow();
   });
 });
