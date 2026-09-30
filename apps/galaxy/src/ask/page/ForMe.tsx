@@ -8,7 +8,7 @@ import { initialFace, type ForMeEntry } from './question';
 export function ForMe({ entries }: { entries: ForMeEntry[] }) {
   return (
     <div className="ask-col">
-      <p className="ask-title">Shared with me</p>
+      <h1 className="ask-sr">Shared with me</h1>
       {entries.length === 0 ? (
         <section className="ask-card">
           <h1>Nothing waits for you</h1>

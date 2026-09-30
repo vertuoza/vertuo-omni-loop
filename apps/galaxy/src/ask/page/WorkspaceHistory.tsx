@@ -90,7 +90,7 @@ export function WorkspaceHistory({ items, choices, filters }: { items: HistoryIt
   const nothingYet = items.length === 0 && !filtered(filters);
   return (
     <div className="ask-col">
-      <p className="ask-title">History</p>
+      <h1 className="ask-sr">History</h1>
       {nothingYet ? (
         <section className="ask-card">
           <h1>No question yet</h1>
