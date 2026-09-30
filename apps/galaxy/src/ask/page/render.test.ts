@@ -394,3 +394,69 @@ describe('a long question, rendered (PRD 752)', () => {
     expect(answered).toContain('<dt>Short?</dt>');
   });
 });
+
+describe('what Claude wrote before asking, rendered (PRD 752)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const DESIGN = '## The design\n\nThree parts:\n\n- the reader\n- the hook\n- the page\n\n<script>alert(1)</script> and `kit/lib/ask/`';
+  const LONG = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the plan.`).join('\n\n');
+  const withLead = <T extends { rounds: { lead?: string | null }[] }>(state: T, lead: string | null): T =>
+    ({ ...state, rounds: state.rounds.map((r, i) => (i === state.rounds.length - 1 ? { ...r, lead } : r)) });
+  const session = (lead: string | null, scenario: 'open' | 'moved' = 'open', viewer: 'owner' | 'member' = 'owner') =>
+    renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: withLead(demoState('s1', scenario, NOW), lead), serverNow: NOW, viewer }));
+  const question = (lead: string | null, answered = false, from?: string) => {
+    const initial = demoQuestion(NOW, answered);
+    return renderToStaticMarkup(createElement(AskQuestion, {
+      source: { kind: 'demo' }, initial: { ...initial, round: { ...initial.round, lead } }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS, from,
+    }));
+  };
+  const TITLE = 'Claude wrote before asking';
+
+  it('shows the lead once, above the first question, as markdown', () => {
+    const html = session(DESIGN);
+    expect(html).toContain(TITLE);
+    expect(html.indexOf(TITLE)).toBeLessThan(html.indexOf('class="ask-question'));
+    expect(html).toContain('<h2>The design</h2>');
+    expect(html).toMatch(/<ul>\n<li>the reader<\/li>/);
+    expect(html).toContain('<code>kit/lib/ask/</code>');
+    expect(count(html, new RegExp(`>${TITLE}</h2>`))).toBe(1);
+  });
+
+  it('shows HTML in a lead as text', () => {
+    const html = session(DESIGN);
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  it('shows a short lead whole, and folds a long one behind Show all', () => {
+    const short = session(DESIGN);
+    expect(short).not.toContain('Show all');
+    expect(short).not.toContain('is-folded');
+    const long = session(LONG);
+    expect(long).toContain('ask-lead-msg-body is-folded');
+    expect(long).toMatch(/<button type="button" class="ask-lead-msg-more"[^>]*>Show all<\/button>/);
+  });
+
+  it('shows no block for a round without a lead', () => {
+    expect(session(null)).not.toContain(TITLE);
+    expect(session('  ')).not.toContain(TITLE);
+    expect(question(null)).not.toContain(TITLE);
+  });
+
+  it('shows it to a member reading the open round, and on a round moved to the terminal', () => {
+    expect(session(DESIGN, 'open', 'member')).toContain(TITLE);
+    expect(session(DESIGN, 'moved')).toContain(TITLE);
+  });
+
+  it('shows it on the shared round, open or answered, and on a round opened from a dossier', () => {
+    expect(question(DESIGN)).toContain(TITLE);
+    expect(question(DESIGN, true)).toContain(TITLE);
+    expect(question(DESIGN, false, '752')).toContain(TITLE);
+  });
+
+  it('shows it inside an answered round of the history', () => {
+    const past: HistoryEntry = { id: 'a', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'H', question: 'Q?', answer: 'A' }], lead: DESIGN };
+    const html = renderToStaticMarkup(createElement(History, { history: [past] }));
+    expect(html).toMatch(/<details class="ask-past">[^]*Claude wrote before asking[^]*<dl>/);
+    expect(renderToStaticMarkup(createElement(History, { history: [{ ...past, lead: undefined }] }))).not.toContain(TITLE);
+  });
+});

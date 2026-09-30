@@ -61,6 +61,15 @@ describe('reading a session', () => {
     expect(state?.rounds.map((r) => [r.id, r.status, r.questions])).toEqual([[first, 'open', QUESTIONS], [second, 'open', QUESTIONS]]);
   });
 
+  it('reads each round with what Claude wrote before asking (PRD 752)', async () => {
+    const w = await world();
+    const { data } = await w.fake.client('ada').from('ask_rounds')
+      .insert({ session_id: w.sessionId, questions: QUESTIONS, lead: 'Here is the design.' }).select('id').single() as { data: { id: string } };
+    const state = await readSession(w.recording('ada'), w.sessionId);
+    expect(w.calls.find((c) => c.startsWith('ask_rounds.select('))).toMatch(/, lead"\)$/);
+    expect(state?.rounds.find((r) => r.id === data.id)?.lead).toBe('Here is the design.');
+  });
+
   it('reads the session and its rounds as another member of its workspace (PRD 144)', async () => {
     const w = await world();
     const first = await w.ask();
