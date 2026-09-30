@@ -165,6 +165,6 @@ Not opened, so not cited: Canva brand kit, ChatGPT memory, Lean Canvas, Gong.
 |---|---|---|---|
 | business-core | The business store | Claims store (one hidden product; repositories point at it), Settings › Business pick screen with suggested rivals and ✓/✗ rows, `omni business show [--json]` (empty exits 0), think-big reads confirmed claims and logs the claim ids it cited | #748 |
 | evidence-draft | Drafted from evidence | `/omni:invade` drafts proposed claims with receipts from the repositories and a pasted pricing-page URL, the "That's us" reveal and thin-evidence state, contradiction diffs, last-seen fading, the Monday digest in the bell | #774 |
-| customer-voice | The customer's voice | Brainstorm and think-big speak the confirmed claims as one cited objection per concept (uncitable lines dropped, silent when empty), overrule offers "Save as a claim?", one gap question at a time through ask mode | |
+| customer-voice | The customer's voice | Brainstorm and think-big speak the confirmed claims as one cited objection per concept (uncitable lines dropped, silent when empty), overrule offers "Save as a claim?", one gap question at a time through ask mode | #799 |
 | canon-check | The canon check | Never lines as claims; the phase-0 inbox check flags a design that breaks a Never line or the ICP (Rewrite / Change the claim); the Game-mode VS card | |
 | agent-connect | Connect any agent | A read-only MCP link with named revocable tokens, the same fields as `--json`, and unanswerable questions fed back as "unknown" rows to answer once | |
