@@ -703,7 +703,8 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
     'See what holds it', '/clear',
   ];
   // Green, red and held, in that order.
-  const ENDINGS = ['Nothing to run: merging #<feature PR> is yours.', '/omni:yolo-fix <n>', '/omni:yolo <n>'];
+  // PRD 790: the green ending hands the ready feature PR to /omni:pr-care.
+  const ENDINGS = ['/omni:pr-care <n>', '/omni:yolo-fix <n>', '/omni:yolo <n>'];
   const WHAT_IS_NEXT = '**What is next?**';
 
   /** The last non-blank line of each fenced block whose first non-blank line is What is next?. */
@@ -830,6 +831,81 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
 
   it('never keeps the six-stage track', () => {
     for (const skill of ['brainstorm', 'yolo']) expect(read(skill)).not.toContain('inbox ──▶ outbox');
+  });
+});
+
+// PRD 790: `/omni:pr-care <n>` watches PRD n's feature PR round by round: a conflict, then red CI,
+// then each review thread judged against the `review` form, replies through `omni care reply` with the
+// marker the PRD page reads, nothing pushed while a wave holds claims, and the status comment's care
+// line in the exact form the page parses.
+describe('the pr-care skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/pr-care/SKILL.md'), 'utf8');
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named pr-care, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('pr-care');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:pr-care"/);
+  });
+
+  it('reads the briefing, then the review form, and looks after the feature PR only', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', 'kb show briefing', 'kb show review'])).toEqual([]);
+    expect(read()).toMatch(/feature PR\*\* only/);
+  });
+
+  it('reads the state with omni care state, then acts in order: conflict, red CI, then reviews', () => {
+    const round = skillSection(read(), '2. A round');
+    expect(orderGaps(round, [
+      'omni.mjs care state <n>', '`merge-base`', 'not an attempt', '`fix-ci`', 'limits.attempts', 'labels.needsFix',
+      '`judge`', '`mark-asked`', '`status`',
+    ])).toEqual([]);
+  });
+
+  it('judges each thread against the review form, posts through omni care reply, and resolves fixed and pushed-back ones', () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(orderGaps(threads, ['kb show review', '**fixed**', 'Fixed in <sha>: <one line>', '**pushed-back**', 'names the line', '**asked**'])).toEqual([]);
+    expect(threads).toContain('omni.mjs care reply --verdict <verdict> --file <file> --thread <thread id>');
+    expect(threads).toMatch(/resolves the thread/);
+    expect(threads).toMatch(/stays open/);
+    expect(threads).toContain('<!-- omni-care: fixed|pushed-back|asked -->');
+  });
+
+  it("keeps the reviewer's last word: a thread a person answered after a care reply becomes asked, never argued again", () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(threads).toMatch(/\*\*The reviewer keeps the last word\.\*\*/);
+    expect(threads).toMatch(/never argue/i);
+  });
+
+  it('pushes nothing while a wave holds claims: report-only rewrites the status comment alone', () => {
+    const text = read();
+    expect(skillSection(text, '2. A round')).toContain('`report-only`');
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never push while a wave holds claims/);
+  });
+
+  it("writes the status comment's care line in the form the PRD page parses, ISO 8601 times", () => {
+    const status = skillSection(read(), '4. The status comment');
+    expect(status).toContain('PR care: watching since <ISO 8601> · last round <ISO 8601>');
+    expect(status).toContain('markers.prefix');
+    expect(status).toMatch(/--edit-last/);
+  });
+
+  it('stops when the PR is merged or closed, or the person stops it, and never merges', () => {
+    const text = read();
+    const stop = skillSection(text, '6. Stop');
+    for (const phrase of ['merged', 'closed', 'the person stops it']) expect(stop, phrase).toContain(phrase);
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never merge/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
+    expect(text).not.toMatch(/\bgh pr ready\b(?! <n> --undo)/);
   });
 });
 
