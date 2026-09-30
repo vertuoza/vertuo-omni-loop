@@ -158,7 +158,8 @@ describe('the demo', () => {
 });
 
 describe('at 393 px', () => {
-  const css = readFileSync(fileURLToPath(new URL('./business.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const read = (file: string) => readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = `${read('./business.css')}\n${read('./never.css')}`;
   const rule = (selector: string) => {
     const at = css.lastIndexOf(`${selector} {`);
     expect(at, selector).toBeGreaterThanOrEqual(0);
@@ -171,5 +172,15 @@ describe('at 393 px', () => {
     expect(rule('.business-row')).toContain('flex-wrap: wrap');
     expect(rule('.business-row-main strong')).toContain('overflow-wrap: anywhere');
     expect(rule('.business-never ul')).toContain('min-width: 0');
+  });
+
+  it('fixes no width wider than a 393 px screen less its gutters', () => {
+    const widths = [...read('./never.css').matchAll(/(?:^|[;{\s])(?:min-)?(?:width|flex(?:-basis)?)\s*:[^;]*?(\d+)px/g)].map((m) => Number(m[1]));
+    expect(Math.max(0, ...widths)).toBeLessThanOrEqual(393 - 2 * 16);
+  });
+
+  it('is loaded by the Business page', () => {
+    const page = readFileSync(fileURLToPath(new URL('../../app/app/settings/business/page.tsx', import.meta.url)), 'utf8');
+    expect(page).toContain('src/business/never.css');
   });
 });

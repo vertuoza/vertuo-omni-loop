@@ -320,7 +320,7 @@ function ProductTabs({ state, on }: { state: BusinessState; on: BusinessHandlers
 }
 
 /** The anchor a Never line carries (PRD 839), which the App's Change the claim links to. */
-export const neverAnchor = (claim: Pick<Claim, 'seq'>) => `never-${claim.seq}`;
+const neverAnchor = (claim: Pick<Claim, 'seq'>) => `never-${claim.seq}`;
 
 function Row({ claim, busy, on, never = false }: { claim: Claim; busy: boolean; on: BusinessHandlers; never?: boolean }) {
   const value = valueLabel(claim);

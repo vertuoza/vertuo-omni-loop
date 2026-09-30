@@ -127,7 +127,7 @@ export const KIND_LABEL: Record<ClaimKind, string> = {
 /** The most characters a claim's value holds: a Never line 200, every other kind 80. */
 export const maxValue = (kind: ClaimKind) => (kind === 'never' ? 200 : 80);
 
-export const SOURCE_LABEL: Record<ClaimSource, string> = {
+const SOURCE_LABEL: Record<ClaimSource, string> = {
   pick: 'you picked', suggestion: 'suggested', evidence: 'seen', answer: 'answered',
 };
 
