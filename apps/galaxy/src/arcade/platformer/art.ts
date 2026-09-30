@@ -18,6 +18,10 @@ export interface Art {
   hero: Record<Pose, HTMLCanvasElement>;
   /** The flag at the top of the pole, its two frames. */
   flag: [HTMLCanvasElement, HTMLCanvasElement];
+  /** A coin, its face and its edge: it turns as it waits to be taken. */
+  coin: [HTMLCanvasElement, HTMLCanvasElement];
+  /** The Entropy blob, its two frames of walking. */
+  enemy: [HTMLCanvasElement, HTMLCanvasElement];
   sky: string;
 }
 
@@ -45,6 +49,11 @@ export function tileFrame(stage: Stage, row: number, col: number): number {
     default: return -1;
   }
 }
+
+/** The ? block once its coin is taken: the tile it turns into. */
+export const EMPTY_BLOCK = at('tile-block-empty');
+/** The ? block still holding its coin. */
+export const BLOCK = at('tile-block');
 
 /** The whole stage as tile indexes, row by row: what Phaser's tilemap is made from. */
 export const tileData = (stage: Stage): number[][] => stage.tiles.map((line, row) => line.map((_, col) => tileFrame(stage, row, col)));
@@ -81,6 +90,8 @@ export function drawArt(hero: Hero, team: string | null, palette: string): Art {
       jump: sprite(jump.sprite, jump.tint),
     },
     flag: [sprite('flag', null, 0), sprite('flag', null, 1)],
+    coin: [sprite('coin', null, 0), sprite('coin', null, 1)],
+    enemy: [sprite('entropy', null, 0), sprite('entropy', null, 1)],
     sky: SKY[palette] ?? SKY.grass,
   };
 }

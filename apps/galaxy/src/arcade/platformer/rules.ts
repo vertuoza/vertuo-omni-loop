@@ -71,6 +71,13 @@ export const PHYSICS = Object.freeze({
   /** The hero's body in the physics: narrower than the 32×48 sprite, which has air around it. */
   heroW: 18,
   heroH: 44,
+  /** How fast a stomp sends the hero back up, px/s. */
+  bounce: 260,
+  /** An Entropy blob's walk, px/s. */
+  enemy: 36,
+  /** The blob's body in the physics: narrower and lower than its 24×24 sprite, spikes left out. */
+  enemyW: 18,
+  enemyH: 16,
 });
 
 /**
