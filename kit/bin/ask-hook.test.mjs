@@ -294,18 +294,22 @@ describe('omni ask usage', () => {
 
 describe('the plugin\'s hooks.json', () => {
   const hooks = JSON.parse(readFileSync(HOOKS, 'utf8')).hooks;
+  /** The event's hooks, each with its entry's matcher, in order. */
+  const all = (event) => hooks[event].flatMap((entry) => {
+    expect(entry.hooks).toHaveLength(1);
+    return [{ matcher: entry.matcher, ...entry.hooks[0] }];
+  });
   const only = (event) => {
     expect(hooks[event]).toHaveLength(1);
-    expect(hooks[event][0].hooks).toHaveLength(1);
-    return { matcher: hooks[event][0].matcher, ...hooks[event][0].hooks[0] };
+    return all(event)[0];
   };
 
   it('wires PreToolUse and PostToolUse on AskUserQuestion, UserPromptSubmit and SessionEnd', () => {
     expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'SessionEnd', 'UserPromptSubmit']);
     const pre = only('PreToolUse');
-    const post = only('PostToolUse');
+    const [post] = all('PostToolUse');
     const prompt = only('UserPromptSubmit');
-    const end = only('SessionEnd');
+    const [end] = all('SessionEnd');
     expect(pre).toMatchObject({ matcher: 'AskUserQuestion', type: 'command', timeout: 600 });
     expect(post).toMatchObject({ matcher: 'AskUserQuestion', type: 'command' });
     expect(prompt).toMatchObject({ type: 'command' });
@@ -317,14 +321,26 @@ describe('the plugin\'s hooks.json', () => {
     }
   });
 
+  it('runs the heartbeat after every tool call and once at the session\'s end, never failing (PRD 757)', () => {
+    const post = all('PostToolUse');
+    const end = all('SessionEnd');
+    expect(post).toHaveLength(2);
+    expect(end).toHaveLength(2);
+    expect(post[1]).toMatchObject({ matcher: '*', type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat || true' });
+    expect(end[1]).toMatchObject({ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat --end || true' });
+    expect(end[1].matcher).toBeUndefined();
+    for (const hook of [...post, ...end]) expect(hook.command.endsWith(' || true')).toBe(true);
+  });
+
   it('never fails a hook: a checkout without the kit, or with an omni that has no ask, exits 0 and prints nothing', () => {
     const withoutKit = makeRepo({ git: true });
     const oldKit = makeRepo({ git: true, files: { '.omni-loop/bin/omni.mjs': 'process.stderr.write("usage: omni <command>\\n"); process.exit(2);\n' } });
     for (const { root } of [withoutKit, oldKit]) {
       for (const event of Object.keys(hooks)) {
-        const { command } = hooks[event][0].hooks[0];
-        const run = spawnSync('sh', ['-c', command], { cwd: root, input: PRE, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
-        expect({ event, status: run.status, stdout: run.stdout }).toEqual({ event, status: 0, stdout: '' });
+        for (const { command } of all(event)) {
+          const run = spawnSync('sh', ['-c', command], { cwd: root, input: PRE, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+          expect({ event, command, status: run.status, stdout: run.stdout }).toEqual({ event, command, status: 0, stdout: '' });
+        }
       }
     }
   }, SPAWNS_MS);

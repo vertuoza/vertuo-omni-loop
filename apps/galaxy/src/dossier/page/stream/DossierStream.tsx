@@ -10,8 +10,12 @@ import { pendingView } from './pending';
 // The server sends the page as soon as the database has answered (the header, the stored stage, the
 // tabs, the shown version), with the parts only GitHub knows saying they are being read (./pending.ts):
 // the stage's button and GitHub links, the Outbox and the Retro. When the summary arrives, the whole
-// page is sent again in its place, complete, with the change check (LiveRefresh) started from what was
-// read. A summary that could not be read reads null, as before: the page then says so where it did.
+// page is sent again in its place, complete. A summary that could not be read reads null, as before:
+// the page then says so where it did.
+// Bug #782: the change check (LiveRefresh), which carries the play dock (PRD 757) and the page's live
+// poll, sits beside the page, never inside what waits for GitHub: it starts from the database's read as
+// soon as its own reads answer, and stays mounted when the complete page takes the pending one's place.
+// Its signature keeps only new work (../live-refresh-watch.ts), so it needs no GitHub part.
 
 /** The reads of a numbered PRD's page, each started by the route and never awaited there. */
 export interface DossierReads {
@@ -31,8 +35,8 @@ export interface DossierStreamProps {
   /** The shown Spec or Plan, rendered: it does not wait for GitHub. */
   markdown: Promise<RenderedMarkdown | null>;
   supabase: { url: string; key: string };
-  /** The change check, from the page as read with its summary. */
-  live: (read: DossierRead) => ReactNode;
+  /** The change check, from the page as the database read it (and, PRD 757, its play dock's player). */
+  live: (read: DossierRead) => ReactNode | Promise<ReactNode>;
 }
 
 type Props = Omit<DossierStreamProps, 'live'>;
@@ -45,20 +49,30 @@ async function Pending({ read, me, pick, reads, markdown, supabase }: Props) {
 }
 
 /** The whole page, with its GitHub summary: what the page ends as. */
-export async function completePage({ read, me, pick, reads, markdown, supabase, live }: DossierStreamProps) {
+export async function completePage({ read, me, pick, reads, markdown, supabase }: Props) {
   const [github, slices, stages, shown] = await Promise.all([reads.github, reads.slices, reads.stages, markdown]);
   const withGithub: DossierRead = { ...read, github, slices, stages };
-  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} supabase={supabase} live={live(withGithub)} />;
+  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} supabase={supabase} />;
 }
 
-async function Complete(props: DossierStreamProps) {
+async function Complete(props: Props) {
   return completePage(props);
 }
 
-export function DossierStream(props: DossierStreamProps) {
+/** The change check, from the database's read: it never waits for GitHub (bug #782). */
+async function Live({ read, live }: Pick<DossierStreamProps, 'read' | 'live'>) {
+  return <>{await live(read)}</>;
+}
+
+export function DossierStream({ live, ...props }: DossierStreamProps) {
   return (
-    <Suspense fallback={<Pending {...props} />}>
-      <Complete {...props} />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <Live read={props.read} live={live} />
+      </Suspense>
+      <Suspense fallback={<Pending {...props} />}>
+        <Complete {...props} />
+      </Suspense>
+    </>
   );
 }

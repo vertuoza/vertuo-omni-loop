@@ -101,6 +101,13 @@ describe('a business being picked', () => {
     expect(text(groupOf(render([], { actions: [{ type: 'size-draft', stops: [3, 6] }] }), 'size'))).toContain('Customer size · 10–100 people');
   });
 
+  it('places each stop label under its thumb and marks the two ends of the range (#772)', () => {
+    const html = render([], { actions: [{ type: 'size-draft', stops: [1, 4] }] });
+    const stops = [...html.matchAll(/<li style="--at:([\d.]+)"( data-end="")?>([^<]+)<\/li>/g)];
+    expect(stops.map((m) => Number(m[1]))).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => i / 9));
+    expect(stops.filter((m) => m[2]).map((m) => m[3])).toEqual(['2', '20']);
+  });
+
   it('shows a refusal under the title', () => {
     const html = render([], { actions: [{ type: 'busy' }, { type: 'refused', message: 'Only a member of the workspace can change its business.' }] });
     expect(html).toMatch(/role="alert">Only a member of the workspace can change its business\.</);

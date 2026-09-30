@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import { createElement, Fragment, type ReactElement, type ReactNode } from 'react';
 import { Streamed, type StreamedProps } from '../../../skeleton/Streamed';
 import { completePage, DossierStream, type DossierStreamProps } from './DossierStream';
 
@@ -9,7 +9,11 @@ import { completePage, DossierStream, type DossierStreamProps } from './DossierS
 
 export async function settled(node: ReactNode): Promise<ReactElement> {
   const element = node as ReactElement;
-  if (element?.type === DossierStream) return completePage(element.props as DossierStreamProps);
+  if (element?.type === DossierStream) {
+    const props = element.props as DossierStreamProps;
+    const [live, page] = await Promise.all([props.live(props.read), completePage(props)]);
+    return createElement(Fragment, null, live, page);
+  }
   if (element?.type === Streamed) {
     const { read, children } = element.props as StreamedProps<unknown>;
     return settled(children(await read));

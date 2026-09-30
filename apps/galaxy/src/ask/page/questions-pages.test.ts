@@ -24,6 +24,7 @@ vi.mock('./source', () => ({
   readTabs: async () => [],
   readSession: async () => given.pane,
   readMembers: async () => [],
+  sessionPings: () => async () => null,
 }));
 
 const { QuestionsTabs } = await import('./QuestionsTabs');
