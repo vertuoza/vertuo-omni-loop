@@ -7463,7 +7463,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync14 } from "node:child_process";
+import { execFileSync as execFileSync15 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -16842,9 +16842,259 @@ var board = {
   }
 };
 
+// kit/bin/commands/care.mjs
+init_define_OMNI_BUNDLE();
+import { execFileSync as execFileSync8 } from "node:child_process";
+
+// kit/lib/care/decide.mjs
+init_define_OMNI_BUNDLE();
+function decideRound(state) {
+  if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
+  if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
+  const actions = [];
+  if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
+  const { checks } = state;
+  if (checks.state === "red" && checks.fixable && !checks.stuck) actions.push({ kind: "fix-ci", failed: checks.failed });
+  for (const thread of state.threads) {
+    if (thread.needs === "judge") actions.push({ kind: "judge", thread: thread.id });
+    else if (thread.needs === "mark-asked") actions.push({ kind: "mark-asked", thread: thread.id });
+  }
+  actions.push({ kind: "status" });
+  return { mode: "act", actions };
+}
+
+// kit/lib/care/marker.mjs
+init_define_OMNI_BUNDLE();
+var CARE_VERDICTS = Object.freeze(["fixed", "pushed-back", "asked"]);
+var MARKER_RE = /<!-- omni-care: ([\w-]+) -->/g;
+var TRAILING_MARKER_RE = /\s*<!-- omni-care: [\w-]+ -->\s*$/;
+function careMarker(verdict) {
+  if (!CARE_VERDICTS.includes(verdict)) {
+    throw new Error(`unknown PR care verdict "${verdict}": one of ${CARE_VERDICTS.join(", ")}`);
+  }
+  return `<!-- omni-care: ${verdict} -->`;
+}
+function careReplyBody(text4, verdict) {
+  const marker = careMarker(verdict);
+  const plain = String(text4 ?? "").replace(TRAILING_MARKER_RE, "").trim();
+  if (!plain) throw new Error("a PR care reply cannot be empty");
+  return `${plain}
+
+${marker}`;
+}
+function readCareVerdict(body) {
+  const found = [...String(body ?? "").matchAll(MARKER_RE)];
+  const last = found.at(-1)?.[1];
+  return CARE_VERDICTS.includes(last) ? last : null;
+}
+
+// kit/lib/care/state.mjs
+init_define_OMNI_BUNDLE();
+var CARE_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      number url state isDraft baseRefName headRefName mergeable
+      labels(first: 50) { nodes { name } }
+      commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
+        __typename
+        ... on CheckRun { name status conclusion detailsUrl }
+        ... on StatusContext { context state targetUrl }
+      } } } } } }
+      reviewThreads(first: 100) { nodes { id isResolved path line
+        comments(first: 50) { nodes { author { login avatarUrl } body createdAt url } } } }
+      comments(last: 100) { nodes { databaseId body } }
+    }
+  }
+}`;
+var ROLLUP = { SUCCESS: "green", FAILURE: "red", ERROR: "red", PENDING: "running", EXPECTED: "running" };
+var FAILED_RUN = /* @__PURE__ */ new Set(["FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"]);
+var FAILED_STATUS = /* @__PURE__ */ new Set(["FAILURE", "ERROR"]);
+var CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
+function failedContexts(contexts) {
+  const failed = [];
+  for (const node of contexts) {
+    if (node?.__typename === "StatusContext") {
+      if (FAILED_STATUS.has(node.state)) failed.push({ name: node.context, url: node.targetUrl ?? null });
+    } else if (FAILED_RUN.has(node?.conclusion)) {
+      failed.push({ name: node.name, url: node.detailsUrl ?? null });
+    }
+  }
+  return failed;
+}
+function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
+  const rollup = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+  const state = rollup ? ROLLUP[rollup.state] ?? "running" : "none";
+  const failed = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const gates = new Set(gateContexts);
+  const fixable = state === "red" && (failed.length === 0 || failed.some((run) => !gates.has(run.name)));
+  return { state, failed, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
+}
+function readComment(node) {
+  return {
+    author: node.author?.login ?? null,
+    avatarUrl: node.author?.avatarUrl ?? null,
+    body: node.body ?? "",
+    createdAt: node.createdAt ?? null,
+    url: node.url ?? null,
+    verdict: readCareVerdict(node.body)
+  };
+}
+function reasonOf2(body) {
+  return body.replace(/\s*<!-- omni-care: [\w-]+ -->\s*$/, "").trim();
+}
+function readThread(node) {
+  const comments = (node.comments?.nodes ?? []).map(readComment);
+  const resolved = Boolean(node.isResolved);
+  const last = comments.findLastIndex((c) => c.verdict !== null);
+  const base = { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+  if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: "judge" };
+  const reply = comments[last];
+  const reason2 = reasonOf2(reply.body);
+  if (reply.verdict === "asked") return { ...base, verdict: "asked", reason: reason2, needs: null };
+  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
+  if (personAfter || !resolved) return { ...base, verdict: "asked", reason: reason2, needs: "mark-asked" };
+  return { ...base, verdict: reply.verdict, reason: reason2, needs: null };
+}
+function readStatus(nodes, statusMarker) {
+  const found = nodes.find((node) => statusMarker && String(node.body ?? "").includes(statusMarker));
+  if (!found) return null;
+  const line = String(found.body).match(CARE_LINE_RE);
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
+}
+function careState(response, { statusMarker, needsFixLabel, gateContexts = [] }) {
+  const pr = response?.data?.repository?.pullRequest;
+  if (!pr) throw new Error("the response holds no pull request");
+  const labels = (pr.labels?.nodes ?? []).map((label) => label.name);
+  return {
+    pr: {
+      number: pr.number,
+      url: pr.url,
+      state: pr.state,
+      isDraft: Boolean(pr.isDraft),
+      base: pr.baseRefName,
+      head: pr.headRefName,
+      labels
+    },
+    checks: readChecks(pr, labels, { needsFixLabel, gateContexts }),
+    mergeable: pr.mergeable ?? "UNKNOWN",
+    threads: (pr.reviewThreads?.nodes ?? []).map(readThread).filter(Boolean),
+    status: readStatus(pr.comments?.nodes ?? [], statusMarker)
+  };
+}
+
+// kit/bin/commands/care.mjs
+var USAGE4 = "usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n       omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>]";
+var CLAIM_STATES = /* @__PURE__ */ new Set(["in-flight", "claimed-stale"]);
+var REPLY_MUTATION = `mutation($thread: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $thread, body: $body }) { comment { url } }
+}`;
+var RESOLVE_MUTATION = `mutation($thread: ID!) {
+  resolveReviewThread(input: { threadId: $thread }) { thread { isResolved } }
+}`;
+function graphql({ query, variables }, { exec, env }) {
+  const raw = exec("gh", ["api", "graphql", "--input", "-"], {
+    encoding: "utf8",
+    input: JSON.stringify({ query, variables }),
+    ...env ? { env } : {}
+  });
+  const parsed = JSON.parse(raw);
+  if (parsed.errors?.length) throw Object.assign(new Error(parsed.errors[0].message), { name: "GitHubError" });
+  return parsed;
+}
+function featureBranchFor(prd2, ctx) {
+  const where = ctx.layout.whereIs(prd2);
+  if (!where) throw usageError(`omni care: PRD ${prd2} has no inbox or shipped folder.`);
+  const parsed = parseFolderName(where.name);
+  if (!parsed) throw usageError(`omni care: cannot read a topic from folder "${where.name}".`);
+  return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+}
+function findFeaturePr({ repo, branch, exec, env }) {
+  const raw = exec(
+    "gh",
+    ["pr", "list", "--repo", repo, "--head", branch, "--state", "all", "--json", "number,state,updatedAt", "--limit", "20"],
+    { encoding: "utf8", ...env ? { env } : {} }
+  );
+  const prs = JSON.parse(raw);
+  const open2 = prs.find((pr) => pr.state === "OPEN");
+  if (open2) return open2.number;
+  const latest = [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+  return latest?.number ?? null;
+}
+function waveClaims(prd2, { ctx, exec, env, repo }) {
+  try {
+    const { result } = buildBoard(prd2, { ctx, exec, env, repo });
+    const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
+    return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
+  } catch (error) {
+    return { holdsClaims: null, claimed: [], unreadable: String(error?.message ?? error).split("\n")[0] };
+  }
+}
+function runState(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
+  if (positional.length !== 1) throw usageError(USAGE4);
+  const prd2 = positiveInt("care", "<prd>", positional[0]);
+  const repo = repoSlug("care", ctx, flags.repo);
+  const branch = featureBranchFor(prd2, ctx);
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const number = flags.pr !== void 0 ? positiveInt("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  if (number === null) {
+    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${branch}).`);
+    return 1;
+  }
+  const [owner, name] = repo.split("/");
+  const response = graphql({ query: CARE_QUERY, variables: { owner, name, number } }, { exec, env: ghEnv });
+  const state = careState(response, {
+    statusMarker: `<!-- ${ctx.config.markers.prefix}-status -->`,
+    needsFixLabel: ctx.config.labels.needsFix,
+    gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
+  });
+  const wave = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
+  const full = { prd: prd2, ...state, wave };
+  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
+  return 0;
+}
+function runReply(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
+  if (positional.length) throw usageError(USAGE4);
+  if (!CARE_VERDICTS.includes(flags.verdict)) {
+    throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(", ")}.`);
+  }
+  if (flags.body === void 0 === (flags.file === void 0)) {
+    throw usageError("omni care reply: give the text with exactly one of --body or --file.");
+  }
+  const text4 = flags.body ?? readUserFile("care", ctx, flags.file);
+  if (!String(text4).trim()) throw usageError("omni care reply: the reply is empty.");
+  const body = careReplyBody(text4, flags.verdict);
+  if (flags.thread === void 0) {
+    println(stdout, body);
+    return 0;
+  }
+  const ghEnv = githubEnv(ctx, { exec, env });
+  try {
+    const posted = graphql({ query: REPLY_MUTATION, variables: { thread: flags.thread, body } }, { exec, env: ghEnv });
+    const resolve4 = flags.verdict !== "asked";
+    if (resolve4) graphql({ query: RESOLVE_MUTATION, variables: { thread: flags.thread } }, { exec, env: ghEnv });
+    const url = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
+    println(stdout, JSON.stringify({ thread: flags.thread, verdict: flags.verdict, url, resolved: resolve4 }));
+    return 0;
+  } catch (error) {
+    if (error?.name !== "GitHubError") throw error;
+    println(stderr, `omni care reply: GitHub refused it: ${error.message}`);
+    return 1;
+  }
+}
+var care = {
+  async run(args, { ctx, stdout, stderr, exec = execFileSync8, env }) {
+    const [sub, ...rest] = args;
+    if (sub === "state") return runState(rest, { ctx, stdout, stderr, exec, env });
+    if (sub === "reply") return runReply(rest, { ctx, stdout, stderr, exec, env });
+    throw usageError(USAGE4);
+  }
+};
+
 // kit/bin/commands/business.mjs
 init_define_OMNI_BUNDLE();
-var USAGE4 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var USAGE5 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
 var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
@@ -16923,7 +17173,7 @@ var business = {
       return cited(positional2, flags2, env);
     }
     const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
-    if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE4);
+    if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE5);
     const out = { json: flags.json === true, stdout };
     const reached = reach(env);
     if (!reached.client) return print(out, empty(reached.state), [reached.line]);
@@ -17709,7 +17959,7 @@ import { join as join30 } from "node:path";
 // kit/lib/plan-repo/targets.mjs
 init_define_OMNI_BUNDLE();
 var import_yaml4 = __toESM(require_dist(), 1);
-import { execFileSync as execFileSync8 } from "node:child_process";
+import { execFileSync as execFileSync9 } from "node:child_process";
 import { existsSync as existsSync21, readdirSync as readdirSync12, readFileSync as readFileSync22 } from "node:fs";
 import { join as join27 } from "node:path";
 
@@ -17810,7 +18060,7 @@ function staleness(gh, { repo, readAt }, branch, evidence) {
   if (changed === 0) return null;
   return `${plural2(ahead, "commit", "commits")}, ${plural2(changed, "evidence file", "evidence files")} changed`;
 }
-function readTarget2(target2, { exec = execFileSync8, env, evidence = /* @__PURE__ */ new Set() } = {}) {
+function readTarget2(target2, { exec = execFileSync9, env, evidence = /* @__PURE__ */ new Set() } = {}) {
   const { repo, role, knowledge: knowledge2 } = target2;
   const row = (loop, state, detail = null) => ({ repo, role, knowledge: knowledge2, loop, state, detail });
   const gh = ghReader({ exec, env });
@@ -17851,7 +18101,7 @@ function copyEvidence(repo, { ctx }) {
   }
   return paths;
 }
-function readTargets(targets2, { ctx, exec = execFileSync8, env } = {}) {
+function readTargets(targets2, { ctx, exec = execFileSync9, env } = {}) {
   return targets2.map(
     (target2) => readTarget2(target2, { exec, env, evidence: target2.knowledge === "imported" ? copyEvidence(target2.repo, { ctx }) : /* @__PURE__ */ new Set() })
   );
@@ -18357,7 +18607,7 @@ function findReleaseViolations({ ctx }) {
 }
 
 // kit/bin/commands/check.mjs
-var USAGE5 = "usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]";
+var USAGE6 = "usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]";
 function report(stdout, title, violations, passLine) {
   if (violations.length > 0) {
     println(stdout, formatFailure(title, violations));
@@ -18475,7 +18725,7 @@ var check = {
   async run(args, io) {
     const { ctx, stdout, exec } = io;
     const { positional, flags } = parseArgs("check", args, { values: ["base", "prd"] });
-    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE5);
+    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE6);
     const guard = positional[0] ?? "all";
     const prd2 = flags.prd === void 0 ? null : positiveInt("check", "--prd", flags.prd);
     const base = flags.base ?? defaultBase(ctx);
@@ -18504,13 +18754,13 @@ var check = {
 // kit/bin/commands/comment.mjs
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync9 } from "node:fs";
-var USAGE6 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
+var USAGE7 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
 var comment = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("comment", args, {
       values: ["prd", "pr", "repo", "result", "branch", "ref", "base", "labels", "slack-note", "title", "owner-slack-id", "owner-login", "pr-comment"]
     });
-    if (positional.length) throw usageError(USAGE6);
+    if (positional.length) throw usageError(USAGE7);
     const prd2 = positiveInt("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
     const [owner, name] = repo.split("/");
@@ -18529,7 +18779,7 @@ var comment = {
       return 0;
     }
     const branch = flags.branch;
-    if (!branch) throw usageError(USAGE6);
+    if (!branch) throw usageError(USAGE7);
     const ref = flags.ref ?? branch;
     let changes = [];
     if (flags.base) {
@@ -19017,7 +19267,7 @@ function summarize(items, { commits = null, app = false } = {}) {
 
 // kit/lib/credits/reader.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync9 } from "node:child_process";
+import { execFileSync as execFileSync10 } from "node:child_process";
 var SEARCH_CAP = 1e3;
 var PR_FIELDS2 = "number,title,state,createdAt,labels,body,repository,author";
 var BOT_SUFFIX = "[bot]";
@@ -19066,7 +19316,7 @@ function pullRequest(raw, repo) {
   };
 }
 var shown = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
-function readCredits({ owner, repo, since, labels, signature, exec = execFileSync9, env }) {
+function readCredits({ owner, repo, since, labels, signature, exec = execFileSync10, env }) {
   const options = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: MAX_BUFFER, ...env ? { env } : {} };
   const gh = (args) => {
     try {
@@ -19179,13 +19429,13 @@ function creditsList(items) {
 }
 
 // kit/bin/commands/credits.mjs
-var USAGE7 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
+var USAGE8 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
 var credits = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"], booleans: ["list", "json"] });
-    if (positional.length) throw usageError(USAGE7);
+    if (positional.length) throw usageError(USAGE8);
     const slug = repoSlug("credits", ctx, flags.repo);
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
@@ -19327,7 +19577,7 @@ function readFixFolder(ctx, kind, issue, { issueTitle: issueTitle2 = null } = {}
 }
 
 // kit/bin/commands/dossier.mjs
-var USAGE8 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
+var USAGE9 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
@@ -19458,7 +19708,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
 }
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
-  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE8);
+  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE9);
   return flag;
 }
 var dossier = {
@@ -19469,9 +19719,9 @@ var dossier = {
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
     const numbered = ["push", "link"].includes(verb);
     const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
-    if (!runnable) throw usageError(USAGE8);
+    if (!runnable) throw usageError(USAGE9);
     const kind = kindOf2(flags.kind, numbered);
-    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE8);
+    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE9);
     const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -19723,7 +19973,7 @@ import { dirname as dirname11, join as join43 } from "node:path";
 
 // kit/lib/delivery/ship.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync10 } from "node:child_process";
+import { execFileSync as execFileSync11 } from "node:child_process";
 import { existsSync as existsSync30, readFileSync as readFileSync27, writeFileSync as writeFileSync10, mkdirSync as mkdirSync8 } from "node:fs";
 import { basename as basename6, join as join37, dirname as dirname9 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
@@ -19767,7 +20017,7 @@ var DirtyDeliveryError = class extends Error {
     this.name = "DirtyDeliveryError";
   }
 };
-function applyShip(ctx, prd2, { exec = execFileSync10 } = {}) {
+function applyShip(ctx, prd2, { exec = execFileSync11 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty ?? "").trim()) throw new DirtyDeliveryError(delivery);
@@ -20597,7 +20847,7 @@ function noEdits(edits) {
 }
 
 // kit/bin/commands/harvest.mjs
-var USAGE9 = "usage: omni harvest <prd> --pr <feature pull request>";
+var USAGE10 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   if (entry.kind === "stays-here") return "stays here";
@@ -20611,7 +20861,7 @@ function checkLine(name, violations) {
 var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
-    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE9);
+    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE10);
     const prd2 = positiveInt("harvest", "<prd>", positional[0]);
     const number = positiveInt("harvest", "--pr", flags.pr);
     if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
@@ -20669,7 +20919,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/ask/heartbeat.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync11 } from "node:child_process";
+import { execFileSync as execFileSync12 } from "node:child_process";
 import { existsSync as existsSync37, mkdirSync as mkdirSync11, readdirSync as readdirSync19, readFileSync as readFileSync33, rmSync as rmSync7, writeFileSync as writeFileSync13 } from "node:fs";
 import { join as join44 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
@@ -20725,7 +20975,7 @@ function fixWork(branch, branches, folders) {
   const bug2 = numberOf(fix, folders.bugs);
   return bug2 ? { kind: "bug", number: bug2 } : null;
 }
-function readWork({ cwd, config: config2, claudeSessionId, exec = execFileSync11 }) {
+function readWork({ cwd, config: config2, claudeSessionId, exec = execFileSync12 }) {
   const home = attempt4(() => mainCheckout(cwd, exec));
   const drafts = home ? attempt4(() => readDossiers(home)) ?? [] : [];
   const head = attempt4(() => String(exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, ...QUIET7 })).trim());
@@ -20864,6 +21114,18 @@ var ENTRIES = deepFreeze([
     label: "omni board <n>",
     summary: "PRD n's slices and what can run next",
     detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on. Needs gh logged in."
+  },
+  {
+    name: "care",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni care state <prd> [--pr <n>] [--repo <owner/name>]",
+      "omni care reply --verdict <v> --body <text> [--thread <id>]",
+      "omni care reply --verdict <v> --file <path> [--thread <id>]"
+    ],
+    summary: "PRD n's feature PR as PR care sees it, and its marked replies",
+    detail: "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review thread with its verdict, whether a wave holds claims, and the next actions of a round. reply writes a reply ending with the care marker; with --thread it posts it and resolves the thread unless the verdict is asked. Needs gh logged in."
   },
   {
     name: "check",
@@ -22616,7 +22878,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.mjs
 var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
-var USAGE10 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
+var USAGE11 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field3) {
   return external_exports.string().trim().min(1, `${field3} must not be empty`).superRefine((value, refinement) => {
@@ -22867,7 +23129,7 @@ var item = {
     const [sub, ...rest] = args;
     if (sub === "new") return runNew(rest, io);
     if (sub === "relay") return runRelay(rest, io);
-    throw usageError(USAGE10);
+    throw usageError(USAGE11);
   }
 };
 
@@ -22937,7 +23199,7 @@ function readGraph({ ctx }) {
 }
 
 // kit/bin/commands/kb.mjs
-var USAGE11 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
+var USAGE12 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -23060,7 +23322,7 @@ var kb = {
     if (sub === "show") return show(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
-    throw usageError(USAGE11);
+    throw usageError(USAGE12);
   }
 };
 
@@ -23236,7 +23498,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
 }
 
 // kit/bin/commands/phase0.mjs
-var USAGE12 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE13 = "usage: omni phase0 <prd> [--base <ref>]";
 function git3(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -23276,7 +23538,7 @@ function printVerdict(stdout, prd2, base, verdict) {
 var phase0 = {
   async run(args, { ctx, stdout, exec }) {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE12);
+    if (positional.length !== 1) throw usageError(USAGE13);
     const prd2 = positiveInt("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths(ctx, base, exec);
@@ -23423,7 +23685,7 @@ function gradePlan(markdown, { config: config2 }) {
 
 // kit/lib/plan-repo/moved.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync12 } from "node:child_process";
+import { execFileSync as execFileSync13 } from "node:child_process";
 var shortName4 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf = (file) => [file.filename, file.previous_filename].filter(Boolean);
 function compareRow(gh, { slug, readAt, slices }) {
@@ -23442,7 +23704,7 @@ function compareRow(gh, { slug, readAt, slices }) {
   if (files.length === 0) return { state: "ok" };
   return { state: "moved", files, slices: slices.map((slice) => slice.id).filter((id) => hit.has(id)) };
 }
-function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync12, env } = {}) {
+function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync13, env } = {}) {
   const gh = ghReader({ exec, env });
   const slugOf2 = new Map(targets2.map((target2) => [shortName4(target2.repo), target2.repo]));
   return repositories.filter((row) => row.repo !== shortName4(planSlug)).map((row) => {
@@ -23478,7 +23740,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.mjs
-var USAGE13 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
+var USAGE14 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
@@ -23510,7 +23772,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE13);
+  if (positional.length !== 1) throw usageError(USAGE14);
   const prd2 = positiveInt("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -23530,9 +23792,9 @@ var plan = {
   async run(args, { ctx, stdout, exec, env }) {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
-    if (sub !== "check") throw usageError(USAGE13);
+    if (sub !== "check") throw usageError(USAGE14);
     const { positional } = parseArgs("plan check", rest);
-    if (positional.length !== 1) throw usageError(USAGE13);
+    if (positional.length !== 1) throw usageError(USAGE14);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
     const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
@@ -24128,7 +24390,7 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.mjs
-var USAGE14 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE15 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
@@ -24222,20 +24484,20 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE14);
+    throw usageError(USAGE15);
   }
 };
 
 // kit/bin/commands/settle.mjs
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
-var USAGE15 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+var USAGE16 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
-    if (positional.length !== 1) throw usageError(USAGE15);
+    if (positional.length !== 1) throw usageError(USAGE16);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
@@ -24295,12 +24557,12 @@ var ship = {
 
 // kit/bin/commands/sign.mjs
 init_define_OMNI_BUNDLE();
-var USAGE16 = "usage: omni sign trailer|footer";
+var USAGE17 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   async run(args, { ctx, stdout }) {
     const { positional } = parseArgs("sign", args);
-    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE16);
+    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE17);
     const line = LINES2[positional[0]](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -24313,7 +24575,7 @@ import { appendFileSync } from "node:fs";
 
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync13 } from "node:child_process";
+import { execFileSync as execFileSync14 } from "node:child_process";
 import { readFileSync as readFileSync45, rmSync as rmSync8, statSync as statSync9, utimesSync, writeFileSync as writeFileSync20 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 function git4(ctx, exec, args) {
@@ -24398,7 +24660,7 @@ function putBack(saved) {
   } catch {
   }
 }
-function fetchRemote({ ctx, exec = execFileSync13 }) {
+function fetchRemote({ ctx, exec = execFileSync14 }) {
   const saved = snapshot(fetchHeadPath(ctx, exec));
   try {
     git4(ctx, exec, ["fetch", "--prune", ctx.config.repo.remote]);
@@ -24508,7 +24770,7 @@ function phase0Of(ctx, exec, base, remote) {
   }
   return out;
 }
-function readFacts({ ctx, exec = execFileSync13 }) {
+function readFacts({ ctx, exec = execFileSync14 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
@@ -24758,7 +25020,7 @@ function formatOverview(overview2, { now }) {
 }
 
 // kit/bin/commands/status.mjs
-var USAGE17 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE18 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
     const failure2 = fetchRemote({ ctx, exec });
@@ -24777,7 +25039,7 @@ var status2 = {
     const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE17);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE18);
     const prd2 = positiveInt("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -24809,11 +25071,11 @@ var status2 = {
 
 // kit/bin/commands/targets.mjs
 init_define_OMNI_BUNDLE();
-var USAGE18 = "usage: omni targets [--json]";
+var USAGE19 = "usage: omni targets [--json]";
 var targets = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE18);
+    if (positional.length) throw usageError(USAGE19);
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
@@ -25418,7 +25680,7 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.mjs
-var USAGE19 = "usage: omni update [--to <version>]";
+var USAGE20 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target2, exec }) {
   const dir = mkdtempSync2(join58(tmpdir2(), "omni-update-"));
   try {
@@ -25462,7 +25724,7 @@ var update = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE19);
+    if (positional.length) throw usageError(USAGE20);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -25564,10 +25826,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, business, version, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, business, version, update, help, statusline, targets });
 
 // kit/bin/omni.mjs
-var USAGE20 = `usage: omni <command> [args]
+var USAGE21 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -25610,12 +25872,12 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync14, env = process.env, ...more } = {}) {
+async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync15, env = process.env, ...more } = {}) {
   const [first, ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE20);
+    stderr.write(USAGE21);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });

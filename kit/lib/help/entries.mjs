@@ -97,6 +97,22 @@ export const ENTRIES = deepFreeze([
       'it as one document, the one /omni:wave acts on. Needs gh logged in.',
   },
   {
+    name: 'care',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni care state <prd> [--pr <n>] [--repo <owner/name>]',
+      'omni care reply --verdict <v> --body <text> [--thread <id>]',
+      'omni care reply --verdict <v> --file <path> [--thread <id>]',
+    ],
+    summary: "PRD n's feature PR as PR care sees it, and its marked replies",
+    detail:
+      "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review " +
+      'thread with its verdict, whether a wave holds claims, and the next actions of a round. reply ' +
+      'writes a reply ending with the care marker; with --thread it posts it and resolves the thread ' +
+      'unless the verdict is asked. Needs gh logged in.',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',
