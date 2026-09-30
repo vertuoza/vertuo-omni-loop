@@ -159,6 +159,12 @@ describe('products (PRD 748 s4)', () => {
     expect(d.calls[1][1]).toMatchObject({ p_product: null });
   });
 
+  it('makes a plan\'s pick on the product it is given', async () => {
+    const d = db([{ data: row({ product_id: 'p-2' }) }]);
+    await run(callsOf(databaseBusiness(d, 'ws-1', 'p-1'), 'offering', planPick([], 'offering', 'ERP'), 'p-2'), () => {});
+    expect(d.calls[0]).toEqual(['claim_pick', expect.objectContaining({ p_product: 'p-2' })]);
+  });
+
   it('adds a product with product_add(), answering it, or a refusal', async () => {
     const d = db([{ data: { id: 'p-2', name: 'Omni Loop', workspace_id: 'ws-1' } }]);
     expect(await databaseBusiness(d, 'ws-1', 'p-1').addProduct('Omni Loop')).toEqual({ ok: true, product: { id: 'p-2', name: 'Omni Loop' } });

@@ -134,10 +134,11 @@ export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = 
 /** A step of a plan, as the page reports it. */
 export type Step = { type: 'saved'; claim: Claim } | { type: 'refused'; message: string };
 
-/** The calls a plan of model.ts makes, in order: each rejection, then the pick. */
-export const callsOf = (port: BusinessPort, kind: ClaimKind, plan: { reject: Claim[]; pick: string | null }): Array<() => Promise<Saved>> => [
+/** The calls a plan of model.ts makes, in order: each rejection, then the pick, on `product` when
+ * given. */
+export const callsOf = (port: BusinessPort, kind: ClaimKind, plan: { reject: Claim[]; pick: string | null }, product?: string): Array<() => Promise<Saved>> => [
   ...plan.reject.map((claim) => () => port.setState(claim, 'rejected')),
-  ...(plan.pick === null ? [] : [() => port.pick(kind, plan.pick as string)]),
+  ...(plan.pick === null ? [] : [() => port.pick(kind, plan.pick as string, product)]),
 ];
 
 /** The calls ✓ on a row makes: the rejections planConfirm() names, then the confirmation. */
