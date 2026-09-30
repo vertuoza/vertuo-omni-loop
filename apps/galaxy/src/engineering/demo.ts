@@ -7,7 +7,8 @@ import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type Sort
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
 // would be, with a member or two for their heroes, the loop's sub-PRs into feature branches and a weekly
-// develop → main promotion, which count nowhere but the sub-PR line (PRD 714). Fixed: the same `now` draws the same board. Given a
+// develop → main promotion, which count nowhere but the sub-PR line (PRD 714), and for Loop health
+// (PRD 714 s2) one pull request labelled omni:needs-fix and one claim gone cold. Fixed: the same `now` draws the same board. Given a
 // repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
@@ -70,6 +71,24 @@ function promotionOf(i: number, now: Date): PullRequestRow {
   };
 }
 
+/** Loop health's rows (PRD 714 s2): a feature pull request labelled omni:needs-fix, open for two days,
+ * and a sub-PR claimed three hours ago with nothing beyond its claim commit. */
+function stuckOf(now: Date): PullRequestRow[] {
+  const at = (hours: number) => new Date(now.getTime() - hours * HOUR).toISOString();
+  return [
+    {
+      repo: TRACKED[0], number: 500, author: 'ada', authorIsBot: false, openedAt: at(48), mergedAt: null, closedAt: null, mergedBy: null,
+      commits: 9, additions: 400, deletions: 30, omniSigned: true, base: 'main', head: 'feat/demo-stuck', draft: false, labels: ['omni:feature', 'omni:needs-fix'],
+      headCommittedAt: at(20),
+    },
+    {
+      repo: TRACKED[1], number: 501, author: 'bob', authorIsBot: false, openedAt: at(3), mergedAt: null, closedAt: null, mergedBy: null,
+      commits: 1, additions: 0, deletions: 0, omniSigned: true, base: 'feat/demo-cold', head: 'feat/demo-cold--s2', draft: true, labels: [],
+      headCommittedAt: at(3),
+    },
+  ];
+}
+
 function reviewOf(i: number, now: Date): ReviewRow {
   return { repo: TRACKED[i % 2], number: 100 + i, reviewer: person(i + 1), firstAt: new Date(openedAt(i, now).getTime() + HOUR).toISOString() };
 }
@@ -78,7 +97,7 @@ function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]
   const all = Array.from({ length: 90 }, (_, i) => i);
   const subs = Array.from({ length: 200 }, (_, i) => subPrOf(i, now));
   const promotions = Array.from({ length: 7 }, (_, i) => promotionOf(i, now));
-  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions], reviews: all.map((i) => reviewOf(i, now)) };
+  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions, ...stuckOf(now)], reviews: all.map((i) => reviewOf(i, now)) };
 }
 
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard;
@@ -86,6 +105,6 @@ export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date, r
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date, repo?: string): EngineeringBoard | { kind: 'not-tracked' } {
   const found = repo === undefined ? undefined : TRACKED.find((r) => r.toLowerCase() === repo.toLowerCase());
   if (repo !== undefined && !found) return { kind: 'not-tracked' };
-  const board = engineeringOf({ tracked: found ? [found] : TRACKED, ...rows(now) }, periodWindow(period, now), sort);
+  const board = engineeringOf({ tracked: found ? [found] : TRACKED, ...rows(now) }, periodWindow(period, now), sort, now);
   return { kind: 'board', name: 'Demo workspace', board: withPeople(board, DEMO_PEOPLE), ...(found ? { repo: found } : {}) };
 }

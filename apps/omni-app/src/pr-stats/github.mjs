@@ -15,6 +15,8 @@ const PER_PAGE = 100;
 const MAX_LIST_PAGES = 50;
 /** Commit messages read per pull request, the latest ones, for the Omni-man trailer. */
 const COMMITS_READ = 100;
+/** Labels read per pull request, the first ones. */
+const LABELS_READ = 100;
 /** Reviews read per pull request, the first ones. */
 const REVIEWS_READ = 100;
 /** The share of a budget the collector always leaves. */
@@ -92,8 +94,9 @@ const PULL_FIELDS = `number
   author { login __typename }
   createdAt mergedAt closedAt
   mergedBy { login __typename }
-  baseRefName headRefName body additions deletions
-  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message } } }
+  baseRefName headRefName isDraft body additions deletions
+  labels(first: ${LABELS_READ}) { nodes { name } }
+  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
   reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }`;
 
 /**
@@ -137,6 +140,9 @@ function recordOf(pull, { workspaceId, fullName }) {
     ...closing(pull),
     base: pull.baseRefName ?? null,
     head: pull.headRefName ?? null,
+    draft: Boolean(pull.isDraft),
+    labels: (pull.labels?.nodes ?? []).map((label) => label?.name).filter(Boolean),
+    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
     commits: commits.totalCount,
     additions: pull.additions ?? 0,
     deletions: pull.deletions ?? 0,

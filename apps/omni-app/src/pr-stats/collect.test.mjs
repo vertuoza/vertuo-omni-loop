@@ -48,11 +48,36 @@ describe('prStats — collecting a tracked repository', () => {
       merged_by: 'bob',
       base: 'main',
       head: 'feat/three',
+      draft: false,
+      labels: [],
+      head_committed_at: daysAgo(5),
       commits: 1,
       additions: 10,
       deletions: 2,
       omni_signed: false,
     });
+  });
+
+  it('writes each pull request\'s draft state, its label names and its latest commit\'s committed date (PRD 714)', async () => {
+    const github = fakeGitHub({
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(1), draft: true, labels: [{ name: 'omni:needs-fix' }, { name: 'omni:sub' }],
+            commits: 2, commitMessages: ['chore(s1): claim', 'feat: the slice'], commit_dates: [daysAgo(3), daysAgo(2)],
+          }),
+          pull(2, { updated_at: daysAgo(1), commits: 0, commitMessages: [] }),
+        ],
+      },
+    });
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+    await run({ store, github });
+
+    const first = store.state.pulls.get(`${WS}|vertuoza/apps|1`);
+    expect(first).toMatchObject({ draft: true, labels: ['omni:needs-fix', 'omni:sub'], head_committed_at: daysAgo(2) });
+    const second = store.state.pulls.get(`${WS}|vertuoza/apps|2`);
+    expect(second).toMatchObject({ draft: false, labels: [], head_committed_at: null });
   });
 
   it('reads only what was updated after the cursor on the next run', async () => {

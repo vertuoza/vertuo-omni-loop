@@ -13,7 +13,8 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // reviews). First the tracked repositories; with none, the empty state and no other read. Then, in
 // parallel, the pull requests that can count in the period (opened or merged since its first instant,
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
-// leaves the whole board saying it could not load, its error logged. Last, the faces (PRD 652 s3):
+// leaves the whole board saying it could not load, its error logged. Loop health (PRD 714 s2) reads the
+// open ones at the request's `now`. Last, the faces (PRD 652 s3):
 // the workspace's people directory, read only when the three lists show someone, resolves each login.
 // That read fails soft: its error logged, every face falls back to the GitHub photo and the board
 // still renders. A
@@ -54,13 +55,13 @@ export async function loadEngineeringRepository(reads: EngineeringReads, repo: s
 
 async function boardOf(reads: EngineeringReads, tracked: string[], { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
   const window = periodWindow(period, now);
-  if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort);
+  if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort, now);
   const [pullRequests, reviews] = await Promise.all([
     settle('the pull requests', () => reads.pullRequests(window.from, tracked)),
     settle('the reviews', () => reads.reviews(window.from, window.to, tracked)),
   ]);
   if (pullRequests === UNREADABLE || reviews === UNREADABLE) return UNREADABLE;
-  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort);
+  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort, now);
   if (loginsShown(board).length === 0) return board;
   return withPeople(board, await peopleFor(reads));
 }
@@ -113,11 +114,11 @@ export async function loadEngineeringRepositoryBoard(
 type StoredPullRequest = {
   repo: string; number: number; author: string | null; author_is_bot: boolean; opened_at: string; merged_at: string | null;
   closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
-  base: string | null; head: string | null;
+  base: string | null; head: string | null; draft: boolean; labels: string[] | null; head_committed_at: string | null;
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
 
-const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head';
+const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at';
 
 export function supabaseEngineeringReads(db: SupabaseClient, workspace: string): EngineeringReads {
   return {
@@ -140,7 +141,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
       return rows.map((r) => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
-        base: r.base, head: r.head,
+        base: r.base, head: r.head, draft: r.draft, labels: r.labels ?? [], headCommittedAt: r.head_committed_at,
       }));
     },
     async reviews(from, to, repos) {
