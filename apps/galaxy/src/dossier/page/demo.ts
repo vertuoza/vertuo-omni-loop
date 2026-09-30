@@ -16,6 +16,7 @@
 // human action and a decision open, in the pull request's numbering, one answered on GitHub and not
 // yet settled, a medium adopted when raised, and Send off (the dossier is marked `demo`).
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
+import { peopleOf } from '../../people/load';
 import type { StageRow } from '../../stages/stage';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
@@ -235,6 +236,17 @@ function demoStages(opened: number): StageRow[] {
   ];
 }
 
+// PRD 652: its three people have arcade heroes, ADA and PAULA in a fleet, so the page shows faces with
+// no GitHub photo fetched; the outbox's @paula and @uma are their logins.
+const DEMO_PEOPLE = peopleOf(
+  [
+    { user_id: DEMO_OWNER, name: 'ADA', github_login: 'ada', avatar_url: null, fleet: 'octo', hero: { v: 1, body: 'girl', skin: 1, hair: 2, suit: 0, cape: 3 } },
+    { user_id: PAULA, name: 'PAULA', github_login: 'paula', avatar_url: null, fleet: 'octo', hero: { v: 1, body: 'girl', skin: 3, hair: 1, suit: 1, cape: 5 } },
+    { user_id: UMA, name: null, github_login: 'uma', avatar_url: null, fleet: null, hero: { v: 1, body: 'boy', skin: 2, hair: 4, suit: 2, cape: 0 } },
+  ],
+  [{ name: 'octo', label: 'OCTOPOD', color: '#3355ff', mascot: 'octopod' }],
+);
+
 export function demoDossier(now: number): DossierRead {
   const opened = now - 3 * 24 * 60 * MIN;
   const version = (id: string, kind: DossierVersionRow['kind'], at: number, more: Partial<DossierVersionRow> = {}): DossierVersionRow => ({
@@ -259,6 +271,7 @@ export function demoDossier(now: number): DossierRead {
     slices: 5,
     stages: demoStages(opened),
     demo: true,
+    people: DEMO_PEOPLE,
   };
 }
 

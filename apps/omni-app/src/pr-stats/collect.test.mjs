@@ -13,6 +13,7 @@ function run({ store, github, now = NOW }) {
 }
 
 const pullsListed = (github, repo) => github.queries.filter((query) => query.operation === 'PullsUpdated' && query.repo === repo);
+const statusRead = (github) => github.queries.filter((query) => query.operation === 'PullStatus').flatMap((query) => query.numbers);
 const detailsRead = (github) => github.queries.filter((query) => query.operation === 'PullDetails').flatMap((query) => query.numbers);
 
 describe('prStats — collecting a tracked repository', () => {
@@ -23,7 +24,7 @@ describe('prStats — collecting a tracked repository', () => {
         pulls: [
           pull(1, { created_at: daysAgo(120), updated_at: daysAgo(100) }),
           pull(2, { created_at: daysAgo(80), updated_at: daysAgo(60) }),
-          pull(3, { created_at: daysAgo(5), updated_at: daysAgo(1), merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' } }),
+          pull(3, { created_at: daysAgo(5), updated_at: daysAgo(1), merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' }, head: { ref: 'feat/three' } }),
         ],
       },
     });
@@ -47,11 +48,89 @@ describe('prStats — collecting a tracked repository', () => {
       closed_at: daysAgo(1),
       merged_by: 'bob',
       base: 'main',
+      head: 'feat/three',
+      draft: false,
+      labels: [],
+      head_committed_at: daysAgo(5),
+      status_state: null,
+      needs_fix_at: null,
       commits: 1,
       additions: 10,
       deletions: 2,
       omni_signed: false,
     });
+  });
+
+  it('writes each pull request\'s draft state, its label names and its latest commit\'s committed date (PRD 714)', async () => {
+    const github = fakeGitHub({
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(1), draft: true, labels: [{ name: 'omni:needs-fix' }, { name: 'omni:sub' }],
+            commits: 2, commitMessages: ['chore(s1): claim', 'feat: the slice'], commit_dates: [daysAgo(3), daysAgo(2)],
+          }),
+          pull(2, { updated_at: daysAgo(1), commits: 0, commitMessages: [] }),
+        ],
+      },
+    });
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+    await run({ store, github });
+
+    const first = store.state.pulls.get(`${WS}|vertuoza/apps|1`);
+    expect(first).toMatchObject({ draft: true, labels: ['omni:needs-fix', 'omni:sub'], head_committed_at: daysAgo(2) });
+    const second = store.state.pulls.get(`${WS}|vertuoza/apps|2`);
+    expect(second).toMatchObject({ draft: false, labels: [], head_committed_at: null });
+  });
+
+  it('writes when omni:needs-fix was first added, from the label events, and null without one (PRD 714 s4)', async () => {
+    const github = fakeGitHub({
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(1),
+            label_events: [
+              { name: 'omni:sub', created_at: daysAgo(5) },
+              { name: 'omni:needs-fix', created_at: daysAgo(4) },
+              { name: 'omni:needs-fix', created_at: daysAgo(2) },
+            ],
+          }),
+          pull(2, { updated_at: daysAgo(1), label_events: [{ name: 'omni:sub', created_at: daysAgo(3) }] }),
+          pull(3, { updated_at: daysAgo(1) }),
+        ],
+      },
+    });
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+    await run({ store, github });
+
+    const needsFixAt = (n) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`).needs_fix_at;
+    expect([needsFixAt(1), needsFixAt(2), needsFixAt(3)]).toEqual([daysAgo(4), null, null]);
+  });
+
+  it('changes no count when it runs twice in a row over the new columns (PRD 714)', async () => {
+    const trailer = `Co-authored-by: ${SIGNATURE.name} <${SIGNATURE.email}>`;
+    const repos = {
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(3), base: { ref: 'feat/x' }, head: { ref: 'feat/x--s1' }, commitMessages: [`feat: a\n\n${trailer}`],
+            merged_at: daysAgo(3), closed_at: daysAgo(3), merged_by: { login: 'ana', type: 'User' },
+            labels: [{ name: 'omni:needs-fix' }], label_events: [{ name: 'omni:needs-fix', created_at: daysAgo(3.5) }],
+          }),
+          pull(2, { updated_at: daysAgo(2), draft: true, commitMessages: [`chore(s2): claim\n\n${trailer}`], comments: ['<!-- omni-outbox-status -->\n- state: stuck'] }),
+        ],
+      },
+    };
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+    await run({ store, github: fakeGitHub(repos) });
+    const pulls = structuredClone([...store.state.pulls]);
+    expect(pulls.map(([, row]) => row.needs_fix_at)).toEqual([daysAgo(3.5), null]);
+
+    store.state.repositories[0].collectedUntil = null;
+    await run({ store, github: fakeGitHub(repos) });
+
+    expect([...store.state.pulls]).toEqual(pulls);
   });
 
   it('reads only what was updated after the cursor on the next run', async () => {
@@ -143,6 +222,54 @@ describe('prStats — collecting a tracked repository', () => {
     await run({ store, github: fakeGitHub({ 'vertuoza/apps': { pulls: [] } }) });
     expect(store.state.repositories[0].collectError).toBeNull();
     expect(store.state.repositories[0].collectedAt).toBe(new Date(NOW).toISOString());
+  });
+
+  describe('the status comment (PRD 714 s3)', () => {
+    const trailer = `Co-authored-by: ${SIGNATURE.name} <${SIGNATURE.email}>`;
+    const signed = { commitMessages: [`feat: a\n\n${trailer}`] };
+    const status = (state) => `<!-- omni-outbox-status -->\n**Agent status** · updated 2026-09-29 10:00 UTC\n\n- state: ${state}\n- attempt: 3 / 3\n- human steps: none`;
+    const merged = { merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' } };
+
+    it('reads the state line of the marked comment, for open signed pull requests into main, master or develop only', async () => {
+      const github = fakeGitHub({
+        'vertuoza/apps': {
+          pulls: [
+            pull(1, { updated_at: daysAgo(9), ...signed, comments: ['Looks good', status('stuck'), 'later'] }),
+            pull(2, { updated_at: daysAgo(8), ...signed, base: { ref: 'develop' }, comments: [status('waiting for CI (run 42)')] }),
+            pull(3, { updated_at: daysAgo(7), ...signed, base: { ref: 'master' }, comments: ['no marker here', '<!-- vertuo-outbox-status -->\n- state: stuck'] }),
+            pull(4, { updated_at: daysAgo(6), ...signed, base: { ref: 'feat/x' }, head: { ref: 'feat/x--s1' }, comments: [status('stuck')] }),
+            pull(5, { updated_at: daysAgo(5), ...signed, ...merged, comments: [status('done')] }),
+            pull(6, { updated_at: daysAgo(4), ...signed, closed_at: daysAgo(1), comments: [status('stuck')] }),
+            pull(7, { updated_at: daysAgo(3), comments: [status('stuck')] }),
+          ],
+        },
+      });
+      const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+      await run({ store, github });
+
+      expect(statusRead(github)).toEqual([1, 2, 3]);
+      const state = (n) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`).status_state;
+      expect([1, 2, 3, 4, 5, 6, 7].map(state)).toEqual(['stuck', 'waiting for CI (run 42)', null, null, null, null, null]);
+    });
+
+    it('sends no status query for a batch with no open signed pull request into a main branch', async () => {
+      const github = fakeGitHub({
+        'vertuoza/apps': {
+          pulls: [
+            pull(1, { updated_at: daysAgo(3), comments: [status('stuck')] }),
+            pull(2, { updated_at: daysAgo(2), ...signed, ...merged, comments: [status('done')] }),
+            pull(3, { updated_at: daysAgo(1), ...signed, base: { ref: 'feat/x' }, comments: [status('claimed')] }),
+          ],
+        },
+      });
+      const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+      await run({ store, github });
+
+      expect(github.queries.map((query) => query.operation)).not.toContain('PullStatus');
+      expect(store.state.pulls.size).toBe(3);
+    });
   });
 
   it('marks omni_signed by trailer, footer marker and bot author, and false otherwise', async () => {

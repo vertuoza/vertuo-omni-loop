@@ -15,6 +15,8 @@
 // server (./OutboxPane.tsx), raw HTML off.
 import { UNREAD, type GithubSummary, type OutboxItem, type PendingAnswer, type SettledItem } from '../github/summary';
 import { outboxAnswerUrl } from './stage';
+import type { Face } from '../../people/face';
+import type { People } from '../../people/load';
 
 /** An empty Outbox tab says why. */
 export const OUTBOX_EMPTY = 'No decision yet: the outbox fills while the PRD is built.';
@@ -58,7 +60,11 @@ export type Chip = { id: string; href: string };
 export type Detail = { label: string; text: string };
 
 /** An answer nobody has settled yet: what it said, who, where, when, and whether the kit counts it. */
-export type PendingView = { text: string; by: string; where: string; when: string | null; url: string | null; counted: boolean };
+export type PendingView = {
+  text: string; by: string; where: string; when: string | null; url: string | null; counted: boolean;
+  /** The face of `@by`, by login (PRD 652); null when no people directory was given. */
+  face: Face | null;
+};
 
 export type OutboxCard = {
   id: string;
@@ -84,6 +90,8 @@ export type OutboxCard = {
 
 export type SettledEntry = {
   id: string; number: number | null; title: string; verdict: string; answer: string; by: string | null; when: string | null; url: string | null;
+  /** The face of `@by`, by login (PRD 652); null with nobody named, or no people directory given. */
+  face: Face | null;
 };
 
 export type OutboxView = {
@@ -109,6 +117,8 @@ export type OutboxView = {
   repliesUnread: string | null;
   /** The rail beside the questions; null when none was given. */
   context: ContextView | null;
+  /** The viewer's face (PRD 652): a send posts as them, so its result shows it; null when not known. */
+  sender: Face | null;
 };
 
 export type OutboxOptions = {
@@ -117,6 +127,10 @@ export type OutboxOptions = {
   /** The demo dossier: Send is off, and says so. */
   demo?: boolean;
   context?: ContextView | null;
+  /** The workspace's people directory (PRD 652): each `@login` it names gets its face. */
+  people?: People;
+  /** The viewer's face, for a send's result. */
+  sender?: Face | null;
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -147,7 +161,9 @@ export function chips(bearsOn: string | undefined): Chip[] {
 
 const oneLine = (text: string | null | undefined) => text?.replace(/\s+/g, ' ').trim() || null;
 
-function cardOf(item: OutboxItem, number: number | null, adopted: boolean, pending: PendingAnswer | undefined): OutboxCard {
+type FaceByLogin = (login: string) => Face | null;
+
+function cardOf(item: OutboxItem, number: number | null, adopted: boolean, pending: PendingAnswer | undefined, faceOf: FaceByLogin): OutboxCard {
   const action = item.rank === 'human-action';
   const fun = Boolean(item.intro && item.punchline);
   return {
@@ -166,7 +182,7 @@ function cardOf(item: OutboxItem, number: number | null, adopted: boolean, pendi
     bearsOn: chips(item.bearsOn),
     details: DETAILS.flatMap(([key, label]) => (item.details?.[key]?.trim() ? [{ label, text: item.details[key]! }] : [])),
     pending: pending
-      ? { text: pending.text, by: pending.by, where: WHERE[pending.door], when: when(pending.at), url: pending.url, counted: pending.counted }
+      ? { text: pending.text, by: pending.by, where: WHERE[pending.door], when: when(pending.at), url: pending.url, counted: pending.counted, face: faceOf(pending.by) }
       : null,
   };
 }
@@ -183,10 +199,14 @@ function noteOf(github: GithubSummary): string | null {
 }
 
 /** The Outbox tab, from the GitHub summary: null when it could not be read, left out when it was not asked for. */
-export function outboxView(github: GithubSummary | null | undefined, { canAnswer = true, demo = false, context = null }: OutboxOptions = {}): OutboxView {
+export function outboxView(
+  github: GithubSummary | null | undefined, { canAnswer = true, demo = false, context = null, people, sender = null }: OutboxOptions = {},
+): OutboxView {
   const nothing = {
     answerUrl: null, open: [], adopted: [], settled: [], ledger: 0, readOnly: true, note: null, signIn: null, sendOff: null, repliesUnread: null, context: null,
+    sender: null,
   };
+  const faceOf: FaceByLogin = (login) => (people ? people.byLogin(login).face : null);
   if (github === null) return { state: 'unread', words: GITHUB_UNREAD, ...nothing };
   const outbox = github?.outbox ?? null;
   if (outbox === UNREAD) return { state: 'unread', words: GITHUB_UNREAD, ...nothing };
@@ -199,7 +219,7 @@ export function outboxView(github: GithubSummary | null | undefined, { canAnswer
   const pendingOf = new Map(pending.map((p) => [p.number, p]));
   const card = (item: OutboxItem, adopted: boolean) => {
     const number = numberOf.get(item.id) ?? null;
-    return cardOf(item, number, adopted, number === null ? undefined : pendingOf.get(number));
+    return cardOf(item, number, adopted, number === null ? undefined : pendingOf.get(number), faceOf);
   };
 
   const open = outbox.open
@@ -213,7 +233,7 @@ export function outboxView(github: GithubSummary | null | undefined, { canAnswer
     .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity));
   const settled = outbox.settled.filter((entry) => !adoptedIds.has(entry.id)).map((entry: SettledItem): SettledEntry => ({
     id: entry.id, number: numberOf.get(entry.id) ?? null, title: entry.title, verdict: entry.verdict, answer: entry.answer,
-    by: entry.by ?? null, when: when(entry.at), url: entry.url ?? null,
+    by: entry.by ?? null, when: when(entry.at), url: entry.url ?? null, face: entry.by ? faceOf(entry.by) : null,
   }));
   const note = noteOf(github);
   return {
@@ -230,5 +250,6 @@ export function outboxView(github: GithubSummary | null | undefined, { canAnswer
     sendOff: demo ? SEND_OFF.demo : SEND_OFF.notYet,
     repliesUnread: replies === UNREAD ? REPLIES_UNREAD : null,
     context,
+    sender,
   };
 }

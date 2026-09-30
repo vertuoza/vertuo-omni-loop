@@ -4,7 +4,7 @@ import { startGithubSignIn } from '../data/sign-in-github';
 // The user menu's pure parts (PRD 438), the end of the app's top bar: the keys of the WAI-ARIA
 // menu-button pattern, the top bar's GitHub sign-in (the one /app's card starts, back through
 // /app/callback), and Sign out, which ends this browser's session only, as the arcade does, and
-// lands on HOME.
+// lands on HOME. My profile (PRD 698) opens the viewer's own profile page.
 
 type Supabase = { url: string; key: string };
 
@@ -62,6 +62,12 @@ export async function signInFromBar(
 ): Promise<string | null> {
   if (!supabase) return 'Sign-in is not open here.';
   return start(supabase, `${origin}${APP_CALLBACK}`);
+}
+
+/** Where My profile goes (PRD 698): the viewer's own profile, `/app/people/<login>` with the login in
+ * lower case; null when they have no GitHub login, and the menu leaves the item out. */
+export function profileHref(login: string | null): string | null {
+  return login ? `/app/people/${encodeURIComponent(login.toLowerCase())}` : null;
 }
 
 /** What the avatar shows when the person has no picture. */

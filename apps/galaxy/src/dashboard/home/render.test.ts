@@ -9,7 +9,7 @@ import { seasonBounds } from '../season';
 import { homeRequest, type HomeViewer } from './team';
 
 // Home as the server renders it (PRD 572), with the real board: the hero block, Waiting for you, then
-// the board with scope *you*, whose People table is **Your team**, every member of your fleet with 0s
+// the board with scope *you*, whose People table is **Your fleet** and your fleet's chip (PRD 652), every member of your fleet with 0s
 // kept and you marked; solo, your own row and the line to Fleet; a failed read, only its parts.
 
 const NOW = new Date('2026-09-26T10:00:00Z');
@@ -24,7 +24,10 @@ const ACTIVITY = [merged('ada-gh', 1), merged('ada-gh', 2), merged('bob-gh', 3),
 const ANSWERED: AnsweredCount[] = [{ user_id: 'u-ada', answered: 4 }, { user_id: 'u-bob', answered: 6 }];
 const GALAXY = {
   heroes: [{ name: 'ada-gh', points: 120 }, { name: 'bob-gh', points: 300 }],
-  teams: [{ name: 'octo', label: 'OCTO', color: '#3355ff', points: 120, rank: 2 }, { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', points: 300, rank: 1 }],
+  teams: [
+    { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod', points: 120, rank: 2 },
+    { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver', points: 300, rank: 1 },
+  ],
 };
 
 function home(viewer: HomeViewer, fail: { roster?: boolean; activity?: boolean } = {}): string {
@@ -51,9 +54,11 @@ const rows = (html: string) => [...section(html, 'board-people').matchAll(/<tr\b
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 
 describe('Home, with the real board', () => {
-  it('in a fleet: Your team lists every member of the fleet, Paul at 0 included, you marked, and no one else', () => {
+  it('in a fleet: Your fleet lists every member of the fleet, Paul at 0 included, you marked, and no one else', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' });
-    expect(section(html, 'board-people')).toContain('<h2 id="board-people">Your team</h2>');
+    const heading = /<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1];
+    expect(text(heading)).toBe('Your fleet OCTO');
+    expect(heading).toMatch(/<a class="fleet-chip is-inline" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg /);
     expect(rows(html)).toEqual([
       'ADA ◀ (you) OCTO 120 2 0 · 0 · 0 4',
       'Paul Etienne OCTO 0 0 0 · 0 · 0 0',
@@ -79,11 +84,13 @@ describe('Home, with the real board', () => {
   it('solo: your own row, and the line to Fleet', () => {
     const html = home({ userId: 'u-bob', login: 'bob-gh', team: null });
     expect(rows(html)).toEqual(['BOB ◀ (you) BEAVER 300 3 0 · 0 · 0 6']);
+    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1])).toBe('Your fleet · SOLO');
     expect(section(html, 'board-people')).toMatch(/<a href="\/app\/fleet">See a fleet’s board on Fleet<\/a>/);
   });
 
-  it('the roster out of reach: only Your team says so; the tiles and charts still count you', () => {
+  it('the roster out of reach: only Your fleet says so, still headed by your fleet; the tiles and charts still count you', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' }, { roster: true });
+    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1])).toBe('Your fleet OCTO');
     expect(text(section(html, 'board-people'))).toContain(UNREADABLE_LINE);
     expect(text(html.split('board-charts')[0])).toContain('PRs merged 2');
   });

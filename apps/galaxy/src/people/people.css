@@ -1,0 +1,33 @@
+/* The person and fleet chips (PRD 652, design A · bare sprite): the picture inline with no frame,
+   24 px in a table and 18 px in a sentence, beside the name in the row's own weight. Every colour is
+   a token of src/ask/theme-tokens.ts; a fleet's own colour comes from the data, as --fleet. A photo
+   sits on a neutral circle, so a photo that fails to load still shows as a circle. */
+
+.person-chip, .fleet-chip { --chip-size: 24px; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; min-width: 0; }
+.person-chip.is-inline, .fleet-chip.is-inline { --chip-size: 18px; gap: 4px; }
+
+.person-face { flex: none; display: inline-block; width: var(--chip-size); height: var(--chip-size); }
+.person-face.is-hero svg, .fleet-chip-mascot svg { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.person-face.is-photo { border-radius: 50%; object-fit: cover; background: var(--ask-line-strong); }
+.person-face.is-initial {
+  border-radius: 50%;
+  background: var(--ask-line-strong);
+  color: var(--ask-ink);
+  font-size: calc(var(--chip-size) * 0.55);
+  font-weight: 700;
+  line-height: var(--chip-size);
+  text-align: center;
+}
+.person-face.is-initial::before { content: attr(data-initial); }
+
+.fleet-chip { font-weight: 700; white-space: nowrap; }
+.fleet-chip-mascot { flex: none; display: inline-block; width: var(--chip-size); height: var(--chip-size); }
+.fleet-chip-label { color: var(--fleet, inherit); }
+.fleet-chip.is-solo { color: var(--ask-muted); }
+
+/* PRD 698: a linked chip looks like the chip at rest; hover and keyboard focus underline its name
+   (a person's name, a fleet's label), never the face or the mascot, and focus also draws a ring. */
+a.person-chip, a.fleet-chip { color: inherit; text-decoration: none; }
+a.person-chip:hover .person-chip-name, a.person-chip:focus-visible .person-chip-name,
+a.fleet-chip:hover .fleet-chip-label, a.fleet-chip:focus-visible .fleet-chip-label { text-decoration: underline; }
+a.person-chip:focus-visible, a.fleet-chip:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; border-radius: 2px; }

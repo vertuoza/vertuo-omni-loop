@@ -3,10 +3,12 @@
 // fleet's, the workspace's, and since PRD 612 Engineering's, at /app/engineering), Work (the workspace's
 // work: PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), Settings
 // (Fleets, at /app/settings/fleets; and Repositories, at /app/settings/repositories, since PRD 612),
-// and Omni's own pages, which leave the app for the public ones. A new section is one entry here. Two
+// and Omni's own pages, which leave the app for the public ones. Since issue 653 each Dashboard and Work
+// section names its sprite. A new section is one entry here. Two
 // pure reads of a path: the item it falls under, by the longest matching path (so
 // /app/settings/fleets is Fleets and /app/fleet is Fleet, not Home), and the top
-// bar's title, a nested item's parent first. The query and the hash never count. An item that counts
+// bar's trail (issue 704): the group, a nested item's parent, then the item, with the section's sprite.
+// The query and the hash never count. An item that counts
 // what waits for the person (PRD 499) carries its count as a badge, none at 0.
 import type { WaitingCounts } from '../waiting/waiting';
 
@@ -22,6 +24,8 @@ export interface SidebarItem {
   children?: readonly SidebarItem[];
   /** It opens one of Omni's public pages, outside the app. */
   leavesApp?: boolean;
+  /** The 16×16 sprite of @omni/design drawn before its name (issue 653): Dashboard and Work sections only. */
+  sprite?: string;
 }
 
 export interface SidebarGroup {
@@ -36,29 +40,30 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     id: 'dashboard',
     label: 'Dashboard',
     items: [
-      { id: 'home', label: 'Home', path: '/app' },
-      { id: 'fleet', label: 'Fleet', path: '/app/fleet' },
-      { id: 'workspace', label: 'Workspace', path: '/app/workspace' },
-      { id: 'engineering', label: 'Engineering', path: '/app/engineering' },
+      { id: 'home', label: 'Home', path: '/app', sprite: 'menu-home' },
+      { id: 'fleet', label: 'Fleet', path: '/app/fleet', sprite: 'menu-fleet' },
+      { id: 'workspace', label: 'Workspace', path: '/app/workspace', sprite: 'menu-workspace' },
+      { id: 'engineering', label: 'Engineering', path: '/app/engineering', sprite: 'menu-engineering' },
     ],
   },
   {
     id: 'work',
     label: 'Work',
     items: [
-      { id: 'prds', label: 'PRDs', path: '/prd' },
-      { id: 'bugs', label: 'Bug Fixes', path: '/bugs' },
-      { id: 'visual', label: 'Visual Updates', path: '/visual' },
+      { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
+      { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
+      { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
       {
         id: 'questions',
         label: 'Questions',
         path: '/ask',
+        sprite: 'menu-questions',
         children: [
           { id: 'for-me', label: 'Shared with me', path: '/ask/for-me' },
           { id: 'history', label: 'History', path: '/ask/history' },
         ],
       },
-      { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
+      { id: 'knowledge', label: 'Knowledge', path: '/knowledge', sprite: 'menu-knowledge' },
     ],
   },
   {
@@ -79,10 +84,10 @@ export const SIDEBAR: readonly SidebarGroup[] = [
   },
 ];
 
-type Entry = { item: SidebarItem; parent: SidebarItem | null };
+type Entry = { item: SidebarItem; parent: SidebarItem | null; group: SidebarGroup };
 
 const ENTRIES: readonly Entry[] = SIDEBAR.flatMap((group) =>
-  group.items.flatMap((item) => [{ item, parent: null }, ...(item.children ?? []).map((child) => ({ item: child, parent: item }))]),
+  group.items.flatMap((item) => [{ item, parent: null, group }, ...(item.children ?? []).map((child) => ({ item: child, parent: item, group }))]),
 );
 
 const bare = (pathname: string) => pathname.split(/[?#]/)[0].replace(/(.)\/+$/, '$1');
@@ -103,11 +108,33 @@ export function currentItem(pathname: string | null | undefined): SidebarId | nu
   return entryOf(pathname)?.item.id ?? null;
 }
 
-/** The top bar's title for the path ("Questions / For me"), or null when it falls under no item. */
-export function pageTitle(pathname: string | null | undefined): string | null {
+/** One step of the top bar's trail: a link back to its page, or none for a group and the page itself. */
+export interface Crumb {
+  label: string;
+  path?: string;
+}
+
+/** The top bar's trail (issue 704): the crumbs, and the sprite of the section the path falls under. */
+export interface Trail {
+  crumbs: readonly Crumb[];
+  sprite: string | null;
+}
+
+/** The top bar's trail for the path ("Work › Questions › Shared with me"), or null when it falls under
+ * no item. A group has no page to link; the item links back only from a page under it. */
+export function pageTrail(pathname: string | null | undefined): Trail | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
-  return entry.parent ? `${entry.parent.label} / ${entry.item.label}` : entry.item.label;
+  const { item, parent, group } = entry;
+  const here = bare(pathname!) === item.path;
+  return {
+    crumbs: [
+      { label: group.label },
+      ...(parent ? [{ label: parent.label, path: parent.path }] : []),
+      here ? { label: item.label } : { label: item.label, path: item.path },
+    ],
+    sprite: (parent ?? item).sprite ?? null,
+  };
 }
 
 /** The badge an item carries: Questions the Questions part, Shared with me the shared questions, PRDs

@@ -7,12 +7,16 @@ import { AskSession } from './AskSession';
 import { DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoQuestion, demoState } from './demo';
 import { ForMe } from './ForMe';
 import { ShareButton } from './ShareButton';
+import { nestedLinks } from '../../people/nested-links';
 
 // Sharing a question and For me (PRD 144), as the server renders them: what a person sees before any
 // script runs.
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const count = (html: string, pattern: RegExp) => html.match(new RegExp(pattern.source, 'g'))?.length ?? 0;
+/** What a screen reader reads: the markup without its tags (PRD 652 adds faces, never words). */
+const text = (html: string) => html.replace(/<[^>]*>/g, '');
+const PHOTO = { kind: 'photo' as const, url: 'https://github.com/paula.png?size=48' };
 
 describe('Share, on the session page', () => {
   const page = (viewer: 'owner' | 'member', scenario: 'open' | 'working' | 'moved' = 'open', members = DEMO_MEMBERS) =>
@@ -31,7 +35,7 @@ describe('Share, on the session page', () => {
 });
 
 describe('the Share button', () => {
-  const candidates = [{ id: 'po', label: 'PAULA' }, { id: 'ux', label: 'uma@vertuoza.com' }];
+  const candidates = [{ id: 'po', label: 'PAULA', face: PHOTO }, { id: 'ux', label: 'uma@vertuoza.com' }];
   const button = (initial: Parameters<typeof ShareButton>[0]['initial']) =>
     renderToStaticMarkup(createElement(ShareButton, { roundId: 'r1', candidates, onShare: async () => true, origin: 'https://galaxy.example', initial }));
 
@@ -44,9 +48,21 @@ describe('the Share button', () => {
 
   it('then gives the link to copy, and who it went to', () => {
     const html = button({ kind: 'shared', with: 'po', copy: 'idle' });
-    expect(html).toContain('Shared with PAULA');
+    expect(text(html)).toContain('Shared with PAULA. It shows');
+    expect(html).toContain('Shared with <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/paula.png?size=48" alt=""');
     expect(html).toMatch(/<input[^>]*readOnly=""[^>]*value="https:\/\/galaxy.example\/ask\/q\/r1"/);
     expect(html).toContain('>Copy</button>');
+  });
+
+  it('draws who it went to as a plain chip, never a link (PRD 698)', () => {
+    const html = button({ kind: 'shared', with: 'po', copy: 'idle' });
+    expect(html).not.toContain('<a class="person-chip');
+    expect(nestedLinks(html)).toBe(0);
+  });
+
+  it('draws the initial of a member shared with whose face is not known, and keeps the options text only (PRD 652)', () => {
+    expect(button({ kind: 'shared', with: 'ux', copy: 'idle' })).toContain('<span class="person-face is-initial" aria-hidden="true" data-initial="U"></span>uma@vertuoza.com');
+    expect(button({ kind: 'picking' })).not.toMatch(/<option[^>]*>[^<]*<(?:img|span)/);
   });
 
   it('says how to copy the link when the browser would not', () => {
@@ -77,7 +93,8 @@ describe('the shared question, at /ask/q/<round>', () => {
 
   it('says who answered first, with the answer, once answered', () => {
     const html = page(DEMO_TEAMMATE, true);
-    expect(html).toContain('<h1>Already answered by ADA</h1>');
+    expect(text(html)).toContain('Already answered by ADA');
+    expect(html).toMatch(/<h1>Already answered by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"><\/span>ADA<\/span><\/h1>/);
     expect(html).toContain('Answered in the terminal.');
     expect(html).toMatch(/<dt>How should the page and the agent be authenticated\?<\/dt><dd>Google sign-in through the galaxy \(Recommended\)<\/dd>/);
     expect(html).not.toContain('Send to Claude');
@@ -92,8 +109,25 @@ describe('For me', () => {
     }));
     expect(html).toContain('<a class="ask-for-me-link" href="/ask/q/r1">');
     expect(html).toContain('Which plan?');
-    expect(html).toContain('vertuo-core · feat/plans · shared by ADA');
+    expect(text(html)).toContain('vertuo-core · feat/plans · shared by ADA · 4 min left');
+    expect(html).toContain('shared by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA</span>');
     expect(html).toContain('4 min left');
+  });
+
+  it('keeps who shared plain inside the question\'s link: no link in a link (PRD 698)', () => {
+    const html = renderToStaticMarkup(createElement(ForMe, {
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
+    }));
+    expect(html).toContain('person-chip');
+    expect(nestedLinks(html)).toBe(0);
+  });
+
+  it('draws the sharer\'s face before their name, when the directory decided one (PRD 652)', () => {
+    const html = renderToStaticMarkup(createElement(ForMe, {
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
+    }));
+    expect(html).toContain('<img class="person-face is-photo" src="https://github.com/paula.png?size=48" alt=""');
+    expect(text(html)).toContain('vertuo-core · shared by PAULA · 4 min left');
   });
 
   it('says when nothing waits', () => {

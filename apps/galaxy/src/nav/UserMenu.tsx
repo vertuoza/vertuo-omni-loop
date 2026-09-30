@@ -1,14 +1,16 @@
 'use client';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { buttonKey, initialOf, menuKey, publicSupabase, signInFromBar, signOutAndLeave } from './user-menu';
+import { buttonKey, initialOf, menuKey, profileHref, publicSupabase, signInFromBar, signOutAndLeave } from './user-menu';
 import type { ViewerView } from './viewer-view';
 import './user-menu.css';
 
-// You, at the end of the app's top bar (PRD 438). Signed in: the avatar, a button that opens the
+// You, at the end of the app's top bar (PRD 438). Signed in: your hero when you have one (PRD 652),
+// else the avatar, else your initial, on a button that opens the
 // user menu, which follows the WAI-ARIA menu-button pattern: the arrow keys move between items,
 // Escape closes it and gives the focus back to the avatar, Tab closes it and moves on, a click
-// outside closes it. It holds the name and login, a heading nobody chooses, then Sign out. Signed
+// outside closes it. It holds the name and login, a heading nobody chooses, then My profile (PRD 698)
+// when the viewer has a GitHub login, then Sign out. Signed
 // out: Sign in with GitHub in its place.
 
 export function UserMenu({ viewer }: { viewer: ViewerView }) {
@@ -20,6 +22,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   const id = useId();
   const menuId = `${id}-menu`;
   const who = viewer.name ?? viewer.login ?? 'you';
+  const profile = profileHref(viewer.login);
 
   const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   const focusItem = (index: number) => items()[index]?.focus();
@@ -81,7 +84,9 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
         onClick={() => (open ? close(false) : openAt(0))}
         onKeyDown={onButtonKey}
       >
-        {viewer.avatarUrl
+        {viewer.heroSvg
+          ? <span className="user-menu-hero" aria-hidden="true" dangerouslySetInnerHTML={{ __html: viewer.heroSvg }} />
+          : viewer.avatarUrl
           ? <img className="user-menu-avatar" src={viewer.avatarUrl} alt="" width={28} height={28} />
           : <span className="user-menu-initial" aria-hidden="true">{initialOf(viewer)}</span>}
       </button>
@@ -90,6 +95,11 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
           <p className="user-menu-name">{who}</p>
           {viewer.login && <p className="user-menu-login">@{viewer.login}</p>}
         </div>
+        {profile && (
+          <a href={profile} role="menuitem" tabIndex={-1} className="user-menu-item" onClick={() => setOpen(false)}>
+            My profile
+          </a>
+        )}
         <button type="button" role="menuitem" tabIndex={-1} className="user-menu-item" onClick={signOut} disabled={busy}>
           {busy ? 'Signing out…' : 'Sign out'}
         </button>

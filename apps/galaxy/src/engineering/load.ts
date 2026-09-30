@@ -4,7 +4,8 @@ import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import { allPages, type Page } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
-import { loginsShown, withFaces, type FacePlayer } from './faces';
+import { loadPeople, peopleOf, type People } from '../people/load';
+import { loginsShown, withPeople } from './faced';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // /app/engineering's read (PRD 612 s3), as the signed-in person, so row-level security decides what
@@ -12,9 +13,11 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // reviews). First the tracked repositories; with none, the empty state and no other read. Then, in
 // parallel, the pull requests that can count in the period (opened or merged since its first instant,
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
-// leaves the whole board saying it could not load, its error logged. Last, the faces (PRD 645 s1): the
-// workspace's players among the logins the three lists show, for their heroes. That read fails soft:
-// its error logged, every face falls back to the GitHub picture and the board still renders. A
+// leaves the whole board saying it could not load, its error logged. Loop health (PRD 714 s2) reads the
+// open ones at the request's `now`, and its period rate (s4) the sub-PRs merged in the window. Last, the faces (PRD 652 s3):
+// the workspace's people directory, read only when the three lists show someone, resolves each login.
+// That read fails soft: its error logged, every face falls back to the GitHub photo and the board
+// still renders. A
 // repository's page (PRD 645 s2) runs the same reads narrowed to that one tracked repository. The reads are a port
 // (EngineeringReads) so the loader is tested on fakes; supabaseEngineeringReads is the page's.
 
@@ -25,8 +28,8 @@ export interface EngineeringReads {
   pullRequests(from: Date, repos: string[]): Promise<PullRequestRow[]>;
   /** Their reviews first given within [from, to). */
   reviews(from: Date, to: Date, repos: string[]): Promise<ReviewRow[]>;
-  /** The workspace's players whose GitHub login is one of these, with their hero and fleet's colour. */
-  faces(logins: string[]): Promise<FacePlayer[]>;
+  /** The workspace's people directory (PRD 652), to resolve each login shown to a face. */
+  people(): Promise<People>;
 }
 
 export interface EngineeringRequest { period: Period; sort: SortKey; now: Date }
@@ -52,24 +55,24 @@ export async function loadEngineeringRepository(reads: EngineeringReads, repo: s
 
 async function boardOf(reads: EngineeringReads, tracked: string[], { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
   const window = periodWindow(period, now);
-  if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort);
+  if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort, now);
   const [pullRequests, reviews] = await Promise.all([
     settle('the pull requests', () => reads.pullRequests(window.from, tracked)),
     settle('the reviews', () => reads.reviews(window.from, window.to, tracked)),
   ]);
   if (pullRequests === UNREADABLE || reviews === UNREADABLE) return UNREADABLE;
-  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort);
-  return withFaces(board, await facesOf(reads, loginsShown(board)));
+  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort, now);
+  if (loginsShown(board).length === 0) return board;
+  return withPeople(board, await peopleFor(reads));
 }
 
-/** The players among these logins; none, its error logged, when they cannot be read. */
-async function facesOf(reads: EngineeringReads, logins: string[]): Promise<FacePlayer[]> {
-  if (logins.length === 0) return [];
+/** The people directory; an empty one, its error logged, when it cannot be read, so every login keeps its GitHub photo. */
+async function peopleFor(reads: EngineeringReads): Promise<People> {
   try {
-    return await reads.faces(logins);
+    return await reads.people();
   } catch (error) {
-    console.error(`engineering: the faces could not be read, GitHub pictures instead (${(error as Error).message})`);
-    return [];
+    console.error(`engineering: the faces could not be read, GitHub photos instead (${(error as Error).message})`);
+    return peopleOf([], []);
   }
 }
 
@@ -111,11 +114,12 @@ export async function loadEngineeringRepositoryBoard(
 type StoredPullRequest = {
   repo: string; number: number; author: string | null; author_is_bot: boolean; opened_at: string; merged_at: string | null;
   closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
+  base: string | null; head: string | null; draft: boolean; labels: string[] | null; head_committed_at: string | null;
+  status_state: string | null; needs_fix_at: string | null;
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
-type StoredFace = { github_login: string; hero: unknown; teams: { color: string } | null };
 
-const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';
+const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at, status_state, needs_fix_at';
 
 export function supabaseEngineeringReads(db: SupabaseClient, workspace: string): EngineeringReads {
   return {
@@ -138,6 +142,8 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
       return rows.map((r) => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
+        base: r.base, head: r.head, draft: r.draft, labels: r.labels ?? [], headCommittedAt: r.head_committed_at,
+        statusState: r.status_state, needsFixAt: r.needs_fix_at,
       }));
     },
     async reviews(from, to, repos) {
@@ -154,12 +160,8 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .range(start, end) as unknown as Page<StoredReview>);
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
-    async faces(logins) {
-      // A stored login keeps GitHub's spelling; ask for it and for its lower case, and faceOf matches either.
-      const spellings = [...new Set([...logins, ...logins.map((l) => l.toLowerCase())])];
-      const { data, error } = await db.from('players').select('github_login, hero, teams(color)').eq('workspace_id', workspace).in('github_login', spellings);
-      if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
-      return ((data ?? []) as unknown as StoredFace[]).map((r) => ({ login: r.github_login, hero: r.hero, color: r.teams?.color ?? null }));
+    people() {
+      return loadPeople(db, workspace);
     },
   };
 }

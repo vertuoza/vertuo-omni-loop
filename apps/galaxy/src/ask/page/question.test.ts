@@ -82,6 +82,14 @@ describe('one question, at /ask/q/<round>', () => {
     expect(unknown.kind === 'answered' && answeredTitle(unknown)).toBe('Already answered by someone who left the workspace');
   });
 
+  it('carries the face the directory decided for whoever answered, else the initial of the name it prints (PRD 652)', () => {
+    const photo = { kind: 'photo' as const, url: 'https://github.com/bob.png?size=48' };
+    const faced = MEMBERS.map((m) => (m.user_id === BOB ? { ...m, face: photo } : m));
+    expect(questionView(state(answered('r3', 2 * MIN, BOB)), ADA, faced, NOW)).toMatchObject({ kind: 'answered', by: 'BOB', byFace: photo });
+    expect(questionView(state(answered('r3', 2 * MIN, ADA)), BOB, faced, NOW)).toMatchObject({ byFace: { kind: 'initial', letter: 'A' } });
+    expect(questionView(state(answered('r3', 2 * MIN, 'gone')), ADA, faced, NOW)).toMatchObject({ byFace: { kind: 'initial', letter: 'S' } });
+  });
+
   it('reads as moved once the hook has given up on it, or its time is up, and closed with its session', () => {
     expect(questionView(state(round('r3', MIN, { status: 'abandoned' })), BOB, MEMBERS, NOW).kind).toBe('moved');
     expect(questionView(state(round('r3', HOOK_WAIT_MS)), BOB, MEMBERS, NOW).kind).toBe('moved');
@@ -96,6 +104,13 @@ describe('For me', () => {
     const list = forMeList([row(round('late', MIN)), row(round('soon', 6 * MIN))], MEMBERS, NOW);
     expect(list.map((e) => [e.roundId, e.minutesLeft])).toEqual([['soon', 3], ['late', 8]]);
     expect(list[0]).toMatchObject({ question: 'Which storage?', sessionTitle: 'vertuo-omni-loop · feat/sharing', sharedBy: 'ada@vertuoza.com' });
+  });
+
+  it('carries the sharer\'s face: the directory\'s, else their initial (PRD 652)', () => {
+    const hero = { kind: 'hero' as const, svg: '<svg></svg>' };
+    const faced = MEMBERS.map((m) => (m.user_id === ADA ? { ...m, face: hero } : m));
+    expect(forMeList([row(round('r1', MIN))], faced, NOW)[0].sharedByFace).toEqual(hero);
+    expect(forMeList([row(round('r1', MIN), { sharedBy: DAN })], faced, NOW)[0].sharedByFace).toEqual({ kind: 'initial', letter: 'D' });
   });
 
   it('leaves out a round answered, moved to the terminal, out of time, or in a closed session', () => {

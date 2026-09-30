@@ -38,7 +38,7 @@ describe('the Questions part, read from the database', () => {
     const read = questionsReader(w.as('bob'), BOB.id);
     expect(await read(w.clock.now)).toEqual([
       { kind: 'question', id: own, sessionTitle: 'vertuo-omni-loop · feat/bob', question: 'Which storage?', askedAt: START + 1000, sharedBy: null },
-      { kind: 'question', id: shared, sessionTitle: 'vertuo-omni-loop · feat/ada', question: 'Which colour?', askedAt: START + 2000, sharedBy: 'Ada' },
+      { kind: 'question', id: shared, sessionTitle: 'vertuo-omni-loop · feat/ada', question: 'Which colour?', askedAt: START + 2000, sharedBy: 'Ada', sharedByFace: { kind: 'initial', letter: 'A' } },
     ]);
   });
 

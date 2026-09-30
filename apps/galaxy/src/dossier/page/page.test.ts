@@ -79,6 +79,10 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
+/** What the markup reads as text, its tags taken out (PRD 652: a face now sits before a name). */
+const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
+const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
+
 // A PRD's page streams (PRD 657 s4): these tests read what it ends as, once its reads have resolved.
 const open = async (id: string, query: Record<string, string> = {}) =>
   settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
@@ -92,9 +96,26 @@ describe('the page to share', () => {
     expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
     expect(page).toContain('Team inbox');
     expect(page).toContain('<li class="dossier-repo">acme/widgets</li>');
-    expect(page).toContain('opened by ADA · ');
+    expect(textOf(page)).toContain('opened by ADA · ');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
     expect(page).toContain('sandbox="allow-scripts"');
+  });
+
+  it('draws who opened it with their face, read once from the workspace\'s people (PRD 652)', async () => {
+    given.fake.seedPlayer(ADA.id, { login: 'ada-gh', fleet: 'octo', hero: HERO }, { fleet: { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' } });
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toMatch(/opened by <a class="person-chip is-inline" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span><span class="person-chip-name">ADA<\/span><\/a>/);
+  });
+
+  it('with the people out of reach, still shows the page, the opener with their initial (PRD 652)', async () => {
+    given.fake.seedPlayer(ADA.id, { login: 'ada-gh', hero: HERO });
+    given.fake.state.rosterDown = true;
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(textOf(page)).toContain('opened by ADA · ');
+    expect(page).toContain('<span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA');
+    expect(page).not.toContain('is-hero');
   });
 
   it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
@@ -124,7 +145,7 @@ describe('the page to share', () => {
     const page = await html(numbered, { tab: 'questions' });
     expect(page).toContain('Questions<small>1/2</small><span class="dossier-left">1 to answer</span>');
     expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
-    expect(page).toContain('answered by ADA after 2 min 0 s, in the terminal');
+    expect(textOf(page)).toContain('answered by ADA after 2 min 0 s, in the terminal');
     expect(page).toContain('not answered yet');
     given.token = 'carl';
     await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(notFound);
@@ -145,7 +166,7 @@ describe('the page to share', () => {
     given.token = 'bob';
     const other = await html(numbered, { tab: 'questions' });
     expect(buttons(other)).toEqual([]);
-    expect(other).toContain('Waiting for ADA');
+    expect(textOf(other)).toContain('Waiting for ADA');
 
     given.fake.seedShare(round.id, BOB.id, ADA.id);
     expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
@@ -460,8 +481,8 @@ describe('the layout', () => {
     given.path = '/prd/3f2a';
     const page = renderToStaticMarkup(await Layout({ children: null }));
     // next/link (PRD 657) writes aria-current before href.
-    expect(page).toMatch(/<a class="app-sidebar-item" aria-current="page" href="\/prd">PRDs<\/a>/);
-    expect(page).toContain('<p class="app-bar-title">PRDs</p>');
+    expect(page).toMatch(/<a class="app-sidebar-item" aria-current="page" href="\/prd"><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span>PRDs<\/a>/);
+    expect(page).toContain('<nav class="app-bar-trail" aria-label="Breadcrumb"><ol><li>Work</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/prd">PRDs</a></li></ol></nav>');
     expect(page).not.toContain('All PRDs');
   });
 });
@@ -569,7 +590,7 @@ describe('the stylesheet', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
       '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
-      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos',
+      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
     for (const selector of outlined) {

@@ -10,7 +10,10 @@
 /**
  * @param {Record<string, {
  *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
- *                              base, commits, additions, deletions, body, reviews?, commitMessages?
+ *                              base, head, draft, labels, commits, additions, deletions, body, reviews?,
+ *                              commitMessages?, commit_dates? (each commit's committed date, the pull
+ *                              request's created_at when left out), comments? (each comment's body, oldest first),
+ *                              label_events? (each label added, `{ name, created_at }`, oldest first)
  *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
  *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
  *                              per details query)
@@ -70,9 +73,9 @@ export function fakeGitHub(repos, budgets = {}) {
       spend('core');
       switch (route) {
         case 'GET /repos/{owner}/{repo}/pulls':
-          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, ...pull }) => pull) };
+          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, comments, label_events, ...pull }) => pull) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}': {
-          const { reviews, commitMessages, ...pull } = pullOf(params, true);
+          const { reviews, commitMessages, comments, label_events, ...pull } = pullOf(params, true);
           return { headers: headers(), data: pull };
         }
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews':
@@ -114,6 +117,15 @@ export function fakeGitHub(repos, budgets = {}) {
       }
       return { repository };
     },
+    PullStatus(variables, numbers) {
+      const pulls = graphqlRepo(variables).pulls ?? [];
+      const repository = {};
+      for (const number of numbers) {
+        const pull = pulls.find((candidate) => candidate.number === number);
+        repository[`p${number}`] = pull ? { comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } } : null;
+      }
+      return { repository };
+    },
   };
 
   function graphqlRepo({ owner, repo }, detail = false) {
@@ -131,6 +143,7 @@ export function fakeGitHub(repos, budgets = {}) {
 function asGraphql(pull) {
   const actor = (user) => (user ? { login: user.type === 'Bot' ? user.login.replace(/\[bot\]$/, '') : user.login, __typename: user.type === 'Bot' ? 'Bot' : 'User' } : null);
   const messages = pull.commitMessages ?? [];
+  const dates = pull.commit_dates ?? [];
   return {
     number: pull.number,
     author: actor(pull.user),
@@ -138,12 +151,23 @@ function asGraphql(pull) {
     mergedAt: pull.merged_at ?? null,
     closedAt: pull.closed_at ?? null,
     mergedBy: actor(pull.merged_by),
-    baseRefName: pull.base?.ref ?? null,
+    ...loopFactsOf(pull),
     body: pull.body ?? '',
     additions: pull.additions,
     deletions: pull.deletions,
-    commits: { totalCount: pull.commits, nodes: messages.slice(-100).map((message) => ({ commit: { message } })) },
+    commits: { totalCount: pull.commits, nodes: messages.map((message, i) => ({ commit: { message, committedDate: dates[i] ?? pull.created_at } })).slice(-100) },
     reviews: { nodes: (pull.reviews ?? []).slice(0, 100).map((review) => ({ author: actor(review.user), submittedAt: review.submitted_at ?? null })) },
+  };
+}
+
+/** The branches, draft, labels and label events of a REST-shaped pull request, as GraphQL answers them. */
+function loopFactsOf(pull) {
+  return {
+    baseRefName: pull.base?.ref ?? null,
+    headRefName: pull.head?.ref ?? null,
+    isDraft: Boolean(pull.draft),
+    labels: { nodes: (pull.labels ?? []).map((label) => ({ name: label.name })) },
+    timelineItems: { nodes: (pull.label_events ?? []).slice(0, 100).map((event) => ({ createdAt: event.created_at, label: { name: event.name } })) },
   };
 }
 
@@ -208,6 +232,9 @@ export function pull(number, fields = {}) {
     closed_at: null,
     merged_by: null,
     base: { ref: 'main' },
+    head: { ref: 'feature' },
+    draft: false,
+    labels: [],
     commits: 1,
     additions: 10,
     deletions: 2,

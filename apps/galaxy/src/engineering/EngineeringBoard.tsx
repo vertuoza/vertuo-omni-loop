@@ -1,22 +1,26 @@
 import type { ReactNode } from 'react';
-import { heroLook, spritePixels } from '@omni/design';
-import { pixelSvg } from '../design/pixel-svg';
 import { CouldNotLoad } from '../dashboard/Notes';
 import { UNREADABLE, type Read } from '../dashboard/part';
 import { Bars, type Column } from '../dashboard/board/Board';
 import { dayName } from '../dashboard/board/chart';
-import { hrefWith, periodHref, type Query } from '../dashboard/board/links';
-import { PERIODS, type Period } from '../dashboard/board/period';
-import { faceOf, type Face } from './faces';
-import { durationWords, SORTS, type EngineeringValue, type MergedDay, type Ranked, type SortKey } from './tally';
+import { hrefWith, type Query } from '../dashboard/board/links';
+import { PeriodSwitch } from '../dashboard/board/PeriodSwitch';
+import type { Period } from '../dashboard/board/period';
+import { faceOf } from '../people/face';
+import { PersonChip } from '../people/PersonChip';
+import { durationWords, SORTS, type EngineeringValue, type HealthKind, type LoopHealth, type MergedDay, type NeedsFixRate, type Ranked, type SortKey } from './tally';
 import '../dashboard/board/board.css';
 import './engineering.css';
 
 // The Engineering board (PRD 612 s3), drawn on the server, top to bottom: the period switch (the
 // other boards' 7 days / 30 days / Season), the six tiles, the Omni Loop panel beside the chart of
 // merged PRs per day, the per-repository table (each column heading a link that sorts by it, kept in
-// the URL as `?sort=`), then the three top-5 people lists: ranked rows, each with a face (a player's
-// game hero, else the GitHub picture) and a bar scaled to the list's first count (PRD 645 s1). Over tracked repositories only. With none,
+// the URL as `?sort=`; the Omni Loop panel ends with the loop's sub-PRs merged into feature branches,
+// which count nowhere else, PRD 714; beside it the Loop health panel, PRD 714 s2: the loop's pull
+// requests stuck right now, each linking to it on GitHub, then, s4, how many of the sub-PRs merged in
+// the period got omni:needs-fix first), then the three top-5 people lists: ranked rows, each naming the person with a
+// PersonChip (their face from the people directory, PRD 652 s3) and a bar scaled to the list's first
+// count (PRD 645 s1). Over tracked repositories only. With none,
 // the empty state sends the person to Settings → Repositories. The chart is inline SVG with no
 // script, hidden from a screen reader, which reads a list of the days instead. Each repository name in
 // the table opens that repository's page (PRD 645 s2): the same board over it alone, with no table,
@@ -31,20 +35,6 @@ const REPOSITORIES_PATH = '/app/settings/repositories';
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
 const PERIOD_WORDS: Record<Period, string> = { '7d': 'last 7 days', '30d': 'last 30 days', season: 'this season' };
-
-function PeriodSwitch({ path, period, query }: { path: string; period: Period; query: Query }) {
-  return (
-    <nav className="board-period" aria-label="Period">
-      <ul>
-        {PERIODS.map((p) => (
-          <li key={p.id}>
-            <a href={periodHref(path, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 // ── Tiles ────────────────────────────────────────────────────────────────
 
@@ -87,6 +77,45 @@ function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>
           <p className="eng-omni-lines">Lines signed: <b>{`+${n(omni.additions)}`}</b> <b>{`−${n(omni.deletions)}`}</b></p>
         </>
       )}
+      <p className="eng-omni-subs">
+        <b>{`+ ${n(omni.subPrsMerged)}`}</b>{` sub-PR${omni.subPrsMerged === 1 ? '' : 's'} merged into feature branches`}
+      </p>
+    </section>
+  );
+}
+
+// ── Loop health ──────────────────────────────────────────────────────────
+
+const KIND_WORDS: Record<HealthKind, string> = { stuck: 'Stuck', held: 'Held', 'stale-claim': 'Stale claim' };
+
+function NeedsFixLine({ rate }: { rate: NeedsFixRate }) {
+  if (rate.of === 0) return <p className="dash-note">No sub-PR merged in this period</p>;
+  return (
+    <p className="eng-health-rate">
+      <b>{`${n(rate.got)} of ${n(rate.of)}`}</b>{` merged sub-PR${rate.of === 1 ? '' : 's'} got `}<code>omni:needs-fix</code>{' first '}<b>{`(${rate.share}%)`}</b>
+    </p>
+  );
+}
+
+function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixRate }) {
+  return (
+    <section className="board-chart eng-health" aria-labelledby="eng-health">
+      <h2 id="eng-health">Loop health</h2>
+      <h3 className="eng-health-part">Right now</h3>
+      {health.rows.length === 0 ? <p className="dash-note">Nothing stuck right now</p> : (
+        <ol className="eng-health-rows">
+          {health.rows.map((r) => (
+            <li key={`${r.repo}#${r.number}`} className="eng-health-row">
+              <span className={`eng-health-kind is-${r.kind}`}>{KIND_WORDS[r.kind]}</span>
+              <a href={r.url}>{`${r.repo}#${r.number}`}</a>
+              <span className="eng-health-age">{`opened ${durationWords(r.age)} ago`}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {health.more > 0 ? <p className="eng-health-more">{`and ${n(health.more)} more`}</p> : null}
+      <h3 className="eng-health-part">In the period</h3>
+      <NeedsFixLine rate={rate} />
     </section>
   );
 }
@@ -157,15 +186,6 @@ function Repositories({ value, period, query }: { value: Extract<EngineeringValu
 
 // ── People ───────────────────────────────────────────────────────────────
 
-/** A person's face: their hero as a pixel SVG, drawn on the server as the hero block draws it, or their GitHub picture. */
-function Avatar({ login, face }: { login: string; face: Face | undefined }) {
-  const f = face ?? faceOf(login, []);
-  if (f.kind === 'github') return <img className="eng-face" src={f.src} alt="" width={28} height={28} loading="lazy" />;
-  const look = heroLook(f.hero, f.color);
-  const svg = pixelSvg(spritePixels(look.sprite, { tint: look.tint }), { scale: 1, title: '' });
-  return <span className="eng-face" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />;
-}
-
 /** A bar's length: the count as a share of the list's first count, in percent. */
 const barWidth = (count: number, leader: number) => `${Math.round((count / leader) * 1000) / 10}%`;
 
@@ -182,8 +202,7 @@ function TopFive({ kind, title, people }: { kind: ListKind; title: string; peopl
           {people.map((p, i) => (
             <li key={p.login} className="eng-row">
               <span className="eng-rank">{i + 1}</span>
-              <Avatar login={p.login} face={p.face} />
-              <span className="eng-login">{p.login}</span>
+              <span className="eng-login"><PersonChip person={{ name: p.login, face: p.face ?? faceOf({ name: p.login, login: p.login }) }} /></span>
               <b className="eng-count">{n(p.count)}</b>
               <span className={`eng-meter eng-meter-${kind}`} aria-hidden="true"><span style={{ width: barWidth(p.count, leader) }} /></span>
             </li>
@@ -221,6 +240,7 @@ export function EngineeringBoard({ board, period, query, repo }: EngineeringBoar
           <Tiles tiles={board.tiles} />
           <div className="board-charts">
             <OmniLoop omni={board.omni} />
+            <LoopHealthPanel health={board.health} rate={board.needsFixRate} />
             <PerDay days={board.perDay} period={period} />
           </div>
           {repo ? null : <Repositories value={board} period={period} query={query} />}

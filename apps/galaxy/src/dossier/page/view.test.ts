@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
+import { peopleOf } from '../../people/load';
 import { REPLIES_UNREAD, SEND_OFF, SIGN_IN_TO_ANSWER } from './outbox-view';
 import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
@@ -572,12 +573,14 @@ describe('a quick round, answered on the list (PRD 384)', () => {
       owner: 'Pierre',
       next: 'q2',
       names: { [PIERRE.user_id]: 'Pierre', [MARIE.user_id]: 'marie@vertuoza.com' },
+      ownerFace: { kind: 'initial', letter: 'P' },
+      faces: { [PIERRE.user_id]: { kind: 'initial', letter: 'P' }, [MARIE.user_id]: { kind: 'initial', letter: 'M' } },
     });
   });
 
   it('decides who may answer from what the server read, never from the viewer alone', () => {
     const [, first] = quickView(PIERRE.user_id, []);
-    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {} });
+    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {}, faces: {} });
     expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
   });
 
@@ -635,7 +638,8 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
     const { outbox, tabs } = outboxOf(summary());
     expect(outbox.adopted).toMatchObject([{ id: 's1-03-m', number: 3, adopted: true, rankWords: 'adopted' }]);
     expect(outbox.settled).toEqual([
-      { id: 's1-01-a', number: 4, title: 's1-01-a?', verdict: 'agreed', answer: 'A. Built.', by: 'marie', when: '26 Sep 2026, 10:00 UTC', url: `${PR}#issuecomment-3` },
+      { id: 's1-01-a', number: 4, title: 's1-01-a?', verdict: 'agreed', answer: 'A. Built.', by: 'marie', when: '26 Sep 2026, 10:00 UTC', url: `${PR}#issuecomment-3`,
+        face: { kind: 'photo', url: 'https://github.com/marie.png?size=48' } },
     ]);
     expect(tabs.find((t) => t.kind === 'outbox')?.badge).toBe('3 open');
   });
@@ -702,5 +706,66 @@ describe('the words of an unknown stage (PRD 587)', () => {
     const files = readdirSync(src, { recursive: true, encoding: 'utf8' }).filter((f) => /\.(tsx?|css)$/.test(f));
     expect(files.length).toBeGreaterThan(100);
     expect(files.filter((f) => readFileSync(join(src, f), 'utf8').includes(words))).toEqual([]);
+  });
+});
+
+describe('the faces of the people it names (PRD 652)', () => {
+  const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
+  const people = peopleOf(
+    [
+      { user_id: PIERRE.user_id, name: 'Pierre', github_login: 'pierre-gh', avatar_url: null, fleet: 'octo', hero: HERO },
+      { user_id: MARIE.user_id, name: null, github_login: 'Marie-GH', avatar_url: 'https://a.test/marie.png', fleet: null, hero: null },
+    ],
+    [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' }],
+  );
+  const PR = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221';
+  const github = {
+    issue: { state: 'open' }, phase0: null, feature: { number: 221, url: PR, state: 'open', draft: true }, mergedSlices: 0, outboxComment: null,
+    outbox: {
+      open: [{ id: 's1-01-h', rank: 'high', question: 'Q?', decision: 'D.', options: [{ letter: 'A', text: 'a' }, { letter: 'B', text: 'b' }], personSteps: null, bearsOn: null, intro: null, punchline: null }],
+      adopted: [],
+      settled: [{ id: 's1-02-a', title: 'T?', verdict: 'agreed', answer: 'A.', by: 'marie-gh', at: '2026-09-26', url: null }],
+    },
+    replies: {
+      numbering: [{ number: 1, id: 's1-01-h' }, { number: 2, id: 's1-02-a' }],
+      pending: [{ number: 1, id: 's1-01-h', text: 'B', by: 'stranger', at: '2026-09-27T09:30:00Z', url: null, counted: false, door: 'github' }],
+    },
+    retro: null,
+  } as unknown as GithubSummary;
+  const read = (more: Partial<Parameters<typeof dossierView>[0]> = {}) =>
+    ({ dossier: numbered, versions, members: MEMBERS, rounds, people, ...more });
+
+  it('names the opener with their face, keeping the words the header reads', () => {
+    const shown = dossierView(read(), PIERRE.user_id, readPick({}));
+    expect(shown.openedBy?.name).toBe('Pierre');
+    expect(shown.openedBy?.face.kind).toBe('hero');
+    expect(shown.openedAt).toBe('27 Sep 2026, 09:12 UTC');
+    expect(shown.opened).toBe('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+    expect(dossierView(read({ dossier: { ...numbered, opened_by: null } }), PIERRE.user_id, readPick({})).openedBy).toBeNull();
+  });
+
+  it('names who asked each round and who answered it, by account id, the rest of the outcome after the name', () => {
+    const [first, , third] = dossierView(read(), PIERRE.user_id, readPick({})).questions.rounds!;
+    expect(first.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
+    expect(first.askedAt).toBe('27 Sep 2026, 09:15 UTC');
+    expect(first.answeredBy).toEqual({
+      person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
+      rest: ' after 1 min 35 s, on the page',
+    });
+    expect(`answered by ${first.answeredBy!.person.name}${first.answeredBy!.rest}`).toBe(first.outcome);
+    expect(third.answeredBy).toBeNull();
+  });
+
+  it('with no people directory, falls back to each name\'s initial', () => {
+    const shown = dossierView(read({ people: undefined }), PIERRE.user_id, readPick({}));
+    expect(shown.openedBy).toEqual({ name: 'Pierre', face: { kind: 'initial', letter: 'P' }, fleet: null });
+  });
+
+  it('gives each @login the Outbox tab names its face, by login, ignoring case, and the viewer\'s face for a send', () => {
+    const { outbox } = dossierView(read({ github }), MARIE.user_id, readPick({ tab: 'outbox' }));
+    expect(outbox.open[0].pending?.face).toEqual({ kind: 'photo', url: 'https://github.com/stranger.png?size=48' });
+    expect(outbox.settled[0].face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
+    expect(outbox.sender).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
+    expect(dossierView(read({ github }), null, readPick({ tab: 'outbox' })).outbox.sender).toBeNull();
   });
 });

@@ -1,5 +1,7 @@
+import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
-import type { Face } from './faces';
+import type { Face } from '../people/face';
 
 // The Engineering board's math (PRD 612 s3), pure, so the loader, the demo and the tests draw the
 // same board. It reads the rows omni-app's prStats collector writes (public.pull_requests and
@@ -12,8 +14,18 @@ import type { Face } from './faces';
 // - time to merge: merged_at − opened_at, a median over the PRs merged in the window;
 // - commits and lines: summed over the PRs merged in the window;
 // - reviews: first_at in the window, once per reviewer per PR, never by the PR's author;
-// - every base branch counts. Bots count in the tiles and the table, never in the people lists;
-//   Omni-man has the Omni Loop panel instead.
+// - only merges into main count (PRD 714): a pull request counts when its base is main, master or
+//   develop and its head is none of them (a promotion counts nowhere; a row with no stored head is no
+//   promotion). The loop's sub-PRs, into feature branches, count only on the Omni Loop panel's sub-PR
+//   line. Reviews still count on every base branch. Bots count in the tiles and the table, never in
+//   the people lists; Omni-man has the Omni Loop panel instead.
+// - Loop health right now (PRD 714 s2): the open pull requests of the tracked repositories the loop has
+//   stuck, whatever the period, one row each under the first kind it meets: stuck (labelled
+//   omni:needs-fix), then held (s3: an open signed pull request into main, master or develop whose
+//   status comment says `state: stuck`), then stale claim (an open draft sub-PR the kit's own rule
+//   calls stale, with the kit's default minutes). At most 10 rows, oldest first; the rest counted.
+// - Loop health in the period (PRD 714 s4): of the sub-PRs merged in the window, those that got
+//   omni:needs-fix at or before their merge (`needs_fix_at`, when the label was first added).
 
 /** Omni-man's GitHub login: the Omni Loop App's bot. */
 export const OMNI_MAN = 'omni-loop-invader[bot]';
@@ -32,6 +44,94 @@ export interface PullRequestRow {
   additions: number;
   deletions: number;
   omniSigned: boolean;
+  /** The base branch; optional so a profile's rows (PRD 698) build without it. */
+  base?: string | null;
+  /** The head branch; null until the collector re-reads the pull request (PRD 714). */
+  head?: string | null;
+  /** Whether it is a draft, as last read (PRD 714 s2); optional so a profile's rows build without it. */
+  draft?: boolean;
+  /** Its label names, as last read (PRD 714 s2). */
+  labels?: string[];
+  /** The committed date of its latest commit (PRD 714 s2); null when not read. */
+  headCommittedAt?: string | null;
+  /** The `state:` of the loop's status comment (PRD 714 s3), read only for open signed pull requests into
+   * a main branch; null otherwise or with no status comment. */
+  statusState?: string | null;
+  /** When omni:needs-fix was first added to it (PRD 714 s4); null when never or not read. */
+  needsFixAt?: string | null;
+}
+
+/** The branches a pull request must merge into to count on the board (PRD 714): a fixed set. */
+const MAIN_BRANCHES: readonly string[] = ['main', 'master', 'develop'];
+const isMain = (branch: string | null | undefined) => typeof branch === 'string' && MAIN_BRANCHES.includes(branch);
+/** A promotion: its head is itself a main branch, whatever its base. It counts nowhere. */
+const isPromotion = (p: PullRequestRow) => isMain(p.head);
+/** Counts on the board: into a main branch, and not a promotion. */
+const countsOnBoard = (p: PullRequestRow) => isMain(p.base) && !isPromotion(p);
+/** One of the loop's sub-PRs: signed, into any other base, and not a promotion. */
+const isSubPr = (p: PullRequestRow) => p.omniSigned && !isMain(p.base) && !isPromotion(p);
+
+// ── Loop health (PRD 714 s2) ────────────────────────────────────────────
+
+/** The kit's defaults, as every repository running the loop has them unless it renamed them. */
+const KIT = parseConfig('kit: 1\n');
+/** The label a stuck pull request carries: omni:needs-fix. */
+const NEEDS_FIX_LABEL: string = KIT.labels.needsFix;
+/** How old a claim with nothing beyond it is before it reads as stale: the kit's 60 minutes. */
+const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
+/** The most rows Loop health lists right now. */
+const HEALTH_ROWS = 10;
+
+/** The status comment's state of a run that ended held: how `/omni:yolo` and `/omni:pr` leave one. */
+const HELD_STATE = 'stuck';
+
+export type HealthKind = 'stuck' | 'held' | 'stale-claim';
+
+/** One of the loop's pull requests stuck right now. `age` is how long ago it was opened, in milliseconds. */
+export interface HealthRow { kind: HealthKind; repo: string; number: number; url: string; openedAt: string; age: number }
+
+export interface LoopHealth { rows: HealthRow[]; more: number }
+
+const isOpen = (p: PullRequestRow) => !p.mergedAt && !p.closedAt;
+
+/** The kinds, in the order a pull request is checked: it shows under the first one it meets. */
+const KINDS: readonly { kind: HealthKind; meets: (p: PullRequestRow, now: Date) => boolean }[] = [
+  { kind: 'stuck', meets: (p) => (p.labels ?? []).includes(NEEDS_FIX_LABEL) },
+  { kind: 'held', meets: (p) => p.omniSigned && isMain(p.base) && p.statusState === HELD_STATE },
+  {
+    kind: 'stale-claim',
+    meets: (p, now) => isSubPr(p)
+      && isClaimedStale({ isDraft: Boolean(p.draft), createdAt: p.openedAt, headCommitDate: p.headCommittedAt ?? null }, now.getTime(), CLAIM_STALE_MINUTES),
+  },
+];
+
+/** The open pull requests the loop has stuck right now, of `prs` (already narrowed to the tracked repositories). */
+function loopHealthOf(prs: readonly PullRequestRow[], now: Date): LoopHealth {
+  const found: HealthRow[] = [];
+  for (const p of prs) {
+    if (!isOpen(p)) continue;
+    const kind = KINDS.find((k) => k.meets(p, now))?.kind;
+    if (!kind) continue;
+    found.push({ kind, repo: p.repo, number: p.number, url: `https://github.com/${p.repo}/pull/${p.number}`, openedAt: p.openedAt, age: now.getTime() - Date.parse(p.openedAt) });
+  }
+  found.sort((a, b) => b.age - a.age || a.repo.localeCompare(b.repo) || a.number - b.number);
+  return { rows: found.slice(0, HEALTH_ROWS), more: Math.max(0, found.length - HEALTH_ROWS) };
+}
+
+/** Of the sub-PRs merged in the period, how many got omni:needs-fix first (PRD 714 s4). */
+export interface NeedsFixRate {
+  /** Those labelled omni:needs-fix at or before their merge. */
+  got: number;
+  /** Every signed pull request merged in the period into another base than main, master or develop. */
+  of: number;
+  /** A whole percent; null with no sub-PR merged. */
+  share: number | null;
+}
+
+/** The period rate over `subPrs`, the sub-PRs merged in the period. */
+function needsFixRateOf(subPrs: readonly PullRequestRow[]): NeedsFixRate {
+  const got = subPrs.filter((p) => p.needsFixAt && Date.parse(p.needsFixAt) <= Date.parse(p.mergedAt!)).length;
+  return { got, of: subPrs.length, share: subPrs.length ? Math.round((got / subPrs.length) * 100) : null };
 }
 
 /** One row of public.pull_request_reviews: a reviewer's first review of a PR. */
@@ -84,6 +184,8 @@ export interface OmniPanel {
   medianRest: number | null;
   additions: number;
   deletions: number;
+  /** The signed pull requests merged in the period into any other base than main, master or develop. */
+  subPrsMerged: number;
 }
 
 export interface MergedDay { date: string; signed: number; rest: number }
@@ -98,6 +200,8 @@ export type EngineeringValue =
     repositories: RepositoryStats[];
     people: { opened: Ranked[]; merged: Ranked[]; reviews: Ranked[] };
     omni: OmniPanel;
+    health: LoopHealth;
+    needsFixRate: NeedsFixRate;
     perDay: MergedDay[];
   };
 
@@ -193,7 +297,8 @@ function statsOf(repo: string, prs: readonly PullRequestRow[], inWindow: (at: st
 
 // ── The board ───────────────────────────────────────────────────────────
 
-export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort: SortKey): EngineeringValue {
+/** The board over the window; `now` is the instant Loop health reads its right-now list at. */
+export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort: SortKey, now: Date): EngineeringValue {
   const tracked = new Set(read.tracked.map((r) => r.toLowerCase()));
   if (tracked.size === 0) return { kind: 'empty', window };
   const from = window.from.getTime(), to = window.to.getTime();
@@ -202,7 +307,8 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     const t = Date.parse(at);
     return t >= from && t < to;
   };
-  const prs = read.pullRequests.filter((p) => tracked.has(p.repo.toLowerCase()));
+  const all = read.pullRequests.filter((p) => tracked.has(p.repo.toLowerCase()));
+  const prs = all.filter(countsOnBoard);
   const merged = prs.filter((p) => inWindow(p.mergedAt));
 
   const { repo: _all, lines: _lines, ...tiles } = statsOf('', prs, inWindow);
@@ -214,7 +320,8 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     sort,
   );
 
-  const authorOf = new Map(prs.map((p) => [`${p.repo.toLowerCase()}#${p.number}`, p.author?.toLowerCase() ?? null]));
+  // Reviews count on every base branch: a review is a person's act, whatever the pull request.
+  const authorOf = new Map(all.map((p) => [`${p.repo.toLowerCase()}#${p.number}`, p.author?.toLowerCase() ?? null]));
   const reviews = read.reviews.filter((r) =>
     tracked.has(r.repo.toLowerCase()) && inWindow(r.firstAt) && authorOf.get(`${r.repo.toLowerCase()}#${r.number}`) !== r.reviewer.toLowerCase());
   const people = {
@@ -224,6 +331,7 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
   };
 
   const signed = merged.filter((p) => p.omniSigned);
+  const subPrsMerged = all.filter((p) => isSubPr(p) && inWindow(p.mergedAt));
   const omni: OmniPanel = {
     merged: signed.length,
     of: merged.length,
@@ -232,6 +340,7 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     medianRest: median(merged.filter((p) => !p.omniSigned).map(toMerge)),
     additions: signed.reduce((s, p) => s + p.additions, 0),
     deletions: signed.reduce((s, p) => s + p.deletions, 0),
+    subPrsMerged: subPrsMerged.length,
   };
 
   const perDay = window.days.map((date) => ({ date, signed: 0, rest: 0 }));
@@ -241,5 +350,5 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     if (day) p.omniSigned ? day.signed++ : day.rest++;
   }
 
-  return { kind: 'board', window, sort, tiles, repositories, people, omni, perDay };
+  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), perDay };
 }

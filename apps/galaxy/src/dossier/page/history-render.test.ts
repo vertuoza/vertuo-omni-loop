@@ -58,6 +58,27 @@ describe('the filters', () => {
     expect(html).not.toContain('>Clear</a>');
   });
 
+  it('keep the search and Filter on one bar, and fold the repository, draft or PRD and the outbox box under More filters (issue #703)', () => {
+    const html = history();
+    expect(html).toMatch(/<div class="dossier-history-bar"><input[^>]*aria-label="Search the titles"[^>]*type="search"[^>]*name="q"[^>]*\/><button type="submit" class="ask-button">Filter<\/button><\/div>/);
+    expect(html).toContain('<details class="dossier-history-more"><summary>More filters');
+    const fold = html.slice(html.indexOf('<details'), html.indexOf('</details>'));
+    expect(fold).toContain('name="repo"');
+    expect(fold).toContain('name="state"');
+    expect(fold).toContain('name="needs"');
+    expect(fold).not.toContain('name="q"');
+  });
+
+  it('open the fold by itself when a filter it holds is set, so a set filter is never hidden (issue #703)', () => {
+    const open = (filters: HistoryFilters) => history(filters).includes('<details class="dossier-history-more" open="">');
+    expect(open({ who: 'all', repo: 'vertuoza/vertuo-core' })).toBe(true);
+    expect(open({ who: 'all', state: 'draft' })).toBe(true);
+    expect(open({ who: 'all', needsAnswer: true })).toBe(true);
+    expect(open(ALL)).toBe(false);
+    expect(open({ who: 'all', search: 'dossiers' })).toBe(false);
+    expect(open({ who: 'all', stage: 'building' })).toBe(false);
+  });
+
   it('keep what the address picked, and offer to clear it', () => {
     const html = history({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'dossiers' });
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="dossiers"/);
@@ -72,6 +93,7 @@ describe('Mine and All', () => {
     const html = history({ who: 'mine' });
     expect(toggle(html)).toEqual([['Mine', '/prd', true], ['All', '/prd?who=all', false]]);
     expect(html.indexOf('dossier-history-who')).toBeLessThan(html.indexOf('<form'));
+    expect(html).toContain('<div class="dossier-history-head"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos"');
     expect(toggle(history(ALL))).toEqual([['Mine', '/prd', false], ['All', '/prd?who=all', true]]);
   });
 
@@ -247,7 +269,47 @@ describe('the stages (PRD 587)', () => {
     expect(pills).toEqual(['building', null, 'idea']);
   });
 
+  it('puts the pill beside the title, not inside it, so it keeps its own size (issue #703)', () => {
+    const html = render(ALL);
+    expect(html).toContain('<span class="dossier-history-top"><span class="dossier-history-title"><span class="dossier-number">#216</span> <span>PRD dossiers &lt;b&gt;shared&lt;/b&gt;</span></span><span class="stage-stop stage-current">building</span></span>');
+  });
+
   it('without a bar given, shows none', () => {
     expect(history()).not.toContain('PRDs by stage');
+  });
+});
+
+describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
+  const ADA: HistoryFilters = { who: { login: 'ada-gh' } };
+  const theirs = (filters: HistoryFilters, whom = new Set(['u-pierre'])) => renderToStaticMarkup(createElement(DossierHistory, {
+    items: historyItems(ROWS, filters, 'u-other', new Map(), new Map(), whom), choices: historyChoices(ROWS), filters,
+  }));
+
+  it('presses neither Mine nor All, and both leave the person', () => {
+    expect(toggle(theirs(ADA))).toEqual([['Mine', '/prd', false], ['All', '/prd?who=all', false]]);
+  });
+
+  it('reads "Opened by @login", linking to their profile, and lists their PRDs', () => {
+    const html = theirs(ADA);
+    expect(html).toContain('<p class="ask-hint dossier-history-by">Opened by <a href="/app/people/ada-gh">@ada-gh</a></p>');
+    expect(html).toContain('href="/prd/00000000-0000-4000-8000-0000000000d1"');
+  });
+
+  it('keeps the login in the form, and Clear keeps it', () => {
+    const html = theirs({ ...ADA, search: 'dossiers' });
+    expect(html).toContain('<input type="hidden" name="who" value="ada-gh"/>');
+    expect(html).toContain('href="/prd?who=ada-gh">Clear</a>');
+  });
+
+  it('says so when they opened none, pointing to All', () => {
+    const html = theirs(ADA, new Set());
+    expect(html).toContain('@ada-gh has not opened a PRD here.');
+    expect(html).toContain('href="/prd?who=all"');
+    expect(html).not.toContain('You have not opened');
+  });
+
+  it('draws no "Opened by" line under Mine or All', () => {
+    expect(history()).not.toContain('Opened by');
+    expect(history({ who: 'mine' })).not.toContain('Opened by');
   });
 });

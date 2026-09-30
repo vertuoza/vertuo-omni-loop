@@ -12,7 +12,16 @@ describe('the Share button', () => {
       { user_id: 'ada', email: 'ada@vertuoza.com', name: null },
       { user_id: 'bob', email: 'bob@vertuoza.com', name: 'BOB' },
     ];
-    expect(shareCandidates(members, 'ada')).toEqual([{ id: 'bob', label: 'BOB' }]);
+    expect(shareCandidates(members, 'ada')).toEqual([{ id: 'bob', label: 'BOB', face: { kind: 'initial', letter: 'B' } }]);
+  });
+
+  it('carries each member\'s face, as the directory decided it (PRD 652)', () => {
+    const photo = { kind: 'photo' as const, url: 'https://github.com/bob.png?size=48' };
+    const members = [
+      { user_id: 'ada', email: 'ada@vertuoza.com', name: null },
+      { user_id: 'bob', email: 'bob@vertuoza.com', name: 'BOB', face: photo },
+    ];
+    expect(shareCandidates(members, 'ada')).toEqual([{ id: 'bob', label: 'BOB', face: photo }]);
   });
 
   it('copies the link to the clipboard', async () => {

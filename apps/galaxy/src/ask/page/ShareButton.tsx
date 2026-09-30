@@ -1,12 +1,16 @@
 'use client';
 import { useId, useRef, useState } from 'react';
+import type { Face } from '../../people/face';
+import { PersonChip } from '../../people/PersonChip';
+import { initialFace } from './question';
 import { copyLink, shareLink } from './share';
 
 // Share, on an open round (PRD 144): the owner picks a member of the workspace, and the page gives the
 // link to paste wherever they like, with a copy button that falls back to selecting the text. The
 // member then sees the round under For me, and answers it on the link while it is open.
 
-type Candidate = { id: string; label: string };
+/** A member to share with; their face shows once it is shared (PRD 652), never in the <select>. */
+type Candidate = { id: string; label: string; face?: Face };
 
 type Props = {
   roundId: string;
@@ -29,7 +33,10 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   if (candidates.length === 0) return null;
 
   const link = shareLink(origin ?? (typeof window === 'undefined' ? '' : window.location.origin), roundId);
-  const labelOf = (who: string) => candidates.find((c) => c.id === who)?.label ?? 'them';
+  const sharedWith = (who: string) => {
+    const found = candidates.find((c) => c.id === who);
+    return found ? <PersonChip person={{ name: found.label, face: found.face ?? initialFace(found.label) }} size="inline" link={false} /> : 'them';
+  };
 
   async function share() {
     setStage({ kind: 'sharing' });
@@ -62,7 +69,7 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   if (stage.kind === 'shared') {
     return (
       <section className="ask-share" aria-live="polite">
-        <p className="ask-muted">Shared with {labelOf(stage.with)}. It shows under their Shared with me; send them the link:</p>
+        <p className="ask-muted">Shared with {sharedWith(stage.with)}. It shows under their Shared with me; send them the link:</p>
         <div className="ask-share-row">
           <input ref={field} id={`${id}-link`} className="ask-share-link" readOnly value={link} aria-label="Link to this question" onFocus={(e) => e.target.select()} />
           <button type="button" className="ask-button quiet" onClick={copy}>Copy</button>

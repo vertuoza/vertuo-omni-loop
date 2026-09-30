@@ -5,7 +5,7 @@ import { UNREADABLE } from '../dashboard/part';
 import { periodWindow } from '../dashboard/board/period';
 import { demoEngineeringBoard } from './demo';
 import { EngineeringScreen, type EngineeringView } from './EngineeringScreen';
-import type { Face } from './faces';
+import { faceOf, type Face } from '../people/face';
 import { engineeringOf, OMNI_MAN, type PullRequestRow } from './tally';
 
 // /app/engineering as the server renders it (PRD 612 s3), to static markup: what a person sees
@@ -19,7 +19,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 let serial = 0;
 const pr = (over: Partial<PullRequestRow> = {}): PullRequestRow => ({
   repo: 'acme/widgets', number: ++serial, author: 'ada', authorIsBot: false, openedAt: '2026-09-24T08:00:00Z', mergedAt: null, closedAt: null,
-  mergedBy: null, commits: 0, additions: 0, deletions: 0, omniSigned: false, ...over,
+  mergedBy: null, commits: 0, additions: 0, deletions: 0, omniSigned: false, base: 'main', head: 'feat/thing', ...over,
 });
 const mergedAfter = (hours: number, over: Partial<PullRequestRow> = {}) => {
   const at = new Date(Date.parse('2026-09-24T08:00:00Z') + hours * HOUR).toISOString();
@@ -33,7 +33,7 @@ const ROWS = [
 ];
 
 const board = (rows = ROWS, tracked = ['acme/widgets', 'acme/gears']): EngineeringView =>
-  ({ kind: 'board', name: 'Vertuoza', board: engineeringOf({ tracked, pullRequests: rows, reviews: [{ repo: 'acme/widgets', number: ROWS[0].number, reviewer: 'dora', firstAt: '2026-09-25T08:00:00Z' }] }, WEEK, 'merged') });
+  ({ kind: 'board', name: 'Vertuoza', board: engineeringOf({ tracked, pullRequests: rows, reviews: [{ repo: 'acme/widgets', number: ROWS[0].number, reviewer: 'dora', firstAt: '2026-09-25T08:00:00Z' }] }, WEEK, 'merged', NOW) });
 const render = (view: EngineeringView, query: Record<string, string> = {}) =>
   renderToStaticMarkup(createElement(EngineeringScreen, { view, period: '7d', supabase: null, signinError: null, query }));
 
@@ -62,6 +62,13 @@ describe('the Engineering board, with data', () => {
     expect(t).toContain('Lines signed: +10 −3');
   });
 
+  it('adds the sub-PRs merged into feature branches under the lines, 0 included (PRD 714)', () => {
+    expect(t).toContain('Lines signed: +10 −3 + 0 sub-PRs merged into feature branches');
+    const sub = mergedAfter(1, { omniSigned: true, base: 'feat/loop-health', head: 'feat/loop-health--s1' });
+    expect(text(render(board([...ROWS, sub, { ...sub, number: 999 }])))).toContain('+ 2 sub-PRs merged into feature branches');
+    expect(text(render(board([sub])))).toContain('Omni Loop No PR merged in this period + 1 sub-PR merged into feature branches');
+  });
+
   it('draws merged per day with the signed part, and the list a screen reader reads in its place', () => {
     expect(html).toContain('eng-bar-signed');
     expect(html).toContain('eng-bar-rest');
@@ -80,6 +87,70 @@ describe('the Engineering board, with data', () => {
     expect(t).toContain('Most opened 1 ada 1 2 carl 1 Most merged 1 bob 2 Most reviews 1 dora 1');
     expect(t).not.toContain('dependabot');
     expect(t).not.toMatch(/Most opened[^M]*omni-loop-invader/);
+  });
+});
+
+describe('Loop health, right now (PRD 714 s2)', () => {
+  const MINUTE = 60_000;
+  const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
+  const stuck = (minutes: number, over: Partial<PullRequestRow> = {}) => pr({ openedAt: ago(minutes), labels: ['omni:needs-fix'], ...over });
+  const claim = (minutes: number) => pr({ openedAt: ago(minutes), headCommittedAt: ago(minutes), draft: true, omniSigned: true, base: 'feat/x', head: 'feat/x--s2' });
+  const panel = (html: string) => html.split('id="eng-health">')[1].split('</section>')[0];
+
+  it('sits beside Omni Loop, before the chart', () => {
+    const html = render(board());
+    expect(html.indexOf('id="eng-omni"')).toBeLessThan(html.indexOf('id="eng-health"'));
+    expect(html.indexOf('id="eng-health"')).toBeLessThan(html.indexOf('id="eng-per-day"'));
+  });
+
+  it('with nothing stuck: says so', () => {
+    expect(text(panel(render(board()))).split(' In the period')[0]).toBe('Loop health Right now Nothing stuck right now');
+  });
+
+  it('lists each pull request: its kind, owner/repo#n linking to it on GitHub, and how long ago it was opened', () => {
+    const one = stuck(3 * 60, { repo: 'acme/gears', number: 42 });
+    const two = claim(90);
+    const html = panel(render(board([...ROWS, one, two])));
+    expect(html).toContain('<a href="https://github.com/acme/gears/pull/42">acme/gears#42</a>');
+    expect(html).toContain(`<a href="https://github.com/acme/widgets/pull/${two.number}">acme/widgets#${two.number}</a>`);
+    expect(text(html).split(' In the period')[0]).toBe(`Loop health Right now Stuck acme/gears#42 opened 3.0 h ago Stale claim acme/widgets#${two.number} opened 1.5 h ago`);
+    expect(html).not.toContain('more');
+  });
+
+  it('lists a held run as Held, linked to it on GitHub (PRD 714 s3)', () => {
+    const held = pr({ repo: 'acme/gears', number: 77, openedAt: ago(120), omniSigned: true, base: 'main', head: 'feat/y', statusState: 'stuck' });
+    const html = panel(render(board([...ROWS, held])));
+    expect(html).toContain('<span class="eng-health-kind is-held">Held</span>');
+    expect(html).toContain('<a href="https://github.com/acme/gears/pull/77">acme/gears#77</a>');
+    expect(text(html).split(' In the period')[0]).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
+  });
+
+  it('shows 10 rows, then how many more', () => {
+    const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i));
+    const html = panel(render(board(rows)));
+    expect(html.match(/<li/g)).toHaveLength(10);
+    expect(text(html)).toMatch(/and 1 more In the period/);
+  });
+});
+
+describe('Loop health, in the period (PRD 714 s4)', () => {
+  const periodPart = (html: string) => html.split('id="eng-health">')[1].split('</section>')[0].split('In the period')[1];
+  const sub = (over: Partial<PullRequestRow> = {}) => mergedAfter(1, { omniSigned: true, base: 'feat/x', head: 'feat/x--s1', ...over });
+
+  it('reads K of M merged sub-PRs got omni:needs-fix first, with the percent', () => {
+    const rows = [...ROWS, sub({ needsFixAt: '2026-09-24T08:30:00Z' }), sub(), sub({ needsFixAt: '2026-09-24T10:00:00Z' })];
+    const html = render(board(rows));
+    expect(text(periodPart(html))).toBe('1 of 3 merged sub-PRs got omni:needs-fix first (33%)');
+    expect(periodPart(html)).toContain('<code>omni:needs-fix</code>');
+  });
+
+  it('with no sub-PR merged in the period: says so', () => {
+    expect(text(periodPart(render(board())))).toBe('No sub-PR merged in this period');
+  });
+
+  it('after the right-now list, empty or not', () => {
+    const t = text(render(board()));
+    expect(t).toContain('Loop health Right now Nothing stuck right now In the period No sub-PR merged in this period');
   });
 });
 
@@ -115,20 +186,22 @@ describe('the top-people lists (PRD 645 s1)', () => {
     expect(rowsOf(html, 'eng-top-reviews')[0]).toContain('eng-meter-reviews');
   });
 
-  it('draws a hero as an inline pixel SVG, and a GitHub picture as a 28 px image with an empty alt', () => {
+  it('names each person with a PersonChip (PRD 652 s3): a hero as a hidden pixel SVG, a GitHub photo with an empty alt, then the login', () => {
     const html = render(faced([['ada', 2], ['bob', 1]], {
-      ada: { kind: 'hero', hero: HERO, color: '#e0457b' },
-      bob: { kind: 'github', src: 'https://github.com/bob.png?size=56' },
+      ada: faceOf({ name: 'ada', login: 'ada', hero: HERO, color: '#e0457b' }),
+      bob: faceOf({ name: 'bob', login: 'bob' }),
     }));
     const [ada, bob] = rowsOf(html, 'eng-top-opened');
-    expect(ada).toMatch(/<span class="eng-face" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"/);
+    expect(ada).toMatch(/<span class="person-chip is-table"><span class="person-face is-hero" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"/);
     expect(ada).not.toContain('<img');
-    expect(bob).toContain('<img class="eng-face" src="https://github.com/bob.png?size=56" alt="" width="28" height="28"');
+    expect(bob).toContain('<span class="person-chip is-table"><img class="person-face is-photo" src="https://github.com/bob.png?size=48" alt=""');
+    expect(text(bob ?? '')).toBe('2 bob 1');
   });
 
-  it('a person with no face read yet: the GitHub picture', () => {
+  it('a person with no face read yet: the GitHub photo', () => {
     const [ada] = rowsOf(render(faced([['ada', 2]])), 'eng-top-opened');
-    expect(ada).toContain('src="https://github.com/ada.png?size=56"');
+    expect(ada).toContain('class="person-chip is-table"');
+    expect(ada).toContain('src="https://github.com/ada.png?size=48"');
   });
 });
 
@@ -141,7 +214,7 @@ describe('a page per repository (PRD 645 s2)', () => {
 
   const gears: EngineeringView = {
     kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears',
-    board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged'),
+    board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged', NOW),
   };
   const html = renderToStaticMarkup(createElement(EngineeringScreen, { view: gears, period: '30d', supabase: null, signinError: null, query: { period: '30d' } }));
   const t = text(html);
@@ -160,8 +233,10 @@ describe('a page per repository (PRD 645 s2)', () => {
 
   it('counts that repository alone, and has no Repositories table', () => {
     expect(t).toContain('PRs merged 1');
+    expect(t).toContain('+ 0 sub-PRs merged into feature branches');
     expect(t).toContain('Most merged');
     expect(t).toContain('Omni Loop');
+    expect(t).toContain('Loop health Right now Nothing stuck right now');
     expect(t).toContain('PRs merged per day');
     expect(html).not.toContain('id="eng-repos"');
     expect(html).not.toContain('<table');
@@ -173,6 +248,9 @@ describe('a page per repository (PRD 645 s2)', () => {
     const demo = render(view as EngineeringView);
     expect(demo).toContain('<h1 class="dash-name">acme/gears</h1>');
     expect(demo).not.toContain('<table');
+    // Loop health over that repository alone: its stale claim, not the other repository's stuck pull request (PRD 714 s2).
+    expect(text(demo)).toContain('Loop health Right now Stale claim acme/gears#501 opened 3.0 h ago');
+    expect(text(demo)).not.toContain('acme/widgets#500');
     expect(demoEngineeringBoard('7d', 'merged', NOW, 'acme/sprockets')).toEqual({ kind: 'not-tracked' });
   });
 });
@@ -207,9 +285,21 @@ describe('the demo', () => {
     }
   });
 
-  it('shows both kinds of face: a hero and a GitHub picture', () => {
+  it('shows the sub-PR line, with sub-PRs merged into feature branches (PRD 714)', () => {
+    const view = demoEngineeringBoard('7d', 'merged', NOW);
+    expect(text(render(view))).toMatch(/\+ [1-9]\d* sub-PRs merged into feature branches/);
+  });
+
+  it('shows Loop health with a stuck pull request, a held run and a stale claim (PRD 714 s2, s3)', () => {
+    const t = text(render(demoEngineeringBoard('7d', 'merged', NOW)));
+    expect(t).toMatch(/Loop health Right now .*Stuck acme\/\w+#\d+ opened/);
+    expect(t).toMatch(/Held acme\/\w+#\d+ opened/);
+    expect(t).toMatch(/Stale claim acme\/\w+#\d+ opened/);
+  });
+
+  it('shows both kinds of face: a hero and a GitHub photo', () => {
     const html = render(demoEngineeringBoard('30d', 'merged', NOW));
-    expect(html).toMatch(/<span class="eng-face" aria-hidden="true"><svg/);
-    expect(html).toContain('<img class="eng-face" src="https://github.com/');
+    expect(html).toMatch(/<span class="person-face is-hero" aria-hidden="true"><svg/);
+    expect(html).toContain('<img class="person-face is-photo" src="https://github.com/');
   });
 });

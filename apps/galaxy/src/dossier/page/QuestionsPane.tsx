@@ -1,3 +1,4 @@
+import { PersonChip } from '../../people/PersonChip';
 import { QuickAnswer } from './QuickAnswer';
 import { questionsCount, type QuestionsView, type RoundEntry, type RoundQuestion } from './view';
 
@@ -18,6 +19,9 @@ import { questionsCount, type QuestionsView, type RoundEntry, type RoundQuestion
 // <summary>, so it folds with no script and from the keyboard. An open round is NEVER folded: a plain
 // element on --ask-sunk with a yellow edge, every option shown. Unfolded, an answered question reads on
 // one line: chip · question → the chosen option(s), in no box.
+//
+// PRD 652: who asked, who answered and who a quick round waits for each read with their face before
+// their name (PersonChip, resolved by account id through the people directory); the words are unchanged.
 
 type Supabase = { url: string; key: string } | null;
 
@@ -81,6 +85,12 @@ const MARK: Record<RoundEntry['state'], { sign: string; label: string }> = {
   moved: { sign: '', label: 'moved to the terminal' },
 };
 
+/** The outcome, the face of whoever answered before their name (PRD 652). */
+function Outcome({ round }: { round: RoundEntry }) {
+  const by = round.answeredBy;
+  return by ? <>answered by <PersonChip person={by.person} size="inline" />{by.rest}</> : <>{round.outcome}</>;
+}
+
 /** A round's line: its mark, rule · category, headers, count, when it was asked, and the outcome. */
 function Line({ round }: { round: RoundEntry }) {
   const mark = MARK[round.state];
@@ -96,7 +106,7 @@ function Line({ round }: { round: RoundEntry }) {
         {round.state === 'open' ? <span className="dossier-left">{round.count}</span> : round.count}
       </span>
       <span className="ask-hint dossier-round-when">{round.when}</span>
-      {round.state !== 'moved' && <span className="dossier-outcome">{round.outcome}</span>}
+      {round.state !== 'moved' && <span className="dossier-outcome"><Outcome round={round} /></span>}
     </>
   );
 }
@@ -108,10 +118,12 @@ function Body({ round, supabase }: { round: RoundEntry; supabase: Supabase }) {
     <div className="dossier-round-body">
       {round.questions.map((question, i) => <Question key={i} question={question} options={!buttons} />)}
       {buttons && <QuickAnswer supabase={supabase} roundId={round.id} quick={quick} />}
-      {quick !== null && !quick.canAnswer && <p className="dossier-quick-note">Waiting for {quick.owner}</p>}
+      {quick !== null && !quick.canAnswer && (
+        <p className="dossier-quick-note">Waiting for <PersonChip person={{ name: quick.owner, face: quick.ownerFace }} size="inline" /></p>
+      )}
       {round.state === 'moved' && <p className="dossier-outcome">{round.outcome}</p>}
       <p className="dossier-round-foot">
-        <span className="ask-hint">{round.asked}</span>
+        <span className="ask-hint">asked by <PersonChip person={round.askedBy} size="inline" /> · {round.askedAt}</span>
         {round.context.length > 0 && <span className="ask-hint">{round.context.join(' · ')}</span>}
         <a className="dossier-round-link" href={round.href}>Open the question</a>
       </p>
