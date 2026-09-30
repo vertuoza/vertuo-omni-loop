@@ -136,4 +136,12 @@ describe('the page\'s state', () => {
     expect(s).toMatchObject({ skipped: true, typing: null, claims: [] });
     expect(businessReducer(s, { type: 'unskip' }).skipped).toBe(false);
   });
+
+  it('adds the suggested rivals as guesses, and keeps a claim it already holds with its citations', () => {
+    const kept = claim('rival', 'Alpha', { state: 'proposed', source: 'suggestion', cited: 2, lastBy: 'think-big' });
+    const beta = claim('rival', 'Beta', { state: 'proposed', source: 'suggestion' });
+    const s = businessReducer(initialState([kept]), { type: 'suggested', claims: [{ ...kept, cited: 0, lastBy: null }, beta] });
+    expect(s.claims).toEqual([kept, beta]);
+    expect(s.busy).toBe(false);
+  });
 });

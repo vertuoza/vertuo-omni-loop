@@ -136,13 +136,27 @@ function SizeSlider({ state, on }: { state: BusinessState; on: BusinessHandlers 
   );
 }
 
+/** A rival the small model guessed (PRD 748 s3): dashed, marked "guess", out of the sentence until ✓. */
+function Guess({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHandlers }) {
+  return (
+    <span className="business-guess" data-claim={displayId(claim)}>
+      <span className="business-guess-name">{claim.value}</span>
+      <span className="business-guess-tag">guess</span>
+      <button type="button" className="business-right" aria-label={`Right: ${claim.value}`} onClick={() => on.confirm(claim)} disabled={busy}>✓ Right</button>
+      <button type="button" className="business-wrong" aria-label={`Wrong: ${claim.value}`} onClick={() => on.reject(claim)} disabled={busy}>✗ Wrong</button>
+    </span>
+  );
+}
+
 function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
   const rivals = confirmed(state.claims).filter((c) => c.kind === 'rival');
+  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed').sort((a, b) => a.seq - b.seq);
   return (
     <div className="business-group" role="group" aria-labelledby="business-rival-title" data-kind="rival">
       <h2 id="business-rival-title">Up against</h2>
       <div className="business-chips">
         {rivals.map((c) => <Chip key={c.id} pressed busy={state.busy} onClick={() => on.tap('rival', c.value)}>{c.value}</Chip>)}
+        {guesses.map((c) => <Guess key={c.id} claim={c} busy={state.busy} on={on} />)}
         {state.typing !== 'rival' && <Chip pressed={false} busy={state.busy} onClick={() => on.type('rival')}>{ADD_RIVAL}</Chip>}
       </div>
       {state.typing === 'rival' && <TypeField kind="rival" label="A rival’s name" busy={state.busy} on={on} />}

@@ -34,6 +34,34 @@
 .business-chip:disabled { cursor: not-allowed; opacity: 0.6; }
 .business-chip:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 
+/* A rival the small model guessed (PRD 748 s3): dashed until a person says ✓ Right or ✗ Wrong. */
+.business-guess {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 14px;
+  border: 1.5px dashed var(--ask-line-strong);
+  border-radius: 999px;
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  overflow-wrap: anywhere;
+}
+.business-guess-name { min-width: 0; }
+.business-guess-tag { font-size: 12px; font-weight: 600; color: var(--ask-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.business-guess button {
+  font: 700 13px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.business-guess button:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-guess button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
 .business-type { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .business-type label { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
 .business-type-label { font-size: 14px; color: var(--ask-muted); }

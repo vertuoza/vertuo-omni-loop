@@ -15,7 +15,12 @@ export interface BusinessPort {
   pick(kind: ClaimKind, value: string): Promise<Saved>;
   /** ✓ Right or ✗ Wrong on a claim; the row is kept either way. */
   setState(claim: Claim, state: 'confirmed' | 'rejected'): Promise<Saved>;
+  /** Asks for suggested rivals (PRD 748 s3): the proposed rivals stored, or none on any failure. */
+  suggest(): Promise<Claim[]>;
 }
+
+/** The route that asks the small model for rivals and stores them as proposed claims. */
+export const SUGGEST_ROUTE = '/api/business/suggest-rivals';
 
 export const NOT_MEMBER = 'Only a member of the workspace can change its business.';
 const GONE = 'That is no longer in this workspace’s business. Reload the page.';
@@ -33,7 +38,9 @@ export function refusalOf(error: unknown): string {
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
-export function databaseBusiness(db: Rpc, workspace: string, product: string): BusinessPort {
+const isGuess = (claim: Claim) => claim.kind === 'rival' && claim.state === 'proposed';
+
+export function databaseBusiness(db: Rpc, workspace: string, product: string, fetch: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)): BusinessPort {
   const call = async (fn: string, args: Record<string, unknown>): Promise<Saved> => {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
@@ -48,6 +55,22 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string): B
       p_product: kind === 'region' ? null : product, p_kind: kind, p_value: value, p_source: 'pick',
     }),
     setState: (claim, state) => call('claim_set_state', { p_claim: claim.id, p_state: state }),
+    // No guess is ever an error: a refusal, a broken answer or no network all find none.
+    async suggest() {
+      try {
+        const response = await fetch(SUGGEST_ROUTE, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace, product }),
+        });
+        if (!response.ok) return [];
+        const body = (await response.json()) as { claims?: unknown } | null;
+        const rows = Array.isArray(body?.claims) ? (body.claims as StoredClaim[]) : [];
+        return rows.map((row) => claimOf(row)).filter(isGuess);
+      } catch {
+        return [];
+      }
+    },
   };
 }
 
@@ -71,6 +94,10 @@ export function demoBusinessPort(initial: Claim[]): BusinessPort {
       const kept = claims.find((c) => c.id === claim.id);
       if (!kept) return { ok: false, message: GONE };
       return save({ ...kept, state });
+    },
+    // The demo has no model: it never guesses, and its sample rivals name no real company.
+    async suggest() {
+      return [];
     },
   };
 }

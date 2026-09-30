@@ -106,3 +106,39 @@ describe('the demo', () => {
     expect(await demoBusinessPort([]).setState(CLAIM, 'confirmed')).toMatchObject({ ok: false });
   });
 });
+
+describe('suggested rivals', () => {
+  function stubFetch(reply: { ok: boolean; body?: unknown } | Error) {
+    const calls: Array<[string, RequestInit]> = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      calls.push([url, init]);
+      if (reply instanceof Error) throw reply;
+      return { ok: reply.ok, json: async () => reply.body } as Response;
+    }) as unknown as typeof globalThis.fetch;
+    return { calls, fetch };
+  }
+
+  it('asks the suggest-rivals route for the workspace and product the page shows, and reads the proposed rivals', async () => {
+    const s = stubFetch({ ok: true, body: { claims: [row({ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed' })] } });
+    const found = await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest();
+    expect(found).toEqual([{ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed', cited: 0, lastBy: null }]);
+    expect(s.calls[0][0]).toBe('/api/business/suggest-rivals');
+    expect(s.calls[0][1].method).toBe('POST');
+    expect(JSON.parse(String(s.calls[0][1].body))).toEqual({ workspace: 'ws-1', product: 'p-1' });
+  });
+
+  it('finds no guess, and says nothing, on a refusal, a broken body or no network', async () => {
+    for (const reply of [{ ok: false, body: { error: 'no' } }, { ok: true, body: 'nope' }, new Error('offline')]) {
+      expect(await databaseBusiness(db([]), 'ws-1', 'p-1', stubFetch(reply).fetch).suggest()).toEqual([]);
+    }
+  });
+
+  it('keeps only proposed rivals from the answer', async () => {
+    const s = stubFetch({ ok: true, body: { claims: [row({ kind: 'rival', value: 'Kept', state: 'confirmed' }), row({ id: 'c-2', kind: 'offering', state: 'proposed' })] } });
+    expect(await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest()).toEqual([]);
+  });
+
+  it('guesses nothing in the demo', async () => {
+    expect(await demoBusinessPort([CLAIM]).suggest()).toEqual([]);
+  });
+});
