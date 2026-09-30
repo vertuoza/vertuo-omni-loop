@@ -8,7 +8,7 @@ import { StageHeaderCopy } from './StageHeaderCopy';
 // badge beside the pills at building, and the issue and pull requests that exist for the On GitHub cell.
 // Hovering the stage says when it was last synced. A draft with no answer and a PRD not synced yet light
 // nothing, and say Brainstorming or Syncing…. A fix's title (PRD 627) reads `#n ↗` after its kind's
-// badge; a fix has no stage track.
+// badge; a fix has no stage track. The open feature PR's link carries its health chip (PRD 790, s2).
 
 export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
   heading: string; draft: boolean; title: string; issueUrl: string | null; badge?: string | null;
@@ -59,7 +59,8 @@ export function StageTrack({ stage }: { stage: StageView }) {
   );
 }
 
-/** The On GitHub cell's value: each issue or pull request that exists, open or ✓. */
+/** The On GitHub cell's value: each issue or pull request that exists, open or ✓, and the open feature
+ * PR's health chip. */
 export function StageLinks({ links }: { links: StageView['links'] }) {
   return (
     <ul className="stage-links" aria-label="On GitHub">
@@ -67,6 +68,7 @@ export function StageLinks({ links }: { links: StageView['links'] }) {
         <li key={link.label}>
           <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>{' '}
           <span className="ask-hint">{link.done ? '✓' : 'open'}</span>
+          {link.chip && <>{' '}<span className={`care-chip care-${link.chip.tone}`} title="PR care">{link.chip.label}</span></>}
         </li>
       ))}
     </ul>

@@ -342,7 +342,10 @@ ending's last line.
 3. If the omni-loop app is installed, it then opens a retro PR (how the delivery went)
    and a knowledge PR (the decisions, written back): review and merge each.
 
-Nothing to run: merging #<feature PR> is yours.
+Merging #<feature PR> is yours. Until then, to keep it green, conflict-free and its review
+comments handled while you do other things, type /clear (or open a new terminal), then run:
+
+/omni:pr-care <n>
 ```
 
 When `/omni:pr`'s lifecycle left the ready feature PR's CI stuck, the line in brackets under step 1
@@ -380,7 +383,7 @@ that stayed red.
 The PR that holds it is the stuck sub-PR when there is one, the feature PR otherwise.
 
 The last line of the reply is always the ending's own, alone on it:
-`Nothing to run: merging #<feature PR> is yours.`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
+`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
 Everything the next session needs is in the repository and on GitHub, so clearing the session loses
 nothing.
 

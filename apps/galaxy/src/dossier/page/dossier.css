@@ -132,6 +132,19 @@
   font-size: 13px;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+/* The open feature PR's health chip (PRD 790, s2): green-edged when all is well, red on CI red or a
+   conflict, grey while CI runs. */
+.care-chip {
+  display: inline-block;
+  font: 600 12px/1 var(--ask-mono);
+  border: 1px solid var(--ask-green);
+  color: var(--ask-ink);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.care-chip.care-red { border-color: var(--ask-red); color: var(--ask-red); }
+.care-chip.care-grey { border-color: var(--ask-line-strong); color: var(--ask-muted); }
 
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {
@@ -667,6 +680,28 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .fix-moment-done::before { background: var(--ask-plasma); border-color: var(--ask-plasma); }
 .fix-moment-label { font-weight: 700; }
 .fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
+
+/* The PR care tab (PRD 790, s4): the CI, Conflicts and Review rows, one line per review thread (asked
+   first, its verdict in red), then the watcher line. */
+.care-rows { display: grid; gap: 6px; margin: 0 0 16px; }
+.care-row { display: flex; gap: 12px; align-items: baseline; }
+.care-row dt { width: 88px; flex: none; font-weight: 600; color: var(--ask-muted); }
+.care-row dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.care-ci-red dd, .care-conflict-conflict dd { color: var(--ask-red); font-weight: 600; }
+.care-ci-green dd { color: var(--ask-green); font-weight: 600; }
+.care-threads { list-style: none; margin: 0 0 16px; padding: 0; border-top: 1px solid var(--ask-line); }
+.care-thread {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ask-line);
+}
+.care-first, .care-verdict { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.care-verdict-asked .care-verdict strong { color: var(--ask-red); }
+.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ask-muted); }
+.care-watcher.care-watching { color: var(--ask-ink); }
 
 /* ── The Proof tab (PRD 798, s4): the run's facts and counts, then a row per criterion with its mark,
    its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its

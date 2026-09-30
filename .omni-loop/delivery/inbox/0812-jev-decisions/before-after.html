@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jev decisions</title>
+<style>
+/* Layout: today beside after, per moment; stacks at phone width. Omni app look. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#fff;
+ --green:#15703f;--amber:#8a5a00;--red:#b3122f;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;--green:#4ee08a;--amber:#ffc24d;--red:#ff6b86;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;--green:#4ee08a;--amber:#ffc24d;--red:#ff6b86;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:36px}
+header h1{font:900 30px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;margin:0}
+header p{color:var(--muted);margin:6px 0 0;max-width:78ch}
+.moment{display:grid;gap:12px}.moment>h2{margin:0;font-size:20px}.moment>p{margin:0;color:var(--muted);max-width:80ch}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:16px}
+@media (max-width:900px){.pair{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;align-content:start;min-width:0}
+.tag{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.tag.after{color:var(--plasma)}
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--ground)}
+.top{display:flex;gap:8px;flex-wrap:wrap;padding:8px 14px;border-bottom:2px solid var(--lineStrong);background:var(--surface);font-weight:700}.top .g{color:var(--muted);font-weight:400}.top .on{color:var(--plasma)}
+.main{padding:14px;display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:8px;min-width:0}
+.card h3{margin:0;font-size:15px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.field{flex:1 1 180px;min-width:0;border:1px solid var(--lineStrong);border-radius:8px;padding:6px 10px;font:13px var(--mono);background:var(--sunk)}
+.btn{border:1px solid var(--plasma);background:var(--plasma);color:var(--onPlasma);border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px}
+.switch{display:inline-flex;border:1px solid var(--lineStrong);border-radius:8px;overflow:hidden;font:700 12px var(--mono)}
+.switch span{padding:4px 9px;color:var(--muted)}.switch .sel{background:var(--plasma);color:var(--onPlasma)}
+.dec{display:grid;grid-template-columns:minmax(0,1.3fr) auto;gap:6px 14px;padding:10px 0;border-top:1px solid var(--line)}
+.dec:first-of-type{border-top:0}
+.dec .name{font-weight:700}.dec .knobs{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;font:12px var(--mono);color:var(--muted)}
+.rec{grid-column:1/-1;font:12px var(--mono);color:var(--muted)}.rec b{color:var(--green)}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font:700 12px var(--mono);border:1px solid var(--line)}
+.chip.jev{background:var(--plasmaSoft);color:var(--plasma);border-color:var(--plasma)}
+.chip.high{color:var(--red);border-color:var(--red)}.chip.med{color:var(--amber);border-color:var(--amber)}
+pre{margin:0;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:12px;font:12.5px/1.55 var(--mono);white-space:pre-wrap;overflow-x:auto}
+.hl{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.same{border:1px dashed var(--lineStrong);border-radius:12px;padding:14px;display:grid;gap:6px}
+.same h2{margin:0;font-size:18px}.same ul{margin:0;padding-left:20px}
+svg text{fill:var(--ink);font:12px var(--body)}svg .m{fill:var(--muted)}
+svg .box{fill:var(--surface);stroke:var(--lineStrong)}svg .jevbox{fill:var(--plasmaSoft);stroke:var(--plasma)}svg .ln{stroke:var(--lineStrong);fill:none}svg .pl{stroke:var(--plasma);fill:none}
+svg .ah{fill:var(--lineStrong)}svg .ahp{fill:var(--plasma)}
+.fig{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <h1>Jev decisions</h1>
+ <p>PRD 812. A workspace owner opts in to Jev (TypeSafe AI) with an API key, then hands it three decisions one at a time: the question category, the outbox item risk and the bug-fix risk. Each decision is Off, Shadow or On. Nothing changes for a workspace that never opts in.</p>
+</header>
+
+<section class="moment">
+ <h2>1 · Settings</h2>
+ <p>The owner turns Jev on and pastes the key. It is tested with one call and never shown again. Each decision has its own mode, tuning and record.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win"><div class="top"><span>Settings</span><span class="g">Fleets · Repositories · Business</span></div>
+    <div class="main"><div class="card"><h3>No AI settings</h3><p class="muted small">The category is always Claude Haiku, through the deployment's OpenRouter key. The outbox and bug risks are whatever the agent set. No workspace can choose.</p></div></div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="win"><div class="top"><span>Settings</span><span class="g">Fleets · Repositories · Business ·</span><span class="on">Jev</span></div>
+    <div class="main">
+     <div class="card"><h3>Jev by TypeSafe AI</h3>
+      <div class="row"><span class="switch"><span>Off</span><span class="sel">On</span></span><span class="field">API key •••• 1a2b</span><span class="btn">Replace key</span></div>
+      <p class="muted small">Saved 30 Sep by pierre-derval · model jev-1.13.0 · only the owner can change this page</p></div>
+     <div class="card"><h3>Decisions</h3>
+      <div class="dec"><span class="name">Question category <span class="muted small">Business / Product / UX-UI / …</span></span><span class="switch"><span>Off</span><span>Shadow</span><span class="sel">On</span></span>
+       <span class="knobs"><span>confidence floor 0.40</span><span>sends: the questions, options, repo, branch, PRD, skill</span></span>
+       <span class="rec">30 days · 212 calls · <b>93% agree</b> with Haiku · 15 disagreements ›</span></div>
+      <div class="dec"><span class="name">Outbox item risk <span class="muted small">hard to revert?</span></span><span class="switch"><span>Off</span><span class="sel">Shadow</span><span>On</span></span>
+       <span class="knobs"><span>threshold 0.50</span><span>confidence floor 0.40</span><span>sends: the decision, its options, slice title, paths</span></span>
+       <span class="rec">30 days · 44 calls · <b>41 / 44 agree</b> with the agent · 3 disagreements ›</span></div>
+      <div class="dec"><span class="name">Bug-fix risk <span class="muted small">critical · high · medium · low</span></span><span class="switch"><span class="sel">Off</span><span>Shadow</span><span>On</span></span>
+       <span class="knobs"><span>confidence floor 0.40</span><span>sends: issue title and body, reproduction path, domain</span></span>
+       <span class="rec">Off: Jev is not called</span></div>
+     </div>
+    </div></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>2 · How a decision is made</h2>
+ <p>Jev is only ever called by the app. Claude sessions ask through <code>omni decide</code>. Every failure means today's answer counts, so Jev can never block a wave or a fix.</p>
+ <div class="fig"><svg viewBox="0 0 900 250" width="900" height="250" role="img" aria-label="Flow: the agent decides first, then omni decide asks the app, which calls Jev when Shadow or On">
+  <defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path class="ah" d="M0 0L8 4L0 8z"/></marker>
+  <marker id="p" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path class="ahp" d="M0 0L8 4L0 8z"/></marker></defs>
+  <rect class="box" x="10" y="20" width="190" height="70" rx="10"/><text x="24" y="46">Agent decides as today</text><text class="m" x="24" y="68">hardToRevert: false</text>
+  <rect class="box" x="250" y="20" width="190" height="70" rx="10"/><text x="264" y="46">omni decide outbox-risk</text><text class="m" x="264" y="68">--old false (signed in)</text>
+  <rect class="box" x="490" y="20" width="170" height="70" rx="10"/><text x="504" y="46">Galaxy /api/decide</text><text class="m" x="504" y="68">mode · key · tuning</text>
+  <rect class="jevbox" x="710" y="20" width="170" height="70" rx="10"/><text x="724" y="46">Jev (TypeSafe)</text><text class="m" x="724" y="68">Noul 0.82 · 180 ms</text>
+  <path class="ln" d="M200 55H246" marker-end="url(#a)"/><path class="ln" d="M440 55H486" marker-end="url(#a)"/><path class="pl" d="M660 55H706" marker-end="url(#p)"/>
+  <rect class="box" x="490" y="150" width="390" height="80" rx="10"/>
+  <text x="504" y="175">Off → "unset": the agent's answer counts</text>
+  <text x="504" y="197">Shadow → "unset", and both answers are logged</text>
+  <text x="504" y="219">On → "true 0.82": Jev's answer counts (up or down)</text>
+  <path class="ln" d="M575 90V146" marker-end="url(#a)"/>
+  <rect class="box" x="10" y="150" width="430" height="80" rx="10"/>
+  <text x="24" y="175">Timeout 5 s · error · off-schema · under the floor</text>
+  <text x="24" y="197">no sign-in · old kit or app → "unset"</text>
+  <text class="m" x="24" y="219">The law floor still makes a law-bearing item high.</text>
+ </svg></div>
+</section>
+
+<section class="moment">
+ <h2>3 · An outbox item</h2>
+ <p>When Jev's answer counts, the item says so. Here Jev overrides the agent: renaming a stored column is hard to revert, so the item waits for a person instead of being adopted.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+<pre>## s3 · keep the old column name?
+Rank: <span class="chip med">medium</span> → adopted, nobody asked
+hardToRevert: false  (agent)
+A. rename in place (built)
+B. add a new column, backfill</pre></div>
+  <div class="col"><span class="tag after">After, outbox-risk On</span>
+<pre>## s3 · keep the old column name?
+Rank: <span class="chip high">high</span> → waits for you
+hardToRevert: true
+<span class="hl">Decided by: Jev (hardToRevert 0.82) · agent said false</span>
+A. rename in place (built)
+B. add a new column, backfill</pre></div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>4 · A bug triage</h2>
+ <p>The same applies to the risk on <code>/omni:bug-fix</code>'s triage comment and label.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+<pre>## Triage
+- Kind: behaviour bug
+- Domain: ask
+- Risk: medium — rounds show unsorted; a click fixes it
+- Regression: new bug</pre></div>
+  <div class="col"><span class="tag after">After, bug-risk On</span>
+<pre>## Triage
+- Kind: behaviour bug
+- Domain: ask
+- Risk: low — rounds show unsorted; a click fixes it <span class="hl">(Jev, 0.77)</span>
+- Regression: new bug</pre></div>
+ </div>
+</section>
+
+<div class="same">
+ <h2>What stays the same</h2>
+ <ul>
+  <li>Every workspace starts with Jev off. Without a key, every page, skill and category works as today.</li>
+  <li>The kit still computes the rank. Needs-a-person items, named-law stops, principle conflicts and the law floor are never Jev's call.</li>
+  <li>Kind, domain and regression in a bug triage stay the agent's.</li>
+  <li>A member can still change a question's category with a click.</li>
+  <li>OpenRouter keeps every other use: the retro, the harvest and the rival suggestions.</li>
+ </ul>
+</div>
+</div>
+</body>
+</html>

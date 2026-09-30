@@ -3,6 +3,7 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
+import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { MarkSeen } from './MarkSeen';
@@ -32,7 +33,8 @@ import { TAB_LABELS, type DossierView } from './view';
 // 900 × 700 px the box is pinned while the page scrolls (PinnedHead.tsx measures it).
 // Its Outbox tab (OutboxPane.tsx) is where the decisions taken while it was built are answered, beside
 // the spec, the before/after page or the brainstorm (PRD 251, s9), and its Retro tab
-// (RetroPane.tsx) renders the retro once written; empty, each reads muted.
+// (RetroPane.tsx) renders the retro once written; empty, each reads muted. Between them, while the PRD has
+// a feature PR, its PR care tab (CarePane.tsx, PRD 790) shows that PR's health and who watches it.
 // PRD 579: opening the page marks its PRD seen in this browser (MarkSeen.tsx), and so does each new
 // version it renders while open, so the bell's New documents group drops it.
 // PRD 627: a fix's page is this page on its own route, `#n ↗` with its Visual or Bug badge, no stage,
@@ -67,6 +69,7 @@ function Pane({ view, markdown, supabase }: PaneProps) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
+  if (tab === 'care') return <CarePane care={view.care} />;
   if (tab === 'retro') return <RetroPane retro={view.retro} />;
   if (tab === 'timeline') return <TimelinePane fix={view.fix} />;
   if (tab === 'proof') return <ProofPane proof={view.proof} action={view.link} />;

@@ -196,6 +196,19 @@ describe('the stage header (PRD 426, PRD 587)', () => {
       expect(html).toContain('<nav class="dossier-tabs"');
     }
   });
+
+  it('shows the health chip beside the open feature PR\'s link, in its three looks, and none without a read care state (PRD 790, s2)', () => {
+    const care = { ci: 'green' as const, failedUrl: null, conflict: false, base: 'main', threads: [], watchingSince: null, lastRound: null };
+    const open = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2, care });
+    const featureLink = '<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221" target="_blank" rel="noopener noreferrer">feature #221</a> <span class="ask-hint">open</span>';
+    expect(page({ github: open, stages: at('outbox') }))
+      .toContain(`${featureLink} <span class="care-chip care-ok" title="PR care">CI ✓ · no conflict · 0 open</span></li>`);
+    expect(page({ github: { ...open, care: { ...care, ci: 'red' } }, stages: at('outbox') })).toContain('<span class="care-chip care-red" title="PR care">CI red · no conflict · 0 open</span>');
+    expect(page({ github: { ...open, care: { ...care, ci: 'running' } }, stages: at('outbox') })).toContain('<span class="care-chip care-grey" title="PR care">CI running · no conflict · 0 open</span>');
+    for (const github of [{ ...open, care: UNREAD }, { ...open, care: null }, { ...open, feature: pr(221, 'merged') }, summary()]) {
+      expect(page({ github, stages: at('outbox') })).not.toContain('care-chip');
+    }
+  });
 });
 
 describe('the header box (PRD 476)', () => {
@@ -327,6 +340,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
       ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(page()).toContain('dossier-rounds');
@@ -345,6 +359,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
       ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(html).toContain(`src="/prd/${ID}/v/2/page"`);

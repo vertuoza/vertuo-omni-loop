@@ -9,6 +9,7 @@ import { adopt } from './adopt.mjs';
 import { answers } from './answers.mjs';
 import { ask } from './ask.mjs';
 import { board } from './board.mjs';
+import { care } from './care.mjs';
 import { business } from './business.mjs';
 import { bug } from './bug.mjs';
 import { check } from './check.mjs';
@@ -41,4 +42,4 @@ import { update } from './update.mjs';
 import { version } from './version.mjs';
 import { visual } from './visual.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, version, update, help, statusline, targets });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, version, update, help, statusline, targets });

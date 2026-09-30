@@ -35,6 +35,8 @@ function fakeGithub(repo: {
   files?: Record<string, string>;
   /** The comments of each issue or pull request, by number. */
   comments?: Record<number, { id: number; html_url: string; body: string; created_at?: string; user?: { login: string }; author_association?: string }[]>;
+  /** The GraphQL answer to the care query (PRD 790, s2); a PR with no check and no thread when left out. */
+  care?: unknown;
 }) {
   const calls: string[] = [];
   let tokens = 0;
@@ -73,6 +75,14 @@ function fakeGithub(repo: {
     (url) => {
       const n = /^\/repos\/acme\/widgets\/issues\/(\d+)\/comments$/.exec(url.pathname)?.[1];
       return n ? json(repo.comments?.[Number(n)] ?? []) : undefined;
+    },
+    (url, init) => {
+      if (url.pathname !== '/graphql' || init.method !== 'POST') return undefined;
+      const { variables } = JSON.parse(String(init.body)) as { variables: Record<string, unknown> };
+      calls.push(`graphql ${variables.owner}/${variables.name}#${variables.number}`);
+      return json({ data: repo.care ?? { repository: { pullRequest: {
+        mergeable: 'MERGEABLE', baseRefName: 'trunk', commits: { nodes: [] }, reviewThreads: { nodes: [] }, comments: { nodes: [] },
+      } } } });
     },
     (url) => {
       if (url.pathname !== '/repos/acme/widgets/pulls') return undefined;
@@ -121,7 +131,9 @@ describe('the GitHub summary of a numbered dossier', () => {
       outboxComment: null,
       replies: { numbering: [], pending: [] },
       retroText: null,
+      care: { ci: 'none', failedUrl: null, conflict: false, base: 'trunk', threads: [], watchingSince: null, lastRound: null },
     });
+    expect(gh.calls).toContain('graphql acme/widgets#433');
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=all&per_page=100&head=acme%3Afeature%2Fprd-page-stage&sort=created&direction=desc');
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=closed&per_page=100&base=feature%2Fprd-page-stage');
     expect(JSON.stringify(summary)).not.toContain('ghs_');
@@ -417,6 +429,43 @@ describe('the retro (s3)', () => {
     expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
       retroText: UNREAD, retro: { number: 440 }, feature: { state: 'merged' },
     });
+  });
+});
+
+describe('the feature PR\'s care state (PRD 790, s2)', () => {
+  const building = (more: Parameters<typeof fakeGithub>[0] = {}) => fakeGithub({
+    inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [merged(431, 'docs/phase-0-prd-page-stage'), pull(433, 'feature/prd-page-stage')], ...more,
+  });
+
+  it('reads it in one GraphQL query while the feature PR is open, finding the status comment by its marker', async () => {
+    const gh = building({ care: { repository: { pullRequest: {
+      mergeable: 'CONFLICTING', baseRefName: 'trunk',
+      commits: { nodes: [{ commit: { statusCheckRollup: { state: 'FAILURE', contexts: { nodes: [{ conclusion: 'FAILURE', detailsUrl: 'https://github.com/acme/widgets/actions/runs/7' }] } } } }] },
+      reviewThreads: { nodes: [] },
+      comments: { nodes: [{ body: '<!-- omni-outbox-status -->\nPR care: watching since 2026-09-28T09:00:00Z · last round 2026-09-28T09:55:00Z' }] },
+    } } } });
+    expect((await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER))?.care).toEqual({
+      ci: 'red', failedUrl: 'https://github.com/acme/widgets/actions/runs/7', conflict: true, base: 'trunk', threads: [],
+      watchingSince: '2026-09-28T09:00:00.000Z', lastRound: '2026-09-28T09:55:00.000Z',
+    });
+    expect(gh.calls.filter((c) => c.startsWith('graphql'))).toEqual(['graphql acme/widgets#433']);
+  });
+
+  it('is none, with no query, when the feature PR is merged or absent', async () => {
+    const shipped = fakeGithub({ shipped: ['0426-prd-page-stage'], issue: ISSUE, pulls: [merged(433, 'feature/prd-page-stage')] });
+    expect((await githubReader(CREDS, shipped.fetchImpl, () => NOW).summary(DOSSIER))?.care).toBeNull();
+    expect(shipped.calls).not.toContain('/graphql');
+    const none = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [merged(431, 'docs/phase-0-prd-page-stage')] });
+    expect((await githubReader(CREDS, none.fetchImpl, () => NOW).summary(DOSSIER))?.care).toBeNull();
+  });
+
+  it('fails on its own while the others answer, and is unread when the feature PR is', async () => {
+    const failed = building({ fail: /^\/graphql/ });
+    expect(await githubReader(CREDS, failed.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({ care: UNREAD, feature: { number: 433 } });
+    const odd = building({ care: { nope: true } });
+    expect((await githubReader(CREDS, odd.fetchImpl, () => NOW).summary(DOSSIER))?.care).toBe(UNREAD);
+    const unread = building({ fail: /head=acme%3Afeature/ });
+    expect(await githubReader(CREDS, unread.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({ care: UNREAD, feature: UNREAD });
   });
 });
 

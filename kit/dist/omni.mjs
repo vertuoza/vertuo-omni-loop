@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.127" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.130" };
   }
 });
 
@@ -7463,7 +7463,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync14 } from "node:child_process";
+import { execFileSync as execFileSync15 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -11828,6 +11828,7 @@ var FORMS = Object.freeze([
   form("conventions", "extended", [opt("naming"), opt("formatting"), opt("commits")]),
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
+  form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
@@ -12589,7 +12590,7 @@ init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync4, readFileSync as readFileSync5 } from "node:fs";
 import { join as join6, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
-var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
+var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -16882,9 +16883,277 @@ var board = {
   }
 };
 
+// kit/bin/commands/care.mjs
+init_define_OMNI_BUNDLE();
+import { execFileSync as execFileSync8 } from "node:child_process";
+
+// kit/lib/care/decide.mjs
+init_define_OMNI_BUNDLE();
+function decideRound(state) {
+  if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
+  if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
+  const actions = [];
+  if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
+  const { checks } = state;
+  if (checks.state === "red" && checks.fixable && !checks.stuck) actions.push({ kind: "fix-ci", failed: checks.failed });
+  for (const thread of state.threads) {
+    if (thread.needs === "judge") actions.push({ kind: "judge", thread: thread.id });
+    else if (thread.needs === "mark-asked") actions.push({ kind: "mark-asked", thread: thread.id });
+  }
+  actions.push({ kind: "status" });
+  return { mode: "act", actions };
+}
+
+// kit/lib/care/marker.mjs
+init_define_OMNI_BUNDLE();
+var CARE_VERDICTS = Object.freeze(["fixed", "pushed-back", "asked"]);
+var MARKER_RE = /<!-- omni-care: ([\w-]+) -->/g;
+var TRAILING_MARKER_RE = /\s*<!-- omni-care: [\w-]+ -->\s*$/;
+function careMarker(verdict) {
+  if (!CARE_VERDICTS.includes(verdict)) {
+    throw new Error(`unknown PR care verdict "${verdict}": one of ${CARE_VERDICTS.join(", ")}`);
+  }
+  return `<!-- omni-care: ${verdict} -->`;
+}
+function careReplyBody(text4, verdict) {
+  const marker = careMarker(verdict);
+  const plain = String(text4 ?? "").replace(TRAILING_MARKER_RE, "").trim();
+  if (!plain) throw new Error("a PR care reply cannot be empty");
+  return `${plain}
+
+${marker}`;
+}
+function readCareVerdict(body) {
+  const found = [...String(body ?? "").matchAll(MARKER_RE)];
+  const last = found.at(-1)?.[1];
+  return CARE_VERDICTS.includes(last) ? last : null;
+}
+
+// kit/lib/care/state.mjs
+init_define_OMNI_BUNDLE();
+var CARE_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      number url state isDraft baseRefName headRefName mergeable
+      labels(first: 50) { nodes { name } }
+      commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
+        __typename
+        ... on CheckRun { name status conclusion detailsUrl }
+        ... on StatusContext { context state targetUrl }
+      } } } } } }
+      reviewThreads(first: 100) { nodes { id isResolved path line
+        comments(first: 50) { nodes { author { login avatarUrl } body createdAt url } } } }
+      comments(last: 100) { nodes { databaseId body } }
+    }
+  }
+}`;
+var ROLLUP = { SUCCESS: "green", FAILURE: "red", ERROR: "red", PENDING: "running", EXPECTED: "running" };
+var FAILED_RUN = /* @__PURE__ */ new Set(["FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"]);
+var FAILED_STATUS = /* @__PURE__ */ new Set(["FAILURE", "ERROR"]);
+var CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
+function failedContexts(contexts) {
+  const failed = [];
+  for (const node of contexts) {
+    if (node?.__typename === "StatusContext") {
+      if (FAILED_STATUS.has(node.state)) failed.push({ name: node.context, url: node.targetUrl ?? null });
+    } else if (FAILED_RUN.has(node?.conclusion)) {
+      failed.push({ name: node.name, url: node.detailsUrl ?? null });
+    }
+  }
+  return failed;
+}
+function rollupOf(pr) {
+  return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+}
+function isFixable(state, failed, gateContexts) {
+  if (state !== "red") return false;
+  const gates = new Set(gateContexts);
+  return failed.length === 0 || failed.some((run) => !gates.has(run.name));
+}
+function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
+  const rollup = rollupOf(pr);
+  const state = rollup ? ROLLUP[rollup.state] ?? "running" : "none";
+  const failed = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const fixable = isFixable(state, failed, gateContexts);
+  return { state, failed, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
+}
+function readComment(node) {
+  return {
+    author: node.author?.login ?? null,
+    avatarUrl: node.author?.avatarUrl ?? null,
+    body: node.body ?? "",
+    createdAt: node.createdAt ?? null,
+    url: node.url ?? null,
+    verdict: readCareVerdict(node.body)
+  };
+}
+function reasonOf2(body) {
+  return body.replace(/\s*<!-- omni-care: [\w-]+ -->\s*$/, "").trim();
+}
+function threadBase(node, comments, resolved) {
+  return { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+}
+function repliedThread(comments, last, resolved) {
+  const reply = comments[last];
+  const reason2 = reasonOf2(reply.body);
+  if (reply.verdict === "asked") return { verdict: "asked", reason: reason2, needs: null };
+  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
+  if (personAfter || !resolved) return { verdict: "asked", reason: reason2, needs: "mark-asked" };
+  return { verdict: reply.verdict, reason: reason2, needs: null };
+}
+function readThread(node) {
+  const comments = (node.comments?.nodes ?? []).map(readComment);
+  const resolved = Boolean(node.isResolved);
+  const last = comments.findLastIndex((c) => c.verdict !== null);
+  const base = threadBase(node, comments, resolved);
+  if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: "judge" };
+  return { ...base, ...repliedThread(comments, last, resolved) };
+}
+function readStatus(nodes, statusMarker) {
+  const found = nodes.find((node) => statusMarker && String(node.body ?? "").includes(statusMarker));
+  if (!found) return null;
+  const line = String(found.body).match(CARE_LINE_RE);
+  return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };
+}
+function careState(response, { statusMarker, needsFixLabel, gateContexts = [] }) {
+  const pr = response?.data?.repository?.pullRequest;
+  if (!pr) throw new Error("the response holds no pull request");
+  const labels = (pr.labels?.nodes ?? []).map((label) => label.name);
+  return {
+    pr: {
+      number: pr.number,
+      url: pr.url,
+      state: pr.state,
+      isDraft: Boolean(pr.isDraft),
+      base: pr.baseRefName,
+      head: pr.headRefName,
+      labels
+    },
+    checks: readChecks(pr, labels, { needsFixLabel, gateContexts }),
+    mergeable: pr.mergeable ?? "UNKNOWN",
+    threads: (pr.reviewThreads?.nodes ?? []).map(readThread).filter(Boolean),
+    status: readStatus(pr.comments?.nodes ?? [], statusMarker)
+  };
+}
+
+// kit/bin/commands/care.mjs
+var USAGE4 = "usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n       omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>]";
+var CLAIM_STATES = /* @__PURE__ */ new Set(["in-flight", "claimed-stale"]);
+var REPLY_MUTATION = `mutation($thread: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $thread, body: $body }) { comment { url } }
+}`;
+var RESOLVE_MUTATION = `mutation($thread: ID!) {
+  resolveReviewThread(input: { threadId: $thread }) { thread { isResolved } }
+}`;
+function graphql({ query, variables }, { exec, env }) {
+  const raw = exec("gh", ["api", "graphql", "--input", "-"], {
+    encoding: "utf8",
+    input: JSON.stringify({ query, variables }),
+    ...env ? { env } : {}
+  });
+  const parsed = JSON.parse(raw);
+  if (parsed.errors?.length) throw Object.assign(new Error(parsed.errors[0].message), { name: "GitHubError" });
+  return parsed;
+}
+function featureBranchFor(prd2, ctx) {
+  const where = ctx.layout.whereIs(prd2);
+  const parsed = where ? parseFolderName(where.name) : null;
+  if (parsed) return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+  throw usageError(where ? `omni care: cannot read a topic from folder "${where.name}".` : `omni care: PRD ${prd2} has no inbox or shipped folder.`);
+}
+function findFeaturePr({ repo, branch, exec, env }) {
+  const raw = exec(
+    "gh",
+    ["pr", "list", "--repo", repo, "--head", branch, "--state", "all", "--json", "number,state,updatedAt", "--limit", "20"],
+    { encoding: "utf8", ...env ? { env } : {} }
+  );
+  const prs = JSON.parse(raw);
+  const open2 = prs.find((pr) => pr.state === "OPEN");
+  if (open2) return open2.number;
+  const latest = [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+  return latest?.number ?? null;
+}
+function waveClaims(prd2, { ctx, exec, env, repo }) {
+  try {
+    const { result } = buildBoard(prd2, { ctx, exec, env, repo });
+    const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
+    return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
+  } catch (error) {
+    return { holdsClaims: null, claimed: [], unreadable: String(error?.message ?? error).split("\n")[0] };
+  }
+}
+function runState(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
+  if (positional.length !== 1) throw usageError(USAGE4);
+  const prd2 = positiveInt("care", "<prd>", positional[0]);
+  const repo = repoSlug("care", ctx, flags.repo);
+  const branch = featureBranchFor(prd2, ctx);
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const number = flags.pr !== void 0 ? positiveInt("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  if (number === null) {
+    println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${branch}).`);
+    return 1;
+  }
+  const [owner, name] = repo.split("/");
+  const response = graphql({ query: CARE_QUERY, variables: { owner, name, number } }, { exec, env: ghEnv });
+  const state = careState(response, {
+    statusMarker: `<!-- ${ctx.config.markers.prefix}-status -->`,
+    needsFixLabel: ctx.config.labels.needsFix,
+    gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
+  });
+  const wave = waveClaims(prd2, { ctx, exec, env, repo: flags.repo });
+  const full = { prd: prd2, ...state, wave };
+  println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
+  return 0;
+}
+function replyBodyOf(flags, ctx) {
+  if (!CARE_VERDICTS.includes(flags.verdict)) {
+    throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(", ")}.`);
+  }
+  if (flags.body === void 0 === (flags.file === void 0)) {
+    throw usageError("omni care reply: give the text with exactly one of --body or --file.");
+  }
+  const text4 = flags.body ?? readUserFile("care", ctx, flags.file);
+  if (!String(text4).trim()) throw usageError("omni care reply: the reply is empty.");
+  return careReplyBody(text4, flags.verdict);
+}
+function runReply(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
+  if (positional.length) throw usageError(USAGE4);
+  const body = replyBodyOf(flags, ctx);
+  if (flags.thread === void 0) {
+    println(stdout, body);
+    return 0;
+  }
+  return postReply({ thread: flags.thread, verdict: flags.verdict, body }, { ctx, stdout, stderr, exec, env });
+}
+function postReply({ thread, verdict, body }, { ctx, stdout, stderr, exec, env }) {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  try {
+    const posted = graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv });
+    const resolve5 = verdict !== "asked";
+    if (resolve5) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
+    const url = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
+    println(stdout, JSON.stringify({ thread, verdict, url, resolved: resolve5 }));
+    return 0;
+  } catch (error) {
+    if (error?.name !== "GitHubError") throw error;
+    println(stderr, `omni care reply: GitHub refused it: ${error.message}`);
+    return 1;
+  }
+}
+var care = {
+  async run(args, { ctx, stdout, stderr, exec = execFileSync8, env }) {
+    const [sub, ...rest] = args;
+    if (sub === "state") return runState(rest, { ctx, stdout, stderr, exec, env });
+    if (sub === "reply") return runReply(rest, { ctx, stdout, stderr, exec, env });
+    throw usageError(USAGE4);
+  }
+};
+
 // kit/bin/commands/business.mjs
 init_define_OMNI_BUNDLE();
-var USAGE4 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
+var USAGE5 = "usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>]";
 var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
@@ -16975,7 +17244,7 @@ var business = {
       return cited(positional2, flags2, env);
     }
     const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
-    if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE4);
+    if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE5);
     const out = { json: flags.json === true, stdout };
     const reached = reach(env);
     if (!reached.client) return print(out, empty(reached.state), [reached.line]);
@@ -17768,7 +18037,7 @@ import { join as join30 } from "node:path";
 // kit/lib/plan-repo/targets.mjs
 init_define_OMNI_BUNDLE();
 var import_yaml4 = __toESM(require_dist(), 1);
-import { execFileSync as execFileSync8 } from "node:child_process";
+import { execFileSync as execFileSync9 } from "node:child_process";
 import { existsSync as existsSync21, readdirSync as readdirSync12, readFileSync as readFileSync22 } from "node:fs";
 import { join as join27 } from "node:path";
 
@@ -17869,7 +18138,7 @@ function staleness(gh, { repo, readAt }, branch, evidence) {
   if (changed === 0) return null;
   return `${plural2(ahead, "commit", "commits")}, ${plural2(changed, "evidence file", "evidence files")} changed`;
 }
-function readTarget2(target2, { exec = execFileSync8, env, evidence = /* @__PURE__ */ new Set() } = {}) {
+function readTarget2(target2, { exec = execFileSync9, env, evidence = /* @__PURE__ */ new Set() } = {}) {
   const { repo, role, knowledge: knowledge2 } = target2;
   const row = (loop, state, detail = null) => ({ repo, role, knowledge: knowledge2, loop, state, detail });
   const gh = ghReader({ exec, env });
@@ -17910,7 +18179,7 @@ function copyEvidence(repo, { ctx }) {
   }
   return paths;
 }
-function readTargets(targets2, { ctx, exec = execFileSync8, env } = {}) {
+function readTargets(targets2, { ctx, exec = execFileSync9, env } = {}) {
   return targets2.map(
     (target2) => readTarget2(target2, { exec, env, evidence: target2.knowledge === "imported" ? copyEvidence(target2.repo, { ctx }) : /* @__PURE__ */ new Set() })
   );
@@ -18416,7 +18685,7 @@ function findReleaseViolations({ ctx }) {
 }
 
 // kit/bin/commands/check.mjs
-var USAGE5 = "usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]";
+var USAGE6 = "usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]";
 function report(stdout, title, violations, passLine) {
   if (violations.length > 0) {
     println(stdout, formatFailure(title, violations));
@@ -18534,7 +18803,7 @@ var check = {
   async run(args, io) {
     const { ctx, stdout, exec } = io;
     const { positional, flags } = parseArgs("check", args, { values: ["base", "prd"] });
-    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE5);
+    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE6);
     const guard = positional[0] ?? "all";
     const prd2 = flags.prd === void 0 ? null : positiveInt("check", "--prd", flags.prd);
     const base = flags.base ?? defaultBase(ctx);
@@ -18563,13 +18832,13 @@ var check = {
 // kit/bin/commands/comment.mjs
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync9 } from "node:fs";
-var USAGE6 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
+var USAGE7 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
 var comment = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("comment", args, {
       values: ["prd", "pr", "repo", "result", "branch", "ref", "base", "labels", "slack-note", "title", "owner-slack-id", "owner-login", "pr-comment"]
     });
-    if (positional.length) throw usageError(USAGE6);
+    if (positional.length) throw usageError(USAGE7);
     const prd2 = positiveInt("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
     const [owner, name] = repo.split("/");
@@ -18588,7 +18857,7 @@ var comment = {
       return 0;
     }
     const branch = flags.branch;
-    if (!branch) throw usageError(USAGE6);
+    if (!branch) throw usageError(USAGE7);
     const ref = flags.ref ?? branch;
     let changes = [];
     if (flags.base) {
@@ -19076,7 +19345,7 @@ function summarize(items, { commits = null, app = false } = {}) {
 
 // kit/lib/credits/reader.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync9 } from "node:child_process";
+import { execFileSync as execFileSync10 } from "node:child_process";
 var SEARCH_CAP = 1e3;
 var PR_FIELDS2 = "number,title,state,createdAt,labels,body,repository,author";
 var BOT_SUFFIX = "[bot]";
@@ -19125,7 +19394,7 @@ function pullRequest(raw, repo) {
   };
 }
 var shown = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
-function readCredits({ owner, repo, since, labels, signature, exec = execFileSync9, env }) {
+function readCredits({ owner, repo, since, labels, signature, exec = execFileSync10, env }) {
   const options = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: MAX_BUFFER, ...env ? { env } : {} };
   const gh = (args) => {
     try {
@@ -19238,13 +19507,13 @@ function creditsList(items) {
 }
 
 // kit/bin/commands/credits.mjs
-var USAGE7 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
+var USAGE8 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
 var credits = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"], booleans: ["list", "json"] });
-    if (positional.length) throw usageError(USAGE7);
+    if (positional.length) throw usageError(USAGE8);
     const slug = repoSlug("credits", ctx, flags.repo);
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
@@ -19386,7 +19655,7 @@ function readFixFolder(ctx, kind, issue, { issueTitle: issueTitle2 = null } = {}
 }
 
 // kit/bin/commands/dossier.mjs
-var USAGE8 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
+var USAGE9 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
@@ -19517,7 +19786,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
 }
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
-  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE8);
+  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE9);
   return flag;
 }
 var dossier = {
@@ -19528,9 +19797,9 @@ var dossier = {
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
     const numbered = ["push", "link"].includes(verb);
     const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
-    if (!runnable) throw usageError(USAGE8);
+    if (!runnable) throw usageError(USAGE9);
     const kind = kindOf2(flags.kind, numbered);
-    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE8);
+    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE9);
     const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -19782,7 +20051,7 @@ import { dirname as dirname11, join as join43 } from "node:path";
 
 // kit/lib/delivery/ship.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync10 } from "node:child_process";
+import { execFileSync as execFileSync11 } from "node:child_process";
 import { existsSync as existsSync30, readFileSync as readFileSync27, writeFileSync as writeFileSync10, mkdirSync as mkdirSync8 } from "node:fs";
 import { basename as basename6, join as join37, dirname as dirname9 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
@@ -19826,7 +20095,7 @@ var DirtyDeliveryError = class extends Error {
     this.name = "DirtyDeliveryError";
   }
 };
-function applyShip(ctx, prd2, { exec = execFileSync10 } = {}) {
+function applyShip(ctx, prd2, { exec = execFileSync11 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty ?? "").trim()) throw new DirtyDeliveryError(delivery);
@@ -20656,7 +20925,7 @@ function noEdits(edits) {
 }
 
 // kit/bin/commands/harvest.mjs
-var USAGE9 = "usage: omni harvest <prd> --pr <feature pull request>";
+var USAGE10 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   if (entry.kind === "stays-here") return "stays here";
@@ -20670,7 +20939,7 @@ function checkLine(name, violations) {
 var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
-    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE9);
+    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE10);
     const prd2 = positiveInt("harvest", "<prd>", positional[0]);
     const number = positiveInt("harvest", "--pr", flags.pr);
     if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
@@ -20728,7 +20997,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/ask/heartbeat.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync11 } from "node:child_process";
+import { execFileSync as execFileSync12 } from "node:child_process";
 import { existsSync as existsSync37, mkdirSync as mkdirSync11, readdirSync as readdirSync19, readFileSync as readFileSync33, rmSync as rmSync7, writeFileSync as writeFileSync13 } from "node:fs";
 import { join as join44 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
@@ -20784,7 +21053,7 @@ function fixWork(branch, branches, folders) {
   const bug2 = numberOf(fix, folders.bugs);
   return bug2 ? { kind: "bug", number: bug2 } : null;
 }
-function readWork({ cwd, config: config2, claudeSessionId, exec = execFileSync11 }) {
+function readWork({ cwd, config: config2, claudeSessionId, exec = execFileSync12 }) {
   const home = attempt4(() => mainCheckout(cwd, exec));
   const drafts = home ? attempt4(() => readDossiers(home)) ?? [] : [];
   const head = attempt4(() => String(exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, ...QUIET7 })).trim());
@@ -20923,6 +21192,18 @@ var ENTRIES = deepFreeze([
     label: "omni board <n>",
     summary: "PRD n's slices and what can run next",
     detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on. Needs gh logged in."
+  },
+  {
+    name: "care",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni care state <prd> [--pr <n>] [--repo <owner/name>]",
+      "omni care reply --verdict <v> --body <text> [--thread <id>]",
+      "omni care reply --verdict <v> --file <path> [--thread <id>]"
+    ],
+    summary: "PRD n's feature PR as PR care sees it, and its marked replies",
+    detail: "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review thread with its verdict, whether a wave holds claims, and the next actions of a round. reply writes a reply ending with the care marker; with --thread it posts it and resolves the thread unless the verdict is asked. Needs gh logged in."
   },
   {
     name: "check",
@@ -21434,6 +21715,21 @@ var ENTRIES = deepFreeze([
     example: {
       type: "/omni:pr",
       result: "the pull request opened or updated, its status comment kept current"
+    }
+  },
+  {
+    name: "pr-care",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:pr-care <n>"],
+    label: "/omni:pr-care <n>",
+    summary: "look after a PRD's feature PR until it is merged",
+    detail: "Looks after PRD n's feature PR, round by round, until it is merged or closed or you stop it: it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against the repository's review form and fixes it, pushes back with a reason, or leaves it for the PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a wave is building, shows on the PRD page that it is watching, and never merges.",
+    group: "build",
+    when: "Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.",
+    example: {
+      type: "/omni:pr-care 790",
+      result: "each review comment fixed, pushed back with a reason, or left for you, and the PR kept green"
     }
   },
   {
@@ -22698,7 +22994,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.mjs
 var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
-var USAGE10 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
+var USAGE11 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field3) {
   return external_exports.string().trim().min(1, `${field3} must not be empty`).superRefine((value, refinement) => {
@@ -22949,7 +23245,7 @@ var item = {
     const [sub, ...rest] = args;
     if (sub === "new") return runNew(rest, io);
     if (sub === "relay") return runRelay(rest, io);
-    throw usageError(USAGE10);
+    throw usageError(USAGE11);
   }
 };
 
@@ -23019,7 +23315,7 @@ function readGraph({ ctx }) {
 }
 
 // kit/bin/commands/kb.mjs
-var USAGE11 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
+var USAGE12 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -23142,7 +23438,7 @@ var kb = {
     if (sub === "show") return show(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
-    throw usageError(USAGE11);
+    throw usageError(USAGE12);
   }
 };
 
@@ -23318,7 +23614,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
 }
 
 // kit/bin/commands/phase0.mjs
-var USAGE12 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE13 = "usage: omni phase0 <prd> [--base <ref>]";
 function git3(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -23358,7 +23654,7 @@ function printVerdict(stdout, prd2, base, verdict) {
 var phase0 = {
   async run(args, { ctx, stdout, exec }) {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE12);
+    if (positional.length !== 1) throw usageError(USAGE13);
     const prd2 = positiveInt("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths(ctx, base, exec);
@@ -23505,7 +23801,7 @@ function gradePlan(markdown, { config: config2 }) {
 
 // kit/lib/plan-repo/moved.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync12 } from "node:child_process";
+import { execFileSync as execFileSync13 } from "node:child_process";
 var shortName4 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf = (file) => [file.filename, file.previous_filename].filter(Boolean);
 function compareRow(gh, { slug, readAt, slices }) {
@@ -23524,7 +23820,7 @@ function compareRow(gh, { slug, readAt, slices }) {
   if (files.length === 0) return { state: "ok" };
   return { state: "moved", files, slices: slices.map((slice) => slice.id).filter((id) => hit.has(id)) };
 }
-function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync12, env } = {}) {
+function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync13, env } = {}) {
   const gh = ghReader({ exec, env });
   const slugOf2 = new Map(targets2.map((target2) => [shortName4(target2.repo), target2.repo]));
   return repositories.filter((row) => row.repo !== shortName4(planSlug)).map((row) => {
@@ -23560,7 +23856,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.mjs
-var USAGE13 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
+var USAGE14 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
@@ -23592,7 +23888,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE13);
+  if (positional.length !== 1) throw usageError(USAGE14);
   const prd2 = positiveInt("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -23612,9 +23908,9 @@ var plan = {
   async run(args, { ctx, stdout, exec, env }) {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
-    if (sub !== "check") throw usageError(USAGE13);
+    if (sub !== "check") throw usageError(USAGE14);
     const { positional } = parseArgs("plan check", rest);
-    if (positional.length !== 1) throw usageError(USAGE13);
+    if (positional.length !== 1) throw usageError(USAGE14);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
     const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
@@ -23848,7 +24144,7 @@ function readRun(dir) {
 }
 
 // kit/bin/commands/proof.mjs
-var USAGE14 = "usage: omni proof push <n> <dir>";
+var USAGE15 = "usage: omni proof push <n> <dir>";
 var NO_SIGN_IN2 = "no sign-in (omni signin)";
 function skipLine2(error) {
   if (error instanceof ProofReplyError) return `refused (${error.message})`;
@@ -23862,7 +24158,7 @@ var proof = {
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
     const { positional } = parseArgs("proof", args);
     const [verb, number, dir, ...rest] = positional;
-    if (verb !== "push" || dir === void 0 || rest.length) throw usageError(USAGE14);
+    if (verb !== "push" || dir === void 0 || rest.length) throw usageError(USAGE15);
     const prd2 = positiveInt("proof push", "<n>", number);
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -24394,7 +24690,7 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.mjs
-var USAGE15 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE16 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
@@ -24488,20 +24784,20 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE15);
+    throw usageError(USAGE16);
   }
 };
 
 // kit/bin/commands/settle.mjs
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
-var USAGE16 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+var USAGE17 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
-    if (positional.length !== 1) throw usageError(USAGE16);
+    if (positional.length !== 1) throw usageError(USAGE17);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
@@ -24561,12 +24857,12 @@ var ship = {
 
 // kit/bin/commands/sign.mjs
 init_define_OMNI_BUNDLE();
-var USAGE17 = "usage: omni sign trailer|footer";
+var USAGE18 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   async run(args, { ctx, stdout }) {
     const { positional } = parseArgs("sign", args);
-    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE17);
+    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE18);
     const line = LINES2[positional[0]](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -24579,7 +24875,7 @@ import { appendFileSync } from "node:fs";
 
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync13 } from "node:child_process";
+import { execFileSync as execFileSync14 } from "node:child_process";
 import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync10, utimesSync, writeFileSync as writeFileSync20 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 function git4(ctx, exec, args) {
@@ -24664,7 +24960,7 @@ function putBack(saved) {
   } catch {
   }
 }
-function fetchRemote({ ctx, exec = execFileSync13 }) {
+function fetchRemote({ ctx, exec = execFileSync14 }) {
   const saved = snapshot(fetchHeadPath(ctx, exec));
   try {
     git4(ctx, exec, ["fetch", "--prune", ctx.config.repo.remote]);
@@ -24774,7 +25070,7 @@ function phase0Of(ctx, exec, base, remote) {
   }
   return out;
 }
-function readFacts({ ctx, exec = execFileSync13 }) {
+function readFacts({ ctx, exec = execFileSync14 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
@@ -25024,7 +25320,7 @@ function formatOverview(overview2, { now }) {
 }
 
 // kit/bin/commands/status.mjs
-var USAGE18 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE19 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
     const failure2 = fetchRemote({ ctx, exec });
@@ -25043,7 +25339,7 @@ var status2 = {
     const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE18);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE19);
     const prd2 = positiveInt("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -25075,11 +25371,11 @@ var status2 = {
 
 // kit/bin/commands/targets.mjs
 init_define_OMNI_BUNDLE();
-var USAGE19 = "usage: omni targets [--json]";
+var USAGE20 = "usage: omni targets [--json]";
 var targets = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE19);
+    if (positional.length) throw usageError(USAGE20);
     const plan2 = ctx.config.plan;
     if (!plan2) {
       println(stdout, "not a plan repository");
@@ -25684,7 +25980,7 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.mjs
-var USAGE20 = "usage: omni update [--to <version>]";
+var USAGE21 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target2, exec }) {
   const dir = mkdtempSync2(join59(tmpdir2(), "omni-update-"));
   try {
@@ -25728,7 +26024,7 @@ var update = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE20);
+    if (positional.length) throw usageError(USAGE21);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -25830,10 +26126,10 @@ var visual = branchVerdictCommand({
 });
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, version, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, version, update, help, statusline, targets });
 
 // kit/bin/omni.mjs
-var USAGE21 = `usage: omni <command> [args]
+var USAGE22 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -25876,12 +26172,12 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync14, env = process.env, ...more } = {}) {
+async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync15, env = process.env, ...more } = {}) {
   const [first, ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE21);
+    stderr.write(USAGE22);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });
