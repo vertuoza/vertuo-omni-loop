@@ -64,7 +64,7 @@ Taken in the brainstorm on 2026-09-30, with the person who asked for this PRD.
   `namespace`, no parameter properties; type-only imports are written `import type`. Imports name
   the `.ts` file (`allowImportingTsExtensions`, `module: nodenext`, `noEmit`). The Node engine
   becomes `>=22.18`. No `tsx`.
-- **The freeze.** The rename (A2) starts only when no open feature branch touches `kit/`, `game/`,
+- **The freeze.** The rename (s2) starts only when no open feature branch touches `kit/`, `game/`,
   `apps/omni-app/` or `packages/`. The rename script stays in the repository and can be run again,
   so a branch opened late runs it after merging `main`.
 - **Zod 4 at the boundaries, not Effect Schema.** If PRD B ends in a no-go, this PRD must still be
@@ -72,9 +72,17 @@ Taken in the brainstorm on 2026-09-30, with the person who asked for this PRD.
 - **One source per type.** A shape read from outside is a Zod schema in `kit/lib/schema/`, and its
   type is `z.infer` of it. A shape only built inside is a type in `kit/lib/types.ts`.
 - **Tests are typed, with looser rules.** A test may cast a fixture with `as` freely. Source may use
-  `any` or `as` only on a line listed, with its reason, in the allow-list the ratchet reads.
+  `any` or `as` only on a line that carries a `// ts-allow: <reason>` comment, which the ratchet
+  reads. The allow-list lives on the lines themselves, not in one shared file, so parallel slices
+  never edit the same file for it.
+- **The arcade gets index checks too.** It already builds strict, but turning on
+  `noUncheckedIndexedAccess` there raises 836 errors across about 20 folders. It keeps the flag off
+  until four arcade slices clear their folders, then the ratchet turns it on. The arcade also fails
+  `tsc` today on 4 errors, all from the docs index fumadocs generates at build time; the
+  typecheck generates it first.
 - **The database's types are generated,** by `supabase gen types --local` from the migrations, and
-  committed; CI fails when they drift.
+  committed as `supabase/database.types.ts`; CI fails when they drift. Each folder that opens a
+  Supabase client types it with `Database` in its own slice.
 
 ## User stories
 
@@ -104,14 +112,17 @@ In:
   `.github/workflows/checks.yml` beside `test` and `fallow`.
 - Vitest including `*.test.ts` everywhere it includes `*.test.mjs` today.
 - `scripts/ts-rename.mjs`, the one `.mjs` file that stays (so it can still run on a branch that was
-  not converted), and the rename it performs, including `package.json` scripts, `kit/build`,
+  not converted), and the rename it performs, including `package.json` scripts, this repository's
+  own `.omni-loop/bin/omni.mjs` shim onto the source (it stays `.mjs`, and imports the `.ts` entry), `kit/build`,
   `kit/release`, the workflows, `apps/omni-app/vercel.json`, the Claude hooks, and every test that
   names a `.mjs` path.
 - `kit/lib/types.ts`, `kit/lib/schema/`, Zod 3 → 4 in every file that imports it (kit and arcade).
 - The generated `Database` type, its script, its drift check in `.github/workflows/supabase.yml`,
-  and the arcade's Supabase clients typed with it.
+  and every Supabase client (arcade, App, game) typed with it.
+- The arcade's own code cleared for `noUncheckedIndexedAccess`, and the flag turned on there.
 - Every folder typed and its `@ts-nocheck` removed; outside reads parsed through a schema.
-- The ratchet: `allowJs` off; a guard test; the allow-list.
+- The ratchet: `allowJs` off; the arcade's index checks on; a guard test that reads the
+  `// ts-allow:` comments.
 
 Out:
 
@@ -121,7 +132,7 @@ Out:
   hold and changes no output.
 - The bundle's file name, its install path, the skills, and the plugin.
 - Lint rules beyond what `tsc` and the guard test enforce.
-- Converting `.tsx`/`.ts` code that is already TypeScript, beyond making it pass the new base config.
+- Changing the arcade's `.tsx`/`.ts` code beyond what its index checks and the `Database` type need.
 
 ## Test seams
 
@@ -130,23 +141,23 @@ behaviour tests, because no behaviour changes; each slice's proof is `pnpm typec
 `pnpm test` green (`omni kb show testing`: tests beside the code, fixtures only, never GitHub or
 Supabase).
 
-- **A1:** a sample `*.test.ts` under `kit/` runs in `pnpm test`; `pnpm typecheck` checks the arcade.
-- **A2:** the whole suite, unchanged in count; `kit/test/dist.test.*` (the bundle equals a fresh
+- **s1:** a sample `*.test.ts` under `kit/` runs in `pnpm test`; `pnpm typecheck` checks the arcade.
+- **s2:** the whole suite, unchanged in count; `kit/test/dist.test.*` (the bundle equals a fresh
   build) after `kit/dist/omni.mjs` is rebuilt, where only the path comments differ; a test that runs
   `scripts/ts-rename.mjs` twice on a fixture repository and sees the second run change nothing.
-- **A3:** unit tests for each new schema, with a valid and an invalid input each; the invalid one
+- **s3:** unit tests for each new schema, with a valid and an invalid input each; the invalid one
   names its field.
-- **A5:** the drift check fails on a fixture where the committed type misses a column.
-- **A26:** the guard test, on fixtures: a file with `@ts-nocheck`, a `.mjs` source file, and an
-  `any` outside the allow-list each fail it; an allow-listed line passes.
+- **s5:** the drift check fails on a fixture where the committed type misses a column.
+- **s27:** the guard test, on fixtures: a file with `@ts-nocheck`, a `.mjs` source file, and an
+  `any` with no `// ts-allow:` comment each fail it; a line with one passes.
 
 ## Risks
 
 `omni kb show releasing`: a merge to `main` ships the kit's bundle and the plugin, and deploys the
 arcade and the App.
 
-- **The App on Vercel.** `apps/omni-app/api/*.ts` import `.ts` kit files. A2 is not done until a
-  preview deploy of the App builds and `/api/inngest` answers. Rollback: revert A2's merge.
+- **The App on Vercel.** `apps/omni-app/api/*.ts` import `.ts` kit files. s2 is not done until a
+  preview deploy of the App builds and `/api/inngest` answers. Rollback: revert s2's merge.
 - **The bundle.** esbuild reads `.ts`; the bundle's code must not change, only the file names in its
   comments. `kit/test/dist` pins it. Rollback: revert, and the release workflow republishes.
 - **Branches open during the freeze.** They run `scripts/ts-rename.mjs` after merging `main`; git's
@@ -163,10 +174,12 @@ Nothing here touches `supabase/migrations/`: no database change ships.
 1. `pnpm typecheck` exists, checks the root project and `apps/galaxy`, and passes on `main`.
 2. The `checks` workflow runs `typecheck` on every pull request, beside `test` and `fallow`.
 3. No `.mjs` file exists outside `kit/dist/`, `.omni-loop/bin/` and `scripts/ts-rename.mjs`.
+   (`.omni-loop/bin/omni.mjs` is this repository's shim onto the source, and stays.)
 4. No file contains `@ts-nocheck`.
 5. The root and arcade configs set `strict`, `noUncheckedIndexedAccess`, `erasableSyntaxOnly` and
-   `verbatimModuleSyntax`; the root config has no `allowJs`.
-6. `pnpm test` passes with at least as many tests as before A2.
+   `verbatimModuleSyntax` (the arcade's through the shared base); the root config has no
+   `allowJs`.
+6. `pnpm test` passes with at least as many tests as before the rename (s2).
 7. `kit/dist/omni.mjs` rebuilt from the `.ts` sources behaves the same: its test suite passes, and
    `node kit/dist/omni.mjs config` in a fixture repository prints the same JSON as before.
 8. `pnpm game:*` scripts and `node kit/release/release.ts` run on Node ≥ 22.18 with no runner.
@@ -174,8 +187,9 @@ Nothing here touches `supabase/migrations/`: no database change ships.
 10. Every value read from a file, a process, the network or the environment passes through a schema
     in `kit/lib/schema/` (or a folder's own schema file) before use; an invalid value fails with an
     error naming its field.
-11. The arcade's Supabase clients are typed with the generated `Database`, and CI fails when that
-    file differs from what the migrations generate.
+11. Every Supabase client (arcade, App, game) is typed with the generated `Database` in
+    `supabase/database.types.ts`, and CI fails when that file differs from what the migrations
+    generate.
 12. A guard test fails on `@ts-nocheck`, on a `.mjs` source file, and on `any` or `as` in source
-    outside the allow-list; every allow-listed line carries a reason.
+    on a line without a `// ts-allow: <reason>` comment; an empty reason fails too.
 13. Zod is at version 4 everywhere, and no package depends on Zod 3.
