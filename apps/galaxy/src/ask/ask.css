@@ -208,11 +208,10 @@ html:has(.ask[data-ask-theme]) body {
    question", closed at first, rendered as markdown. */
 .ask-question-long { font-size: 18px; line-height: 1.45; text-wrap: pretty; }
 .ask-lead { display: block; font-weight: 700; overflow-wrap: anywhere; }
-.ask-fold { border: 1px solid var(--ask-line); border-radius: 10px; background: var(--ask-surface); min-width: 0; }
+.ask-fold { border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); min-width: 0; }
 .ask-lead + .ask-fold { margin-top: 8px; font-weight: 400; }
 .ask-fold > summary { cursor: pointer; padding: 10px 14px; font-size: 15px; color: var(--ask-muted); }
-.ask-fold[open] > summary { border-bottom: 1px solid var(--ask-line); }
-.ask-prose { padding: 12px 14px; font-size: 16px; line-height: 1.5; color: var(--ask-ink); overflow-wrap: anywhere; }
+.ask-prose { padding: 2px 14px 12px; font-size: 16px; line-height: 1.5; color: var(--ask-ink); overflow-wrap: anywhere; }
 .ask-prose > :first-child { margin-top: 0; }
 .ask-prose > :last-child { margin-bottom: 0; }
 .ask-prose p, .ask-prose ol, .ask-prose ul { margin: 0 0 10px; }
