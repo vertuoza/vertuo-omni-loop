@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newRun, STAGE_SECONDS } from './rules';
-import { hearEvent, newSession, pauseSession, pressSession, type Session } from './session';
+import { ended, hearEvent, newSession, pauseSession, pressSession, scoreToSend, type Session } from './session';
 
 // A game of Super Omni World as the arcade holds it around the Phaser scene (PRD 817): the presses
 // the scene does not read (START, SELECT, B on a screen), what the scene reports, and a pause from
@@ -11,6 +11,7 @@ const play: Session = { ...ready, phase: 'play' };
 const paused: Session = { ...play, phase: 'paused' };
 const clear: Session = { ...play, phase: 'clear' };
 const over: Session = { ...play, lives: 0, phase: 'over' };
+const world: Session = { ...play, stage: '1-3', phase: 'world' };
 
 describe('a new game', () => {
   it('starts on 1-1\'s ready screen, with a new run', () => {
@@ -37,8 +38,17 @@ describe('pressSession', () => {
     expect(pressSession(paused, 'a', 'ready')).toEqual({ session: paused });
   });
 
-  it('leaves for the room from the stage clear and the game over on A, B or START', () => {
-    for (const s of [clear, over]) {
+  it('goes on from the stage clear to the next stage\'s ready screen on A or START, the score and lives kept', () => {
+    const cleared: Session = { ...clear, score: 2400, coins: 5, lives: 2, time: 120 };
+    const next: Session = { ...cleared, stage: '1-2', time: STAGE_SECONDS, phase: 'ready' };
+    expect(pressSession(cleared, 'a', 'ready')).toEqual({ session: next });
+    expect(pressSession(cleared, 'start', 'ready')).toEqual({ session: next });
+    expect(pressSession({ ...cleared, stage: '1-2' }, 'a', 'ready').session).toMatchObject({ stage: '1-3', phase: 'ready' });
+    for (const a of ['b', 'left', 'select'] as const) expect(pressSession(cleared, a, 'ready'), a).toEqual({ session: cleared });
+  });
+
+  it('leaves for the room from WORLD CLEAR and the game over on A, B or START', () => {
+    for (const s of [world, over]) {
       for (const a of ['a', 'b', 'start'] as const) expect(pressSession(s, a, 'ready'), `${s.phase} ${a}`).toEqual({ session: s, leave: true });
       expect(pressSession(s, 'left', 'ready')).toEqual({ session: s });
     }
@@ -71,6 +81,11 @@ describe('hearEvent', () => {
     expect(hearEvent(clear, 'flag')).toBe(clear);
   });
 
+  it('shows WORLD CLEAR at 1-3\'s flag, the last stage', () => {
+    expect(hearEvent({ ...play, stage: '1-3', time: 10 }, 'flag')).toEqual({ ...world, time: 10, score: 100 });
+    expect(hearEvent(world, 'flag')).toBe(world);
+  });
+
   it.each(['hurt', 'pit'] as const)('after a %s, puts the stage back on its ready screen, a life fewer and the score kept', (e) => {
     const scored = { ...play, score: 90, coins: 2, time: 12 };
     expect(hearEvent(scored, e)).toEqual({ ...scored, lives: 2, time: STAGE_SECONDS, phase: 'ready' });
@@ -85,7 +100,7 @@ describe('hearEvent', () => {
   });
 
   it('hears nothing off play: a late event on a screen changes nothing', () => {
-    for (const s of [ready, paused, clear, over]) {
+    for (const s of [ready, paused, clear, over, world]) {
       for (const e of ['coin', 'stomp', 'hurt', 'pit', 'flag', 'second'] as const) expect(hearEvent(s, e), `${s.phase} ${e}`).toBe(s);
     }
   });
@@ -95,5 +110,26 @@ describe('pauseSession', () => {
   it('pauses a game in play, and leaves any other screen as it is', () => {
     expect(pauseSession(play)).toEqual(paused);
     for (const s of [ready, paused, clear, over]) expect(pauseSession(s)).toBe(s);
+  });
+});
+
+describe('the end of a game', () => {
+  it('is the game over or WORLD CLEAR, never a stage clear', () => {
+    expect([ready, play, paused, clear, over, world].map(ended)).toEqual([false, false, false, false, true, true]);
+  });
+
+  it('gives the score to send once, on the move into the game over or WORLD CLEAR', () => {
+    const last = { ...play, lives: 1, score: 730 };
+    expect(scoreToSend(last, hearEvent(last, 'hurt'))).toBe(730);
+    const top = { ...play, stage: '1-3', score: 5000, time: 3 };
+    expect(scoreToSend(top, hearEvent(top, 'flag'))).toBe(5030);
+    expect(scoreToSend({ ...over, score: 0 }, { ...over, score: 0 })).toBeNull();
+    expect(scoreToSend(world, world)).toBeNull();
+    expect(scoreToSend(play, clear)).toBeNull();
+    expect(scoreToSend(play, hearEvent(play, 'coin'))).toBeNull();
+  });
+
+  it('sends a score of 0 too', () => {
+    expect(scoreToSend({ ...play, lives: 1 }, hearEvent({ ...play, lives: 1 }, 'pit'))).toBe(0);
   });
 });

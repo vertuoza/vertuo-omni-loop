@@ -1,13 +1,21 @@
 // What Super Omni World draws with (PRD 817): the stage's tiles from @omni/design in its palette,
 // laid out as one strip Phaser reads as a tileset, and the player's own hero in three poses. The
 // canvases are made here, in the browser, and handed to the scene; `tileFrame` says which tile of
-// the strip each cell of a stage wears.
-import { heroLook, heroPose, spriteImage, STAGE_PALETTES, TILES, type Hero, type Tint } from '@omni/design';
+// the strip each cell of a stage wears. Each stage has its own look: its palette's tiles, its sky,
+// and its blobs in a wound kind's colours.
+import type { WoundKind } from '@omni/galaxy';
+import { heroLook, heroPose, spriteImage, STAGE_PALETTES, TILES, woundTint, type Hero, type Tint } from '@omni/design';
 import { crewLook } from '../fleets';
 import type { Stage } from './stages';
 
-/** The sky behind each palette's stage. */
-export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f9cff' });
+/** The sky behind each palette's stage: open blue, the cave's dark, the castle's night. */
+export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f9cff', underground: '#08070f', castle: '#1c1f31' });
+
+/** The wound kind whose colours the blobs wear in each palette's stage; 1-1's keep Entropy's own. */
+const ENEMY_KIND: Readonly<Record<string, WoundKind>> = Object.freeze({ underground: 'transmission', castle: 'beacon' });
+
+/** The blobs' tint in a palette's stage, none for Entropy's own colours. */
+export const enemyTint = (palette: string): Tint | null => (Object.hasOwn(ENEMY_KIND, palette) ? woundTint(ENEMY_KIND[palette]) : null);
 
 /** The hero's poses in the game: standing, the two strides of the run, and the jump. */
 export type Pose = 'stand' | 'run0' | 'run1' | 'jump';
@@ -39,7 +47,7 @@ export function tileFrame(stage: Stage, row: number, col: number): number {
     case 'ground': return at(above === 'ground' ? 'tile-soil' : 'tile-ground');
     case 'brick': return at('tile-brick');
     case 'block': return at('tile-block');
-    case 'stone': return at('tile-brick'); // castle stone arrives with its own tile and palette
+    case 'stone': return at('tile-stone');
     case 'pipe': {
       let first = col;
       while (stage.tiles[row][first - 1] === 'pipe') first -= 1;
@@ -91,7 +99,7 @@ export function drawArt(hero: Hero, team: string | null, palette: string): Art {
     },
     flag: [sprite('flag', null, 0), sprite('flag', null, 1)],
     coin: [sprite('coin', null, 0), sprite('coin', null, 1)],
-    enemy: [sprite('entropy', null, 0), sprite('entropy', null, 1)],
+    enemy: [sprite('entropy', enemyTint(palette), 0), sprite('entropy', enemyTint(palette), 1)],
     sky: SKY[palette] ?? SKY.grass,
   };
 }

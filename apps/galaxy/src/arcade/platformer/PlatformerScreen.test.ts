@@ -2,7 +2,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TALL, WIDE } from '../grid';
-import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, type ScreenDeps } from './PlatformerScreen';
+import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, worldScenes, type ScreenDeps } from './PlatformerScreen';
+import type { SceneOptions } from './scene';
 
 // The one way into Super Omni World (PRD 817), with Phaser replaced by a stub module: nothing here
 // loads Phaser. The controller is what the component runs on mount (start), on its props (pause,
@@ -122,5 +123,18 @@ describe('the screen while Phaser is away', () => {
     expect(failedPress('b')).toBe('back');
     expect(failedPress('start')).toBeNull();
     expect(failedPress('left')).toBeNull();
+  });
+});
+
+describe('worldScenes', () => {
+  it('makes a scene per stage in the order they are played, each in its palette and told the next one', () => {
+    const o = { held: () => new Set<never>(), onEvent: () => {} };
+    const made = worldScenes((so: SceneOptions) => so, o, (palette) => ({ palette }) as unknown as SceneOptions['art']);
+    expect(made.map((s) => [s.stage.id, (s.art as unknown as { palette: string }).palette, s.next])).toEqual([
+      ['1-1', 'grass', 'stage-1-2'],
+      ['1-2', 'underground', 'stage-1-3'],
+      ['1-3', 'castle', null],
+    ]);
+    expect(made.every((s) => s.held === o.held && s.onEvent === o.onEvent)).toBe(true);
   });
 });

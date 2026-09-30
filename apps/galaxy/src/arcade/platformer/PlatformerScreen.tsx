@@ -10,7 +10,7 @@ import type { Grid } from '../grid';
 import type { Action } from '../keys';
 import { drawArt } from './art';
 import { PHYSICS, type PlatformerEvent } from './rules';
-import { makeScene, type PhaserModule } from './scene';
+import { makeScene, sceneKey, type PhaserModule, type SceneOptions } from './scene';
 import { STAGES } from './stages';
 import './platformer.css';
 
@@ -53,11 +53,19 @@ export interface Platformer {
 /** The real Phaser, fetched only when a platformer screen mounts. */
 export const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
 
-/** The real scene: the first stage, drawn in its palette with the player's hero. */
-const realScene: ScreenDeps['scene'] = (P, o) => {
-  const stage = STAGES[0];
-  return makeScene(P as unknown as PhaserModule, { stage, art: drawArt(o.hero, o.team, stage.palette), held: o.held, onEvent: o.onEvent });
-};
+/**
+ * The world's scenes, one per stage in the order they are played, each told the next one's key:
+ * the game starts on the first, and each flag hands over to the next. `make` builds a scene.
+ */
+export function worldScenes<T>(make: (so: SceneOptions) => T, o: Pick<PlatformerOptions, 'held' | 'onEvent'>, art: (palette: string) => SceneOptions['art']): T[] {
+  return STAGES.map((stage, i) => make({
+    stage, art: art(stage.palette), held: o.held, onEvent: o.onEvent,
+    next: STAGES[i + 1] ? sceneKey(STAGES[i + 1].id) : null,
+  }));
+}
+
+/** The real scenes: every stage, each drawn in its palette with the player's hero. */
+const realScene: ScreenDeps['scene'] = (P, o) => worldScenes((so) => makeScene(P as unknown as PhaserModule, so), o, (palette) => drawArt(o.hero, o.team, palette));
 
 /** What a press does on the failed screen: A imports again, B goes back (to the room, or the dock's picker). */
 export function failedPress(action: Action): 'retry' | 'back' | null {
