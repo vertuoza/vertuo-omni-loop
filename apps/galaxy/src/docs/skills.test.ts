@@ -23,6 +23,7 @@ describe('the overview', () => {
     expect(groups.map((g) => g.title)).toEqual([
       'Start a change', 'Build it', 'Set up a repository', 'Several repositories', 'Every day', 'Run by other skills',
     ]);
+    expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'visual-fix', 'bug-fix']);
     expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'plan', 'wave', 'do-work', 'pr']);
     expect(groups[1].skills[0]).toEqual({
       name: 'yolo', command: '/omni:yolo', summary: 'build a whole PRD: plan, waves, the outbox gate, ship', url: '/docs/skills/yolo',
@@ -74,7 +75,10 @@ describe('a skill page', () => {
       { name: 'visual-fix', command: '/omni:visual-fix', url: '/docs/skills/visual-fix' },
       { name: 'bug-fix', command: '/omni:bug-fix', url: '/docs/skills/bug-fix' },
     ]);
-    expect(skillPage('dossier-open')!.runBy).toEqual([{ name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' }]);
+    expect(skillPage('dossier-open')!.runBy).toEqual([
+      { name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' },
+      { name: 'think-big', command: '/omni:think-big', url: '/docs/skills/think-big' },
+    ]);
   });
 
   it('names a run-by-skills skill\'s runner when that skill\'s words name it', () => {
@@ -85,6 +89,7 @@ describe('a skill page', () => {
   it('relates the other skills its words name, in naming order, once each, never itself nor a skill with no entry', () => {
     expect(skillPage('yolo')!.related.map((s) => s.name)).toEqual(['wave']);
     expect(skillPage('mega-brainstorm')!.related.map((s) => s.name)).toEqual(['mega-invade', 'ultra-yolo']);
+    expect(skillPage('think-big')!.related.map((s) => s.name)).toEqual(['brainstorm', 'visual-fix']);
     expect(skillPage('help')!.related.map((s) => s.name)).toEqual(['yolo']);
     expect(skillPage('pr')!.related).toEqual([]);
     const entries = [skill('a', 'build', 'Then /omni:c, /omni:b, /omni:a, /omni:c and /omni:gone.'), skill('b', 'build'), skill('c', 'build')];

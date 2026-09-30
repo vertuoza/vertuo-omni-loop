@@ -1,6 +1,6 @@
 {
   "name": "vertuo-omni-plan",
-  "version": "0.0.107",
+  "version": "0.0.111",
   "private": true,
   "type": "module",
   "bin": {

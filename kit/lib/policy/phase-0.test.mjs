@@ -164,6 +164,20 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.missing).toEqual(['spec', 'plan', 'before-after']);
   });
 
+  // PRD 686: a brainstorm started from a concept's area fills that area's PRD cell in the concept's
+  // concept.md, in the same commit as the PRD's folder, so its phase-0 pull request carries it.
+  it("a concept's concept.md edited beside the PRD's three files is a document, and the verdict stays ok", () => {
+    const concept = '.omni-loop/delivery/inbox/concepts/0712-x/concept.md';
+    const { ctx } = docsOnlyRepo({ files: { [concept]: '---\nconcept: 712\n---\n' } });
+    const paths = phase0Paths(PRD, { ctx });
+
+    expect(classifyPhase0Path(concept, { ctx, prd: PRD })).toBe('docs');
+    const verdict = phase0Verdict([paths.spec, paths.plan, paths.beforeAfter, concept], { ctx, prd: PRD });
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.docsOnly).toBe(true);
+    expect(verdict.carries.docs).toEqual([concept]);
+  });
+
   it('names the three required kinds once, in the order a reviewer wants them', () => {
     expect(PHASE_0_REQUIRED_KINDS).toEqual(['spec', 'plan', 'before-after']);
   });

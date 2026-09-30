@@ -2,6 +2,10 @@
 // `shipped/<prd>-<topic>/` is merged. Every other module asks this one and never builds a delivery
 // path itself. It also names where the playbook's forms live: the playbook folder, its parent (the
 // front door of the knowledge), and each form's file.
+//
+// A concept (PRD 686) waits in the inbox too, one folder `<nnnn>-<slug>` per concept under
+// `inbox/concepts/`. `concepts` is no `<prd>-<topic>` name, so every reader of PRD folders here skips
+// it by construction: it is never a PRD's folder, spec or outbox.
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { DECISIONS_FORM, FORM_IDS } from './playbook/forms.mjs';
@@ -24,6 +28,7 @@ export function foldersLayout(root, paths) {
     outbox: `${base}/outbox`,
     shipped: `${base}/shipped`,
     archive: `${base}/archive`,
+    concepts: `${base}/inbox/concepts`,
   };
 
   function folders(dir) {

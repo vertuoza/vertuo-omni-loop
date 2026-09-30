@@ -213,7 +213,8 @@ describe('the skills pages (PRD 580)', () => {
     ]);
     const cards = [...html.matchAll(/<a class="docs-skill-card" href="([^"]*)"><code>([^<]*)<\/code><span>([^<]*)<\/span><\/a>/g)];
     expect(cards.map((m) => m[1])).toEqual(skillNames().map((name) => `/docs/skills/${name}`));
-    expect(cards[3].slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
+    expect(cards[0].slice(1)).toEqual(['/docs/skills/think-big', '/omni:think-big', 'a vast idea, explored by a studio, to a concept PR']);
+    expect(cards[4].slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
   });
 
   it('draws a skill page: its sections in order, its usage and example as code, and its SKILL.md', () => {
@@ -233,6 +234,7 @@ describe('the skills pages (PRD 580)', () => {
 
   it('names the skills that run a skill run by the skills, and leaves Related skills out when none', () => {
     expect(skills('dossier-push')).toMatch(/<p>Other skills run it:<\/p><ul><li><a href="\/docs\/skills\/brainstorm">\/omni:brainstorm<\/a><\/li><li><a href="\/docs\/skills\/plan">\/omni:plan<\/a><\/li><li><a href="\/docs\/skills\/visual-fix">\/omni:visual-fix<\/a><\/li><li><a href="\/docs\/skills\/bug-fix">\/omni:bug-fix<\/a><\/li><\/ul>/);
+    expect(skills('dossier-open')).toMatch(/<p>Other skills run it:<\/p><ul><li><a href="\/docs\/skills\/brainstorm">\/omni:brainstorm<\/a><\/li><li><a href="\/docs\/skills\/think-big">\/omni:think-big<\/a><\/li><\/ul>/);
     expect(skills('pr')).not.toContain('related-skills');
   });
 });

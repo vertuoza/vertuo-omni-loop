@@ -11,6 +11,7 @@ import { board } from './board.mjs';
 import { bug } from './bug.mjs';
 import { check } from './check.mjs';
 import { comment } from './comment.mjs';
+import { concept } from './concept.mjs';
 import { config } from './config.mjs';
 import { credits } from './credits.mjs';
 import { dossier } from './dossier.mjs';
@@ -36,4 +37,4 @@ import { update } from './update.mjs';
 import { version } from './version.mjs';
 import { visual } from './visual.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, bug, concept, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });

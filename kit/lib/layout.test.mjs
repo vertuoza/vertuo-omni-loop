@@ -72,6 +72,25 @@ describe('foldersLayout', () => {
     ]);
   });
 
+  it('names the concepts folder inside the inbox, wherever the delivery folder is (PRD 686)', () => {
+    expect(foldersLayout(tree({}), PATHS).dirs.concepts).toBe('.omni-loop/delivery/inbox/concepts');
+    expect(foldersLayout(tree({}), { ...PATHS, delivery: 'plans' }).dirs.concepts).toBe('plans/inbox/concepts');
+  });
+
+  it('reads a concept under the inbox as no PRD: not a folder, not a spec, not found (PRD 686)', () => {
+    const root = tree({
+      '.omni-loop/delivery/inbox/0042-topic/spec.md': 'x',
+      '.omni-loop/delivery/inbox/concepts/0712-x/concept.md': 'x',
+      '.omni-loop/delivery/inbox/concepts/0712-x/vision.html': 'x',
+    });
+    const layout = foldersLayout(root, PATHS);
+    expect(layout.specFiles()).toEqual(['.omni-loop/delivery/inbox/0042-topic/spec.md']);
+    expect(layout.whereIs(712)).toBeNull();
+    expect(layout.specPath(712)).toBeNull();
+    expect(layout.outboxDir(712)).toBeNull();
+    expect(layout.whereIs(42)?.name).toBe('0042-topic');
+  });
+
   it('lists the spec path of every inbox folder, present or not', () => {
     const root = tree({ '.omni-loop/delivery/inbox/0001-a/spec.md': 'x', '.omni-loop/delivery/inbox/0002-b/plan.md': 'x' });
     expect(foldersLayout(root, PATHS).specFiles()).toEqual([
