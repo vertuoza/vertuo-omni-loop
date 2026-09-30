@@ -85,3 +85,52 @@ describe('the arcade\'s overlay in the dock', () => {
     expect(render()).toContain('GAME ROOM');
   });
 });
+
+describe('SUPER OMNI WORLD in the dock', () => {
+  it('pauses at once on a question, and nothing but START resumes it, once the question is gone', async () => {
+    const { askPf, newDockPf, pfPaused, pressPf } = await import('./platformer');
+    const ready = { ...newDockPf(), status: 'ready' as const };
+    expect(pfPaused(ready, false)).toBe(false);
+    const asked = askPf(ready);
+    expect(asked.session.phase).toBe('paused');
+    expect(pfPaused(asked, true)).toBe(true);
+    // While the question is open, START and the rest wait.
+    for (const a of ['start', 'a', 'left', 'select'] as const) expect(pressPf(asked, a, true)).toEqual({ pf: asked });
+    // Answered: still paused, until START.
+    expect(pfPaused(asked, false)).toBe(true);
+    for (const a of ['a', 'left', 'up'] as const) expect(pfPaused(pressPf(asked, a, false).pf, false)).toBe(true);
+    const resumed = pressPf(asked, 'start', false).pf;
+    expect(pfPaused(resumed, false)).toBe(false);
+  });
+
+  it('goes on to its end when Claude is done: the device stays, and the game is not paused', async () => {
+    const { dockView } = await import('./dock');
+    const { newDockPf, pfPaused } = await import('./platformer');
+    const view = dockView({ state: 'idle', door: { play: true, games: ['invaders', 'platformer'] }, open: true, game: true, width: 1280 });
+    expect(view).toEqual({ kind: 'done' });
+    expect(pfPaused({ ...newDockPf(), status: 'ready' }, view.kind === 'asking')).toBe(false);
+  });
+
+  it('goes back to the picker on B from the pause, folds on SELECT, and retries a failed import on A', async () => {
+    const { askPf, newDockPf, pressPf } = await import('./platformer');
+    const paused = askPf({ ...newDockPf(), status: 'ready' });
+    expect(pressPf(paused, 'b', false).out).toBe('back');
+    expect(pressPf(paused, 'b', true).out).toBe('back');
+    expect(pressPf(paused, 'select', false).out).toBe('fold');
+    const failed = { ...newDockPf(), status: 'failed' as const };
+    expect(pressPf(failed, 'a', false)).toEqual({ pf: { ...failed, retry: 1 } });
+    expect(pressPf(failed, 'b', false).out).toBe('back');
+  });
+});
+
+describe('the picker on the device', () => {
+  it('lists both games, the chosen one marked, with A to play and B to fold', async () => {
+    const { DockPicker } = await import('./DockPicker');
+    const html = renderToStaticMarkup(createElement(DockPicker, { games: ['invaders', 'platformer'], sel: 1, onPick: () => {} }));
+    expect(text(html)).toContain('ENTROPY INVADERS');
+    expect(text(html)).toContain('SUPER OMNI WORLD');
+    expect(html).toMatch(/aria-current="true"[^>]*>[^<]*SUPER OMNI WORLD/);
+    expect(text(html)).toMatch(/A\s+PLAY/);
+    expect(text(html)).toMatch(/B\s+FOLD/);
+  });
+});
