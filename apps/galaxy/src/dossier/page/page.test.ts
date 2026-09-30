@@ -481,7 +481,7 @@ describe('the layout', () => {
     given.path = '/prd/3f2a';
     const page = renderToStaticMarkup(await Layout({ children: null }));
     // next/link (PRD 657) writes aria-current before href.
-    expect(page).toMatch(/<a class="app-sidebar-item" aria-current="page" href="\/prd"><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span>PRDs<\/a>/);
+    expect(page).toMatch(/<a class="app-sidebar-item" (?=[^>]*title="PRDs")[^>]*aria-current="page"[^>]*href="\/prd"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span><span class="app-sidebar-text">PRDs<\/span><\/a>/);
     expect(page).toContain('<nav class="app-bar-trail" aria-label="Breadcrumb"><ol><li>Work</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/prd">PRDs</a></li></ol></nav>');
     expect(page).not.toContain('All PRDs');
   });

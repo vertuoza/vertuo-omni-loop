@@ -160,7 +160,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 6px;
   background: transparent;
   font: 700 16px/1 var(--ask-body);
@@ -168,7 +168,7 @@
   cursor: pointer;
 }
 .ask .app-sidebar-fold:hover,
-.ask .app-sidebar-unfold:hover { border-color: var(--ask-line-strong); color: var(--ask-ink); }
+.ask .app-sidebar-unfold:hover { border-color: var(--ask-ink); color: var(--ask-ink); }
 
 @media (min-width: 900px) {
   .app-shell:not([data-menu='rail']) > .app-sidebar .app-sidebar-fold,
