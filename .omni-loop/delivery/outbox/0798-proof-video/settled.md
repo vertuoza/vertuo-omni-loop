@@ -470,3 +470,159 @@ One list order and one label in the page's view.
 ```
 
 <!-- /omni-outbox-settled: s4-02-proof-tab-place -->
+
+<!-- omni-outbox-settled: s5-01-prove-help-group -->
+
+## s5-01-prove-help-group — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-prove-help-group
+prd: 798
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+Under which heading of the skills pages should the new proof skill appear?
+
+## The decision, in plain words
+
+It sits under Every day, beside the status and help skills, because the Build it list is pinned by a test of the web app that this slice was not given.
+
+## The intro, for fun
+
+The new skill arrived at the party and needed a table.
+
+## The punchline, for fun
+
+The builders' table was full, so it sat with the regulars.
+
+## The options, in plain words
+
+A. Every day, beside status and help (built)
+B. Build it, after yolo-fix, with the web app's docs test updated
+C. Run by other skills, since the yolo runs it
+
+## What I had to decide
+
+Whether the proof skill belongs under Every day or under Build it in the help and the docs.
+
+## What I did meanwhile
+
+The help entry has group everyday; the Build it list and the web app's docs test are unchanged.
+
+## What it costs to change later
+
+A constant: one word in the help entry, and one line in the web app's docs test to list it under Build it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the help entry but not its group; the web app's docs test pins the Build it list and lives outside this slice's ground.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-prove-help-group -->
+
+<!-- omni-outbox-settled: s5-02-proof-comment-gif-link -->
+
+## s5-02-proof-comment-gif-link — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-proof-comment-gif-link
+prd: 798
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+How does the proof comment on the pull request show the moving preview, when the sending step only gives back the page's link?
+
+## The decision, in plain words
+
+The sending step now prints the preview's public link on a second line, so the comment shows the moving preview whenever the run recorded one, as the spec asks.
+
+## The intro, for fun
+
+The trailer was shot, but nobody wrote down which cinema shows it.
+
+## The punchline, for fun
+
+So the cinema's address now goes on the poster.
+
+## The options, in plain words
+
+A. Leave the GIF out until the push prints its link
+B. Change omni proof push to print the GIF's stable link on a second line (built)
+C. Have the Proof tab link carry the run id, and build the GIF link from it
+
+## What I had to decide
+
+Whether the skill leaves the GIF out of the comment until omni proof push prints the run's GIF link, or whether that command changes to print it.
+
+## What I did meanwhile
+
+The skill embeds the GIF when omni proof push prints a second line. At the feature's finish, omni proof push was changed to print `<origin>/api/proofs/<run>/preview.gif` on that line whenever the run sent a `preview.gif`, which closes the gap with the spec.
+
+## What it costs to change later
+
+A small change: omni proof push prints <ask.url>/api/proofs/<run id>/preview.gif as a second line when the run holds preview.gif, and the skill already reads it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks for the GIF embedded from its stable link, which needs the run id; the server mints it and omni proof push, outside this slice, never prints it.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-proof-comment-gif-link -->
