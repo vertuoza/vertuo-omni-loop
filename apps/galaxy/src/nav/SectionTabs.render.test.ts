@@ -21,18 +21,20 @@ const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g
 describe('the settings tabs', () => {
   const render = (current: string) => renderToStaticMarkup(createElement(SectionTabs, { label: 'Settings', tabs: SETTINGS_TABS, current }));
 
-  it('draw Fleets then Repositories, links to their pages, in a named row', () => {
+  it('draw Fleets, Repositories then Business, links to their pages, in a named row', () => {
     const html = render('/app/settings/fleets');
     expect(html).toMatch(/<nav [^>]*class="section-tabs"[^>]*aria-label="Settings"/);
     expect(links(html).map((l) => [l.text, l.href])).toEqual([
       ['Fleets', '/app/settings/fleets'],
       ['Repositories', '/app/settings/repositories'],
+      ['Business', '/app/settings/business'],
     ]);
   });
 
   it('mark only the page showing', () => {
-    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false]);
-    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true]);
+    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false]);
+    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false]);
+    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true]);
     expect(links(render('/app')).some((l) => l.current)).toBe(false);
   });
 });

@@ -1,0 +1,156 @@
+/* Settings → Business (PRD 748 s2), on the ask pages' reading surface: the sentence title with its
+   blanks, Skip, the picks (chips, the two-handle size slider, the typed fields), one row per claim with
+   ✓ / ✗, the claims marked wrong, and the payoff card. Every colour is a token of
+   src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px the chips and each row wrap,
+   every long word breaks, and no width is fixed wider than a phone. */
+
+.business .ask-card { justify-items: stretch; }
+.business .business-head { justify-items: start; }
+.business-kicker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+
+.business .business-sentence { font-size: 26px; line-height: 1.35; text-wrap: balance; overflow-wrap: anywhere; }
+.business-blank { color: var(--ask-muted); letter-spacing: 0.08em; }
+.business-filled { color: var(--ask-plasma); }
+
+.business-refusal { margin: 0; color: var(--ask-red); font-weight: 700; overflow-wrap: anywhere; }
+.business-skip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+
+.business-picks { gap: 24px; }
+.business-group { display: grid; gap: 10px; min-width: 0; }
+.business-group h2 { margin: 0; font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.business-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-chip {
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 999px;
+  padding: 8px 14px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.business-chip[aria-pressed='true'] { color: var(--ask-plasma); background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+.business-chip:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-chip:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-type { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.business-type label { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.business-type-label { font-size: 14px; color: var(--ask-muted); }
+.business-type input {
+  font: 16px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Two range inputs on one track: only their thumbs take the pointer. */
+.business-slider {
+  position: relative;
+  height: 28px;
+  background:
+    linear-gradient(var(--ask-plasma), var(--ask-plasma)) no-repeat
+      calc(var(--lo) * 100%) 50% / calc((var(--hi) - var(--lo)) * 100%) 4px,
+    linear-gradient(var(--ask-line), var(--ask-line)) no-repeat 0 50% / 100% 4px;
+}
+.business-handle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.business-handle::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ask-plasma);
+  border: 2px solid var(--ask-surface);
+  cursor: pointer;
+}
+.business-handle::-moz-range-thumb {
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ask-plasma);
+  border: 2px solid var(--ask-surface);
+  cursor: pointer;
+}
+.business-handle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ask-muted);
+}
+
+.business-claims ul,
+.business-wrong-list ul,
+.business-cites { list-style: none; margin: 0; padding: 0; }
+.business-claims ul,
+.business-wrong-list ul { display: grid; gap: 10px; }
+.business-wrong-list { display: grid; gap: 10px; }
+.business-wrong-list summary { cursor: pointer; color: var(--ask-muted); font-weight: 700; }
+
+.business-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.business-row[data-state='rejected'] { opacity: 0.7; }
+.business-row[data-state='proposed'] { border-style: dashed; }
+.business-row-main { flex: 1 1 160px; min-width: 0; display: grid; gap: 2px; }
+.business-row-main strong { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-kind { font-size: 13px; color: var(--ask-muted); }
+.business-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; color: var(--ask-muted); min-width: 0; }
+.business-row-meta code { font-family: var(--ask-mono); color: var(--ask-ink); }
+.business-source { border: 1px solid var(--ask-line); border-radius: 4px; padding: 2px 6px; }
+.business-cited { overflow-wrap: anywhere; }
+.business-verdict { display: flex; gap: 6px; }
+.business-verdict button {
+  font: 700 16px/1 var(--ask-body);
+  width: 40px;
+  height: 36px;
+  color: var(--ask-muted);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.business-verdict .business-right[aria-pressed='true'] { color: var(--ask-green); border-color: var(--ask-green); }
+.business-verdict .business-wrong[aria-pressed='true'] { color: var(--ask-red); border-color: var(--ask-red); }
+.business-verdict button:disabled { cursor: default; }
+
+.business-payoff { justify-items: start; }
+.business-cites { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.business-cites li { overflow-wrap: anywhere; }
+.business-cites code { font-family: var(--ask-mono); color: var(--ask-plasma); }
+.business-try {
+  margin: 0;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--ask-sunk);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.business-try code { font-family: var(--ask-mono); }
