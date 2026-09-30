@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
-import { SIDEBAR } from '../nav/sidebar.ts';
+import { SETTINGS } from '../nav/sidebar.ts';
 import { FleetsScreen, type FleetsScreenView } from './FleetsScreen';
 import { FleetsView, ONLY_OWNER } from './FleetsView';
 import { fleetsReducer, initialState, type FleetsAction, type FleetsState } from './model';
@@ -198,9 +198,8 @@ describe('/app/settings/fleets in each situation', () => {
   });
 });
 
-describe('the sidebar\'s Fleets item (PRD 438, which replaced /app\'s card; under Settings since PRD 572)', () => {
-  it('links to /app/settings/fleets', () => {
-    const settings = SIDEBAR.find((g) => g.id === 'settings')!.items;
-    expect(settings.find((i) => i.id === 'fleets')).toMatchObject({ label: 'Fleets', path: '/app/settings/fleets' });
+describe('the Fleets page in the sidebar (PRD 438, which replaced /app\'s card; under Settings since PRD 572, a Settings page since PRD 733)', () => {
+  it('is Settings\' first page, at /app/settings/fleets', () => {
+    expect(SETTINGS.pages?.[0]).toEqual({ label: 'Fleets', path: '/app/settings/fleets' });
   });
 });
