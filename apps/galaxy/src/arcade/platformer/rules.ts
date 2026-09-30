@@ -4,8 +4,56 @@
 // asks these rules how fast the hero runs and whether the jump still lifts.
 import type { Action } from '../keys';
 
-/** What the scene reports to the rules: the only things that happen in the game. */
-export type PlatformerEvent = 'coin' | 'stomp' | 'hurt' | 'pit' | 'flag';
+/**
+ * What the scene reports to the rules: the only things that happen in the game. `second` is the
+ * stage's clock: one second of play gone by.
+ */
+export type PlatformerEvent = 'coin' | 'stomp' | 'hurt' | 'pit' | 'flag' | 'second';
+
+/** What an event is worth: a coin, a stomp, and each second left on the clock at the flag. */
+export const SCORE = Object.freeze({ coin: 10, stomp: 50, perSecond: 10 });
+/** The lives a game starts with. */
+export const LIVES = 3;
+/** Each stage's clock, in seconds. */
+export const STAGE_SECONDS = 300;
+
+/** The events that cost a life, and so restart the stage. The clock running out costs one too. */
+export const LIFE_EVENTS: ReadonlySet<PlatformerEvent> = new Set<PlatformerEvent>(['hurt', 'pit']);
+
+/** A game as the rules keep it: the stage played, the score, the coins, the lives, the clock. */
+export interface Run {
+  stage: string;
+  score: number;
+  coins: number;
+  lives: number;
+  /** Seconds left on the stage's clock. */
+  time: number;
+}
+
+/**
+ * What an event leads to: play goes on, a life is lost and the stage starts again, the game is
+ * over, or the stage is cleared.
+ */
+export type Outcome = 'play' | 'life' | 'over' | 'clear';
+
+export const newRun = (): Run => ({ stage: '1-1', score: 0, coins: 0, lives: LIVES, time: STAGE_SECONDS });
+
+const loseLife = (run: Run): { run: Run; outcome: Outcome } => {
+  const lives = run.lives - 1;
+  return { run: { ...run, lives, time: STAGE_SECONDS }, outcome: lives > 0 ? 'life' : 'over' };
+};
+
+/** One event, heard by the rules: the run after it, and what it leads to. */
+export function hearRun(run: Run, e: PlatformerEvent): { run: Run; outcome: Outcome } {
+  switch (e) {
+    case 'coin': return { run: { ...run, score: run.score + SCORE.coin, coins: run.coins + 1 }, outcome: 'play' };
+    case 'stomp': return { run: { ...run, score: run.score + SCORE.stomp }, outcome: 'play' };
+    case 'hurt':
+    case 'pit': return loseLife(run);
+    case 'second': return run.time > 1 ? { run: { ...run, time: run.time - 1 }, outcome: 'play' } : loseLife(run);
+    case 'flag': return { run: { ...run, score: run.score + SCORE.perSecond * run.time }, outcome: 'clear' };
+  }
+}
 
 /** A tile's side, in game pixels: the stages are laid out on this grid. */
 export const TILE = 16;
@@ -23,6 +71,13 @@ export const PHYSICS = Object.freeze({
   /** The hero's body in the physics: narrower than the 32×48 sprite, which has air around it. */
   heroW: 18,
   heroH: 44,
+  /** How fast a stomp sends the hero back up, px/s. */
+  bounce: 260,
+  /** An Entropy blob's walk, px/s. */
+  enemy: 36,
+  /** The blob's body in the physics: narrower and lower than its 24×24 sprite, spikes left out. */
+  enemyW: 18,
+  enemyH: 16,
 });
 
 /**

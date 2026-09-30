@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { longestPit } from './rules';
-import { LEGEND, MAX_COLS, parseStage, pits, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
+import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
 
 // Super Omni World's stages as data (PRD 817): each one a text map, checked here so a stage that
 // cannot be played never ships.
@@ -38,6 +38,13 @@ describe('every stage', () => {
   it('1-1 has ground, bricks, ? blocks and pipes to play on', () => {
     const tiles = new Set(STAGES[0].tiles.flat());
     for (const t of ['ground', 'brick', 'block', 'pipe'] as const) expect(tiles, t).toContain(t);
+  });
+
+  it('1-1 has coins to take and Entropy blobs to stomp, every blob standing on something solid', () => {
+    const [s] = STAGES;
+    expect(s.coins.length).toBeGreaterThanOrEqual(10);
+    expect(s.enemies.length).toBeGreaterThanOrEqual(5);
+    for (const e of s.enemies) expect(SOLID.has(s.tiles[e.row + 1][e.col]), `blob at column ${e.col + 1}`).toBe(true);
   });
 });
 
@@ -80,6 +87,10 @@ describe('stageProblems', () => {
 
   it('names a start with no ground under it', () => {
     expect(stageProblems(parseStage('t', 'grass', good({ 16: '#.########', 17: '#.########' })))).toContain('no ground under the start');
+  });
+
+  it('names an enemy with nothing solid under it', () => {
+    expect(stageProblems(parseStage('t', 'grass', good({ 14: '....e.....', 15: '.S..e...F.' })))).toEqual(['enemy at row 15, column 5 stands on nothing']);
   });
 
   it('names a pit wider than a run-jump, and lets one as wide pass', () => {
