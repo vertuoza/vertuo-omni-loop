@@ -1,7 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import {
-  BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS,
-  sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel, viewClaims,
+  BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, maxValue, OFFERINGS, othersOf, REGIONS,
+  sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, sourceLabel, TRADES, valueLabel, viewClaims,
   type Claim, type ClaimKind, type SentencePart,
 } from './model';
 import type { BusinessState } from './state';
@@ -39,6 +39,13 @@ import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './c
 // dimmed, "not seen since 12 Aug", with ✓ Still true and ✗ Wrong. Those rows leave the list below.
 // PRD 822: a claim a person answered in a skill run and left proposed (an overrule saved as a claim) waits
 // there too, between the additions and the faded claims, "answered in a run", with ✓ Right and ✗ Wrong.
+//
+// Never lines (PRD 839 s2) follow the claims: one row per line of the tab's product, each with the anchor
+// `#never-<seq>` the omni-loop App's Change the claim links to, its id, where it came from, its citations
+// and ✓ / ✗, then + Never line, which opens the one field (200 characters at most) and saves the line
+// confirmed at once. A line the draft or the recheck proposed waits there too, dashed, with its receipt
+// and ✓ Right / ✗ Wrong: never in What we found, never on top as an addition. A line marked wrong folds
+// under Marked wrong with the other claims.
 //
 // The Personas section (PRD 799 s3, ./PersonasSection.tsx) follows the claims, the tab's own.
 
@@ -109,6 +116,11 @@ export const CHECK_TITLE = 'To check · what changed since you last looked';
 export const STILL_TRUE = '✓ Still true';
 /** What an answer to check says after its value (PRD 822): someone gave it in a skill run. */
 export const ANSWERED = 'answered in a run';
+// Never lines (PRD 839 s2).
+export const NEVER_TITLE = 'Never lines';
+export const ADD_NEVER = '+ Never line';
+export const NEVER_EMPTY = 'No Never line yet: add a line the team never crosses, and every agent reads it.';
+const NEVER_FIELD = 'A line the team never crosses';
 
 export interface BusinessViewProps {
   state: BusinessState;
@@ -144,7 +156,7 @@ function TypeField({ kind, label, busy, on }: { kind: ClaimKind; label: string; 
     <form className="business-type" onSubmit={submit}>
       <label>
         <span className="business-type-label">{label}</span>
-        <input name="value" type="text" maxLength={80} required autoFocus autoComplete="off" disabled={busy} />
+        <input name="value" type="text" maxLength={maxValue(kind)} required autoFocus autoComplete="off" disabled={busy} />
       </label>
       <button type="submit" className="ask-button" disabled={busy}>Add</button>
       <button type="button" className="ask-button quiet" onClick={on.untype} disabled={busy}>Cancel</button>
@@ -307,17 +319,20 @@ function ProductTabs({ state, on }: { state: BusinessState; on: BusinessHandlers
   );
 }
 
-function Row({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHandlers }) {
+/** The anchor a Never line carries (PRD 839), which the App's Change the claim links to. */
+export const neverAnchor = (claim: Pick<Claim, 'seq'>) => `never-${claim.seq}`;
+
+function Row({ claim, busy, on, never = false }: { claim: Claim; busy: boolean; on: BusinessHandlers; never?: boolean }) {
   const value = valueLabel(claim);
   return (
-    <li className="business-row" data-claim={displayId(claim)} data-state={claim.state}>
+    <li id={never ? neverAnchor(claim) : undefined} className={never ? 'business-row business-never-line' : 'business-row'} data-claim={displayId(claim)} data-state={claim.state}>
       <div className="business-row-main">
         <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
         <strong>{value}</strong>
       </div>
       <div className="business-row-meta">
         <code>{displayId(claim)}</code>
-        <span className="business-source">{SOURCE_LABEL[claim.source]}</span>
+        <span className="business-source">{sourceLabel(claim)}</span>
         <span className="business-cited">{citationLine(claim)}</span>
       </div>
       <div className="business-verdict">
@@ -325,6 +340,49 @@ function Row({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHan
         <button type="button" className="business-wrong" aria-pressed={claim.state === 'rejected'} aria-label={`Wrong: ${value}`} onClick={() => on.reject(claim)} disabled={busy || claim.state === 'rejected'}>✗</button>
       </div>
     </li>
+  );
+}
+
+/** A Never line the draft or the recheck proposed: dashed, with its receipt, ✓ Right / ✗ Wrong saved at once. */
+function ProposedNever({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHandlers }) {
+  const value = valueLabel(claim);
+  return (
+    <li id={neverAnchor(claim)} className="business-row business-never-line" data-claim={displayId(claim)} data-state={claim.state}>
+      <div className="business-row-main">
+        <span className="business-kind">{KIND_LABEL.never}</span>
+        <strong>{value}</strong>
+        <Receipts claim={claim} />
+      </div>
+      <div className="business-row-meta">
+        <code>{displayId(claim)}</code>
+        <span className="business-source">proposed</span>
+      </div>
+      <div className="business-found-verdict">
+        <button type="button" className="business-right" aria-label={`Right: ${value}`} onClick={() => on.confirm(claim)} disabled={busy}>✓ Right</button>
+        <button type="button" className="business-wrong" aria-label={`Wrong: ${value}`} onClick={() => on.reject(claim)} disabled={busy}>✗ Wrong</button>
+      </div>
+    </li>
+  );
+}
+
+/** The Never lines of the tab's product (PRD 839 s2), then + Never line or its field. */
+function NeverLines({ lines, state, on }: { lines: readonly Claim[]; state: BusinessState; on: BusinessHandlers }) {
+  return (
+    <section className="ask-card business-never" aria-labelledby="business-never-title">
+      <h2 id="business-never-title">{NEVER_TITLE}</h2>
+      {lines.length === 0
+        ? <p className="ask-muted">{NEVER_EMPTY}</p>
+        : (
+          <ul>
+            {lines.map((c) => (c.state === 'proposed'
+              ? <ProposedNever key={c.id} claim={c} busy={state.busy} on={on} />
+              : <Row key={c.id} claim={c} busy={state.busy} on={on} never />))}
+          </ul>
+        )}
+      {state.typing === 'never'
+        ? <TypeField kind="never" label={NEVER_FIELD} busy={state.busy} on={on} />
+        : <button type="button" className="ask-button quiet" onClick={() => on.type('never')} disabled={state.busy}>{ADD_NEVER}</button>}
+    </section>
   );
 }
 
@@ -600,7 +658,10 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
   // What the recheck left (PRD 774 s4) sits on top, and leaves the list below.
   const toCheck = checkRows(state.claims, now);
   const onTop = checkIds(toCheck);
-  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id)).sort(byOrder);
+  const listed = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id));
+  const listedRows = listed.filter((c) => c.kind !== 'never').sort(byOrder);
+  // Never lines (PRD 839 s2) have their own list, under the claims.
+  const neverLines = listed.filter((c) => c.kind === 'never').sort((a, b) => a.seq - b.seq);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
   // The draft's finds (PRD 774 s3): until That's us, the title reads them in.
   const found = foundRows(state.claims);
@@ -621,6 +682,8 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
       <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
+
+      <NeverLines lines={neverLines} state={state} on={on} />
 
       {personas}
 
