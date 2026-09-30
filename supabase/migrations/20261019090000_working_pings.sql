@@ -84,10 +84,12 @@ begin
   if v_repo !~ '^[a-z0-9_.-]+/[a-z0-9_.-]+$' then
     raise exception 'A heartbeat names its repository as owner/name.' using errcode = '22023';
   end if;
-  if not (
+  -- coalesce: a missing number makes the comparison null, which must refuse, not pass.
+  if not coalesce(
     (p_work_kind is null and p_work_number is null and p_draft is null)
     or (p_work_kind = 'draft' and p_draft is not null and p_work_number is null)
-    or (p_work_kind in ('prd', 'visual', 'bug') and p_work_number > 0 and p_draft is null)
+    or (p_work_kind in ('prd', 'visual', 'bug') and p_work_number > 0 and p_draft is null),
+    false
   ) then
     raise exception 'The work is a draft by its id, or a prd, visual or bug by its number.' using errcode = '22023';
   end if;
