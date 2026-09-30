@@ -841,6 +841,26 @@ export const ENTRIES = deepFreeze([
     },
   },
   {
+    name: 'pr-care',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:pr-care <n>'],
+    label: '/omni:pr-care <n>',
+    summary: "look after a PRD's feature PR until it is merged",
+    detail:
+      "Looks after PRD n's feature PR, round by round, until it is merged or closed or you stop it: " +
+      'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
+      "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
+      'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
+      'wave is building, shows on the PRD page that it is watching, and never merges.',
+    group: 'build',
+    when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
+    example: {
+      type: '/omni:pr-care 790',
+      result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
     name: 'invade',
     kind: 'skill',
     who: 'you',
