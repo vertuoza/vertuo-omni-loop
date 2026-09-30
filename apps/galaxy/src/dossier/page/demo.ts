@@ -23,7 +23,7 @@ import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRo
 import type { DossierRead } from './view';
 import type { VoiceCast } from './voice';
 
-export const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
+const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
 export const DEMO_VIEWER = DEMO_OWNER;
 
 const MIN = 60_000;

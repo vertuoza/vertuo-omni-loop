@@ -15,7 +15,7 @@ import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
-import { TAB_LABELS, type DossierView } from './view';
+import { isArtifactTab, TAB_LABELS, type DossierView } from './view';
 import { VOICE_EMPTY, type VoiceView } from './voice';
 import { VoicePane } from './VoicePane';
 
@@ -70,27 +70,39 @@ const EMPTY: Record<ArtifactKind, string> = {
 type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice'>;
 type Shown = NonNullable<DossierView['shown']>;
 
-function Pane({ view, markdown, supabase, voice = null }: PaneProps) {
+/** The User voice tab (PRD 822): its picker and the shown version drawn, or the spec's empty line. */
+function VoiceTab({ view, voice = null }: PaneProps) {
+  const { shown } = view;
+  if (!shown) return <p className="dossier-empty">{VOICE_EMPTY}.</p>;
+  return (
+    <>
+      <VersionPicker action={view.link} tab="voice" versions={view.versions} shown={shown.number} noun="Version" />
+      <VoicePane view={voice} rework={view.rework} />
+    </>
+  );
+}
+
+/** The tabs drawn by a pane of their own, not as an artifact's versions. */
+const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactNode>> = {
+  questions: ({ view, supabase }) => <QuestionsPane questions={view.questions} supabase={supabase} />,
+  outbox: ({ view, markdown }) => <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
+  care: ({ view }) => <CarePane care={view.care} />,
+  retro: ({ view }) => <RetroPane retro={view.retro} />,
+  timeline: ({ view }) => <TimelinePane fix={view.fix} />,
+  voice: VoiceTab,
+};
+
+function Pane(props: PaneProps) {
+  const { view, markdown } = props;
   const { shown, tab } = view;
-  if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
-  if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
-  if (tab === 'care') return <CarePane care={view.care} />;
-  if (tab === 'retro') return <RetroPane retro={view.retro} />;
-  if (tab === 'timeline') return <TimelinePane fix={view.fix} />;
-  if (!shown && tab === 'voice') return <p className="dossier-empty">{VOICE_EMPTY}.</p>;
+  const own = OWN_PANES[tab];
+  if (own) return own(props);
+  if (!isArtifactTab(tab)) return null;
   if (!shown) {
     return (
       <p className="dossier-empty">
         {EMPTY[tab]} It shows here once it is pushed, or once the page reads it from the repository.
       </p>
-    );
-  }
-  if (tab === 'voice') {
-    return (
-      <>
-        <VersionPicker action={view.link} tab={tab} versions={view.versions} shown={shown.number} noun="Version" />
-        <VoicePane view={voice} rework={view.rework} />
-      </>
     );
   }
   return <ArtifactPane view={view} tab={tab} shown={shown} markdown={markdown} />;

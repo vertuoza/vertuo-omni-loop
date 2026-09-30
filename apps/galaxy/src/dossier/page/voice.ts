@@ -74,7 +74,7 @@ export type VoiceRound = { stage: string; label: string; date: string; objection
 export type VoiceView = { rounds: VoiceRound[]; rows: VoiceRow[] };
 
 /** How an objection was settled, in words. */
-export const SETTLED_WORDS: Readonly<Record<(typeof SETTLED)[number], string>> = {
+const SETTLED_WORDS: Readonly<Record<(typeof SETTLED)[number], string>> = {
   accepted: 'Accepted: the PRD changed',
   'saved-as-claim': 'Saved as a claim',
   'just-this-run': 'Overruled for this run',
@@ -82,7 +82,7 @@ export const SETTLED_WORDS: Readonly<Record<(typeof SETTLED)[number], string>> =
 };
 
 /** A round's stage, for a person: Design, Spec, Rework 2, Shipped. */
-export function stageLabel(stage: string): string {
+function stageLabel(stage: string): string {
   const rework = /^rework-(\d+)$/.exec(stage);
   if (rework) return `Rework ${rework[1]}`;
   return stage.charAt(0).toUpperCase() + stage.slice(1);
