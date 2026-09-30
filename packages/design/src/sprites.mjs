@@ -3,6 +3,8 @@
 // frames (`f` is 0 or 1): breathing, tentacles, a coin flip, a flicker, a stride.
 // Materials: see RAMPS and FLAT in forge.mjs; 'k' is an inner line.
 
+import { RAMPS } from './forge.mjs';
+
 const SUIT_STRIPES = (d, x, y, w = 7) => {
   d.rect(x, y, w, 1, '1').rect(x + 2, y + 2, w - 1, 1, '2').rect(x, y + 4, w, 1, '3').rect(x + 2, y + 6, w - 2, 1, '4');
 };
@@ -566,6 +568,83 @@ export const SPRITE_DEFS = Object.freeze({
     d.ellipse(8, 8, 1.8, 1.8, 'X');
     d.px(f ? 11 : 5, f ? 6 : 5, 'y');
   } },
+  // Super Omni World's tiles (PRD 817): 16×16 squares with no hole and no outline, so a row of
+  // them tiles without a seam. Each is drawn in the grass palette, the first stage's; the other
+  // stages recolour their materials (STAGE_PALETTES).
+  'tile-ground': { w: 16, h: 16, outline: false, draw(d) { // grass over soil
+    soil(d);
+    d.rect(0, 0, 16, 1, 'g', 0).rect(0, 1, 16, 2, 'g', 1).rect(0, 3, 16, 1, 'g', 2);
+    d.pxs([[1, 4], [2, 4], [6, 4], [10, 4], [11, 4], [14, 4]], 'g', 2).pxs([[3, 1], [8, 2], [13, 1]], 'g', 0);
+  } },
+  'tile-soil': { w: 16, h: 16, outline: false, draw(d) { soil(d); } },
+  'tile-brick': { w: 16, h: 16, outline: false, draw(d) { // four courses, the joints staggered
+    d.rect(0, 0, 16, 16, 'O', 2);
+    for (let c = 0; c < 4; c++) {
+      const y = c * 4;
+      d.rect(0, y, 16, 1, 'O', 1).rect(0, y + 3, 16, 1, 'D', 3);
+      for (const x of c % 2 ? [3, 11] : [7, 15]) d.rect(x, y, 1, 3, 'D', 3);
+    }
+  } },
+  'tile-block': { w: 16, h: 16, outline: false, draw(d, f) { // the ? block, its mark catching the light
+    const mark = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
+    blockFrame(d, 'Y');
+    d.pxs(mark.map(([x, y]) => [x + 1, y + 1]), 'X').pxs(mark, 'Q');
+    if (f) d.rect(2, 1, 12, 1, 'Y', 0);
+  } },
+  'tile-block-empty': { w: 16, h: 16, outline: false, draw(d) { blockFrame(d, 'D'); } },
+  'tile-pipe-top-l': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'l', true); } },
+  'tile-pipe-top-r': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'r', true); } },
+  'tile-pipe-l': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'l', false); } },
+  'tile-pipe-r': { w: 16, h: 16, outline: false, draw(d) { pipe(d, 'r', false); } },
+  'tile-stone': { w: 16, h: 16, outline: false, draw(d) { // castle stone: two dressed blocks, lit edges
+    d.rect(0, 0, 16, 16, 'A', 1);
+    for (const y of [0, 8]) {
+      const x = y ? 0 : 8;
+      d.rect(0, y, 16, 1, 'A', 0).rect(0, y + 7, 16, 1, 'A', 3);
+      d.rect(x, y, 1, 7, 'A', 0).rect((x + 15) % 16, y, 1, 7, 'A', 3);
+      d.pxs([[3, y + 3], [11, y + 4], [6, y + 5]], 'A', 2);
+    }
+  } },
+});
+
+// The tiles' shared parts: the soil under the grass, a block's riveted frame, a pipe's half.
+function soil(d) {
+  d.rect(0, 0, 16, 16, 'B', 1);
+  d.pxs([[3, 7], [12, 6], [7, 11], [1, 13], [13, 14]], 'B', 2).pxs([[4, 7], [8, 11], [14, 14]], 'B', 3).pxs([[11, 9], [5, 14]], 'B', 0);
+}
+
+function blockFrame(d, m) {
+  d.rect(0, 0, 16, 16, 'D', 3).rect(1, 1, 14, 14, m, 1);
+  d.rect(1, 1, 14, 1, m, 0).rect(1, 1, 1, 14, m, 0).rect(1, 14, 14, 1, m, 2).rect(14, 1, 1, 14, m, 2);
+  d.pxs([[2, 2], [13, 2], [2, 13], [13, 13]], 'D', 3);
+}
+
+function pipe(d, side, top) {
+  const left = side === 'l';
+  d.rect(0, 0, 16, 16, 'g', 1);
+  if (left) d.rect(0, 0, 1, 16, 'g', 3).rect(1, 0, 3, 16, 'g', 0);
+  else d.rect(10, 0, 4, 16, 'g', 2).rect(14, 0, 2, 16, 'g', 3);
+  if (top) d.rect(0, 0, 16, 1, 'g', 3).rect(0, 6, 16, 2, 'g', 3).rect(left ? 1 : 0, 1, left ? 15 : 14, 1, 'g', 0);
+}
+
+/** Super Omni World's tiles, in the order its tileset lays them out (PRD 817). */
+export const TILES = Object.freeze([
+  'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
+  'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',
+]);
+
+/**
+ * Each stage's palette, as a tint over the tiles' materials: grass is the tiles as drawn, the first
+ * stage's; a later stage's palette recolours the grass and the pipes (`g`), the soil (`B`), the
+ * bricks (`O`, and `D`, their joints and the blocks' frames) and castle stone (`A`), from the forge's
+ * own ramps. The ? block's gold (`Y`) is never recoloured: it reads the same in every stage.
+ */
+export const STAGE_PALETTES = Object.freeze({
+  grass: Object.freeze({}),
+  // 1-2: cave moss and teal pipes over blue-grey rock, bricks in cold slate.
+  underground: Object.freeze({ g: RAMPS.K, B: RAMPS.n, O: RAMPS.J, D: RAMPS.H, A: RAMPS.J }),
+  // 1-3: steel-grey battlements over dark stone, bricks in castle red, stone in the castle's grey.
+  castle: Object.freeze({ g: RAMPS.L, B: RAMPS.H, O: RAMPS.R, D: RAMPS.H }),
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the

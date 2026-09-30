@@ -30,7 +30,7 @@ describe('the deep links', () => {
   });
 
   it('read nothing from any other hash', () => {
-    for (const hash of ['', '#', '#boot', '#title', '#coin', '#invaders', '#levelup', '#MENU', '#menu-2']) {
+    for (const hash of ['', '#', '#boot', '#title', '#coin', '#invaders', '#platformer', '#levelup', '#MENU', '#menu-2']) {
       expect(readHash(hash, view), hash).toBeNull();
     }
   });
@@ -87,7 +87,7 @@ describe('the address the arcade writes', () => {
   });
 
   it('names nothing on any other screen', () => {
-    for (const scene of ['title', 'coin', 'select', 'levelup', 'invaders', 'system'] as const) {
+    for (const scene of ['title', 'coin', 'select', 'levelup', 'invaders', 'platformer', 'system'] as const) {
       expect(addressAt('/', { scene, sel: 0 }, view), scene).toBe('/');
     }
   });

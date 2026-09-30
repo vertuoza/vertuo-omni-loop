@@ -86,7 +86,7 @@ export function backStep(step: Step, flow: Flow, fleets: FleetRow[]): Step | 'ti
 /** The screens a signed-in account may see: everything past INSERT COIN, playing included. */
 const SIGNED_IN_ONLY = new Set([
   'gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome',
-  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup',
+  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'platformer', 'levelup',
 ]);
 
 /**
