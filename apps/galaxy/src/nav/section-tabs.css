@@ -10,7 +10,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 20px;
-  border-bottom: 1.5px solid var(--ask-line);
+  border-bottom: 1.5px solid var(--ask-line-strong);
 }
 .ask a.section-tab {
   display: inline-flex;
