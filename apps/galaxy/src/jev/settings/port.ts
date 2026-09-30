@@ -1,16 +1,26 @@
-import type { JevKeyStatus } from '../store';
+import type { JevDecisionSettings, JevKeyStatus } from '../store';
+import type { DecisionSaved } from './decision';
 
-// Settings › Jev's two key calls from the browser (PRD 812 s1). In production, POST and DELETE
+// Settings › Jev's calls from the browser (PRD 812 s1, s2). In production, POST and DELETE
 // /api/jev/key (./api.ts), as the signed-in person: the server tests, seals and stores the key, so it
-// never reaches the database or the page again. In the demo, the same rules kept in memory: a key that
-// starts with `bad` is refused as TypeSafe would refuse it.
+// never reaches the database or the page again; and a decision's settings through the page's server
+// action (app/app/settings/jev/actions.ts). In the demo, the same rules kept in memory: a key that
+// starts with `bad` is refused as TypeSafe would refuse it, and a decision is saved as sent.
 
 export type KeySaved = { ok: true; key: JevKeyStatus } | { ok: false; message: string };
+export type { DecisionSaved } from './decision';
+
+/** The page's server action: one decision's settings, saved as the signed-in person. */
+export type SaveDecisionAction = (workspace: string, settings: JevDecisionSettings) => Promise<DecisionSaved>;
 
 export interface JevPort {
   saveKey(key: string): Promise<KeySaved>;
   removeKey(): Promise<KeySaved>;
+  saveDecision(settings: JevDecisionSettings): Promise<DecisionSaved>;
 }
+
+export const COULD_NOT_SAVE_DECISION = 'Couldn’t save this decision. Try again in a moment.';
+const NO_ACTION: SaveDecisionAction = async () => ({ ok: false, message: COULD_NOT_SAVE_DECISION });
 
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 export const DEMO_REFUSAL = 'TypeSafe refused this key: Invalid API key';
@@ -27,10 +37,17 @@ async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', b
   }
 }
 
-export function httpJevPort(workspace: string, fetch: typeof globalThis.fetch = globalThis.fetch): JevPort {
+export function httpJevPort(workspace: string, fetch: typeof globalThis.fetch = globalThis.fetch, save: SaveDecisionAction = NO_ACTION): JevPort {
   return {
     saveKey: (key) => sent(fetch, 'POST', { workspace, key }),
     removeKey: () => sent(fetch, 'DELETE', { workspace }),
+    async saveDecision(settings) {
+      try {
+        return await save(workspace, settings);
+      } catch {
+        return { ok: false, message: COULD_NOT_SAVE_DECISION };
+      }
+    },
   };
 }
 
@@ -43,6 +60,9 @@ export function demoJevPort(now: () => number = Date.now): JevPort {
     },
     async removeKey() {
       return { ok: true, key: { stored: false, lastFour: null, setAt: null } };
+    },
+    async saveDecision(settings) {
+      return { ok: true, settings };
     },
   };
 }

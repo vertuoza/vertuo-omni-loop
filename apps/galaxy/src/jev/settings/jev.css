@@ -57,3 +57,30 @@
 .jev-toggle[aria-checked='true']::after { transform: translateX(20px); background: var(--ask-plasma); }
 .jev-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
 .jev-toggle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+/* The decision rows (PRD 812 s2): one per decision, its form (mode, threshold, floor, Save) wrapping at
+   393 px, or its settings read-only for a member and for a decision still to come. */
+.jev-decisions h2 { margin: 0; }
+.jev-decision-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.jev-decision { display: grid; gap: 6px; padding: 12px; border: 1.5px solid var(--ask-line); border-radius: 10px; min-width: 0; }
+.jev-decision-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.jev-decision-head h3 { margin: 0; font-size: 16px; }
+.jev-coming { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--ask-sunk); color: var(--ask-muted); }
+.jev-about { margin: 0; }
+.jev-decision-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; min-width: 0; }
+.jev-field { display: grid; gap: 4px; font-size: 14px; font-weight: 700; color: var(--ask-ink); }
+.jev-field select,
+.jev-number {
+  font: 14px/1.2 var(--ask-mono);
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 6px 8px;
+  max-width: 100%;
+}
+.jev-number { width: 6.5em; }
+.jev-field select:focus-visible,
+.jev-number:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.jev-decision-settings { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); }
+.jev-decision-settings strong { color: var(--ask-ink); font-family: var(--ask-mono); }

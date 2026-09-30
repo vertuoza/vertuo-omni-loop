@@ -1,24 +1,33 @@
 import type { FormEvent } from 'react';
-import { maskedKey, savedOn, type JevState } from './model';
+import type { JevDecisionSettings, JevMode } from '../store';
+import { decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type DecisionLine, type JevState } from './model';
 
 // Settings › Jev's key part drawn from its state (PRD 812 s1). The owner reads the Jev switch: Off
 // opens the key field, where a pasted key is tested with one call before it is saved, and a refused
 // test shows TypeSafe's reason; On shows the key's last four, Replace key and what switching off does.
 // A member reads whether Jev is on, and never the key, its last four or a control. Drawn on the server
-// first; JevPage.tsx wires the handlers. The decision rows come in PRD 812 s2.
+// first; JevPage.tsx wires the handlers.
+//
+// Below the key, one row per decision (PRD 812 s2): what it decides, what it sends, its mode (Off,
+// Shadow, On), its threshold and its confidence floor. The owner saves each row on its own; Shadow and
+// On need Jev on. A member reads them. A decision whose slice has not landed says it is coming.
 
 export const ONLY_OWNER = 'Only @owner can change Jev’s settings.';
 export const SENDS = 'Once a decision is switched on, its text is sent to TypeSafe AI, the company behind Jev, tokens masked. Every decision starts Off.';
 export const SWITCH_OFF = 'Switching Jev off removes the key and sets every decision Off.';
+export const COMING_LABEL = 'Coming in this PRD';
+export const NEEDS_KEY = 'Switch Jev on above to put a decision in Shadow or On.';
+export const MODES_HELP = 'Off: today’s path decides and Jev is not called. Shadow: today’s path decides and Jev’s answer is only logged. On: Jev decides, and today’s path whenever Jev cannot or answers under the floor.';
 
 export interface JevHandlers {
   edit(): void;
   cancel(): void;
   save(key: string): void;
   remove(): void;
+  saveDecision(settings: JevDecisionSettings): void;
 }
 
-const IDLE: JevHandlers = { edit() {}, cancel() {}, save() {}, remove() {} };
+const IDLE: JevHandlers = { edit() {}, cancel() {}, save() {}, remove() {}, saveDecision() {} };
 
 export interface JevViewProps {
   state: JevState;
@@ -65,6 +74,87 @@ function OwnerKey({ state, on }: { state: JevState; on: JevHandlers }) {
   );
 }
 
+const MODES: readonly JevMode[] = ['off', 'shadow', 'on'];
+
+function DecisionForm({ line, state, on }: { line: DecisionLine; state: JevState; on: JevHandlers }) {
+  const { settings } = line;
+  const saving = state.savingDecision === settings.decision;
+  const busy = state.savingDecision !== null;
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    on.saveDecision({
+      decision: settings.decision,
+      mode: String(form.get('mode')) as JevMode,
+      threshold: Number(form.get('threshold')),
+      floor: Number(form.get('floor')),
+    });
+  };
+  const id = (field: string) => `jev-${settings.decision}-${field}`;
+  return (
+    <form className="jev-decision-form" onSubmit={submit} key={JSON.stringify(settings)}>
+      <label className="jev-field" htmlFor={id('mode')}>
+        <span>Mode</span>
+        <select id={id('mode')} name="mode" defaultValue={settings.mode} disabled={busy}>
+          {MODES.map((mode) => (
+            <option key={mode} value={mode} disabled={mode !== 'off' && !state.key.stored}>{MODE_LABELS[mode]}</option>
+          ))}
+        </select>
+      </label>
+      <label className="jev-field" htmlFor={id('threshold')}>
+        <span>Threshold</span>
+        <input id={id('threshold')} className="jev-number" type="number" name="threshold" min={0} max={1} step={0.05} defaultValue={tuningText(settings.threshold)} required disabled={busy} />
+      </label>
+      <label className="jev-field" htmlFor={id('floor')}>
+        <span>Confidence floor</span>
+        <input id={id('floor')} className="jev-number" type="number" name="floor" min={0} max={1} step={0.05} defaultValue={tuningText(settings.floor)} required disabled={busy} />
+      </label>
+      <button type="submit" className="ask-button" disabled={busy}>{saving ? 'Saving…' : 'Save'}</button>
+    </form>
+  );
+}
+
+function DecisionReadOnly({ settings }: { settings: JevDecisionSettings }) {
+  return (
+    <p className="jev-decision-settings">
+      <span>Mode <strong>{MODE_LABELS[settings.mode]}</strong></span>
+      <span>Threshold <strong>{tuningText(settings.threshold)}</strong></span>
+      <span>Confidence floor <strong>{tuningText(settings.floor)}</strong></span>
+    </p>
+  );
+}
+
+function DecisionRow({ line, state, owner, on }: { line: DecisionLine; state: JevState; owner: boolean; on: JevHandlers }) {
+  const { row, ready } = line;
+  const refusal = state.decisionRefusal?.decision === row.name ? state.decisionRefusal.message : null;
+  return (
+    <li className="jev-decision" data-decision={row.name}>
+      <div className="jev-decision-head">
+        <h3>{row.title}</h3>
+        {!ready && <span className="jev-coming">{COMING_LABEL}</span>}
+      </div>
+      <p className="ask-muted jev-about">{row.about}</p>
+      <p className="ask-muted jev-sends">Sends: {row.sends}</p>
+      {refusal && <p className="jev-refusal" role="alert">{refusal}</p>}
+      {owner && ready ? <DecisionForm line={line} state={state} on={on} /> : <DecisionReadOnly settings={line.settings} />}
+    </li>
+  );
+}
+
+function Decisions({ state, owner, on }: { state: JevState; owner: boolean; on: JevHandlers }) {
+  return (
+    <section className="ask-card jev-decisions" aria-labelledby="jev-decisions-title">
+      <h2 id="jev-decisions-title">Decisions</h2>
+      <p className="ask-muted">{MODES_HELP}</p>
+      <p className="ask-muted">A Noul answer at or above the threshold counts as yes. Under the confidence floor, an On decision keeps today’s answer.</p>
+      {owner && !state.key.stored && <p className="ask-muted">{NEEDS_KEY}</p>}
+      <ul className="jev-decision-list">
+        {decisionLines(state).map((line) => <DecisionRow key={line.row.name} line={line} state={state} owner={owner} on={on} />)}
+      </ul>
+    </section>
+  );
+}
+
 export function JevView({ state, owner, on = IDLE }: JevViewProps) {
   const stored = state.key.stored;
   return (
@@ -96,6 +186,8 @@ export function JevView({ state, owner, on = IDLE }: JevViewProps) {
           ? <OwnerKey state={state} on={on} />
           : <p className="ask-muted">{stored ? 'Jev is on for this workspace.' : 'Jev is off for this workspace.'}</p>}
       </section>
+
+      <Decisions state={state} owner={owner} on={on} />
     </div>
   );
 }

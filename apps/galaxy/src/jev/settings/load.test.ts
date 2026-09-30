@@ -10,14 +10,21 @@ vi.mock('../../data/workspace', () => ({ memberWorkspace: () => read.workspace()
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { loadJevPage } from './load';
 
-// Settings › Jev's read (PRD 812 s1): the workspace, the caller's role and the key's status, as the
+// Settings › Jev's read (PRD 812 s1, s2): the workspace, the caller's role, the key's status and the
+// decisions' settings, as the
 // signed-in person (stubbed: no test calls Supabase).
 
 const USER = { id: 'u-1' } as User;
 
 type Answer = { data?: unknown; error?: { message: string; code?: string } | null } | Error;
 
-function db({ owner = { data: true } as Answer, status = { data: [{ stored: true, last_four: '1a2b', set_at: '2026-09-30T10:00:00Z' }] } as Answer } = {}) {
+const DECISION_ROWS = [{ decision: 'question-category', mode: 'shadow', threshold: '0.50', confidence_floor: '0.40' }];
+
+function db({
+  owner = { data: true } as Answer,
+  status = { data: [{ stored: true, last_four: '1a2b', set_at: '2026-09-30T10:00:00Z' }] } as Answer,
+  decisions = { data: DECISION_ROWS } as { data?: unknown; error?: { message: string; code?: string } | null },
+} = {}) {
   const calls: unknown[] = [];
   return {
     calls,
@@ -28,6 +35,15 @@ function db({ owner = { data: true } as Answer, status = { data: [{ stored: true
         if (answer instanceof Error) throw answer;
         return { data: answer.data ?? null, error: answer.error ?? null };
       },
+      // The decisions' read (PRD 812 s2): from('jev_decisions').select(…).eq('workspace_id', …).
+      from: (table: string) => ({
+        select: () => ({
+          eq: async (column: string, value: unknown) => {
+            calls.push(['from', table, column, value]);
+            return { data: decisions.data ?? null, error: decisions.error ?? null };
+          },
+        }),
+      }),
     } as unknown as SupabaseClient,
   };
 }
@@ -38,8 +54,9 @@ describe('loadJevPage', () => {
     expect(await loadJevPage(client, USER)).toEqual({
       kind: 'jev', workspace: { id: 'ws-1', name: 'Vertuoza' }, owner: true,
       keyStatus: { stored: true, lastFour: '1a2b', setAt: '2026-09-30T10:00:00Z' },
+      decisions: [{ decision: 'question-category', mode: 'shadow', threshold: 0.5, floor: 0.4 }],
     });
-    expect(calls).toEqual([['is_owner', { workspace: 'ws-1' }], ['jev_key_status', { p_workspace: 'ws-1' }]]);
+    expect(calls).toEqual([['is_owner', { workspace: 'ws-1' }], ['jev_key_status', { p_workspace: 'ws-1' }], ['from', 'jev_decisions', 'workspace_id', 'ws-1']]);
   });
 
   it('reads a role that cannot be read as a member\'s', async () => {
@@ -53,5 +70,6 @@ describe('loadJevPage', () => {
     expect(await loadJevPage(db().client, USER)).toEqual({ kind: 'no-workspace' });
     read.workspace = before;
     expect(await loadJevPage(db({ status: { error: { message: 'no', code: '42501' } } }).client, USER)).toEqual({ kind: 'unreadable' });
+    expect(await loadJevPage(db({ decisions: { error: { message: 'no' } } }).client, USER)).toEqual({ kind: 'unreadable' });
   });
 });

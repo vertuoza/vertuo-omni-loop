@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COULD_NOT_SAVE, DEMO_REFUSAL, demoJevPort, httpJevPort } from './port';
+import { COULD_NOT_SAVE, COULD_NOT_SAVE_DECISION, DEMO_REFUSAL, demoJevPort, httpJevPort } from './port';
 
 // Settings › Jev's key calls from the browser (PRD 812 s1): the key routes over a stubbed fetch, and the
 // demo's rules in memory.
@@ -49,5 +49,25 @@ describe('the demo', () => {
     expect(await port.saveKey('bad_key_0000')).toEqual({ ok: false, message: DEMO_REFUSAL });
     expect(await port.saveKey('short')).toEqual({ ok: false, message: DEMO_REFUSAL });
     expect(await port.removeKey()).toEqual({ ok: true, key: { stored: false, lastFour: null, setAt: null } });
+  });
+});
+
+describe('a decision\'s settings, from the browser (PRD 812 s2)', () => {
+  const ON = { decision: 'question-category', mode: 'on' as const, threshold: 0.65, floor: 0.3 };
+
+  it('goes through the page\'s server action with the workspace, and answers what it answered', async () => {
+    const sent: unknown[] = [];
+    const port = httpJevPort(W, globalThis.fetch, async (workspace, settings) => { sent.push([workspace, settings]); return { ok: true, settings }; });
+    expect(await port.saveDecision(ON)).toEqual({ ok: true, settings: ON });
+    expect(sent).toEqual([[W, ON]]);
+  });
+
+  it('says it could not save when the action throws, or when there is none', async () => {
+    expect(await httpJevPort(W, globalThis.fetch, async () => { throw new Error('offline'); }).saveDecision(ON)).toEqual({ ok: false, message: COULD_NOT_SAVE_DECISION });
+    expect(await httpJevPort(W).saveDecision(ON)).toEqual({ ok: false, message: COULD_NOT_SAVE_DECISION });
+  });
+
+  it('saves as sent in the demo', async () => {
+    expect(await demoJevPort().saveDecision(ON)).toEqual({ ok: true, settings: ON });
   });
 });
