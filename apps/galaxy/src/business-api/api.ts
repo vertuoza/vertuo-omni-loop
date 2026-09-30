@@ -4,9 +4,9 @@
 //   GET /api/business?repo=<owner/name>   → 200 {state, business, product, claims}   (decision 14)
 //   POST /api/business/citations {repo, ids, by, ref?}   → 200 {cited}   the citation log (decision 6)
 //
-// The kit calls it with the terminal's sign-in. Only confirmed claims come back (decision 15): the
-// database's business_for_repo() picks them, and the answer is checked against the contract's schema
-// before it leaves. `state` is `none` when the workspace has no business or no confirmed claim for the
+// The kit calls it with the terminal's sign-in. Only confirmed and contradicted claims come back, each
+// with its `state` (decision 15, and PRD 774's decision 12): the database's business_for_repo() picks
+// them, and the answer is checked against the contract's schema before it leaves. `state` is `none` when the workspace has no business or no confirmed claim for the
 // repository; the kit's own states (`no-sign-in`, `unreachable`, `refused`) are never the server's.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query, 401 no valid bearer
