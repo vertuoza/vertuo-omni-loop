@@ -8,6 +8,7 @@ import {
   foundRows, isFound, MAX_PAGES, pagesLeft, receiptLabel, revealOf, scanLine, sourcesUsed, thinkSentence,
   type Mark, type Reveal, type WebPage,
 } from './reveal';
+import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './check';
 
 // Settings → Business drawn from its state (PRD 748 s2). The title is the sentence the confirmed
 // claims write, with a blank for each kind still empty. Below it, Skip (which stores nothing and folds
@@ -30,6 +31,11 @@ import {
 // kept in the page; the dock's That's us saves them all, confirming every row not marked ✗. Then the
 // page reads as the filled page with the saved line. One row found is thin evidence ("We found only 1
 // thing"), none is "Nothing we could quote — pick instead"; the picks follow either way.
+//
+// What the weekly recheck found (PRD 774 s4) sits on top of the page, above the sentence, until someone
+// answers it (./check.ts): a replacement ("~~ERP~~ → CRM") and an addition ("Region: Belgium → Belgium
+// + France"), each with its receipts and ✓ Right / ✗ Wrong, saved at once; then each faded claim,
+// dimmed, "not seen since 12 Aug", with ✓ Still true and ✗ Wrong. Those rows leave the list below.
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
@@ -60,12 +66,17 @@ export interface BusinessHandlers {
   closePage(): void;
   addPage(url: string): void;
   removePage(page: WebPage): void;
+  /** ✓ Right (`right`) or ✗ Wrong on a replacement or an addition the recheck left (PRD 774 s4). */
+  settle(claim: Claim, right: boolean): void;
+  /** ✓ Still true on a faded claim. */
+  stillTrue(claim: Claim): void;
 }
 
 const IDLE: BusinessHandlers = {
   tap() {}, pick() {}, type() {}, untype() {}, sizeDraft() {}, sizeCommit() {}, confirm() {}, reject() {}, skip() {}, unskip() {},
   openProduct() {}, closeProduct() {}, addProduct() {}, showProduct() {},
   draft() {}, mark() {}, thatsUs() {}, openPage() {}, closePage() {}, addPage() {}, removePage() {},
+  settle() {}, stillTrue() {},
 };
 
 export const SKIP = 'Skip — agents work without it';
@@ -88,12 +99,17 @@ export const SAVED_LINE = '✓ Saved. Every agent reads these from the next run.
 export const THIN_HINT = 'Your READMEs say what the code does, not who buys it. A pricing or home page usually says more.';
 export const NOTHING_FOUND = 'Nothing we could quote — pick instead';
 export const NOTHING_NEW = 'Nothing new: everything we could quote is already on this page.';
+// What the recheck found (PRD 774 s4).
+export const CHECK_TITLE = 'To check · what changed since you last looked';
+export const STILL_TRUE = '✓ Still true';
 
 export interface BusinessViewProps {
   state: BusinessState;
   /** The demo: sample claims, changed only in the page. */
   demo?: boolean;
   on?: BusinessHandlers;
+  /** What "eight weeks ago" is counted from (PRD 774 s4); now, left out. */
+  now?: number;
 }
 
 function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
@@ -407,14 +423,7 @@ function FoundRow({ claim, mark, busy, on }: { claim: Claim; mark: Mark | undefi
       <div className="business-found-main">
         <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
         <strong className="business-found-value">{value}</strong>
-        <div className="business-receipts">
-          {(claim.receipts ?? []).map((r, i) => (
-            <details key={i} className="business-receipt" title={r.quote}>
-              <summary>{receiptLabel(r)}</summary>
-              <span className="business-quote">“{r.quote}”</span>
-            </details>
-          ))}
-        </div>
+        <Receipts claim={claim} />
       </div>
       <div className="business-found-verdict">
         <button type="button" className="business-right" aria-pressed={mark === 'right'} aria-label={`Right: ${value}`} onClick={() => on.mark(claim, 'right')} disabled={busy}>✓ Right</button>
@@ -439,12 +448,77 @@ function Found({ rows, state, on }: { rows: readonly Claim[]; state: BusinessSta
   );
 }
 
-export function BusinessView({ state: whole, demo = false, on = IDLE }: BusinessViewProps) {
+// ── What the recheck found (PRD 774 s4) ──────────────────────────────────────────
+
+function Receipts({ claim }: { claim: Claim }) {
+  const receipts = claim.receipts ?? [];
+  if (receipts.length === 0) return null;
+  return (
+    <div className="business-receipts">
+      {receipts.map((r, i) => (
+        <details key={i} className="business-receipt" title={r.quote}>
+          <summary>{receiptLabel(r)}</summary>
+          <span className="business-quote">“{r.quote}”</span>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function CheckItem({ row, busy, on }: { row: CheckRow; busy: boolean; on: BusinessHandlers }) {
+  const { claim } = row;
+  const value = valueLabel(claim);
+  let diff: ReactNode;
+  let right: { label: string; aria: string; press(): void };
+  let wrong: { aria: string; press(): void };
+  if (row.kind === 'replacement') {
+    const was = valueLabel(row.old);
+    diff = <><s>{was}</s> → <strong>{value}</strong></>;
+    right = { label: '✓ Right', aria: `Right: ${value} replaces ${was}`, press: () => on.settle(claim, true) };
+    wrong = { aria: `Wrong: ${value} replaces ${was}`, press: () => on.settle(claim, false) };
+  } else if (row.kind === 'addition') {
+    const { from, to } = additionText(row);
+    diff = <>{from} → <strong>{to}</strong></>;
+    right = { label: '✓ Right', aria: `Right: add ${value}`, press: () => on.settle(claim, true) };
+    wrong = { aria: `Wrong: add ${value}`, press: () => on.settle(claim, false) };
+  } else {
+    diff = <><strong>{value}</strong> <span className="business-check-since">{seenSince(row.since)}</span></>;
+    right = { label: STILL_TRUE, aria: `Still true: ${value}`, press: () => on.stillTrue(claim) };
+    wrong = { aria: `Wrong: ${value}`, press: () => on.reject(claim) };
+  }
+  return (
+    <li className="business-check-row" data-check={displayId(claim)} data-kind={row.kind}>
+      <div className="business-check-main">
+        <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
+        <span className="business-check-diff">{diff}</span>
+        <Receipts claim={claim} />
+      </div>
+      <div className="business-found-verdict">
+        <button type="button" className="business-right" aria-label={right.aria} onClick={right.press} disabled={busy}>{right.label}</button>
+        <button type="button" className="business-wrong" aria-label={wrong.aria} onClick={wrong.press} disabled={busy}>✗ Wrong</button>
+      </div>
+    </li>
+  );
+}
+
+function Check({ rows, busy, on }: { rows: readonly CheckRow[]; busy: boolean; on: BusinessHandlers }) {
+  return (
+    <section className="ask-card business-check" aria-labelledby="business-check-title">
+      <h2 id="business-check-title">{CHECK_TITLE}</h2>
+      <ul>{rows.map((r) => <CheckItem key={r.claim.id} row={r} busy={busy} on={on} />)}</ul>
+    </section>
+  );
+}
+
+export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now() }: BusinessViewProps) {
   // Everything below reads the tab's claims: every claim while there is one product.
   const multi = hasProducts(whole.products);
   const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
   const sure = confirmed(state.claims);
-  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c)).sort(byOrder);
+  // What the recheck left (PRD 774 s4) sits on top, and leaves the list below.
+  const toCheck = checkRows(state.claims, now);
+  const onTop = checkIds(toCheck);
+  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id)).sort(byOrder);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
   // The draft's finds (PRD 774 s3): until That's us, the title reads them in.
   const found = foundRows(state.claims);
@@ -457,6 +531,7 @@ export function BusinessView({ state: whole, demo = false, on = IDLE }: Business
         </section>
       )}
       {multi && <ProductTabs state={state} on={on} />}
+      {toCheck.length > 0 && <Check rows={toCheck} busy={state.busy} on={on} />}
       <section className="ask-card business-head" aria-labelledby="business-title">
         <p className="business-kicker">
           <span className="ask-chip">Business</span>
