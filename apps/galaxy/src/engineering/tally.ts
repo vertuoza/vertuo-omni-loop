@@ -1,3 +1,5 @@
+import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 
@@ -17,6 +19,10 @@ import type { Face } from '../people/face';
 //   promotion). The loop's sub-PRs, into feature branches, count only on the Omni Loop panel's sub-PR
 //   line. Reviews still count on every base branch. Bots count in the tiles and the table, never in
 //   the people lists; Omni-man has the Omni Loop panel instead.
+// - Loop health right now (PRD 714 s2): the open pull requests of the tracked repositories the loop has
+//   stuck, whatever the period, one row each under the first kind it meets: stuck (labelled
+//   omni:needs-fix), then stale claim (an open draft sub-PR the kit's own rule calls stale, with the
+//   kit's default minutes). At most 10 rows, oldest first; the rest counted.
 
 /** Omni-man's GitHub login: the Omni Loop App's bot. */
 export const OMNI_MAN = 'omni-loop-invader[bot]';
@@ -39,6 +45,12 @@ export interface PullRequestRow {
   base?: string | null;
   /** The head branch; null until the collector re-reads the pull request (PRD 714). */
   head?: string | null;
+  /** Whether it is a draft, as last read (PRD 714 s2); optional so a profile's rows build without it. */
+  draft?: boolean;
+  /** Its label names, as last read (PRD 714 s2). */
+  labels?: string[];
+  /** The committed date of its latest commit (PRD 714 s2); null when not read. */
+  headCommittedAt?: string | null;
 }
 
 /** The branches a pull request must merge into to count on the board (PRD 714): a fixed set. */
@@ -50,6 +62,49 @@ const isPromotion = (p: PullRequestRow) => isMain(p.head);
 export const countsOnBoard = (p: PullRequestRow) => isMain(p.base) && !isPromotion(p);
 /** One of the loop's sub-PRs: signed, into any other base, and not a promotion. */
 const isSubPr = (p: PullRequestRow) => p.omniSigned && !isMain(p.base) && !isPromotion(p);
+
+// ── Loop health (PRD 714 s2) ────────────────────────────────────────────
+
+/** The kit's defaults, as every repository running the loop has them unless it renamed them. */
+const KIT = parseConfig('kit: 1\n');
+/** The label a stuck pull request carries: omni:needs-fix. */
+export const NEEDS_FIX_LABEL: string = KIT.labels.needsFix;
+/** How old a claim with nothing beyond it is before it reads as stale: the kit's 60 minutes. */
+export const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
+/** The most rows Loop health lists right now. */
+export const HEALTH_ROWS = 10;
+
+export type HealthKind = 'stuck' | 'stale-claim';
+
+/** One of the loop's pull requests stuck right now. `age` is how long ago it was opened, in milliseconds. */
+export interface HealthRow { kind: HealthKind; repo: string; number: number; url: string; openedAt: string; age: number }
+
+export interface LoopHealth { rows: HealthRow[]; more: number }
+
+const isOpen = (p: PullRequestRow) => !p.mergedAt && !p.closedAt;
+
+/** The kinds, in the order a pull request is checked: it shows under the first one it meets. */
+const KINDS: readonly { kind: HealthKind; meets: (p: PullRequestRow, now: Date) => boolean }[] = [
+  { kind: 'stuck', meets: (p) => (p.labels ?? []).includes(NEEDS_FIX_LABEL) },
+  {
+    kind: 'stale-claim',
+    meets: (p, now) => isSubPr(p)
+      && isClaimedStale({ isDraft: Boolean(p.draft), createdAt: p.openedAt, headCommitDate: p.headCommittedAt ?? null }, now.getTime(), CLAIM_STALE_MINUTES),
+  },
+];
+
+/** The open pull requests the loop has stuck right now, of `prs` (already narrowed to the tracked repositories). */
+export function loopHealthOf(prs: readonly PullRequestRow[], now: Date): LoopHealth {
+  const found: HealthRow[] = [];
+  for (const p of prs) {
+    if (!isOpen(p)) continue;
+    const kind = KINDS.find((k) => k.meets(p, now))?.kind;
+    if (!kind) continue;
+    found.push({ kind, repo: p.repo, number: p.number, url: `https://github.com/${p.repo}/pull/${p.number}`, openedAt: p.openedAt, age: now.getTime() - Date.parse(p.openedAt) });
+  }
+  found.sort((a, b) => b.age - a.age || a.repo.localeCompare(b.repo) || a.number - b.number);
+  return { rows: found.slice(0, HEALTH_ROWS), more: Math.max(0, found.length - HEALTH_ROWS) };
+}
 
 /** One row of public.pull_request_reviews: a reviewer's first review of a PR. */
 export interface ReviewRow {
@@ -117,6 +172,7 @@ export type EngineeringValue =
     repositories: RepositoryStats[];
     people: { opened: Ranked[]; merged: Ranked[]; reviews: Ranked[] };
     omni: OmniPanel;
+    health: LoopHealth;
     perDay: MergedDay[];
   };
 
@@ -212,7 +268,8 @@ function statsOf(repo: string, prs: readonly PullRequestRow[], inWindow: (at: st
 
 // ── The board ───────────────────────────────────────────────────────────
 
-export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort: SortKey): EngineeringValue {
+/** The board over the window; `now` is the instant Loop health reads its right-now list at. */
+export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort: SortKey, now: Date): EngineeringValue {
   const tracked = new Set(read.tracked.map((r) => r.toLowerCase()));
   if (tracked.size === 0) return { kind: 'empty', window };
   const from = window.from.getTime(), to = window.to.getTime();
@@ -263,5 +320,5 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     if (day) p.omniSigned ? day.signed++ : day.rest++;
   }
 
-  return { kind: 'board', window, sort, tiles, repositories, people, omni, perDay };
+  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), perDay };
 }

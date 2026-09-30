@@ -11,6 +11,17 @@
 .eng-omni b { color: var(--ask-ink); }
 .eng-omni-share b { font-size: 22px; }
 
+/* Loop health (PRD 714 s2): one row per stuck pull request, its kind as a small tag, then its link and
+   how long ago it was opened; a long name wraps inside the row. */
+.eng-health-part { margin: 0; font-size: 13px; font-weight: 600; color: var(--ask-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.eng-health-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.eng-health-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.ask .eng-health-row a { color: var(--ask-ink); overflow-wrap: anywhere; }
+.eng-health-kind { font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+.eng-health-kind.is-stuck { color: var(--ask-red); }
+.eng-health-kind.is-stale-claim { color: var(--ask-yellow); }
+.eng-health-age, .eng-health-more { margin: 0; color: var(--ask-muted); }
+
 .eng-bar-signed { fill: var(--ask-green); background: var(--ask-green); }
 .eng-bar-rest { fill: var(--ask-plasma); background: var(--ask-plasma); }
 

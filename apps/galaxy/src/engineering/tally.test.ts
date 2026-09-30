@@ -23,7 +23,7 @@ const merged = (hours: number, over: Partial<PullRequestRow> = {}) =>
 const review = (over: Partial<ReviewRow> = {}): ReviewRow => ({ repo: 'acme/widgets', number: 1, reviewer: 'carl', firstAt: '2026-09-25T08:00:00Z', ...over });
 const read = (over: Partial<EngineeringRead> = {}): EngineeringRead => ({ tracked: ['acme/widgets', 'acme/gears'], pullRequests: [], reviews: [], ...over });
 const board = (r: EngineeringRead, sort = sortOf(null)) => {
-  const value = engineeringOf(r, WEEK, sort);
+  const value = engineeringOf(r, WEEK, sort, NOW);
   if (value.kind !== 'board') throw new Error('expected a board');
   return value;
 };
@@ -232,7 +232,7 @@ describe('the period', () => {
 
 describe('no tracked repository', () => {
   it('is the empty state, whatever rows are left', () => {
-    expect(engineeringOf(read({ tracked: [], pullRequests: [pr()] }), WEEK, 'merged')).toEqual({ kind: 'empty', window: WEEK });
+    expect(engineeringOf(read({ tracked: [], pullRequests: [pr()] }), WEEK, 'merged', NOW)).toEqual({ kind: 'empty', window: WEEK });
   });
 });
 
@@ -315,5 +315,72 @@ describe('only merges into main count (PRD 714 s1)', () => {
     const value = board(read({ tracked: ['acme/gears'], pullRequests: rows }));
     expect(value.tiles.merged).toBe(1);
     expect(value.omni.subPrsMerged).toBe(1);
+  });
+});
+
+describe('Loop health, right now (PRD 714 s2)', () => {
+  const MINUTE = 60_000;
+  const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
+  /** An open draft sub-PR with only its claim commit, opened `minutes` ago. */
+  const claim = (minutes: number, over: Partial<PullRequestRow> = {}) => pr({
+    openedAt: ago(minutes), headCommittedAt: ago(minutes), draft: true, omniSigned: true,
+    base: 'feat/loop-health', head: 'feat/loop-health--s2', labels: [], ...over,
+  });
+  const stuck = (minutes: number, over: Partial<PullRequestRow> = {}) => pr({ openedAt: ago(minutes), labels: ['omni:needs-fix'], ...over });
+  const health = (rows: PullRequestRow[], tracked?: string[]) => board(read({ pullRequests: rows, ...(tracked ? { tracked } : {}) })).health;
+
+  it('lists an open pull request labelled omni:needs-fix as stuck, into any base, linked to it on GitHub', () => {
+    const one = stuck(3 * 60, { repo: 'acme/gears', number: 42, base: 'feat/x' });
+    expect(health([one])).toEqual({
+      rows: [{ kind: 'stuck', repo: 'acme/gears', number: 42, url: 'https://github.com/acme/gears/pull/42', openedAt: one.openedAt, age: 3 * HOUR }],
+      more: 0,
+    });
+  });
+
+  it('lists a claim opened 61 minutes ago as stale, with the kit\'s 60 minutes', () => {
+    const one = claim(61);
+    expect(health([one]).rows).toEqual([{ kind: 'stale-claim', repo: 'acme/widgets', number: one.number, url: `https://github.com/acme/widgets/pull/${one.number}`, openedAt: one.openedAt, age: 61 * MINUTE }]);
+  });
+
+  it('does not list a claim at 59 minutes, with a commit beyond it, closed, merged, not a draft, unsigned, into main or with no commit date', () => {
+    const rows = [
+      claim(59),
+      claim(120, { headCommittedAt: ago(30) }),
+      claim(120, { closedAt: ago(10) }),
+      claim(120, { mergedAt: ago(10), closedAt: ago(10) }),
+      claim(120, { draft: false }),
+      claim(120, { omniSigned: false }),
+      claim(120, { base: 'main' }),
+      claim(120, { headCommittedAt: null }),
+    ];
+    expect(health(rows)).toEqual({ rows: [], more: 0 });
+  });
+
+  it('does not list a closed or merged pull request labelled omni:needs-fix', () => {
+    expect(health([stuck(60, { closedAt: ago(1) }), stuck(60, { mergedAt: ago(1), closedAt: ago(1) })]).rows).toEqual([]);
+  });
+
+  it('shows a pull request once, under the first kind it meets: a stale claim labelled omni:needs-fix is stuck', () => {
+    const both = claim(120, { labels: ['omni:needs-fix'] });
+    expect(health([both]).rows.map((r) => [r.kind, r.number])).toEqual([['stuck', both.number]]);
+  });
+
+  it('shows at most 10 rows, oldest first, and counts the rest', () => {
+    const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i * 10));
+    const value = health(rows);
+    expect(value.rows).toHaveLength(10);
+    expect(value.rows[0].number).toBe(rows[10].number);
+    expect(value.rows.map((r) => r.age)).toEqual([...value.rows.map((r) => r.age)].sort((a, b) => b - a));
+    expect(value.more).toBe(1);
+  });
+
+  it('is empty with nothing stuck, and counts only tracked repositories, or the one repository of its page', () => {
+    expect(health([])).toEqual({ rows: [], more: 0 });
+    expect(health([stuck(60, { repo: 'acme/untracked' })]).rows).toEqual([]);
+    expect(health([stuck(60, { repo: 'acme/gears' }), stuck(60)], ['acme/gears']).rows.map((r) => r.repo)).toEqual(['acme/gears']);
+  });
+
+  it('ignores the period: an old stuck pull request still shows', () => {
+    expect(health([stuck(60 * 24 * 60)]).rows).toHaveLength(1);
   });
 });
