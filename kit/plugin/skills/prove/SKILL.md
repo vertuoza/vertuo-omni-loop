@@ -8,7 +8,7 @@ description: Records a PRD's acceptance criteria as evidence once its feature PR
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-A person runs it on PRD n once its feature PR is ready; `/omni:yolo` follows it after it marks the
+A person runs it on PRD n once its feature PR is ready, or on a PRD already shipped to record it; `/omni:yolo` follows it after it marks the
 PR ready when the spec says `proof: video`. It is never run by default: each run costs a model
 session and a few minutes of browser time. It writes nothing in the repository's tracked tree, and
 it commits nothing.
@@ -35,8 +35,15 @@ proof is not configured here: run /omni:invade --refresh, or set proof.url in .o
 ```
 
 Then find the feature PR: `gh pr list --head <feature branch> --state open --json number,url,headRefOid,isDraft`.
-None open: say `PRD <n> has no open feature PR`, and stop. A draft is proved all the same, but say
-in one line that it is not ready yet.
+A draft is proved all the same, but say in one line that it is not ready yet.
+
+None open: the PRD may have shipped. Look for its merged one,
+`gh pr list --head <feature branch> --state merged --json number,url,headRefOid`, and prove that,
+saying in one line that it is already merged, so the run is a record rather than help for a review.
+A merged PRD's code is on the default branch, so it is filmed on the fixed `proof.url` only: when
+that is `github-deployment`, stop with
+`proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url`.
+Neither open nor merged: say `PRD <n> has no feature PR`, and stop.
 
 ## 2. The target
 
