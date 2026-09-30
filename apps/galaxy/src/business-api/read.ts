@@ -63,7 +63,7 @@ const storedClaimSchema = z.object({
   added: z.boolean(),
 }).strict();
 
-export type StoredClaim = z.infer<typeof storedClaimSchema>;
+type StoredClaim = z.infer<typeof storedClaimSchema>;
 
 /** The database refused or failed; `code` is Postgres's: 42501 the caller may not read that
  * repository's business (its reason as the database wrote it), 22023 a malformed repository or claim
