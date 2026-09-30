@@ -113,6 +113,22 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    The kit picks the rank and the id; you never do. `--adopt` only acts on a medium item: it goes
    straight to the ledger. Under `--in-wave`, never pass it — `/omni:wave` adopts after the wave
    merges, so parallel slices do not race on the ledger.
+
+   **Ask Jev about `hardToRevert`.** Once you have set `hardToRevert` yourself, and before you run
+   `omni item new`, write the decision's state to a second scratch file (never in the repository):
+   `{ "decision": <decisionPlain>, "options": [<each option, as "A. …">], "slice": "<slice id>: <its
+   title>", "paths": [<the paths this slice touches>] }`. Then run:
+
+   ```bash
+   node .omni-loop/bin/omni.mjs decide outbox-risk --state-file <state file> --old <true|false> --ref "PRD <n> <slice>"
+   ```
+
+   It always exits 0. When it prints `unset`, keep your own `hardToRevert` and change nothing: the
+   step is as it was. When it prints `<answer> <confidence>` (`true 0.82`), the workspace has put
+   this decision On and Jev's answer counts, even against yours: set `hardToRevert` to its answer,
+   and end `decide` with the line `Decided by: Jev (hardToRevert <confidence>) · agent said <yours>`.
+   Jev answers `hardToRevert` only: `needsHumanAction`, `breaksNamedLaw`, `principlesConflict` and
+   `bearsOn` stay yours, and the kit still picks the rank, its law floor included.
 3. **Read the JSON on stdout.** Parse it: `{ outcome, rank, id, file, adopted, reason }`.
    - `outcome: "record"`, exit `0`: carry on. `adopted: true` means it went straight to the
      ledger; otherwise commit `file`.

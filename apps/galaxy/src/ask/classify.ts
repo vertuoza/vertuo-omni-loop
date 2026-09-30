@@ -18,8 +18,8 @@ export const CATEGORY_LABELS: Readonly<Record<Category, string>> = Object.freeze
   other: 'Other',
 });
 
-/** What each category holds, as the model is told. */
-const HOLDS: Readonly<Record<Category, string>> = {
+/** What each category holds, as the model is told (and Jev, PRD 812). */
+export const HOLDS: Readonly<Record<Category, string>> = {
   business: 'pricing, priorities, customers, contracts, anything a business owner decides',
   product: 'scope, features, behaviour, what the product does',
   'ux-ui': 'screens, copy, flows, look',
@@ -56,8 +56,9 @@ const record = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
-/** The questions and their options as plain lines; never an option's preview. */
-function describe(input: ClassifyInput): string {
+/** The questions and their options as plain lines; never an option's preview. What Haiku reads, and
+ * the state Jev is given for the question category (PRD 812). */
+export function describeRound(input: ClassifyInput): string {
   const lines: string[] = [];
   for (const q of input.questions.map(record)) {
     const header = str(q.header);
@@ -95,7 +96,7 @@ export function openRouterClassifier({ apiKey, fetch = globalThis.fetch, model =
           max_tokens: 8,
           messages: [
             { role: 'system', content: SYSTEM },
-            { role: 'user', content: describe(input) },
+            { role: 'user', content: describeRound(input) },
           ],
         }),
         signal: AbortSignal.timeout(timeoutMs),
