@@ -198,6 +198,16 @@ describe('omni proof session', () => {
     expect(tokens.store[HOST].refresh_token).toBe('refresh-2');
   });
 
+  it('puts the cookie on the host PROOF_URL names, the address being filmed (a preview), and still signs in through ask.url', async () => {
+    const { root } = checkout();
+    const file = join(root, 'state.json');
+    const { calls, fetch } = renewing();
+    const result = await session([file], { root, fetch, env: { PROOF_URL: 'https://app-git-feat-x.vercel.app/some/page' } });
+    expect(result.code).toBe(0);
+    expect(JSON.parse(readFileSync(file, 'utf8')).cookies[0].domain).toBe('app-git-feat-x.vercel.app');
+    expect(calls.map(({ url }) => url)).toEqual([`${BASE}/api/ask/token`]);
+  });
+
   it('takes the file as an argument too', async () => {
     const { root } = checkout();
     const file = join(root, 'given.json');

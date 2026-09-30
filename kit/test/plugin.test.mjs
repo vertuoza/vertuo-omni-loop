@@ -1248,6 +1248,11 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(step).toContain('proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url');
   });
 
+  it('hands the setup the address it films, as PROOF_URL, so a sign-in can target a preview', () => {
+    expect(skillSection(read('prove'), '2.')).toContain('PROOF_URL=<the URL>');
+    expect(skillSection(read('prove'), '2.')).toContain('proof.deployment');
+  });
+
   it('films at most 10 criteria, each capped at proof.maxSeconds, and says why a criterion is unfilmable', () => {
     const film = skillSection(read('prove'), '3.');
     for (const phrase of ['at most 10', 'proof.maxSeconds', '**unfilmable**', '**filmed**', '<k>-<slug>.spec.ts', '1280×720', 'recordVideo', '<worktrees>/proof-<n>/<run>/', 'preview.gif', 'ffmpeg', 'never committed']) {

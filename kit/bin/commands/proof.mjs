@@ -1,5 +1,6 @@
 // `omni proof session [<file>]` — writes the signed-in Playwright session `/omni:prove` films with
-// (`proof.setup`), to `<file>` or to `$PROOF_STORAGE_STATE`, from the person's own `omni signin`
+// (`proof.setup`), to `<file>` or to `$PROOF_STORAGE_STATE`, from the person's own `omni signin`, its
+// cookie on the host of `$PROOF_URL` (the address filmed, a preview's) or else of `ask.url`
 // (`../../lib/proof/session.mjs`). It renews the sign-in first, so the session holds a full hour, and
 // prints `signed in as <email> until <HH:MM>`. No sign-in, or one the server refuses, is
 // `no sign-in (omni signin)`, and a server that does not answer `unreachable`: exit 1, no file.
@@ -116,10 +117,20 @@ function sessionFor(token, host) {
   }
 }
 
+/** The host of the address a run films (`PROOF_URL`, a preview's), or undefined for ask.url's own. */
+function targetHost(url) {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    throw usageError(`omni proof session: PROOF_URL is not a URL: ${url}`);
+  }
+}
+
 /** Renews the sign-in and writes the session to `file`, or prints the one line that stopped it; the exit code. */
-async function writeSession({ askUrl, file }, { stdout, stderr, ...io }) {
+async function writeSession({ askUrl, file, target }, { stdout, stderr, ...io }) {
   const renewed = await renewedToken(askUrl, io);
-  const made = renewed.token ? sessionFor(renewed.token, renewed.host) : null;
+  const made = renewed.token ? sessionFor(renewed.token, target ?? renewed.host) : null;
   if (!made) {
     println(stderr, renewed.line ?? NO_SIGN_IN);
     return 1;
@@ -138,7 +149,7 @@ export const proof = {
       const askUrl = ctx.config.ask?.url;
       if (!askUrl) throw usageError('omni proof session: no sign-in server here — set ask.url in the config.');
       const file = isAbsolute(parsed.file) ? parsed.file : resolve(cwd, parsed.file);
-      return writeSession({ askUrl, file }, { stdout, stderr, tokens, home, fetch, callMs });
+      return writeSession({ askUrl, file, target: targetHost(env?.PROOF_URL) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
     const { prd, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);

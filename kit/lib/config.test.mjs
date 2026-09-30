@@ -463,15 +463,16 @@ describe('the proof section (PRD 798)', () => {
   };
 
   it('is all null with maxSeconds 60 when the file has no proof section', () => {
-    expect(parseConfig('kit: 1\n').proof).toEqual({ url: null, setup: null, bypassEnv: null, maxSeconds: 60 });
+    expect(parseConfig('kit: 1\n').proof).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
   });
 
   it('reads back every key the file sets', () => {
     const config = parseConfig(
-      'kit: 1\nproof:\n  url: github-deployment\n  setup: pnpm proof:signin\n  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET\n  maxSeconds: 30\n',
+      'kit: 1\nproof:\n  url: github-deployment\n  deployment: Preview – web\n  setup: pnpm proof:signin\n  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET\n  maxSeconds: 30\n',
     );
     expect(config.proof).toEqual({
       url: 'github-deployment',
+      deployment: 'Preview – web',
       setup: 'pnpm proof:signin',
       bypassEnv: 'VERCEL_AUTOMATION_BYPASS_SECRET',
       maxSeconds: 30,
@@ -501,6 +502,6 @@ describe('the proof section (PRD 798)', () => {
     const out = [];
     const code = await main(['config', 'proof'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(code).toBe(0);
-    expect(JSON.parse(out.join(''))).toEqual({ url: null, setup: null, bypassEnv: null, maxSeconds: 60 });
+    expect(JSON.parse(out.join(''))).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
   });
 });
