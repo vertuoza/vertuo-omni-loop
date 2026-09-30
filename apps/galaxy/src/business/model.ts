@@ -1,5 +1,5 @@
 // Settings → Business as pure data (PRD 748 s2). A row of public.claims
-// (supabase/migrations/20261017090000_business_store.sql) as the page draws it, with how often agents
+// (supabase/migrations/20261019090000_business_store.sql) as the page draws it, with how often agents
 // cited it; the short generic pick lists (decision 11: they live here, not in the database, and name
 // no company); the sentence the confirmed claims write; what a pick changes; and the page's state
 // through its actions.

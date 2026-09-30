@@ -1,7 +1,7 @@
 import { claimOf, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
-// supabase/migrations/20261017090000_business_store.sql, called as the signed-in person: claim_pick()
+// supabase/migrations/20261019090000_business_store.sql, called as the signed-in person: claim_pick()
 // stores a pick, confirmed at once with source `pick`, and claim_set_state() confirms (✓) or rejects
 // (✗) a claim; each answers the public.claims row it saved, or refuses (42501 not a member, P0002
 // gone, 22023 invalid). A region belongs to the business, every other kind to the product the page
