@@ -1,4 +1,5 @@
 import { authenticate, withInstallLink, type TokenCheck } from '../../ask/auth';
+import { refuse, reply } from '../../business-api/reply';
 import { decide, type JevDecideDeps } from '../resolve';
 import { jevEntry } from './index';
 
@@ -31,22 +32,69 @@ export type DecideRouteDeps = {
 };
 
 /** The body's cap: a decision's text, its options and the paths a slice touches. */
-export const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 64 * 1024;
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const TODAY = { answer: null, confidence: null, decidedBy: 'old' } as const;
 
-const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const refuse = (status: number, error: string) => reply(status, { error });
+type Entry = NonNullable<ReturnType<typeof jevEntry>>;
+type Terminal = NonNullable<Entry['terminal']>;
+type Asked = { repo: string; input: NonNullable<ReturnType<Terminal['input']>>; old: NonNullable<ReturnType<Terminal['old']>>; ref: string | null };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-function parsed(text: string): unknown {
+function parsed(text: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(text);
+    const value: unknown = JSON.parse(text);
+    return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
   } catch {
-    return undefined;
+    return null;
+  }
+}
+
+const repoOf = (value: unknown): string | null =>
+  typeof value === 'string' && value.length <= 200 && REPO.test(value) ? value : null;
+
+/** The ref as given (blank reads as none), or false when it is not text of 300 characters at most. */
+function refOf(value: unknown): string | null | false {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string' || value.length > 300) return false;
+  return value.trim() ? value : null;
+}
+
+/** The body's fields as the decision reads them, or the refusal that says which one is wrong. */
+function askedFrom(body: Record<string, unknown>, decision: string, terminal: Terminal): Asked | Response {
+  const repo = repoOf(body.repo);
+  if (repo === null) return refuse(400, '`repo` must be the repository as owner/name.');
+  const input = terminal.input(body.state);
+  if (input === null) return refuse(400, `\`state\` is not a state of ${decision}.`);
+  const old = typeof body.old === 'string' ? terminal.old(body.old) : null;
+  if (old === null) return refuse(400, `\`old\` is not an answer of ${decision}.`);
+  const ref = refOf(body.ref);
+  if (ref === false) return refuse(400, '`ref`, when given, must be text.');
+  return { repo, input, old, ref };
+}
+
+/** The body as the decision reads it, or the refusal that says why not. */
+function readAsked(text: string, decision: string, terminal: Terminal): Asked | Response {
+  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return refuse(413, `A decision carries ${MAX_BODY_BYTES / 1024} KiB at most.`);
+  const body = parsed(text);
+  return body ? askedFrom(body, decision, terminal) : refuse(400, 'The body must be a JSON object.');
+}
+
+/** What repo_workspace() returned, as a workspace's id or the reason there is none. */
+export function placedFrom(data: unknown): { workspace: string | null; reason: string | null } {
+  const row = ((Array.isArray(data) ? data[0] : data) ?? {}) as { workspace_id?: string | null; refusal?: string | null };
+  if (row.workspace_id) return { workspace: row.workspace_id, reason: null };
+  return { workspace: null, reason: row.refusal ?? null };
+}
+
+/** The workspace the caller's calls for `repo` go to, or the refusal that says why none. */
+async function placeOf(deps: DecideRouteDeps, userId: string, repo: string): Promise<string | Response> {
+  try {
+    const placed = await deps.place(userId, repo);
+    return placed.workspace ?? refuse(403, withInstallLink(placed.reason ?? `No workspace of yours owns ${repo}.`, deps.installLink));
+  } catch (error) {
+    console.error(`decide: where ${repo} goes: ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(500, 'The workspace of this repository could not be looked up. Try again.');
   }
 }
 
@@ -56,38 +104,15 @@ export async function decideRoute(request: Request, decision: string, deps: Deci
   if (!auth.ok) return refuse(auth.status, auth.error);
 
   const entry = jevEntry(decision);
-  const terminal = entry?.terminal;
-  if (!entry || !terminal) return refuse(404, `No decision named ${decision} can be asked from a terminal.`);
-
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return refuse(413, `A decision carries ${MAX_BODY_BYTES / 1024} KiB at most.`);
-  const body = parsed(text);
-  if (!isRecord(body)) return refuse(400, 'The body must be a JSON object.');
-  const { repo, state, old: oldText, ref } = body;
-  if (typeof repo !== 'string' || repo.length > 200 || !REPO.test(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
-  const input = terminal.input(state);
-  if (input === null) return refuse(400, `\`state\` is not a state of ${decision}.`);
-  const old = typeof oldText === 'string' ? terminal.old(oldText) : null;
-  if (old === null) return refuse(400, `\`old\` is not an answer of ${decision}.`);
-  if (ref !== undefined && ref !== null && (typeof ref !== 'string' || ref.length > 300)) return refuse(400, '`ref`, when given, must be text.');
+  if (!entry?.terminal) return refuse(404, `No decision named ${decision} can be asked from a terminal.`);
+  const asked = readAsked(await request.text(), decision, entry.terminal);
+  if (asked instanceof Response) return asked;
 
   if (!deps.jev) return reply(200, TODAY);
-  let placed: Awaited<ReturnType<DecideRouteDeps['place']>>;
-  try {
-    placed = await deps.place(auth.caller.id, repo);
-  } catch (error) {
-    console.error(`decide: where ${repo} goes: ${error instanceof Error ? error.message : String(error)}`);
-    return refuse(500, 'The workspace of this repository could not be looked up. Try again.');
-  }
-  if (!placed.workspace) return refuse(403, withInstallLink(placed.reason ?? `No workspace of yours owns ${repo}.`, deps.installLink));
+  const workspace = await placeOf(deps, auth.caller.id, asked.repo);
+  if (workspace instanceof Response) return workspace;
 
-  const counted = await decide(deps.jev, {
-    workspace: placed.workspace,
-    entry,
-    input,
-    old: async () => old,
-    ref: typeof ref === 'string' && ref.trim() ? ref : null,
-  });
+  const counted = await decide(deps.jev, { workspace, entry, input: asked.input, old: async () => asked.old, ref: asked.ref });
   if (counted.decidedBy !== 'jev' || counted.value === null) return reply(200, TODAY);
   return reply(200, { answer: entry.show(counted.value), confidence: counted.confidence, decidedBy: 'jev' });
 }

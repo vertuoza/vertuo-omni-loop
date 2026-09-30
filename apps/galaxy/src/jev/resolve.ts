@@ -26,8 +26,8 @@ export interface Counted<V> {
   call: JevCall | null;
 }
 
-export const OUTSIDE = 'Jev answered outside the decision’s options.';
-export const NO_KEY = 'No TypeSafe key is stored.';
+const OUTSIDE = 'Jev answered outside the decision’s options.';
+const NO_KEY = 'No TypeSafe key is stored.';
 
 export interface Resolve<I, V> {
   entry: JevDecisionEntry<I, V>;

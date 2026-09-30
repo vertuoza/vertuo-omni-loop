@@ -21,12 +21,12 @@ import { dayOf, decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type
 export const ONLY_OWNER = 'Only @owner can change Jev’s settings.';
 export const SENDS = 'Once a decision is switched on, its text is sent to TypeSafe AI, the company behind Jev, tokens masked. Every decision starts Off.';
 export const SWITCH_OFF = 'Switching Jev off removes the key and sets every decision Off.';
-export const COMING_LABEL = 'Coming in this PRD';
-export const NEEDS_KEY = 'Switch Jev on above to put a decision in Shadow or On.';
-export const OFF_NOT_CALLED = 'Off: Jev is not called';
-export const NO_CALLS = `No calls to Jev in the last 30 days.`;
-export const RECORD_UNREADABLE = 'The record could not be read. Reload in a moment.';
-export const MODES_HELP = 'Off: today’s path decides and Jev is not called. Shadow: today’s path decides and Jev’s answer is only logged. On: Jev decides, and today’s path whenever Jev cannot or answers under the floor.';
+const COMING_LABEL = 'Coming in this PRD';
+const NEEDS_KEY = 'Switch Jev on above to put a decision in Shadow or On.';
+const OFF_NOT_CALLED = 'Off: Jev is not called';
+const NO_CALLS = `No calls to Jev in the last 30 days.`;
+const RECORD_UNREADABLE = 'The record could not be read. Reload in a moment.';
+const MODES_HELP = 'Off: today’s path decides and Jev is not called. Shadow: today’s path decides and Jev’s answer is only logged. On: Jev decides, and today’s path whenever Jev cannot or answers under the floor.';
 
 export interface JevHandlers {
   edit(): void;
@@ -186,9 +186,17 @@ function DecisionRecordBlock({ record, mode }: { record: DecisionRecord | null; 
 
 const EMPTY_RECORD: DecisionRecord = { calls: 0, compared: 0, agreed: 0, agreement: null, disagreements: [] };
 
+/** The refusal the last save of this decision met, if any. */
+const refusalFor = (state: JevState, name: string) =>
+  state.decisionRefusal?.decision === name ? state.decisionRefusal.message : null;
+
+/** This decision's record: null when the calls could not be read, empty when it has none. */
+const recordFor = (records: JevRecords | null | undefined, name: string) =>
+  records === null ? null : records?.[name] ?? EMPTY_RECORD;
+
 function DecisionRow({ line, state, owner, on, records }: { line: DecisionLine; state: JevState; owner: boolean; on: JevHandlers; records: JevRecords | null | undefined }) {
   const { row, ready } = line;
-  const refusal = state.decisionRefusal?.decision === row.name ? state.decisionRefusal.message : null;
+  const refusal = refusalFor(state, row.name);
   return (
     <li className="jev-decision" data-decision={row.name}>
       <div className="jev-decision-head">
@@ -199,7 +207,7 @@ function DecisionRow({ line, state, owner, on, records }: { line: DecisionLine; 
       <p className="ask-muted jev-sends">Sends: {row.sends}</p>
       {refusal && <p className="jev-refusal" role="alert">{refusal}</p>}
       {owner && ready ? <DecisionForm line={line} state={state} on={on} /> : <DecisionReadOnly settings={line.settings} />}
-      <DecisionRecordBlock record={records === null ? null : records?.[row.name] ?? EMPTY_RECORD} mode={line.settings.mode} />
+      <DecisionRecordBlock record={recordFor(records, row.name)} mode={line.settings.mode} />
     </li>
   );
 }

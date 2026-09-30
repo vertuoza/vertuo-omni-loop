@@ -12,8 +12,7 @@ import { COULD_NOT_SAVE_DECISION } from './port';
 
 export type DecisionSaved = { ok: true; settings: JevDecisionSettings } | { ok: false; message: string };
 
-export const COMING = 'This decision comes later in this PRD: it cannot be switched on yet.';
-export { COULD_NOT_SAVE_DECISION };
+const COMING = 'This decision comes later in this PRD: it cannot be switched on yet.';
 
 const MODES: readonly JevMode[] = ['off', 'shadow', 'on'];
 

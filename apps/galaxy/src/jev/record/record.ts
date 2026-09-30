@@ -11,7 +11,7 @@ import type { JevCallRow } from '../store';
 // the result (../settings/JevView.tsx).
 
 export const RECORD_DAYS = 30;
-export const LAST_DISAGREEMENTS = 10;
+const LAST_DISAGREEMENTS = 10;
 
 /** What a call was about, as the page shows it: a link when the ref is recognised, text otherwise. */
 export interface RefLink {

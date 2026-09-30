@@ -214,4 +214,3 @@ export function jevServiceStore(db: Db) {
   };
 }
 
-export type JevServiceStore = ReturnType<typeof jevServiceStore>;

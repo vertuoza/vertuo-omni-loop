@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { JevOutcome } from '../client';
 import type { JevDecideDeps } from '../resolve';
 import type { JevCall, JevDecisionSettings, JevMode } from '../store';
-import { decideRoute, type DecideRouteDeps } from './decide-route';
+import { decideRoute, placedFrom, type DecideRouteDeps } from './decide-route';
 
 // `POST /api/decide/<decision>` (PRD 812 s3): a Claude session asks the workspace's Jev decision, with
 // the terminal's sign-in. A fake world of one workspace, Acme (GitHub org acme), whose Ada is a member;
@@ -164,5 +164,18 @@ describe('POST /api/decide/<decision>', () => {
     const { ref: _ref, ...noRef } = CALL;
     expect((await send(w, noRef)).status).toBe(200);
     expect(w.logged[0].ref).toBeNull();
+  });
+});
+
+describe('what repo_workspace() returned', () => {
+  it('is the workspace, from a row or a one-row list', () => {
+    expect(placedFrom({ workspace_id: 'w1', refusal: null })).toEqual({ workspace: 'w1', reason: null });
+    expect(placedFrom([{ workspace_id: 'w1' }])).toEqual({ workspace: 'w1', reason: null });
+  });
+
+  it('is the refusal, or no reason, when no workspace owns the repository', () => {
+    expect(placedFrom([{ workspace_id: null, refusal: 'Install the App first.' }])).toEqual({ workspace: null, reason: 'Install the App first.' });
+    expect(placedFrom([])).toEqual({ workspace: null, reason: null });
+    expect(placedFrom(null)).toEqual({ workspace: null, reason: null });
   });
 });

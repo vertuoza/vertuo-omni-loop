@@ -18,7 +18,7 @@ export const NOT_AVAILABLE = 'Jev is not available on this deployment.';
 export const ONLY_OWNER = 'Only the workspace’s owner can change its Jev settings.';
 
 /** What the key's one test call asks: a Noul about a fixed text, nothing of the workspace's. */
-export const KEY_CHECK_STATE = 'Omni Loop is checking that this TypeSafe API key works.';
+const KEY_CHECK_STATE = 'Omni Loop is checking that this TypeSafe API key works.';
 export const KEY_CHECK: JevQuestion = { type: 'noul', statement: 'This text is a key check.' };
 
 /** The one test call a pasted key gets before it is stored. */

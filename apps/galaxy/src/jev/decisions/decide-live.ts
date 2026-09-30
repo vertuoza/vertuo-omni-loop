@@ -3,7 +3,7 @@ import { serviceDb } from '../../data/sign-in-live';
 import { supabaseAs, supabaseEnv } from '../../data/supabase-server';
 import { installUrl } from '../../signup/github-app';
 import { jevDecideDeps } from '../resolve-live';
-import type { DecideRouteDeps } from './decide-route';
+import { placedFrom, type DecideRouteDeps } from './decide-route';
 
 // The decide route's real dependencies (./decide-route.ts, PRD 812 s3): the caller's token is checked
 // by the Auth server; the service role asks repo_workspace() where the caller's calls for the
@@ -23,6 +23,5 @@ export function decideDeps(env: Record<string, string | undefined> = process.env
 async function placeRepo(userId: string, repo: string): Promise<{ workspace: string | null; reason: string | null }> {
   const { data, error } = await serviceDb().rpc('repo_workspace', { person: userId, repo });
   if (error) throw new Error(`repo_workspace: ${error.message}`);
-  const row = (Array.isArray(data) ? data[0] : data) as { workspace_id?: string | null; refusal?: string | null } | null;
-  return row?.workspace_id ? { workspace: row.workspace_id, reason: null } : { workspace: null, reason: row?.refusal ?? null };
+  return placedFrom(data);
 }

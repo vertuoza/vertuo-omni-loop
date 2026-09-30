@@ -8,7 +8,6 @@ import type { DecisionSaved } from './decision';
 // starts with `bad` is refused as TypeSafe would refuse it, and a decision is saved as sent.
 
 export type KeySaved = { ok: true; key: JevKeyStatus } | { ok: false; message: string };
-export type { DecisionSaved } from './decision';
 
 /** The page's server action: one decision's settings, saved as the signed-in person. */
 export type SaveDecisionAction = (workspace: string, settings: JevDecisionSettings) => Promise<DecisionSaved>;

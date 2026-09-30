@@ -19565,31 +19565,32 @@ async function ask3({ ctx, decision, state, old, ref, tokens, home, fetch, callM
     return { reason: failed(error) };
   }
 }
+function readArgs(args) {
+  const { positional, flags } = parseArgs("decide", args, { values: ["state-file", "old", "ref"], booleans: ["json"] });
+  const stateFile = flags["state-file"];
+  const old = flags.old;
+  if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE9);
+  const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
+  return { decision: positional[0], stateFile, old, ref, json: Boolean(flags.json) };
+}
+function report2({ stdout, stderr, decision, read: read2, json }) {
+  const counted3 = read2.answer !== void 0;
+  if (json) {
+    const shown3 = counted3 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
+    println(stdout, JSON.stringify(shown3));
+  } else {
+    println(stdout, counted3 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
+  }
+  if (!counted3) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
+}
 var decide = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { positional, flags } = parseArgs("decide", args, { values: ["state-file", "old", "ref"], booleans: ["json"] });
-    const stateFile = flags["state-file"];
-    const old = flags.old;
-    if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE9);
-    const [decision] = positional;
-    const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
+    const { decision, stateFile, old, ref, json } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
     const state = stateOf(ctx, stateFile);
     const read2 = await ask3({ ctx, decision, state, old, ref, tokens, home, fetch, callMs });
-    const counted3 = read2.answer !== void 0;
-    if (flags.json) {
-      println(stdout, JSON.stringify({
-        decision,
-        answer: counted3 ? read2.answer : null,
-        confidence: counted3 ? read2.confidence : null,
-        decidedBy: counted3 ? "jev" : "old",
-        reason: counted3 ? null : read2.reason
-      }));
-    } else {
-      println(stdout, counted3 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
-    }
-    if (!counted3) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
+    report2({ stdout, stderr, decision, read: read2, json });
     return 0;
   }
 };
@@ -25424,8 +25425,8 @@ var status2 = {
       }
     }
     const result = gateResult(prd2, { ctx, labels, changes });
-    const report2 = formatReport(prd2, result);
-    println(stdout, report2);
+    const report3 = formatReport(prd2, result);
+    println(stdout, report3);
     if (env.GITHUB_OUTPUT) {
       const lines = [
         `open_items=${result.items.length > 0}`,
@@ -25435,7 +25436,7 @@ var status2 = {
       appendFileSync(env.GITHUB_OUTPUT, `${lines.join("\n")}
 `);
     }
-    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${report2}
+    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${report3}
 `);
     return result.ok ? 0 : 1;
   }

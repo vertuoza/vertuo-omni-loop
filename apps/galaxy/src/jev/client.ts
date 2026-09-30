@@ -109,29 +109,43 @@ function peakedness(values: number[]): number | null {
   return Math.min(1, Math.max(0, (n * largest - 1) / (n - 1)));
 }
 
+/** The level a probability's name points at: its index, its key or its criterion line; -1 for none. */
+const levelAt = (levels: JevOption[], name: string) =>
+  /^\d+$/.test(name) ? Number(name) : levels.findIndex((l) => name === l.key || name === levelLine(l));
+
+/** A Score's probabilities by level key, or null when one names no level. */
+function byLevelOf(levels: JevOption[], probabilities: Record<string, number>): Record<string, number> | null {
+  const byLevel: Record<string, number> = {};
+  for (const [name, p] of Object.entries(probabilities)) {
+    const at = levelAt(levels, name);
+    if (!(at >= 0 && at < levels.length)) return null;
+    byLevel[levels[at].key] = p;
+  }
+  return byLevel;
+}
+
+/** A Score read from its probabilities: the most probable level, sure as its peakedness. */
+function scoreByProbabilities(levels: JevOption[], answer: Extract<Answer, { type: 'score' }>, probabilities: Record<string, number>): Read | null {
+  const byLevel = byLevelOf(levels, probabilities);
+  if (!byLevel) return null;
+  const values = levels.map((l) => byLevel[l.key] ?? 0);
+  const index = values.indexOf(Math.max(...values));
+  return { answer: levels[index].key, confidence: answer.confidence ?? peakedness(values) ?? 0, probabilities: byLevel };
+}
+
+/** A Score read from its position, 0 the lowest level and 1 the highest, rounded to the nearest. */
+function scoreByPosition(levels: JevOption[], answer: Extract<Answer, { type: 'score' }>): Read | null {
+  if (answer.score < 0 || answer.score > 1) return null;
+  const at = answer.score * (levels.length - 1);
+  const index = Math.round(at);
+  return { answer: levels[index].key, confidence: answer.confidence ?? Math.max(0, 1 - 2 * Math.abs(at - index)), probabilities: null };
+}
+
 /** A Score's answer as a level: the most probable one, else its position from 0 to 1, rounded. */
 function readScore(levels: JevOption[], answer: Extract<Answer, { type: 'score' }>): Read | null {
-  const n = levels.length;
-  let byLevel: Record<string, number> | null = null;
-  let index: number | null = null;
-  if (answer.probabilities && Object.keys(answer.probabilities).length) {
-    byLevel = {};
-    for (const [name, p] of Object.entries(answer.probabilities)) {
-      const at = /^\d+$/.test(name) ? Number(name) : levels.findIndex((l) => name === l.key || name === levelLine(l));
-      if (!(at >= 0 && at < n)) return null;
-      byLevel[levels[at].key] = p;
-    }
-    const values = levels.map((l) => byLevel![l.key] ?? 0);
-    index = values.indexOf(Math.max(...values));
-  } else {
-    if (answer.score < 0 || answer.score > 1) return null;
-    index = Math.round(answer.score * (n - 1));
-  }
-  const confidence =
-    answer.confidence ??
-    (byLevel ? peakedness(levels.map((l) => byLevel![l.key] ?? 0)) : null) ??
-    Math.max(0, 1 - 2 * Math.abs(answer.score * (n - 1) - index));
-  return { answer: levels[index].key, confidence, probabilities: byLevel };
+  const probabilities = answer.probabilities;
+  if (probabilities && Object.keys(probabilities).length) return scoreByProbabilities(levels, answer, probabilities);
+  return scoreByPosition(levels, answer);
 }
 
 /** The answer as the caller reads it, or null when it does not fit the question. */

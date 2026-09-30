@@ -72,33 +72,38 @@ async function ask({ ctx, decision, state, old, ref, tokens, home, fetch, callMs
   }
 }
 
+/** The command's arguments, or a usage error. */
+function readArgs(args) {
+  const { positional, flags } = parseArgs('decide', args, { values: ['state-file', 'old', 'ref'], booleans: ['json'] });
+  const stateFile = flags['state-file'];
+  const old = flags.old;
+  if (positional.length !== 1 || typeof stateFile !== 'string' || typeof old !== 'string') throw usageError(USAGE);
+  const ref = typeof flags.ref === 'string' && flags.ref.trim() ? flags.ref : null;
+  return { decision: positional[0], stateFile, old, ref, json: Boolean(flags.json) };
+}
+
+/** What was decided, as one line or as JSON; and, when your own answer counts, why on stderr. */
+function report({ stdout, stderr, decision, read, json }) {
+  const counted = read.answer !== undefined;
+  if (json) {
+    const shown = counted
+      ? { decision, answer: read.answer, confidence: read.confidence, decidedBy: 'jev', reason: null }
+      : { decision, answer: null, confidence: null, decidedBy: 'old', reason: read.reason };
+    println(stdout, JSON.stringify(shown));
+  } else {
+    println(stdout, counted ? `${read.answer} ${read.confidence.toFixed(2)}` : UNSET);
+  }
+  if (!counted) println(stderr, `omni decide ${decision}: ${read.reason} — your own answer counts`);
+}
+
 export const decide = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { positional, flags } = parseArgs('decide', args, { values: ['state-file', 'old', 'ref'], booleans: ['json'] });
-    const stateFile = flags['state-file'];
-    const old = flags.old;
-    if (positional.length !== 1 || typeof stateFile !== 'string' || typeof old !== 'string') throw usageError(USAGE);
-    const [decision] = positional;
-    const ref = typeof flags.ref === 'string' && flags.ref.trim() ? flags.ref : null;
-
+    const { decision, stateFile, old, ref, json } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
     const state = stateOf(ctx, stateFile);
     const read = await ask({ ctx, decision, state, old, ref, tokens, home, fetch, callMs });
-
-    const counted = read.answer !== undefined;
-    if (flags.json) {
-      println(stdout, JSON.stringify({
-        decision,
-        answer: counted ? read.answer : null,
-        confidence: counted ? read.confidence : null,
-        decidedBy: counted ? 'jev' : 'old',
-        reason: counted ? null : read.reason,
-      }));
-    } else {
-      println(stdout, counted ? `${read.answer} ${read.confidence.toFixed(2)}` : UNSET);
-    }
-    if (!counted) println(stderr, `omni decide ${decision}: ${read.reason} — your own answer counts`);
+    report({ stdout, stderr, decision, read, json });
     return 0;
   },
 };
