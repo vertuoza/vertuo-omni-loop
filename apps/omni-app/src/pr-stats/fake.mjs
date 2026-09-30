@@ -12,7 +12,8 @@
  *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
  *                              base, head, draft, labels, commits, additions, deletions, body, reviews?,
  *                              commitMessages?, commit_dates? (each commit's committed date, the pull
- *                              request's created_at when left out), comments? (each comment's body, oldest first)
+ *                              request's created_at when left out), comments? (each comment's body, oldest first),
+ *                              label_events? (each label added, `{ name, created_at }`, oldest first)
  *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
  *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
  *                              per details query)
@@ -72,9 +73,9 @@ export function fakeGitHub(repos, budgets = {}) {
       spend('core');
       switch (route) {
         case 'GET /repos/{owner}/{repo}/pulls':
-          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, comments, ...pull }) => pull) };
+          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, comments, label_events, ...pull }) => pull) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}': {
-          const { reviews, commitMessages, comments, ...pull } = pullOf(params, true);
+          const { reviews, commitMessages, comments, label_events, ...pull } = pullOf(params, true);
           return { headers: headers(), data: pull };
         }
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews':
@@ -159,6 +160,7 @@ function asGraphql(pull) {
     deletions: pull.deletions,
     commits: { totalCount: pull.commits, nodes: messages.map((message, i) => ({ commit: { message, committedDate: dates[i] ?? pull.created_at } })).slice(-100) },
     reviews: { nodes: (pull.reviews ?? []).slice(0, 100).map((review) => ({ author: actor(review.user), submittedAt: review.submitted_at ?? null })) },
+    timelineItems: { nodes: (pull.label_events ?? []).slice(0, 100).map((event) => ({ createdAt: event.created_at, label: { name: event.name } })) },
   };
 }
 

@@ -53,6 +53,7 @@ describe('prStats — collecting a tracked repository', () => {
       labels: [],
       head_committed_at: daysAgo(5),
       status_state: null,
+      needs_fix_at: null,
       commits: 1,
       additions: 10,
       deletions: 2,
@@ -80,6 +81,56 @@ describe('prStats — collecting a tracked repository', () => {
     expect(first).toMatchObject({ draft: true, labels: ['omni:needs-fix', 'omni:sub'], head_committed_at: daysAgo(2) });
     const second = store.state.pulls.get(`${WS}|vertuoza/apps|2`);
     expect(second).toMatchObject({ draft: false, labels: [], head_committed_at: null });
+  });
+
+  it('writes when omni:needs-fix was first added, from the label events, and null without one (PRD 714 s4)', async () => {
+    const github = fakeGitHub({
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(1),
+            label_events: [
+              { name: 'omni:sub', created_at: daysAgo(5) },
+              { name: 'omni:needs-fix', created_at: daysAgo(4) },
+              { name: 'omni:needs-fix', created_at: daysAgo(2) },
+            ],
+          }),
+          pull(2, { updated_at: daysAgo(1), label_events: [{ name: 'omni:sub', created_at: daysAgo(3) }] }),
+          pull(3, { updated_at: daysAgo(1) }),
+        ],
+      },
+    });
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+
+    await run({ store, github });
+
+    const needsFixAt = (n) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`).needs_fix_at;
+    expect([needsFixAt(1), needsFixAt(2), needsFixAt(3)]).toEqual([daysAgo(4), null, null]);
+  });
+
+  it('changes no count when it runs twice in a row over the new columns (PRD 714)', async () => {
+    const trailer = `Co-authored-by: ${SIGNATURE.name} <${SIGNATURE.email}>`;
+    const repos = {
+      'vertuoza/apps': {
+        pulls: [
+          pull(1, {
+            updated_at: daysAgo(3), base: { ref: 'feat/x' }, head: { ref: 'feat/x--s1' }, commitMessages: [`feat: a\n\n${trailer}`],
+            merged_at: daysAgo(3), closed_at: daysAgo(3), merged_by: { login: 'ana', type: 'User' },
+            labels: [{ name: 'omni:needs-fix' }], label_events: [{ name: 'omni:needs-fix', created_at: daysAgo(3.5) }],
+          }),
+          pull(2, { updated_at: daysAgo(2), draft: true, commitMessages: [`chore(s2): claim\n\n${trailer}`], comments: ['<!-- omni-outbox-status -->\n- state: stuck'] }),
+        ],
+      },
+    };
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+    await run({ store, github: fakeGitHub(repos) });
+    const pulls = structuredClone([...store.state.pulls]);
+    expect(pulls.map(([, row]) => row.needs_fix_at)).toEqual([daysAgo(3.5), null]);
+
+    store.state.repositories[0].collectedUntil = null;
+    await run({ store, github: fakeGitHub(repos) });
+
+    expect([...store.state.pulls]).toEqual(pulls);
   });
 
   it('reads only what was updated after the cursor on the next run', async () => {
