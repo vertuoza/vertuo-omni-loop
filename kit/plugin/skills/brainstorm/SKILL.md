@@ -146,6 +146,12 @@ include only the improvements this work needs. Cut every feature the brief does 
 approved. Architectural: the design is approved section by section, then the written spec (step 4)
 is reviewed before `/omni:plan` runs.
 
+**The proof question** (PRD 798), once the design is approved and only when
+`node .omni-loop/bin/omni.mjs config proof.url` prints something other than `null`, ask one
+question, yes or no: *"Record a proof video once it ships?"*. A yes writes `proof: video` in the spec's
+front matter (step 4), and `/omni:yolo` then follows `/omni:prove` once the feature PR is ready. A no,
+or `proof.url` unset, writes nothing and asks nothing.
+
 ## 2. Open the PRD issue
 
 The PRD's number is its issue's number, and it names the inbox folder, so the issue comes first.
@@ -224,7 +230,9 @@ spec: file
 - `blocked-by` is **declared, never inferred**: a list of PRD numbers the person named
   (`[3]`), or `none`.
 - When `paths.knowledge` holds a knowledge folder, an optional `areas: [<domain>, …]` names the
-  domain folders the PRD bears on. No other field: the plan is always the sibling `plan.md`, and
+  domain folders the PRD bears on.
+- `proof: video` only when the person said yes to the proof question (step 1); its only value is
+  `video`, and `omni check inbox` refuses any other. No other field: the plan is always the sibling `plan.md`, and
   `omni check inbox` refuses a `status`, `branch`, `value`, `priority` or `plan` field by name.
 - **Acceptance criteria** are what `/omni:plan` turns into each slice's "done when", so each one is
   a condition someone can observe. When `acceptance.enabled`, every scenario from step 6 is copied

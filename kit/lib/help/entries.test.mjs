@@ -92,11 +92,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 37 commands and the 21 skills', () => {
+  it('holds the 37 commands and the 22 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(37);
-    expect(skillFolders()).toHaveLength(21);
+    expect(skillFolders()).toHaveLength(22);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(37);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(21);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(22);
   });
 
   it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
@@ -212,7 +212,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'plan', 'pr', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'status'],
+      everyday: ['ask', 'help', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
