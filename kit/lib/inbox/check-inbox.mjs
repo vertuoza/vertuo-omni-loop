@@ -15,6 +15,8 @@
  *    (`ctx.layout.knowledgeRoot`) — whatever `laws.source` says — names a real domain folder.
  * 5. The sibling `before-after.html`, when present, stays at or under the configured size cap
  *    (`ctx.config.limits.beforeAfterMaxBytes`).
+ * 6. The sibling `voice.json`, when present, reads as the voice record (PRD 822, `../voice/voice.mjs`):
+ *    each refusal names the file, the round and the field.
  *
  * An empty inbox passes trivially. A missing `plan.md` is never graded here — whether a PRD has
  * been planned yet is a status question, never a violation.
@@ -25,6 +27,7 @@ import { basename, dirname, join } from 'node:path';
 import { readRepoFile } from '../check-report.mjs';
 import { domainsDir } from '../knowledge/registers.mjs';
 import { parseFolderName } from '../layout.mjs';
+import { parseVoice, VOICE_FILE } from '../voice/voice.mjs';
 import { parseSpec } from './inbox.mjs';
 
 /** Every folder directly under the knowledge root's `domains/` — a real area name, nothing parsed. */
@@ -105,6 +108,12 @@ export function beforeAfterViolation(file, ctx) {
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 
+/** The violations of one voice.json, each naming the file: none when it is absent or reads. */
+function voiceViolations(file, ctx) {
+  if (!existsSync(join(ctx.root, file))) return [];
+  return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
+}
+
 /**
  * One inbox folder's own grading, its spec file named: the spec's violations, its before-after
  * page's size, and the parsed record (`null` when absent or malformed) for the `blocked-by` pass.
@@ -125,6 +134,7 @@ function gradeFolder(specFile, ctx) {
 
   const beforeAfter = beforeAfterViolation(`${dirname(specFile)}/before-after.html`, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...voiceViolations(`${dirname(specFile)}/${VOICE_FILE}`, ctx));
 
   return { violations, record };
 }

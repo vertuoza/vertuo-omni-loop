@@ -26,6 +26,14 @@ describe('readDossierFolder', () => {
     expect(folder.tooLarge).toEqual([]);
   });
 
+  it('reads voice.json as the voice artifact, sent last (PRD 822)', () => {
+    const VOICE = '{"rounds": []}\n';
+    const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/voice.json`]: VOICE } });
+    const folder = readDossierFolder(ctx, 7);
+    expect(folder.artifacts.map((a) => a.kind)).toEqual(['spec', 'voice']);
+    expect(folder.artifacts[1]).toEqual({ kind: 'voice', path: `${INBOX}/voice.json`, content: VOICE, sha256: sha256(VOICE), bytes: Buffer.byteLength(VOICE) });
+  });
+
   it('skips a missing file without naming it', () => {
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: SPEC } });
     const folder = readDossierFolder(ctx, 7);

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.mjs';
@@ -287,4 +288,33 @@ it('still refuses status, branch, value and priority by name', () => {
       new RegExp(field),
     );
   }
+});
+
+describe('voice.json (PRD 822)', () => {
+  const VOICE = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
+  const folder = `${IN}/0042-inbox-and-planner`;
+
+  it('passes a valid voice.json beside the spec', () => {
+    const { ctx } = makeRepo({
+      files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(VOICE) },
+    });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual([]);
+  });
+
+  it('refuses an invalid voice.json, naming the file, the round and the field', () => {
+    const bad = JSON.parse(JSON.stringify(VOICE));
+    bad.rounds[1].personas[0].score = 9;
+    const { ctx } = makeRepo({
+      files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(bad) },
+    });
+    const expected = [`${folder}/voice.json: round spec: personas[0].score must be a whole number from 1 to 5.`];
+    expect(findInboxViolations({ ctx })).toEqual(expected);
+    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual(expected);
+  });
+
+  it('refuses a voice.json that is not JSON', () => {
+    const { ctx } = makeRepo({ files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: '{' } });
+    expect(findInboxViolations({ ctx })).toEqual([`${folder}/voice.json: not valid JSON.`]);
+  });
 });

@@ -17492,6 +17492,101 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync18, readdirSync as readdirSync11, statSync as statSync5 } from "node:fs";
 import { basename as basename5, dirname as dirname7, join as join24 } from "node:path";
 
+// kit/lib/voice/voice.mjs
+init_define_OMNI_BUNDLE();
+var VOICE_FILE = "voice.json";
+var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
+var STAGES_SAID = "design, spec, rework-<k>, shipped";
+var STANCES2 = ["excited", "neutral", "skeptical"];
+var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
+var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
+var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
+var MAX_SENTENCES = 2;
+var TOP_FIELDS = ["rounds"];
+var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isText5 = (value) => typeof value === "string" && value.trim().length > 0;
+function countSentences2(text4) {
+  return text4.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+}
+function citationProblems(citations, field3) {
+  if (!Array.isArray(citations) || citations.length === 0) {
+    return [`${field3} must cite at least one persona:<name> or claim id.`];
+  }
+  return citations.flatMap(
+    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
+  );
+}
+function lineProblems(text4, field3) {
+  if (!isText5(text4)) return [`${field3} must be a sentence.`];
+  const count3 = countSentences2(text4);
+  return count3 > MAX_SENTENCES ? [`${field3} holds ${count3} sentences; two at most.`] : [];
+}
+function personaProblems(persona, i) {
+  const at = `personas[${i}]`;
+  if (!isRecord(persona)) return [`${at} must be an object.`];
+  const problems = [];
+  if (!isText5(persona.name)) problems.push(`${at}.name must be a name.`);
+  if (!STANCES2.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES2.join(", ")}.`);
+  if (!Number.isInteger(persona.score) || persona.score < 1 || persona.score > 5) {
+    problems.push(`${at}.score must be a whole number from 1 to 5.`);
+  }
+  problems.push(...lineProblems(persona.reaction, `${at}.reaction`));
+  problems.push(...citationProblems(persona.citations, `${at}.citations`));
+  return problems;
+}
+function objectionProblems(objection, names) {
+  if (objection === null) return [];
+  if (!isRecord(objection)) return ["objection must be an object, or null when no persona objected."];
+  const problems = [];
+  if (!isText5(objection.persona)) problems.push("objection.persona must be a name.");
+  else if (names.length > 0 && !names.includes(objection.persona)) {
+    problems.push(`objection.persona ${JSON.stringify(objection.persona)} is not one of the round's personas.`);
+  }
+  problems.push(...lineProblems(objection.text, "objection.text"));
+  problems.push(...citationProblems(objection.citations, "objection.citations"));
+  if (!SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
+  return problems;
+}
+var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
+var personasProblems = (personas) => Array.isArray(personas) && personas.length > 0 ? personas.flatMap(personaProblems) : ["personas must list at least one persona."];
+var fitProblems = (fit2) => fit2 === void 0 || fit2 === null || isText5(fit2) ? [] : ["fit must be one line, or null."];
+function roundProblems(round) {
+  if (!isRecord(round)) return ["must be an object."];
+  const names = Array.isArray(round.personas) ? round.personas.map((p) => p?.name) : [];
+  return [
+    ...unknownFields(round, ROUND_FIELDS, "a round"),
+    ...DATE2.test(round.date ?? "") ? [] : ["date must be YYYY-MM-DD."],
+    ...personasProblems(round.personas),
+    ...objectionProblems(round.objection ?? null, names),
+    ...fitProblems(round.fit)
+  ];
+}
+function parseVoice(text4) {
+  let voice;
+  try {
+    voice = JSON.parse(text4);
+  } catch {
+    return { ok: false, voice: null, errors: ["not valid JSON."] };
+  }
+  if (!isRecord(voice) || !Array.isArray(voice.rounds)) {
+    return { ok: false, voice: null, errors: ["must be an object with a `rounds` list."] };
+  }
+  const errors = unknownFields(voice, TOP_FIELDS, "voice.json");
+  if (voice.rounds.length === 0) errors.push("`rounds` holds no round.");
+  const seen = /* @__PURE__ */ new Set();
+  voice.rounds.forEach((round, i) => {
+    const stage2 = isRecord(round) ? round.stage : void 0;
+    const known = typeof stage2 === "string" && STAGE.test(stage2);
+    const name = known ? `round ${stage2}` : `round ${i + 1}`;
+    if (!known) errors.push(`${name}: stage ${JSON.stringify(stage2 ?? null)} is not one of ${STAGES_SAID}.`);
+    else if (seen.has(stage2)) errors.push(`${name}: the stage comes twice.`);
+    if (known) seen.add(stage2);
+    errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
+  });
+  return errors.length ? { ok: false, voice: null, errors } : { ok: true, voice, errors: [] };
+}
+
 // kit/lib/inbox/inbox.mjs
 init_define_OMNI_BUNDLE();
 var SPEC_VALUES = (
@@ -17662,6 +17757,10 @@ function beforeAfterViolation(file, ctx) {
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
+function voiceViolations(file, ctx) {
+  if (!existsSync18(join24(ctx.root, file))) return [];
+  return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
+}
 function gradeFolder(specFile, ctx) {
   const folder = basename5(dirname7(specFile));
   const violations = [];
@@ -17676,6 +17775,7 @@ function gradeFolder(specFile, ctx) {
   }
   const beforeAfter = beforeAfterViolation(`${dirname7(specFile)}/before-after.html`, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...voiceViolations(`${dirname7(specFile)}/${VOICE_FILE}`, ctx));
   return { violations, record };
 }
 function findInboxViolations({ ctx }) {
@@ -19594,7 +19694,8 @@ var TITLE_MAX3 = 200;
 var ARTIFACT_KINDS = Object.freeze([
   { kind: "spec", pathOf: (layout, prd2) => layout.specPath(prd2) },
   { kind: "plan", pathOf: (layout, prd2) => layout.planPath(prd2) },
-  { kind: "before-after", pathOf: (layout, prd2) => layout.beforeAfterPath(prd2) }
+  { kind: "before-after", pathOf: (layout, prd2) => layout.beforeAfterPath(prd2) },
+  { kind: "voice", pathOf: (layout, prd2) => `${layout.whereIs(prd2).dir}/${VOICE_FILE}` }
 ]);
 var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function frontMatterTitle(text4) {
@@ -19684,10 +19785,10 @@ function skipLine(error) {
   if (error.status === null) return "unreachable";
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
-var isText5 = (value) => typeof value === "string" && value.length > 0;
+var isText6 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
-  const got = Array.isArray(added) ? added.filter((a) => isText5(a?.kind) && Number.isInteger(a?.version)) : [];
-  const kept = Array.isArray(unchanged) ? unchanged.filter(isText5) : [];
+  const got = Array.isArray(added) ? added.filter((a) => isText6(a?.kind) && Number.isInteger(a?.version)) : [];
+  const kept = Array.isArray(unchanged) ? unchanged.filter(isText6) : [];
   const parts = [`added: ${got.length ? got.map(({ kind, version: version2 }) => `${kind} v${version2}`).join(", ") : "none"}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(", ")}`);
   return parts.join(" \xB7 ");
@@ -19700,7 +19801,7 @@ async function open(title, { ctx, repo, client, home, claudeSessionId, stdout, s
     println(stderr, skipLine(error));
     return 1;
   }
-  if (!isText5(draft?.id) || !isText5(draft?.url)) {
+  if (!isText6(draft?.id) || !isText6(draft?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
@@ -19722,7 +19823,7 @@ function issueTitle(issue, { ctx, repo, exec }) {
   }
 }
 function reportPush(result, tooLarge, { stdout, stderr }) {
-  if (!isText5(result?.id) || !isText5(result?.url)) {
+  if (!isText6(result?.id) || !isText6(result?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
@@ -19766,7 +19867,7 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
     }
     forgetDraft(where, draft.id);
   }
-  if (!isText5(result?.id) || !isText5(result?.url)) return reportPush(result, [], { stdout, stderr });
+  if (!isText6(result?.id) || !isText6(result?.url)) return reportPush(result, [], { stdout, stderr });
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd: prd2, id: result.id, url: result.url });
   }
@@ -19793,7 +19894,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
     }
     found = recorded;
   }
-  if (!isText5(found?.url)) {
+  if (!isText6(found?.url)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
