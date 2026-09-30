@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { PersonaAvatar } from '@omni/design';
-import { shortDay } from './view';
 
 // The User voice tab (PRD 822, s3), as pure functions: a version of the PRD's `voice` artifact read
 // through galaxy's own schema (the kit's `kit/lib/voice/` refuses a bad file before it is pushed; this
@@ -26,7 +25,7 @@ const personaSchema = z.object({
 const objectionSchema = z.object({ persona: z.string().trim().min(1), text: z.string().trim().min(1), citations, settled: z.enum(SETTLED) });
 const roundSchema = z.object({
   stage: z.string().regex(STAGE),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/),
   personas: z.array(personaSchema).min(1),
   objection: objectionSchema.nullish().transform((o) => o ?? null),
   fit: z.string().trim().min(1).nullish().transform((f) => f ?? null),
@@ -89,6 +88,10 @@ export function stageLabel(stage: string): string {
   return stage.charAt(0).toUpperCase() + stage.slice(1);
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** `30 Sep`, from the round's `YYYY-MM-DD`, as the page's other dates read. */
+const dayOf = (date: string) => `${Number(date.slice(8, 10))} ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
+
 const outOf5 = (score: number) => `${score}/5`;
 const moveOf = (from: number, to: number): VoiceMove => (to > from ? '▲' : to < from ? '▼' : '=');
 
@@ -126,7 +129,7 @@ export function voiceView(voice: Voice, cast: readonly VoiceCast[]): VoiceView {
   const rounds = voice.rounds.map((round): VoiceRound => ({
     stage: round.stage,
     label: stageLabel(round.stage),
-    date: shortDay(`${round.date}T12:00:00Z`),
+    date: dayOf(round.date),
     objection: round.objection && {
       persona: round.objection.persona, text: round.objection.text, citations: round.objection.citations,
       settled: SETTLED_WORDS[round.objection.settled],

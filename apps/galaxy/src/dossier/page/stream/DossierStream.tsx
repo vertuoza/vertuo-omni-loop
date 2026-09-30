@@ -4,6 +4,7 @@ import type { RenderedMarkdown } from '../../markdown';
 import type { StageRow } from '../../../stages/stage';
 import { DossierPage } from '../DossierPage';
 import { dossierView, type DossierPick, type DossierRead } from '../view';
+import type { VoiceView } from '../voice';
 import { pendingView } from './pending';
 
 // A PRD's page, streamed (PRD 657 s4): its GitHub summary is read beside the page, never before it.
@@ -34,6 +35,8 @@ export interface DossierStreamProps {
   reads: DossierReads;
   /** The shown Spec or Plan, rendered: it does not wait for GitHub. */
   markdown: Promise<RenderedMarkdown | null>;
+  /** The shown User voice version, read (PRD 822): it does not wait for GitHub; left out, none. */
+  voice?: Promise<VoiceView | null>;
   supabase: { url: string; key: string };
   /** The change check, from the page as the database read it (and, PRD 757, its play dock's player). */
   live: (read: DossierRead) => ReactNode | Promise<ReactNode>;
@@ -42,17 +45,17 @@ export interface DossierStreamProps {
 type Props = Omit<DossierStreamProps, 'live'>;
 
 /** The page as the database has it, before GitHub answers. */
-async function Pending({ read, me, pick, reads, markdown, supabase }: Props) {
-  const [slices, stages, shown] = await Promise.all([reads.slices, reads.stages, markdown]);
+async function Pending({ read, me, pick, reads, markdown, voice, supabase }: Props) {
+  const [slices, stages, shown, heard] = await Promise.all([reads.slices, reads.stages, markdown, voice ?? null]);
   const view = pendingView(dossierView({ ...read, slices, stages }, me, pick));
-  return <DossierPage view={view} markdown={shown} supabase={supabase} />;
+  return <DossierPage view={view} markdown={shown} voice={heard} supabase={supabase} />;
 }
 
 /** The whole page, with its GitHub summary: what the page ends as. */
-export async function completePage({ read, me, pick, reads, markdown, supabase }: Props) {
-  const [github, slices, stages, shown] = await Promise.all([reads.github, reads.slices, reads.stages, markdown]);
+export async function completePage({ read, me, pick, reads, markdown, voice, supabase }: Props) {
+  const [github, slices, stages, shown, heard] = await Promise.all([reads.github, reads.slices, reads.stages, markdown, voice ?? null]);
   const withGithub: DossierRead = { ...read, github, slices, stages };
-  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} supabase={supabase} />;
+  return <DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} voice={heard} supabase={supabase} />;
 }
 
 async function Complete(props: Props) {
