@@ -90,8 +90,11 @@ describe('SUPER OMNI WORLD in the dock', () => {
   it('pauses at once on a question, and nothing but START resumes it, once the question is gone', async () => {
     const { askPf, newDockPf, pfPaused, pressPf } = await import('./platformer');
     const ready = { ...newDockPf(), status: 'ready' as const };
-    expect(pfPaused(ready, false)).toBe(false);
-    const asked = askPf(ready);
+    // The ready screen (1-1 · PRESS START) stands still until START.
+    expect(pfPaused(ready, false)).toBe(true);
+    const playing = pressPf(ready, 'start', false).pf;
+    expect(pfPaused(playing, false)).toBe(false);
+    const asked = askPf(playing);
     expect(asked.session.phase).toBe('paused');
     expect(pfPaused(asked, true)).toBe(true);
     // While the question is open, START and the rest wait.
@@ -105,15 +108,16 @@ describe('SUPER OMNI WORLD in the dock', () => {
 
   it('goes on to its end when Claude is done: the device stays, and the game is not paused', async () => {
     const { dockView } = await import('./dock');
-    const { newDockPf, pfPaused } = await import('./platformer');
+    const { newDockPf, pfPaused, pressPf } = await import('./platformer');
     const view = dockView({ state: 'idle', door: { play: true, games: ['invaders', 'platformer'] }, open: true, game: true, width: 1280 });
     expect(view).toEqual({ kind: 'done' });
-    expect(pfPaused({ ...newDockPf(), status: 'ready' }, view.kind === 'asking')).toBe(false);
+    const playing = pressPf({ ...newDockPf(), status: 'ready' }, 'start', false).pf;
+    expect(pfPaused(playing, view.kind === 'asking')).toBe(false);
   });
 
   it('goes back to the picker on B from the pause, folds on SELECT, and retries a failed import on A', async () => {
     const { askPf, newDockPf, pressPf } = await import('./platformer');
-    const paused = askPf({ ...newDockPf(), status: 'ready' });
+    const paused = askPf(pressPf({ ...newDockPf(), status: 'ready' }, 'start', false).pf);
     expect(pressPf(paused, 'b', false).out).toBe('back');
     expect(pressPf(paused, 'b', true).out).toBe('back');
     expect(pressPf(paused, 'select', false).out).toBe('fold');
