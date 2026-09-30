@@ -8,6 +8,7 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
 import { AnswerList, History } from './History';
+import { LeadMessage } from './LeadMessage';
 import { PersonChip } from '../../people/PersonChip';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
@@ -134,6 +135,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
         onChange={(category) => void onSort(category)}
         saving={sorting}
       />
+      {view.kind !== 'closed' && <LeadMessage key={state.round.id} lead={state.round.lead} />}
 
       {view.kind === 'open' && view.canAnswer && current && (
         <RoundForm

@@ -7,6 +7,7 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
+import { LeadMessage } from './LeadMessage';
 import { poll } from './poll';
 import type { Member } from './question';
 import { shareCandidates } from './share';
@@ -187,6 +188,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         <>
           <ContextLine parts={contextParts(state.session, view.round)} />
           {chip(view.round)}
+          <LeadMessage key={view.round.id} lead={view.round.lead} />
         </>
       )}
 

@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import { ContextLine } from './ContextLine';
+import { LeadMessage } from './LeadMessage';
 import { QuestionText } from './QuestionText';
 import { screenshotsNote, type HistoryEntry } from './view';
 
@@ -67,6 +68,7 @@ export function History({ history, chip }: { history: HistoryEntry[]; chip?: (en
                 <Summary entry={entry} />
                 <span className="ask-via" data-via={entry.via ?? entry.outcome}>{TAG[entry.outcome](entry.via)}</span>
               </summary>
+              <LeadMessage lead={entry.lead} />
               <AnswerList lines={entry.lines} />
             </details>
             <ContextLine parts={entry.context} />
