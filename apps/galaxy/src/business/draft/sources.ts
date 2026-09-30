@@ -50,8 +50,11 @@ export function repoFiles(listing: RepoListing): RepoFile[] {
   return files.slice(0, MAX_FILES_PER_REPO);
 }
 
+/** A repository as the page names it: `vertuo-app`. */
+export const repoLabel = (repository: string) => repository.split('/').pop() ?? repository;
+
 /** A repository file as the page names it: `vertuo-app · README.md`. */
-export const fileLabel = (repository: string, path: string) => `${repository.split('/').pop()} · ${path}`;
+export const fileLabel = (repository: string, path: string) => `${repoLabel(repository)} · ${path}`;
 
 /** A web page as the page names it: `vertuoza.com/pricing`. */
 export const pageLabel = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');
