@@ -625,3 +625,237 @@ One predicate (noFeature) in view.ts and a few test expectations.
 ```
 
 <!-- /omni-outbox-settled: s4-02-care-tab-while-unknown -->
+
+<!-- omni-outbox-settled: s5-01-care-own-worktree -->
+
+## s5-01-care-own-worktree — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-care-own-worktree
+prd: 790
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+PR care changes and pushes code while it watches. Should it work in the person's own copy of the project, or in a separate copy of its own?
+
+## The decision, in plain words
+
+PR care works in a separate copy of its own, so the person's own copy is never switched or changed while it watches.
+
+## The intro, for fun
+
+Two cooks, one cutting board, and one of them keeps swapping the vegetables.
+
+## The punchline, for fun
+
+So PR care brought its own board.
+
+## The options, in plain words
+
+A. A. A worktree of its own, reset each round (built).
+B. B. The person's checkout, refusing to start when it has changes.
+C. C. A fresh clone in a temporary folder.
+
+## What I had to decide
+
+Where /omni:pr-care makes its conflict, CI and review fixes: the person's checkout, or a worktree of the feature branch; the spec does not say.
+
+## What I did meanwhile
+
+The skill adds a worktree at <worktrees>/pr-care-<n>, resets it to the feature branch at the start of every round, and removes it when the watch stops.
+
+## What it costs to change later
+
+A few lines in kit/plugin/skills/pr-care/SKILL.md; no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether people expect to see care's fixes appear in their own checkout is not known.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-care-own-worktree -->
+
+<!-- omni-outbox-settled: s5-02-care-fix-that-stays-red -->
+
+## s5-02-care-fix-that-stays-red — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-care-fix-that-stays-red
+prd: 790
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+A reviewer asks for a fix, PR care tries it, and the project's checks keep failing. What should happen to that comment?
+
+## The decision, in plain words
+
+PR care undoes its attempt, pushes nothing, and hands the comment to the PM with a note saying what it tried.
+
+## The intro, for fun
+
+The fix looked easy, then the tests disagreed three times in a row.
+
+## The punchline, for fun
+
+When the fix will not behave, a person gets the call.
+
+## The options, in plain words
+
+A. A. Revert, and hand the thread to the PM as asked (built).
+B. B. Revert, and push back with the reason that the fix broke the checks.
+C. C. Push the fix anyway and let the CI fix loop take it.
+
+## What I had to decide
+
+What a review thread judged fixed becomes when its fix cannot pass the preflight within limits.attempts tries; the spec only says each fix runs the preflight before pushing.
+
+## What I did meanwhile
+
+The skill reverts the attempt, pushes nothing, and replies with the asked verdict, naming what was tried; the thread stays open for the PM.
+
+## What it costs to change later
+
+One paragraph of kit/plugin/skills/pr-care/SKILL.md.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a pushed-back reply would suit such a thread better is not settled by the spec.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-care-fix-that-stays-red -->
+
+<!-- omni-outbox-settled: s5-03-docs-skills-list-outside-territory -->
+
+## s5-03-docs-skills-list-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-docs-skills-list-outside-territory
+prd: 790
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+The skills page of the docs has a test that lists every skill under Build it by name, and adding PR care there means changing a file this part of the work was not given: may it?
+
+## The decision, in plain words
+
+We added PR care's name to that list in the docs test, a one-word change, so the docs page shows the new skill under Build it with the checks still passing.
+
+## The intro, for fun
+
+The new skill arrived at the docs page and found the guest list already printed.
+
+## The punchline, for fun
+
+So we wrote its name in by hand, at the end of the row.
+
+## The options, in plain words
+
+A. A. Change the docs test's expected list in this slice (built).
+B. B. Put PR care in the Every day group instead, which that test does not list by name.
+C. C. Leave the docs test red until a follow-up slice.
+
+## What I had to decide
+
+Whether slice s5 may change apps/galaxy/src/docs/skills.test.ts, outside its territory, whose overview test lists the build group's skills by name and fails for any new one.
+
+## What I did meanwhile
+
+Added 'pr-care' after 'pr' in the build group's expected list in apps/galaxy/src/docs/skills.test.ts; no page code changed, the page reads the help entries.
+
+## What it costs to change later
+
+One word in one test; undone by moving the line to another slice or putting the skill in another group.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan did not foresee that the docs page test names every build skill.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-docs-skills-list-outside-territory -->
