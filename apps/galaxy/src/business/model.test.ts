@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  businessReducer, citationLine, claimOf, displayId, initialState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
-  sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, type Claim,
+  businessReducer, citationLine, claimOf, displayId, hasProducts, initialState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
+  sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product,
 } from './model';
 
 // Settings → Business as pure data (PRD 748 s2): the sentence the confirmed claims write, what a pick
@@ -23,7 +23,7 @@ describe('a stored claim', () => {
       { claim_id: 'c-1', cited_by: 'think-big', ref: null, cited_at: '2026-10-03T10:00:00Z' },
     ];
     const read = claimOf(row, citations);
-    expect(read).toEqual({ id: 'c-9', seq: 4, kind: 'rival', value: 'Acme Build', source: 'suggestion', state: 'confirmed', cited: 2, lastBy: 'think-big concept #9' });
+    expect(read).toEqual({ id: 'c-9', seq: 4, kind: 'rival', value: 'Acme Build', source: 'suggestion', state: 'confirmed', product: 'p-1', cited: 2, lastBy: 'think-big concept #9' });
     expect(displayId(read)).toBe('rival#4');
     expect(citationLine(read)).toBe('cited 2× · last by think-big concept #9');
     expect(citationLine(claimOf(row))).toBe('not cited yet');
@@ -143,5 +143,46 @@ describe('the page\'s state', () => {
     const s = businessReducer(initialState([kept]), { type: 'suggested', claims: [{ ...kept, cited: 0, lastBy: null }, beta] });
     expect(s.claims).toEqual([kept, beta]);
     expect(s.busy).toBe(false);
+  });
+});
+
+describe('products (PRD 748 s4)', () => {
+  const ERP: Product = { id: 'p-1', name: 'Vertuoza' };
+  const LOOP: Product = { id: 'p-2', name: 'Omni Loop' };
+  const region = claim('region', 'Belgium', { product: null });
+  const erp = claim('offering', 'ERP', { product: 'p-1' });
+  const tool = claim('offering', 'developer tool', { product: 'p-2' });
+  const unowned = claim('rival', 'Acme Build');
+
+  it('has products only from the second one on', () => {
+    expect(hasProducts([])).toBe(false);
+    expect(hasProducts([ERP])).toBe(false);
+    expect(hasProducts([ERP, LOOP])).toBe(true);
+  });
+
+  it('shows every claim while there is one product', () => {
+    expect(viewClaims([region, erp, tool], [ERP], 'p-1')).toEqual([region, erp, tool]);
+  });
+
+  it('shows the shared region and the current product\'s claims once there are two, a claim of no product counting as the first\'s', () => {
+    expect(viewClaims([region, erp, tool, unowned], [ERP, LOOP], 'p-1')).toEqual([region, erp, unowned]);
+    expect(viewClaims([region, erp, tool, unowned], [ERP, LOOP], 'p-2')).toEqual([region, tool]);
+  });
+
+  it('writes each product\'s sentence with the region of the business', () => {
+    expect(sentenceText(viewClaims([region, erp, tool], [ERP, LOOP], 'p-2'))).toBe('We sell a developer tool to ___-person ___ in Belgium, up against ___.');
+  });
+
+  it('starts on the first product, adds one and shows it, and switches between them', () => {
+    let s = initialState([region], [ERP]);
+    expect(s).toMatchObject({ products: [ERP], current: 'p-1', adding: false });
+    expect(initialState([]).current).toBeNull();
+    s = businessReducer(s, { type: 'add-product' });
+    expect(s.adding).toBe(true);
+    s = businessReducer(businessReducer(s, { type: 'busy' }), { type: 'product-added', product: LOOP });
+    expect(s).toMatchObject({ products: [ERP, LOOP], current: 'p-2', adding: false, busy: false });
+    s = businessReducer(businessReducer(s, { type: 'type', kind: 'rival' }), { type: 'show-product', product: 'p-1' });
+    expect(s).toMatchObject({ current: 'p-1', typing: null, sizeDraft: null });
+    expect(businessReducer(businessReducer(s, { type: 'add-product' }), { type: 'unadd-product' }).adding).toBe(false);
   });
 });

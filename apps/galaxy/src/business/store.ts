@@ -1,4 +1,4 @@
-import { claimOf, type Claim, type ClaimKind, type StoredClaim } from './model';
+import { claimOf, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
 // supabase/migrations/20261017090000_business_store.sql, called as the signed-in person: claim_pick()
@@ -9,14 +9,19 @@ import { claimOf, type Claim, type ClaimKind, type StoredClaim } from './model';
 // `run()` makes the calls of a plan of model.ts: the rejections first, then the pick.
 
 export type Saved = { ok: true; claim: Claim } | { ok: false; message: string };
+export type AddedProduct = { ok: true; product: Product } | { ok: false; message: string };
 
+// Products (PRD 748 s4): a pick and a suggestion name the product whose tab is shown (the port's own,
+// the first, when none is given), and product_add() adds one by name.
 export interface BusinessPort {
-  /** Picks `value` of `kind`: a confirmed claim, new or confirmed again. */
-  pick(kind: ClaimKind, value: string): Promise<Saved>;
+  /** Picks `value` of `kind` on `product`: a confirmed claim, new or confirmed again. */
+  pick(kind: ClaimKind, value: string, product?: string): Promise<Saved>;
   /** ✓ Right or ✗ Wrong on a claim; the row is kept either way. */
   setState(claim: Claim, state: 'confirmed' | 'rejected'): Promise<Saved>;
   /** Asks for suggested rivals (PRD 748 s3): the proposed rivals stored, or none on any failure. */
-  suggest(): Promise<Claim[]>;
+  suggest(product?: string): Promise<Claim[]>;
+  /** Adds a product to the business, by name. */
+  addProduct(name: string): Promise<AddedProduct>;
 }
 
 /** The route that asks the small model for rivals and stores them as proposed claims. */
@@ -51,17 +56,27 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     }
   };
   return {
-    pick: (kind, value) => call('claim_pick', {
-      p_product: kind === 'region' ? null : product, p_kind: kind, p_value: value, p_source: 'pick',
+    pick: (kind, value, on = product) => call('claim_pick', {
+      p_product: kind === 'region' ? null : on, p_kind: kind, p_value: value, p_source: 'pick',
     }),
     setState: (claim, state) => call('claim_set_state', { p_claim: claim.id, p_state: state }),
+    async addProduct(name) {
+      try {
+        const { data, error } = await db.rpc('product_add', { p_workspace: workspace, p_name: name });
+        const made = data as { id?: unknown; name?: unknown } | null;
+        if (error || typeof made?.id !== 'string') return { ok: false, message: refusalOf(error) };
+        return { ok: true, product: { id: made.id, name: String(made.name) } };
+      } catch (err) {
+        return { ok: false, message: refusalOf(err) };
+      }
+    },
     // No guess is ever an error: a refusal, a broken answer or no network all find none.
-    async suggest() {
+    async suggest(on = product) {
       try {
         const response = await fetch(SUGGEST_ROUTE, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ workspace, product }),
+          body: JSON.stringify({ workspace, product: on }),
         });
         if (!response.ok) return [];
         const body = (await response.json()) as { claims?: unknown } | null;
@@ -74,21 +89,35 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
   };
 }
 
-/** claim_pick() and claim_set_state()'s rules on claims kept in memory. */
-export function demoBusinessPort(initial: Claim[]): BusinessPort {
+const badText = (v: string) => v.length < 1 || v.length > 80 || /[\r\n\t]/.test(v);
+
+/** claim_pick(), claim_set_state() and product_add()'s rules on claims and products kept in memory. */
+export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = []): BusinessPort {
   let claims = [...initial];
+  let products = [...initialProducts];
   const save = (claim: Claim): Saved => {
     claims = [...claims.filter((c) => c.id !== claim.id), claim];
     return { ok: true, claim };
   };
   return {
-    async pick(kind, value) {
+    async pick(kind, value, on = products[0]?.id) {
       const v = value.trim();
-      if (v.length < 1 || v.length > 80 || /[\r\n\t]/.test(v)) return { ok: false, message: INVALID };
-      const kept = claims.find((c) => c.kind === kind && c.value.toLowerCase() === v.toLowerCase());
+      if (badText(v)) return { ok: false, message: INVALID };
+      const first = products[0]?.id;
+      const product = kind === 'region' ? null : on ?? null;
+      // With no product known, one product holds every claim.
+      const sameProduct = (c: Claim) => c.kind === 'region' || first === undefined || (c.product ?? first) === product;
+      const kept = claims.find((c) => c.kind === kind && sameProduct(c) && c.value.toLowerCase() === v.toLowerCase());
       if (kept) return save({ ...kept, state: 'confirmed' });
       const seq = Math.max(0, ...claims.map((c) => c.seq)) + 1;
-      return save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', cited: 0, lastBy: null });
+      return save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', product, cited: 0, lastBy: null });
+    },
+    async addProduct(name) {
+      const v = name.trim();
+      if (badText(v) || products.some((p) => p.name.toLowerCase() === v.toLowerCase())) return { ok: false, message: INVALID };
+      const product = { id: `demo-product-${products.length + 1}`, name: v };
+      products = [...products, product];
+      return { ok: true, product };
     },
     async setState(claim, state) {
       const kept = claims.find((c) => c.id === claim.id);

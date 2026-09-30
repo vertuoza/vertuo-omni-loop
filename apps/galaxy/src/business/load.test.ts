@@ -62,15 +62,17 @@ describe('the business page\'s read', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('opens the business, and reads the region and the first product\'s claims with their citations', async () => {
-    const d = db();
+  it('opens the business, and reads its products and every claim with its citations (PRD 748 s4)', async () => {
+    const d = db({ products: { data: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] } });
     expect(await loadBusinessPage(d as never, USER)).toEqual({
       kind: 'business',
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       product: { id: 'p-1', name: 'Vertuoza' },
+      products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }],
       claims: [
-        { id: 'c-1', seq: 1, kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', cited: 0, lastBy: null },
-        { id: 'c-2', seq: 2, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', cited: 2, lastBy: 'think-big concept #9' },
+        { id: 'c-1', seq: 1, kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', product: null, cited: 0, lastBy: null },
+        { id: 'c-2', seq: 2, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', product: 'p-1', cited: 2, lastBy: 'think-big concept #9' },
+        { id: 'c-3', seq: 3, kind: 'offering', value: 'developer tool', source: 'pick', state: 'confirmed', product: 'p-2', cited: 0, lastBy: null },
       ],
     });
     expect(d.calls).toContainEqual(['rpc', 'business_open', { p_workspace: 'ws-1' }]);
