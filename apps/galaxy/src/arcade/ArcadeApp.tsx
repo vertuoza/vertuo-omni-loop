@@ -134,7 +134,7 @@ export interface ArcadeProps {
    */
   scores?: Record<string, ScoresRead>;
   /**
-   * The planets' dossiers, by PRD number (PRD 216): the planet's DOSSIER tab shows its own, NO DOSSIER
+   * The planets' dossiers, by planet key or PRD number (PRD 216, PRD 728): the planet's DOSSIER tab shows its own, NO DOSSIER
    * YET without one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open
    * carries its link, and START opens it from the tab; the single-file artifact's carry none.
    */
@@ -623,7 +623,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') return go({ sel: (u.sel + 1) % planets }, 'move');
         if (action === 'start') {
           // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
-          const url = dossierLink(dossiers, view?.planets[u.sel]?.prd ?? 0, u.tab);
+          const on = view?.planets[u.sel];
+          const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
           if (url) { sfx('select'); return openPage(url); }
         }
         if (action === 'b' || action === 'start') return go({ scene: 'map' }, 'back');
@@ -880,7 +881,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel.prd)} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel, view.planets)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
