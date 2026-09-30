@@ -95,6 +95,13 @@ jobs:
         # are refused. Members read the repositories, pull requests and reviews; a stranger reads
         # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
+      - name: Who may read and write the business
+        # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
+        # adds and renames products, points repositories at them and cites claims, through the business
+        # functions only; another workspace's member and anyone signed out are refused (42501), a bad
+        # kind or value is refused (22023). Agents read confirmed claims only, region from the business
+        # and the rest from the repository's product. Nothing is seeded, and no citation is rewritten.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

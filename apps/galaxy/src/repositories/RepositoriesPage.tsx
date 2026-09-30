@@ -1,13 +1,14 @@
 'use client';
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Product } from '../business/model';
 import { initialState, repositoriesReducer, type RepositoryRow } from './model';
 import { RepositoriesView, type Access, type RepositoriesHandlers } from './RepositoriesView';
 import { databaseRepositories, demoRepositoriesPort, type RepositoriesPort, type Saved } from './store';
 
 // Settings → Repositories in the browser (PRD 612 s1): keeps the page's state (model.ts) and calls the
-// two repository functions as the signed-in person (store.ts), one call at a time; the view draws
-// each step. In the demo, the same rules run in memory.
+// repository functions as the signed-in person (store.ts), one call at a time; the view draws each
+// step. PRD 748 s4 adds the product select's call. In the demo, the same rules run in memory.
 
 export type RepositoriesSource =
   | { kind: 'demo' }
@@ -21,9 +22,11 @@ export interface RepositoriesPageProps {
   repositories: RepositoryRow[];
   access: Access;
   now: number;
+  /** The business's products, first first (PRD 748 s4). */
+  products?: Product[];
 }
 
-export function RepositoriesPage({ source, owner, repositories, access, now }: RepositoriesPageProps) {
+export function RepositoriesPage({ source, owner, repositories, access, now, products = [] }: RepositoriesPageProps) {
   const [state, dispatch] = useReducer(repositoriesReducer, repositories, initialState);
   const port = useRef<RepositoriesPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
@@ -42,7 +45,8 @@ export function RepositoriesPage({ source, owner, repositories, access, now }: R
     close: () => dispatch({ type: 'close' }),
     add: (fullName) => void run((p) => p.add(fullName)),
     setTracked: (fullName, tracked) => void run((p) => p.setTracked(fullName, tracked)),
+    setProduct: (fullName, product) => void run((p) => p.setProduct(fullName, product)),
   };
 
-  return <RepositoriesView state={state} owner={owner} access={access} now={now} on={on} />;
+  return <RepositoriesView state={state} owner={owner} access={access} now={now} products={products} on={on} />;
 }

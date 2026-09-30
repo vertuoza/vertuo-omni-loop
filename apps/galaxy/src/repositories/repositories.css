@@ -34,6 +34,19 @@
 .repositories-collection { font-size: 14px; }
 .repositories-no-access { font-size: 14px; }
 
+/* A row's product (PRD 748 s4): wraps under the name at 393 px, never wider than the row. */
+.repositories-product {
+  max-width: 100%;
+  font: 600 14px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.repositories-product:disabled { cursor: not-allowed; opacity: 0.6; }
+.repositories-product:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
 .repositories-switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
 .repositories-toggle {
   position: relative;

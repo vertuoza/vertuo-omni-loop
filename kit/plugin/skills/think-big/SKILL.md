@@ -232,6 +232,12 @@ nothing in the repository changes.
   **proposed** entry describes the product but is no law); and, for a platform idea,
   `node .omni-loop/bin/omni.mjs kb show architecture`. Concepts are a measured leap from here, and
   prototypes start from the real look where the concept allows.
+- **The business.** Who this repository's product is sold to and who it is up against, read with
+  `node .omni-loop/bin/omni.mjs business show --json`. When its `state` is `ok`, copy every confirmed
+  claim into the fuel sheet under their ids (`offering#2 ERP`, `rival#4 …`), so the studio designs
+  for that customer and cites a claim by its id wherever it leans on one. Any other `state` (`none`,
+  `no-sign-in`, `unreachable`, `refused`) is said in one line to the person, and the run carries on
+  without it; never type a business fact the claims do not hold.
 - **World-class references,** when the session can search the web: patterns from other products and
   other industries (consumer apps, games, professional tools), each with its link and what to take
   from it. **No reference is cited that was not looked at.** When the session cannot search, say
@@ -372,7 +378,8 @@ crowned concept.
      (what was asked, and what was assumed), **The vision** (the crowned concept and its wow
      moments), **Why this one** (the verdict: the scores, each role's stance, the dissent), **Killed
      and why** (one line per concept that did not survive, so killed ideas stay findable), **Fuel**
-     (the product facts read, and the references looked at, with their links) and **Areas**. The
+     (the product facts read, the references looked at, with their links, and the business claim ids
+     the studio cited, such as `rival#4`, on one line) and **Areas**. The
      Areas table lists the areas in build order, **its first row the wedge**; each `id` kebab-case
      and unique; two to six rows for a vast concept, one for a lite one; every `PRD` cell empty, for
      `/omni:brainstorm` to fill.
@@ -388,9 +395,19 @@ crowned concept.
    | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or stray file, a gap in the rounds, a `concept.md` the parser refuses, a page too big, a raster image, a page loading from the network, a file changed outside the folder, an unsigned commit), commit, and rerun. |
    | `2` | The kit is not installed here, or its config does not read: say so and stop. |
 
-6. **Push** the concept branch: `git push -u <remote> <concept branch>`.
+6. **Log the citations,** only when the Fuel section names a business claim id: pass every id it
+   lists, once each.
 
-7. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
+   ```bash
+   node .omni-loop/bin/omni.mjs business cited <id>… --by think-big --ref 'concept #<n>'
+   ```
+
+   It exits 0 whatever happens: a "citation skipped" line is said to the person, and the run
+   carries on.
+
+7. **Push** the concept branch: `git push -u <remote> <concept branch>`.
+
+8. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
    `labels.concept` (subject to its **Labels** rules), title `docs(concept): <title>`, and this body,
    signed (**Signing**):
 

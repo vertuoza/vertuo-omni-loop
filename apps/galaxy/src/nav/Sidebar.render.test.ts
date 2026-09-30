@@ -76,7 +76,7 @@ describe('the sidebar', () => {
     const html = render();
     expect(html).not.toContain('id="app-sidebar-settings"');
     expect(html).not.toMatch(/<p class="app-sidebar-label"[^>]*>Settings<\/p>/);
-    for (const path of ['/app/settings/fleets', '/app/settings/repositories', '/ask/for-me', '/ask/history']) expect(html).not.toContain(`href="${path}"`);
+    for (const path of ['/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/ask/for-me', '/ask/history']) expect(html).not.toContain(`href="${path}"`);
   });
 
   it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
@@ -125,6 +125,7 @@ describe('the sidebar', () => {
     ['/app/settings', '/app/settings'],
     ['/app/settings/fleets', '/app/settings'],
     ['/app/settings/repositories', '/app/settings'],
+    ['/app/settings/business', '/app/settings'],
     ['/prd/3f2a', '/prd'],
     ['/bugs/3f2a', '/bugs'],
     ['/visual/3f2a', '/visual'],

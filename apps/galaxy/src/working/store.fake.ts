@@ -1,6 +1,6 @@
 // A stubbed Supabase client for the heartbeat's tests: the working_pings table and the dossiers it
 // resolves to, in memory, the Auth server's token check, and working_ping() of
-// supabase/migrations/20261019090000_working_pings.sql written here as the migration writes it:
+// supabase/migrations/20261020090000_working_pings.sql written here as the migration writes it:
 //
 // - refused 42501 for a session another account owns, and for a caller with no workspace (the fake's
 //   repo_workspace(): the member workspace whose GitHub org owns the repository, else the one joined

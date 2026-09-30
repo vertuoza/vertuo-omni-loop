@@ -7,7 +7,7 @@
 // `work` is null, {kind: 'draft', draftId}, or {kind: 'prd' | 'visual' | 'bug', number}: what the kit's
 // work finder named. Nothing else is taken: an unknown field is refused, so no tool name, path or text
 // can ever be stored. The database places the row, resolves its dossier and keeps it the caller's own
-// (working_ping(), supabase/migrations/20261019090000_working_pings.sql).
+// (working_ping(), supabase/migrations/20261020090000_working_pings.sql).
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer
 // token, 403 the database's refusal (a session another account owns, or a repository no workspace of

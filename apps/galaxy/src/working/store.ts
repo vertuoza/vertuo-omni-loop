@@ -1,4 +1,4 @@
-// The heartbeats (supabase/migrations/20261019090000_working_pings.sql, PRD 757): one row per Claude
+// The heartbeats (supabase/migrations/20261020090000_working_pings.sql, PRD 757): one row per Claude
 // session, written as the caller through working_ping(), which upserts only the caller's own row, places
 // it in the workspace the repository belongs to for them, and resolves the dossier its work names. A
 // member of the workspace reads the rows; row-level security decides, so a row of another workspace

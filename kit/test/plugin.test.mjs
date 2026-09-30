@@ -975,6 +975,18 @@ describe('the think-big skill in this repository', () => {
     ])).toEqual([]);
   });
 
+  // PRD 748: the studio designs for the business this repository serves, and logs what it cited.
+  it("fuels the studio with the business's confirmed claims, read with omni business show --json", () => {
+    const fuel = skillSection(read(), '2.');
+    expect(orderGaps(fuel, ['**The business.**', 'omni.mjs business show --json', 'under their ids', '`state`', 'one line'])).toEqual([]);
+  });
+
+  it('records the cited claim ids in the Fuel section, then logs them with omni business cited', () => {
+    const record = skillSection(read(), '6.');
+    expect(orderGaps(record, ['**Fuel**', 'the business claim ids'])).toEqual([]);
+    expect(orderGaps(record, ['omni.mjs concept <n>', 'omni.mjs business cited <id>… --by think-big --ref \'concept #<n>\'', '/omni:pr'])).toEqual([]);
+  });
+
   it('never merges, and writes nothing in the repository or on GitHub before its record', () => {
     const text = read();
     const never = skillSection(text, 'Never');

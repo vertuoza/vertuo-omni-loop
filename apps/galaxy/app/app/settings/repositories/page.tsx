@@ -17,9 +17,12 @@ import { appCredentials, githubApp, installUrl } from '../../../../src/signup/gi
 export const metadata: Metadata = { title: 'Repositories · OMNI LOOP' };
 
 const DEMO: RepositoryRow[] = [
-  { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null },
-  { fullName: 'acme/legacy', tracked: false, collectedAt: null, collectError: null },
+  { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, product: 'demo-product-1' },
+  { fullName: 'acme/legacy', tracked: false, collectedAt: null, collectError: null, product: 'demo-product-2' },
 ];
+
+/** The demo's two products (PRD 748 s4), so each row shows its product select. */
+const DEMO_PRODUCTS = [{ id: 'demo-product-1', name: 'Widgets' }, { id: 'demo-product-2', name: 'Legacy' }];
 
 /** galaxy's App client, or null when this deployment has no App credentials. */
 function appOrNull(): RepositoriesApp | null {
@@ -36,7 +39,7 @@ async function viewOf(): Promise<RepositoriesScreenView> {
   const session = await memberSession();
   if (session.kind === 'demo') {
     return {
-      kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: DEMO, now,
+      kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: DEMO, products: DEMO_PRODUCTS, now,
       access: { kind: 'installed', settingsUrl: null, reachable: ['acme/widgets', 'acme/legacy', 'acme/new-thing'] },
     };
   }
@@ -45,7 +48,7 @@ async function viewOf(): Promise<RepositoriesScreenView> {
   if (load.kind !== 'repositories') return load;
   return {
     kind: 'repositories', source: { kind: 'database', ...session.env, workspace: load.workspace.id },
-    owner: load.owner, repositories: load.repositories, access: load.access, now,
+    owner: load.owner, repositories: load.repositories, access: load.access, products: load.products, now,
   };
 }
 
