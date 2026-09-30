@@ -2,7 +2,8 @@
    repositories and the fleet ranking, on the ask pages' reading surface. Every colour is a token of
    src/ask/theme-tokens.ts, as in ../dashboard.css; a fleet's own colour comes from the data, as
    --dash-fleet on the element that shows it. Nothing is wider than the window: at 393 px the tiles
-   go two by two, the charts one above the other, and the People table scrolls inside its own box. */
+   go two by two, the charts one above the other, and the People table scrolls inside its own box,
+   its names whole and pinned at the left edge (issue 850). */
 
 .board { display: grid; gap: 28px; min-width: 0; }
 .board > * { min-width: 0; }
@@ -37,6 +38,10 @@
 .board-tile-figure { margin: 0; color: var(--ask-muted); font-variant-numeric: tabular-nums; }
 .board-tile-figure b { color: var(--ask-ink); font-size: 28px; line-height: 1.2; }
 .board-tile-stages b { font-size: 20px; }
+/* Each stage is one piece that never breaks, and the line wraps between them: as flex items, since
+   Safari finds no place to break between two unbreakable spans and would run the line out of its
+   tile, pushing the whole page sideways (issue 850). */
+.board-tile-stages { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.3em; }
 .board-tile-stages > span { white-space: nowrap; }
 .board-stage { color: inherit; text-decoration: none; }
 .board-stage:hover .board-stage-word, .board-stage:focus-visible .board-stage-word { text-decoration: underline; }
@@ -76,6 +81,30 @@
 .board-name { font-weight: 700; overflow-wrap: anywhere; }
 .board-table tr[aria-current='true'] > * { background: var(--ask-plasma-soft); }
 .board-you { color: var(--ask-plasma); }
+
+/* On a phone (below 720 px, where the tiles go two by two), a table that scrolls in its own box
+   keeps each name whole on one line and pinned at the left edge, on the ground, while the figures
+   slide under it; a shadow on the box's right edge says there is more, and the table's own end
+   covers it once scrolled there (issue 850). Its cells keep their own borders, so the pinned ones
+   carry their rules along. */
+@media (max-width: 719.98px) {
+  .board-scroll {
+    background:
+      linear-gradient(var(--ask-ground), var(--ask-ground)) right / 16px 100% no-repeat local,
+      linear-gradient(to left, var(--ask-line-strong), transparent) right / 16px 100% no-repeat scroll;
+  }
+  .board-scroll .board-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+  .board-scroll .board-table .board-name,
+  .board-scroll .board-table thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    white-space: nowrap;
+    background: var(--ask-ground);
+    box-shadow: inset -1px 0 0 var(--ask-line-strong);
+  }
+  .board-scroll .board-table tr[aria-current='true'] > .board-name { background: var(--ask-plasma-soft); }
+}
 
 @media (forced-colors: active) {
   .board-bar { fill: CanvasText; }
