@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.130" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.132" };
   }
 });
 
@@ -17133,6 +17133,7 @@ var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
 var STATES = ["confirmed", "contradicted"];
+var STANCES = ["excited", "neutral", "skeptical"];
 var BLANK = "___";
 var CONTRADICTED = "  (contradicted: evidence disagrees, nobody answered yet)";
 var isText4 = (value) => typeof value === "string" && value.length > 0;
@@ -17153,13 +17154,29 @@ function claimOf(value) {
     lastSeen: orNull(value.lastSeen)
   };
 }
-function businessOf(reply) {
-  if (!reply || !["ok", "none"].includes(reply.state) || !Array.isArray(reply.claims)) return null;
+function personaOf(value) {
+  if (!value || !isText4(value.name) || !STANCES.includes(value.stance) || !isText4(value.trade)) return null;
+  if (typeof value.who !== "string" || typeof value.usage !== "string") return null;
+  return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
+}
+function claimsOf(reply) {
   const claims = reply.claims.map(claimOf);
   if (claims.includes(null)) return null;
-  if (reply.state === "ok" !== claims.length > 0) return null;
-  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims };
+  return reply.state === "ok" === claims.length > 0 ? claims : null;
 }
+function personasOf(value) {
+  if (value !== void 0 && !Array.isArray(value)) return null;
+  const personas = (value ?? []).map(personaOf);
+  return personas.includes(null) ? null : personas;
+}
+function businessOf(reply) {
+  if (!reply || !["ok", "none"].includes(reply.state) || !Array.isArray(reply.claims)) return null;
+  const claims = claimsOf(reply);
+  const personas = claims && personasOf(reply.personas);
+  if (!personas) return null;
+  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
+}
+var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence(claims) {
   const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === "confirmed").map((claim) => claim.value);
@@ -17168,7 +17185,7 @@ function sentence(claims) {
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
   return `We sell ${blankOr(of("offering"))} to ${who2} ${blankOr(of("trade"))} in ${blankOr(of("region"))}, up against ${blankOr(of("rival"))}.`;
 }
-var empty = (state, read2 = null) => ({ state, business: read2?.business ?? null, product: read2?.product ?? null, claims: [] });
+var empty = (state, read2 = null) => ({ state, business: read2?.business ?? null, product: read2?.product ?? null, claims: [], personas: read2?.personas ?? [] });
 function stopped(error) {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return { state: "unreachable", line: `the Omni page could not be reached ${CARRY_ON}` };
@@ -17209,38 +17226,45 @@ async function cited(ids, flags, env) {
   println(env.stdout, `cited ${ids.join(", ")} (${[flags.by, ref].filter(Boolean).join(", ")})`);
   return 0;
 }
+function shown(repo, read2) {
+  if (read2.state === "none") {
+    const line = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
+    return [empty("none", read2), [line, ...personaLines(read2.personas, "persona".length)]];
+  }
+  const idWidth = Math.max(...read2.claims.map((claim) => claim.id.length), read2.personas.length ? "persona".length : 0);
+  return [read2, [
+    sentence(read2.claims),
+    ...read2.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`),
+    ...personaLines(read2.personas, idWidth)
+  ]];
+}
+async function show(args, env) {
+  const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
+  if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE5);
+  const out = { json: flags.json === true, stdout: env.stdout };
+  const reached = reach(env);
+  if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+  const { repo, client } = reached;
+  let reply;
+  try {
+    reply = await client.readBusiness(repo);
+  } catch (error) {
+    const { state, line } = stopped(error);
+    return print(out, empty(state), [line]);
+  }
+  const read2 = businessOf(reply);
+  if (!read2) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
+  return print(out, ...shown(repo, read2));
+}
 var business = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
     const env = { cwd, stdout, exec, tokens, home, fetch, callMs };
     if (args[0] === "cited") {
-      const { positional: positional2, flags: flags2 } = parseArgs("business", args.slice(1), { values: ["by", "ref"] });
-      return cited(positional2, flags2, env);
+      const { positional, flags } = parseArgs("business", args.slice(1), { values: ["by", "ref"] });
+      return cited(positional, flags, env);
     }
-    const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
-    if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE5);
-    const out = { json: flags.json === true, stdout };
-    const reached = reach(env);
-    if (!reached.client) return print(out, empty(reached.state), [reached.line]);
-    const { repo, client } = reached;
-    let reply;
-    try {
-      reply = await client.readBusiness(repo);
-    } catch (error) {
-      const { state, line } = stopped(error);
-      return print(out, empty(state), [line]);
-    }
-    const read2 = businessOf(reply);
-    if (!read2) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
-    if (read2.state === "none") {
-      const line = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-      return print(out, empty("none", read2), [line]);
-    }
-    const width = Math.max(...read2.claims.map((claim) => claim.id.length));
-    return print(out, read2, [
-      sentence(read2.claims),
-      ...read2.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`)
-    ]);
+    return show(args, env);
   }
 };
 
@@ -19086,8 +19110,8 @@ function folderEntries(ctx, folder) {
 function roundFaults(folder, rounds) {
   const last = rounds.at(-1)?.k ?? 0;
   if (last === 0) return [`${folder}/board-r1.html: missing.`];
-  const shown2 = new Set(rounds.map((round) => round.k));
-  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown2.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
+  const shown3 = new Set(rounds.map((round) => round.k));
+  return Array.from({ length: last - 1 }, (_, index) => index + 1).filter((k) => !shown3.has(k)).map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
 }
 function folderFaults(ctx, folder, concept2) {
   const { present, rounds, misnamed, others } = folderEntries(ctx, folder);
@@ -19336,7 +19360,7 @@ function pullRequest(raw, repo) {
     author: raw.author?.login ?? null
   };
 }
-var shown = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
+var shown2 = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
 function readCredits({ owner, repo, since, labels, signature, exec = execFileSync10, env }) {
   const options = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: MAX_BUFFER, ...env ? { env } : {} };
   const gh = (args) => {
@@ -19354,7 +19378,7 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
     const text4 = gh([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
     const rows2 = text4 ? JSON.parse(text4) : [];
     if (rows2.length >= SEARCH_CAP) {
-      warnings.push(`gh ${[...query, ...tail].map(shown).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
+      warnings.push(`gh ${[...query, ...tail].map(shown2).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
     }
     return rows2;
   };
@@ -21208,7 +21232,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). Under the claims come the product's personas, one line each (name, stance, trade, who they are and how they use it), and --json carries them as personas, [] when there are none. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
   },
   {
     name: "version",
@@ -23285,7 +23309,7 @@ function showText(resolved, records) {
   if (records) lines.push("", ...recordLines(records));
   return lines.join("\n");
 }
-function show(positional, flags, { ctx, stdout, stderr }) {
+function show2(positional, flags, { ctx, stdout, stderr }) {
   const [id] = positional;
   if (positional.length !== 1 || !FORM_IDS.includes(id)) {
     throw usageError(`usage: omni kb show <form> [--json] \u2014 the forms: ${FORM_IDS.join(", ")}`);
@@ -23378,7 +23402,7 @@ var kb = {
     const { positional, flags } = parseArgs("kb", args, { booleans: ["json"] });
     const [sub, ...rest] = positional;
     if (sub === "init") return init2(rest, flags, io);
-    if (sub === "show") return show(rest, flags, io);
+    if (sub === "show") return show2(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
     throw usageError(USAGE12);
@@ -23785,8 +23809,8 @@ function detailOf(row) {
     const count3 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
-    const shown2 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count3} under ${owners} ${where} (${shown2})`;
+    const shown3 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
+    return `${count3} under ${owners} ${where} (${shown3})`;
   }
   return row.detail ?? "";
 }
@@ -25776,10 +25800,10 @@ function contextColour(percent) {
 }
 function contextPart(percent, { color = false } = {}) {
   if (typeof percent !== "number" || !Number.isFinite(percent)) return "context \u2014";
-  const shown2 = Math.floor(percent);
-  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown2 / 10)));
+  const shown3 = Math.floor(percent);
+  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown3 / 10)));
   const bar2 = FILLED.repeat(filled) + EMPTY.repeat(BAR_CELLS2 - filled);
-  return `context ${paint(`${bar2} ${shown2}%`, contextColour(shown2), color)}`;
+  return `context ${paint(`${bar2} ${shown3}%`, contextColour(shown3), color)}`;
 }
 function resetIn(ms) {
   const minutes = Math.ceil(ms / MINUTE2);
@@ -25801,7 +25825,7 @@ function visibleLength(line) {
 function fit(line, width) {
   if (visibleLength(line) <= width) return line;
   let out = "";
-  let shown2 = 0;
+  let shown3 = 0;
   let open2 = false;
   for (const [token] of line.matchAll(TOKEN)) {
     if (SGR.test(token)) {
@@ -25809,9 +25833,9 @@ function fit(line, width) {
       open2 = token !== RESET;
       continue;
     }
-    if (shown2 === width - 1) break;
+    if (shown3 === width - 1) break;
     out += token;
-    shown2 += 1;
+    shown3 += 1;
   }
   return `${out}${open2 ? RESET : ""}${CUT}`;
 }
@@ -25837,9 +25861,9 @@ function slicesPart(slices, { color = false } = {}) {
 var cutTo = (text4, length) => `${[...text4].slice(0, length - 1).join("")}${CUT}`;
 function prdLine({ number, topic, slice, stage: stage2, openItems: openItems2, slices = null }, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
   const inOutbox2 = stage2 === OUTBOX;
-  const draw = (shown2) => {
-    if (stage2 === SHIPPED) return `PRD ${number} ${shown2}${SEPARATOR2}${SHIPPED}`;
-    return [`PRD ${number} ${shown2}`, slice, stage2, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR2);
+  const draw = (shown3) => {
+    if (stage2 === SHIPPED) return `PRD ${number} ${shown3}${SEPARATOR2}${SHIPPED}`;
+    return [`PRD ${number} ${shown3}`, slice, stage2, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR2);
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;

@@ -102,6 +102,13 @@ jobs:
         # kind or value is refused (22023). Agents read confirmed claims only, region from the business
         # and the rest from the repository's product. Nothing is seeded, and no citation is rewritten.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
+      - name: Who may read and write the personas
+        # Any member of a workspace adds, edits, deletes and restores its products' personas through the
+        # persona functions; another workspace's member and anyone signed out are refused (42501), a bad
+        # stance, name, text, trade or avatar is refused (22023, the field in `hint`), and the service role
+        # adds through the same checks. A persona follows its product; agents read the product's personas
+        # oldest first, [] without, and state still comes from claims. Nothing is seeded.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/personas.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
