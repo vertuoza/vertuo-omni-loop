@@ -69,12 +69,16 @@ async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
-type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; region: string | null; contributor: string | null; team: string | null; data: LedgerEvent['data'] | null };
+type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; home: string | null; region: string | null; contributor: string | null; team: string | null; data: LedgerEvent['data'] | null };
 
-/** A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out. */
+/**
+ * A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out.
+ * Its home (PRD 728) keys its planet by `<home>#<n>`; a row written before has none.
+ */
 function eventOf(row: LedgerRow): LedgerEvent {
   return {
     id: row.id, at: new Date(row.at).toISOString().replace(/\.\d{3}Z$/, 'Z'), type: row.type, planet: row.planet, data: row.data ?? {},
+    ...(row.home ? { home: row.home } : {}),
     ...(row.region ? { region: row.region } : {}),
     ...(row.contributor ? { contributor: row.contributor } : {}),
     ...(row.team ? { team: row.team } : {}),
@@ -85,7 +89,7 @@ function eventOf(row: LedgerRow): LedgerEvent {
 async function ledgerPage(db: SupabaseClient, workspace: string, from: number): Promise<LedgerRow[]> {
   const { data, error } = await db
     .from('ledger_events')
-    .select('id, at, type, planet, region, contributor, team, data')
+    .select('id, at, type, planet, home, region, contributor, team, data')
     .eq('workspace_id', workspace)
     .order('at', { ascending: true })
     .order('id', { ascending: true })
