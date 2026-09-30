@@ -6,6 +6,7 @@ import { makeRepo } from '../../test/fixture.mjs';
 import { flatCtx } from '../../test/flat-layout.mjs';
 import { lawsFor } from '../laws.mjs';
 import { makeMarkers } from '../markers.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
 import {
   FUN_LINE_MAX_LENGTH,
   FUN_SECTIONS,
@@ -22,7 +23,6 @@ import {
   isBelowFloor,
   optionLettersInOrder,
   outboxItemFiles,
-  parseFrontMatterLines,
   parseOutboxItem,
   parseOutboxOptions,
   plainWordsProblems,

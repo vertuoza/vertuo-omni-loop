@@ -72,6 +72,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { parseFrontMatterLines, withFile } from '../front-matter.mjs';
 
 export const SETTLED_FILE = 'settled.md';
 
@@ -156,47 +157,7 @@ const FrontMatterSchema = z
   .strict();
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 const HEADING_LINE = /^##\s+(.+?)\s*$/;
-
-function withFile(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-
-/**
- * Reads a fenced front-matter block's raw text (between the `---` fences, exclusive) into a plain
- * `{ key: value }` object. Deliberately dumb: one `key: value` per line, quotes stripped, nothing
- * nested — everything an outbox item's front matter needs. A line that isn't `key: value` is
- * reported rather than silently dropped.
- */
-export function parseFrontMatterLines(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key, rawValue] = match;
-    data[key] = stripQuotes(rawValue);
-  }
-  return { data, errors };
-}
 
 /** Every `## Heading` in `body`, in the order it appears, with its trimmed body text. */
 function parseHeadingSections(body) {

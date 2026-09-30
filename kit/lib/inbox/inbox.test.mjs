@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
-import { parseFrontMatterLines, parseSpec, readInbox } from './inbox.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
+import { parseSpec, readInbox } from './inbox.mjs';
 
 const IN = '.omni-loop/delivery/inbox';
 
@@ -77,6 +78,28 @@ describe('parseSpec — the happy path', () => {
     const result = parseSpec(specText({ frontMatter: { areas: ['credits', 'quotes'] } }));
     expect(result.ok).toBe(true);
     expect(result.record.areas).toEqual(['credits', 'quotes']);
+  });
+});
+
+describe('parseSpec — the proof field (PRD 798)', () => {
+  it('accepts proof: video and carries it on the record', () => {
+    const result = parseSpec(specText({ frontMatter: { proof: 'video' } }));
+    expect(result.ok).toBe(true);
+    expect(result.record.proof).toBe('video');
+  });
+
+  it('leaves proof off the record when the spec has none', () => {
+    const result = parseSpec(specText());
+    expect(result.ok).toBe(true);
+    expect(result.record).not.toHaveProperty('proof');
+  });
+
+  it('refuses any other value, naming the field', () => {
+    for (const value of ['yes', 'true', 'gif', '']) {
+      const result = parseSpec(specText({ frontMatter: { proof: value } }), { file: 'x/spec.md' });
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toMatch(/^x\/spec\.md: proof: /m);
+    }
   });
 });
 
