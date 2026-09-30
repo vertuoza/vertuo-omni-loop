@@ -91,13 +91,8 @@ describe('experience', () => {
     ], { now: NOW })).toEqual({ alice: 20, claimer: 0 });
   });
 
-  it('gives nothing for a row with no home, written before the fresh start, but keeps its login at 0 (PRD 728)', () => {
-    expect(experience([
-      old(charted),
-      old(secured('s1', '2026-09-21T12:00:00Z', 'alice')),
-      old(secured('s2', '2026-09-22T12:00:00Z', 'bob')),
-      secured('s3', '2026-09-23T12:00:00Z', 'bob'),
-    ], { now: NOW })).toEqual({ alice: 0, bob: 10 });
+  it('lists the logins it is also given, at 0 unless the events pay them (PRD 728)', () => {
+    expect(experience([charted, secured('s1', '2026-09-21T12:00:00Z', 'bob')], { now: NOW, logins: ['Alice', 'bob'] })).toEqual({ alice: 0, bob: 10 });
   });
 
   it('reads only the xp block it is given, and the rulebook\'s by default', () => {
@@ -222,8 +217,8 @@ describe('playerXp', () => {
     ]);
   });
 
-  it('keeps a game already unlocked when the fresh start drops XP to 0 (PRD 728)', () => {
-    expect(playerXp([old(charted), old(secured('s1', '2026-09-21T12:00:00Z', 'alice'))], { now: NOW, stored: { alice: ['invaders'] } })).toEqual([
+  it('keeps a game already unlocked for a login the fresh start drops to 0 XP (PRD 728)', () => {
+    expect(playerXp(counted([old(charted), old(secured('s1', '2026-09-21T12:00:00Z', 'alice'))]), { now: NOW, stored: { alice: ['invaders'] }, logins: ['alice'] })).toEqual([
       { login: 'alice', xp: 0, level: 0, unlocked: ['invaders'] },
     ]);
   });
