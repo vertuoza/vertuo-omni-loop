@@ -11,7 +11,7 @@ import { saveJevDecision } from './actions';
 // only then, through /api/jev/key; every other member reads whether Jev is on, never the key. Without
 // SECRETS_MASTER_KEY the page says Jev is not available here. Rendered per request, as the signed-in
 // person. In development (or OMNI_LOOP_DEMO=1), the demo: an owner with no key, whose changes stay in
-// the page.
+// the page. Each decision's row carries its record over the last 30 days (PRD 812 s4).
 
 export const metadata: Metadata = { title: 'Jev · OMNI LOOP' };
 
@@ -30,6 +30,7 @@ async function viewOf(): Promise<JevScreenView> {
     owner: load.owner,
     keyStatus: load.keyStatus,
     decisions: load.decisions,
+    records: load.records,
   };
 }
 

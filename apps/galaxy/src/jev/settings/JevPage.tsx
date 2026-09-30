@@ -1,5 +1,6 @@
 'use client';
 import { useReducer, useRef } from 'react';
+import type { JevRecords } from '../record/record';
 import type { JevDecisionSettings, JevKeyStatus } from '../store';
 import { initialState, jevReducer } from './model';
 import { demoJevPort, httpJevPort, type JevPort, type KeySaved, type SaveDecisionAction } from './port';
@@ -17,9 +18,11 @@ export interface JevPageProps {
   owner: boolean;
   keyStatus: JevKeyStatus;
   decisions: JevDecisionSettings[];
+  /** Each decision's 30-day record (PRD 812 s4): null when it could not be read, none in the demo. */
+  records?: JevRecords | null;
 }
 
-export function JevPage({ source, owner, keyStatus, decisions }: JevPageProps) {
+export function JevPage({ source, owner, keyStatus, decisions, records }: JevPageProps) {
   const [state, dispatch] = useReducer(jevReducer, { keyStatus, decisions }, (first) => initialState(first.keyStatus, first.decisions));
   const port = useRef<JevPort | null>(null);
   const getPort = () =>
@@ -47,5 +50,5 @@ export function JevPage({ source, owner, keyStatus, decisions }: JevPageProps) {
     },
   };
 
-  return <JevView state={state} owner={owner} on={on} />;
+  return <JevView state={state} owner={owner} on={on} records={records} />;
 }

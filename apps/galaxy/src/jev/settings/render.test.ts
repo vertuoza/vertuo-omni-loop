@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { JevDecisionSettings, JevKeyStatus } from '../store';
+import { jevRecords, type JevRecords } from '../record/record';
+import type { JevCallRow, JevDecisionSettings, JevKeyStatus } from '../store';
 import { initialState, jevReducer, type JevAction } from './model';
 import { JevScreen, NOT_AVAILABLE_TITLE, type JevScreenView } from './JevScreen';
 import { ONLY_OWNER, SENDS, SWITCH_OFF, JevView } from './JevView';
@@ -17,8 +18,8 @@ const STORED: JevKeyStatus = { stored: true, lastFour: '1a2b', setAt: '2026-09-3
 const MEMBER_STORED: JevKeyStatus = { stored: true, lastFour: null, setAt: null };
 
 const state = (key: JevKeyStatus, ...actions: JevAction[]) => actions.reduce(jevReducer, initialState(key));
-const page = (key: JevKeyStatus, { owner = true, actions = [] as JevAction[], decisions = [] as JevDecisionSettings[] } = {}) =>
-  renderToStaticMarkup(createElement(JevView, { state: actions.reduce(jevReducer, initialState(key, decisions)), owner }));
+const page = (key: JevKeyStatus, { owner = true, actions = [] as JevAction[], decisions = [] as JevDecisionSettings[], records = undefined as JevRecords | null | undefined } = {}) =>
+  renderToStaticMarkup(createElement(JevView, { state: actions.reduce(jevReducer, initialState(key, decisions)), owner, records }));
 /** The head and the key card: the page before its decision rows (PRD 812 s2). */
 const render = (key: JevKeyStatus, options: { owner?: boolean; actions?: JevAction[] } = {}) => {
   const html = page(key, options);
@@ -186,6 +187,76 @@ describe('the decision rows (PRD 812 s2)', () => {
     const after = ([{ type: 'busy' }, { type: 'saved', key: NONE }] as JevAction[]).reduce(jevReducer, initialState(STORED, [CATEGORY_ON]));
     expect(after.decisions).toEqual([{ ...CATEGORY_ON, mode: 'off' }]);
     expect(text(row(page(NONE, { decisions: after.decisions }), 'question-category'))).not.toContain('Mode On');
+  });
+});
+
+describe('each decision\'s record (PRD 812 s4)', () => {
+  const NOW = new Date('2026-09-30T12:00:00Z');
+  const rows = (html: string) => [...html.matchAll(/<li class="jev-decision" data-decision="([^"]+)">([\s\S]*?)<\/li>(?=<li class="jev-decision"|<\/ul><\/section>)/g)].map((m) => ({ name: m[1], html: m[2] }));
+  const row = (html: string, name: string) => rows(html).find((r) => r.name === name)!.html;
+  const record = (html: string) => /<div class="jev-record">([\s\S]*)<\/div>$/.exec(html)?.[1] ?? '';
+  let id = 0;
+  const call = (over: Partial<JevCallRow>): JevCallRow => ({
+    id: ++id, decision: 'question-category', mode: 'shadow', outcome: 'answered', model: 'jev-1.13.0', jevAnswer: 'product', confidence: 0.8,
+    oldAnswer: 'product', counted: 'product', decidedBy: 'old', ref: null, reason: null, ms: 100, calledAt: '2026-09-29T10:00:00Z', ...over,
+  });
+  const CALLS = [
+    call({}), call({}), call({ outcome: 'failed', jevAnswer: null, confidence: null }),
+    call({ calledAt: '2026-09-28T09:00:00Z', jevAnswer: 'ux', oldAnswer: 'product', ref: 'round:r-1' }),
+    call({ calledAt: '2026-09-29T09:00:00Z', mode: 'on', jevAnswer: 'business', oldAnswer: 'other', counted: 'business', decidedBy: 'jev', confidence: 0.91, ref: 'vertuoza/vertuo-omni-loop#812' }),
+    call({ decision: 'outbox-risk', calledAt: '2026-09-27T09:00:00Z', jevAnswer: 'true', oldAnswer: 'false', ref: 's3-01-some-item' }),
+  ];
+  const RECORDS = jevRecords(CALLS, NOW);
+  const SHADOW: JevDecisionSettings = { decision: 'question-category', mode: 'shadow', threshold: 0.5, floor: 0.4 };
+
+  it('shows the calls, the agreement rate and the last disagreements, newest first, each with both answers and a link', () => {
+    const html = record(row(page(STORED, { decisions: [SHADOW], records: RECORDS }), 'question-category'));
+    expect(text(html)).toContain('Last 30 days: 5 calls · Jev agreed with today’s path 2 times out of 4 (50%)');
+    const items = [...html.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+    expect(items).toHaveLength(2);
+    expect(text(items[0])).toBe('29 Sep 2026 · Jev business (0.91) · today’s path other · Jev decided · vertuoza/vertuo-omni-loop#812');
+    expect(items[0]).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/issues/812"');
+    expect(text(items[1])).toBe('28 Sep 2026 · Jev ux (0.80) · today’s path product · the round');
+    expect(items[1]).toContain('href="/ask/q/r-1"');
+  });
+
+  it('shows a ref it cannot link as text', () => {
+    const html = record(row(page(STORED, { records: RECORDS }), 'outbox-risk'));
+    expect(text(html)).toContain('Jev true (0.80) · today’s path false · s3-01-some-item');
+    expect(html).not.toContain('href=');
+  });
+
+  it('says an Off decision with no calls does not call Jev', () => {
+    expect(text(record(row(page(STORED, { records: RECORDS }), 'bug-risk')))).toBe('Off: Jev is not called');
+    expect(text(record(row(page(STORED), 'question-category')))).toBe('Off: Jev is not called');
+  });
+
+  it('shows the record of an Off decision that was called, and says so of a decision in Shadow or On with none', () => {
+    expect(text(record(row(page(STORED, { records: RECORDS }), 'question-category')))).toContain('Last 30 days: 5 calls');
+    const idle = jevRecords([], NOW);
+    expect(text(record(row(page(STORED, { decisions: [SHADOW], records: idle }), 'question-category')))).toBe('No calls to Jev in the last 30 days.');
+  });
+
+  it('has no rate when nothing could be compared', () => {
+    const records = jevRecords([call({ outcome: 'no-key', jevAnswer: null, confidence: null })], NOW);
+    expect(text(record(row(page(STORED, { decisions: [SHADOW], records }), 'question-category')))).toBe('Last 30 days: 1 call · no answer to compare yet');
+  });
+
+  it('says the record could not be read, and still shows the settings', () => {
+    const html = row(page(STORED, { decisions: [SHADOW], records: null }), 'question-category');
+    expect(text(record(html))).toBe('The record could not be read. Reload in a moment.');
+    expect(html).toContain('<select');
+  });
+
+  it('is handed from the page\'s view down to each row', () => {
+    const html = renderToStaticMarkup(createElement(JevScreen, { view: { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: STORED, decisions: [SHADOW], records: RECORDS } }));
+    expect(text(record(row(html, 'question-category')))).toContain('Last 30 days: 5 calls');
+  });
+
+  it('shows a member the same record', () => {
+    const html = record(row(page(MEMBER_STORED, { owner: false, decisions: [SHADOW], records: RECORDS }), 'question-category'));
+    expect(text(html)).toContain('Jev agreed with today’s path 2 times out of 4 (50%)');
+    expect(html).toContain('href="/ask/q/r-1"');
   });
 });
 

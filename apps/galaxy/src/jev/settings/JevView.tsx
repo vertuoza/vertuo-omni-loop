@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import type { JevDecisionSettings, JevMode } from '../store';
-import { decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type DecisionLine, type JevState } from './model';
+import { RECORD_DAYS, type DecisionRecord, type Disagreement, type JevRecords, type RefLink } from '../record/record';
+import { dayOf, decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type DecisionLine, type JevState } from './model';
 
 // Settings › Jev's key part drawn from its state (PRD 812 s1). The owner reads the Jev switch: Off
 // opens the key field, where a pasted key is tested with one call before it is saved, and a refused
@@ -11,12 +12,20 @@ import { decisionLines, maskedKey, MODE_LABELS, savedOn, tuningText, type Decisi
 // Below the key, one row per decision (PRD 812 s2): what it decides, what it sends, its mode (Off,
 // Shadow, On), its threshold and its confidence floor. The owner saves each row on its own; Shadow and
 // On need Jev on. A member reads them. A decision whose slice has not landed says it is coming.
+//
+// Under each row, its record over the last 30 days (PRD 812 s4, ../record/record.ts), the same for the
+// owner and a member: the calls, how often Jev agreed with today's path, and the last ten
+// disagreements with both answers and a link to the round or the issue (a ref it cannot link is shown
+// as text). An Off decision with no calls says Jev is not called.
 
 export const ONLY_OWNER = 'Only @owner can change Jev’s settings.';
 export const SENDS = 'Once a decision is switched on, its text is sent to TypeSafe AI, the company behind Jev, tokens masked. Every decision starts Off.';
 export const SWITCH_OFF = 'Switching Jev off removes the key and sets every decision Off.';
 export const COMING_LABEL = 'Coming in this PRD';
 export const NEEDS_KEY = 'Switch Jev on above to put a decision in Shadow or On.';
+export const OFF_NOT_CALLED = 'Off: Jev is not called';
+export const NO_CALLS = `No calls to Jev in the last 30 days.`;
+export const RECORD_UNREADABLE = 'The record could not be read. Reload in a moment.';
 export const MODES_HELP = 'Off: today’s path decides and Jev is not called. Shadow: today’s path decides and Jev’s answer is only logged. On: Jev decides, and today’s path whenever Jev cannot or answers under the floor.';
 
 export interface JevHandlers {
@@ -33,6 +42,8 @@ export interface JevViewProps {
   state: JevState;
   owner: boolean;
   on?: JevHandlers;
+  /** Each decision's record (PRD 812 s4); null when it could not be read, none in the demo. */
+  records?: JevRecords | null;
 }
 
 function KeyForm({ state, on }: { state: JevState; on: JevHandlers }) {
@@ -124,7 +135,58 @@ function DecisionReadOnly({ settings }: { settings: JevDecisionSettings }) {
   );
 }
 
-function DecisionRow({ line, state, owner, on }: { line: DecisionLine; state: JevState; owner: boolean; on: JevHandlers }) {
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function Ref({ link }: { link: RefLink }) {
+  if (!link.href) return <span className="jev-ref">{link.text}</span>;
+  const away = link.href.startsWith('https://');
+  return <a className="jev-ref" href={link.href} {...(away ? { rel: 'noreferrer', target: '_blank' } : {})}>{link.text}</a>;
+}
+
+function DisagreementLine({ d }: { d: Disagreement }) {
+  return (
+    <li>
+      {dayOf(d.calledAt) ?? d.calledAt}
+      {' · '}Jev <strong>{d.jevAnswer}</strong>{d.confidence !== null && ` (${tuningText(d.confidence)})`}
+      {' · '}today’s path <strong>{d.oldAnswer}</strong>
+      {d.decidedBy === 'jev' && ' · Jev decided'}
+      {d.ref && <>{' · '}<Ref link={d.ref} /></>}
+    </li>
+  );
+}
+
+/** A decision's record over the last 30 days (PRD 812 s4): what the page read, or why there is none. */
+function DecisionRecordBlock({ record, mode }: { record: DecisionRecord | null; mode: JevMode }) {
+  return (
+    <div className="jev-record">
+      {record === null && <p className="ask-muted">{RECORD_UNREADABLE}</p>}
+      {record?.calls === 0 && <p className="ask-muted">{mode === 'off' ? OFF_NOT_CALLED : NO_CALLS}</p>}
+      {record && record.calls > 0 && (
+        <>
+          <p className="jev-record-line">
+            Last {RECORD_DAYS} days: {plural(record.calls, 'call', 'calls')}
+            {' · '}
+            {record.agreement === null
+              ? 'no answer to compare yet'
+              : `Jev agreed with today’s path ${plural(record.agreed, 'time', 'times')} out of ${record.compared} (${Math.round(record.agreement * 100)}%)`}
+          </p>
+          {record.disagreements.length > 0 && (
+            <>
+              <p className="ask-muted jev-record-title">Last disagreements</p>
+              <ol className="jev-disagreements">
+                {record.disagreements.map((d, i) => <DisagreementLine key={`${d.calledAt}-${i}`} d={d} />)}
+              </ol>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const EMPTY_RECORD: DecisionRecord = { calls: 0, compared: 0, agreed: 0, agreement: null, disagreements: [] };
+
+function DecisionRow({ line, state, owner, on, records }: { line: DecisionLine; state: JevState; owner: boolean; on: JevHandlers; records: JevRecords | null | undefined }) {
   const { row, ready } = line;
   const refusal = state.decisionRefusal?.decision === row.name ? state.decisionRefusal.message : null;
   return (
@@ -137,11 +199,12 @@ function DecisionRow({ line, state, owner, on }: { line: DecisionLine; state: Je
       <p className="ask-muted jev-sends">Sends: {row.sends}</p>
       {refusal && <p className="jev-refusal" role="alert">{refusal}</p>}
       {owner && ready ? <DecisionForm line={line} state={state} on={on} /> : <DecisionReadOnly settings={line.settings} />}
+      <DecisionRecordBlock record={records === null ? null : records?.[row.name] ?? EMPTY_RECORD} mode={line.settings.mode} />
     </li>
   );
 }
 
-function Decisions({ state, owner, on }: { state: JevState; owner: boolean; on: JevHandlers }) {
+function Decisions({ state, owner, on, records }: { state: JevState; owner: boolean; on: JevHandlers; records: JevRecords | null | undefined }) {
   return (
     <section className="ask-card jev-decisions" aria-labelledby="jev-decisions-title">
       <h2 id="jev-decisions-title">Decisions</h2>
@@ -149,13 +212,13 @@ function Decisions({ state, owner, on }: { state: JevState; owner: boolean; on: 
       <p className="ask-muted">A Noul answer at or above the threshold counts as yes. Under the confidence floor, an On decision keeps today’s answer.</p>
       {owner && !state.key.stored && <p className="ask-muted">{NEEDS_KEY}</p>}
       <ul className="jev-decision-list">
-        {decisionLines(state).map((line) => <DecisionRow key={line.row.name} line={line} state={state} owner={owner} on={on} />)}
+        {decisionLines(state).map((line) => <DecisionRow key={line.row.name} line={line} state={state} owner={owner} on={on} records={records} />)}
       </ul>
     </section>
   );
 }
 
-export function JevView({ state, owner, on = IDLE }: JevViewProps) {
+export function JevView({ state, owner, on = IDLE, records }: JevViewProps) {
   const stored = state.key.stored;
   return (
     <div className="ask-col jev">
@@ -187,7 +250,7 @@ export function JevView({ state, owner, on = IDLE }: JevViewProps) {
           : <p className="ask-muted">{stored ? 'Jev is on for this workspace.' : 'Jev is off for this workspace.'}</p>}
       </section>
 
-      <Decisions state={state} owner={owner} on={on} />
+      <Decisions state={state} owner={owner} on={on} records={records} />
     </div>
   );
 }
