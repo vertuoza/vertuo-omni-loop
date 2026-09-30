@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Strict TypeScript, today and after</title>
+<style>
+/* Layout: one section per change, today beside after, stacking at phone width; the waves as a strip at the end. Colours: the app's ask tokens, as PRD 714's page. */
+:root{--ground:#f5f4fc;--surface:#fff;--sunk:#eceaf8;--line:#d9d6ee;--ink:#17153d;--muted:#4f5486;--plasma:#6233cc;--green:#15703f;--red:#b3122f;--amber:#8a5a00;--redsoft:#fde8ec;--greensoft:#e3f5ea;
+--sans:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--green:#4ee08a;--red:#ff6b81;--amber:#f5c15c;--redsoft:#3a1428;--greensoft:#12301f;color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--green:#4ee08a;--red:#ff6b81;--amber:#f5c15c;--redsoft:#3a1428;--greensoft:#12301f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.45 var(--sans)}
+main{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:grid;gap:40px}
+h1{margin:0;font-size:26px;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:75ch}
+section{display:grid;gap:14px}
+section>h2{margin:0;font-size:19px;text-wrap:balance}
+section>p{margin:0;color:var(--muted);max-width:75ch}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px;align-items:start}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px;min-width:0;align-content:start}
+.tag{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 10px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.tag.after{background:var(--plasma);color:var(--surface)}
+pre{margin:0;background:var(--sunk);border-radius:8px;padding:12px;font:13px/1.5 var(--mono);overflow-x:auto;white-space:pre}
+.err{color:var(--red)}.ok{color:var(--green)}.dim{color:var(--muted)}
+.note{margin:0;color:var(--muted);font-size:14px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.check{font:13px var(--mono);padding:4px 10px;border-radius:6px;background:var(--greensoft);color:var(--green)}
+.check.new{outline:2px solid var(--plasma)}
+.check.none{background:var(--redsoft);color:var(--red)}
+ul.same{margin:0;padding-left:20px;display:grid;gap:4px}
+.waves{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px}
+.wave{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:4px;min-width:0}
+.wave b{font-variant-numeric:tabular-nums;color:var(--plasma);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.wave span{font-size:14px}
+.wave small{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Strict TypeScript across the kit, game and omni-app</h1>
+<p>PRD 725. About 460 files and 83 000 lines of plain JavaScript become strict TypeScript. Nothing a person sees changes: the same commands, the same output, the same bundle. What changes is what an agent learns while it edits.</p>
+</header>
+
+<section>
+<h2>An agent passes the wrong shape</h2>
+<p>A slice changes what <code>readOutbox</code> returns. Its caller in another folder still reads the old field.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre><span class="dim">// kit/lib/status/board.mjs</span>
+const items = readOutbox(dir);
+for (const item of items) {
+  line(item.severity);   <span class="dim">// field renamed to risk</span>
+}</pre>
+<p class="note">No error. If a test covers this line it fails later, with <code>undefined</code> three calls away. If none does, it ships.</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<pre><span class="dim">// kit/lib/status/board.ts</span>
+const items = readOutbox(dir);   <span class="dim">// OutboxItem[]</span>
+for (const item of items) {
+  line(item.severity);
+}
+<span class="err">board.ts:4:13 - error TS2339: Property 'severity'
+does not exist on type 'OutboxItem'.</span></pre>
+<p class="note">The compiler answers on the edit, before any test runs, and CI refuses the pull request.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2>Reading something from outside</h2>
+<p>Config YAML, a PRD's front matter, a <code>gh</code> response, the environment.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<pre>const cfg = YAML.parse(read('.omni-loop/config.yml'));
+const limit = cfg.limits.stallDays;   <span class="dim">// trusted as is</span></pre>
+<p class="note">A missing or mistyped field flows on as <code>undefined</code>. Only 29 files import Zod.</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<pre>const cfg = ConfigSchema.parse(YAML.parse(read(path)));
+<span class="dim">// type Config = z.infer&lt;typeof ConfigSchema&gt;</span>
+<span class="err">ZodError: limits.stallDays: expected number, received string</span></pre>
+<p class="note">Every outside read passes a Zod 4 schema first, and the error names the field. The type comes from the schema, so they never drift.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2>The checks on a pull request</h2>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="checks"><span class="check">test</span><span class="check">fallow</span><span class="check none">no type check, not even on the arcade</span></div>
+</div>
+<div class="side"><span class="tag after">After</span>
+<div class="checks"><span class="check">test</span><span class="check">fallow</span><span class="check new">typecheck</span></div>
+<p class="note"><code>pnpm typecheck</code> covers the root project and <code>apps/galaxy</code>. A guard test refuses <code>@ts-nocheck</code>, new <code>.mjs</code> source files, and <code>any</code> or <code>as</code> outside the allow-list.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2>What stays the same</h2>
+<ul class="same">
+<li>The bundle other repositories run: <code>.omni-loop/bin/omni.mjs</code>, built by esbuild from the <code>.ts</code> sources.</li>
+<li>Every <code>omni</code> command, its flags and its output; every skill and the plugin.</li>
+<li>The arcade's screens, the GitHub App's checks, the game's scores. No behaviour changes, and the existing suite proves it.</li>
+<li>The database: no migration. Its types are generated from the migrations that exist.</li>
+<li>No build step for scripts: Node 22.18 or later runs <code>.ts</code> itself.</li>
+</ul>
+</section>
+
+<section>
+<h2>How it ships</h2>
+<p>Six waves. The rename is one mechanical step, so every later slice owns only its own folders and many run at once.</p>
+<div class="waves">
+<div class="wave"><b>Wave 1</b><span>Toolchain</span><small>base config, typecheck job, Node 22.18</small></div>
+<div class="wave"><b>Wave 2</b><span>The rename</span><small>one script, after open features merge</small></div>
+<div class="wave"><b>Wave 3</b><span>Shared types</span><small>domain types, Zod 4, database types, core kit, game core</small></div>
+<div class="wave"><b>Wave 4</b><span>Folders, in parallel</span><small>outbox, knowledge, policy, ask, packages, game edges…</small></div>
+<div class="wave"><b>Wave 5</b><span>The consumers</span><small>CLI commands, statusline, omni-app</small></div>
+<div class="wave"><b>Wave 6</b><span>The ratchet</span><small>allowJs off, guard test, allow-list</small></div>
+</div>
+</section>
+</main>
+</body>
+</html>
