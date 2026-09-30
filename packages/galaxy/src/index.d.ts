@@ -6,6 +6,8 @@ export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'faul
 
 export interface LedgerEvent {
   id: string; at: string; type: string; planet: number;
+  /** The PRD's home, `owner/name` (PRD 728); absent on the events written before it. */
+  home?: string;
   region?: string; contributor?: string; team?: string; data: Record<string, unknown>;
 }
 /** A fleet as stored in Supabase (public.teams). Only `home` is required; the rest has defaults. */
@@ -24,7 +26,12 @@ export interface Wound {
 }
 export interface LogLine { at: string; type: string; planet: number; text: string; contributor: string | null; team: string | null }
 export interface Planet {
-  prd: number; title: string; captain: string | null; ownerTeam: string | null; state: PlanetState;
+  prd: number;
+  /** The repository of the PRD's issue, `owner/name`, or null for an event written before PRD 728. */
+  home: string | null;
+  /** How the view names the planet: `<home>#<prd>`, or the number alone without a home. */
+  key: string;
+  title: string; captain: string | null; ownerTeam: string | null; state: PlanetState;
   regions: string[]; sectors: string[]; sector: string | null; crossSector: boolean; class: number;
   blockers: number[]; zones: Zone[]; secured: number; progress: number;
   openWounds: Wound[]; closedWounds: number; threat: number; distressSince: string | null;

@@ -1,7 +1,8 @@
 // A demo galaxy for local runs and previews, used whenever no Supabase project is configured.
 // It is built the honest way: a fictional GitHub snapshot goes through the real projector
 // (game/projector.mjs), so the events are exactly what `pnpm game:project` would append.
-// Every PRD, repository and login below is invented.
+// Every PRD, repository and login below is invented. Every PRD lives in one invented home repository
+// (PRD 728: every event names its home).
 import { projectEvents } from 'vertuo-omni-plan/game/projector.mjs';
 
 export const DEMO_PROJECTS = Object.freeze({
@@ -21,6 +22,8 @@ export const DEMO_PROJECTS = Object.freeze({
     capes: { home: null, label: 'CAPES', color: '#58a8f0', motto: 'Retired, never forgotten.', mascot: 'invincible', sort: 90, retired: true },
   },
 });
+
+const DEMO_HOME = 'demo-org/demo-plan';
 
 const DEMO_TEAMS = {
   'pm-lina': 'builders', 'bo-builder': 'builders', 'dam-dev': 'builders',
@@ -46,7 +49,7 @@ export function demoSnapshot(now = new Date()) {
     settled: settled && { verdict: settled.verdict, at: ago(settled.h), by: settled.by, reworkMergedAt: ago(settled.reworkH ?? null), reworkBy: settled.reworkBy ?? null },
   });
   const planet = ({ prd, title, captain, created, regions = [], feature = null, zones = [], outbox = [], bugs = [], closedH = null }) => ({
-    prd, title, captain, ownerTeam: DEMO_TEAMS[captain],
+    prd, home: DEMO_HOME, title, captain, ownerTeam: DEMO_TEAMS[captain],
     issue: { createdAt: ago(created), closedAt: ago(closedH) },
     regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy })),
     featurePr: feature && {
