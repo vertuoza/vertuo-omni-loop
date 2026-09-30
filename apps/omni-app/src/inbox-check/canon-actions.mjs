@@ -73,7 +73,7 @@ export function readCanonMarker(summary) {
 export const commentMarker = (action) => `<!-- omni-canon-action:${action} -->`;
 
 /** Settings › Business at a claim: a Never line at its `#never-<seq>`, any other claim the page. */
-export function claimLink(galaxyUrl, id) {
+function claimLink(galaxyUrl, id) {
   const page = `${galaxyUrl.replace(/\/+$/, '')}/app/settings/business`;
   const never = /^never#(\d+)$/.exec(id);
   return never ? `${page}#never-${never[1]}` : page;

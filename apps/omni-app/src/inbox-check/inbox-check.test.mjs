@@ -33,22 +33,26 @@ function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRe
   const pull = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
   const github = fakeGitHub({ commits: { base1: fixture(base), head1: fixture(head) }, pull });
   const inner = github.octokit;
+  const extra = {
+    'GET /repos/{owner}/{repo}/compare/{basehead}': (params) => ({ data: params.page === 1 ? { files, commits } : { files: [], commits: [] } }),
+    'GET /repos/{owner}/{repo}/issues/{issue_number}': (params) => {
+      if (issue?.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
+      return { data: issue };
+    },
+    // The canon buttons (PRD 839): a PATCH carrying only the actions adds them to the run.
+    'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}': (params) => {
+      if (!params.actions) return null;
+      const run = github.state.checkRuns.find((r) => r.id === params.check_run_id);
+      run.actions = params.actions;
+      return { data: run };
+    },
+  };
   github.octokit = {
     async request(route, params) {
-      if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') {
+      const answered = extra[route]?.(params);
+      if (answered) {
         github.state.requests.push({ route, ...params });
-        return { data: params.page === 1 ? { files, commits } : { files: [], commits: [] } };
-      }
-      if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}') {
-        github.state.requests.push({ route, ...params });
-        if (!issue || issue.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
-        return { data: issue };
-      }
-      if (route === 'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}' && params.actions && !params.status) {
-        github.state.requests.push({ route, ...params });
-        const run = github.state.checkRuns.find((r) => r.id === params.check_run_id);
-        run.actions = params.actions;
-        return { data: run };
+        return answered;
       }
       const response = await inner.request(route, params);
       if (route === 'POST /repos/{owner}/{repo}/check-runs' && params.external_id) response.data.external_id = params.external_id;
