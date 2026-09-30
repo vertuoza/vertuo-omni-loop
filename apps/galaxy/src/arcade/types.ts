@@ -64,10 +64,11 @@ export interface PlanetDossier {
 export type PlanetDossierRead = PlanetDossier | 'unreadable';
 
 /**
- * The planets' dossiers, by PRD number: a planet with none is absent. 'unreadable' when none could be
- * read at all: every DOSSIER tab then says so, and the rest of the planet is unchanged.
+ * The planets' dossiers, by planet key (`<home>#<n>`, PRD 728) or by PRD number alone: a planet with
+ * none is absent. 'unreadable' when none could be read at all: every DOSSIER tab then says so, and the
+ * rest of the planet is unchanged.
  */
-export type DossiersRead = Record<number, PlanetDossierRead> | 'unreadable';
+export type DossiersRead = Record<string | number, PlanetDossierRead> | 'unreadable';
 
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
