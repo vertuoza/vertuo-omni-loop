@@ -60,7 +60,7 @@ describe('checkUrl', () => {
   });
 });
 
-type Route = { status?: number; headers?: Record<string, string>; body?: string | Uint8Array };
+type Route = { status?: number; headers?: Record<string, string>; body?: string };
 
 function site(routes: Record<string, Route>) {
   const asked: string[] = [];
