@@ -4,12 +4,14 @@ import { themeCss } from '../ask/theme-tokens';
 import { WaitingProvider } from '../waiting/WaitingProvider';
 import { AppBar } from './AppBar.tsx';
 import { DrawerProvider } from './drawer-context';
+import { MenuRailScript } from './menu-rail-script';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewerView } from './viewer-view';
 
 // The one layout wrapper of the app's pages, /app, /prd, /ask and /knowledge (PRD 438), in order: the
 // ask pages' tokens as CSS custom properties; the ask root, its theme script its first child, so the
-// stored theme is applied before the first paint; the sidebar; the top bar; then the page. The
+// stored theme is applied before the first paint, then the menu's rail script (PRD 733), so a kept
+// rail is drawn from the first paint too; the sidebar; the top bar; then the page. The
 // layouts read the viewer and hand it here; a page's own stylesheet rules go in `css`, its own
 // classes on the root in `className`. The sidebar and the top bar share the phone drawer: below
 // 900 px the bar's ☰ opens the sidebar over the page. The waiting provider (PRD 499) wraps the three:
@@ -29,10 +31,12 @@ export function AppShell({ viewer, children, css, className }: AppShellProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: css ? `${themeCss()}\n${css}` : themeCss() }} />
-      {/* The script marks this root with the theme before anything in it is parsed; React leaves
-          those two attributes alone. */}
+      {/* The scripts mark this root with the theme, and with the menu's rail when the omni-menu
+          cookie keeps it (PRD 733), before anything in it is parsed; React leaves those attributes
+          alone. */}
       <div className={['ask app-shell', className].filter(Boolean).join(' ')} suppressHydrationWarning>
         <ThemeScript />
+        <MenuRailScript />
         <WaitingProvider view={viewer.waiting}>
           <DrawerProvider>
             <Sidebar viewer={viewer} />
