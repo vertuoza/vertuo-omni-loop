@@ -32,33 +32,44 @@ export interface DockPlatformerProps {
   onFold: () => void;
 }
 
-export function DockPlatformer({ asking, hero, team, back, onBack, onFold }: DockPlatformerProps) {
-  const held = useMemo(() => createHeld(), []);
+/** The game and the scene's reports: where Phaser's import stands, and what happened on the stage. */
+function usePfState() {
   const [pf, setPf] = useState(newDockPf);
   const pfRef = useRef(pf);
   pfRef.current = pf;
+  const onStatus = useCallback((status: ScreenStatus) => setPf((p) => ({ ...p, status })), []);
+  const onEvent = useCallback((e: PlatformerEvent) => setPf((p) => ({ ...p, session: hearEvent(p.session, e) })), []);
+  return { pf, pfRef, setPf, onStatus, onEvent };
+}
+
+/** The game as the dock plays it: `act` presses a button, `buttons` are the ones the scene reads held. */
+function useDockPlatformer({ asking, onBack, onFold }: Pick<DockPlatformerProps, 'asking' | 'onBack' | 'onFold'>) {
+  const held = useMemo(() => createHeld(), []);
+  const { pf, pfRef, setPf, onStatus, onEvent } = usePfState();
   const askingRef = useRef(asking);
   askingRef.current = asking;
-  const out = useRef({ onBack, onFold });
-  out.current = { onBack, onFold };
+  const out = useRef({ back: onBack, fold: onFold });
+  out.current = { back: onBack, fold: onFold };
 
   // A question pauses the game the moment it arrives; it never resumes by itself.
-  const lost = useCallback(() => { held.clear(); setPf(askPf); }, [held]);
+  const lost = useCallback(() => { held.clear(); setPf(askPf); }, [held, setPf]);
   useEffect(() => { if (asking) lost(); }, [asking, lost]);
 
   const act = useCallback((action: Action) => {
     const r = pressPf(pfRef.current, action, askingRef.current);
-    if (r.out === 'fold') return out.current.onFold();
-    if (r.out === 'back') return out.current.onBack();
+    if (r.out) return out.current[r.out]();
     if (r.pf !== pfRef.current) { pfRef.current = r.pf; setPf(r.pf); }
-  }, []);
-  const fold = useCallback(() => out.current.onFold(), []);
+  }, [pfRef, setPf]);
+  const fold = useCallback(() => out.current.fold(), []);
   useDockKeys(act, held, fold, lost);
 
   // The scene reads the held buttons each frame: none while a question is open.
   const buttons = useCallback(() => (askingRef.current ? NONE : held.buttons()), [held]);
-  const onStatus = useCallback((status: ScreenStatus) => setPf((p) => ({ ...p, status })), []);
-  const onEvent = useCallback((e: PlatformerEvent) => setPf((p) => ({ ...p, session: hearEvent(p.session, e) })), []);
+  return { pf, act, buttons, onStatus, onEvent };
+}
+
+export function DockPlatformer({ asking, hero, team, back, onBack, onFold }: DockPlatformerProps) {
+  const { pf, act, buttons, onStatus, onEvent } = useDockPlatformer({ asking, onBack, onFold });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   return (

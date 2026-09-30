@@ -104,18 +104,31 @@ function useGameCode(playing: boolean, load: () => Promise<ComponentType<DockGam
   return Game;
 }
 
-export function PlayDock({ state, player, hero = null, team = null, answerHref, values, supabase = null, workspace = null, account = null, load = loadGame }: PlayDockProps) {
+/** What is kept for the tab, read once in the browser: whether the dock is open, and the game picked last. */
+function useKeptDock() {
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
-  const [started, setStarted] = useState(false);
-  const door = dockDoor(player);
-
-  // The state kept for the tab, once in the browser.
   useEffect(() => {
     const kept = readDock(() => window.sessionStorage);
     setOpen(kept.open);
     setChosen(kept.game);
   }, []);
+  const keepOpen = useCallback((next: boolean) => {
+    setOpen(next);
+    writeOpen(() => window.sessionStorage, next);
+  }, []);
+  const choose = useCallback((game: DockGameId) => {
+    setChosen(game);
+    writeDock(() => window.sessionStorage, { game });
+  }, []);
+  return { open, keepOpen, chosen, choose };
+}
+
+export function PlayDock({ state, player, hero = null, team = null, answerHref, values, supabase = null, workspace = null, account = null, load = loadGame }: PlayDockProps) {
+  const { open, keepOpen, chosen, choose } = useKeptDock();
+  const [started, setStarted] = useState(false);
+  const door = dockDoor(player);
+  const games = door.play ? door.games : undefined;
   const width = useWindowWidth();
 
   const view = dockView({ state, door, open, game: started, width });
@@ -124,19 +137,14 @@ export function PlayDock({ state, player, hero = null, team = null, answerHref, 
   useEffect(() => { if (playing && Game) setStarted(true); }, [playing, Game]);
 
   const show = useCallback((next: boolean) => {
-    setOpen(next);
+    keepOpen(next);
     if (!next) setStarted(false);
-    writeOpen(() => window.sessionStorage, next);
-  }, []);
-  const choose = useCallback((game: DockGameId) => {
-    setChosen(game);
-    writeDock(() => window.sessionStorage, { game });
-  }, []);
+  }, [keepOpen]);
 
   return (
     <DockFrame view={view} answerHref={answerHref} onOpen={() => show(true)} onFold={() => show(false)}>
       {Game && playing
-        ? <Game games={door.play ? door.games : undefined} chosen={chosen} onChoose={choose} asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => show(false)} />
+        ? <Game games={games} chosen={chosen} onChoose={choose} asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => show(false)} />
         : <p className="pd-loading">LOADING…</p>}
     </DockFrame>
   );

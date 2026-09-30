@@ -51,35 +51,35 @@ export function PlatformerOverlay({ session, status, send = null, back = 'GAME R
       {s.phase === 'play' && <p className="hint pf-foot"><Hint k="ENTER">PAUSE</Hint></p>}
       {s.phase === 'ready' && (
         <div className="j-panel pf-panel">
-          <p className="pf-title">{s.stage} · PRESS START</p>
+          <p className="inv-title">{s.stage} · PRESS START</p>
           <p className="pf-sub">LIVES ×{s.lives}</p>
           <p className="hint"><Hint k="ENTER">PLAY</Hint> <Hint k="B">{back}</Hint></p>
         </div>
       )}
       {s.phase === 'paused' && (
         <div className="j-panel pf-panel">
-          <p className="pf-title">PAUSED</p>
+          <p className="inv-title">PAUSED</p>
           <p className="pf-how">◀ ▶ MOVE · HOLD B TO RUN · A JUMPS, HIGHER HELD</p>
           <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="B">{back}</Hint></p>
         </div>
       )}
       {s.phase === 'clear' && (
         <div className="j-panel pf-panel">
-          <p className="pf-title">STAGE CLEAR</p>
+          <p className="inv-title">STAGE CLEAR</p>
           <p className="pf-sub">WORLD {s.stage} · SCORE {scoreText(s.score)}</p>
           <p className="hint"><Hint k="A">NEXT STAGE</Hint></p>
         </div>
       )}
       {s.phase === 'world' && (
         <div className="j-panel pf-panel">
-          <p className="pf-title">WORLD CLEAR</p>
+          <p className="inv-title">WORLD CLEAR</p>
           <p className="pf-sub">SCORE {scoreText(s.score)}</p>
           <EndSend send={send} back={back} />
         </div>
       )}
       {s.phase === 'over' && (
         <div className="j-panel pf-panel">
-          <p className="pf-title">GAME OVER</p>
+          <p className="inv-title">GAME OVER</p>
           <p className="pf-sub">WORLD {s.stage} · SCORE {scoreText(s.score)}</p>
           <EndSend send={send} back={back} />
         </div>

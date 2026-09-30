@@ -50,7 +50,7 @@ beforeAll(() => { setFleets(fleets); });
 
 describe('the game room on the two grids', () => {
   it('is laid out on the tall grid too, so the Game Boy held upright draws it on 320×288', () => {
-    expect([...TALL_SCENES]).toEqual(['games']);
+    expect([...TALL_SCENES]).toEqual(['games', 'platformer']);
     expect(gridFor('handheld', 'games')).toBe(TALL);
     for (const form of ['full', 'advance'] as const) expect(gridFor(form, 'games')).toBe(WIDE);
   });

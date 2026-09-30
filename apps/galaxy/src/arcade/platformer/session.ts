@@ -21,26 +21,34 @@ export interface Session extends Run {
 export const newSession = (): Session => ({ ...newRun(), phase: 'ready' });
 
 /** What a press does: the session after it, and whether it leaves the game or retries the import. */
-export function pressSession(s: Session, action: Action, status: ScreenStatus): { session: Session; leave?: true; retry?: true } {
-  if (status === 'failed') {
-    if (action === 'a') return { session: s, retry: true };
-    if (action === 'b') return { session: s, leave: true };
-    return { session: s };
-  }
-  if (status === 'loading') return action === 'b' ? { session: s, leave: true } : { session: s };
-  switch (s.phase) {
-    case 'ready':
-      if (action === 'start') return { session: { ...s, phase: 'play' } };
-      return action === 'b' ? { session: s, leave: true } : { session: s };
-    case 'play': return action === 'start' ? { session: { ...s, phase: 'paused' } } : { session: s };
-    case 'paused':
-      if (action === 'start') return { session: { ...s, phase: 'play' } };
-      if (action === 'select' || action === 'b') return { session: s, leave: true };
-      return { session: s };
-    case 'clear': return action === 'a' || action === 'start' ? { session: { ...nextRun(s), phase: 'ready' } } : { session: s };
-    case 'world':
-    case 'over': return action === 'a' || action === 'b' || action === 'start' ? { session: s, leave: true } : { session: s };
-  }
+type Press = { session: Session; leave?: true; retry?: true };
+
+const stay = (s: Session): Press => ({ session: s });
+const leave = (s: Session): Press => ({ session: s, leave: true });
+const phase = (s: Session, p: Phase): Press => ({ session: { ...s, phase: p } });
+
+/** A press while Phaser loads, or over the line that says it did not: B leaves, and A retries a failed import. */
+const STATUS_PRESS: Record<Exclude<ScreenStatus, 'ready'>, (s: Session, action: Action) => Press> = {
+  failed: (s, action) => (action === 'a' ? { session: s, retry: true } : action === 'b' ? leave(s) : stay(s)),
+  loading: (s, action) => (action === 'b' ? leave(s) : stay(s)),
+};
+
+const ends = (action: Action) => action === 'a' || action === 'b' || action === 'start';
+const endPress = (s: Session, action: Action) => (ends(action) ? leave(s) : stay(s));
+
+/** A press on each screen of a game that runs. */
+const PHASE_PRESS: Record<Phase, (s: Session, action: Action) => Press> = {
+  ready: (s, action) => (action === 'start' ? phase(s, 'play') : action === 'b' ? leave(s) : stay(s)),
+  play: (s, action) => (action === 'start' ? phase(s, 'paused') : stay(s)),
+  paused: (s, action) => (action === 'start' ? phase(s, 'play') : action === 'select' || action === 'b' ? leave(s) : stay(s)),
+  clear: (s, action) => (action === 'a' || action === 'start' ? { session: { ...nextRun(s), phase: 'ready' } } : stay(s)),
+  world: endPress,
+  over: endPress,
+};
+
+/** A press: to the screen's status while Phaser is not up, to the game's phase once it is. */
+export function pressSession(s: Session, action: Action, status: ScreenStatus): Press {
+  return status === 'ready' ? PHASE_PRESS[s.phase](s, action) : STATUS_PRESS[status](s, action);
 }
 
 const PHASE_AFTER = { play: 'play', life: 'ready', over: 'over', clear: 'clear', world: 'world' } as const;

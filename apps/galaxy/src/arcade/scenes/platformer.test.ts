@@ -6,7 +6,7 @@ import { ScreenContext } from '../Screen';
 import { newSession, pressSession, type Session } from '../platformer/session';
 import type { ScreenStatus } from '../platformer/PlatformerScreen';
 import { PlatformerOverlay } from './platformer.tsx';
-import { TALL_SCENES } from './platformer.ts';
+import { TALL_SCENES } from './games.ts';
 import { sending, type ScoreSend } from './invaders-score';
 
 // Super Omni World's text layer (PRD 817): what shows over the game on each of its screens.
@@ -18,7 +18,7 @@ const text = (session: Session, status: ScreenStatus = 'ready', grid: Grid = WID
 
 describe('the platformer\'s text layer', () => {
   it('is laid out on the tall grid on the Game Boy held upright', () => {
-    expect(TALL_SCENES).toEqual(['platformer']);
+    expect(TALL_SCENES).toContain('platformer');
     expect(gridFor('handheld', 'platformer')).toBe(TALL);
     expect(gridFor('full', 'platformer')).toBe(WIDE);
   });

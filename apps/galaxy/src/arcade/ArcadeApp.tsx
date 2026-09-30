@@ -5,7 +5,7 @@ import { randomHero, type Hero } from '@omni/design';
 import {
   chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
 } from './scenes';
-import { useForm } from './form';
+import { useForm, type Form } from './form';
 import { useFullscreen } from './fullscreen';
 import { FullscreenButton, useFullscreenState } from './FullscreenButton';
 import { frameFor, gridFor, pagesFor, TALL, turnPage, WIDE, type Grid } from './grid';
@@ -32,9 +32,9 @@ import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
-import { PlatformerScreen, type ScreenStatus } from './platformer/PlatformerScreen';
-import { ended, hearEvent, newSession, pauseSession, pressSession, scoreToSend, type Session as PlatformerSession } from './platformer/session';
-import type { PlatformerEvent } from './platformer/rules';
+import { PlatformerScreen } from './platformer/PlatformerScreen';
+import { ended, newSession, pressSession } from './platformer/session';
+import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
 import { cabinetDoor, cabinets, xpStatus } from './games/room';
 import { GAMES } from './games';
 import {
@@ -69,6 +69,15 @@ const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
 // Super Omni World's key in the registry: its scores are sent under it (PRD 817).
 const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
+// The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
+const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer']);
+
+/** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
+function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null): Grid {
+  if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
+  if (scene === 'platformer' && pf) return pf.grid;
+  return gridFor(form, scene);
+}
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
@@ -251,33 +260,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const sendScoreRef = useRef(sendScore);
   sendScoreRef.current = sendScore;
 
-  // Super Omni World (PRD 817): the game as the arcade holds it around the Phaser scene, which plays
-  // itself and reads the held buttons: the stage and the screen up, where Phaser's import stands,
-  // the retries asked for, and the grid the game started on (it keeps it, as Invaders does).
-  const [pf, setPf] = useState<{ session: PlatformerSession; status: ScreenStatus; retry: number; grid: Grid } | null>(null);
-  const pfRef = useRef(pf);
-  pfRef.current = pf;
-  const onPlatformerEvent = useCallback((e: PlatformerEvent) => {
-    setPf((p) => {
-      if (!p) return p;
-      const session = hearEvent(p.session, e);
-      return session === p.session ? p : { ...p, session };
-    });
-  }, []);
-  // The game's end, game over or WORLD CLEAR, sends its score once: on the move into it.
-  const pfSessionRef = useRef<PlatformerSession | null>(null);
-  useEffect(() => {
-    const before = pfSessionRef.current, now = pf?.session ?? null;
-    pfSessionRef.current = now;
-    const score = before && now ? scoreToSend(before, now) : null;
-    if (score !== null) sendScoreRef.current(PLATFORMER, score);
-  }, [pf?.session]);
-  const onPlatformerStatus = useCallback((status: ScreenStatus) => {
-    setPf((p) => (p && p.status !== status ? { ...p, status } : p));
-  }, []);
-  const pausePlatformer = useCallback(() => {
-    setPf((p) => (p && uiRef.current.scene === 'platformer' ? { ...p, session: pauseSession(p.session) } : p));
-  }, []);
+  // Super Omni World (PRD 817): the game as the arcade holds it around the Phaser scene; a pause
+  // from outside reaches it only while it is the scene up.
+  const { pf, pfRef, setPf, onEvent: onPlatformerEvent, onStatus: onPlatformerStatus, pause: pausePlatformer } =
+    usePlatformer(sendScoreRef, PLATFORMER, () => uiRef.current.scene === 'platformer');
 
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
@@ -805,7 +791,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       e.preventDefault();
       held.keyDown(e.key);
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;
-      if (e.repeat && (uiRef.current.scene === 'invaders' || uiRef.current.scene === 'platformer')) return; // a game reads a held key as held, never as repeats
+      if (e.repeat && HELD_SCENES.has(uiRef.current.scene)) return; // a game reads a held key as held, never as repeats
       act(action);
     };
     const onKeyUp = (e: KeyboardEvent) => held.keyUp(e.key);
@@ -827,7 +813,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = ui.scene === 'invaders' && hud ? GAME_GRID[hud.layout] : ui.scene === 'platformer' && pf ? pf.grid : gridFor(form, ui.scene);
+  const grid = sceneGrid(ui.scene, form, hud, pf);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
@@ -978,7 +964,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           </Screen>
         </Lens>
         <FullscreenButton form={form} {...fullscreenState} fullscreen={fullscreen} />
-        <HeldPad.Provider value={ui.scene === 'invaders' || ui.scene === 'platformer' ? held : null}>
+        <HeldPad.Provider value={HELD_SCENES.has(ui.scene) ? held : null}>
           {form === 'handheld' && <Handheld {...body} />}
           {form === 'advance' && <Advance {...body} />}
         </HeldPad.Provider>

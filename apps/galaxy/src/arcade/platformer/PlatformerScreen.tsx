@@ -51,7 +51,7 @@ export interface Platformer {
 }
 
 /** The real Phaser, fetched only when a platformer screen mounts. */
-export const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
+const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
 
 /**
  * The world's scenes, one per stage in the order they are played, each told the next one's key:

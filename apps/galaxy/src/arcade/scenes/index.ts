@@ -6,14 +6,13 @@
 import { drawBoot, drawHeroes, drawStory, drawTitle } from './attract.ts';
 import { drawChart, drawSystem } from './chart.ts';
 import { drawFleets } from './fleets.ts';
-import { drawGames } from './games.ts';
+import { drawGames, drawPlatformer } from './games.ts';
 import { drawInvaders } from './invaders.ts';
 import { drawLevelUp } from './levelup.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
 import { drawBriefing, drawMenu } from './menu.ts';
 import { drawPlanetScene } from './planet.ts';
-import { drawPlatformer } from './platformer.ts';
 import { drawBuilder, drawName, drawSelect } from './recruit.ts';
 import type { FrameState } from './common.ts';
 

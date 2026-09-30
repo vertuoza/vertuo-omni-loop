@@ -168,20 +168,35 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     update(_time: number, delta: number) {
       if (this.done) return;
       const dt = Math.min(delta / 1000, MAX_DT);
+      if (this.tick(dt)) return this.again();
+      const cam = this.cameras.main;
+      this.move(o.held(), dt, cam);
+      // The camera follows to the right only.
+      const target = Math.min(width - cam.width, this.hero.x - cam.width / 2);
+      if (target > cam.scrollX) cam.setScroll(Math.round(target), this.skyTop);
+      this.walkEnemies(cam.scrollX + cam.width);
+      this.arrive();
+    }
+
+    /** Plays `dt` on the stage's clock, telling each second: true once the clock has run out. */
+    tick(dt: number): boolean {
       const before = this.t;
       this.t += dt;
       for (let n = clockSeconds(before, this.t); n > 0; n -= 1) {
         this.told += 1;
         o.onEvent('second');
-        if (this.told >= STAGE_SECONDS) return this.again();
+        if (this.told >= STAGE_SECONDS) return true;
       }
-      const held = o.held();
+      return false;
+    }
+
+    /** Runs, jumps and poses the hero from the buttons held. */
+    move(held: ReadonlySet<Action>, dt: number, cam: Phaser.Cameras.Scene2D.Camera) {
       const body = this.hero.body as Body;
       const onGround = body.blocked.down;
 
       let vx = heroSpeed(held);
       // The camera never scrolls back: the screen's left edge is a wall.
-      const cam = this.cameras.main;
       if (this.hero.x - PHYSICS.heroW / 2 <= cam.scrollX && vx < 0) vx = 0;
       body.setVelocityX(vx);
 
@@ -190,26 +205,27 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       if (step.vy !== null && !body.blocked.up) body.setVelocityY(step.vy);
 
       if (vx) this.facing = Math.sign(vx);
+      this.hero.setTexture(`hero-${this.pose(onGround, vx)}`).setFlipX(this.facing < 0);
+    }
+
+    /** The hero's pose: in the air, striding (faster at a run), or standing. */
+    pose(onGround: boolean, vx: number): Pose {
+      if (!onGround) return 'jump';
+      if (!vx) return 'stand';
       const rate = Math.abs(vx) > PHYSICS.walk ? STRIDE.run : STRIDE.walk;
-      const pose: Pose = !onGround ? 'jump' : vx ? (Math.floor(this.t * rate) % 2 ? 'run1' : 'run0') : 'stand';
-      this.hero.setTexture(`hero-${pose}`).setFlipX(this.facing < 0);
+      return Math.floor(this.t * rate) % 2 ? 'run1' : 'run0';
+    }
 
-      // The camera follows to the right only.
-      const target = Math.min(width - cam.width, this.hero.x - cam.width / 2);
-      if (target > cam.scrollX) cam.setScroll(Math.round(target), this.skyTop);
-
-      this.walkEnemies(cam.scrollX + cam.width);
-
-      if (heroFell(this.hero.y - PHYSICS.heroH / 2, height)) {
-        this.emit('pit');
-      } else if (heroAtFlag(this.hero.x, flagX)) {
-        this.done = true;
-        body.setVelocity(0, 0);
-        this.physics.pause();
-        this.hero.setTexture('hero-stand');
-        o.onEvent('flag');
-        if (o.next) this.onResume(o.next);
-      }
+    /** A fall into a pit loses a life; the flag clears the stage. */
+    arrive() {
+      if (heroFell(this.hero.y - PHYSICS.heroH / 2, height)) return this.emit('pit');
+      if (!heroAtFlag(this.hero.x, flagX)) return;
+      this.done = true;
+      (this.hero.body as Body).setVelocity(0, 0);
+      this.physics.pause();
+      this.hero.setTexture('hero-stand');
+      o.onEvent('flag');
+      if (o.next) this.onResume(o.next);
     }
 
     /**

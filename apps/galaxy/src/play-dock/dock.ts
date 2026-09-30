@@ -15,7 +15,7 @@ export type DockState = 'working' | 'asking' | 'idle';
 export const DOCK_MIN_WIDTH = 600;
 
 /** The games the dock plays, in the order the picker lists them: the room's keys for them. */
-export const DOCK_GAMES = ['invaders', 'platformer'] as const;
+const DOCK_GAMES = ['invaders', 'platformer'] as const;
 export type DockGameId = (typeof DOCK_GAMES)[number];
 
 /** Each game's name in the picker: its cabinet's marquee. */
