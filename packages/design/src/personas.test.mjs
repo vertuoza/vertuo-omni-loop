@@ -97,7 +97,7 @@ describe('personaGrid', () => {
       }
       expect(seen.size).toBe(PERSONA_VARIATIONS);
     }
-  }, 60_000);
+  });
 
   it('refuses an unknown trade and an avatar out of range', () => {
     const a = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
