@@ -4,6 +4,11 @@
 //
 // It prints the sentence the claims make, then one line per claim with its id (`rival#4`). `--json`
 // prints `{ state, business, product, claims }` (decision 14), the shape the later MCP link returns.
+// Each claim carries its `state` (PRD 774, decision 12): `confirmed`, or `contradicted` while evidence
+// disagrees with it and nobody answered. A contradicted claim is marked on its line and left out of the
+// sentence, so an agent never states it as settled. A server from before PRD 774 sends no state: it
+// only ever sent confirmed claims, so its claims read as confirmed. A proposed or rejected claim never
+// leaves the app, and a reply carrying one is refused.
 //
 // It never blocks an agent (decision 13): every reading outcome exits 0. When there is nothing to
 // read it prints one line ending "— agents carry on", and `--json` says which in `state`:
@@ -30,7 +35,9 @@ const CITED_USAGE = 'usage: omni business cited <id>… --by <skill> [--ref <tex
 const CARRY_ON = '— agents carry on';
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
 const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
+const STATES = ['confirmed', 'contradicted'];
 const BLANK = '___';
+const CONTRADICTED = '  (contradicted: evidence disagrees, nobody answered yet)';
 
 const isText = (value) => typeof value === 'string' && value.length > 0;
 const named = (value) => (value && isText(value.name) ? { name: value.name } : null);
@@ -39,8 +46,13 @@ const named = (value) => (value && isText(value.name) ? { name: value.name } : n
 function claimOf(value) {
   if (!value || !isText(value.id) || !KINDS.includes(value.kind) || !isText(value.value) || !SOURCES.includes(value.source)) return null;
   if (!value.id.startsWith(`${value.kind}#`)) return null;
+  const state = value.state ?? 'confirmed';
+  if (!STATES.includes(state)) return null;
   const orNull = (field) => (isText(field) ? field : null);
-  return { id: value.id, kind: value.kind, value: value.value, source: value.source, receipt: orNull(value.receipt), lastSeen: orNull(value.lastSeen) };
+  return {
+    id: value.id, kind: value.kind, value: value.value, source: value.source, state,
+    receipt: orNull(value.receipt), lastSeen: orNull(value.lastSeen),
+  };
 }
 
 /** The server's reply as the contract's body, or null when it does not read as one. */
@@ -55,9 +67,9 @@ function businessOf(reply) {
 /** `a`, `a and b`, `a, b and c`. */
 const joined = (values) => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
 
-/** The sentence the claims make, its blanks left where a kind has none (the Settings page's own). */
+/** The sentence the confirmed claims make, its blanks left where a kind has none (the Settings page's own). */
 function sentence(claims) {
-  const of = (kind) => claims.filter((claim) => claim.kind === kind).map((claim) => claim.value);
+  const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === 'confirmed').map((claim) => claim.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of('size')[0];
   const who = size ? `${size.replace('-', '–')}-person` : `${BLANK}-person`;
@@ -152,7 +164,7 @@ export const business = {
     const width = Math.max(...read.claims.map((claim) => claim.id.length));
     return print(out, read, [
       sentence(read.claims),
-      ...read.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}`),
+      ...read.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
     ]);
   },
 };
