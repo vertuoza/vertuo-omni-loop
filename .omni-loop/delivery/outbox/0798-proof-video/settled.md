@@ -158,3 +158,315 @@ A change of response shape in two routes and s3's client; no stored data changes
 ```
 
 <!-- /omni-outbox-settled: s2-01-upload-mints-run -->
+
+<!-- omni-outbox-settled: s3-01-proof-calls-outside-territory -->
+
+## s3-01-proof-calls-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-proof-calls-outside-territory
+prd: 798
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Sending a proof run needs the terminal's existing sign-in, and the help page must list the new command, but both live in files this slice was not given.
+
+## The decision, in plain words
+
+The new calls were added beside the existing calls to the Omni page, so they share the same sign-in, and the new command got its help line now so the help check stays green.
+
+## The intro, for fun
+
+The new command needed a key to the building and a name on the door.
+
+## The punchline, for fun
+
+It borrowed the master key and wrote its own name tag.
+
+## The options, in plain words
+
+A. A. Add the calls to the shared sign-in client, and the help line now (built)
+B. B. Copy a small signed-in client into the proof code, and leave the help line to the later slice, with this one failing its checks until then
+C. C. Open one general signed-in call on the shared client, and build the proof calls on it inside the proof code
+
+## What I had to decide
+
+Whether the upload, register and file-put calls live in the shared ask client (kit/lib/ask/client.mjs), and whether s3 or s5 writes the proof command's help entry (kit/lib/help/entries.mjs).
+
+## What I did meanwhile
+
+Added requestProofUploads, registerProof and upload to askClient with tests in client.test.mjs, and a `proof` command entry (who: skills) in the help entries, raising the command count in entries.test.mjs from 36 to 37.
+
+## What it costs to change later
+
+A constant: moving the calls into kit/lib/proof/ is a file move with no stored data; the help entry is one block s5 can reword.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives s3 kit/bin/commands/proof, kit/bin/commands/index.mjs, kit/lib/proof/ and kit/dist/ only; the help entries test fails for any new command without an entry, and the sign-in refresh lives only inside askClient.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-proof-calls-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-run-json-shape -->
+
+## s3-02-run-json-shape — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-run-json-shape
+prd: 798
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+The design says the proof command reads a run file the recording skill writes, but not what that file holds, nor what happens to a run where nothing could be filmed.
+
+## The decision, in plain words
+
+The run file holds the commit, the address filmed and one line per criterion with the names of its clip and script; the moving preview is found by its file name. A run with nothing filmed gets its own number from the terminal, since there is nothing to upload.
+
+## The intro, for fun
+
+Every film crew needs a call sheet before the clapperboard snaps.
+
+## The punchline, for fun
+
+This one fits on an index card, and blank takes still get a slate number.
+
+## The options, in plain words
+
+A. A. The run file holds the commit, the address and the criteria, the preview is found by its name, and a run with nothing filmed is numbered by the terminal (built)
+B. B. The run file also names the preview, and the Omni page always numbers the run, even with nothing to upload
+C. C. Refuse to push a run with nothing filmed, printing a line instead
+
+## What I had to decide
+
+The shape of run.json that /omni:prove (s5) must write, how the GIF is found, and how an all-unfilmable run gets its id when the app's upload call refuses an empty file list.
+
+## What I did meanwhile
+
+run.json is {commit, url, criteria: [{text, verdict, note?, video?, script?}]}; preview.gif in the folder is uploaded when present; a run with no file skips the upload call and mints a random UUID for the register call. Local refusals print `refused (<status>): <reason>`, a 404 prints `none`, and a folder without run.json is exit 2.
+
+## What it costs to change later
+
+A constant: the file is written and read only by the kit, never stored; s5's skill text follows whatever shape is settled.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names run.json's contents only as the criteria, verdicts, notes and file names; commit and url are needed by the register call, and whether the app accepts a run id it did not mint rests on s2's register route, which only checks the id's form.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-run-json-shape -->
+
+<!-- omni-outbox-settled: s4-01-proof-link-lifetime -->
+
+## s4-01-proof-link-lifetime — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-proof-link-lifetime
+prd: 798
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+How long should a clip on the Proof tab stay playable before the page needs a reload?
+
+## The decision, in plain words
+
+Each clip and script link lasts one hour; after that, reloading the page gives fresh ones. The script's text is read by the server and shown in the fold, so nobody has to download it.
+
+## The intro, for fun
+
+Every video ticket on the Proof tab has an expiry time printed on it.
+
+## The punchline, for fun
+
+One hour felt long enough for popcorn, short enough to stay private.
+
+## The options, in plain words
+
+A. One hour, reload for fresh links: what was built: long enough to watch every clip, short enough that a copied link soon stops working.
+B. Five minutes, like the GIF link: tighter, but a reviewer who pauses to read the spec comes back to dead players.
+C. A day: never breaks during a review, but a copied clip link keeps working far longer.
+
+## What I had to decide
+
+Whether one hour is the right lifetime for the signed links the Proof tab hands to a viewer.
+
+## What I did meanwhile
+
+Links are signed for one hour, for the shown run only, and only on the Proof tab; script text is fetched server-side (3 s timeout, 64 KiB cap) and falls back to an Open it link.
+
+## What it costs to change later
+
+A constant in the page's proof read; changing it is one line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the links are signed for the viewer but names no lifetime (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-proof-link-lifetime -->
+
+<!-- omni-outbox-settled: s4-02-proof-tab-place -->
+
+## s4-02-proof-tab-place — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-proof-tab-place
+prd: 798
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Where does the Proof tab sit among the PRD page's tabs, and what does its label count?
+
+## The decision, in plain words
+
+The Proof tab sits after Outbox and before Retro, the order things happen in, and its label counts the runs recorded.
+
+## The intro, for fun
+
+The tabs line up in the order a PRD lives its life.
+
+## The punchline, for fun
+
+Proof comes after the questions and before the goodbye party.
+
+## The options, in plain words
+
+A. After Outbox, badged with the runs: what was built: the order of the delivery, and how many times it was proved.
+B. After Outbox, badged with the newest run's counts: shows the verdict at a glance, like 3 pass 1 fail, but crowds the bar on a phone.
+C. Last, after Retro: keeps the existing tabs where they are, out of the order things happen in.
+
+## What I had to decide
+
+The Proof tab's place in the tab bar and what its badge reads.
+
+## What I did meanwhile
+
+Proof sits between Outbox and Retro, shown only once a run exists, badged with the number of runs (1 run, 2 runs).
+
+## What it costs to change later
+
+One list order and one label in the page's view.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names the tab and when it appears, not its place or its badge (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-proof-tab-place -->
