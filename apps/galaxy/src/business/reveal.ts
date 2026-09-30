@@ -33,7 +33,9 @@ export const MAX_PAGES = 3;
 export type Mark = 'right' | 'wrong';
 export type Marks = Readonly<Record<string, Mark>>;
 
-export const isFound = (claim: Claim) => claim.state === 'proposed' && claim.source === 'evidence' && !claim.replaces;
+/** A proposed Never line (PRD 839) is not a found row: it waits in the Never lines list, with its receipt,
+ * and That's us leaves it as it is. */
+export const isFound = (claim: Claim) => claim.state === 'proposed' && claim.source === 'evidence' && !claim.replaces && claim.kind !== 'never';
 
 /** The rows of "What we found", in the sentence's order. An addition beside confirmed claims of its
  * kind is not one: it waits on top of the page with the recheck's other rows (./check.ts, s4). */

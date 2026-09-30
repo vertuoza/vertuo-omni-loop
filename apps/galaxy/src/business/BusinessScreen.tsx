@@ -25,6 +25,7 @@ export const DEMO_CLAIMS: Claim[] = [
   { id: 'demo-3', seq: 3, kind: 'trade', value: 'construction', source: 'pick', state: 'confirmed', cited: 2, lastBy: 'think-big concept #9' },
   { id: 'demo-4', seq: 4, kind: 'rival', value: 'Acme Build', source: 'pick', state: 'confirmed', cited: 1, lastBy: 'think-big concept #9' },
   { id: 'demo-5', seq: 5, kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', cited: 0, lastBy: null },
+  { id: 'demo-6', seq: 6, kind: 'never', value: 'Build for groups of companies', source: 'pick', state: 'confirmed', cited: 1, lastBy: 'canon check #12' },
 ];
 
 /** The demo's one product (PRD 748 s4): "+ Add a product" adds a second, in the page only. */

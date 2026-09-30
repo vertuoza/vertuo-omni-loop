@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { SUGGEST_MODEL } from '../suggest';
-import type { ClaimKind } from '../model';
+import { maxValue, type ClaimKind } from '../model';
 import type { Candidate } from './verify';
 
 // The extraction of a draft (PRD 774, spec step 2): one call per source to the small model already
 // used for suggested rivals (../suggest.ts, through OpenRouter), which answers candidate claims of the
-// five kinds (decision 7), each with the words of the source that say it. Nothing here trusts the
+// five kinds (decision 7), and Never lines (PRD 839: what the source says the product does not do), each
+// with the words of the source that say it. Nothing here trusts the
 // model: ./verify.ts keeps only the candidates whose quote is really in the source, and a value that is
-// not 1 to 80 characters on one line is dropped here. No key, a non-ok answer, an unparseable reply, a
+// not 1 to 80 characters on one line (200 for a Never line) is dropped here. No key, a non-ok answer, an unparseable reply, a
 // timeout or a throw give no candidate, never an error. Pure apart from the one fetch, which a test stubs.
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -16,7 +17,7 @@ const EXTRACT_TIMEOUT_MS = 30_000;
 const MAX_SOURCE_CHARS = 24_000;
 /** The most candidates kept from one source. */
 const MAX_CANDIDATES = 20;
-const KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const satisfies readonly ClaimKind[];
+const KINDS = ['region', 'offering', 'size', 'trade', 'rival', 'never'] as const satisfies readonly ClaimKind[];
 
 const Answer = z.array(z.object({ kind: z.string(), value: z.string(), quote: z.string() }).passthrough());
 
@@ -24,15 +25,16 @@ const SYSTEM = [
   'You read one document of a software company and find what it says about the company\'s business.',
   'Answer a JSON array and nothing else. Each item is {"kind", "value", "quote"}:',
   '- kind: one of "region" (a country or region it sells in), "offering" (what kind of product it sells, in two or three words, such as ERP or CRM),',
-  '  "size" (how many people work at its customers, as <min>-<max>, such as 2-50), "trade" (its customers\' industry, such as construction), "rival" (a company it competes with);',
-  '- value: the answer, 1 to 80 characters;',
+  '  "size" (how many people work at its customers, as <min>-<max>, such as 2-50), "trade" (its customers\' industry, such as construction), "rival" (a company it competes with),',
+  '  "never" (something the document says the company does not do or will not build, said as what it never does, such as "Answer public tenders" for "we don\'t answer public tenders");',
+  '- value: the answer, 1 to 80 characters (1 to 200 for "never");',
   '- quote: the exact words of the document that say it, copied character for character, at most 300 characters.',
   'Only what the document states. When it states nothing of the kind, leave the kind out. An empty array is a fine answer.',
 ].join('\n');
 
-const oneLine = (value: string) => {
+const oneLine = (value: string, kind: ClaimKind) => {
   const v = value.trim();
-  return v.length >= 1 && v.length <= 80 && !/[\r\n\t]/.test(v) ? v : null;
+  return v.length >= 1 && v.length <= maxValue(kind) && !/[\r\n\t]/.test(v) ? v : null;
 };
 
 /** The model's reply as candidates: the JSON array it holds (fenced or not), each item of a known kind
@@ -53,7 +55,7 @@ export function readCandidates(reply: unknown): Candidate[] {
   const found: Candidate[] = [];
   for (const item of items.data) {
     const kind = KINDS.find((k) => k === item.kind.trim().toLowerCase());
-    const value = oneLine(item.value);
+    const value = kind ? oneLine(item.value, kind) : null;
     const quote = item.quote.trim();
     if (!kind || !value || !quote) continue;
     found.push({ kind, value, quote });

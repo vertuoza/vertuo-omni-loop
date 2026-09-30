@@ -1,4 +1,4 @@
-import { claimOf, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
+import { claimOf, maxValue, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
 // supabase/migrations/20261019090000_business_store.sql, called as the signed-in person: claim_pick()
@@ -6,7 +6,8 @@ import { claimOf, type Claim, type ClaimKind, type Product, type StoredClaim } f
 // (✗) a claim; each answers the public.claims row it saved, or refuses (42501 not a member, P0002
 // gone, 22023 invalid). A region belongs to the business, every other kind to the product the page
 // shows. In the demo, the same rules kept in memory, so the page can be tried with no database.
-// `run()` makes the calls of a plan of model.ts: the rejections first, then the pick.
+// `run()` makes the calls of a plan of model.ts: the rejections first, then the pick. A Never line (PRD
+// 839) is picked the same way, 1 to 200 characters, and refused in its own words.
 
 export type Saved = { ok: true; claim: Claim } | { ok: false; message: string };
 export type AddedProduct = { ok: true; product: Product } | { ok: false; message: string };
@@ -30,6 +31,8 @@ const SUGGEST_ROUTE = '/api/business/suggest-rivals';
 export const NOT_MEMBER = 'Only a member of the workspace can change its business.';
 const GONE = 'That is no longer in this workspace’s business. Reload the page.';
 export const INVALID = 'That can’t be saved: 1 to 80 characters, on one line.';
+/** A Never line (PRD 839) refused by its length or its line breaks. */
+export const NEVER_INVALID = 'That can’t be saved: a Never line is 1 to 200 characters, on one line.';
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
@@ -46,19 +49,23 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
 const isGuess = (claim: Claim) => claim.kind === 'rival' && claim.state === 'proposed';
 
 export function databaseBusiness(db: Rpc, workspace: string, product: string, fetch: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)): BusinessPort {
-  const call = async (fn: string, args: Record<string, unknown>): Promise<Saved> => {
+  const call = async (fn: string, args: Record<string, unknown>, invalid = INVALID): Promise<Saved> => {
+    const refused = (error: unknown) => {
+      const message = refusalOf(error);
+      return { ok: false as const, message: message === INVALID ? invalid : message };
+    };
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
-      if (error || !data) return { ok: false, message: refusalOf(error) };
+      if (error || !data) return refused(error);
       return { ok: true, claim: claimOf(data as StoredClaim) };
     } catch (err) {
-      return { ok: false, message: refusalOf(err) };
+      return refused(err);
     }
   };
   return {
     pick: (kind, value, on = product) => call('claim_pick', {
       p_product: kind === 'region' ? null : on, p_kind: kind, p_value: value, p_source: 'pick',
-    }),
+    }, kind === 'never' ? NEVER_INVALID : INVALID),
     setState: (claim, state) => call('claim_set_state', { p_claim: claim.id, p_state: state }),
     async addProduct(name) {
       try {
@@ -89,7 +96,7 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
   };
 }
 
-const badText = (v: string) => v.length < 1 || v.length > 80 || /[\r\n\t]/.test(v);
+const badText = (v: string, max = 80) => v.length < 1 || v.length > max || /[\r\n\t]/.test(v);
 
 /** claim_pick(), claim_set_state() and product_add()'s rules on claims and products kept in memory. */
 export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = []): BusinessPort {
@@ -102,7 +109,7 @@ export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = 
   return {
     async pick(kind, value, on = products[0]?.id) {
       const v = value.trim();
-      if (badText(v)) return { ok: false, message: INVALID };
+      if (badText(v, maxValue(kind))) return { ok: false, message: kind === 'never' ? NEVER_INVALID : INVALID };
       const first = products[0]?.id;
       const product = kind === 'region' ? null : on ?? null;
       // With no product known, one product holds every claim.
