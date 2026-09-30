@@ -224,7 +224,7 @@ html:has(.ask[data-ask-theme]) body {
    after about 12 lines behind "Show all". */
 .ask-lead-msg { margin: 0 0 16px; border: 1px solid var(--ask-line-strong); border-left-width: 3px; border-radius: 10px; background: var(--ask-surface); min-width: 0; }
 .ask-lead-msg-title { margin: 0; padding: 10px 14px 6px; font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--ask-muted); }
-.ask-lead-msg-body.is-folded { max-height: calc(12 * 1.5em); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.ask-lead-msg-body.is-folded { max-height: calc(12 * 1.5em); overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, var(--ask-ink) 70%, transparent); mask-image: linear-gradient(to bottom, var(--ask-ink) 70%, transparent); }
 .ask-lead-msg-more { display: block; margin: 0 14px 12px; padding: 4px 0; border: 0; background: none; font: inherit; font-size: 15px; font-weight: 600; color: var(--ask-ink); text-decoration: underline; cursor: pointer; }
 .ask-past .ask-lead-msg { margin: 10px 0; }
 
