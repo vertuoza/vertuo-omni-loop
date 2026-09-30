@@ -39,7 +39,7 @@ const TODAY = { answer: null, confidence: null, decidedBy: 'old' } as const;
 
 type Entry = NonNullable<ReturnType<typeof jevEntry>>;
 type Terminal = NonNullable<Entry['terminal']>;
-type Asked = { repo: string; input: NonNullable<ReturnType<Terminal['input']>>; old: NonNullable<ReturnType<Terminal['old']>>; ref: string | null };
+type Asked = { repo: string; input: Exclude<ReturnType<Terminal['input']>, null>; old: Exclude<ReturnType<Terminal['old']>, null>; ref: string | null };
 
 function parsed(text: string): Record<string, unknown> | null {
   try {
