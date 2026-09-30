@@ -97,6 +97,22 @@ export const ENTRIES = deepFreeze([
       'it as one document, the one /omni:wave acts on. Needs gh logged in.',
   },
   {
+    name: 'care',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni care state <prd> [--pr <n>] [--repo <owner/name>]',
+      'omni care reply --verdict <v> --body <text> [--thread <id>]',
+      'omni care reply --verdict <v> --file <path> [--thread <id>]',
+    ],
+    summary: "PRD n's feature PR as PR care sees it, and its marked replies",
+    detail:
+      "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review " +
+      'thread with its verdict, whether a wave holds claims, and the next actions of a round. reply ' +
+      'writes a reply ending with the care marker; with --thread it posts it and resolves the thread ' +
+      'unless the verdict is asked. Needs gh logged in.',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',
@@ -824,6 +840,26 @@ export const ENTRIES = deepFreeze([
     example: {
       type: '/omni:pr',
       result: 'the pull request opened or updated, its status comment kept current',
+    },
+  },
+  {
+    name: 'pr-care',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:pr-care <n>'],
+    label: '/omni:pr-care <n>',
+    summary: "look after a PRD's feature PR until it is merged",
+    detail:
+      "Looks after PRD n's feature PR, round by round, until it is merged or closed or you stop it: " +
+      'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
+      "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
+      'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
+      'wave is building, shows on the PRD page that it is watching, and never merges.',
+    group: 'build',
+    when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
+    example: {
+      type: '/omni:pr-care 790',
+      result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
     },
   },
   {

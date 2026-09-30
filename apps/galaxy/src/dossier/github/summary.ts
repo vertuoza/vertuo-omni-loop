@@ -3,6 +3,7 @@
 // (GitHub answered an error, or could not be reached), null when it answered that there is none yet.
 // A summary that could not be read at all (the App not installed, the config unreadable) is null
 // where it is used, and the page's stage is unknown.
+import type { CareState } from './care';
 
 /** A part of the summary whose read failed. Never guessed: the stage reads it as unknown. */
 export const UNREAD = 'unread' as const;
@@ -96,6 +97,9 @@ export type GithubSummary = {
   /** The retro, `retro.md` as markdown (PRD 426, s3): from the retro branch while its PR is open, from the
    * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
   retroText?: Read<string | null>;
+  /** The feature PR's care state (PRD 790, s2, ./care.ts), read while it is open; null when there is no
+   * open feature PR. Left out by a summary made before it. */
+  care?: Read<CareState | null>;
 };
 
 /** One GitHub read on its own, for `page`: its answer, or UNREAD (logged) when it failed. */

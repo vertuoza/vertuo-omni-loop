@@ -92,11 +92,23 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 36 commands and the 21 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(36);
-    expect(skillFolders()).toHaveLength(21);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(36);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(21);
+  it('holds the 37 commands and the 22 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(37);
+    expect(skillFolders()).toHaveLength(22);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(37);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(22);
+  });
+
+  it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const prCare = skills.find((e) => e.name === 'pr-care');
+    expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
+    expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
+    expect(prCare.when).toMatch(/^Use it when\b/);
+    expect(prCare.example).toEqual({ type: '/omni:pr-care 790', result: expect.any(String) });
+    expect(prCare.detail).toMatch(/\bfeature PR\b/);
+    expect(prCare.detail).toMatch(/\breview\b/);
+    expect(prCare.detail).toMatch(/never merges/);
   });
 
   it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
@@ -209,7 +221,7 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
-      build: ['do-work', 'plan', 'pr', 'wave', 'yolo', 'yolo-fix'],
+      build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'status'],
