@@ -11,6 +11,8 @@
 //
 // With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
 // returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
+// With `business`, it answers `GET /api/business?repo=owner/name` (PRD 748) with what
+// `business(repo)` returns, `{ status, body }` (status 200 when not given); without it, a 404.
 //
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.mjs [--port <p>] [--answer first|none] [--token <t>]
@@ -69,6 +71,8 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *   onCall?: (call: object) => void,
  *   place?: (repo: string) => ({ workspace: { slug: string, name: string } | null, reason: string | null }),
  *                                where a repository's questions land; absent: the call is a 404
+ *   business?: (repo: string) => ({ status?: number, body: object }),
+ *                                what `GET /api/business?repo=` answers (PRD 748); absent: a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  * }} [options]
  */
@@ -84,6 +88,7 @@ export async function startFakeAskServer({
   dossierBodyBytes = 2 * 1024 * 1024,
   artifactBytes = 512 * 1024,
   place = null,
+  business = null,
   tokenExtras = {},
 } = {}) {
   const access = new Set([accessToken]);
@@ -222,6 +227,12 @@ export async function startFakeAskServer({
     }
     if (method === 'POST' && path === '/api/dossiers/push') {
       const { status, body: reply } = pushDossier(body, raw);
+      return json(response, status, reply);
+    }
+    if (method === 'GET' && path === '/api/business' && business) {
+      const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
+      const { status = 200, body: reply } = business(repo);
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {

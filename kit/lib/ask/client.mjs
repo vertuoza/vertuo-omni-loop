@@ -3,7 +3,8 @@
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
 // them will do. Since PRD 459 it also asks where a repository's questions land (`GET
 // /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
-// screenshots an answer carries, from the signed links `wait` hands back: those carry no token.
+// screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
+// PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -199,5 +200,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
     findDossier: ({ repo, prd, kind = 'prd' }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
+    /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
+     * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
+     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
+    readBusiness: (repo) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
   };
 }
