@@ -145,7 +145,11 @@ function SizeSlider({ state, on }: { state: BusinessState; on: BusinessHandlers 
         {handle('lo', lo, 'Smallest customer')}
         {handle('hi', hi, 'Largest customer')}
       </div>
-      <ol className="business-stops" aria-hidden="true">{SIZE_STOPS.map((s) => <li key={s}>{s}</li>)}</ol>
+      <ol className="business-stops" aria-hidden="true">
+        {SIZE_STOPS.map((s, i) => (
+          <li key={s} style={{ ['--at' as string]: i / last }} data-end={i === lo || i === hi ? '' : undefined}>{s}</li>
+        ))}
+      </ol>
     </div>
   );
 }
