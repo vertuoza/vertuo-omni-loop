@@ -6,11 +6,15 @@
 // `receipt` is then the newest receipt as `<where> — "<quote>"`. PRD 799 added `personas`: the
 // repository's product's personas, oldest first, `[]` when there are none; they never decide `state`,
 // which comes from claims only. A database from before PRD 799 sends none: they read as `[]`. PRD 822
-// stores a claim a person answered, through claim_answer().
+// stores a claim a person answered, through claim_answer(). PRD 839 adds a product's Never lines: claims
+// of kind `never`, read like any other, and never an answer's kind.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-const CLAIM_KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const;
+/** The kinds a person answers (PRD 822). */
+const ANSWERABLE_KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const;
+/** The kinds a read carries: those, and a product's Never lines (PRD 839). */
+const CLAIM_KINDS = [...ANSWERABLE_KINDS, 'never'] as const;
 const CLAIM_SOURCES = ['pick', 'suggestion', 'evidence', 'answer'] as const;
 /** The states a claim leaves the app in: proposed and rejected claims never do. */
 const READ_STATES = ['confirmed', 'contradicted'] as const;
@@ -19,7 +23,7 @@ const named = z.object({ name: z.string().min(1) }).strict();
 
 /** One confirmed or contradicted claim, under its display id `<kind>#<seq>`. */
 const businessClaimSchema = z.object({
-  id: z.string().regex(/^(region|offering|size|trade|rival)#[1-9]\d*$/),
+  id: z.string().regex(/^(region|offering|size|trade|rival|never)#[1-9]\d*$/),
   kind: z.enum(CLAIM_KINDS),
   value: z.string().min(1),
   source: z.enum(CLAIM_SOURCES),
@@ -52,8 +56,8 @@ type BusinessRead = z.infer<typeof businessReadSchema>;
 /** The states a person's answer is stored in (PRD 822): an overrule's, or a gap question's. */
 export const ANSWER_STATES = ['proposed', 'confirmed'] as const;
 export type AnswerState = (typeof ANSWER_STATES)[number];
-export const ANSWER_KINDS = CLAIM_KINDS;
-export type AnswerKind = (typeof CLAIM_KINDS)[number];
+export const ANSWER_KINDS = ANSWERABLE_KINDS;
+export type AnswerKind = (typeof ANSWERABLE_KINDS)[number];
 
 /** What claim_answer() answers: the claim's display id and state, and whether it was added (a value
  * the business already held keeps its own state). */
