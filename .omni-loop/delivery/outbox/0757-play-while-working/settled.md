@@ -391,3 +391,235 @@ One component keeps its game while folded instead of dropping it.
 ```
 
 <!-- /omni-outbox-settled: s3-02-fold-ends-the-game -->
+
+<!-- omni-outbox-settled: s4-01-unread-questions-pause-the-game -->
+
+## s4-01-unread-questions-pause-the-game — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-unread-questions-pause-the-game
+prd: 757
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+When the page cannot check which questions are still open, should the little game carry on, or pause as if a question were waiting?
+
+## The decision, in plain words
+
+It pauses, and points at the questions, whenever some question has no answer yet and the page could not check it. Playing over a real question is worse than one pause too many.
+
+## The intro, for fun
+
+The page lost sight of the question list for a moment, and the aliens kept marching.
+
+## The punchline, for fun
+
+So the game hits pause and says: better check, just in case.
+
+## The options, in plain words
+
+A. Pause the game when the question list cannot be read and a question is unanswered (what was built).
+B. Read no open question when the list cannot be read, so the game keeps playing.
+
+## What I had to decide
+
+What the page's working state reads when the open questions cannot be read, while some question is still unanswered.
+
+## What I did meanwhile
+
+The poll counts every unanswered question as open when the question list cannot be read, so the dock reads asking and pauses. The count of asked and answered comes from the page's own pulse, so the question list is only read when something is unanswered.
+
+## What it costs to change later
+
+One line in the page's working reader: count none as open instead. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says idle when the heartbeat cannot be read, but not what to do when the question list cannot be read.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-unread-questions-pause-the-game -->
+
+<!-- omni-outbox-settled: s5-01-ask-dock-plays-in-arcade-workspace -->
+
+## s5-01-ask-dock-plays-in-arcade-workspace — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-ask-dock-plays-in-arcade-workspace
+prd: 757
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Someone can belong to several workspaces. When they play from the questions page, whose level and whose score table should count: the workspace the arcade plays, or the workspace of the terminal's session?
+
+## The decision, in plain words
+
+The questions page plays exactly as the arcade does: the level, the hero and the score table are those of the workspace the arcade opens for that person, whatever workspace the terminal's session belongs to.
+
+## The intro, for fun
+
+Two workspaces, one Game Boy, and a scoreboard that can only hang on one wall.
+
+## The punchline, for fun
+
+So the score goes where the arcade already keeps it, and nobody has to pick a wall.
+
+## The options, in plain words
+
+A. A. Play in the workspace the arcade opens for the person, so level and scores match the arcade exactly (what was built).
+B. B. Play in the workspace of the terminal's session, so the score lands where the questions were asked.
+C. C. Show no dock when the two workspaces differ.
+
+## What I had to decide
+
+Which workspace's level and score table the play dock on the questions page uses, for a person who belongs to more than one.
+
+## What I did meanwhile
+
+The page reads the player the way the arcade does: the first workspace joined, its player row for the hero and fleet, and the XP row by GitHub login; scores are saved to that workspace.
+
+## What it costs to change later
+
+Switching to the session's workspace is changing which workspace id one server read passes on: minutes, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the arcade's rules apply and scores go to the arcade's scores as they do there, but not which workspace counts when the session's workspace differs from the arcade's. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-ask-dock-plays-in-arcade-workspace -->
+
+<!-- omni-outbox-settled: s5-02-moved-question-pauses-the-dock -->
+
+## s5-02-moved-question-pauses-the-dock — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-moved-question-pauses-the-dock
+prd: 757
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+When the page did not answer in time and the question moved to the terminal, is Claude still waiting on the person, so the game should stay paused?
+
+## The decision, in plain words
+
+Yes: while that question is still unanswered, the game stays paused and its button leads to the top of the terminal's tab, where the page says to answer it in the terminal.
+
+## The intro, for fun
+
+The question walked out of the page and into the terminal, still holding its coffee.
+
+## The punchline, for fun
+
+The game waits politely until someone answers it over there.
+
+## The options, in plain words
+
+A. A. A moved but unanswered question keeps the game paused, pointing at the tab (what was built).
+B. B. Only a question the page can still answer pauses the game; a moved one lets it play on.
+
+## What I had to decide
+
+Whether a question that moved to the terminal and is not answered yet counts as Claude asking for the play dock on the questions page.
+
+## What I did meanwhile
+
+Any unanswered question of the tab's session pauses the dock; the button scrolls to the top of the tab, just above the question or the moved-to-terminal card.
+
+## What it costs to change later
+
+Counting only questions the page can still answer is one filter in one pure function: minutes, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says a question is open for a round of the terminal's session, and does not say whether a round moved to the terminal is still open for the dock. (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-moved-question-pauses-the-dock -->
