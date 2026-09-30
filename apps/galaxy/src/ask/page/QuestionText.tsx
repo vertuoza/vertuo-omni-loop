@@ -8,7 +8,7 @@ import { foldSummary, longQuestion, type LongQuestion } from '../long-question';
 // markdown (raw HTML shown as text), the only HTML the page sets itself.
 
 /** The rest of a long question, folded. Nothing when nothing is left after the lead. */
-export function QuestionFold({ long }: { long: LongQuestion }) {
+function QuestionFold({ long }: { long: LongQuestion }) {
   if (!long.rest) return null;
   return (
     <details className="ask-fold">
@@ -39,6 +39,15 @@ export function QuestionText({ text }: { text: string }) {
       <span className="ask-lead" dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(long.lead) }} />
       <QuestionFold long={long} />
     </>
+  );
+}
+
+/** The questions of a round that waits or has moved, as the card's list. */
+export function QuestionList({ questions }: { questions: ReadonlyArray<{ question: string }> }) {
+  return (
+    <ul className="ask-card-list">
+      {questions.map((q, i) => <li key={i}><QuestionText text={q.question} /></li>)}
+    </ul>
   );
 }
 

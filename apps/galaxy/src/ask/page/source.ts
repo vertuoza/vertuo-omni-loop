@@ -169,19 +169,26 @@ export async function readQuestion(db: Db & SortDb, roundId: string): Promise<Qu
   return { session: state.session, round: only, earlier: state.rounds.filter((r) => r.id !== round.id), sharedWith: shares.map((s) => s.shared_with) };
 }
 
+/** Each round with the session it belongs to; a round whose session is not readable is left out. */
+async function withSessions(db: Db, rounds: RoundWithSession[]): Promise<Array<{ round: RoundRow; session: SessionRow }>> {
+  if (rounds.length === 0) return [];
+  const sessions = settle<SessionRow[]>('read the sessions',
+    await db.from('ask_sessions').select(SESSION).in('id', [...new Set(rounds.map((r) => r.session_id))])) ?? [];
+  return rounds.flatMap(({ session_id: sessionId, ...round }) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    return session ? [{ round, session }] : [];
+  });
+}
+
 /** Every open round shared with `me`, with its session and who shared it. */
 export async function readForMe(db: Db & SortDb, me: string): Promise<ForMeRow[]> {
   const shares = await askShares(db).withMe(me);
   if (shares.length === 0) return [];
   const rounds = settle<RoundWithSession[]>('read the rounds',
     await db.from('ask_rounds').select(`${ROUND}, session_id`).in('id', shares.map((s) => s.round_id)).eq('status', 'open')) ?? [];
-  if (rounds.length === 0) return [];
-  const sessions = settle<SessionRow[]>('read the sessions',
-    await db.from('ask_sessions').select(SESSION).in('id', [...new Set(rounds.map((r) => r.session_id))])) ?? [];
-  return rounds.flatMap(({ session_id: sessionId, ...round }) => {
-    const session = sessions.find((s) => s.id === sessionId);
+  return (await withSessions(db, rounds)).flatMap(({ round, session }) => {
     const share = shares.find((s) => s.round_id === round.id);
-    return session && share ? [{ round, session, sharedBy: share.shared_by }] : [];
+    return share ? [{ round, session, sharedBy: share.shared_by }] : [];
   });
 }
 
@@ -193,13 +200,7 @@ export const HISTORY_LIMIT = 1000;
 export async function readHistory(db: Db, limit = HISTORY_LIMIT): Promise<HistoryRow[]> {
   const rounds = settle<RoundWithSession[]>('read the history',
     await db.from('ask_rounds').select(`${ROUND}, session_id`).order('created_at', { ascending: false }).limit(limit)) ?? [];
-  if (rounds.length === 0) return [];
-  const sessions = settle<SessionRow[]>('read the sessions',
-    await db.from('ask_sessions').select(SESSION).in('id', [...new Set(rounds.map((r) => r.session_id))])) ?? [];
-  return rounds.flatMap(({ session_id: sessionId, ...round }) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    return session ? [{ round, session }] : [];
-  });
+  return withSessions(db, rounds);
 }
 
 /** What the page needs from wherever its session lives: the database, or the demo in the browser. */
