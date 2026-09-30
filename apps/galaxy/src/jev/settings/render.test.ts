@@ -126,19 +126,16 @@ describe('the decision rows (PRD 812 s2)', () => {
     expect(valueOf(row(html, 'question-category'), 'floor')).toBe('0.40');
   });
 
-  it('gives the owner a form for each ready decision, and shows the coming one read-only', () => {
+  it('gives the owner a form for each decision, none of them coming any more (s5 registers bug-risk)', () => {
     const html = page(STORED, { decisions: [CATEGORY_ON] });
     const category = row(html, 'question-category');
     expect(category).toMatch(/<option value="on" selected="">On<\/option>/);
     expect(valueOf(category, 'threshold')).toBe('0.65');
     expect(valueOf(category, 'floor')).toBe('0.30');
     expect(buttons(category).map((b) => b.text)).toEqual(['Save']);
-    expect(buttons(row(html, 'outbox-risk')).map((b) => b.text)).toEqual(['Save']);
-    for (const name of ['bug-risk']) {
-      expect(text(row(html, name))).toContain('Coming in this PRD');
-      expect(text(row(html, name))).toContain('Mode Off Threshold 0.50 Confidence floor 0.40');
-      expect(row(html, name)).not.toContain('<select');
-      expect(buttons(row(html, name))).toEqual([]);
+    for (const name of ['outbox-risk', 'bug-risk']) {
+      expect(buttons(row(html, name)).map((b) => b.text)).toEqual(['Save']);
+      expect(text(row(html, name))).not.toContain('Coming in this PRD');
     }
   });
 
