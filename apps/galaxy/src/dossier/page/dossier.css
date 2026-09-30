@@ -550,6 +550,24 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
 .ask a.dossier-history-clear { color: var(--ask-muted); font-size: 15px; }
 
+/* /prd's own filters (issue #703): Mine / All beside the heading, the search and Filter joined on one bar,
+   the repository, draft or PRD and the outbox box folded under More filters, which opens by itself when one
+   of them is set. /visual and /bugs keep the card above. */
+.dossier-history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.dossier-history-head .dossier-history-whos { margin: 0; }
+.dossier-history-find { display: grid; gap: 8px; min-width: 0; }
+.dossier-history-line { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.dossier-history-bar { display: flex; flex: 1 1 280px; min-width: 0; }
+/* The search is one half of a bar that spans the list with the fold under it, so it is not held to the
+   900 px of a lone field (src/ask/ask.css). */
+.dossier-history-bar .ask-share-link { flex: 1 1 auto; max-width: none; font-size: 15px; padding: 12px 14px; border-right: 0; border-radius: 10px 0 0 10px; }
+.dossier-history-bar .ask-button { flex: none; padding: 0 22px; border-radius: 0 10px 10px 0; }
+.dossier-history-more { min-width: 0; padding: 0 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 10px; }
+.dossier-history-more[open] { padding-bottom: 14px; background: var(--ask-surface); }
+.dossier-history-more summary { cursor: pointer; padding: 10px 0; font-size: 15px; font-weight: 700; }
+.dossier-history-more summary .ask-hint { margin-left: 6px; font-size: 13px; font-weight: 400; }
+.dossier-history-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+
 /* Mine / All (PRD 413): two links, the current one filled. */
 .dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; }
 .ask a.dossier-history-who { font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
@@ -572,6 +590,10 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .ask a.dossier-history-row:hover { border-color: var(--ask-plasma); }
 .ask a.dossier-history-row:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .dossier-history-title { font-size: 19px; font-weight: 700; line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
+/* A row's first line (issue #703): the title, and its stage pill at the card's right edge at the track's
+   12 px, not the title's 19; on a phone the pill takes its own line above the title. */
+.dossier-history-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.dossier-history-top .stage-stop { flex: none; margin-top: 2px; padding: 6px 10px; font: 800 12px/1 var(--ask-mono); }
 .dossier-history-facts { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
 .dossier-history-artifacts { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .dossier-history-artifact {
@@ -587,6 +609,9 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 @media (max-width: 719.98px) {
   .dossier-title { font-size: 23px; }
   .ask a.dossier-history-row { padding: 12px 14px; }
+  .dossier-history-top { flex-direction: column-reverse; gap: 8px; }
+  .dossier-history-top .stage-stop { margin-top: 0; }
+  .dossier-history-stages { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 2px; }
   .dossier-actions { justify-content: flex-start; }
   .dossier-head { padding-top: 14px; }
   .dossier-facts { display: grid; gap: 12px; margin: 0; clip-path: none; }
