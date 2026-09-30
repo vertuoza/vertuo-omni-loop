@@ -11571,6 +11571,17 @@ var httpsUrl = external_exports.string().refine((value) => {
     return false;
   }
 }, "an absolute https URL");
+var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
+var proofUrl = external_exports.string().refine((value) => {
+  if (value === PROOF_GITHUB_DEPLOYMENT) return true;
+  if (/\s/.test(value)) return false;
+  try {
+    return ["https:", "http:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
+var envName = external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = external_exports.object({
   repo: external_exports.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
@@ -11709,6 +11720,15 @@ var ConfigSchema = external_exports.object({
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
   answers: section({ enabled: external_exports.boolean().default(true) }),
+  // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
+  // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
+  // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+  proof: section({
+    url: proofUrl.nullable().default(null),
+    setup: nullableText.default(null),
+    bypassEnv: envName.nullable().default(null),
+    maxSeconds: external_exports.number().int().positive().default(60)
+  }),
   markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
@@ -17166,6 +17186,10 @@ var SPEC_VALUES = (
   /** @type {const} */
   ["file", "issue"]
 );
+var PROOF_VALUES = (
+  /** @type {const} */
+  ["video"]
+);
 var FRONT_MATTER_BLOCK4 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var FRONT_MATTER_LINE3 = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
@@ -17231,14 +17255,16 @@ var FrontMatterSchema4 = external_exports.object({
   title: external_exports.string().trim().min(1, "title is required"),
   "blocked-by": BlockedBySchema,
   spec: external_exports.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
-  areas: AreasSchema
+  areas: AreasSchema,
+  // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
+  proof: external_exports.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
 function unrecognizedKeyMessage(key) {
   if (key === "plan") {
     return 'unexpected field "plan" \u2014 the plan is always the sibling plan.md, never a front-matter value';
   }
   const named2 = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
-  return `unexpected field "${key}"${named2}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas`;
+  return `unexpected field "${key}"${named2}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
 function parseSpec(text4, { file = null } = {}) {
   const blockMatch = text4.match(FRONT_MATTER_BLOCK4);
@@ -17273,6 +17299,7 @@ function parseSpec(text4, { file = null } = {}) {
     blockedBy: fm["blocked-by"],
     spec: fm.spec,
     ...fm.areas !== void 0 ? { areas: fm.areas } : {},
+    ...fm.proof !== void 0 ? { proof: fm.proof } : {},
     file
   };
   return { ok: true, record };
