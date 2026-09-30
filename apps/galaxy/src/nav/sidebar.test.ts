@@ -1,6 +1,10 @@
 import { SPRITE_DEFS } from '@omni/design';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
+
+// /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
+const redirected = vi.hoisted((): string[] => []);
+vi.mock('next/navigation', () => ({ redirect: (to: string) => void redirected.push(to) }));
 
 // The app's sidebar as data (PRD 438, regrouped by PRD 572 and PRD 733): Dashboard and Work, then the foot's Settings, Docs
 // and Release notes, and the two pure reads
@@ -61,6 +65,13 @@ describe('SIDEBAR', () => {
   it('lands /app/settings on its Fleets page (PRD 733)', () => {
     expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
     expect(SETTINGS.pages?.[0].path).toBe(SETTINGS_LANDING);
+  });
+
+  it('redirects /app/settings\' page to that landing (PRD 733)', async () => {
+    const { default: SettingsPage } = await import('../../app/app/settings/page.tsx');
+    redirected.length = 0;
+    SettingsPage();
+    expect(redirected).toEqual(['/app/settings/fleets']);
   });
 
   it('holds Docs and Release notes for the foot, each leaving the app', () => {
