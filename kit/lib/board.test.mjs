@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardFor, fillBranch, runnableFrontier } from './board.mjs';
+import { boardFor, fillBranch, isClaimedStale, runnableFrontier } from './board.mjs';
 
 const NOW = new Date('2026-09-25T12:00:00Z').getTime();
 
@@ -46,6 +46,21 @@ describe('fillBranch', () => {
 
   it('leaves an unfilled placeholder untouched', () => {
     expect(fillBranch('feat/{topic}--{slice}', { topic: 'widgets' })).toBe('feat/widgets--{slice}');
+  });
+});
+
+describe('isClaimedStale — the stale-claim rule, exported for the Engineering board (PRD 714)', () => {
+  const claim = (overrides = {}) => ({ isDraft: true, createdAt: new Date(NOW - 61 * 60_000).toISOString(), headCommitDate: new Date(NOW - 61 * 60_000).toISOString(), ...overrides });
+
+  it('calls a draft with no commit beyond its claim, older than the limit, stale', () => {
+    expect(isClaimedStale(claim(), NOW, 60)).toBe(true);
+  });
+
+  it('keeps a fresh claim, a claim with a commit beyond it, a non-draft and an unknown head date fresh', () => {
+    expect(isClaimedStale(claim({ createdAt: new Date(NOW - 59 * 60_000).toISOString(), headCommitDate: new Date(NOW - 59 * 60_000).toISOString() }), NOW, 60)).toBe(false);
+    expect(isClaimedStale(claim({ headCommitDate: new Date(NOW - 30 * 60_000).toISOString() }), NOW, 60)).toBe(false);
+    expect(isClaimedStale(claim({ isDraft: false }), NOW, 60)).toBe(false);
+    expect(isClaimedStale(claim({ headCommitDate: null }), NOW, 60)).toBe(false);
   });
 });
 
