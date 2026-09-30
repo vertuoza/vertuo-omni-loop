@@ -74,6 +74,7 @@ import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
+import { reworkCommand } from './voice';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
@@ -84,8 +85,9 @@ export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro
  * the before/after, the spec and the plan. The history lists these. */
 export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'before-after', 'spec', 'plan'];
 
-/** Every tab of the page, in order: the dossier's, then what GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox', 'care', 'retro'];
+/** Every tab of the page, in order: the dossier's, the User voice beside them (PRD 822), then what
+ * GitHub holds (PRD 426). */
+export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'voice', 'outbox', 'care', 'retro'];
 
 /** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
@@ -289,6 +291,8 @@ export type DossierView = {
   care: CareView | null;
   /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
   fix: FixPageView | null;
+  /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
+  rework: string | null;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -662,7 +666,7 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
     href: href(kind),
     current: kind === tab,
     empty: (kind === 'outbox' && badges.outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text')
-      || (kind === 'care' && care?.state !== 'care'),
+      || (kind === 'care' && care?.state !== 'care') || (kind === 'voice' && badges.count(kind) === 0),
   };
 }
 
@@ -688,6 +692,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     retro,
     care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
   };
 }
 

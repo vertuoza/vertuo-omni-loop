@@ -147,12 +147,13 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then Outbox, PR care and Retro, dimmed while empty', () => {
+  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then User voice, Outbox, PR care and Retro, dimmed while empty', () => {
     expect(view().tabs).toEqual([
       { kind: 'questions', label: 'Questions', badge: '2/4', alert: '1 to answer', href: `/prd/${ID}`, current: true, empty: false },
       { kind: 'before-after', label: 'Before/after', badge: 'v2', alert: null, href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
       { kind: 'spec', label: 'Spec', badge: 'v3', alert: null, href: `/prd/${ID}?tab=spec`, current: false, empty: false },
       { kind: 'plan', label: 'Plan', badge: null, alert: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
+      { kind: 'voice', label: 'User voice', badge: null, alert: null, href: `/prd/${ID}?tab=voice`, current: false, empty: true },
       { kind: 'outbox', label: 'Outbox', badge: null, alert: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
       { kind: 'care', label: 'PR care', badge: null, alert: null, href: `/prd/${ID}?tab=care`, current: false, empty: true },
       { kind: 'retro', label: 'Retro', badge: null, alert: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
@@ -174,6 +175,7 @@ describe('the tabs', () => {
         ['before-after', `/prd/${ID}`, true],
         ['spec', `/prd/${ID}?tab=spec`, false],
         ['plan', `/prd/${ID}?tab=plan`, false],
+        ['voice', `/prd/${ID}?tab=voice`, false],
         ['outbox', `/prd/${ID}?tab=outbox`, false],
         ['care', `/prd/${ID}?tab=care`, false],
         ['retro', `/prd/${ID}?tab=retro`, false],
@@ -794,7 +796,7 @@ describe('the PR care tab (PRD 790, s4)', () => {
 
   it('comes after Outbox, badged with the threads still waiting; left out once GitHub says there is no feature PR, and for a draft', () => {
     const v = careOf(github());
-    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'outbox', 'care', 'retro']);
+    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'voice', 'outbox', 'care', 'retro']);
     expect(v.tabs.find((t) => t.kind === 'care')).toEqual({
       kind: 'care', label: 'PR care', badge: '2 open', alert: null, href: `/prd/${ID}?tab=care`, current: true, empty: false,
     });
