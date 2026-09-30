@@ -1,6 +1,6 @@
 {
   "name": "vertuo-omni-plan",
-  "version": "0.0.136",
+  "version": "0.0.139",
   "private": true,
   "type": "module",
   "bin": {
@@ -31,6 +31,7 @@
     "galaxy:shots": "pnpm --filter @omni/galaxy-app shots"
   },
   "devDependencies": {
+    "@playwright/test": "~1.56.1",
     "esbuild": "^0.28.1",
     "fallow": "3.30.0",
     "vite": "^8.3.1",

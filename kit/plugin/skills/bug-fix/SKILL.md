@@ -107,6 +107,22 @@ Establish, with evidence you can cite, the risk levels and the regression eviden
   `<remote>/<repo.defaultBranch>`, then read the suspect diff), a green run followed by a red one, or
   the report saying when it last worked. Otherwise: new bug — no evidence this ever worked.
 
+**Ask Jev about the risk.** Once you have set the risk level and its sentence yourself, and before
+you post the comment, write the bug's state to a scratch file (never in the repository):
+`{ "title": "<the issue's title>", "body": "<the issue's body>", "reproduction": "<the
+reproduction's path, or null>", "domain": "<the domain>", "risk": "<your one sentence>" }`. Then
+run:
+
+```bash
+node .omni-loop/bin/omni.mjs decide bug-risk --state-file <state file> --old <your level> --ref "<repo.slug>#<n>"
+```
+
+It always exits 0. When it prints `unset`, keep your own level and change nothing: the step is as it
+was. When it prints `<level> <confidence>` (`high 0.82`), the workspace has put this decision On and
+Jev's level counts, even against yours: it is the level of the Risk line and of the risk label below,
+and the Risk line ends with ` (Jev, <confidence>)`. Jev answers the level only: Kind, Domain,
+Regression and the Risk line's sentence stay yours.
+
 Post **one** comment on the issue (a comment is never signed), found by its marker and edited in
 place on a rerun:
 
@@ -124,14 +140,14 @@ gh api -X PATCH repos/<repo.slug>/issues/comments/<id> -F body=@<file>          
 
 - **Kind:** behaviour bug
 - **Domain:** <the knowledge area or code area that owns the behaviour>
-- **Risk:** <critical | high | medium | low> — <who is hurt, how, workaround or not>
+- **Risk:** <critical | high | medium | low> — <who is hurt, how, workaround or not>[ (Jev, <confidence>)]
 - **Regression:** yes — <culprit PR or commit | green run → red run | the report's "last worked">
   | new bug — no evidence this ever worked
 - **Reproduction:** `<path of the test or scenario>`
 - **Branch:** `<fix branch>`
 ```
 
-Then label the issue with the risk's label (`labels.riskCritical`, `labels.riskHigh`,
+Then label the issue with the label of the risk that counted, Jev's or yours (`labels.riskCritical`, `labels.riskHigh`,
 `labels.riskMedium` or `labels.riskLow`) and, for a regression only, `labels.regression`:
 `gh issue edit <n> --add-label "<risk label>[,<labels.regression>]"`. A label that could not be
 added is one more line in the comment.

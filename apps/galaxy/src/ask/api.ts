@@ -40,7 +40,9 @@
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
 // leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
 // clears it (`category: null`); a round of another workspace is 404. The model never overrides a
-// person: the database records its guess only while nobody has set one.
+// person: the database records its guess only while nobody has set one. When the session's workspace
+// has its Jev decision `question-category` in Shadow or On (PRD 812), the category goes through the
+// resolver (./classify-jev.ts); Off is exactly the path above.
 //
 // The session's owner shares a round (PRD 144) with another member of the session's workspace, who may
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
@@ -58,6 +60,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
 import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
+import type { CategoryDecider } from './classify-jev';
 import { costUsd } from './prices';
 import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
@@ -88,6 +91,9 @@ export type AskDeps = {
   pollMs?: number;
   /** Sorts a new round into one of six, or null when there is no classifier (no key): it stays unsorted. */
   classify?: Classifier | null;
+  /** Puts the category through the workspace's Jev decision (PRD 812), `classify` as today's answer;
+   * absent or null: today's classifier alone. */
+  decideCategory?: CategoryDecider | null;
   /** Runs a task once the response has gone (Next's after()); without it, the task just starts. */
   later?: (task: () => Promise<void>) => void;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
@@ -320,7 +326,7 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
         ...(context.branch !== null && { branch: context.branch }),
         ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
       });
-      sortLater(who, deps, round.id, {
+      sortLater(who, deps, round.id, session.workspace_id, {
         questions: sent.questions as unknown[],
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
@@ -335,12 +341,13 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
 
 /** Has the model sort the round once the response has gone. Nothing it does can fail the round: a
  * null reply, an error or a timeout leaves it unsorted, and nothing retries. */
-function sortLater(who: Signed, deps: AskDeps, roundId: string, input: ClassifyInput) {
-  const classify = deps.classify;
-  if (!classify) return;
+function sortLater(who: Signed, deps: AskDeps, roundId: string, workspace: string | null, input: ClassifyInput) {
+  const classify = deps.classify ?? null;
+  const viaJev = workspace && deps.decideCategory ? deps.decideCategory : null;
+  if (!classify && !viaJev) return;
   const task = async () => {
     try {
-      const category = await classify(input);
+      const category = viaJev ? await viaJev({ workspace: workspace as string, roundId, input, classify }) : await classify!(input);
       if (category) await who.categories.classified(roundId, category);
     } catch (error) {
       console.error(`ask: round ${roundId} stays unsorted: ${error instanceof Error ? error.message : String(error)}`);

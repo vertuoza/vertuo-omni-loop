@@ -152,6 +152,7 @@ describe('the top bar', () => {
     ['/app/settings/fleets', 'Settings › Fleets'],
     ['/app/settings/repositories', 'Settings › Repositories'],
     ['/app/settings/business', 'Settings › Business'],
+    ['/app/settings/jev', 'Settings › Jev'],
     ['/ask/for-me', 'Work › Questions › Shared with me'],
     ['/prd/3f2a', 'Work › PRDs'],
     ['/ask/history', 'Work › Questions › History'],
