@@ -12,7 +12,8 @@
 // With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
 // returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
 // With `business`, it answers `GET /api/business?repo=owner/name` (PRD 748) with what
-// `business(repo)` returns, `{ status, body }` (status 200 when not given); without it, a 404.
+// `business(repo)` returns, `{ status, body }` (status 200 when not given); without it, a 404. With
+// `cite`, it answers `POST /api/business/citations` with what `cite(body)` returns, the same way.
 //
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.mjs [--port <p>] [--answer first|none] [--token <t>]
@@ -73,6 +74,8 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *                                where a repository's questions land; absent: the call is a 404
  *   business?: (repo: string) => ({ status?: number, body: object }),
  *                                what `GET /api/business?repo=` answers (PRD 748); absent: a 404
+ *   cite?: (body: object) => ({ status?: number, body: object }),
+ *                                what `POST /api/business/citations` answers (PRD 748); absent: a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  * }} [options]
  */
@@ -89,6 +92,7 @@ export async function startFakeAskServer({
   artifactBytes = 512 * 1024,
   place = null,
   business = null,
+  cite = null,
   tokenExtras = {},
 } = {}) {
   const access = new Set([accessToken]);
@@ -233,6 +237,10 @@ export async function startFakeAskServer({
       const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       const { status = 200, body: reply } = business(repo);
+      return json(response, status, reply);
+    }
+    if (method === 'POST' && path === '/api/business/citations' && cite) {
+      const { status = 200, body: reply } = cite(body);
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {

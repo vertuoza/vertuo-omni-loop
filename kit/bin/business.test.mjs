@@ -196,3 +196,92 @@ describe('omni business: usage errors exit 2', () => {
     });
   }
 });
+
+describe('omni business cited', () => {
+  /** A checkout whose fake server logs citations with `cite`, or answers 404 without it. */
+  async function citing({ cite, signedIn = true, url } = {}) {
+    server = await startFakeAskServer({ cite });
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
+    const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
+    return { root, tokens };
+  }
+
+  it('appends one citation through POST /api/business/citations, and says so', async () => {
+    const sent = [];
+    const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
+    expect(run).toEqual({ code: 0, err: '', out: 'cited rival#4 (think-big, concept #9)\n' });
+    expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['rival#4'], by: 'think-big', ref: 'concept #9' }]);
+    expect(server.calls.map(({ method, path, authorization }) => ({ method, path, authorization }))).toEqual([
+      { method: 'POST', path: '/api/business/citations', authorization: 'Bearer access-1' },
+    ]);
+  });
+
+  it('cites several ids in one call, and --ref may be left out', async () => {
+    const sent = [];
+    const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const run = await show(['cited', 'region#1', 'rival#4', '--by', 'think-big'], c);
+    expect(run).toEqual({ code: 0, err: '', out: 'cited region#1, rival#4 (think-big)\n' });
+    expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['region#1', 'rival#4'], by: 'think-big', ref: null }]);
+  });
+
+  const SKIPS = [
+    {
+      name: 'a refusal, with its reason',
+      setup: () => citing({ cite: () => ({ status: 404, body: { error: 'Ids: this business holds no rival#4.' } }) }),
+      line: 'citation skipped: refused (404): Ids: this business holds no rival#4. — agents carry on',
+    },
+    {
+      name: 'a server older than the call',
+      setup: () => citing(),
+      line: 'citation skipped: refused (404): no such call — agents carry on',
+    },
+    {
+      name: 'no sign-in',
+      setup: () => citing({ cite: () => ({ body: { cited: 1 } }), signedIn: false }),
+      line: 'citation skipped: no sign-in (omni signin) — agents carry on',
+    },
+    {
+      name: 'a sign-in the app no longer honours',
+      setup: async () => {
+        const c = await citing({ cite: () => ({ body: { cited: 1 } }) });
+        server.denyAccess();
+        return c;
+      },
+      line: 'citation skipped: the sign-in was refused (omni signin) — agents carry on',
+    },
+    {
+      name: 'no Omni page set here',
+      setup: () => citing({ cite: () => ({ body: { cited: 1 } }), url: null }),
+      line: 'citation skipped: no Omni page is set here (ask.url) — agents carry on',
+    },
+    {
+      name: 'the app unreachable',
+      setup: async () => {
+        const c = await citing({ cite: () => ({ body: { cited: 1 } }) });
+        await server.close();
+        return c;
+      },
+      line: 'citation skipped: the Omni page could not be reached — agents carry on',
+    },
+  ];
+
+  for (const { name, setup, line } of SKIPS) {
+    it(`a failed call prints a skip line and exits 0: ${name}`, async () => {
+      const c = await setup();
+      const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
+      expect(run).toEqual({ code: 0, out: `${line}\n`, err: '' });
+    });
+  }
+
+  for (const args of [['cited'], ['cited', 'rival#4'], ['cited', '--by', 'think-big'], ['cited', 'rival#4', '--by', 'think-big', '--json']]) {
+    it(`a usage error exits 2: omni business ${args.join(' ')}`, async () => {
+      const c = await citing({ cite: () => ({ body: { cited: 1 } }) });
+      const run = await show(args, c);
+      expect(run.code).toBe(2);
+      expect(run.out).toBe('');
+      expect(run.err).toMatch(/omni business/);
+      expect(server.calls).toEqual([]);
+    });
+  }
+});

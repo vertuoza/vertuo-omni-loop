@@ -169,7 +169,7 @@ export const ENTRIES = deepFreeze([
     name: 'business',
     kind: 'command',
     who: 'you',
-    usage: ['omni business show [--json]'],
+    usage: ['omni business show [--json]', 'omni business cited <id>… --by <skill> [--ref <text>]'],
     label: 'omni business show',
     summary: 'the business this repository serves, as agents read it',
     detail:
@@ -177,7 +177,8 @@ export const ENTRIES = deepFreeze([
       "workspace's business, picked on the Settings › Business page, each with its id (such as " +
       'rival#4) under the sentence they make. --json prints them for an agent. With no business, ' +
       'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
-      'agents carry on without it.',
+      'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
+      'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0.',
   },
   {
     name: 'version',
