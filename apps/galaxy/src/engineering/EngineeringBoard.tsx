@@ -15,7 +15,8 @@ import './engineering.css';
 // The Engineering board (PRD 612 s3), drawn on the server, top to bottom: the period switch (the
 // other boards' 7 days / 30 days / Season), the six tiles, the Omni Loop panel beside the chart of
 // merged PRs per day, the per-repository table (each column heading a link that sorts by it, kept in
-// the URL as `?sort=`), then the three top-5 people lists: ranked rows, each naming the person with a
+// the URL as `?sort=`; the Omni Loop panel ends with the loop's sub-PRs merged into feature branches,
+// which count nowhere else, PRD 714), then the three top-5 people lists: ranked rows, each naming the person with a
 // PersonChip (their face from the people directory, PRD 652 s3) and a bar scaled to the list's first
 // count (PRD 645 s1). Over tracked repositories only. With none,
 // the empty state sends the person to Settings → Repositories. The chart is inline SVG with no
@@ -74,6 +75,9 @@ function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>
           <p className="eng-omni-lines">Lines signed: <b>{`+${n(omni.additions)}`}</b> <b>{`−${n(omni.deletions)}`}</b></p>
         </>
       )}
+      <p className="eng-omni-subs">
+        <b>{`+ ${n(omni.subPrsMerged)}`}</b>{` sub-PR${omni.subPrsMerged === 1 ? '' : 's'} merged into feature branches`}
+      </p>
     </section>
   );
 }

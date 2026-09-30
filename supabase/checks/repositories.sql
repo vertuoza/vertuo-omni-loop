@@ -26,6 +26,10 @@ begin
   if exists (select 1 from public.repositories r join public.workspaces w on w.id = r.workspace_id where w.slug <> 'vertuoza') then
     raise exception 'FAIL: a workspace other than vertuoza was seeded with repositories';
   end if;
+  -- 20261015090000_loop_health.sql resets every cursor, so the next run reads 90 days again (PRD 714).
+  if exists (select 1 from public.repositories where collected_until is not null) then
+    raise exception 'FAIL: a repository''s collected_until is not null after the loop-health migration';
+  end if;
 end $$;
 
 -- ── The cast ──
@@ -56,8 +60,10 @@ end $$;
 
 -- What the collector (the service role) writes: one pull request with one review, on Vertuoza's
 -- vertuo-apps.
-insert into public.pull_requests (workspace_id, repo, number, author, opened_at, merged_at, merged_by, base, commits, additions, deletions, omni_signed)
-select w.id, 'vertuoza/vertuo-apps', 7, 'mo', now() - interval '2 days', now() - interval '1 day', 'olga', 'main', 3, 40, 2, true
+insert into public.pull_requests (workspace_id, repo, number, author, opened_at, merged_at, merged_by, base, commits, additions, deletions, omni_signed,
+                                  head, draft, labels, head_committed_at, needs_fix_at, status_state)
+select w.id, 'vertuoza/vertuo-apps', 7, 'mo', now() - interval '2 days', now() - interval '1 day', 'olga', 'main', 3, 40, 2, true,
+       'feat/thing', false, array['omni:needs-fix'], now() - interval '30 hours', now() - interval '40 hours', 'done'
   from public.workspaces w where w.slug = 'vertuoza';
 insert into public.pull_request_reviews (workspace_id, repo, number, reviewer, first_at)
 select w.id, 'vertuoza/vertuo-apps', 7, 'olga', now() - interval '36 hours'
@@ -111,6 +117,7 @@ select format(c, pg_temp.ws('vertuoza'))
     'delete from public.repositories where workspace_id = %L',
     'insert into public.pull_requests (workspace_id, repo, number, opened_at) values (%L, ''vertuoza/vertuo-apps'', 8, now())',
     'update public.pull_requests set commits = 99 where workspace_id = %L',
+    'update public.pull_requests set head = ''x'', draft = true, labels = ''{x}'', head_committed_at = now(), needs_fix_at = now(), status_state = ''stuck'' where workspace_id = %L',
     'delete from public.pull_requests where workspace_id = %L',
     'insert into public.pull_request_reviews (workspace_id, repo, number, reviewer, first_at) values (%L, ''vertuoza/vertuo-apps'', 7, ''mo'', now())',
     'update public.pull_request_reviews set reviewer = ''x'' where workspace_id = %L',
@@ -146,6 +153,12 @@ begin
   if (select count(*) from public.pull_requests) <> 1 or (select count(*) from public.pull_request_reviews) <> 1 then
     raise exception 'FAIL: a member does not read their workspace''s pull requests and reviews';
   end if;
+  -- The six columns of PRD 714.
+  if (select count(*) from public.pull_requests
+       where head = 'feat/thing' and not draft and labels = array['omni:needs-fix'] and head_committed_at is not null
+         and needs_fix_at is not null and status_state = 'done') <> 1 then
+    raise exception 'FAIL: a member does not read the loop-health columns of their workspace''s pull requests';
+  end if;
   for c in select stmt from calls loop perform pg_temp.forbidden(c, 'a member'); end loop;
   for c in select stmt from writes loop perform pg_temp.forbidden(c, 'a member'); end loop;
 end $$;
@@ -169,6 +182,9 @@ begin
   for c in select stmt from calls loop perform pg_temp.forbidden(c, 'a stranger'); end loop;
   if exists (select 1 from public.repositories) or exists (select 1 from public.pull_requests) or exists (select 1 from public.pull_request_reviews) then
     raise exception 'FAIL: a stranger reads repositories or statistics';
+  end if;
+  if exists (select head, draft, labels, head_committed_at, needs_fix_at, status_state from public.pull_requests) then
+    raise exception 'FAIL: a stranger reads the loop-health columns';
   end if;
 end $$;
 reset role;

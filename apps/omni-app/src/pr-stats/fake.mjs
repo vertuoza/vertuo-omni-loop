@@ -10,7 +10,7 @@
 /**
  * @param {Record<string, {
  *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
- *                              base, commits, additions, deletions, body, reviews?, commitMessages?
+ *                              base, head, commits, additions, deletions, body, reviews?, commitMessages?
  *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
  *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
  *                              per details query)
@@ -139,6 +139,7 @@ function asGraphql(pull) {
     closedAt: pull.closed_at ?? null,
     mergedBy: actor(pull.merged_by),
     baseRefName: pull.base?.ref ?? null,
+    headRefName: pull.head?.ref ?? null,
     body: pull.body ?? '',
     additions: pull.additions,
     deletions: pull.deletions,
@@ -208,6 +209,7 @@ export function pull(number, fields = {}) {
     closed_at: null,
     merged_by: null,
     base: { ref: 'main' },
+    head: { ref: 'feature' },
     commits: 1,
     additions: 10,
     deletions: 2,

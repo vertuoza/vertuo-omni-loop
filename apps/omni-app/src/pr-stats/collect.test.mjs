@@ -23,7 +23,7 @@ describe('prStats — collecting a tracked repository', () => {
         pulls: [
           pull(1, { created_at: daysAgo(120), updated_at: daysAgo(100) }),
           pull(2, { created_at: daysAgo(80), updated_at: daysAgo(60) }),
-          pull(3, { created_at: daysAgo(5), updated_at: daysAgo(1), merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' } }),
+          pull(3, { created_at: daysAgo(5), updated_at: daysAgo(1), merged_at: daysAgo(1), closed_at: daysAgo(1), merged_by: { login: 'bob', type: 'User' }, head: { ref: 'feat/three' } }),
         ],
       },
     });
@@ -47,6 +47,7 @@ describe('prStats — collecting a tracked repository', () => {
       closed_at: daysAgo(1),
       merged_by: 'bob',
       base: 'main',
+      head: 'feat/three',
       commits: 1,
       additions: 10,
       deletions: 2,

@@ -16,7 +16,7 @@ let serial = 0;
 const pr = (over: Partial<PullRequestRow> = {}): PullRequestRow => ({
   repo: 'acme/widgets', number: ++serial, author: 'ada', authorIsBot: false,
   openedAt: '2026-09-24T08:00:00Z', mergedAt: null, closedAt: null, mergedBy: null,
-  commits: 0, additions: 0, deletions: 0, omniSigned: false, ...over,
+  commits: 0, additions: 0, deletions: 0, omniSigned: false, base: 'main', head: 'feat/thing', ...over,
 });
 const merged = (hours: number, over: Partial<PullRequestRow> = {}) =>
   pr({ openedAt: '2026-09-24T08:00:00Z', mergedAt: new Date(Date.parse('2026-09-24T08:00:00Z') + hours * HOUR).toISOString(), closedAt: new Date(Date.parse('2026-09-24T08:00:00Z') + hours * HOUR).toISOString(), mergedBy: 'bob', ...over });
@@ -187,12 +187,12 @@ describe('the Omni Loop panel', () => {
       pr({ omniSigned: true }), // open: not merged, not counted
     ];
     expect(board(read({ pullRequests: rows })).omni).toEqual({
-      merged: 2, of: 4, share: 50, medianSigned: 3 * HOUR, medianRest: 25 * HOUR, additions: 11, deletions: 5,
+      merged: 2, of: 4, share: 50, medianSigned: 3 * HOUR, medianRest: 25 * HOUR, additions: 11, deletions: 5, subPrsMerged: 0,
     });
   });
 
   it('has no share with nothing merged', () => {
-    expect(board(read()).omni).toEqual({ merged: 0, of: 0, share: null, medianSigned: null, medianRest: null, additions: 0, deletions: 0 });
+    expect(board(read()).omni).toEqual({ merged: 0, of: 0, share: null, medianSigned: null, medianRest: null, additions: 0, deletions: 0, subPrsMerged: 0 });
   });
 });
 
@@ -253,5 +253,67 @@ describe('one repository (PRD 645 s2)', () => {
     expect(b.omni).toMatchObject({ merged: 1, of: 1, share: 100, additions: 7, deletions: 2 });
     expect(b.perDay.reduce((s, d) => s + d.signed + d.rest, 0)).toBe(1);
     expect(b.repositories.map((r) => r.repo)).toEqual(['acme/gears']);
+  });
+});
+
+describe('only merges into main count (PRD 714 s1)', () => {
+  const sub = (over: Partial<PullRequestRow> = {}) => merged(1, { base: 'feat/loop-health', head: 'feat/loop-health--s1', author: 'ada', mergedBy: 'ada', omniSigned: true, commits: 5, additions: 50, deletions: 5, ...over });
+
+  it('counts a pull request into main, master or develop, and one into any other base nowhere', () => {
+    for (const base of ['main', 'master', 'develop']) {
+      expect(board(read({ pullRequests: [merged(1, { base })] })).tiles.merged).toBe(1);
+    }
+    for (const base of ['feat/loop-health', 'Main', 'release', null]) {
+      expect(board(read({ pullRequests: [merged(1, { base })] })).tiles).toMatchObject({ opened: 0, merged: 0, openNow: 0, commits: 0 });
+    }
+  });
+
+  it('counts a promotion nowhere: develop into main, main into develop', () => {
+    const rows = [merged(1, { base: 'main', head: 'develop' }), merged(1, { base: 'develop', head: 'main' }), pr({ base: 'master', head: 'develop' })];
+    const value = board(read({ pullRequests: rows }));
+    expect(value.tiles).toEqual({ opened: 0, merged: 0, openNow: 0, medianToMerge: null, commits: 0, additions: 0, deletions: 0 });
+    expect(value.omni.of).toBe(0);
+  });
+
+  it('takes a row with no stored head as no promotion', () => {
+    expect(board(read({ pullRequests: [merged(1, { head: null }), merged(1, { head: undefined })] })).tiles.merged).toBe(2);
+  });
+
+  it('leaves sub-PRs out of every part of the board but the reviews', () => {
+    const real = merged(3, { author: 'bob', mergedBy: 'carl', commits: 1, additions: 10, deletions: 1 });
+    const subs = [sub(), sub({ repo: 'acme/gears' }), sub({ mergedAt: null, closedAt: null, mergedBy: null })];
+    const value = board(read({ pullRequests: [real, ...subs], reviews: [review({ number: subs[0].number, reviewer: 'dora' })] }));
+    expect(value.tiles).toEqual({ opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, additions: 10, deletions: 1 });
+    expect(value.repositories).toEqual([
+      { repo: 'acme/widgets', opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, lines: 11 },
+      { repo: 'acme/gears', opened: 0, merged: 0, openNow: 0, medianToMerge: null, commits: 0, lines: 0 },
+    ]);
+    expect(value.people.opened).toEqual([{ login: 'bob', count: 1 }]);
+    expect(value.people.merged).toEqual([{ login: 'carl', count: 1 }]);
+    expect(value.people.reviews).toEqual([{ login: 'dora', count: 1 }]);
+    expect(value.omni).toMatchObject({ merged: 0, of: 1, share: 0, medianSigned: null, medianRest: 3 * HOUR, additions: 0, deletions: 0 });
+    expect(value.perDay.reduce((s, d) => s + d.signed + d.rest, 0)).toBe(1);
+  });
+
+  it('counts the signed pull requests merged into other bases in the period as sub-PRs, 0 included', () => {
+    const rows = [
+      sub(), sub(), // merged sub-PRs
+      sub({ omniSigned: false }), // unsigned: not a sub-PR of the loop
+      sub({ mergedAt: null, closedAt: null }), // open
+      sub({ mergedAt: '2026-08-01T08:00:00Z', openedAt: '2026-08-01T07:00:00Z' }), // merged before the period
+      sub({ head: 'main' }), // a promotion counts nowhere
+      merged(1, { omniSigned: true }), // into main: counted in the share instead
+    ];
+    const value = board(read({ pullRequests: rows }));
+    expect(value.omni.subPrsMerged).toBe(2);
+    expect(value.omni).toMatchObject({ merged: 1, of: 1, share: 100 });
+    expect(board(read()).omni.subPrsMerged).toBe(0);
+  });
+
+  it('holds on one repository\'s board alone', () => {
+    const rows = [merged(1, { repo: 'acme/gears' }), sub({ repo: 'acme/gears' }), sub({ repo: 'acme/widgets' })];
+    const value = board(read({ tracked: ['acme/gears'], pullRequests: rows }));
+    expect(value.tiles.merged).toBe(1);
+    expect(value.omni.subPrsMerged).toBe(1);
   });
 });
