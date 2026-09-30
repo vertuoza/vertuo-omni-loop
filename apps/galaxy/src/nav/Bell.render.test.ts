@@ -122,6 +122,38 @@ describe('its New documents group (PRD 579)', () => {
   });
 });
 
+describe('its Business group (PRD 774, s5)', () => {
+  const withBusiness = (list: WaitingList, business: number, unread: BellUnread = {}) =>
+    renderToStaticMarkup(createElement(BellView, { list, unread, now: NOW, business }));
+  const links = (html: string) => [...panel(html).matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2])]);
+
+  it('with things to check, shows one "Business · N to check" line linking to Settings › Business, last', () => {
+    const html = withBusiness({ questions: [], outbox: [o('i1', 459, 'high')] }, 2);
+    const body = panel(html);
+    expect(body.indexOf('>Outbox<')).toBeLessThan(body.indexOf('>Business<'));
+    expect(links(html).at(-1)).toEqual(['/app/settings/business', 'Business · 2 to check Proposed, disputed or fading claims']);
+    expect(text(panel(withBusiness(EMPTY_WAITING, 1)))).toContain('Business · 1 to check');
+  });
+
+  it('at zero shows no Business group', () => {
+    const html = withBusiness(EMPTY_WAITING, 0);
+    expect(html).not.toContain('Business');
+    expect(text(panel(html))).toBe('Nothing waiting for you.');
+  });
+
+  it('never adds to the bell\'s count or its name, and does not say nothing waits', () => {
+    const html = withBusiness(EMPTY_WAITING, 3);
+    expect(button(html)).toContain('aria-label="Nothing waiting for you"');
+    expect(button(html)).not.toContain('bell-badge');
+    expect(panel(html)).not.toContain('Nothing waiting for you.');
+  });
+
+  it('says so when its count could not be read, keeping the last one', () => {
+    expect(text(panel(withBusiness(EMPTY_WAITING, 0, { business: true })))).toContain("Business couldn't be read — retrying.");
+    expect(text(panel(withBusiness(EMPTY_WAITING, 2, { business: true })))).toMatch(/Business couldn't be read — retrying\. .*Business · 2 to check/);
+  });
+});
+
 describe('its alert switches', () => {
   const withAlerts = (alerts: BellAlerts, list: WaitingList = EMPTY_WAITING) =>
     renderToStaticMarkup(createElement(BellView, { list, unread: {}, now: NOW, alerts }));
