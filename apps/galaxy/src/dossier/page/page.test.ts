@@ -43,6 +43,11 @@ vi.mock('../../stages/store', async (original) => ({
   stageStore: () => given.stages,
 }));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+// Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
+vi.mock('./dock-player', () => ({
+  readDockPlayer: async (_db: unknown, user: { id: string }, workspace: string) =>
+    ({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
+}));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: async () => {
@@ -206,6 +211,11 @@ describe('the page to share', () => {
       id: numbered,
       // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
       signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null, answers: null } }),
+      // PRD 757, s4: the play dock, for the viewer, in the dossier's workspace, its question on the Questions tab.
+      dock: {
+        player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: BOB.id, workspace: FAKE_WORKSPACE,
+        answerHref: `/prd/${numbered}?tab=questions`,
+      },
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
