@@ -5,6 +5,9 @@
 // XP is the sum, over every season in the ledger, of a login's positive personal credits as score()
 // computes them, each multiplied by its kind's weight, rounded once after summing. A debit (a zone
 // reverted) and a clawback never lower it; a fleet credit (a terraform, a decay) is not personal.
+//
+// Fresh start (PRD 728): only a row with a home counts. A row written before the fresh start has
+// none; it stays stored (the ledger is append-only) and adds nothing, so XP restarted at 0 once.
 import { RULEBOOK } from './rulebook.mjs';
 import { score } from './economy.mjs';
 
@@ -25,16 +28,23 @@ export function xpKindOf(reason) {
 
 const loginOf = (login) => login.toLowerCase();
 
+/** The rows a season and XP count: those with a home. A row with none was written before the fresh start (PRD 728). */
+export function counted(events) {
+  return events.filter((e) => e.home);
+}
+
 /**
  * Every login the ledger names (lower-cased), with its XP: 0 for a login that never earned a
  * counted credit. `now` is score()'s; `rules` is an `xp` block, the rulebook's by default.
  */
 export function experience(events, { now, rules = RULEBOOK.xp }) {
   const sums = new Map();
+  // Every login the ledger names keeps a row, at 0 when only old rows name it: its stored XP resets.
   for (const e of events) if (e.contributor) sums.set(loginOf(e.contributor), 0);
-  const seasons = [...new Set(events.map((e) => e.at.slice(0, 7)))].sort();
+  const scored = counted(events);
+  const seasons = [...new Set(scored.map((e) => e.at.slice(0, 7)))].sort();
   for (const season of seasons) {
-    for (const c of score(events, { season, now }).credits) {
+    for (const c of score(scored, { season, now }).credits) {
       if (!c.to || c.points <= 0) continue; // a fleet credit, or a debit
       const kind = xpKindOf(c.reason);
       const weight = kind ? rules.weights[kind] ?? 0 : 0;

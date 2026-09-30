@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { experience, levelFor, unlockedFor, xpForLevel, xpKindOf, playerXp } from './experience.mjs';
+import { experience, levelFor, unlockedFor, xpForLevel, xpKindOf, playerXp, counted } from './experience.mjs';
 import { score } from './economy.mjs';
 import { EVENT_TYPES } from './events.mjs';
 import { RULEBOOK } from './rulebook.mjs';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
-const E = (id, at, type, over = {}) => ({ id, at, type, planet: 2332, data: {}, ...over });
+// Every event names its home (PRD 728): a row with none was written before the fresh start.
+const E = (id, at, type, over = {}) => ({ id, at, type, planet: 2332, home: 'acme/plan', data: {}, ...over });
+const old = ({ home, ...e }) => e;
 const charted = E('planet:2332:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } });
 const secured = (id, at, contributor, team = 'octopod', planet = 2332) => E(`zone:r:${planet}:${id}:secured`, at, 'ZONE_SECURED', { planet, contributor, team });
 const closed = (id, at, contributor, team, kind) => [
@@ -87,6 +89,15 @@ describe('experience', () => {
       secured('s1', '2026-09-21T12:00:00Z', 'Alice'),
       secured('s2', '2026-09-22T12:00:00Z', 'alice'),
     ], { now: NOW })).toEqual({ alice: 20, claimer: 0 });
+  });
+
+  it('gives nothing for a row with no home, written before the fresh start, but keeps its login at 0 (PRD 728)', () => {
+    expect(experience([
+      old(charted),
+      old(secured('s1', '2026-09-21T12:00:00Z', 'alice')),
+      old(secured('s2', '2026-09-22T12:00:00Z', 'bob')),
+      secured('s3', '2026-09-23T12:00:00Z', 'bob'),
+    ], { now: NOW })).toEqual({ alice: 0, bob: 10 });
   });
 
   it('reads only the xp block it is given, and the rulebook\'s by default', () => {
@@ -211,11 +222,24 @@ describe('playerXp', () => {
     ]);
   });
 
+  it('keeps a game already unlocked when the fresh start drops XP to 0 (PRD 728)', () => {
+    expect(playerXp([old(charted), old(secured('s1', '2026-09-21T12:00:00Z', 'alice'))], { now: NOW, stored: { alice: ['invaders'] } })).toEqual([
+      { login: 'alice', xp: 0, level: 0, unlocked: ['invaders'] },
+    ]);
+  });
+
   it('keeps the games stored for a login, whatever the new rules give', () => {
     const events = [charted, secured('s1', '2026-09-21T12:00:00Z', 'alice')];
     const nothingCounts = rules({ weights: { zoneSecured: 0 } });
     expect(playerXp(events, { now: NOW, rules: nothingCounts, stored: { alice: ['invaders'] } })).toEqual([
       { login: 'alice', xp: 0, level: 0, unlocked: ['invaders'] },
     ]);
+  });
+});
+
+describe('counted', () => {
+  it('keeps only the rows with a home: a row written before the fresh start counts for nothing (PRD 728)', () => {
+    const now = secured('s1', '2026-09-21T12:00:00Z', 'alice');
+    expect(counted([old(charted), now, old(now)])).toEqual([now]);
   });
 });
