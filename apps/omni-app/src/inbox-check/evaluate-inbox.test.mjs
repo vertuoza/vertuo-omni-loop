@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCanon } from '../canon/canon.mjs';
+import { readCanonMarker } from './canon-actions.mjs';
 import { evaluateInbox, inboxPrd, phase0Topic } from './evaluate-inbox.mjs';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -181,6 +182,7 @@ describe('evaluateInbox — the canon gate, fifth', () => {
     expect(ask.mock.calls[0][0].user).toContain('A phase-0 fixture: a complete PRD folder.');
     expect(verdict.summary).toContain('- ok — canon: canon ✓ · 2 claims read');
     expect(verdict.canon).toMatchObject({ state: 'green', claimsRead: 2 });
+    expect(readCanonMarker(verdict.summary)).toBeNull();
   });
 
   it('red: "canon ✗ N", listing the claim, the quoted spec line and one persona line', async () => {
@@ -194,6 +196,12 @@ describe('evaluateInbox — the canon gate, fifth', () => {
     expect(verdict.summary).toContain('  - Marc: "Not for my five plumbers."');
     expect(verdict.canon).toMatchObject({ state: 'red', persona: { name: 'Marc' } });
     expect(verdict.canon.findings).toHaveLength(1);
+  });
+
+  it('red: the summary hides the facts a canon button needs — the PRD, the persona, the cited claims', async () => {
+    const verdict = await evaluateInbox(input({ canon: stubbedCanon({ reply: BREAKS }).canon }));
+    expect(readCanonMarker(verdict.summary)).toEqual({ prd: 42, persona: 'Marc', claims: ['never#4'] });
+    expect(verdict.summary.split('\n')[0]).toBe('PRD 42 (`0042-widget`)');
   });
 
   it('a finding without a word-for-word quote is dropped', async () => {

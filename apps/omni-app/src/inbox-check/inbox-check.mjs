@@ -8,6 +8,8 @@
 //                       the four of the kit, and canon (PRD 839) through `canon`, the spec against the
 //                       business of the repository
 //   step "publish"      complete the check run with the verdict; no comment
+//   step "actions"      on a red canon gate only, add its two buttons to the check run (PRD 839):
+//                       Rewrite for <persona> and Change the claim, which ./canon-action.mjs answers
 //   onFailure           complete the check run as `failure` with the reason — never left `in_progress`
 //
 // It listens to the outbox check's event, so every pull request action that re-evaluates the outbox
@@ -27,7 +29,8 @@ import { publish } from '../publish/publish.mjs';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.mjs';
 import { canonFromEnv } from '../canon/live.mjs';
 import { evaluateInbox, inboxPrd, phase0Topic } from './evaluate-inbox.mjs';
-import { compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.mjs';
+import { canonActions } from './canon-actions.mjs';
+import { addCheckActions, compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.mjs';
 
 export const INBOX_FUNCTION_ID = 'inbox-check';
 
@@ -95,6 +98,15 @@ export function createInboxCheck({ client, octokitFor, canon = null }) {
         });
       });
 
+      const actions = canonActions(verdict.canon);
+      if (actions.length > 0) {
+        await step.run('actions', async () => {
+          const octokit = await octokitFor(installationId);
+          await addCheckActions(octokit, { owner, repo, checkRunId: started.checkRunId, actions });
+          return actions.map((action) => action.identifier);
+        });
+      }
+
       return { checkRunId: started.checkRunId, name: started.name, conclusion: verdict.conclusion, prd: verdict.prd };
     },
   );
@@ -104,7 +116,7 @@ export function createInboxCheck({ client, octokitFor, canon = null }) {
  * The inbox check's name when the pull request is a phase-0 PR of a repository with the loop, else
  * `null`: its head branch has the `branches.phase0` shape as the base branch's config spells it.
  */
-async function phase0CheckName(octokit, { owner, repo, prNumber }) {
+export async function phase0CheckName(octokit, { owner, repo, prNumber }) {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-inbox-name-'));
   try {

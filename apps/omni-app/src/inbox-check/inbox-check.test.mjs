@@ -44,6 +44,12 @@ function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRe
         if (!issue || issue.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
         return { data: issue };
       }
+      if (route === 'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}' && params.actions && !params.status) {
+        github.state.requests.push({ route, ...params });
+        const run = github.state.checkRuns.find((r) => r.id === params.check_run_id);
+        run.actions = params.actions;
+        return { data: run };
+      }
       const response = await inner.request(route, params);
       if (route === 'POST /repos/{owner}/{repo}/check-runs' && params.external_id) response.data.external_id = params.external_id;
       return response;
@@ -131,6 +137,46 @@ describe('inbox-check — a phase-0 PR gets the inbox check', () => {
     const blobs = github.state.requests.filter((r) => r.route.endsWith('/git/blobs/{file_sha}')).map((r) => r.file_sha);
     expect(blobs.length).toBeGreaterThan(0);
     for (const sha of blobs) expect(sha === 'base1:.omni-loop/config.yml' || sha.startsWith('head1:.omni-loop/delivery/inbox/')).toBe(true);
+  });
+});
+
+describe('inbox-check — the two actions on a red canon check (PRD 839)', () => {
+  const canonGate = (state) => ({
+    grade: async () => ({
+      name: 'canon',
+      ok: state !== 'red',
+      neutral: state === 'neutral',
+      title: state === 'red' ? 'canon ✗ 1' : undefined,
+      reason: state === 'red' ? 'canon ✗ 1' : state === 'green' ? 'canon ✓ · 1 claim read' : 'no business',
+      details: [],
+      canon: {
+        state,
+        reason: '',
+        claimsRead: 1,
+        findings: state === 'red' ? [{ quote: 'a complete PRD folder', claims: ['never#4'], why: 'a group' }] : [],
+        persona: state === 'red' ? { name: 'Marc', line: 'Not for me.' } : null,
+      },
+    }),
+  });
+  const runWith = (github, state) =>
+    new InngestTestEngine({ function: createInboxCheck({ client: inngest, octokitFor: () => github.octokit, canon: canonGate(state) }), events: [event()] }).execute();
+
+  it('a red canon check run carries Rewrite for <persona> and Change the claim', async () => {
+    const github = inboxGitHub();
+    const { ctx } = await runWith(github, 'red');
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish', 'actions']);
+    expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
+    expect(github.state.checkRuns[0].actions.map((a) => [a.label, a.identifier])).toEqual([
+      ['Rewrite for Marc', 'canon-rewrite'],
+      ['Change the claim', 'canon-claim'],
+    ]);
+  });
+
+  it.each(['green', 'neutral'])('a %s canon check run carries none', async (state) => {
+    const github = inboxGitHub();
+    const { ctx } = await runWith(github, state);
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish']);
+    expect(github.state.checkRuns[0].actions).toBeUndefined();
   });
 });
 

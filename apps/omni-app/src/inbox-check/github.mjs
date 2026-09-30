@@ -23,6 +23,19 @@ export async function startInboxCheck(octokit, { owner, repo, headSha, name }) {
 }
 
 /**
+ * Adds the buttons to a completed check run (PRD 839: the canon gate's two actions). A PATCH with the
+ * actions alone leaves its conclusion and output as they are.
+ */
+export async function addCheckActions(octokit, { owner, repo, checkRunId, actions }) {
+  await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
+    owner,
+    repo,
+    check_run_id: checkRunId,
+    actions,
+  });
+}
+
+/**
  * The branch's changed paths and its commits, `base...head`, from GitHub's compare endpoint: the
  * paths in the `{ path, status }` shape the kit reads, the commits as `{ sha, message }`.
  */
