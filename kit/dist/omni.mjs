@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.125" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.127" };
   }
 });
 
@@ -17100,14 +17100,26 @@ var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <te
 var CARRY_ON = "\u2014 agents carry on";
 var KINDS2 = ["region", "offering", "size", "trade", "rival"];
 var SOURCES = ["pick", "suggestion", "evidence", "answer"];
+var STATES = ["confirmed", "contradicted"];
 var BLANK = "___";
+var CONTRADICTED = "  (contradicted: evidence disagrees, nobody answered yet)";
 var isText4 = (value) => typeof value === "string" && value.length > 0;
 var named = (value) => value && isText4(value.name) ? { name: value.name } : null;
 function claimOf(value) {
   if (!value || !isText4(value.id) || !KINDS2.includes(value.kind) || !isText4(value.value) || !SOURCES.includes(value.source)) return null;
   if (!value.id.startsWith(`${value.kind}#`)) return null;
+  const state = value.state ?? "confirmed";
+  if (!STATES.includes(state)) return null;
   const orNull = (field3) => isText4(field3) ? field3 : null;
-  return { id: value.id, kind: value.kind, value: value.value, source: value.source, receipt: orNull(value.receipt), lastSeen: orNull(value.lastSeen) };
+  return {
+    id: value.id,
+    kind: value.kind,
+    value: value.value,
+    source: value.source,
+    state,
+    receipt: orNull(value.receipt),
+    lastSeen: orNull(value.lastSeen)
+  };
 }
 function businessOf(reply) {
   if (!reply || !["ok", "none"].includes(reply.state) || !Array.isArray(reply.claims)) return null;
@@ -17118,7 +17130,7 @@ function businessOf(reply) {
 }
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence(claims) {
-  const of = (kind) => claims.filter((claim) => claim.kind === kind).map((claim) => claim.value);
+  const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === "confirmed").map((claim) => claim.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of("size")[0];
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
@@ -17195,7 +17207,7 @@ var business = {
     const width = Math.max(...read2.claims.map((claim) => claim.id.length));
     return print(out, read2, [
       sentence(read2.claims),
-      ...read2.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}`)
+      ...read2.claims.map((claim) => `  ${claim.id.padEnd(width)}  ${claim.value}${claim.state === "contradicted" ? CONTRADICTED : ""}`)
     ]);
   }
 };
@@ -19385,7 +19397,7 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
 init_define_OMNI_BUNDLE();
 var LABEL = 11;
 var COUNT = 5;
-var STATES = 26;
+var STATES2 = 26;
 function cell(text4, width, gap = 1) {
   const value = String(text4);
   return value.length + gap > width ? `${value}${" ".repeat(gap)}` : value.padEnd(width);
@@ -19399,7 +19411,7 @@ function creditsReport({ name, scope, since, summary }) {
   const { states, kinds } = prs;
   const lines = [
     `${name ?? "Omni Loop"} \xB7 ${scope} \xB7 ${since ? `since ${since}` : "all time"}`,
-    cell("PRs", LABEL) + cell(prs.total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
+    cell("PRs", LABEL) + cell(prs.total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES2, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
     name === null ? "  signing is off in this repository" : `  ${signatureLine(prs.signatures)}`,
     name === null ? cell("PRD issues", LABEL) + prdIssues.total : cell("PRD issues", LABEL) + cell(prdIssues.total, COUNT) + signatureLine(prdIssues.signatures)
   ];
@@ -21180,7 +21192,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni business show [--json]", "omni business cited <id>\u2026 --by <skill> [--ref <text>]"],
     label: "omni business show",
     summary: "the business this repository serves, as agents read it",
-    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. --json prints them for an agent. With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
+    detail: "What agents in this repository know of the business it serves: the confirmed claims of the workspace's business, picked or drafted on the Settings \u203A Business page, each with its id (such as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has answered yet, is marked as such and left out of the sentence. --json prints them for an agent, each with its state (confirmed or contradicted). With no business, no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: agents carry on without it. cited logs the claims an agent cited, by which skill and in which run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0."
   },
   {
     name: "version",

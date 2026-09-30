@@ -1,21 +1,26 @@
 // What agents read of a workspace's business (PRD 748, decision 14): the shape `GET /api/business`
 // answers and `omni business show --json` prints, which the later MCP link returns unchanged. The
 // database builds it (business_for_repo(), supabase/migrations/20261019090000_business_store.sql),
-// run as the caller; this module only calls it and checks what came back.
+// run as the caller; this module only calls it and checks what came back. PRD 774 (decision 12) added
+// `state` to each claim: `confirmed`, or `contradicted` while evidence disputes it and nobody answered;
+// `receipt` is then the newest receipt as `<where> — "<quote>"`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 const CLAIM_KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const;
 const CLAIM_SOURCES = ['pick', 'suggestion', 'evidence', 'answer'] as const;
+/** The states a claim leaves the app in: proposed and rejected claims never do. */
+const READ_STATES = ['confirmed', 'contradicted'] as const;
 
 const named = z.object({ name: z.string().min(1) }).strict();
 
-/** One confirmed claim, under its display id `<kind>#<seq>`. */
+/** One confirmed or contradicted claim, under its display id `<kind>#<seq>`. */
 const businessClaimSchema = z.object({
   id: z.string().regex(/^(region|offering|size|trade|rival)#[1-9]\d*$/),
   kind: z.enum(CLAIM_KINDS),
   value: z.string().min(1),
   source: z.enum(CLAIM_SOURCES),
+  state: z.enum(READ_STATES),
   receipt: z.string().nullable(),
   lastSeen: z.string().nullable(),
 }).strict();
@@ -42,7 +47,7 @@ export class BusinessStoreError extends Error {
 
 export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
   return {
-    /** The confirmed claims agents in `repo` (owner/name) read. */
+    /** The confirmed and contradicted claims agents in `repo` (owner/name) read. */
     async forRepo(repo: string): Promise<BusinessRead> {
       const { data, error } = await db.rpc('business_for_repo', { p_repo: repo });
       if (error) throw new BusinessStoreError(error.code, error.message);

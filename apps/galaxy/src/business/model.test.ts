@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  businessReducer, citationLine, claimOf, displayId, hasProducts, initialBusinessState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
+  citationLine, claimOf, displayId, hasProducts, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
   sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product,
 } from './model';
+import { businessReducer, initialBusinessState } from './state';
 
 // Settings → Business as pure data (PRD 748 s2): the sentence the confirmed claims write, what a pick
 // changes (a kind that holds one value rejects the old claim before the new one is picked, since no
@@ -184,5 +185,69 @@ describe('products (PRD 748 s4)', () => {
     s = businessReducer(businessReducer(s, { type: 'type', kind: 'rival' }), { type: 'show-product', product: 'p-1' });
     expect(s).toMatchObject({ current: 'p-1', typing: null, sizeDraft: null });
     expect(businessReducer(businessReducer(s, { type: 'add-product' }), { type: 'unadd-product' }).adding).toBe(false);
+  });
+});
+
+describe('a drafted claim (PRD 774 s3)', () => {
+  it('carries its receipts, newest first, and the claim it would replace', () => {
+    const row = { id: 'c-7', seq: 7, kind: 'region', value: 'France', source: 'evidence', state: 'proposed', product_id: null, replaces: null };
+    const receipts = [
+      { claim_id: 'c-7', kind: 'file', location: 'acme/app/README.md', quote: 'Sold in France', seen_at: '2026-09-01T10:00:00Z' },
+      { claim_id: 'c-7', kind: 'link', location: 'https://example.com/pricing', quote: 'French invoices', seen_at: '2026-09-20T10:00:00Z' },
+      { claim_id: 'c-1', kind: 'file', location: 'acme/app/README.md', quote: 'other', seen_at: '2026-09-21T10:00:00Z' },
+    ];
+    expect(claimOf(row, [], receipts).receipts).toEqual([
+      { kind: 'link', where: 'https://example.com/pricing', quote: 'French invoices', seenAt: '2026-09-20T10:00:00Z' },
+      { kind: 'file', where: 'acme/app/README.md', quote: 'Sold in France', seenAt: '2026-09-01T10:00:00Z' },
+    ]);
+    expect(claimOf({ ...row, kind: 'offering', value: 'CRM', replaces: 'c-1' }).replaces).toBe('c-1');
+  });
+});
+
+describe('the draft in the page\'s state (PRD 774 s3)', () => {
+  const found = (value: string, over: Partial<Claim> = {}) => claim('region', value, { source: 'evidence', state: 'proposed', ...over });
+  const RUNNING = { id: 'd-1', kind: 'draft' as const, state: 'running' as const, counts: {}, scanned: [], reason: null };
+
+  it('starts from the latest draft and the web pages the page read, watching nothing yet', () => {
+    const s = initialBusinessState([], [], { draft: RUNNING, pages: [{ id: 'p', url: 'https://example.com' }] });
+    expect(s).toMatchObject({ draft: RUNNING, pages: [{ id: 'p', url: 'https://example.com' }], watched: false, saved: false, marks: {} });
+    expect(initialBusinessState([])).toMatchObject({ draft: null, pages: [] });
+  });
+
+  it('watches a draft, then takes the claims it found, keeping each one\'s citations', () => {
+    const erp = claim('offering', 'ERP', { cited: 3, lastBy: 'think-big' });
+    let s = businessReducer(initialBusinessState([erp]), { type: 'draft', draft: RUNNING });
+    expect(s).toMatchObject({ draft: RUNNING, watched: true });
+    const france = found('France');
+    s = businessReducer(s, { type: 'drafted', draft: { ...RUNNING, state: 'done' }, claims: [{ ...erp, cited: 0, lastBy: null }, france] });
+    expect(s.claims).toEqual([erp, france]);
+    expect(s.draft?.state).toBe('done');
+  });
+
+  it('marks a found row ✓ or ✗, and a second tap on the same mark clears it', () => {
+    const france = found('France');
+    let s = businessReducer(initialBusinessState([france]), { type: 'mark', claim: france.id, mark: 'wrong' });
+    expect(s.marks).toEqual({ [france.id]: 'wrong' });
+    s = businessReducer(s, { type: 'mark', claim: france.id, mark: 'right' });
+    expect(s.marks).toEqual({ [france.id]: 'right' });
+    expect(businessReducer(s, { type: 'mark', claim: france.id, mark: 'right' }).marks).toEqual({});
+  });
+
+  it('confirms on That\'s us every found row not marked ✗, and says it is saved', () => {
+    const france = found('France');
+    const spain = found('Spain');
+    let s = businessReducer(initialBusinessState([france, spain]), { type: 'mark', claim: spain.id, mark: 'wrong' });
+    s = businessReducer(businessReducer(s, { type: 'busy' }), { type: 'thats-us' });
+    expect(s.claims.map((c) => c.state)).toEqual(['confirmed', 'rejected']);
+    expect(s).toMatchObject({ saved: true, busy: false, marks: {} });
+  });
+
+  it('opens the web page field, and adds and removes a page', () => {
+    let s = businessReducer(initialBusinessState([]), { type: 'add-page' });
+    expect(s.addingPage).toBe(true);
+    s = businessReducer(s, { type: 'page-added', page: { id: 'p1', url: 'https://example.com/pricing' } });
+    expect(s).toMatchObject({ addingPage: false, busy: false, pages: [{ id: 'p1', url: 'https://example.com/pricing' }] });
+    expect(businessReducer(s, { type: 'page-removed', page: 'p1' }).pages).toEqual([]);
+    expect(businessReducer(businessReducer(s, { type: 'add-page' }), { type: 'unadd-page' }).addingPage).toBe(false);
   });
 });

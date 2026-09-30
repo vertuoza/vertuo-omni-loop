@@ -2,8 +2,14 @@ import type { FormEvent, ReactNode } from 'react';
 import {
   BLANK, chipLabel, citationLine, confirmed, displayId, hasProducts, isPicked, KIND_LABEL, KIND_ORDER, OFFERINGS, othersOf, REGIONS,
   sentence, SIZE_STOPS, sizeLabel, sizeOf, sizeValue, SOURCE_LABEL, TRADES, valueLabel, viewClaims,
-  type BusinessState, type Claim, type ClaimKind,
+  type Claim, type ClaimKind, type SentencePart,
 } from './model';
+import type { BusinessState } from './state';
+import {
+  foundRows, isFound, MAX_PAGES, pagesLeft, receiptLabel, revealOf, scanLine, sourcesUsed, thinkSentence,
+  type Mark, type Reveal, type WebPage,
+} from './reveal';
+import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './check';
 
 // Settings → Business drawn from its state (PRD 748 s2). The title is the sentence the confirmed
 // claims write, with a blank for each kind still empty. Below it, Skip (which stores nothing and folds
@@ -17,6 +23,20 @@ import {
 // one "+ Add a product" button at its foot. From the second on, the region is drawn once above one tab
 // per product, and everything else (the sentence, the picks, the rows, the payoff card) is the
 // selected tab's.
+//
+// The draft (PRD 774 s3): Draft from my repos and "+ add a web page" (three at most, the only thing
+// typed) sit under the title on the empty and the filled page. While a draft runs, the scan lists each
+// source as read or skipped. What it found waits as proposed rows: the title types itself as "We think
+// you sell …" with them in it, over a Sources used line and a Nothing saved yet pill; What we found
+// shows one row each, with a receipt chip per quote (tap or hover shows it) and ✓ Right / ✗ Wrong,
+// kept in the page; the dock's That's us saves them all, confirming every row not marked ✗. Then the
+// page reads as the filled page with the saved line. One row found is thin evidence ("We found only 1
+// thing"), none is "Nothing we could quote — pick instead"; the picks follow either way.
+//
+// What the weekly recheck found (PRD 774 s4) sits on top of the page, above the sentence, until someone
+// answers it (./check.ts): a replacement ("~~ERP~~ → CRM") and an addition ("Region: Belgium → Belgium
+// + France"), each with its receipts and ✓ Right / ✗ Wrong, saved at once; then each faded claim,
+// dimmed, "not seen since 12 Aug", with ✓ Still true and ✗ Wrong. Those rows leave the list below.
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
@@ -37,11 +57,27 @@ export interface BusinessHandlers {
   addProduct(name: string): void;
   /** A product's tab. */
   showProduct(id: string): void;
+  /** Draft from my repos (PRD 774 s3). */
+  draft(): void;
+  /** ✓ Right or ✗ Wrong on a found row, kept in the page until That's us. */
+  mark(claim: Claim, mark: Mark): void;
+  thatsUs(): void;
+  /** "+ add a web page": opens its address field. */
+  openPage(): void;
+  closePage(): void;
+  addPage(url: string): void;
+  removePage(page: WebPage): void;
+  /** ✓ Right (`right`) or ✗ Wrong on a replacement or an addition the recheck left (PRD 774 s4). */
+  settle(claim: Claim, right: boolean): void;
+  /** ✓ Still true on a faded claim. */
+  stillTrue(claim: Claim): void;
 }
 
 const IDLE: BusinessHandlers = {
   tap() {}, pick() {}, type() {}, untype() {}, sizeDraft() {}, sizeCommit() {}, confirm() {}, reject() {}, skip() {}, unskip() {},
   openProduct() {}, closeProduct() {}, addProduct() {}, showProduct() {},
+  draft() {}, mark() {}, thatsUs() {}, openPage() {}, closePage() {}, addPage() {}, removePage() {},
+  settle() {}, stillTrue() {},
 };
 
 export const SKIP = 'Skip — agents work without it';
@@ -51,18 +87,36 @@ export const TRY_LINE = 'omni business show';
 /** The one text that names products while there is one: the button that adds the second. */
 export const ADD_PRODUCT = '+ Add a product';
 export const PRODUCT_NAME = 'The product’s name';
+// The draft (PRD 774 s3).
+export const DRAFT = 'Draft from my repos';
+export const DRAFTING = 'Drafting…';
+export const ADD_PAGE = '+ add a web page';
+const PAGE_ADDRESS = 'A web page’s address: pricing, home or about';
+export const PAGES_FULL = 'Three web pages at most: remove one to add another.';
+export const NOTHING_SAVED = 'Nothing saved yet';
+export const DOCK = 'Rows you leave alone are confirmed with “That’s us”.';
+export const THATS_US = '✓ That’s us';
+export const SAVED_LINE = '✓ Saved. Every agent reads these from the next run.';
+export const THIN_HINT = 'Your READMEs say what the code does, not who buys it. A pricing or home page usually says more.';
+export const NOTHING_FOUND = 'Nothing we could quote — pick instead';
+export const NOTHING_NEW = 'Nothing new: everything we could quote is already on this page.';
+// What the recheck found (PRD 774 s4).
+export const CHECK_TITLE = 'To check · what changed since you last looked';
+export const STILL_TRUE = '✓ Still true';
 
 export interface BusinessViewProps {
   state: BusinessState;
   /** The demo: sample claims, changed only in the page. */
   demo?: boolean;
   on?: BusinessHandlers;
+  /** What "eight weeks ago" is counted from (PRD 774 s4); now, left out. */
+  now?: number;
 }
 
-function Sentence({ claims }: { claims: readonly Claim[] }) {
+function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
   return (
-    <h1 id="business-title" className="business-sentence">
-      {sentence(claims).map((part, i) =>
+    <h1 id="business-title" className={typing ? 'business-sentence business-typing' : 'business-sentence'}>
+      {parts.map((part, i) =>
         'text' in part
           ? <span key={i}>{part.text}</span>
           : part.filled === null
@@ -168,7 +222,7 @@ function Guess({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessH
 
 function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
   const rivals = confirmed(state.claims).filter((c) => c.kind === 'rival');
-  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed').sort((a, b) => a.seq - b.seq);
+  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed' && c.source !== 'evidence').sort((a, b) => a.seq - b.seq);
   return (
     <div className="business-group" role="group" aria-labelledby="business-rival-title" data-kind="rival">
       <h2 id="business-rival-title">Up against</h2>
@@ -281,13 +335,263 @@ function Payoff({ claims }: { claims: readonly Claim[] }) {
   );
 }
 
-export function BusinessView({ state: whole, demo = false, on = IDLE }: BusinessViewProps) {
+// ── The draft (PRD 774 s3) ───────────────────────────────────────────────────────
+
+function Scan({ draft }: { draft: NonNullable<BusinessState['draft']> }) {
+  return (
+    <section className="business-scan" aria-label="Sources read" aria-live="polite">
+      {draft.state === 'running' && <p className="ask-muted">Reading your sources…</p>}
+      <ul>{draft.scanned.map((s, i) => <li key={i} data-state={s.state}>{scanLine(s)}</li>)}</ul>
+    </section>
+  );
+}
+
+/** What the draft came to, in one line, above the picks. */
+function RevealLine({ reveal }: { reveal: Reveal }) {
+  switch (reveal.kind) {
+    case 'thin':
+      return (
+        <div className="business-reveal-line">
+          <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
+          <p className="ask-muted">{THIN_HINT}</p>
+        </div>
+      );
+    case 'nothing':
+      return <p className="business-reveal-line"><strong>{NOTHING_FOUND}</strong></p>;
+    case 'known':
+      return <p className="business-reveal-line ask-muted">{NOTHING_NEW}</p>;
+    case 'saved':
+      return <p className="business-reveal-line business-saved">{SAVED_LINE}</p>;
+    case 'failed':
+      return <p className="business-refusal" role="alert">{reveal.reason}</p>;
+    default:
+      return null;
+  }
+}
+
+const pageName = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');
+
+function PageField({ busy, on }: { busy: boolean; on: BusinessHandlers }) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = String(new FormData(event.currentTarget).get('url') ?? '').trim();
+    if (value) on.addPage(value);
+  };
+  return (
+    <form className="business-page-field" onSubmit={submit}>
+      <label>
+        <span className="business-type-label">{PAGE_ADDRESS}</span>
+        <input name="url" type="url" inputMode="url" pattern="https://.*" placeholder="https://" maxLength={2000} required autoFocus autoComplete="off" disabled={busy} />
+      </label>
+      <button type="submit" className="ask-button" disabled={busy}>Add</button>
+      <button type="button" className="ask-button quiet" onClick={on.closePage} disabled={busy}>Cancel</button>
+    </form>
+  );
+}
+
+/** Draft from my repos, "+ add a web page" (three at most) and the pages pasted. */
+function DraftBar({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  const running = state.draft?.state === 'running';
+  const left = pagesLeft(state.pages);
+  return (
+    <>
+      <div className="business-draft-bar">
+        <button type="button" className="ask-button" onClick={on.draft} disabled={state.busy || running}>{running ? DRAFTING : DRAFT}</button>
+        {!state.addingPage && (
+          <button type="button" className="ask-button quiet" onClick={on.openPage} disabled={state.busy || left === 0}>
+            {ADD_PAGE} ({left} of {MAX_PAGES} left)
+          </button>
+        )}
+      </div>
+      {left === 0 && <p className="ask-muted">{PAGES_FULL}</p>}
+      {state.addingPage && <PageField busy={state.busy} on={on} />}
+      {state.pages.length > 0 && (
+        <section className="business-pages" aria-label="Web pages the draft reads">
+          <ul>
+            {state.pages.map((p) => (
+              <li key={p.id}>
+                <span>{pageName(p.url)}</span>
+                <button type="button" className="business-page-remove" aria-label={`Remove ${pageName(p.url)}`} onClick={() => on.removePage(p)} disabled={state.busy}>×</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+}
+
+function FoundRow({ claim, mark, busy, on }: { claim: Claim; mark: Mark | undefined; busy: boolean; on: BusinessHandlers }) {
+  const value = valueLabel(claim);
+  return (
+    <li className="business-found-row" data-found={displayId(claim)} data-mark={mark}>
+      <div className="business-found-main">
+        <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
+        <strong className="business-found-value">{value}</strong>
+        <Receipts claim={claim} />
+      </div>
+      <div className="business-found-verdict">
+        <button type="button" className="business-right" aria-pressed={mark === 'right'} aria-label={`Right: ${value}`} onClick={() => on.mark(claim, 'right')} disabled={busy}>✓ Right</button>
+        <button type="button" className="business-wrong" aria-pressed={mark === 'wrong'} aria-label={`Wrong: ${value}`} onClick={() => on.mark(claim, 'wrong')} disabled={busy}>✗ Wrong</button>
+      </div>
+    </li>
+  );
+}
+
+function Found({ rows, state, on }: { rows: readonly Claim[]; state: BusinessState; on: BusinessHandlers }) {
+  return (
+    <>
+      <section className="business-found ask-card" aria-labelledby="business-found-title">
+        <h2 id="business-found-title">What we found</h2>
+        <ul>{rows.map((c) => <FoundRow key={c.id} claim={c} mark={state.marks[c.id]} busy={state.busy} on={on} />)}</ul>
+      </section>
+      <section className="business-dock" aria-label="Save what we found">
+        <span>{DOCK}</span>
+        <button type="button" className="ask-button" onClick={on.thatsUs} disabled={state.busy}>{THATS_US}</button>
+      </section>
+    </>
+  );
+}
+
+// ── What the recheck found (PRD 774 s4) ──────────────────────────────────────────
+
+function Receipts({ claim }: { claim: Claim }) {
+  const receipts = claim.receipts ?? [];
+  if (receipts.length === 0) return null;
+  return (
+    <div className="business-receipts">
+      {receipts.map((r, i) => (
+        <details key={i} className="business-receipt" title={r.quote}>
+          <summary>{receiptLabel(r)}</summary>
+          <span className="business-quote">“{r.quote}”</span>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function CheckItem({ row, busy, on }: { row: CheckRow; busy: boolean; on: BusinessHandlers }) {
+  const { claim } = row;
+  const value = valueLabel(claim);
+  let diff: ReactNode;
+  let right: { label: string; aria: string; press(): void };
+  let wrong: { aria: string; press(): void };
+  if (row.kind === 'replacement') {
+    const was = valueLabel(row.old);
+    diff = <><s>{was}</s> → <strong>{value}</strong></>;
+    right = { label: '✓ Right', aria: `Right: ${value} replaces ${was}`, press: () => on.settle(claim, true) };
+    wrong = { aria: `Wrong: ${value} replaces ${was}`, press: () => on.settle(claim, false) };
+  } else if (row.kind === 'addition') {
+    const { from, to } = additionText(row);
+    diff = <>{from} → <strong>{to}</strong></>;
+    right = { label: '✓ Right', aria: `Right: add ${value}`, press: () => on.settle(claim, true) };
+    wrong = { aria: `Wrong: add ${value}`, press: () => on.settle(claim, false) };
+  } else {
+    diff = <><strong>{value}</strong> <span className="business-check-since">{seenSince(row.since)}</span></>;
+    right = { label: STILL_TRUE, aria: `Still true: ${value}`, press: () => on.stillTrue(claim) };
+    wrong = { aria: `Wrong: ${value}`, press: () => on.reject(claim) };
+  }
+  return (
+    <li className="business-check-row" data-check={displayId(claim)} data-kind={row.kind}>
+      <div className="business-check-main">
+        <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
+        <span className="business-check-diff">{diff}</span>
+        <Receipts claim={claim} />
+      </div>
+      <div className="business-found-verdict">
+        <button type="button" className="business-right" aria-label={right.aria} onClick={right.press} disabled={busy}>{right.label}</button>
+        <button type="button" className="business-wrong" aria-label={wrong.aria} onClick={wrong.press} disabled={busy}>✗ Wrong</button>
+      </div>
+    </li>
+  );
+}
+
+function Check({ rows, busy, on }: { rows: readonly CheckRow[]; busy: boolean; on: BusinessHandlers }) {
+  return (
+    <section className="ask-card business-check" aria-labelledby="business-check-title">
+      <h2 id="business-check-title">{CHECK_TITLE}</h2>
+      <ul>{rows.map((r) => <CheckItem key={r.claim.id} row={r} busy={busy} on={on} />)}</ul>
+    </section>
+  );
+}
+
+function SkipLine({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  if (state.skipped) {
+    return (
+      <div className="business-skip">
+        <p className="ask-muted">{SKIPPED}</p>
+        <button type="button" className="ask-button quiet" onClick={on.unskip}>Pick now</button>
+      </div>
+    );
+  }
+  return (
+    <div className="business-skip">
+      <button type="button" className="ask-button quiet" onClick={on.skip} disabled={state.busy}>{SKIP}</button>
+      <span className="ask-muted">Skip stores nothing.</span>
+    </div>
+  );
+}
+
+function Kicker({ sure, demo, thinking }: { sure: number; demo: boolean; thinking: boolean }) {
+  return (
+    <p className="business-kicker">
+      <span className="ask-chip">Business</span>
+      <span className="ask-chip">{sure === 0 ? 'Empty' : `${sure} confirmed`}</span>
+      {demo && <span className="ask-chip">Demo</span>}
+      {thinking && <span className="ask-chip business-unsaved">{NOTHING_SAVED}</span>}
+    </p>
+  );
+}
+
+/** The title card: the sentence (read with the draft's finds while they wait), the scan, and the draft's controls. */
+function Head({ state, sure, demo, thinking, on }: { state: BusinessState; sure: number; demo: boolean; thinking: boolean; on: BusinessHandlers }) {
+  return (
+    <section className="ask-card business-head" aria-labelledby="business-title">
+      <Kicker sure={sure} demo={demo} thinking={thinking} />
+      {state.watched && state.draft && <Scan draft={state.draft} />}
+      <Sentence parts={thinking ? thinkSentence(state.claims, state.marks) : sentence(state.claims)} typing={thinking} />
+      {thinking && state.draft && <p className="business-used">Sources used: {sourcesUsed(state.draft.counts)}</p>}
+      <RevealLine reveal={revealOf(state)} />
+      {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
+      <DraftBar state={state} on={on} />
+      <SkipLine state={state} on={on} />
+    </section>
+  );
+}
+
+/** The claims agents read, then the ones marked wrong, folded. */
+function ClaimLists({ listed, wrong, busy, on }: { listed: readonly Claim[]; wrong: readonly Claim[]; busy: boolean; on: BusinessHandlers }) {
+  return (
+    <>
+      {listed.length > 0 && (
+        <section className="business-claims" aria-label="The claims agents read">
+          <ul>{listed.map((c) => <Row key={c.id} claim={c} busy={busy} on={on} />)}</ul>
+        </section>
+      )}
+
+      {wrong.length > 0 && (
+        <details className="business-wrong-list">
+          <summary>Marked wrong · {wrong.length}</summary>
+          <ul>{wrong.map((c) => <Row key={c.id} claim={c} busy={busy} on={on} />)}</ul>
+        </details>
+      )}
+    </>
+  );
+}
+
+export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now() }: BusinessViewProps) {
   // Everything below reads the tab's claims: every claim while there is one product.
   const multi = hasProducts(whole.products);
   const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
   const sure = confirmed(state.claims);
-  const listedRows = state.claims.filter((c) => c.state !== 'rejected').sort(byOrder);
+  // What the recheck left (PRD 774 s4) sits on top, and leaves the list below.
+  const toCheck = checkRows(state.claims, now);
+  const onTop = checkIds(toCheck);
+  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id)).sort(byOrder);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
+  // The draft's finds (PRD 774 s3): until That's us, the title reads them in.
+  const found = foundRows(state.claims);
+  const thinking = found.length > 0;
   return (
     <div className="ask-col business">
       {multi && !state.skipped && (
@@ -296,43 +600,14 @@ export function BusinessView({ state: whole, demo = false, on = IDLE }: Business
         </section>
       )}
       {multi && <ProductTabs state={state} on={on} />}
-      <section className="ask-card business-head" aria-labelledby="business-title">
-        <p className="business-kicker">
-          <span className="ask-chip">Business</span>
-          <span className="ask-chip">{sure.length === 0 ? 'Empty' : `${sure.length} confirmed`}</span>
-          {demo && <span className="ask-chip">Demo</span>}
-        </p>
-        <Sentence claims={state.claims} />
-        {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
-        {state.skipped
-          ? (
-            <div className="business-skip">
-              <p className="ask-muted">{SKIPPED}</p>
-              <button type="button" className="ask-button quiet" onClick={on.unskip}>Pick now</button>
-            </div>
-          )
-          : (
-            <div className="business-skip">
-              <button type="button" className="ask-button quiet" onClick={on.skip} disabled={state.busy}>{SKIP}</button>
-              <span className="ask-muted">Skip stores nothing.</span>
-            </div>
-          )}
-      </section>
+      {toCheck.length > 0 && <Check rows={toCheck} busy={state.busy} on={on} />}
+      <Head state={state} sure={sure.length} demo={demo} thinking={thinking} on={on} />
+
+      {thinking && <Found rows={found} state={state} on={on} />}
 
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
-      {listedRows.length > 0 && (
-        <section className="business-claims" aria-label="The claims agents read">
-          <ul>{listedRows.map((c) => <Row key={c.id} claim={c} busy={state.busy} on={on} />)}</ul>
-        </section>
-      )}
-
-      {wrong.length > 0 && (
-        <details className="business-wrong-list">
-          <summary>Marked wrong · {wrong.length}</summary>
-          <ul>{wrong.map((c) => <Row key={c.id} claim={c} busy={state.busy} on={on} />)}</ul>
-        </details>
-      )}
+      <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
 
       {sure.length > 0 && <Payoff claims={sure} />}
 

@@ -14,19 +14,22 @@ import './bell.css';
 // panel takes the screen's width under the top bar (bell.css). The panel's foot holds the Desktop
 // alerts and Chime switches (s5), kept by the waiting provider. PRD 579: a New documents group after
 // Outbox, which never adds to the badge. PRD 652: who shared a question shows as a person chip.
+// PRD 774 (s5): a Business group last, "Business · N to check", which never adds to the badge either.
 
 export function Bell() {
-  const { list, unread, unreadPrds, documents } = useWaiting();
+  const { list, unread, unreadPrds, documents, business } = useWaiting();
   const alerts = useAlerts();
   const [now, setNow] = useState(() => Date.now());
-  return <BellView list={list} documents={documents} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} alerts={alerts} />;
+  return <BellView list={list} documents={documents} business={business} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} alerts={alerts} />;
 }
 
 /** The bell as it draws a given list: what the render tests pin. */
-export function BellView({ list, documents = [], unread, now, onOpen, alerts }: {
+export function BellView({ list, documents = [], business = 0, unread, now, onOpen, alerts }: {
   list: WaitingList;
   /** The New documents part's groups, newest first. */
   documents?: readonly DocumentGroup[];
+  /** How many things wait to be checked on Settings › Business. Never counted in the badge. */
+  business?: number;
   unread: BellUnread;
   now: number;
   onOpen?: () => void;
@@ -37,7 +40,7 @@ export function BellView({ list, documents = [], unread, now, onOpen, alerts }: 
   const button = useRef<HTMLButtonElement>(null);
   const panelId = `${useId()}-bell`;
   const count = list.questions.length + list.outbox.length;
-  const panel = bellPanel(list, unread, now, documents);
+  const panel = bellPanel(list, unread, now, documents, business);
 
   useEffect(() => {
     if (state.focus === 'bell') button.current?.focus();

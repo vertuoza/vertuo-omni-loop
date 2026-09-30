@@ -1,0 +1,33 @@
+# The weekly business recheck (PRD 774): every Sunday at 22:00 UTC, wakes galaxy's
+# POST /api/business/recheck, which drafts every business holding a confirmed claim again from the same
+# sources, so a new region shows as an addition, a new offering as a replacement, and claims no source
+# quotes any more fade. The recheck runs in galaxy, which holds the App's key, the model key and the
+# service key; this workflow holds nothing but the bearer secret. It checks out nothing and writes
+# nothing to the repository. A reply that is not 2xx (a wrong or missing secret, the businesses
+# unreadable) fails the run and changes nothing.
+# Off until the repository variable GALAXY_URL is set; BUSINESS_RECHECK_SECRET must be set both here and
+# on galaxy. Setup: apps/galaxy/README.md, "Deploy to production".
+name: business-recheck
+on:
+  schedule:
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recheck:
+    if: vars.GALAXY_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: business-recheck    # two rechecks never overlap
+      cancel-in-progress: false
+    steps:
+      - name: Recheck every business
+        env:
+          GALAXY_URL: ${{ vars.GALAXY_URL }}
+          BUSINESS_RECHECK_SECRET: ${{ secrets.BUSINESS_RECHECK_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 320 \
+            -X POST "${GALAXY_URL%/}/api/business/recheck" \
+            -H "Authorization: Bearer ${BUSINESS_RECHECK_SECRET}"
