@@ -1,6 +1,7 @@
-// Entropy Invaders' score at game over, as pure functions: sent once, with one retry on A when that
-// fails; NEW BEST when it is one; and the crew's table it changes, which the cabinet's top five and
-// the HI on the score line show. The sending itself is the account's (Account.submitScore()).
+// A game's score at its end (Entropy Invaders' game over; Super Omni World's game over or WORLD
+// CLEAR, PRD 817), as pure functions: sent once, with one retry on A when that fails; NEW BEST when
+// it is one; and the crew's table it changes, which the cabinet's top five and the HI on the score
+// line show. The sending itself is the account's (Account.submitScore(), through submitSend()).
 import { TOP } from '../../data/scores';
 import type { Action } from '../keys';
 import type { ScoreLine, ScoresRead } from '../types';
@@ -54,4 +55,35 @@ export function withBest(board: ScoresRead | undefined, line: ScoreLine): Scores
 /** The HI on the score line: the crew's best, none before any score or when the table is out of reach. */
 export function hiOf(board: ScoresRead | undefined): ScoreLine | null {
   return board && board !== 'unreadable' ? board.top[0] ?? null : null;
+}
+
+/** A best as the send's line shows it: its digits in groups of three, `9 210` (the crew table's way). */
+const bestDigits = (n: number) => String(Math.max(0, Math.floor(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+/** The end screen's line on its score: being saved, NEW BEST or the player's best, or not saved. */
+export function sendLine(send: ScoreSend | null): string | null {
+  if (!send) return null;
+  if (send.state === 'sending') return 'SAVING SCORE…';
+  if (send.state === 'failed') return 'SCORE NOT SAVED';
+  return send.newBest ? 'NEW BEST' : `YOUR BEST ${bestDigits(send.best)}`;
+}
+
+/**
+ * Sends one attempt of a game's score through the account, under the game's key (`invaders`,
+ * `platformer`): what the end screen shows once it answers, and the best the account stored, none
+ * when the send failed. `before` is the player's best the arcade knew of, for NEW BEST.
+ */
+export async function submitSend(
+  account: { submitScore(game: string, score: number): Promise<number> },
+  game: string,
+  attempt: ScoreSend,
+  before: number | null,
+): Promise<{ send: ScoreSend; best: number | null }> {
+  try {
+    const best = await account.submitScore(game, attempt.score);
+    return { send: saved(attempt, best, before), best };
+  } catch (err) {
+    console.error(err);
+    return { send: failed(attempt), best: null };
+  }
 }

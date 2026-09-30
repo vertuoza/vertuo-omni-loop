@@ -33,14 +33,14 @@ import { InvadersOverlay } from './scenes/invaders.tsx';
 import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { PlatformerOverlay } from './scenes/platformer.tsx';
 import { PlatformerScreen, type ScreenStatus } from './platformer/PlatformerScreen';
-import { hearEvent, newSession, pauseSession, pressSession, type Session as PlatformerSession } from './platformer/session';
+import { ended, hearEvent, newSession, pauseSession, pressSession, scoreToSend, type Session as PlatformerSession } from './platformer/session';
 import type { PlatformerEvent } from './platformer/rules';
 import { cabinetDoor, cabinets, xpStatus } from './games/room';
 import { GAMES } from './games';
 import {
   hudOf, newGame, OVER_SECONDS, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
 } from './games/invaders';
-import { failed, hiOf, overPress, saved, sending, withBest, type ScoreSend } from './scenes/invaders-score';
+import { hiOf, overPress, sending, submitSend, withBest, type ScoreSend } from './scenes/invaders-score';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
@@ -67,6 +67,8 @@ const playGame = (e: GameEvent, g: Game) => (e === 'march' ? march(g.marchStep) 
 const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 // Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
 const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
+// Super Omni World's key in the registry: its scores are sent under it (PRD 817).
+const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
@@ -215,8 +217,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     hudRef.current = next;
     setHud(next);
   }, []);
-  // The crew's tables, and the game over's score: sent once (`send`), for the game `run` counts, so
-  // an answer that comes back after a new game started changes the table but not the new game.
+  // The crew's tables, and the score at a game's end: sent once (`send`) under the game's key, for
+  // the game `run` counts, so an answer that comes back after a new game started changes the table
+  // but not the new game. Only one game plays at a time, so they share it.
   const [scores, setScores] = useState<Record<string, ScoresRead>>(scores0 ?? {});
   const scoresRef = useRef(scores);
   scoresRef.current = scores;
@@ -224,26 +227,25 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const sendRef = useRef<ScoreSend | null>(null);
   const runRef = useRef(0);
   const showSend = useCallback((s: ScoreSend | null) => { sendRef.current = s; setSend(s); }, []);
-  const sendScore = useCallback((score: number, tries = 1) => {
+  const sendScore = useCallback((game: string, score: number, tries = 1) => {
     const run = runRef.current;
     const attempt = sending(score, tries);
-    const board = scoresRef.current[INVADERS];
+    const board = scoresRef.current[game];
     const before = board && board !== 'unreadable' ? board.mine : null;
+    // Super Omni World is silent (PRD 817): only Invaders sounds its score.
+    const loud = game === INVADERS;
     showSend(attempt);
-    account.submitScore(INVADERS, score).then((best) => {
-      const m = meRef.current;
-      if (m) setScores((all) => ({ ...all, [INVADERS]: withBest(all[INVADERS], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
-      // Then the table as stored, with whatever the crew scored meanwhile.
-      account.scores(INVADERS).then((b) => setScores((all) => ({ ...all, [INVADERS]: b }))).catch(() => { /* the line above stands */ });
+    void submitSend(account, game, attempt, before).then(({ send: done, best }) => {
+      if (best !== null) {
+        const m = meRef.current;
+        if (m) setScores((all) => ({ ...all, [game]: withBest(all[game], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
+        // Then the table as stored, with whatever the crew scored meanwhile.
+        account.scores(game).then((b) => setScores((all) => ({ ...all, [game]: b }))).catch(() => { /* the line above stands */ });
+      }
       if (run !== runRef.current) return;
-      const done = saved(attempt, best, before);
       showSend(done);
-      if (done.state === 'saved' && done.newBest) sfx('linked');
-    }).catch((err: Error) => {
-      console.error(err);
-      if (run !== runRef.current) return;
-      showSend(failed(attempt));
-      sfx('buzz');
+      if (loud && done.state === 'saved' && done.newBest) sfx('linked');
+      if (loud && done.state === 'failed') sfx('buzz');
     });
   }, [account, showSend]);
   const sendScoreRef = useRef(sendScore);
@@ -256,8 +258,20 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const pfRef = useRef(pf);
   pfRef.current = pf;
   const onPlatformerEvent = useCallback((e: PlatformerEvent) => {
-    setPf((p) => (p ? { ...p, session: hearEvent(p.session, e) } : p));
+    setPf((p) => {
+      if (!p) return p;
+      const session = hearEvent(p.session, e);
+      return session === p.session ? p : { ...p, session };
+    });
   }, []);
+  // The game's end, game over or WORLD CLEAR, sends its score once: on the move into it.
+  const pfSessionRef = useRef<PlatformerSession | null>(null);
+  useEffect(() => {
+    const before = pfSessionRef.current, now = pf?.session ?? null;
+    pfSessionRef.current = now;
+    const score = before && now ? scoreToSend(before, now) : null;
+    if (score !== null) sendScoreRef.current(PLATFORMER, score);
+  }, [pf?.session]);
   const onPlatformerStatus = useCallback((status: ScreenStatus) => {
     setPf((p) => (p && p.status !== status ? { ...p, status } : p));
   }, []);
@@ -318,9 +332,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   /** A on Super Omni World's unlocked cabinet: a new game from 1-1, on the grid it is shown on. */
   const playPlatformer = useCallback(() => {
     held.clear();
+    runRef.current += 1;
+    showSend(null);
     setPf({ session: newSession(), status: 'loading', retry: 0, grid: gridFor(formRef.current, 'platformer') });
     go({ scene: 'platformer' }, 'start');
-  }, [go, held]);
+  }, [go, held, showSend]);
 
   /**
    * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
@@ -702,7 +718,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const s = sendRef.current;
         if (g.over && s && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry' && s.state === 'failed') {
           sfx('select');
-          return sendScore(s.score, s.tries + 1);
+          return sendScore(INVADERS, s.score, s.tries + 1);
         }
         const { game: next, leave } = pressGame(g, action);
         if (leave) {
@@ -719,6 +735,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         // The scene reads ◀ ▶, A and B held itself; a press answers START, SELECT and the screens. Silent (PRD 817).
         const p = pfRef.current;
         if (!p) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        // At the game's end, A retries a score that was not saved, once; the rest is the game's.
+        const s = sendRef.current;
+        if (ended(p.session) && s && overPress(s, action) === 'retry' && s.state === 'failed') return sendScore(PLATFORMER, s.score, s.tries + 1);
         const r = pressSession(p.session, action, p.status);
         if (r.leave) { setPf(null); return go({ scene: 'games' }, 'back'); }
         if (r.retry) return setPf({ ...p, retry: p.retry + 1 });
@@ -832,7 +851,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         gameRef.current = game;
         for (const e of game.events) playGame(e, game);
         showHud(game);
-        if (game.over && !sendRef.current) sendScoreRef.current(game.score); // once a game: sendRef is set at once
+        if (game.over && !sendRef.current) sendScoreRef.current(INVADERS, game.score); // once a game: sendRef is set at once
       }
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
@@ -927,7 +946,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         <>
           <PlatformerScreen grid={pf.grid} hero={me?.hero ?? ui.hero} team={me?.team ?? null} held={held.buttons}
             paused={pf.session.phase !== 'play' || ui.leaving} retry={pf.retry} onEvent={onPlatformerEvent} onStatus={onPlatformerStatus} />
-          <PlatformerOverlay session={pf.session} status={pf.status} />
+          <PlatformerOverlay session={pf.session} status={pf.status} send={send} />
         </>
       ) : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
