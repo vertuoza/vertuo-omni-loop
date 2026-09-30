@@ -221,6 +221,8 @@ export interface BusinessState {
 export type BusinessAction =
   | { type: 'busy' }
   | { type: 'saved'; claim: Claim }
+  /** Rivals the small model guessed (PRD 748 s3), stored as proposed claims. */
+  | { type: 'suggested'; claims: Claim[] }
   | { type: 'done' }
   | { type: 'refused'; message: string }
   | { type: 'skip' }
@@ -232,16 +234,21 @@ export type BusinessAction =
 export const initialState = (claims: Claim[]): BusinessState =>
   ({ claims, busy: false, refusal: null, skipped: false, typing: null, sizeDraft: null });
 
+/** A saved row comes back without its citations: they stay as the page read them. */
+function withSaved(claims: Claim[], saved: Claim): Claim[] {
+  const kept = claims.find((c) => c.id === saved.id);
+  const claim = kept ? { ...saved, cited: kept.cited, lastBy: kept.lastBy } : saved;
+  return [...claims.filter((c) => c.id !== claim.id), claim];
+}
+
 export function businessReducer(state: BusinessState, action: BusinessAction): BusinessState {
   switch (action.type) {
     case 'busy':
       return { ...state, busy: true, refusal: null };
-    case 'saved': {
-      const kept = state.claims.find((c) => c.id === action.claim.id);
-      // A saved row comes back without its citations: they stay as the page read them.
-      const claim = kept ? { ...action.claim, cited: kept.cited, lastBy: kept.lastBy } : action.claim;
-      return { ...state, claims: [...state.claims.filter((c) => c.id !== claim.id), claim] };
-    }
+    case 'saved':
+      return { ...state, claims: withSaved(state.claims, action.claim) };
+    case 'suggested':
+      return { ...state, claims: action.claims.reduce(withSaved, state.claims) };
     case 'done':
       return { ...state, busy: false, typing: null, sizeDraft: null };
     case 'refused':

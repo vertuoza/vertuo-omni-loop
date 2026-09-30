@@ -1,0 +1,90 @@
+import { claimOf, type StoredClaim } from './model';
+import { suggestInput, type Suggester } from './suggest';
+
+// POST /api/business/suggest-rivals {workspace, product} → 200 {claims} (PRD 748 s3), as a plain
+// function of a Request so app/api/business/suggest-rivals/route.ts stays one line. Settings › Business
+// calls it once offering, trade and region are picked. As the signed-in person (row-level security and
+// the claim functions decide what is read and stored), it reads the business's region and the product's
+// claims, asks the small model for rivals (src/business/suggest.ts), and stores each new name through
+// claim_pick() with source `suggestion`, which makes it `proposed`. It answers the proposed rows it
+// stored. A name the business already holds, in any state, is never answered, so a rejected rival does
+// not come back. No model key, too few picks or a failed model call answer no claim: never an error,
+// since the page then shows no guess and "+ add a rival" is unchanged.
+//
+// Refusals, each `{error}` in plain words: 400 a malformed body, 401 signed out, 403 not a member of the
+// workspace, 404 no business or product there, 500 the database failed.
+
+/** A store call that failed, with the database's code. */
+export class SuggestStoreError extends Error {
+  constructor(what: string, readonly code: string | undefined, message: string) {
+    super(`Could not ${what}: ${message}`);
+  }
+}
+
+export interface SuggestStore {
+  /** The claims of the business's region and of the product. */
+  claims(workspace: string, product: string): Promise<StoredClaim[]>;
+  /** claim_pick() of a rival with source `suggestion`: the row it made, or the one already there. */
+  propose(workspace: string, product: string, name: string): Promise<StoredClaim>;
+}
+
+export type SuggestDeps = {
+  /** The store as the signed-in person, or null when nobody is signed in (or no database). */
+  store: () => Promise<SuggestStore | null>;
+  /** The small model, or null when OPENROUTER_API_KEY is unset. */
+  suggest: Suggester | null;
+};
+
+const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+const refuse = (status: number, error: string) => reply(status, { error });
+const NOTHING = { claims: [] as StoredClaim[] };
+
+const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
+
+function refusal(error: unknown): Response {
+  const code = error instanceof SuggestStoreError ? error.code : undefined;
+  if (code === '42501') return refuse(403, 'Only a member of the workspace can change its business.');
+  if (code === 'P0002') return refuse(404, 'This workspace has no such business or product.');
+  console.error(`business: rival suggestions failed (${error instanceof Error ? error.message : String(error)})`);
+  return refuse(500, 'The business database could not answer. Try again.');
+}
+
+export async function suggestRivalsRoute(request: Request, deps: SuggestDeps): Promise<Response> {
+  const store = await deps.store();
+  if (!store) return refuse(401, 'Sign in first.');
+  let sent: unknown;
+  try {
+    sent = await request.json();
+  } catch {
+    return refuse(400, 'The body must be a JSON object.');
+  }
+  const { workspace, product } = (sent && typeof sent === 'object' ? sent : {}) as Record<string, unknown>;
+  const ws = id(workspace);
+  const pr = id(product);
+  if (!ws || !pr) return refuse(400, '`workspace` and `product` must be the ids the page shows.');
+  if (!deps.suggest) return reply(200, NOTHING);
+
+  try {
+    const stored = (await store.claims(ws, pr)).filter((c) => c.product_id == null || c.product_id === pr);
+    const input = suggestInput(stored.map((c) => claimOf(c)));
+    if (!input) return reply(200, NOTHING);
+    const names = await deps.suggest(input);
+    if (!names) return reply(200, NOTHING);
+    const held = new Set(input.exclude.map((v) => v.trim().toLowerCase()));
+    const claims: StoredClaim[] = [];
+    for (const name of names) {
+      if (held.has(name.trim().toLowerCase())) continue;
+      try {
+        const saved = await store.propose(ws, pr, name);
+        if (saved.state === 'proposed') claims.push(saved);
+      } catch (error) {
+        // One name the database finds invalid is dropped; a refusal of the caller stops the call.
+        if (error instanceof SuggestStoreError && error.code === '22023') continue;
+        throw error;
+      }
+    }
+    return reply(200, { claims });
+  } catch (error) {
+    return refusal(error);
+  }
+}

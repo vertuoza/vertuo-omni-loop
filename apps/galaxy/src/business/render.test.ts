@@ -150,6 +150,51 @@ describe('a filled business', () => {
   });
 });
 
+describe('suggested rivals', () => {
+  const PICKED: Claim[] = [
+    claim(1, 'offering', 'ERP'),
+    claim(2, 'trade', 'construction'),
+    claim(3, 'region', 'Belgium'),
+    claim(4, 'rival', 'Alpha', { source: 'suggestion', state: 'proposed' }),
+    claim(5, 'rival', 'Beta', { source: 'suggestion', state: 'proposed' }),
+    claim(6, 'rival', 'Gone', { source: 'suggestion', state: 'rejected' }),
+  ];
+
+  it('shows each proposed rival as a dashed guess chip with ✓ Right and ✗ Wrong, before "+ add a rival"', () => {
+    const group = groupOf(render(PICKED), 'rival');
+    const guesses = [...group.matchAll(/class="business-guess"[^>]*data-claim="([^"]+)"/g)].map((m) => m[1]);
+    expect(guesses).toEqual(['rival#4', 'rival#5']);
+    expect(text(group)).toContain('Alpha guess');
+    expect(buttons(group).map((b) => b.text)).toEqual(['✓ Right', '✗ Wrong', '✓ Right', '✗ Wrong', ADD_RIVAL]);
+    expect(buttons(group)[0].attrs).toContain('aria-label="Right: Alpha"');
+  });
+
+  it('keeps a guess out of the sentence until ✓, and shows no rejected one', () => {
+    const html = render(PICKED);
+    expect(h1(html)).toBe('We sell an ERP to ___-person construction firms in Belgium, up against ___.');
+    expect(text(groupOf(html, 'rival'))).not.toContain('Gone');
+    const confirmedOne = render(PICKED.map((c) => (c.value === 'Alpha' ? { ...c, state: 'confirmed' as const } : c)));
+    expect(h1(confirmedOne)).toContain('up against Alpha.');
+    expect(groupOf(confirmedOne, 'rival')).not.toContain('data-claim="rival#4"');
+  });
+
+  it('with no guess, shows "+ add a rival" as before, and no error', () => {
+    const html = render(PICKED.filter((c) => c.kind !== 'rival'));
+    expect(buttons(groupOf(html, 'rival')).map((b) => b.text)).toEqual([ADD_RIVAL]);
+    expect(html).not.toContain('role="alert"');
+  });
+
+  it('draws the guess chip dashed, and lets it wrap at 393 px', () => {
+    const css = readFileSync(fileURLToPath(new URL('./business.css', import.meta.url)), 'utf8');
+    const at = css.lastIndexOf('.business-guess {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const rule = css.slice(at, css.indexOf('}', at));
+    expect(rule).toContain('dashed');
+    expect(rule).toContain('flex-wrap: wrap');
+    expect(rule).toContain('overflow-wrap: anywhere');
+  });
+});
+
 describe('the demo', () => {
   it('shows the sample rows, marked Demo, naming no real company', () => {
     const html = render(DEMO_CLAIMS, { demo: true });
