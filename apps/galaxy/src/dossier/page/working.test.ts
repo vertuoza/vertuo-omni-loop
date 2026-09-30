@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DossierRoundRow } from '../store';
-import { questionsHref, readWorking, workingOf } from './working';
+import { questionsHref, readWorking, withWorking, workingOf } from './working';
 
 // The dossier page's live poll carries `working` (PRD 757, s4): each tick reads the freshest heartbeat
 // of the dossier's sessions and its open rounds, and the one rule (workingState) says working, asking
@@ -62,6 +62,24 @@ describe('readWorking: the real reads', () => {
     expect(calls).toEqual(['from working_pings', 'eq dossier_id=d1', 'is ended_at']);
     expect(await readWorking(db as never, 'd1', pulse(2, 1), NOW)).toBe('asking');
     expect(calls).toContain('rpc dossier_rounds');
+  });
+});
+
+describe('withWorking: the poll\'s read, carrying `working`', () => {
+  it('hands on the pulse and reports the working state it reads from it', async () => {
+    const states: string[] = [];
+    const seen: unknown[] = [];
+    const read = withWorking(async () => pulse(1, 0), async (p) => { seen.push(p); return 'asking'; }, (s) => states.push(s));
+    expect(await read()).toEqual(pulse(1, 0));
+    expect(seen).toEqual([pulse(1, 0)]);
+    expect(states).toEqual(['asking']);
+  });
+
+  it('leaves the working state as it was when the pulse cannot be read, and fails the tick as before', async () => {
+    const states: string[] = [];
+    const read = withWorking(async () => { throw new Error('down'); }, async () => 'working', (s) => states.push(s));
+    await expect(read()).rejects.toThrow('down');
+    expect(states).toEqual([]);
   });
 });
 

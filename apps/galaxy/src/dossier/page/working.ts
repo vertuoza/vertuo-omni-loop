@@ -53,5 +53,20 @@ export function readWorking(db: Pick<SupabaseClient, 'from' | 'rpc'>, dossierId:
   });
 }
 
+/** The poll's pulse read, carrying `working`: each pulse read is handed on unchanged, and the working
+ * state read from it is reported. A pulse that cannot be read fails the tick as before (the page's
+ * three-failures problem) and leaves the working state as it was. */
+export function withWorking(
+  read: () => Promise<DossierPulse | null>,
+  working: (pulse: DossierPulse | null) => Promise<WorkingState>,
+  onWorking: (state: WorkingState) => void,
+): () => Promise<DossierPulse | null> {
+  return async () => {
+    const pulse = await read();
+    onWorking(await working(pulse));
+    return pulse;
+  };
+}
+
 /** Where ⏸ CLAUDE ASKED · ANSWER leads: the dossier's Questions tab, on its own route. */
 export const questionsHref = (id: string, kind: WorkKind) => `${dossierPath(id, kind)}?tab=questions`;

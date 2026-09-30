@@ -21,6 +21,8 @@ import { dossierCallbackPath } from './sign-in';
 import { readContent, readDossier, readPlanSlices, type Db } from './source';
 import { dossierView, readPick, type DossierRead } from './view';
 import { kindOf, misrouted } from './work';
+import { readDockPlayer } from './dock-player';
+import { questionsHref } from './working';
 import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
 
@@ -51,6 +53,10 @@ import { stageStore } from '../../stages/store';
 // PRD 691 s3: what a fix's page read of GitHub is stored in fix_facts, which /bugs and /visual read, as
 // the service role, after the response (Next's after()): the render never waits on it, a part GitHub
 // could not read keeps its stored value, and a write that fails is only logged.
+// PRD 757 s4: the change check also carries whether Claude works on the dossier, and sits the play dock
+// in the page's corner (LiveRefresh). Who plays is read here, as the member, beside the page's own
+// reads and never before them: their GitHub link, their XP in the dossier's workspace, their hero. A
+// read that fails leaves the dock out, never the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -174,9 +180,17 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
-  const live = (seen: DossierRead) => {
+  const { dossier } = read;
+  const dock = readDockPlayer(db, user, dossier.workspace_id).then(
+    (setup) => ({ ...setup, answerHref: questionsHref(dossier.id, kindOf(dossier)) }),
+    (error: unknown) => {
+      console.error(error);
+      return null;
+    },
+  );
+  const live = async (seen: DossierRead) => {
     const pulse = pulseOf(seen);
-    return <LiveRefresh supabase={env} id={read.dossier.id} signature={pulse ? signature(pulse) : null} />;
+    return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} />;
   };
   if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
@@ -186,5 +200,5 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
   const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={live(withFix)} />;
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} />;
 }
