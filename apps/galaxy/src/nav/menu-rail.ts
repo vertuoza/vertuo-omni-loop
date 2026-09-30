@@ -14,7 +14,7 @@ export const MENU_COOKIE = 'omni-menu';
 /** The attribute on the app shell that sidebar.css draws the rail from. */
 export const MENU_ATTR = 'data-menu';
 /** A year, in seconds. */
-export const MENU_MAX_AGE = 60 * 60 * 24 * 365;
+const MENU_MAX_AGE = 60 * 60 * 24 * 365;
 
 /** The state a cookie header says: `rail` when `omni-menu=rail` is among its pairs, else open. */
 export function readMenu(cookie: string | null | undefined): MenuState {
