@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { heroSpeed, JUMP, JUMP_IDLE, jumpStep, longestPit, PHYSICS, simulateJump, TILE } from './rules';
+import { hearRun, heroSpeed, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE } from './rules';
 
 // Super Omni World's rules without Phaser (PRD 817): the numbers the scene plays by, and the jump
 // that grows with how long A is held.
@@ -67,5 +67,55 @@ describe('running', () => {
     expect(pit).toBeGreaterThanOrEqual(3);
     const { airtime } = simulateJump(JUMP.holdMax);
     expect((pit * TILE + PHYSICS.heroW)).toBeLessThanOrEqual(PHYSICS.run * airtime);
+  });
+});
+
+describe('the score', () => {
+  it('adds 10 for a coin and counts it, and 50 for a stomp', () => {
+    const coin = hearRun(newRun(), 'coin');
+    expect(coin).toEqual({ run: { ...newRun(), score: 10, coins: 1 }, outcome: 'play' });
+    const stomp = hearRun(coin.run, 'stomp');
+    expect(stomp).toEqual({ run: { ...coin.run, score: 60 }, outcome: 'play' });
+    expect(SCORE).toEqual({ coin: 10, stomp: 50, perSecond: 10 });
+  });
+
+  it('adds 10 per second left at the flag, and clears the stage', () => {
+    let run = { ...newRun(), score: 60 };
+    for (let i = 0; i < 100; i += 1) run = hearRun(run, 'second').run;
+    expect(run.time).toBe(STAGE_SECONDS - 100);
+    expect(hearRun(run, 'flag')).toEqual({ run: { ...run, score: 60 + 10 * 200 }, outcome: 'clear' });
+  });
+});
+
+describe('lives', () => {
+  it('starts a game on 1-1 with 3 lives, 300 seconds, and nothing scored', () => {
+    expect(newRun()).toEqual({ stage: '1-1', score: 0, coins: 0, lives: 3, time: 300 });
+    expect(LIVES).toBe(3);
+    expect(STAGE_SECONDS).toBe(300);
+  });
+
+  it.each(['hurt', 'pit'] as const)('loses one to a %s, restarting the current stage with the score and coins kept', (e) => {
+    const run = { ...newRun(), score: 120, coins: 3, time: 42 };
+    expect(hearRun(run, e)).toEqual({ run: { ...run, lives: 2, time: STAGE_SECONDS }, outcome: 'life' });
+    expect(LIFE_EVENTS.has(e)).toBe(true);
+  });
+
+  it('loses one when the timer reaches 0', () => {
+    const run = { ...newRun(), score: 70, time: 2 };
+    const one = hearRun(run, 'second');
+    expect(one).toEqual({ run: { ...run, time: 1 }, outcome: 'play' });
+    expect(hearRun(one.run, 'second')).toEqual({ run: { ...run, lives: 2, time: STAGE_SECONDS }, outcome: 'life' });
+  });
+
+  it('ends the game when the last one is lost, the score kept', () => {
+    let run = { ...newRun(), score: 500 };
+    const outcomes: string[] = [];
+    for (const e of ['hurt', 'pit', 'hurt'] as const) { const r = hearRun(run, e); run = r.run; outcomes.push(r.outcome); }
+    expect(outcomes).toEqual(['life', 'life', 'over']);
+    expect(run).toMatchObject({ lives: 0, score: 500 });
+  });
+
+  it('costs nothing for a coin, a stomp, a second or the flag', () => {
+    for (const e of ['coin', 'stomp', 'second', 'flag'] as const) expect(LIFE_EVENTS.has(e), e).toBe(false);
   });
 });
