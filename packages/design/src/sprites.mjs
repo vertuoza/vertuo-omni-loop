@@ -558,6 +558,14 @@ export const SPRITE_DEFS = Object.freeze({
     d.pxs([[5, 1], [12, 1], [5, 14], [12, 14]], 'Y', 1);
     d.rect(8, 4, 1, 7, 'Y').rect(5, 7, 7, 1, 'Y').rect(7, 6, 3, 3, 'Y').px(8, 7, f ? 'y' : 'Q');
   } },
+  // The foot's Settings entry (PRD 733): a gold cog, its hub a dark hole, a spark turning on its rim.
+  'menu-settings': { w: 16, h: 16, draw(d, f) {
+    d.ellipse(8, 8, 5, 5, 'Y');
+    for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7]]) d.rect(x, y, 2, 2, 'Y');
+    for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) d.rect(x, y, 2, 2, 'Y');
+    d.ellipse(8, 8, 1.8, 1.8, 'X');
+    d.px(f ? 11 : 5, f ? 6 : 5, 'y');
+  } },
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the

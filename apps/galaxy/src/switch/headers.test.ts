@@ -10,7 +10,8 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 
 // Every header of the app, as the server renders it (PRD 238). Two kinds since PRD 438:
 // - the app's pages (/app, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
-//   /app, the Dashboard, Work, Settings and Omni groups since PRD 572, the page's item marked current) and the top bar (the trail
+//   /app, the Dashboard and Work groups since PRD 572, then Settings, Docs and Release notes at the foot since PRD 733, the
+//   page's entry marked current) and the top bar (the trail
 //   to the page since issue 704, the theme switch, then Game mode, last);
 // - the public pages (/releases, PRD 262, and /docs) keep the public top bar (TopBar, PRD 346): the
 //   OMNI LOOP mark to /app, its menu of Omni's pages (Release notes, Docs: no PRDs), Open the app →
@@ -52,14 +53,14 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app/fleet', AppLayout, '/app/fleet', 'Dashboard › Fleet'],
   ['/app/workspace', AppLayout, '/app/workspace', 'Dashboard › Workspace'],
   ['/app/engineering', AppLayout, '/app/engineering', 'Dashboard › Engineering'],
-  ['/app/settings/fleets', AppLayout, '/app/settings/fleets', 'Settings › Fleets'],
-  ['/app/settings/repositories', AppLayout, '/app/settings/repositories', 'Settings › Repositories'],
+  ['/app/settings/fleets', AppLayout, '/app/settings', 'Settings › Fleets'],
+  ['/app/settings/repositories', AppLayout, '/app/settings', 'Settings › Repositories'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
   ['/ask', AskLayout, '/ask', 'Work › Questions'],
   ['/ask/<session>', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/for-me', AskLayout, '/ask/for-me', 'Work › Questions › Shared with me'],
-  ['/ask/history', AskLayout, '/ask/history', 'Work › Questions › History'],
+  ['/ask/for-me', AskLayout, '/ask', 'Work › Questions › Shared with me'],
+  ['/ask/history', AskLayout, '/ask', 'Work › Questions › History'],
   ['/knowledge', KnowledgeLayout, '/knowledge', 'Work › Knowledge'],
 ];
 const pathOf = (name: string) => name.replace('<id>', '3f2a').replace('<session>', '7c1e');
@@ -76,10 +77,10 @@ describe('every app page', () => {
     expect(html).not.toContain('ask-bar');
   });
 
-  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists Dashboard, Work, Settings then Omni', async (name, layout) => {
+  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), expect.stringMatching(/^Shared with me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Repositories', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {
