@@ -85,9 +85,12 @@ export const tuningText = (value: number): string => value.toFixed(2);
 export const maskedKey = (key: JevKeyStatus): string => `•••• ${key.lastFour ?? ''}`.trim();
 
 /** When the key was saved, as the page says it: `30 Sep 2026`, or null. */
-export function savedOn(key: JevKeyStatus): string | null {
-  if (!key.setAt) return null;
-  const at = new Date(key.setAt);
+export const savedOn = (key: JevKeyStatus): string | null => dayOf(key.setAt);
+
+/** A date as the page says it, in UTC: `30 Sep 2026`, or null. */
+export function dayOf(iso: string | null): string | null {
+  if (!iso) return null;
+  const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
   return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]} ${at.getUTCFullYear()}`;
 }
