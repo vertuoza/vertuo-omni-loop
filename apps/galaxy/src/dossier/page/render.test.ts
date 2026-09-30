@@ -340,6 +340,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
       ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(page()).toContain('dossier-rounds');
@@ -358,6 +359,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
       ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(html).toContain(`src="/prd/${ID}/v/2/page"`);
