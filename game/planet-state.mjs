@@ -1,6 +1,7 @@
 // A snapshot planet → derived state. Nothing here is stored; it is recomputed every time (spec §5).
 import { RULEBOOK } from './rulebook.mjs';
 import { addWorkingMinutes, tranchesBetween } from './calendar.mjs';
+import { planetKey } from './events.mjs';
 
 export const WOUND_KIND_BY_RANK = Object.freeze({ medium: 'transmission', high: 'unconfirmed-ground', 'human-action': 'beacon' });
 
@@ -31,6 +32,7 @@ export function deriveZones(planet) {
 }
 
 export function deriveWounds(planet, now) {
+  const key = planetKey(planet.home, planet.prd); // PRD 728: a wound names its PRD by its home
   const wounds = [];
   for (const z of planet.zones) {
     // F1: the label history (`pr.needsFix`) comes off the sub-PR's timeline. A snapshot without it
@@ -38,16 +40,16 @@ export function deriveWounds(planet, now) {
     const fire = z.pr?.needsFix ?? (z.pr?.labels.includes('omni:needs-fix') ? { labeledAt: z.pr.createdAt, unlabeledAt: null } : null);
     if (fire) {
       const closedAt = fire.unlabeledAt ?? z.pr.mergedAt ?? null;
-      wounds.push({ id: `fire:${z.repo}:${planet.prd}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr.author : null });
+      wounds.push({ id: `fire:${z.repo}:${key}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr.author : null });
     }
   }
   for (const item of planet.outbox) {
-    const base = { id: `outbox:${item.repo}:${planet.prd}/${item.id}`, kind: WOUND_KIND_BY_RANK[item.rank], rank: item.rank, repo: item.repo, openedAt: item.raisedAt };
+    const base = { id: `outbox:${item.repo}:${key}/${item.id}`, kind: WOUND_KIND_BY_RANK[item.rank], rank: item.rank, repo: item.repo, openedAt: item.raisedAt };
     if (!item.settled) wounds.push({ ...base, closedAt: null, closedBy: null });
     else {
       wounds.push({ ...base, closedAt: item.settled.at, closedBy: item.settled.by, verdict: item.settled.verdict });
       if (item.settled.verdict === 'drifted') {
-        wounds.push({ id: `fault:${item.repo}:${planet.prd}/${item.id}`, kind: 'fault-line', repo: item.repo, openedAt: item.settled.at, closedAt: item.settled.reworkMergedAt ?? null, closedBy: item.settled.reworkMergedAt ? item.settled.reworkBy ?? null : null });
+        wounds.push({ id: `fault:${item.repo}:${key}/${item.id}`, kind: 'fault-line', repo: item.repo, openedAt: item.settled.at, closedAt: item.settled.reworkMergedAt ?? null, closedBy: item.settled.reworkMergedAt ? item.settled.reworkBy ?? null : null });
       }
     }
   }
@@ -58,7 +60,7 @@ export function deriveWounds(planet, now) {
       if (new Date(b.createdAt) >= new Date(mergedAt) && new Date(b.createdAt) <= windowEnd) {
         // F5c: an aftershock closes only when its bug closed AND a merged PR fixed it (`fixedBy`).
         const fixed = Boolean(b.closedAt && b.fixedBy);
-        wounds.push({ id: `bug:${b.repo}#${b.number}`, kind: 'aftershock', repo: b.repo, openedAt: b.createdAt, closedAt: fixed ? b.closedAt : null, closedBy: fixed ? b.fixedBy : null });
+        wounds.push({ id: planet.home ? `bug:${key}:${b.repo}#${b.number}` : `bug:${b.repo}#${b.number}`, kind: 'aftershock', repo: b.repo, openedAt: b.createdAt, closedAt: fixed ? b.closedAt : null, closedBy: fixed ? b.fixedBy : null });
       }
     }
   }
@@ -129,13 +131,16 @@ export function derivePlanet(planet, { config, terraformedPlanets, now }) {
   const zones = deriveZones(planet);
   const wounds = deriveWounds(planet, now);
   const regions = planet.regions.map((r) => r.repo);
-  const sectors = new Set(regions.map((r) => config.sectorOf(r)));
+  // A repository that no sector names counts as a sector of its own (PRD 728).
+  const sectors = new Set(regions.map((r) => config.sectorOf(r) ?? `repo:${r}`));
   const anyClaimed = planet.zones.some((z) => z.pr);
   const merged = Boolean(planet.featurePr?.mergedAt);
   const last = lastActivity(planet);
   const silentLost = !merged && anyClaimed && addWorkingMinutes(new Date(last), RULEBOOK.lostAfterWorkingMinutes) <= now;
   const distress = distressSince(zones, now);
-  const blocked = planet.regions.some((r) => r.blockedBy.some((prd) => !terraformedPlanets.has(prd)));
+  // `terraformedPlanets` holds planet keys (`<home>#<n>`, PRD 728): a blocker is the PRD of that number
+  // in the same home. A set of bare numbers (game:banner) still reads.
+  const blocked = planet.regions.some((r) => r.blockedBy.some((prd) => !terraformedPlanets.has(planetKey(planet.home, prd)) && !terraformedPlanets.has(prd)));
 
   let state;
   if (planet.issue.closedAt && !merged) state = anyClaimed ? 'lost' : 'decommissioned';
@@ -148,7 +153,8 @@ export function derivePlanet(planet, { config, terraformedPlanets, now }) {
   else state = 'terraforming';
 
   return {
-    prd: planet.prd, title: planet.title, captain: planet.captain, ownerTeam: planet.ownerTeam,
+    prd: planet.prd, home: planet.home ?? null, key: planetKey(planet.home, planet.prd),
+    title: planet.title, captain: planet.captain, ownerTeam: planet.ownerTeam,
     state, regions, class: regions.length, crossSector: sectors.size > 1,
     zones, wounds, distressSince: distress, lastActivityAt: last,
     threat: threatOf(wounds, state === 'distress', now),
