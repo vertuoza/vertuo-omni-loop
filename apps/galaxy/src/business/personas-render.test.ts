@@ -73,6 +73,15 @@ describe('the card grid', () => {
     expect(text(cardOf(render(CAST), 'pe-2'))).toContain('Sofia Office manager Excited');
   });
 
+  it('draws an empty portrait for a trade it cannot draw, and keeps that trade while editing', () => {
+    const odd = [persona(9, { name: 'Lou', trade: 'welder' })];
+    const card = cardOf(render(odd), 'pe-9');
+    expect(card).not.toContain('<svg');
+    expect(text(card)).toContain('Lou welder');
+    const edit = render(odd, { actions: [{ type: 'edit', persona: 'pe-9', seed: 'e' }] });
+    expect([...edit.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])[0]).toBe('welder');
+  });
+
   it('leaves out who and uses when empty', () => {
     const card = text(cardOf(render(CAST), 'pe-2'));
     expect(card).not.toContain('Who');
