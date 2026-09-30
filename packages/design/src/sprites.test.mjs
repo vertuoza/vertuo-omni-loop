@@ -38,6 +38,7 @@ const FORGED = {
   'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
   'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
+  'tile-stone': 'dd2d27c6129a5003',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -326,7 +327,7 @@ describe('the platformer\'s tiles (PRD 817)', () => {
   it('draws every tile a 16×16 square with no hole, so a row of them tiles without a seam', () => {
     expect(TILES).toEqual([
       'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
-      'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r',
+      'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',
     ]);
     for (const name of TILES) {
       for (const frame of [0, 1]) {
@@ -337,12 +338,37 @@ describe('the platformer\'s tiles (PRD 817)', () => {
     }
   });
 
-  it('draws the tiles in the grass palette, the first stage\'s, from its colours only', () => {
-    expect(Object.keys(STAGE_PALETTES)).toContain('grass');
-    for (const name of TILES) {
-      const { pixels } = spritePixels(name, { tint: STAGE_PALETTES.grass });
-      for (const p of pixels) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+  it('draws the tiles in each stage\'s palette (grass, underground, castle) from the forge\'s colours only', () => {
+    expect(Object.keys(STAGE_PALETTES)).toEqual(['grass', 'underground', 'castle']);
+    for (const [palette, tint] of Object.entries(STAGE_PALETTES)) {
+      for (const name of TILES) {
+        for (const frame of [0, 1]) {
+          const { w, h, pixels } = spritePixels(name, { tint, frame });
+          expect([w, h], `${palette} ${name}`).toEqual([16, 16]);
+          expect(pixels.every(Boolean), `${palette} ${name} frame ${frame}`).toBe(true);
+          for (const p of pixels) expect(KNOWN.has(p), `${palette} ${name}: ${p}`).toBe(true);
+        }
+      }
     }
+  });
+
+  it('recolours the tiles in the underground and the castle, so each stage has its own look: the ? block stays gold, and castle stone is drawn in the castle\'s own grey', () => {
+    for (const palette of ['underground', 'castle']) {
+      for (const name of TILES) {
+        if (palette === 'castle' && name === 'tile-stone') continue;
+        const own = spritePixels(name, { tint: STAGE_PALETTES[palette] }).pixels;
+        const grass = spritePixels(name, { tint: STAGE_PALETTES.grass }).pixels;
+        if (name === 'tile-block') expect(own.filter((p) => RAMPS.Y.includes(p)).length, `${palette} ${name}`).toBe(grass.filter((p) => RAMPS.Y.includes(p)).length);
+        else expect(own, `${palette} ${name}`).not.toEqual(grass);
+      }
+    }
+    expect(spritePixels('tile-ground', { tint: STAGE_PALETTES.underground }).pixels).not.toEqual(spritePixels('tile-ground', { tint: STAGE_PALETTES.castle }).pixels);
+  });
+
+  it('draws castle stone as a block of stone, a colour of its own beside the brick', () => {
+    const stone = new Set(spritePixels('tile-stone').pixels);
+    expect([...stone].some((p) => RAMPS.A.includes(p))).toBe(true);
+    expect([...stone].some((p) => RAMPS.O.includes(p))).toBe(false);
   });
 
   it('keeps the grass on top of the ground and the ? block lit, so a stage reads at a glance', () => {

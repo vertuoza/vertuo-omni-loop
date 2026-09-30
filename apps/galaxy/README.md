@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room, the first of them
-Entropy Invaders ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, then SUPER OMNI WORLD
+from LV 2 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -104,8 +104,9 @@ HOME.
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
-| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and two SOON cabinets ([The game room](#the-game-room)) |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
+| SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -646,8 +647,8 @@ off, no row exists, and every player sees NO XP YET.
 - **`games`**, the room (`src/arcade/games/room.ts`): the level, the XP bar and the XP to the next
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
-  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at; two dark SOON
-  cabinets stand for the games to come, with no level. A visitor sees every cabinet locked and
+  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
+  `REACH LV 2 TO PLAY`); a dark SOON cabinet stands for the game to come, with no level. A visitor sees every cabinet locked and
   "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
   could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
   choosing; the tall grid shows one a page.
@@ -674,6 +675,27 @@ off, no row exists, and every player sees NO XP YET.
   The screen says SAVING SCORE…, then NEW BEST, YOUR BEST n, or SCORE NOT SAVED, where A retries
   once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
   XP.
+- **`platformer`**, SUPER OMNI WORLD (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
+  rulebook): an original side-scrolling platformer in the SNES style, on Phaser 4, which is imported
+  only when the game opens (`src/arcade/platformer/PlatformerScreen.tsx`, the one way in; a failed
+  import says `GAME DID NOT LOAD · A TO RETRY`). The player's own hero runs (◀ ▶, B held to run),
+  jumps higher the longer A is held, stomps Entropy blobs, takes coins and bumps `?` blocks, over
+  three stages played in order: **1-1** grass, **1-2** underground and **1-3** the castle, each in
+  its own palette of `@omni/design` tiles (`STAGE_PALETTES`) and with its blobs in a wound kind's
+  colours. The stages are text maps in `src/arcade/platformer/stages.ts`, checked by its test (one
+  start, one flag, 18 equal rows, known characters, no pit wider than a run-jump). Three lives: a
+  blob, a pit or the 300-second clock costs one and restarts the stage, the score kept. A coin is
+  10, a stomp 50, and each second left at the flag 10. A stage clear goes on to the next stage on
+  A; 1-3's flag shows WORLD CLEAR. The rules (`rules.ts`, `session.ts`) have no Phaser in them;
+  Phaser does the physics and the drawing and reports what happened. It is silent. At the game over
+  or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
+  YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
+- **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
+  `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
+  picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
+  game's ready, pause or game-over screen goes back to the picker, and the last choice is
+  remembered for the tab's session. A question on the page pauses the game at once and only START
+  resumes it. The dock does not send SUPER OMNI WORLD's score.
 
 ## PRD dossiers
 

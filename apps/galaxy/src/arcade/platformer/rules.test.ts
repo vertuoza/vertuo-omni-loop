@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hearRun, heroSpeed, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE } from './rules';
+import { hearRun, heroSpeed, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, nextRun, nextStage, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE, WORLD, type Outcome, type PlatformerEvent, type Run } from './rules';
 
 // Super Omni World's rules without Phaser (PRD 817): the numbers the scene plays by, and the jump
 // that grows with how long A is held.
@@ -117,5 +117,45 @@ describe('lives', () => {
 
   it('costs nothing for a coin, a stomp, a second or the flag', () => {
     for (const e of ['coin', 'stomp', 'second', 'flag'] as const) expect(LIFE_EVENTS.has(e), e).toBe(false);
+  });
+});
+
+describe('the world', () => {
+  it('is three stages, played in order: 1-1, 1-2, then 1-3', () => {
+    expect(WORLD).toEqual(['1-1', '1-2', '1-3']);
+    expect(nextStage('1-1')).toBe('1-2');
+    expect(nextStage('1-2')).toBe('1-3');
+    expect(nextStage('1-3')).toBeNull();
+    expect(nextStage('9-9')).toBeNull();
+  });
+
+  it('moves on to the next stage with the score, the coins and the lives kept, and a full clock', () => {
+    const run: Run = { stage: '1-1', score: 2100, coins: 4, lives: 2, time: 87 };
+    expect(nextRun(run)).toEqual({ stage: '1-2', score: 2100, coins: 4, lives: 2, time: STAGE_SECONDS });
+    expect(nextRun({ ...run, stage: '1-3' })).toEqual({ ...run, stage: '1-3' });
+  });
+
+  it('plays the three stages in order to WORLD CLEAR, each flag paying its time bonus', () => {
+    let run = newRun();
+    const seen: [string, Outcome][] = [];
+    const hear = (e: PlatformerEvent) => { const r = hearRun(run, e); run = r.run; return r.outcome; };
+    for (const stage of WORLD) {
+      expect(run.stage).toBe(stage);
+      hear('coin');
+      for (let i = 0; i < 100; i += 1) hear('second');
+      const outcome = hear('flag');
+      seen.push([stage, outcome]);
+      if (outcome === 'clear') run = nextRun(run);
+    }
+    expect(seen).toEqual([['1-1', 'clear'], ['1-2', 'clear'], ['1-3', 'world']]);
+    expect(run).toEqual({ stage: '1-3', score: 3 * (10 + 10 * 200), coins: 3, lives: 3, time: 200 });
+  });
+
+  it('can end in a game over on any stage, the score kept', () => {
+    let run: Run = { ...nextRun(nextRun(newRun())), lives: 1, score: 900 };
+    const r = hearRun(run, 'pit');
+    run = r.run;
+    expect(r.outcome).toBe('over');
+    expect(run).toMatchObject({ stage: '1-3', lives: 0, score: 900 });
   });
 });

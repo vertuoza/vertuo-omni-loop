@@ -3,7 +3,10 @@
 // ? blocks to bump. It only plays: the arcade's held buttons come in each frame (`held`), and what
 // happens goes out as events (`onEvent`: a coin, a stomp, a hurt, a pit, the flag, and each second
 // of the stage's clock), for the rules and the text layer to answer. A life lost (a hurt, a pit, the
-// clock run out) starts the stage again from its start. Phaser reaches this file only as the
+// clock run out) starts the stage again from its start. A stage cleared hands over to the next
+// stage's scene when the game is next resumed: the arcade keeps the game paused over the stage
+// clear and the next stage's ready screen, and START resumes it on the new stage. Phaser reaches
+// this file only as the
 // module PlatformerScreen imported on demand: the types below are erased, and nothing here imports
 // Phaser at run time.
 import type Phaser from 'phaser';
@@ -16,9 +19,14 @@ import type { Stage } from './stages';
 
 export type PhaserModule = typeof import('phaser');
 
+/** The key of a stage's scene in the game. */
+export const sceneKey = (stage: string) => `stage-${stage}`;
+
 export interface SceneOptions {
   stage: Stage;
   art: Art;
+  /** The key of the scene played once this stage's flag is reached; none after the last stage. */
+  next: string | null;
   /** The buttons held now, read once a frame. */
   held: () => ReadonlySet<Action>;
   onEvent: (e: PlatformerEvent) => void;
@@ -54,7 +62,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     done = false;
     skyTop = 0;
 
-    constructor() { super({ key: `stage-${stage.id}` }); }
+    constructor() { super({ key: sceneKey(stage.id) }); }
 
     /** Each try at the stage starts afresh: Phaser runs this on the first start and on every restart. */
     init() {
@@ -68,14 +76,16 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     create() {
       const tex = this.textures;
       const add = (key: string, c: HTMLCanvasElement) => { if (!tex.exists(key)) tex.addCanvas(key, c); };
-      add('tiles', art.tiles);
+      // Each stage's tiles and blobs wear its palette: their textures are named after it.
+      const tiles = `tiles-${stage.palette}`;
+      add(tiles, art.tiles);
       for (const [pose, c] of Object.entries(art.hero)) add(`hero-${pose}`, c);
       art.flag.forEach((c, i) => add(`flag-${i}`, c));
       art.coin.forEach((c, i) => add(`coin-${i}`, c));
-      art.enemy.forEach((c, i) => add(`enemy-${i}`, c));
+      art.enemy.forEach((c, i) => add(`enemy-${stage.palette}-${i}`, c));
 
       const map = this.make.tilemap({ data: tileData(stage), tileWidth: TILE, tileHeight: TILE });
-      const tileset = map.addTilesetImage('tiles', 'tiles', TILE, TILE)!;
+      const tileset = map.addTilesetImage(tiles, tiles, TILE, TILE)!;
       const layer = map.createLayer(0, tileset, 0, 0) as Phaser.Tilemaps.TilemapLayer;
       layer.setCollisionByExclusion([-1]);
       this.layer = layer;
@@ -106,7 +116,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       // The blobs, standing on their tiles' floor, asleep until the screen comes near them.
       this.enemies = this.physics.add.group({ collideWorldBounds: true });
       for (const e of stage.enemies) {
-        const blob = this.enemies.create(e.col * TILE + TILE / 2, (e.row + 1) * TILE - 12, 'enemy-0') as Sprite;
+        const blob = this.enemies.create(e.col * TILE + TILE / 2, (e.row + 1) * TILE - 12, `enemy-${stage.palette}-0`) as Sprite;
         const b = blob.body as Body;
         b.setSize(PHYSICS.enemyW, PHYSICS.enemyH).setOffset((24 - PHYSICS.enemyW) / 2, 24 - PHYSICS.enemyH);
         b.enable = false;
@@ -198,7 +208,24 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
         this.physics.pause();
         this.hero.setTexture('hero-stand');
         o.onEvent('flag');
+        if (o.next) this.onResume(o.next);
       }
+    }
+
+    /**
+     * Starts the next stage once the game is resumed: the arcade pauses the game over the stage
+     * clear and resumes it on START from the next stage's ready screen. A tab shown again while the
+     * game stays paused is not a resume.
+     */
+    onResume(next: string) {
+      const events = this.game.events;
+      const go = () => {
+        if (this.game.isPaused) return;
+        events.off('resume', go);
+        this.scene.start(next);
+      };
+      events.on('resume', go);
+      this.events.once('shutdown', () => events.off('resume', go));
     }
 
     /** Wakes the blobs the screen nears, turns them at walls and ledges, and drops the fallen. */
@@ -219,7 +246,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
           blob.setData('dir', dir);
         }
         b.setVelocityX(dir * PHYSICS.enemy);
-        blob.setTexture(`enemy-${frame}`).setFlipX(dir > 0);
+        blob.setTexture(`enemy-${stage.palette}-${frame}`).setFlipX(dir > 0);
       }
     }
   };

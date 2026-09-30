@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../types';
-import { canRetry, failed, hiOf, isNewBest, overPress, saved, SEND_TRIES, sending, withBest, type ScoreSend } from './invaders-score';
+import { canRetry, failed, hiOf, isNewBest, overPress, saved, SEND_TRIES, sending, sendLine, submitSend, withBest, type ScoreSend } from './invaders-score';
 
 const line = (id: string, best: number): ScoreLine => ({ id, name: id.toUpperCase(), hero: null, team: null, best });
 const board = (mine: number | null, ...top: ScoreLine[]): ScoreBoard => ({ top, mine });
@@ -85,5 +85,50 @@ describe('the HI on the score line', () => {
     expect(hiOf(board(null))).toBeNull();
     expect(hiOf('unreadable')).toBeNull();
     expect(hiOf(undefined)).toBeNull();
+  });
+});
+
+describe('sending a game\'s score through the account (PRD 817)', () => {
+  /** An account that answers the send with the best it stores, or refuses it; it records each call. */
+  const fakeAccount = (best: number | Error) => {
+    const calls: [string, number][] = [];
+    return {
+      calls,
+      submitScore: async (game: string, score: number) => {
+        calls.push([game, score]);
+        if (best instanceof Error) throw best;
+        return best;
+      },
+    };
+  };
+
+  it('sends the score once under the game\'s key, and says NEW BEST when it is one', async () => {
+    const account = fakeAccount(4200);
+    const done = await submitSend(account, 'platformer', sending(4200), 3000);
+    expect(account.calls).toEqual([['platformer', 4200]]);
+    expect(done).toEqual({ send: { state: 'saved', score: 4200, best: 4200, newBest: true }, best: 4200 });
+  });
+
+  it('says the player\'s best when the score is not a new one', async () => {
+    const done = await submitSend(fakeAccount(9000), 'platformer', sending(4200), 9000);
+    expect(done.send).toEqual({ state: 'saved', score: 4200, best: 9000, newBest: false });
+    expect(sendLine(done.send)).toBe('YOUR BEST 9 000');
+  });
+
+  it('says not saved when the account refuses, and leaves A its retry', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const done = await submitSend(fakeAccount(new Error('offline')), 'platformer', sending(4200), null);
+    expect(done).toEqual({ send: { state: 'failed', score: 4200, tries: 1 }, best: null });
+    expect(canRetry(done.send)).toBe(true);
+    const again = await submitSend(fakeAccount(new Error('offline')), 'platformer', sending(4200, 2), null);
+    expect(canRetry(again.send)).toBe(false);
+  });
+
+  it('names each state of the send in a line: saving, NEW BEST, the best, or not saved', () => {
+    expect(sendLine(null)).toBeNull();
+    expect(sendLine(sending(10))).toBe('SAVING SCORE…');
+    expect(sendLine({ state: 'saved', score: 10, best: 10, newBest: true })).toBe('NEW BEST');
+    expect(sendLine({ state: 'saved', score: 10, best: 1240, newBest: false })).toBe('YOUR BEST 1 240');
+    expect(sendLine({ state: 'failed', score: 10, tries: 1 })).toBe('SCORE NOT SAVED');
   });
 });
