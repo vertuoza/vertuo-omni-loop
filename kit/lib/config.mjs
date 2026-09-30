@@ -36,6 +36,17 @@ const httpsUrl = z.string().refine((value) => {
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'an absolute https URL');
 
+// PRD 798: where `/omni:prove` films — the feature PR's preview (`github-deployment`), or a fixed
+// absolute http(s) URL.
+export const PROOF_GITHUB_DEPLOYMENT = 'github-deployment';
+const proofUrl = z.string().refine((value) => {
+  if (value === PROOF_GITHUB_DEPLOYMENT) return true;
+  if (/\s/.test(value)) return false;
+  try { return ['https:', 'http:'].includes(new URL(value).protocol); } catch { return false; }
+}, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
+// The NAME of an environment variable, never its value.
+const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET');
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -195,6 +206,15 @@ export const ConfigSchema = z
     // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
     // opts out. The pull request takes replies either way.
     answers: section({ enabled: z.boolean().default(true) }),
+    // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
+    // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
+    // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+    proof: section({
+      url: proofUrl.nullable().default(null),
+      setup: nullableText.default(null),
+      bypassEnv: envName.nullable().default(null),
+      maxSeconds: z.number().int().positive().default(60),
+    }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a

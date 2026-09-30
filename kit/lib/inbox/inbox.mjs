@@ -32,6 +32,9 @@ import { readRepoFile } from '../check-report.mjs';
 /** The two ways a PRD's full prose is reached, in the order the plan lists them. */
 export const SPEC_VALUES = /** @type {const} */ (['file', 'issue']);
 
+/** The one value an optional `proof` field may take (PRD 798). */
+export const PROOF_VALUES = /** @type {const} */ (['video']);
+
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 const BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
@@ -131,6 +134,8 @@ const FrontMatterSchema = z
     'blocked-by': BlockedBySchema,
     spec: z.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(', ')}` }),
     areas: AreasSchema,
+    // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
+    proof: z.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(' or ')}, or left out` }).optional(),
   })
   .strict();
 
@@ -139,7 +144,7 @@ function unrecognizedKeyMessage(key) {
     return 'unexpected field "plan" — the plan is always the sibling plan.md, never a front-matter value';
   }
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` — an inbox spec names no ${key}` : '';
-  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas`;
+  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
 
 /**
@@ -187,6 +192,7 @@ export function parseSpec(text, { file = null } = {}) {
     blockedBy: fm['blocked-by'],
     spec: fm.spec,
     ...(fm.areas !== undefined ? { areas: fm.areas } : {}),
+    ...(fm.proof !== undefined ? { proof: fm.proof } : {}),
     file,
   };
   return { ok: true, record };
