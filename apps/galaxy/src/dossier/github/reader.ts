@@ -9,7 +9,8 @@
 // shipped folder's after; items parsed by the kit's own reader) and the feature PR's outbox comment,
 // found by its marker (s2), and the retro's retro.md (./retro.ts, s3). From the feature PR's comments it
 // also keeps the outbox comment's numbering and the answers nobody has settled yet (PRD 251, s9,
-// ./replies.ts), and from settled.md the adopted mediums, each read back as its item. Each of those
+// ./replies.ts), and from settled.md the adopted mediums, each read back as its item. While the feature PR
+// is open, one GraphQL read gives its care state (PRD 790, s2, ./care.ts). Each of those
 // reads fails on its own (`UNREAD`); the App not installed, or no config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
 // Concurrent reads of one dossier share one promise, and a repository's config is read once per
 // 60-second window whatever the number of its PRDs (PRD 657, s6).
@@ -20,6 +21,7 @@ import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
 import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
 import { z } from 'zod';
+import { CARE_QUERY, parseCare, type CareState } from './care';
 import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
@@ -216,8 +218,21 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       json(`/contents/${path(file)}?ref=${encodeURIComponent(ref)}`, raw ? 'application/vnd.github.raw+json' : undefined);
     const pulls = async (query: Record<string, string>) =>
       Pulls.parse((await json(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', ...query })}`)) ?? []);
-    const owner = repo.split('/')[0];
+    const [owner, name] = repo.split('/');
     return {
+      /** The pull request's care state (PRD 790, s2): one GraphQL read; null when it is not there. */
+      async care(pr: number, statusMarker: string): Promise<CareState | null> {
+        const res = await fetchImpl(`${GITHUB}/graphql`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
+          body: JSON.stringify({ query: CARE_QUERY, variables: { owner, name, number: pr } }),
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error(`GitHub answered ${res.status} to the care query`);
+        const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null;
+        if (!body?.data) throw new Error(`GitHub's care answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
+        return parseCare(body.data, statusMarker);
+      },
       /** The repository's config, read once per cache window for all its dossiers; a failed read is not kept. */
       config(): Promise<RepoConfig> {
         return configs.get(repo, async () => {
@@ -325,11 +340,15 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       ? () => gh.outbox(`${config.delivery}/shipped/${shipped}/outbox`, main, config.markers)
       : folder && topic ? () => gh.outbox(`${config.delivery}/outbox/${folder}`, branch(config.branches.feature), config.markers) : none;
     const retroWhere = { delivery: config.delivery, folder: shipped ?? folder, defaultBranch: main, retroBranch: branch(config.branches.retro) };
-    const [outboxRead_, comments, retroText] = await Promise.all([
+    const openFeature = feature !== UNREAD && feature?.state === 'open' ? feature : null;
+    const [outboxRead_, comments, retroText, careRead] = await Promise.all([
       part('the outbox', outboxRead),
       part('the outbox comment', feature !== UNREAD && feature ? () => gh.comments(feature.number) : none),
       part('the retro', retro !== UNREAD && retro ? () => readRetro(retro, retroWhere, gh.raw) : none),
+      part('the feature PR\'s care state', openFeature ? () => gh.care(openFeature.number, config.markers.status) : none),
     ]);
+    // The care state is unknown, not absent, when the feature PR itself could not be read.
+    const care = feature === UNREAD ? UNREAD : careRead;
     const outbox = outboxRead_ === UNREAD ? UNREAD : outboxRead_?.outbox ?? null;
     const find = (list: PrComment[], marker: string) => list.find((c) => c.body?.includes(marker))?.html_url ?? null;
     const outboxComment = comments === UNREAD ? UNREAD
@@ -341,7 +360,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       const kit = outboxRead_ ?? { items: [], adopted: [] };
       replies = await part('the pending answers', async () => outboxReplies({ comments, items: kit.items, adopted: kit.adopted, markers: config.markers }));
     }
-    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText };
+    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText, care };
   }
 
   return {
