@@ -11,12 +11,18 @@
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
 // the inbox check event alone; a re-run of any other check run stays the outbox check event.
 //
+// A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
+// run, becomes one canon action event alone, carrying the button and the facts the check run's summary
+// hides (../inbox-check/canon-actions.mjs); the `canon-action` function posts its comment. It re-runs
+// no check.
+//
 // Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
 // one stage event (src/stage-forward/). Unless one is given, `forward` POSTs it to galaxy, signed with
 // `STAGE_EVENT_SECRET` (`GALAXY_URL` names galaxy when set). It never changes the reply: a failure is
 // logged.
 import { Webhooks } from '@octokit/webhooks';
 import { HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.mjs';
 import { forwardStageEvent, stageEventUrl, toStageEvent } from '../stage-forward/stage-forward.mjs';
 
 /**
@@ -33,10 +39,15 @@ export const RETRO_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['closed']),
 });
 
+/** The actions that may be a click of a canon button (PRD 839); only on an inbox check run. */
+export const CANON_ACTIONS = Object.freeze({
+  check_run: Object.freeze(['requested_action']),
+});
+
 /** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
 export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
-  check_run: CHECK_ACTIONS.check_run,
+  check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
 });
 
 /**
@@ -52,6 +63,11 @@ export const HANDLED = Object.freeze({
  * @typedef {{ name: string, data: {
  *   installationId: number, owner: string, repo: string, repository: string, prNumber: number,
  * } }} HarvestRequest
+ * @typedef {{ name: string, data: {
+ *   installationId: number, owner: string, repo: string, repository: string, prNumber: number,
+ *   headSha: string, checkRunId: number, action: string,
+ *   facts: { prd: number, persona: string | null, claims: string[] },
+ * } }} CanonActionRequest
  */
 
 /**
@@ -59,7 +75,7 @@ export const HANDLED = Object.freeze({
  *   body: string,
  *   headers: Record<string, string | undefined> | Headers,
  *   secret: string | undefined,
- *   send: (events: (CheckRequest | RetroRequest | HarvestRequest)[]) => Promise<unknown>,
+ *   send: (events: (CheckRequest | RetroRequest | HarvestRequest | CanonActionRequest)[]) => Promise<unknown>,
  *   forward?: (stageEvent: import('../stage-forward/stage-forward.mjs').StageEvent) => Promise<unknown>,
  * }} input
  * @returns {Promise<WebhookResponse>}
@@ -99,16 +115,17 @@ export async function receiveWebhook({ body, headers, secret, send, forward = fo
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro and the knowledge harvest, anything else
- * to the outbox check.
+ * The router alone, pure: a retro action goes to the retro and the knowledge harvest, a canon button's
+ * click to the canon action, anything else to the outbox check.
  * @param {string} event
  * @param {any} payload
- * @returns {(CheckRequest | RetroRequest | HarvestRequest)[]}
+ * @returns {(CheckRequest | RetroRequest | HarvestRequest | CanonActionRequest)[]}
  */
 export function toEvents(event, payload) {
   if (RETRO_ACTIONS[event]?.includes(payload?.action)) {
     return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
   }
+  if (CANON_ACTIONS[event]?.includes(payload?.action)) return toCanonActionRequests(event, payload);
   return toCheckRequests(event, payload);
 }
 
@@ -182,6 +199,33 @@ export function toRetroRequests(event, payload) {
  */
 export function toHarvestRequests(event, payload) {
   return toRetroRequests(event, payload).map(({ data: { mergeSha, mergedAt, ...data } }) => ({ name: HARVEST_EVENT, data }));
+}
+
+/**
+ * The canon buttons' filter, pure: a click of Rewrite for <persona> or Change the claim on an inbox
+ * check run whose summary carries the canon facts becomes one canon action request per pull request it
+ * names; any other click, check run or action becomes none.
+ * @param {string} event
+ * @param {any} payload
+ * @returns {CanonActionRequest[]}
+ */
+export function toCanonActionRequests(event, payload) {
+  if (!CANON_ACTIONS[event]?.includes(payload?.action)) return [];
+  const run = payload.check_run;
+  const action = payload.requested_action?.identifier;
+  if (run?.external_id !== INBOX_EXTERNAL_ID || !Object.values(CANON_ACTION).includes(action)) return [];
+
+  const source = sourceOf(payload);
+  const facts = readCanonMarker(run.output?.summary);
+  if (!source || !facts) return [];
+
+  return (run.pull_requests ?? [])
+    .map((pull) => ({ number: pull.number, sha: pull.head?.sha ?? run.head_sha }))
+    .filter((pull) => Number.isInteger(pull.number) && pull.sha)
+    .map((pull) => ({
+      name: CANON_ACTION_EVENT,
+      data: { ...source, prNumber: pull.number, headSha: pull.sha, checkRunId: run.id, action, facts },
+    }));
 }
 
 /** The live forward: galaxy's event route, the secret read at the call. */
