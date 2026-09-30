@@ -552,6 +552,25 @@ opened, merged or still open in the window and their reviews, a thousand rows at
 tracked repository the page says *No tracked repositories yet → Settings → Repositories*; a read that
 fails leaves the board saying it could not load. The demo draws a made-up board (`src/engineering/demo.ts`).
 
+### Settings › Jev (PRD 812)
+
+**Settings › Jev** (`/app/settings/jev`, `src/jev/settings/`) lets a workspace's owner hand some of
+the loop's decisions to Jev, TypeSafe AI's model for typed questions. The owner switches Jev on and
+pastes the workspace's TypeSafe API key: `POST /api/jev/key` tests it with one call to Jev, and only
+if that call answers, seals it with AES-256-GCM under `SECRETS_MASTER_KEY` (`src/jev/secret-box.ts`)
+and stores it through the owner-only `set_jev_key()`. A refused key shows TypeSafe's reason and
+nothing is stored. The page then shows only the key's last four. Switching Jev off (`DELETE
+/api/jev/key`, `remove_jev_key()`) removes the key and sets every decision Off. Members see whether
+Jev is on, never the key. Nobody signed in reads `public.workspace_secrets`; only Galaxy's server,
+with the service role, reads a sealed key, to call Jev (`src/jev/client.ts`: the pinned `jev-1.13.0`,
+5 s, no retry, every token in what it sends masked). Each decision's mode, threshold and confidence
+floor live in `public.jev_decisions`, every call in `public.jev_calls`
+(`supabase/migrations/20261022090000_jev_decisions.sql`, proven by `supabase/checks/jev.sql`).
+
+Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`), the page says *Jev
+is not available on this deployment* and nothing can be saved. Losing it makes every stored key
+unreadable: each call then fails, today's path decides, and the owner pastes the key again.
+
 ## The knowledge map
 
 The repository's knowledge base (`.omni-loop/knowledge`: its principles, business rules and
@@ -1056,6 +1075,10 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    `STAGE_EVENT_SECRET`, the same value as on omni-app, which signs its stage events to
    `/api/stages/event`. Without one, its route refuses every call and stages come from the other way
    in ([PRD stages](#prd-stages-prd-587)).
+   For Jev (PRD 812), one more, server only: `SECRETS_MASTER_KEY`, 32 random bytes in base64
+   (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
+   Settings › Jev says Jev is not available on this deployment and every decision is made as before
+   ([Settings › Jev](#settings--jev-prd-812)).
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.

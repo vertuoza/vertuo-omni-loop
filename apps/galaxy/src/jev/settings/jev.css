@@ -1,0 +1,59 @@
+/* Settings › Jev (PRD 812 s1), on the ask pages' reading surface: the head card and the key card with
+   its switch, its stored key or its key field. Every colour is a token of src/ask/theme-tokens.ts.
+   Nothing is wider than the window: at 393 px the field and the buttons wrap. */
+
+.jev .ask-card { justify-items: stretch; }
+.jev .jev-head { justify-items: start; }
+
+.jev-key-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.jev-key-head h2 { margin: 0; }
+
+.jev-refusal { margin: 0; color: var(--ask-red); font-weight: 700; overflow-wrap: anywhere; }
+
+.jev-stored { display: grid; gap: 8px; justify-items: start; }
+.jev-key-line { margin: 0; overflow-wrap: anywhere; }
+.jev-last-four { font: 600 14px/1.2 var(--ask-mono); padding: 2px 8px; border-radius: 6px; background: var(--ask-sunk); }
+
+.jev-key-form { display: grid; gap: 10px; min-width: 0; }
+.jev-key-label { display: grid; gap: 6px; font-weight: 700; color: var(--ask-ink); }
+.jev-key-input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font: 14px/1.2 var(--ask-mono);
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.jev-key-input:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.jev-sends { margin: 0; font-size: 14px; }
+.jev-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.jev-switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
+.jev-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1.5px solid var(--ask-line-strong);
+  background: var(--ask-sunk);
+  cursor: pointer;
+}
+.jev-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--ask-muted);
+  transition: transform 0.15s ease;
+}
+.jev-toggle[aria-checked='true'] { background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+.jev-toggle[aria-checked='true']::after { transform: translateX(20px); background: var(--ask-plasma); }
+.jev-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
+.jev-toggle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
