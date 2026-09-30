@@ -193,6 +193,13 @@ describe('unlockedFor', () => {
     expect(unlockedFor(5, [], more)).toEqual(['invaders', 'maze']);
   });
 
+  it('opens Super Omni World at LV 2 under the rulebook, and keeps it after a rule change moves it later (PRD 817)', () => {
+    expect(unlockedFor(1, [])).toEqual(['invaders']);
+    expect(unlockedFor(2, [])).toEqual(['invaders', 'platformer']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 9 } });
+    expect(unlockedFor(2, ['invaders', 'platformer'], later)).toEqual(['invaders', 'platformer']);
+  });
+
   it('adds to the games already stored, and never takes one away', () => {
     const later = rules({ unlocks: { invaders: 5 } });
     expect(unlockedFor(3, ['invaders'], later)).toEqual(['invaders']);
@@ -211,7 +218,7 @@ describe('playerXp', () => {
       ...Array.from({ length: 5 }, (_, i) => secured(`a${i}`, `2026-09-2${i + 1}T12:00:00Z`, 'alice')),
       E('zone:r:2332:c:claimed', '2026-09-20T12:00:00Z', 'ZONE_CLAIMED', { contributor: 'claimer', team: 'octopod' }),
     ], { now: NOW })).toEqual([
-      { login: 'alice', xp: 50, level: 2, unlocked: ['invaders'] },
+      { login: 'alice', xp: 50, level: 2, unlocked: ['invaders', 'platformer'] },
       { login: 'claimer', xp: 0, level: 0, unlocked: [] },
       { login: 'zed', xp: 10, level: 1, unlocked: ['invaders'] },
     ]);
