@@ -18,9 +18,11 @@ import {
   type Pick,
   type Shot,
 } from '../answer-model';
+import { OptionDescription, QuestionHeading } from './QuestionText';
 import { imagesOf, progressOf, progressText, shotOf, stageShots, subscribeTrays, type Progress } from './attachments';
 
-// The open round: each question with its header chip and its text as the heading, the options as
+// The open round: each question with its header chip and its text as the heading (a long one as
+// its lead, the rest folded: PRD 752), the options as
 // large rows (radios, or checkboxes for a multi-select) with their descriptions, the Recommended
 // badge, Other, and a preview panel beside the options when an option carries one. Keys 1 to 4 pick
 // in the question with the focus (else the first without an answer) and Enter sends. Other takes
@@ -165,7 +167,7 @@ function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
           {shown.text}
           {shown.recommended && <span className="ask-rec">Recommended</span>}
         </span>
-        {option.description && <span className="ask-opt-desc">{option.description}</span>}
+        {option.description && <OptionDescription text={option.description} />}
       </span>
     </label>
   );
@@ -194,7 +196,7 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
         {question.header && <span className="ask-chip">{question.header}</span>}
         <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
       </div>
-      <h2 className="ask-question" id={`${name}-text`}>{question.question}</h2>
+      <QuestionHeading id={`${name}-text`} text={question.question} />
       <div className={hasPreview ? 'ask-q-body has-preview' : 'ask-q-body'}>
         <fieldset className="ask-opts" data-multi={question.multiSelect}>
           <legend className="ask-sr">{question.question}</legend>
