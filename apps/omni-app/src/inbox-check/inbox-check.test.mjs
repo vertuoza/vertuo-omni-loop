@@ -95,6 +95,30 @@ describe('inbox-check — a phase-0 PR gets the inbox check', () => {
     expect(github.state.checkRuns[0].output.summary).toContain('issue #42 is closed');
   });
 
+  it('the canon gate grades the PR\'s spec against its repository: red, "canon ✗ 1"', async () => {
+    const github = inboxGitHub();
+    const grade = async ({ repo, spec }) => ({
+      name: 'canon',
+      ok: false,
+      neutral: false,
+      title: 'canon ✗ 1',
+      reason: 'canon ✗ 1',
+      details: [`${repo}: never#4 "Never: widgets" — the spec: "${spec.includes('a complete PRD folder') ? 'a complete PRD folder' : '?'}"`],
+      canon: { state: 'red', reason: 'canon ✗ 1', claimsRead: 1, findings: [], persona: null },
+    });
+    const fn = createInboxCheck({ client: inngest, octokitFor: () => github.octokit, canon: { grade } });
+    const { result } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    expect(result).toMatchObject({ conclusion: 'failure' });
+    expect(github.state.checkRuns[0].output.title).toBe('Not ok: canon ✗ 1');
+    expect(github.state.checkRuns[0].output.summary).toContain('  - acme/widgets: never#4 "Never: widgets" — the spec: "a complete PRD folder"');
+  });
+
+  it('without a canon gate wired, the canon line is neutral and the check still succeeds', async () => {
+    const github = inboxGitHub();
+    await run(github);
+    expect(github.state.checkRuns[0].output.summary).toContain('- neutral — canon: the canon gate is not wired here');
+  });
+
   it('a ci.inboxContext set in the base config renames the check run', async () => {
     const github = inboxGitHub({ base: 'inbox-base-renamed' });
     await run(github);
