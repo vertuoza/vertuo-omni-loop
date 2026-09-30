@@ -24,6 +24,7 @@ export const LABEL_STYLES = {
   riskHigh: { color: 'ff7619', description: 'Omni Loop: bug triage — high risk' },
   riskMedium: { color: 'fef2c0', description: 'Omni Loop: bug triage — medium risk' },
   riskLow: { color: 'ededed', description: 'Omni Loop: bug triage — low risk' },
+  concept: { color: 'fbbf24', description: 'Omni Loop: a vast idea explored as a concept, before it becomes PRDs' },
 };
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */

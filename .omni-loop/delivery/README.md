@@ -21,6 +21,18 @@ test or scenario the branch adds or changes, and the line it failed with before 
 **Fix**, the **Guard** and the **Mutation** line. The fix's pull request closes that issue, carries
 the folder, and is proven by `omni bug <n>` before it opens.
 
+**`inbox/concepts/<nnnn>-<slug>/`** holds one concept made with `/omni:think-big`: a vast idea
+explored by a studio of agents before any PRD, the direction a person crowned, and its areas.
+`<nnnn>` is its `omni:concept` issue's number, zero-padded to four digits, and the folder holds
+`concept.md` (the brief, the vision, why this one, what was killed and why, the fuel, and the
+**Areas** table: PRD-sized areas in build order, the wedge first), `vision.html` (the crowned
+concept's clickable vision tour), `board-r1.html`, `board-r2.html`, … (each round's board as it was
+shown, the person's reactions at its top) and `debate.md` (the studio's turns), nothing else. It
+enters the inbox through its own docs-only pull request into `main`, labelled `omni:concept` and
+proven by `omni concept <n>` before it opens, which a person merges. `concepts` is no
+`<prd>-<topic>` name, so no reader of PRD folders counts it as a PRD. Each area becomes a PRD through
+`/omni:brainstorm --concept <n> <area>`, whose phase-0 pull request fills that area's `PRD` cell.
+
 **`release.md`** says what the PRD shipped, in plain words for anyone outside: a title and a
 one-paragraph description, which `omni check releases` grades. The loop writes it when it ships the
 PRD, and the person who merges the feature PR approves its words; a typo is fixed by pull request.

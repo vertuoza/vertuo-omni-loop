@@ -20,7 +20,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.mjs';
-import { fixVerdict } from '../fix-verdict.mjs';
+import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.mjs';
 
 const PAGE = 'before-after.html';
 
@@ -28,9 +28,6 @@ const PAGE = 'before-after.html';
 const ROUND = /^variations-r([1-9]\d*)\.html$/;
 /** A name that means to be a round, well formed or not. */
 const ROUND_LIKE = /^variations/i;
-
-/** A `data:image/` URL whose type is anything but SVG. */
-const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 
 /** Where every visual fix's folder lives. */
 export function visualRoot(ctx) {
@@ -42,26 +39,12 @@ export function folderPrefix(issue) {
   return `${String(issue).padStart(4, '0')}-`;
 }
 
-/** Every folder under the visual root named for `issue`, sorted, as repository paths. */
-function issueFolders(ctx, issue) {
-  const root = visualRoot(ctx);
-  const absolute = join(ctx.root, root);
-  if (!existsSync(absolute)) return [];
-  const prefix = folderPrefix(issue);
-  return readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
-    .map((entry) => `${root}/${entry.name}`)
-    .sort();
-}
-
 function pageViolations(ctx, page) {
   if (!existsSync(join(ctx.root, page))) return [`${page}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page, ctx);
   if (size) violations.push(size);
-  if (RASTER_DATA_URL.test(readFileSync(join(ctx.root, page), 'utf8'))) {
-    violations.push(`${page}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`);
-  }
+  violations.push(...rasterFaults(page, readFileSync(join(ctx.root, page), 'utf8')));
   return violations;
 }
 
@@ -94,7 +77,7 @@ function folderViolations(ctx, folder) {
  */
 export function visualVerdict({ ctx, issue, commits }) {
   return fixVerdict({
-    ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: issueFolders(ctx, issue),
+    ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), folderPrefix(issue)),
     grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
   });
 }

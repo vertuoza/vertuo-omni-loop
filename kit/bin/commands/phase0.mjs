@@ -7,24 +7,12 @@
 // (PRD #99), unless the config says `signature: null`.
 import { phase0Verdict } from '../../lib/policy/phase-0.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
+import { rangeBase, rangeCommits } from '../branch-range.mjs';
 
 const USAGE = 'usage: omni phase0 <prd> [--base <ref>]';
 
-function defaultBase(ctx) {
-  return `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
-}
-
 function git(args, cwd, exec) {
   return exec('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
-function refExists(ctx, ref, exec) {
-  try {
-    git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], ctx.root, exec);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** The range's changed paths, `git diff --name-only --no-renames <base>...HEAD` — paths only; this
@@ -35,19 +23,6 @@ function changedPaths(ctx, base, exec) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-/** The range's commits, oldest first, as `{ sha, message }`: `git log --reverse <base>..HEAD`, the
- * commits the three-dot diff above is made of. `sha` is git's short form. */
-function rangeCommits(ctx, base, exec) {
-  return git(['log', '--reverse', '--format=%h%x00%B%x1e', `${base}..HEAD`], ctx.root, exec)
-    .split('\x1e')
-    .map((record) => record.replace(/^\n/, ''))
-    .filter((record) => record.includes('\x00'))
-    .map((record) => {
-      const [sha, message] = record.split('\x00');
-      return { sha, message };
-    });
 }
 
 function signedLine(signed) {
@@ -88,15 +63,10 @@ export const phase0 = {
     const { positional, flags } = parseArgs('phase0', args, { values: ['base'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('phase0', '<prd>', positional[0]);
-    const base = flags.base ?? defaultBase(ctx);
-
-    if (!refExists(ctx, base, exec)) {
-      const how = flags.base !== undefined ? 'pass another --base <ref>' : 'fetch it, or pass --base <ref>';
-      throw usageError(`omni phase0: no ${base} — ${how}.`);
-    }
+    const base = rangeBase('phase0', ctx, flags, exec);
 
     const paths = changedPaths(ctx, base, exec);
-    const commits = ctx.config.signature === null ? undefined : rangeCommits(ctx, base, exec);
+    const commits = ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec);
     const verdict = phase0Verdict(paths, { ctx, prd, commits });
     printVerdict(stdout, prd, base, verdict);
     return verdict.ok ? 0 : 1;

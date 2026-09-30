@@ -58,6 +58,21 @@ describe('docs/guide', () => {
     }
   });
 
+  it('gives a vast idea its row and its section on the use-cases page, and /omni:think-big its row on the loop page (PRD 686)', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    const useCases = body('use-cases');
+    const row = /^\| \[([^\]]*vast idea[^\]]*)\]\(#([a-z-]+)\) \| `\/omni:think-big [^`]+`/m.exec(useCases);
+    expect(row, 'a row for a vast idea, typing /omni:think-big').not.toBeNull();
+    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === row![2]);
+    expect(heading, `a section #${row![2]}`).toBeDefined();
+    const section = useCases.slice(useCases.indexOf(heading!), useCases.indexOf('\n## ', useCases.indexOf(heading!)));
+    for (const phrase of ['/omni:think-big', 'omni:concept', '.omni-loop/delivery/inbox/concepts/', '/omni:brainstorm --concept']) {
+      expect(section, phrase).toContain(phrase);
+    }
+    expect(body('loop')).toMatch(/^\| `\/omni:think-big` \|/m);
+  });
+
   it('draws the loop, its pull requests and its skills on the loop page', () => {
     const loop = readGuide(GUIDE).pages.find((page) => page.slug === 'loop');
     expect(diagramsNamed(loop?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([
