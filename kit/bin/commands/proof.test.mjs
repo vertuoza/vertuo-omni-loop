@@ -1,7 +1,7 @@
 // `omni proof push <n> <dir>` (PRD 798), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the proof contract (`POST /api/proofs/uploads`, a PUT per signed link, `POST /api/proofs`).
 // The sign-in is an in-memory token store, so nothing real is read or written.
-import { truncateSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, truncateSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
@@ -164,5 +164,58 @@ describe('omni proof push', () => {
     expect((await push(['x', DIR], { root, fetch })).code).toBe(2);
     expect((await main(['proof', 'pull', '7', DIR], { cwd: root, env: {}, fetch, stdout: { write() {} }, stderr: { write() {} } }))).toBe(2);
     expect(calls).toEqual([]);
+  });
+});
+
+// `omni proof session [<file>]` (the `proof.setup` of PRD 798): the signed-in Playwright session, from
+// the person's own `omni signin`, renewed first so the browser gets a full hour.
+describe('omni proof session', () => {
+  const REF = 'fzskrlcmmzvvxaeebezc';
+  const EXP = Math.floor(Date.now() / 1000) + 3600;
+  const jwt = (claims) => ['h', Buffer.from(JSON.stringify(claims)).toString('base64url'), 's'].join('.');
+  const FRESH = jwt({ iss: `https://${REF}.supabase.co/auth/v1`, sub: 'u-1', email: 'pat@acme.test', exp: EXP });
+  const renewing = (status = 200) => fakeApp((href) => (href === `${BASE}/api/ask/token`
+    ? json(status, status === 200 ? { access_token: FRESH, refresh_token: 'refresh-2', expires_at: EXP } : {})
+    : null));
+
+  async function session(args, { root, tokens = signedIn(), fetch, env = {} }) {
+    const out = [];
+    const err = [];
+    const code = await main(['proof', 'session', ...args], { cwd: root, tokens, env, fetch, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+
+  it('renews the sign-in, then writes the app\'s auth cookie to PROOF_STORAGE_STATE, private to its owner', async () => {
+    const { root } = checkout();
+    const tokens = signedIn();
+    const file = join(root, 'state.json');
+    const result = await session([], { root, tokens, fetch: renewing().fetch, env: { PROOF_STORAGE_STATE: file } });
+    expect(result).toMatchObject({ code: 0, err: '' });
+    expect(result.out).toMatch(/^signed in as pat@acme\.test until \d\d:\d\d\n$/);
+    const state = JSON.parse(readFileSync(file, 'utf8'));
+    expect(state.cookies[0]).toMatchObject({ name: `sb-${REF}-auth-token`, domain: HOST });
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(tokens.store[HOST].refresh_token).toBe('refresh-2');
+  });
+
+  it('takes the file as an argument too', async () => {
+    const { root } = checkout();
+    const file = join(root, 'given.json');
+    expect((await session([file], { root, fetch: renewing().fetch })).code).toBe(0);
+    expect(existsSync(file)).toBe(true);
+  });
+
+  it('says no sign-in when there is none or the server refuses it, and unreachable when it does not answer: exit 1, no file', async () => {
+    const { root } = checkout();
+    const file = join(root, 'state.json');
+    expect(await session([file], { root, tokens: memoryTokens(), fetch: renewing().fetch })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
+    expect(await session([file], { root, fetch: renewing(401).fetch })).toEqual({ code: 1, out: '', err: 'no sign-in (omni signin)\n' });
+    expect(await session([file], { root, fetch: async () => { throw new Error('down'); } })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it('needs a file: an argument or PROOF_STORAGE_STATE', async () => {
+    const { root } = checkout();
+    expect((await session([], { root, fetch: renewing().fetch })).code).toBe(2);
   });
 });

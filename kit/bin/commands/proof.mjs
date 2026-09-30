@@ -1,3 +1,9 @@
+// `omni proof session [<file>]` — writes the signed-in Playwright session `/omni:prove` films with
+// (`proof.setup`), to `<file>` or to `$PROOF_STORAGE_STATE`, from the person's own `omni signin`
+// (`../../lib/proof/session.mjs`). It renews the sign-in first, so the session holds a full hour, and
+// prints `signed in as <email> until <HH:MM>`. No sign-in, or one the server refuses, is
+// `no sign-in (omni signin)`, and a server that does not answer `unreachable`: exit 1, no file.
+//
 // `omni proof push <n> <dir>` — sends a proof run `/omni:prove` recorded to PRD n's dossier on the Omni page
 // (PRD 798's spec, "The Omni page"), and prints the Proof tab's link, then the GIF's stable link on a
 // second line when the run sent a `preview.gif`.
@@ -15,6 +21,7 @@
 //
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens`, `home`, `fetch`
 // and `callMs`; it loads the context itself.
+import { writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { askClient, AskCallError } from '../../lib/ask/client.mjs';
 import { homeTokens } from '../../lib/ask/client-tokens.mjs';
@@ -23,9 +30,10 @@ import { dossierSwitch } from '../../lib/config.mjs';
 import { loadContext } from '../../lib/context.mjs';
 import { ProofReplyError, pushProof } from '../../lib/proof/push.mjs';
 import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.mjs';
+import { SessionRefused, storageState } from '../../lib/proof/session.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni proof push <n> <dir>';
+const USAGE = 'usage: omni proof push <n> <dir> | omni proof session [<file>]';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni dossier link` words it. */
@@ -37,12 +45,17 @@ function skipLine(error) {
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 
-/** The PRD number and folder `omni proof push <n> <dir>` names, or a usage error. */
-function argsOf(args) {
+/** What `omni proof push <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
+function argsOf(args, env) {
   const { positional } = parseArgs('proof', args);
-  const [verb, number, dir, ...rest] = positional;
-  if (verb !== 'push' || dir === undefined || rest.length) throw usageError(USAGE);
-  return { prd: positiveInt('proof push', '<n>', number), dir };
+  const [verb, first, second, ...rest] = positional;
+  if (verb === 'session') {
+    const file = first ?? env?.PROOF_STORAGE_STATE;
+    if (!file || second !== undefined) throw usageError(`${USAGE} (session needs <file> or PROOF_STORAGE_STATE)`);
+    return { verb, file };
+  }
+  if (verb !== 'push' || second === undefined || rest.length) throw usageError(USAGE);
+  return { verb, prd: positiveInt('proof push', '<n>', first), dir: second };
 }
 
 /** The run in `dir`, or the one line a local refusal is reported with. */
@@ -80,11 +93,54 @@ async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, 
   return 0;
 }
 
+/** `HH:MM`, local time, of a moment in seconds. */
+const clock = (seconds) => new Date(seconds * 1000).toTimeString().slice(0, 5);
+
+/** The access token of a sign-in renewed just now, or the one line that stopped it. */
+async function renewedToken(askUrl, { tokens, home, fetch, callMs }) {
+  const host = credentialsHost(askUrl);
+  const store = tokens ?? homeTokens(home ? { home } : undefined);
+  if (!store.read(host)) return { line: NO_SIGN_IN };
+  const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) }).renew();
+  if (outcome === 'renewed') return { host, token: store.read(host).access_token };
+  return { line: outcome === 'refused' ? NO_SIGN_IN : 'unreachable' };
+}
+
+/** The session a token makes, or null when it is not a sign-in the app would take. */
+function sessionFor(token, host) {
+  try {
+    return storageState(token, { host });
+  } catch (error) {
+    if (error instanceof SessionRefused) return null;
+    throw error;
+  }
+}
+
+/** Renews the sign-in and writes the session to `file`, or prints the one line that stopped it; the exit code. */
+async function writeSession({ askUrl, file }, { stdout, stderr, ...io }) {
+  const renewed = await renewedToken(askUrl, io);
+  const made = renewed.token ? sessionFor(renewed.token, renewed.host) : null;
+  if (!made) {
+    println(stderr, renewed.line ?? NO_SIGN_IN);
+    return 1;
+  }
+  writeFileSync(file, JSON.stringify(made.state), { mode: 0o600 });
+  println(stdout, `signed in as ${made.email ?? 'you'} until ${clock(made.expiresAt)}`);
+  return 0;
+}
+
 export const proof = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const { prd, dir } = argsOf(args);
+  async run(args, { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }) {
+    const parsed = argsOf(args, env);
     const ctx = loadContext(cwd, { exec });
+    if (parsed.verb === 'session') {
+      const askUrl = ctx.config.ask?.url;
+      if (!askUrl) throw usageError('omni proof session: no sign-in server here — set ask.url in the config.');
+      const file = isAbsolute(parsed.file) ? parsed.file : resolve(cwd, parsed.file);
+      return writeSession({ askUrl, file }, { stdout, stderr, tokens, home, fetch, callMs });
+    }
+    const { prd, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
       println(stderr, 'off');
