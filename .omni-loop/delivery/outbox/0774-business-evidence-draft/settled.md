@@ -391,3 +391,239 @@ One default in the command, changed in a later release.
 ```
 
 <!-- /omni-outbox-settled: s1-05-kit-reads-missing-state-as-confirmed -->
+
+<!-- omni-outbox-settled: s2-01-which-twelve-files-first -->
+
+## s2-01-which-twelve-files-first — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-which-twelve-files-first
+prd: 774
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+A repository can hold more readable documents than the draft reads. When there are more than twelve, which ones come first, and which product write-ups count as the most recent?
+
+## The decision, in plain words
+
+The main readme first, then the documentation pages by name, then the most recent product write-ups, newest first, until twelve are read. The newest write-ups are the ones with the highest numbers.
+
+## The intro, for fun
+
+Twelve seats at the table, and more documents than chairs.
+
+## The punchline, for fun
+
+The readme sits first; the latest write-ups take what is left.
+
+## The options, in plain words
+
+A. A. Readme, then documentation pages, then the newest write-ups by number, up to twelve
+B. B. Readme, then the newest write-ups, then documentation pages
+C. C. Keep room for each kind, such as four documentation pages and seven write-ups
+D. D. Find the write-ups that shipped last from their merge dates, at the price of more GitHub calls
+
+## What I had to decide
+
+Whether the readme and the documentation pages should come before the product write-ups when a repository holds more than twelve, and whether the highest number is a fair stand-in for the most recently shipped.
+
+## What I did meanwhile
+
+The draft reads the readme, then the documentation pages in name order, then the product write-ups from the highest number down, and stops at twelve files per repository.
+
+## What it costs to change later
+
+An ordering rule in one function; nothing is stored differently.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the three kinds of files and the cap of twelve, but not which kind wins when they do not all fit, nor how to tell which write-up shipped last without extra calls to GitHub.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-which-twelve-files-first -->
+
+<!-- omni-outbox-settled: s2-02-web-pages-go-on-first-product -->
+
+## s2-02-web-pages-go-on-first-product — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-web-pages-go-on-first-product
+prd: 774
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+A pasted web page belongs to the business, not to one product. When it names what the company sells, who it sells to or whom it competes with, which product should that finding go on?
+
+## The decision, in plain words
+
+It goes on the first product of the business, the one the page shows while there is only one. Regions go on the business as always.
+
+## The intro, for fun
+
+The pricing page talks about the company, and the page wants a product to file it under.
+
+## The punchline, for fun
+
+When nobody says which, the first product takes the mail.
+
+## The options, in plain words
+
+A. A. The first product of the business
+B. B. Let the person pick a product when pasting the page
+C. C. Propose it on every product of the business
+
+## What I had to decide
+
+Whether findings from a pasted web page should land on the first product, or wait until a person says which product they belong to.
+
+## What I did meanwhile
+
+Every finding from a web page, other than a region, is proposed on the business's first product; findings from a repository go on the product that repository belongs to.
+
+## What it costs to change later
+
+One choice in how the draft picks a product; claims already proposed would need a person to move them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a web page is kept on the business, but every kind other than region belongs to a product, and it does not say which one for a web page.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-web-pages-go-on-first-product -->
+
+<!-- omni-outbox-settled: s5-01-business-bell-not-in-badge -->
+
+## s5-01-business-bell-not-in-badge — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-business-bell-not-in-badge
+prd: 774
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+When claims wait to be checked on the Business page, should the bell's red number and the browser tab's count go up too, or should the Business line only sit inside the bell's list?
+
+## The decision, in plain words
+
+The Business line sits inside the bell's list only. It does not raise the red number, the tab's count or any alert, the way new documents already behave, since the digest is weekly and asks for no sound.
+
+## The intro, for fun
+
+A weekly digest knocks on the bell, but does it get to ring it?
+
+## The punchline, for fun
+
+It waits politely inside the list, no red number, no chime.
+
+## The options, in plain words
+
+A. A. Only a line in the bell's list, like new documents: no red number, no tab count, no alert
+B. B. Count it in the red number and the tab's count as one waiting thing, still with no sound
+C. C. Count each thing to check separately in the red number
+
+## What I had to decide
+
+Whether things to check on the Business page count in the bell's red number and the tab's count, or only show as a line in the bell's list.
+
+## What I did meanwhile
+
+The Business line shows in the bell's list when something waits and never adds to the red number, the tab's count, the favicon dot or the alerts. Showing it needed a small change to the bell itself, which the plan left out of this slice's ground.
+
+## What it costs to change later
+
+One line where the bell adds up its count, and the same where the tab's count is made; no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the bell shows one group and no email or sound, but not whether it counts in the red number (author).
+- The plan's ground for this slice leaves out the bell's own drawing code, which the group cannot appear without (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-business-bell-not-in-badge -->
