@@ -18,6 +18,33 @@ describe('sessionClosed', () => {
   });
 });
 
+describe('addRound (PRD 752)', () => {
+  /** A client that records the one insert it is sent, and answers with an id. */
+  function recording() {
+    const sent: Array<Record<string, unknown>> = [];
+    const query = {
+      insert(values: Record<string, unknown>) { sent.push(values); return query; },
+      select() { return query; },
+      single: async () => ({ data: { id: 'r1' }, error: null }),
+    };
+    return { sent, db: { from: () => query } as unknown as Parameters<typeof askStore>[0] };
+  }
+  const facts = { prd: null, skill: null, model: null, tokens: null, cost_usd: null };
+
+  it('sends the lead with the round', async () => {
+    const { sent, db } = recording();
+    await askStore(db).addRound('s1', [{ question: 'Q?' }], { ...facts, lead: '## The design' });
+    expect(sent).toEqual([{ session_id: 's1', questions: [{ question: 'Q?' }], lead: '## The design' }]);
+  });
+
+  it('sends no lead field for a round without one, so an older database takes it too', async () => {
+    const { sent, db } = recording();
+    await askStore(db).addRound('s1', [{ question: 'Q?' }], { ...facts, lead: null });
+    await askStore(db).addRound('s1', [{ question: 'Q?' }]);
+    expect(sent).toEqual([{ session_id: 's1', questions: [{ question: 'Q?' }] }, { session_id: 's1', questions: [{ question: 'Q?' }] }]);
+  });
+});
+
 describe('moveRound (PRD 620)', () => {
   /** A client that records the one update it is sent, and answers with the row. */
   function recording() {

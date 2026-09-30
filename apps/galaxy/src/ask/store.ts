@@ -6,6 +6,8 @@
 // with another member, who may then answer it while it is open. Since PRD 620
 // (20261010090000_ask_attachments.sql) an answer given on the page may carry screenshots: files in the
 // private `ask-attachments` bucket, their paths in the round's `attachments`, set with the answer.
+// Since PRD 752 (20261018090000_ask_round_lead.sql) a round may carry its `lead`: the text Claude
+// wrote before asking, sent by the kit with the round.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from './classify';
 
@@ -68,13 +70,17 @@ export type AskRound = {
   /** One of six, or null for unsorted (PRD 144), and who set it last: 'model', or a member's id. */
   category: Category | null;
   category_by: string | null;
+  /** The text Claude wrote before asking (PRD 752, 20261018090000_ask_round_lead.sql): null when the
+   * kit sent none. */
+  lead: string | null;
 };
 
-/** What a round records besides its questions, as the API worked it out. */
-export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
+/** What a round records besides its questions, as the API worked it out; `lead` is optional, so a
+ * caller that has none leaves it out. */
+export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'> & Partial<Pick<AskRound, 'lead'>>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
-const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
+const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by, lead';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
 export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at'>, now: number): boolean {

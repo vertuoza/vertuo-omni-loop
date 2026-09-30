@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
 import type { Category, ClassifyInput } from './classify';
 import { askStore } from './store';
 import { fakeSupabase } from './store.fake';
@@ -351,6 +351,59 @@ describe('a round\'s context (PRD 144)', () => {
       expect(response.status, JSON.stringify(context)).toBe(400);
     }
     expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+});
+
+describe('a round\'s lead (PRD 752)', () => {
+  const ask = (w: ReturnType<typeof world>, id: string, body: unknown) =>
+    addRound(w.request('POST', `/api/ask/sessions/${id}/rounds`, { body }), id, w.deps);
+
+  it('stores the lead Claude wrote before asking, and reads it back with the round', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = '## The design\n\nA lead and a fold. <b>x</b>';
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+
+  it('opens a round without a lead, or with a null one, and stores none', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const sent of [{ questions: QUESTIONS }, { questions: QUESTIONS, lead: null }]) {
+      const { status, body } = await w.read(await ask(w, sessionId, sent));
+      expect(status).toBe(200);
+      expect(w.row('ask_rounds', body.roundId).lead ?? null).toBeNull();
+    }
+  });
+
+  it('takes a lead of 16 KB plus the shortened note', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = `${'é'.repeat(LEAD_MAX_BYTES / 2)}\n\n… (shortened, the rest is in the terminal)`;
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+  });
+
+  it('refuses a lead that is not text, or is longer than the kit sends, with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const lead of [7, true, [], { text: 'x' }, '', 'x'.repeat(LEAD_MAX_BYTES + 1024)]) {
+      const response = await ask(w, sessionId, { questions: QUESTIONS, lead });
+      expect(response.status, JSON.stringify(lead).slice(0, 40)).toBe(400);
+      expect((await response.json()).error).toMatch(/lead/);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+
+  it('is kept by a migration that adds one nullable column, bounded as this API bounds it, and changes no policy', () => {
+    const migration = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261018090000_ask_round_lead.sql', import.meta.url)), 'utf8');
+    const statements = migration.split('\n').filter((line) => !line.startsWith('--')).join(' ').replace(/\s+/g, ' ');
+    expect(statements).toContain(`alter table public.ask_rounds add column lead text check (lead is null or octet_length(lead) between 1 and ${LEAD_MAX_BYTES + LEAD_NOTE_BYTES});`);
+    expect(statements).toContain('grant insert (lead) on public.ask_rounds to authenticated;');
+    expect(statements).not.toMatch(/\bpolicy\b|row level security|not null/i);
   });
 });
 
