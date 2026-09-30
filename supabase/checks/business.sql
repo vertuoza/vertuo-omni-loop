@@ -23,6 +23,7 @@
 -- on the business), never twice, and opens a business nobody opened; a bad kind, state, value or ref is
 -- refused (22023), another workspace's member and a stranger too (42501). A `prd` dossier takes the
 -- `voice` artifact, a version per change, and a `visual` or `bug` one refuses it.
+-- 20261025090000_business_to_check_answers.sql: the count to check holds a proposed answer claim too.
 --
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
@@ -664,6 +665,7 @@ declare
   c public.claims;
   stmt text;
   product uuid := (select r.product_id from public.repositories r where r.full_name = 'vertuoza/vertuo-apps');
+  waiting integer := public.business_to_check(pg_temp.ws('vertuoza'));
 begin
   got := public.claim_answer('Vertuoza/Vertuo-Apps', 'size', ' 20-50 ', 'proposed', 'brainstorm · PRD 822');
   select * into c from public.claims x where x.kind = 'size' and x.kind || '#' || x.seq = got->>'id';
@@ -673,6 +675,10 @@ begin
     raise exception 'FAIL: an overrule is not a proposed answer claim on the repository''s product: % %', got, c;
   end if;
   insert into made values ('answer-size', c.id);
+  -- The overrule waits for a member: the bell counts it.
+  if public.business_to_check(pg_temp.ws('vertuoza')) <> waiting + 1 then
+    raise exception 'FAIL: the count to check does not hold the proposed answer: % after %', public.business_to_check(pg_temp.ws('vertuoza')), waiting;
+  end if;
   if exists (select 1 from jsonb_array_elements(public.business_for_repo('vertuoza/vertuo-apps')->'claims') x where x->>'value' = '20-50') then
     raise exception 'FAIL: agents read a proposed answer claim';
   end if;
@@ -696,6 +702,9 @@ begin
   got := public.claim_answer('vertuoza/vertuo-apps', 'size', '20-50', 'confirmed', 'brainstorm · PRD 822');
   if (got->>'added')::boolean or got->>'state' <> 'confirmed' or (select x.state from public.claims x where x.id = pg_temp.made('answer-size')) <> 'confirmed' then
     raise exception 'FAIL: a confirmed answer did not confirm the held value: %', got;
+  end if;
+  if public.business_to_check(pg_temp.ws('vertuoza')) <> waiting then
+    raise exception 'FAIL: the confirmed answer is still counted to check: % after %', public.business_to_check(pg_temp.ws('vertuoza')), waiting;
   end if;
   got := public.claim_answer('vertuoza/vertuo-apps', 'rival', 'Rival Three', 'proposed', 'brainstorm · PRD 822');
   if (got->>'added')::boolean or got->>'state' <> 'rejected' then

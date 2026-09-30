@@ -37,6 +37,8 @@ import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './c
 // answers it (./check.ts): a replacement ("~~ERP~~ → CRM") and an addition ("Region: Belgium → Belgium
 // + France"), each with its receipts and ✓ Right / ✗ Wrong, saved at once; then each faded claim,
 // dimmed, "not seen since 12 Aug", with ✓ Still true and ✗ Wrong. Those rows leave the list below.
+// PRD 822: a claim a person answered in a skill run and left proposed (an overrule saved as a claim) waits
+// there too, between the additions and the faded claims, "answered in a run", with ✓ Right and ✗ Wrong.
 //
 // The Personas section (PRD 799 s3, ./PersonasSection.tsx) follows the claims, the tab's own.
 
@@ -105,6 +107,8 @@ export const NOTHING_NEW = 'Nothing new: everything we could quote is already on
 // What the recheck found (PRD 774 s4).
 export const CHECK_TITLE = 'To check · what changed since you last looked';
 export const STILL_TRUE = '✓ Still true';
+/** What an answer to check says after its value (PRD 822): someone gave it in a skill run. */
+export const ANSWERED = 'answered in a run';
 
 export interface BusinessViewProps {
   state: BusinessState;
@@ -226,7 +230,8 @@ function Guess({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessH
 
 function Rivals({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
   const rivals = confirmed(state.claims).filter((c) => c.kind === 'rival');
-  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed' && c.source !== 'evidence').sort((a, b) => a.seq - b.seq);
+  // An answered rival waits on top with the rows to check (./check.ts), never as a guess.
+  const guesses = state.claims.filter((c) => c.kind === 'rival' && c.state === 'proposed' && c.source !== 'evidence' && c.source !== 'answer').sort((a, b) => a.seq - b.seq);
   return (
     <div className="business-group" role="group" aria-labelledby="business-rival-title" data-kind="rival">
       <h2 id="business-rival-title">Up against</h2>
@@ -490,6 +495,10 @@ function CheckItem({ row, busy, on }: { row: CheckRow; busy: boolean; on: Busine
     diff = <>{from} → <strong>{to}</strong></>;
     right = { label: '✓ Right', aria: `Right: add ${value}`, press: () => on.settle(claim, true) };
     wrong = { aria: `Wrong: add ${value}`, press: () => on.settle(claim, false) };
+  } else if (row.kind === 'answer') {
+    diff = <><strong>{value}</strong> <span className="business-check-since">{ANSWERED}</span></>;
+    right = { label: '✓ Right', aria: `Right: ${value}`, press: () => on.confirm(claim) };
+    wrong = { aria: `Wrong: ${value}`, press: () => on.reject(claim) };
   } else {
     diff = <><strong>{value}</strong> <span className="business-check-since">{seenSince(row.since)}</span></>;
     right = { label: STILL_TRUE, aria: `Still true: ${value}`, press: () => on.stillTrue(claim) };
