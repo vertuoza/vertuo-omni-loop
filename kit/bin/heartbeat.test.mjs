@@ -127,7 +127,7 @@ describe('omni heartbeat', () => {
     expect(await beat(slow.root, { tokens: slow.tokens })).toEqual({ code: 0, out: '', err: '' });
     expect(Date.now() - started).toBeLessThan(3000);
     expect(server.heartbeats).toEqual([]);
-  }, 20000);
+  });
 
   it('exits 0 with no output outside a repository, with no config, and with any stdin or arguments', async () => {
     const bare = makeRepo({ git: true });
