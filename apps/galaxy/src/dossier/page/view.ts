@@ -47,6 +47,9 @@
 // PRD 627, s5: a fix's page opens on its Timeline — Asked, Picked (a visual fix only), Approved, Merged,
 // Released, each with who and when, read live from GitHub and the pick line (../../fixes/timeline.ts)
 // — and its header carries the fix's state (Asked, In review, Merged, or `—`) and its issue and PR.
+//
+// PRD 798, s4: a PRD's Proof tab (./proof.ts) sits between Outbox and Retro once the dossier holds a
+// proof run, and is not there before; `?tab=proof&v=1` picks an older run.
 import type { FixPageView } from '../../fixes/timeline';
 import type { Face } from '../../people/face';
 import { peopleOf, type People } from '../../people/load';
@@ -64,11 +67,13 @@ import { isDossierId } from './source';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
+import { pad, shortDay, stamp } from './dates';
+import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'retro' | 'timeline';
+export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'retro' | 'timeline' | 'proof';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
@@ -86,17 +91,20 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline',
+  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', proof: 'Proof',
 };
 
+/** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
+const withProof = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['proof', t] : [t]));
+
 /** The tabs that hold no artifact of the dossier's own. */
-const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'retro', 'timeline'];
+const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'retro', 'timeline', 'proof'];
 
 /** Whether a tab shows versions of an artifact the dossier keeps. */
 export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
 
 const isDossierTab = (value: unknown): value is DossierTab =>
-  value === 'questions' || value === 'outbox' || value === 'retro' || value === 'timeline' || isArtifactKind(value);
+  value === 'questions' || value === 'outbox' || value === 'retro' || value === 'timeline' || value === 'proof' || isArtifactKind(value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
@@ -145,20 +153,7 @@ function hrefOf(id: string, tab: DossierTab, version: number | null, fallback: D
   return String(query) ? `${dossierPath(id, kind)}?${query}` : dossierPath(id, kind);
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
-
-/** `27 Sep`, in UTC: the same on the server and in any browser. */
-export function shortDay(iso: string): string {
-  const at = new Date(iso);
-  return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]}`;
-}
-
-/** `27 Sep 2026, 09:12 UTC`. */
-export function stamp(iso: string): string {
-  const at = new Date(iso);
-  return `${shortDay(iso)} ${at.getUTCFullYear()}, ${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
-}
+export { shortDay, stamp };
 
 /** Who sent a version: the member who pushed it (kit), or the commit the fallback read it at (github). */
 export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploaded_by' | 'commit_sha'>, members: Member[]): string {
@@ -187,6 +182,9 @@ export type DossierRead = {
   /** The workspace's people directory (PRD 652), for the faces; left out, everyone falls back to
    * their GitHub photo or their initial. */
   people?: People;
+  /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
+   * Proof tab shows only with one. */
+  proofs?: ProofRead | null;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
@@ -253,6 +251,8 @@ export type DossierView = {
   retro: RetroView;
   /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
   fix: FixPageView | null;
+  /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
+  proof: ProofView | null;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -505,7 +505,7 @@ type Page = {
 
 function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const work = kindOf(read.dossier);
-  const tabs = KIND_TABS[work];
+  const tabs = work === 'prd' && read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS[work];
   const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0];
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
   const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
@@ -584,7 +584,10 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
 
 /** What the tabs' badges read from: the retro PR's, the outbox, the questions' count, and how many
  * versions each artifact has. */
-type Badges = { retro: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null }; count: (kind: ArtifactKind) => number };
+type Badges = {
+  retro: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null }; count: (kind: ArtifactKind) => number;
+  runs: number;
+};
 
 /** The Retro tab's badge: whether the retro PR is open or merged; null with none, or GitHub unread. */
 function retroBadge(github: GithubSummary | null | undefined): string | null {
@@ -599,6 +602,7 @@ const outboxBadge = ({ open, ledger }: OutboxView) => (open.length ? `${open.len
 function badgeOf(kind: DossierTab, badges: Badges): string | null {
   if (kind === 'retro') return badges.retro;
   if (kind === 'outbox') return outboxBadge(badges.outbox);
+  if (kind === 'proof') return badges.runs ? runsBadge(badges.runs) : null;
   if (kind === 'variations') return roundsBadge(badges.count(kind));
   if (kind === 'questions') return badges.counted.badge;
   if (!isArtifactTab(kind)) return null;
@@ -624,7 +628,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
   const outbox = outboxOf(page, questions, context);
   const retro = retroView(page.numbered);
   const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
-  const badges: Badges = { retro: retroBadge(page.numbered), outbox, counted: questionsCount(questions), count };
+  const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
+  const badges: Badges = { retro: retroBadge(page.numbered), outbox, counted: questionsCount(questions), count, runs };
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
   return {
@@ -637,6 +642,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     outbox,
     retro,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
   };
 }
 

@@ -5,9 +5,10 @@ import type { VersionEntry } from './view';
 // An artifact tab's version picker (PRD 216): its versions newest first, each named by its number, day
 // and source. A GET form to the same page, keeping the tab — every tab, since the default one depends on
 // whether a question was asked (PRD 384) — so it works before any script runs (the Show button); once
-// the page runs, picking a version shows it at once. A visual fix's Variations picks a round (PRD 627).
+// the page runs, picking a version shows it at once. A visual fix's Variations picks a round (PRD 627),
+// and the Proof tab a run (PRD 798).
 
-type Props = { action: string; tab: ArtifactKind; versions: VersionEntry[]; shown: number; noun?: 'Version' | 'Round' };
+type Props = { action: string; tab: ArtifactKind | 'proof'; versions: VersionEntry[]; shown: number; noun?: 'Version' | 'Round' | 'Run' };
 
 export function VersionPicker({ action, tab, versions, shown, noun = 'Version' }: Props) {
   return (
