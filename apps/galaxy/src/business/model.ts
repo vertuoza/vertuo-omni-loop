@@ -8,6 +8,7 @@
 // function replaces a claim (claim_pick() adds or confirms, claim_set_state() rejects). Region and rival
 // take several, each tapped on and off.
 
+import { settled, stillTrue } from './check';
 import { thatsUs, type DraftView, type Mark, type Marks, type WebPage } from './reveal';
 
 export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival';
@@ -34,6 +35,8 @@ export interface Claim {
   receipts?: ClaimReceipt[];
   /** The confirmed claim a proposed offering or size would replace (PRD 774), or null. */
   replaces?: string | null;
+  /** When a source last quoted it (PRD 774), or when someone said ✓ Still true; left out, never. */
+  lastSeen?: string | null;
 }
 
 /** One place a draft quoted a claim (PRD 774, decision 8). */
@@ -56,6 +59,7 @@ export interface StoredClaim {
   state: string;
   product_id?: string | null;
   replaces?: string | null;
+  last_seen?: string | null;
 }
 
 /** A public.claim_receipts row, as PostgREST answers it (PRD 774). */
@@ -95,6 +99,7 @@ export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] =
     // Only a quoted claim, and only a replacement, carry these: a pick reads as it did before PRD 774.
     ...(quoted.length > 0 ? { receipts: quoted } : {}),
     ...(row.replaces ? { replaces: row.replaces } : {}),
+    ...(row.last_seen ? { lastSeen: row.last_seen } : {}),
   };
 };
 
@@ -323,7 +328,11 @@ export type BusinessAction =
   | { type: 'add-page' }
   | { type: 'unadd-page' }
   | { type: 'page-added'; page: WebPage }
-  | { type: 'page-removed'; page: string };
+  | { type: 'page-removed'; page: string }
+  /** ✓ or ✗ on a row the recheck left (PRD 774 s4) was saved: the claim as saved. */
+  | { type: 'settled'; claim: Claim }
+  /** ✓ Still true on a faded claim was saved `at`. */
+  | { type: 'still-true'; claim: string; at: string };
 
 export const initialBusinessState = (
   claims: Claim[],
@@ -402,5 +411,9 @@ export function businessReducer(state: BusinessState, action: BusinessAction): B
       return { ...state, pages: [...state.pages.filter((p) => p.id !== action.page.id), action.page], addingPage: false, busy: false };
     case 'page-removed':
       return { ...state, pages: state.pages.filter((p) => p.id !== action.page), busy: false };
+    case 'settled':
+      return { ...state, claims: settled(state.claims, action.claim), busy: false };
+    case 'still-true':
+      return { ...state, claims: stillTrue(state.claims, action.claim, action.at), busy: false };
   }
 }

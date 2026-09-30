@@ -1,8 +1,10 @@
+import { isAddition } from './check';
 import { byOrder, sentence, BLANK, type Claim, type ClaimReceipt, type SentencePart } from './model';
 
 // The draft on Settings › Business as pure data (PRD 774 s3). "What we found" lists the proposed claims
-// a draft read (source `evidence`), each with its receipts; a replacement of a confirmed claim is the
-// weekly recheck's (s4) and is not listed here. While they wait, the title reads "We think you sell …"
+// a draft read (source `evidence`), each with its receipts; a replacement of a confirmed claim, and an
+// addition beside confirmed claims of its kind, are the weekly recheck's (./check.ts, s4) and are not
+// listed here. While they wait, the title reads "We think you sell …"
 // with them in it, less the rows marked ✗. That's us confirms every found row not marked ✗ and rejects
 // the marked ones (claims_confirm_proposed() in the database). The reveal's state says what the page
 // shows: the scan while a draft runs, the reveal, thin evidence (one row), nothing found, nothing new,
@@ -33,8 +35,9 @@ export type Marks = Readonly<Record<string, Mark>>;
 
 export const isFound = (claim: Claim) => claim.state === 'proposed' && claim.source === 'evidence' && !claim.replaces;
 
-/** The rows of "What we found", in the sentence's order. */
-export const foundRows = (claims: readonly Claim[]) => claims.filter(isFound).sort(byOrder);
+/** The rows of "What we found", in the sentence's order. An addition beside confirmed claims of its
+ * kind is not one: it waits on top of the page with the recheck's other rows (./check.ts, s4). */
+export const foundRows = (claims: readonly Claim[]) => claims.filter((c) => isFound(c) && !isAddition(c, claims)).sort(byOrder);
 
 /** The claims as the title reads them while the finds wait: each found row not marked ✗ counts. */
 const thought = (claims: readonly Claim[], marks: Marks) =>

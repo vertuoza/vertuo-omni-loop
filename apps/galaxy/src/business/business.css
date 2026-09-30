@@ -311,6 +311,27 @@
 }
 .business-dock span { flex: 1 1 200px; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
 
+/* What the weekly recheck found (PRD 774 s4), on top of the page: a replacement, the old value struck;
+   an addition, the list it would become; a faded claim, dimmed with its date. Each row wraps at 393 px
+   like a found row. */
+.business-check { border-color: var(--ask-plasma); }
+.business-check h2 { margin: 0; font-size: 16px; }
+.business-check ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.business-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ask-line);
+}
+.business-check-row:first-child { border-top: 0; }
+.business-check-main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.business-check-diff { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-check-diff s { color: var(--ask-muted); }
+.business-check-since { font-size: 13px; color: var(--ask-muted); }
+.business-check-row[data-kind='faded'] .business-check-main { opacity: 0.6; }
+
 @keyframes business-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @media (prefers-reduced-motion: no-preference) {
   .business-typing { animation: business-type 1.2s steps(40, end) both; }

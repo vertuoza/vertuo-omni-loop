@@ -112,6 +112,24 @@ describe('That\'s us', () => {
   });
 });
 
+describe('✓ Still true (s4)', () => {
+  it('calls claim_still_true() and answers when the claim was seen', async () => {
+    const d = db({}, { data: { id: 'c-5', last_seen: '2026-10-05T09:00:00Z' } });
+    expect(await databaseDraft(d, 'ws-1').stillTrue('c-5')).toEqual({ ok: true, at: '2026-10-05T09:00:00Z' });
+    expect(d.calls).toEqual([['claim_still_true', { p_workspace: 'ws-1', p_claim: 'c-5' }]]);
+  });
+
+  it('says why it was refused', async () => {
+    expect(await databaseDraft(db({}, { error: { code: '42501' } }), 'ws-1').stillTrue('c-5')).toEqual({ ok: false, message: NOT_MEMBER });
+    expect(await databaseDraft(db({}, { data: null }), 'ws-1').stillTrue('c-5')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+
+  it('in the demo, is seen now', async () => {
+    const kept = await demoDraftPort(() => []).stillTrue('demo-1');
+    expect(kept.ok && Number.isNaN(Date.parse(kept.at))).toBe(false);
+  });
+});
+
 describe('the demo', () => {
   const ERP: Claim = { id: 'demo-1', seq: 1, kind: 'offering', value: 'ERP', source: 'pick', state: 'confirmed', cited: 0, lastBy: null };
 

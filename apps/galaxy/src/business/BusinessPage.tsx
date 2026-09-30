@@ -22,6 +22,9 @@ import { thatsUs, type DraftView, type WebPage } from './reveal';
 // page; That's us saves them in one call. "+ add a web page" and its removal go through the sources
 // route. In the demo, the draft runs in memory, and the demo's store starts again from what the page
 // holds after each draft, so a found row can be picked, confirmed or rejected like any other.
+//
+// What the weekly recheck left (PRD 774 s4): ✓ / ✗ on a replacement or an addition saves at once, and
+// ✓ Still true on a faded claim moves its last_seen to now.
 
 export type BusinessSource =
   | { kind: 'demo' }
@@ -171,6 +174,27 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     dispatch(removed.ok ? { type: 'page-removed', page: page.id } : { type: 'refused', message: removed.message });
   };
 
+  // What the recheck left (PRD 774 s4): ✓ / ✗ on a replacement or an addition is claim_set_state(),
+  // which settles a replacement with the claim it replaces; ✓ Still true is claim_still_true().
+  const settle = async (claim: Claim, right: boolean) => {
+    if (state.busy) return;
+    dispatch({ type: 'busy' });
+    const saved = await getPort().setState(claim, right ? 'confirmed' : 'rejected');
+    if (!saved.ok) {
+      dispatch({ type: 'refused', message: saved.message });
+      return;
+    }
+    renew();
+    dispatch({ type: 'settled', claim: saved.claim });
+  };
+
+  const keepClaim = async (claim: Claim) => {
+    if (state.busy) return;
+    dispatch({ type: 'busy' });
+    const kept = await getDrafts().stillTrue(claim.id);
+    dispatch(kept.ok ? { type: 'still-true', claim: claim.id, at: kept.at } : { type: 'refused', message: kept.message });
+  };
+
   const on: BusinessHandlers = {
     tap: (kind, value) => plan(kind, planTap(state.claims, kind, value)),
     pick: (kind, value) => plan(kind, planPick(state.claims, kind, value)),
@@ -202,6 +226,8 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     closePage: () => dispatch({ type: 'unadd-page' }),
     addPage: (url) => void addPage(url),
     removePage: (page) => void removePage(page),
+    settle: (claim, right) => void settle(claim, right),
+    stillTrue: (claim) => void keepClaim(claim),
   };
 
   return <BusinessView state={whole} demo={source.kind === 'demo'} on={on} />;

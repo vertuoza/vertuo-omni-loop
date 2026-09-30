@@ -28,6 +28,8 @@ export interface DraftPort {
   removePage(id: string): Promise<Done>;
   /** That's us: every found row confirmed but those in `rejected`, which are rejected. */
   thatsUs(rejected: string[]): Promise<Done>;
+  /** ✓ Still true on a faded claim (PRD 774 s4): claim_still_true(); when it was seen, saved. */
+  stillTrue(claim: string): Promise<{ ok: true; at: string } | { ok: false; message: string }>;
 }
 
 type Answer = { data: unknown; error: unknown };
@@ -54,7 +56,7 @@ export function draftOf(row: Record<string, unknown>): DraftView {
 }
 
 export const DRAFT_COLUMNS = 'id, kind, state, counts, scanned, reason';
-export const CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id, replaces';
+export const CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id, replaces, last_seen';
 export const RECEIPT_COLUMNS = 'claim_id, kind, location, quote, seen_at';
 
 export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)): DraftPort {
@@ -112,6 +114,16 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
       try {
         const { error } = await db.rpc('claims_confirm_proposed', { p_workspace: workspace, p_rejected: rejected });
         return error ? { ok: false, message: refusalOf(error) } : { ok: true };
+      } catch (err) {
+        return { ok: false, message: refusalOf(err) };
+      }
+    },
+    async stillTrue(claim) {
+      try {
+        const { data, error } = await db.rpc('claim_still_true', { p_workspace: workspace, p_claim: claim });
+        const seen = (data as { last_seen?: unknown } | null)?.last_seen;
+        if (error || typeof seen !== 'string') return { ok: false, message: refusalOf(error) };
+        return { ok: true, at: seen };
       } catch (err) {
         return { ok: false, message: refusalOf(err) };
       }
@@ -185,6 +197,9 @@ export function demoDraftPort(current: () => readonly Claim[]): DraftPort {
     async removePage(id) {
       pages = pages.filter((p) => p.id !== id);
       return { ok: true };
+    },
+    async stillTrue() {
+      return { ok: true, at: new Date().toISOString() };
     },
     async thatsUs(rejected) {
       found = found.map((c) => (c.state === 'proposed' && c.source === 'evidence' ? { ...c, state: rejected.includes(c.id) ? 'rejected' : 'confirmed' } : c));
