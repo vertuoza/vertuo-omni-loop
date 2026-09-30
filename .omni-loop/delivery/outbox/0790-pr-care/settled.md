@@ -391,3 +391,237 @@ Swapping the local reader for an import from `kit/lib/care/` once s1 is merged i
 ```
 
 <!-- /omni-outbox-settled: s2-02-page-reads-care-marks -->
+
+<!-- omni-outbox-settled: s3-01-review-template-kit-original -->
+
+## s3-01-review-template-kit-original — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-review-template-kit-original
+prd: 790
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+Every advice page the kit ships was copied from an older project, and a test asks each one to say where from. The new review page has no such source: may it go without that note?
+
+## The decision, in plain words
+
+The review page is marked as written by the kit itself, and the test now checks that it carries no copied-from note, while every other page still needs one.
+
+## The intro, for fun
+
+Every page in the kit had a birth certificate, then a brand new one showed up without parents.
+
+## The punchline, for fun
+
+We noted it was born here, and kept checking everyone else's papers.
+
+## The options, in plain words
+
+A. Mark the review template kit-original in the templates test; every other template keeps its provenance line.
+B. Add a porting record naming the pull request page as a loose source, and keep the rule with no exception.
+C. Drop the provenance rule for all templates.
+
+## What I had to decide
+
+Whether a kit-written template may skip the copied-from note, or must get a porting record of its own.
+
+## What I did meanwhile
+
+The review template ships with no copied-from note; the templates test lists it as kit-original.
+
+## What it costs to change later
+
+A constant: one set in the templates test. Undoing it means adding a note and a porting record.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No upstream page holds a review rubric at the pinned commit, so there is nothing honest to port from (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-review-template-kit-original -->
+
+<!-- omni-outbox-settled: s4-01-care-tab-open-count -->
+
+## s4-01-care-tab-open-count — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-care-tab-open-count
+prd: 790
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+On the PR care tab, the review counts list open, fixed, pushed back and asked. Should 'open' mean only the comments nobody has handled yet, or also the ones waiting for the PM?
+
+## The decision, in plain words
+
+In the counts row, open means nobody has handled it yet, and asked is counted on its own. The tab's small badge adds both together, like the health chip does.
+
+## The intro, for fun
+
+Two counters looked at the same comment and argued about whose it was.
+
+## The punchline, for fun
+
+We gave the row one each and let the badge count them together.
+
+## The options, in plain words
+
+A. Open counts only unhandled threads in the row; the badge counts open plus asked (built).
+B. Open counts every unresolved thread in the row too, asked ones shown twice.
+C. Rename the row's open to 'not handled' so it never reads like the chip.
+
+## What I had to decide
+
+What 'open' counts in the PR care tab's Review row, given the health chip's 'N open' counts unresolved threads including asked ones (s2-01).
+
+## What I did meanwhile
+
+The Review row reads '1 open · 1 fixed · 1 pushed back · 1 asked' with open = verdict open only; the tab badge reads 'N open' with N = open + asked, matching the chip.
+
+## What it costs to change later
+
+One word map and a count in view.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the four counts without saying whether open includes asked.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-care-tab-open-count -->
+
+<!-- omni-outbox-settled: s4-02-care-tab-while-unknown -->
+
+## s4-02-care-tab-while-unknown — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-care-tab-while-unknown
+prd: 790
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 2
+---
+
+## The question, in plain words
+
+The PR care tab should only show when the PRD has a feature PR, but while the page is still asking GitHub nobody knows yet. Should the tab show in the meantime?
+
+## The decision, in plain words
+
+The tab stays in the bar, dimmed, until GitHub says there is no feature PR, so the tabs do not jump when the answer arrives. It also stays once the feature PR is merged, saying there is nothing left to look after.
+
+## The intro, for fun
+
+Is there a feature PR? The page is still waiting for GitHub to say.
+
+## The punchline, for fun
+
+So the tab keeps its seat until someone confirms it is really empty.
+
+## The options, in plain words
+
+A. Show the tab unless GitHub answered there is no feature PR, dimmed while unknown or merged (built).
+B. Show it only once GitHub confirmed a feature PR, letting the tab bar change when the answer arrives.
+C. Show it only while the feature PR is open.
+
+## What I had to decide
+
+Whether the PR care tab shows while GitHub has not answered (page streaming, or GitHub unreachable) and after the feature PR merged, or only while an answer says a feature PR exists.
+
+## What I did meanwhile
+
+view.ts hides the tab only for a draft or when the summary says feature is null; pending reads 'Reading GitHub…', unread reads the usual GitHub alert, merged reads 'The feature PR is merged: nothing is left to look after.' The streamed page's pending view (stream/pending.test.ts) keeps the same tab bar as the final one.
+
+## What it costs to change later
+
+One predicate (noFeature) in view.ts and a few test expectations.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'shown while the PRD has a feature PR' and does not say what an unknown answer or a merged PR means.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-care-tab-while-unknown -->
