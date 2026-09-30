@@ -32,6 +32,8 @@ const FORGED = {
   'menu-home': 'b0b02506c51dff57', 'menu-fleet': '72d00a19163fbbc9', 'menu-workspace': 'ba0dcc44e8d776a9',
   'menu-engineering': '902258f7ef9734b2', 'menu-prds': '0fdfcc7a20bdbc85', 'menu-bugs': '0754b2cdfb13f514',
   'menu-visual': '3c58704c0f80c755', 'menu-questions': '808ea02264e853ae', 'menu-knowledge': '461492a56cc425b0',
+  // The foot's Settings entry (PRD 733), pinned as first drawn.
+  'menu-settings': '4d318dd6a80f7bbc',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
