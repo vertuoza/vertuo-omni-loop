@@ -1,6 +1,6 @@
 // The proof store in memory, for the API's tests: the dossiers a test seeds (each readable by the
 // members of its workspace), the bucket's files, and proof_run_add() of
-// supabase/migrations/20261022090000_proof_runs.sql written here as the migration writes it — the
+// supabase/migrations/20261023090000_proof_runs.sql written here as the migration writes it — the
 // caller must read the dossier (P0002), the run must be new (23505), each verdict one of the three and
 // each file named uploaded to the run's folder (22023). Uploads land only in a folder of a dossier the
 // caller reads and of a run not yet registered, as the bucket's insert rule says. That the database

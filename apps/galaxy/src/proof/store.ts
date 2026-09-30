@@ -1,4 +1,4 @@
-// The proof runs of a PRD (PRD 798, supabase/migrations/20261022090000_proof_runs.sql): what
+// The proof runs of a PRD (PRD 798, supabase/migrations/20261023090000_proof_runs.sql): what
 // /omni:prove recorded against a ready feature PR's preview — one row per run in `proof_runs`, its clips,
 // scripts and GIF in the private `proof-videos` bucket under `<dossier id>/<run id>/<name>`.
 //
