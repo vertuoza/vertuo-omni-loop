@@ -314,3 +314,159 @@ A change to the model's answer shape and the summary lines in the canon module; 
 ```
 
 <!-- /omni-outbox-settled: s3-03-canon-one-persona-line -->
+
+<!-- omni-outbox-settled: s4-01-canon-action-own-function -->
+
+## s4-01-canon-action-own-function — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-canon-action-own-function
+prd: 839
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+Where should the App answer a click on the two buttons of a red canon check, and may that touch three files the slice did not own?
+
+## The decision, in plain words
+
+A click becomes one message the App answers in a small job of its own, next to the inbox check. Three lists outside the slice's own ground that name every job and every GitHub action were updated by one line each.
+
+## The intro, for fun
+
+Two new buttons need someone to answer the door.
+
+## The punchline, for fun
+
+We hired a doorman and told the building's directory.
+
+## The options, in plain words
+
+A. Answer each click in a small job of its own, and update the three lists that name every job and action.
+B. Answer clicks inside the inbox check's own job, which waits five seconds and may swallow a click that lands during a push.
+C. Post the comment straight from the webhook, which would then call GitHub itself for the first time.
+
+## What I had to decide
+
+Whether the button clicks get their own small job, which means updating the App's manifest note and two tests that list every job and action, all outside this slice's ground.
+
+## What I did meanwhile
+
+A new job answers each click and posts or edits one comment; the App's manifest note, its manifest test and the jobs list test each gained one line naming it.
+
+## What it costs to change later
+
+Moving the clicks into the inbox check itself is a small change to two modules and the same three lines back; nothing stored moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's ground for this slice names the webhook, the inbox check and the App's routes, but not the manifest or the two tests that list every job and action.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-canon-action-own-function -->
+
+<!-- omni-outbox-settled: s4-02-canon-claim-link-and-facts -->
+
+## s4-02-canon-claim-link-and-facts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-30
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-30
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-canon-claim-link-and-facts
+prd: 839
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-30
+wave: 3
+---
+
+## The question, in plain words
+
+When a reviewer presses Change the claim, where should the link land for a claim that is not a Never line, and how does the App remember which claims and persona the check named?
+
+## The decision, in plain words
+
+A Never line links straight to its own line on the Business page; any other claim links to the top of that page, since only Never lines have their own place there. The check keeps the facts a button needs in a hidden note inside its own report.
+
+## The intro, for fun
+
+Some claims have a front door, others only a street address.
+
+## The punchline, for fun
+
+The mail still arrives, just at the gate for now.
+
+## The options, in plain words
+
+A. Link a Never line to its line and any other claim to the page; keep the button's facts hidden in the check's report.
+B. Link every claim to a place of its own, adding those places to the Business page in this feature.
+C. Work the facts out again on each click by grading the spec anew, which asks the model again.
+
+## What I had to decide
+
+Whether a size, trade or region claim should link to a place on the Business page that does not exist yet, or to the page itself; and whether the check's report may carry a hidden note with the PRD, the persona and the claims.
+
+## What I did meanwhile
+
+A Never line links to its own line; every other claim links to the Business page. Without a persona, the first button reads Rewrite the spec. The facts ride as a hidden note at the end of the check's report.
+
+## What it costs to change later
+
+Giving every claim its own place on the page and linking there is a one-line change here once the page has those places.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says the link goes to the Never line or to the claim's own place, but the Business page gives only Never lines a place of their own.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-canon-claim-link-and-facts -->
