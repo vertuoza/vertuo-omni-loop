@@ -4,6 +4,9 @@
 // asks these rules how fast the hero runs and whether the jump still lifts.
 import type { Action } from '../keys';
 
+/** What the scene reports to the rules: the only things that happen in the game. */
+export type PlatformerEvent = 'coin' | 'stomp' | 'hurt' | 'pit' | 'flag';
+
 /** A tile's side, in game pixels: the stages are laid out on this grid. */
 export const TILE = 16;
 
