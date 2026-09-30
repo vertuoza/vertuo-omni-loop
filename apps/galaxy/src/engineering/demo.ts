@@ -8,7 +8,8 @@ import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type Sort
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
 // would be, with a member or two for their heroes, the loop's sub-PRs into feature branches and a weekly
 // develop → main promotion, which count nowhere but the sub-PR line (PRD 714), and for Loop health
-// (PRD 714 s2, s3) one pull request labelled omni:needs-fix, one run held and one claim gone cold. Fixed: the same `now` draws the same board. Given a
+// (PRD 714 s2, s3) one pull request labelled omni:needs-fix, one run held and one claim gone cold, and
+// (s4) some sub-PRs that got omni:needs-fix before they merged. Fixed: the same `now` draws the same board. Given a
 // repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
@@ -49,15 +50,19 @@ function pullRequestOf(i: number, now: Date): PullRequestRow {
 }
 
 /** The i-th of the loop's sub-PRs (PRD 714): signed, into a feature branch, merged within the hour by
- * who ran the loop. They count on the Omni Loop panel's sub-PR line alone. */
+ * who ran the loop. They count on the Omni Loop panel's sub-PR line alone, and on Loop health's period
+ * rate (s4): every fifth got omni:needs-fix ten minutes after it opened, before it merged, and every
+ * seventh after it merged, which does not count. */
 function subPrOf(i: number, now: Date): PullRequestRow {
   const opened = new Date(now.getTime() - (i * 5 + 2) * HOUR);
   const merged = new Date(opened.getTime() + (20 + (i % 30)) * 60_000).toISOString();
   const topic = `feat/demo-${Math.floor(i / 4)}`;
+  const needsFixAt = i % 5 === 0 ? new Date(opened.getTime() + 10 * 60_000).toISOString()
+    : i % 7 === 0 ? new Date(Date.parse(merged) + 60_000).toISOString() : null;
   return {
     repo: TRACKED[i % 2], number: 300 + i, author: person(i), authorIsBot: false, openedAt: opened.toISOString(),
     mergedAt: merged, closedAt: merged, mergedBy: person(i), commits: 2, additions: 60, deletions: 10, omniSigned: true,
-    base: topic, head: `${topic}--s${(i % 4) + 1}`,
+    base: topic, head: `${topic}--s${(i % 4) + 1}`, needsFixAt,
   };
 }
 
