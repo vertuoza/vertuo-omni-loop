@@ -11,7 +11,10 @@
 // `blocked-by`, `plan.md` for the slices, and the outbox (`<delivery>/outbox/<nnnn>-<topic>/` while
 // it is built, `<folder>/outbox/` once shipped) for the items and `settled.md`. Its feature PR is a PR
 // of its home into the default branch whose body says `Closes #<n>`, the one labelled `omni:feature`
-// when one is. The owner is the first assignee, else the issue's author.
+// when one is. The owner is the first assignee, else the issue's author. A multi-repository PRD (its
+// plan's slice table has a `repo` column) has one more region per tracked repository holding a feature
+// PR into its default branch whose body starts `Part of <owner>/<home>#<n>`; its sub-PRs secure that
+// region's slices, and the planet terraforms once every region's feature PR has merged.
 //
 // Two known simplifications, both documented here rather than silently baked in:
 //   - `surveyedAt` / an open outbox item's `raisedAt` (its "first commit" date) reads
@@ -63,10 +66,15 @@ const firstIso = (out) => toIso(lines(out)[0]);
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), prds }) {
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
+  const tracked = config.tracked ?? [];
   const planets = [];
-  for (const home of config.tracked ?? []) {
+  const homes = [];
+  for (const home of tracked) {
     const issues = json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt'])));
-    if (!issues.length) continue;
+    if (issues.length) homes.push({ home, issues });
+  }
+  const regionsOf = partOfRegions(exec, tracked);
+  for (const { home, issues } of homes) {
     const repo = await readRepository(exec, home);
     const specs = new Map(); // prd → { blockedBy }, read once
     const specOf = async (prd) => {
@@ -90,9 +98,47 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), p
       chosen = issues.filter((i) => keep.has(i.number));
     }
 
-    for (const issue of chosen) planets.push(await readPlanet(exec, { home, repo, issue, teams, specOf }));
+    for (const issue of chosen) planets.push(await readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }));
   }
   return { at: now.toISOString(), teams, planets };
+}
+
+// Multi-repository PRDs (PRD 728): in each tracked repository, the feature PRs into its default branch
+// whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is
+// read once, and only when a planet asks (a workspace with no PRD reads nothing more); one that cannot
+// be read has none. A `Part of` naming a home that is not tracked is never asked for: it is ignored.
+// Returns `(home, prd) → [{ slug, fp }]`: every other tracked repository's feature PR for that PRD,
+// the `omni:feature` one first, else the lowest number.
+const PART_OF = /^\s*Part of ([\w.-]+\/[\w.-]+)#(\d+)(?!\d)/i;
+function partOfRegions(exec, tracked) {
+  const indexes = new Map(); // slug → Promise<Map<'<home>#<n>', pr[]>>
+  const indexOf = (slug) => {
+    if (!indexes.has(slug)) {
+      indexes.set(slug, (async () => {
+        const defaultBranch = lines(await soft(exec(['api', `repos/${slug}`, '--jq', '.default_branch'])))[0] ?? 'main';
+        const byPrd = new Map();
+        const prs = json(await soft(exec(['pr', 'list', '-R', slug, '--search', '"Part of" in:body', '--base', defaultBranch, '--state', 'all', '--limit', '500', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body'])));
+        for (const pr of prs) {
+          const m = PART_OF.exec(pr.body ?? '');
+          if (!m || !toIso(pr.createdAt)) continue; // F4: no creation time, no feature PR
+          const key = `${m[1].toLowerCase()}#${Number(m[2])}`;
+          byPrd.set(key, [...(byPrd.get(key) ?? []), pr]);
+        }
+        return byPrd;
+      })());
+    }
+    return indexes.get(slug);
+  };
+  return async (home, prd) => {
+    const regions = [];
+    for (const slug of tracked.filter((t) => t !== home)) {
+      const prs = (await indexOf(slug)).get(`${home.toLowerCase()}#${prd}`) ?? [];
+      const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
+      const fp = (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
+      if (fp) regions.push({ slug, fp });
+    }
+    return regions;
+  };
 }
 
 // One tracked repository's default branch, delivery folder and PRD folders on its default branch, all
@@ -111,7 +157,7 @@ async function readRepository(exec, home) {
   return { defaultBranch, delivery, folders };
 }
 
-async function readPlanet(exec, { home, repo, issue, teams, specOf }) {
+async function readPlanet(exec, { home, repo, issue, teams, specOf, tracked, regionsOf }) {
   const prd = issue.number;
   const createdAt = toIso(issue.createdAt);
   // The owner: the first assignee, else the issue's author (PRD 728). Their fleet owns the planet.
@@ -127,17 +173,45 @@ async function readPlanet(exec, { home, repo, issue, teams, specOf }) {
 
   // Spec §8: a failed commits read leaves surveyedAt to the PRD issue's createdAt.
   const surveyedAt = firstIso(await soft(exec(['api', `repos/${home}/commits?path=${folder.dir}/spec.md&per_page=100`, '--jq', '.[-1].commit.committer.date']))) ?? createdAt;
-  const region = { repo: home, blockedBy: (await specOf(prd)).blockedBy, surveyedAt, featurePr: null };
-  planet.regions.push(region);
-  const planned = new Set(); // regions whose plan names slices: the regions a terraform waits for (F3)
+  planet.regions.push({ repo: home, blockedBy: (await specOf(prd)).blockedBy, surveyedAt, featurePr: null });
 
   const closes = new RegExp(`\\bCloses #${prd}(?!\\d)`, 'i');
   const prs = json(await exec(['pr', 'list', '-R', home, '--search', `"Closes #${prd}" in:body`, '--base', repo.defaultBranch, '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body']))
     .filter((pr) => toIso(pr.createdAt) && closes.test(pr.body ?? '')); // F4: no creation time, no feature PR
   const labelled = prs.filter((pr) => (pr.labels ?? []).some((l) => l.name === 'omni:feature'));
   const fp = (labelled.length ? labelled : prs).sort((a, b) => a.number - b.number)[0];
+
+  // Multi-repository (PRD 728): each `Part of <home>#<n>` feature PR in another tracked repository is
+  // one more region, surveyed when that PR opened. The PRD's blockers stay on its home region.
+  const parts = await regionsOf(home, prd);
+  const features = new Map(fp ? [[home, fp]] : []); // region → its feature PR
+  for (const { slug, fp: part } of parts) {
+    features.set(slug, part);
+    planet.regions.push({ repo: slug, blockedBy: [], surveyedAt: toIso(part.createdAt), featurePr: null });
+  }
+  const planned = new Set(); // the regions the plan gives slices (F3)
+  if (features.size) {
+    for (const r of planet.regions) if (features.has(r.repo)) r.featurePr = await readFeaturePr(exec, r.repo, features.get(r.repo));
+    // The plan and the outbox live in the home: at its feature PR's head while that PR is open (the
+    // folder may have moved to shipped/ there), else on the default branch (its head may be gone).
+    const ref = fp && !fp.mergedAt ? fp.headRefName : repo.defaultBranch;
+    const planText = await readPlan(exec, { home, repo, folder, ref });
+    const slices = parsePlanSlices(planText);
+    const repoCell = sliceRepos(planText);
+    const regionOf = regionResolver({ home, tracked, parts });
+    const bySlug = new Map([...features.keys()].map((slug) => [slug, []]));
+    for (const slice of slices) {
+      const slug = regionOf(repoCell.get(slice.id));
+      if (slug) bySlug.set(slug, [...(bySlug.get(slug) ?? []), slice]); // a slice of no tracked repository is not read
+    }
+    const subs = [];
+    for (const [slug, own] of bySlug) {
+      if (own.length) planned.add(slug);
+      subs.push(...await readZones(exec, { planet, slug, fp: features.get(slug) ?? null, slices: own }));
+    }
+    await readOutbox(exec, { planet, home, repo, folder, ref, subs });
+  }
   if (fp) {
-    await readRegion(exec, { planet, region, home, repo, folder, fp, planned });
     const bugs = json(await soft(exec(['issue', 'list', '-R', home, '--label', 'bug', '--state', 'all', '--search', `#${prd}`, '--json', 'number,createdAt,closedAt,closedBy'])));
     for (const b of bugs) {
       const bugCreatedAt = toIso(b.createdAt);
@@ -151,28 +225,65 @@ async function readPlanet(exec, { home, repo, issue, teams, specOf }) {
   return planet;
 }
 
-// One region: its feature PR, the zones of its plan and their sub-PRs, and its outbox. An open
-// feature PR is read at its head, where the folder may have moved to shipped/; a merged one on the
-// default branch, since its head may be gone.
-async function readRegion(exec, { planet, region, home, repo, folder, fp, planned }) {
-  const fpCreatedAt = toIso(fp.createdAt);
-  const readyAt = fp.isDraft ? null : (firstIso(await soft(exec(['api', `repos/${home}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at']))) ?? fpCreatedAt);
-  region.featurePr = { repo: home, number: fp.number, createdAt: fpCreatedAt, readyAt, mergedAt: toIso(fp.mergedAt), lastActivityAt: toIso(fp.updatedAt) ?? fpCreatedAt };
+// A plan repository's slice table names the repository each slice lands in, in a `repo` column
+// (PRD 549, as kit/lib/inbox/territory.mjs reads it): slice id → that cell, null when empty. An
+// ordinary plan has no such column, and every slice is its home's.
+function sliceRepos(text) {
+  const out = new Map();
+  let cols = null;
+  for (const line of (text ?? '').split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    const header = cells.map((c) => c.toLowerCase());
+    if (header.includes('id') && header.includes('blocked by') && header.includes('wave')) {
+      cols = { id: header.indexOf('id'), repo: header.indexOf('repo') };
+      continue;
+    }
+    if (!cols || cols.repo === -1 || !/^s\d+$/.test(cells[cols.id] ?? '')) continue;
+    out.set(cells[cols.id], (cells[cols.repo] ?? '').replace(/`/g, '').trim() || null);
+  }
+  return out;
+}
 
-  const ref = fp.mergedAt ? repo.defaultBranch : fp.headRefName;
+// A slice's `repo` cell → the tracked repository it lands in. None named: the home. A full name: that
+// one, if tracked. A short name (a `plan.targets` entry's name after the `/`): the tracked repository
+// of that name that holds a `Part of` region for this PRD, else the one of the home's owner, else any.
+// null when no tracked repository matches.
+function regionResolver({ home, tracked, parts }) {
+  const owner = home.split('/')[0];
+  return (cell) => {
+    if (!cell) return home;
+    const name = cell.toLowerCase();
+    if (name.includes('/')) return tracked.includes(name) ? name : null;
+    const matches = tracked.filter((t) => t.split('/')[1] === name);
+    return matches.find((t) => parts.some((p) => p.slug === t)) ?? matches.find((t) => t.split('/')[0] === owner) ?? matches[0] ?? null;
+  };
+}
+
+// A region's feature PR, in the shape every consumer of `region.featurePr` reads.
+async function readFeaturePr(exec, slug, fp) {
+  const createdAt = toIso(fp.createdAt);
+  const readyAt = fp.isDraft ? null : (firstIso(await soft(exec(['api', `repos/${slug}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at']))) ?? createdAt);
+  return { repo: slug, number: fp.number, createdAt, readyAt, mergedAt: toIso(fp.mergedAt), lastActivityAt: toIso(fp.updatedAt) ?? createdAt };
+}
+
+async function readPlan(exec, { home, repo, folder, ref }) {
   const inbox = `${repo.delivery}/inbox/${folder.name}`;
   const shipped = `${repo.delivery}/shipped/${folder.name}`;
-  let planText = '';
   for (const dir of folder.stage === 'shipped' ? [shipped, inbox] : [inbox, shipped]) {
-    planText = await soft(exec(['api', `repos/${home}/contents/${dir}/plan.md?ref=${ref}`, ...RAW]));
-    if (planText.trim()) break;
+    const text = await soft(exec(['api', `repos/${home}/contents/${dir}/plan.md?ref=${ref}`, ...RAW]));
+    if (text.trim()) return text;
   }
-  const slices = parsePlanSlices(planText);
-  if (slices.length) planned.add(home);
+  return '';
+}
 
+// One region's zones: its slices, each matched to a sub-PR (`omni:sub`, into the region's feature
+// branch) by the head ref's `--<slice>` suffix. A region with no feature PR yet has sealed zones only.
+// Returns the region's sub-PRs.
+async function readZones(exec, { planet, slug, fp, slices }) {
+  if (!slices.length) return [];
   // --json includes `body` (beyond the reads list's bare field set) because the revert rule
   // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
-  const subs = json(await exec(['pr', 'list', '-R', home, '--base', fp.headRefName, '--state', 'all', '--label', 'omni:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))
+  const subs = !fp ? [] : json(await exec(['pr', 'list', '-R', slug, '--base', fp.headRefName, '--state', 'all', '--label', 'omni:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))
     .map((x) => ({ ...x, createdAt: toIso(x.createdAt), mergedAt: toIso(x.mergedAt) }))
     .filter((x) => x.createdAt); // F4: a sub-PR without a creation time is unreadable, not a claim
   const reverts = new Map(subs.filter((s) => /^revert/i.test(s.title) && s.mergedAt).flatMap((s) => [...(s.body ?? '').matchAll(/#(\d+)/g)].map((m) => [Number(m[1]), s.mergedAt])));
@@ -180,15 +291,20 @@ async function readRegion(exec, { planet, region, home, repo, folder, fp, planne
     const sub = zoneSub(subs, slice.id, reverts);
     const labels = sub ? sub.labels.map((l) => l.name) : [];
     planet.zones.push({
-      id: slice.id, repo: home, wave: slice.wave, blockedBy: slice.blockedBy,
+      id: slice.id, repo: slug, wave: slice.wave, blockedBy: slice.blockedBy,
       pr: sub ? {
         number: sub.number, author: sub.author?.login ?? null, createdAt: sub.createdAt, labels, mergedAt: sub.mergedAt, revertedAt: reverts.get(sub.number) ?? null,
-        needsFix: await needsFixHistory(exec, home, sub, labels),
+        needsFix: await needsFixHistory(exec, slug, sub, labels),
       } : null,
     });
   }
+  return subs;
+}
 
-  // The outbox: `<delivery>/outbox/<folder>/` while the PRD is built, `<folder>/outbox/` once shipped.
+// The outbox, in the home: `<delivery>/outbox/<folder>/` while the PRD is built, `<folder>/outbox/`
+// once shipped. `subs` are every region's sub-PRs: a drift's rework is looked for among them.
+async function readOutbox(exec, { planet, home, repo, folder, ref, subs }) {
+  const shipped = `${repo.delivery}/shipped/${folder.name}`;
   const outbox = `${repo.delivery}/outbox/${folder.name}`;
   let dir = null;
   let names = [];
@@ -218,13 +334,15 @@ async function readRegion(exec, { planet, region, home, repo, folder, fp, planne
 
 // F3: the planet's feature PR, aggregated over its regions (same shape as a region's, so every
 // consumer of `planet.featurePr` reads it unchanged). null when no region has one; `createdAt` the
-// earliest; `readyAt` / `mergedAt` the latest, and only once every region that has a plan (or, when
-// no region has a plan, every region with a feature PR) is ready / merged; `repo`/`number` are the
-// first region's. A planet is therefore terraformed at its last region's merge, not its first.
+// earliest; `readyAt` / `mergedAt` the latest, and only once every region's feature PR — and every
+// repository the plan gives slices, which has none until its `Part of` PR opens (PRD 728) — is ready /
+// merged; `repo`/`number` are the first region's. A planet is therefore terraformed at its last
+// region's merge, not its first.
 function aggregateFeaturePr(regions, planned) {
   const fps = regions.map((r) => r.featurePr).filter(Boolean);
   if (!fps.length) return null;
-  const required = planned.size ? regions.filter((r) => planned.has(r.repo)).map((r) => r.featurePr) : fps;
+  const waited = new Set([...regions.filter((r) => r.featurePr).map((r) => r.repo), ...planned]);
+  const required = [...waited].map((repo) => regions.find((r) => r.repo === repo)?.featurePr ?? null);
   const latest = (field) => (required.every((fp) => fp?.[field]) ? required.map((fp) => fp[field]).sort().at(-1) : null);
   return {
     repo: fps[0].repo, number: fps[0].number,
