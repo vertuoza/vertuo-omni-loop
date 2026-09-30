@@ -60,17 +60,22 @@ export function firstOptionAnswers(questions) {
 
 const HEARTBEAT_FIELDS = ['claudeSessionId', 'repo', 'work', 'ended'];
 
+const isObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 /** A heartbeat's body as the contract has it: its session, its repository, what it works on. */
 function isHeartbeat(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return false;
-  if (Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
+  if (!isObject(body) || Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
   if (typeof body.claudeSessionId !== 'string' || !body.claudeSessionId) return false;
   if (typeof body.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return false;
-  if (body.ended !== undefined && body.ended !== true) return false;
-  const { work } = body;
+  return (body.ended === undefined || body.ended === true) && isWork(body.work);
+}
+
+/** A heartbeat's work: null, a draft by its id, or a PRD or fix by its number. */
+function isWork(work) {
   if (work === null) return true;
-  if (work?.kind === 'draft') return Object.keys(work).length === 2 && typeof work.draftId === 'string' && work.draftId !== '';
-  return ['prd', 'visual', 'bug'].includes(work?.kind) && Object.keys(work).length === 2 && Number.isInteger(work.number) && work.number > 0;
+  if (!isObject(work) || Object.keys(work).length !== 2) return false;
+  if (work.kind === 'draft') return typeof work.draftId === 'string' && work.draftId !== '';
+  return ['prd', 'visual', 'bug'].includes(work.kind) && Number.isInteger(work.number) && work.number > 0;
 }
 
 const DOSSIER_KINDS = ['spec', 'plan', 'before-after'];

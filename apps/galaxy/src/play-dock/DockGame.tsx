@@ -7,7 +7,7 @@
 //
 // A question on the page pauses the game at once, and nothing but START resumes it; Claude done
 // leaves the game running to its end. It is silent: a page someone reads is no arcade.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/design';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
@@ -47,62 +47,27 @@ export interface DockGameProps {
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
 
-export default function DockGame({ asking, hero, team = null, values = RULEBOOK.woundClose, supabase = null, workspace = null, account = null, onFold }: DockGameProps) {
-  const { theme, mark } = useMemo(() => brandLook(HOUSE_BRAND), []);
-  const scores = useMemo<DockAccount | null>(
-    () => account ?? (supabase ? supabaseAccount({ url: supabase.url, key: supabase.key, workspace }) : null),
-    [account, supabase, workspace],
-  );
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const held = useMemo(() => createHeld(), []);
-  const fresh = useCallback(() => newGame({ layout: 'tall', values, seed: Math.floor(Math.random() * 2 ** 31) }), [values]);
-  const gameRef = useRef<Game>(null as unknown as Game);
-  if (!gameRef.current) gameRef.current = fresh();
-  const [hud, setHud] = useState<GameHud>(() => hudOf(gameRef.current));
-  const hudRef = useRef(hud);
-  const [send, setSend] = useState<ScoreSend | null>(null);
-  const sendRef = useRef<ScoreSend | null>(null);
-  const show = useCallback((s: ScoreSend) => { sendRef.current = s; setSend(s); }, []);
-  const askingRef = useRef(asking);
-  askingRef.current = asking;
-  const foldRef = useRef(onFold);
-  foldRef.current = onFold;
+/** Whether `action` retries the score that failed to send: on the game over, once it takes presses. */
+const retries = (g: Game, s: ScoreSend | null, action: Action): s is Extract<ScoreSend, { state: 'failed' }> =>
+  g.over && s?.state === 'failed' && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry';
 
-  const showHud = useCallback((g: Game) => {
-    const next = hudOf(g);
-    if (sameHud(next, hudRef.current)) return;
-    hudRef.current = next;
-    setHud(next);
-  }, []);
+/** How the dock draws the game: the house brand, and the player's hero and fleet. */
+type Look = Pick<FrameState, 'theme' | 'mark'> & { hero: Hero; team: string | null };
 
-  // A question pauses the game the moment it arrives; it never resumes by itself.
-  useEffect(() => {
-    if (!asking) return;
-    held.clear();
-    gameRef.current = pause(gameRef.current);
-    showHud(gameRef.current);
-  }, [asking, held, showHud]);
+/** The canvas's frame of the game `g`, `t` seconds in. */
+const frameOf = (g: Game, look: Look, t: number, reduced: boolean): FrameState => ({
+  scene: 'invaders', grid: TALL, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t, sceneT: t,
+  reduced, mark: look.mark, theme: look.theme, game: g,
+  join: { fleets: [], pick: 0, lockedAt: null, team: look.team, hero: look.hero, away: false },
+});
 
-  const act = useCallback((action: Action) => {
-    const g = gameRef.current;
-    if (askingRef.current && action !== 'b') return; // the question comes first: ANSWER, or fold
-    const s = sendRef.current;
-    if (g.over && s?.state === 'failed' && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry') {
-      void sendScore(scores, s.score, show, null, s.tries + 1);
-      return;
-    }
-    const { game, leave } = press(g, action);
-    if (leave) return foldRef.current();
-    gameRef.current = game;
-    showHud(game);
-  }, [scores, show, showHud]);
-
-  // The keyboard, while the device is open: Esc folds it, the pad's keys play, and keys typed into a
-  // field of the page stay the page's.
+// The keyboard, while the device is open: Esc folds it, the pad's keys play, and keys typed into a
+// field of the page stay the page's. Leaving the window or the tab pauses the game.
+function useDockKeys(act: (action: Action) => void, held: ReturnType<typeof createHeld>, fold: () => void, lost: () => void) {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'Escape') { e.preventDefault(); return foldRef.current(); }
+      if (e.key === 'Escape') { e.preventDefault(); return fold(); }
       const action = keyAction(e.key);
       if (!action || action === 'select') return;
       e.preventDefault();
@@ -110,11 +75,6 @@ export default function DockGame({ asking, hero, team = null, values = RULEBOOK.
       if (!e.repeat) act(action);
     };
     const up = (e: KeyboardEvent) => held.keyUp(e.key);
-    const lost = () => {
-      held.clear();
-      gameRef.current = pause(gameRef.current);
-      showHud(gameRef.current);
-    };
     const hidden = () => { if (document.hidden) lost(); };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
@@ -126,12 +86,11 @@ export default function DockGame({ asking, hero, team = null, values = RULEBOOK.
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [act, held, showHud]);
+  }, [act, held, fold, lost]);
+}
 
-  // The canvas loop: the game plays the time since the last frame with the buttons held, and its
-  // score is sent once, at game over.
-  const frameRef = useRef({ theme, mark, hero: hero ?? DEFAULT_HERO, team });
-  frameRef.current = { theme, mark, hero: hero ?? DEFAULT_HERO, team };
+// Draws a frame on the canvas at every animation frame, after `tick` plays the time since the last one.
+function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, tick: (dt: number) => Game, lookRef: RefObject<Look>) {
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const start = performance.now();
@@ -143,27 +102,114 @@ export default function DockGame({ asking, hero, team = null, values = RULEBOOK.
       last = now;
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
-      const g = step(gameRef.current, askingRef.current ? new Set<Action>() : held.buttons(), dt);
-      gameRef.current = g;
-      showHud(g);
-      if (g.over && !sendRef.current) void sendScore(scores, g.score, show);
-      const f = frameRef.current;
-      const t = (now - start) / 1000;
-      const frame: FrameState = {
-        scene: 'invaders', grid: TALL, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t, sceneT: t,
-        reduced: reduced.matches, mark: f.mark, theme: f.theme, game: g,
-        join: { fleets: [], pick: 0, lockedAt: null, team: f.team, hero: f.hero, away: false },
-      };
-      drawInvaders(ctx, frame);
+      drawInvaders(ctx, frameOf(tick(dt), lookRef.current, (now - start) / 1000, reduced.matches));
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [held, scores, show, showHud]);
+  }, [canvasRef, tick, lookRef]);
+}
+
+/** The game and its HUD: a fresh game of the tall grid, redrawn only when the HUD changes; `pauseGame`
+ * lets go of every button and pauses. */
+function useGameState(values: Readonly<Record<WoundKind, number>>, held: ReturnType<typeof createHeld>) {
+  const fresh = useCallback(() => newGame({ layout: 'tall', values, seed: Math.floor(Math.random() * 2 ** 31) }), [values]);
+  const gameRef = useRef<Game>(null as unknown as Game);
+  if (!gameRef.current) gameRef.current = fresh();
+  const [hud, setHud] = useState<GameHud>(() => hudOf(gameRef.current));
+  const hudRef = useRef(hud);
+
+  const showHud = useCallback((g: Game) => {
+    const next = hudOf(g);
+    if (sameHud(next, hudRef.current)) return;
+    hudRef.current = next;
+    setHud(next);
+  }, []);
+
+  const pauseGame = useCallback(() => {
+    held.clear();
+    gameRef.current = pause(gameRef.current);
+    showHud(gameRef.current);
+  }, [held, showHud]);
+
+  return { gameRef, hud, showHud, pauseGame };
+}
+
+/** Where the score's sending stands, kept for the overlay and for the presses that read it. */
+function useScoreSend() {
+  const [send, setSend] = useState<ScoreSend | null>(null);
+  const sendRef = useRef<ScoreSend | null>(null);
+  const show = useCallback((s: ScoreSend) => { sendRef.current = s; setSend(s); }, []);
+  return { send, sendRef, show };
+}
+
+/** The game as the dock plays it: `act` presses a button, `tick` plays some seconds. */
+function useInvaders({ asking, values, scores, onFold }: {
+  asking: boolean;
+  values: Readonly<Record<WoundKind, number>>;
+  scores: DockAccount | null;
+  onFold: () => void;
+}) {
+  const held = useMemo(() => createHeld(), []);
+  const { gameRef, hud, showHud, pauseGame } = useGameState(values, held);
+  const { send, sendRef, show } = useScoreSend();
+  const askingRef = useRef(asking);
+  askingRef.current = asking;
+  const foldRef = useRef(onFold);
+  foldRef.current = onFold;
+
+  // A question pauses the game the moment it arrives; it never resumes by itself.
+  useEffect(() => {
+    if (asking) pauseGame();
+  }, [asking, pauseGame]);
+
+  const act = useCallback((action: Action) => {
+    const g = gameRef.current;
+    if (askingRef.current && action !== 'b') return; // the question comes first: ANSWER, or fold
+    const s = sendRef.current;
+    if (retries(g, s, action)) {
+      void sendScore(scores, s.score, show, null, s.tries + 1);
+      return;
+    }
+    const { game, leave } = press(g, action);
+    if (leave) return foldRef.current();
+    gameRef.current = game;
+    showHud(game);
+  }, [gameRef, sendRef, scores, show, showHud]);
+
+  const fold = useCallback(() => foldRef.current(), []);
+  useDockKeys(act, held, fold, pauseGame);
+
+  // The time since the last frame, played with the buttons held; the score is sent once, at game over.
+  const tick = useCallback((dt: number) => {
+    const g = step(gameRef.current, askingRef.current ? new Set<Action>() : held.buttons(), dt);
+    gameRef.current = g;
+    showHud(g);
+    if (g.over && !sendRef.current) void sendScore(scores, g.score, show);
+    return g;
+  }, [gameRef, sendRef, held, scores, show, showHud]);
+
+  return { hud, send, act, tick };
+}
+
+export default function DockGame({ asking, hero, team = null, values = RULEBOOK.woundClose, supabase = null, workspace = null, account = null, onFold }: DockGameProps) {
+  const { theme, mark } = useMemo(() => brandLook(HOUSE_BRAND), []);
+  const scores = useMemo<DockAccount | null>(
+    () => account ?? (supabase ? supabaseAccount({ url: supabase.url, key: supabase.key, workspace }) : null),
+    [account, supabase, workspace],
+  );
+  const ship = hero ?? DEFAULT_HERO;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { hud, send, act, tick } = useInvaders({ asking, values, scores, onFold });
+
+  // The canvas loop, drawn in the dock's look.
+  const lookRef = useRef<Look>({ theme, mark, hero: ship, team });
+  lookRef.current = { theme, mark, hero: ship, team };
+  useCanvasLoop(canvasRef, tick, lookRef);
 
   return (
     <Screen scene="invaders" frame={TALL} info={INFO} canvasRef={canvasRef} onTap={() => act('a')}>
       <Press.Provider value={act}>
-        <InvadersOverlay hud={hud} values={values} hero={hero ?? DEFAULT_HERO} team={team} send={send} back="FOLD" />
+        <InvadersOverlay hud={hud} values={values} hero={ship} team={team} send={send} back="FOLD" />
       </Press.Provider>
     </Screen>
   );

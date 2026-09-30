@@ -63,14 +63,24 @@ function numberOf(topic, folders) {
  * @returns {{ kind: 'draft', draftId: string } | { kind: 'prd' | 'visual' | 'bug', number: number } | null}
  */
 export function findWork({ claudeSessionId, drafts, branch, branches, folders }) {
-  if (claudeSessionId) {
-    const own = (drafts ?? [])
-      .filter((entry) => entry.claudeSessionId === claudeSessionId)
-      .sort((a, b) => String(a.openedAt).localeCompare(String(b.openedAt)))
-      .at(-1);
-    if (own) return own.prd === null ? { kind: 'draft', draftId: own.id } : { kind: 'prd', number: own.prd };
-  }
+  const own = claudeSessionId ? draftWork(claudeSessionId, drafts) : null;
+  if (own) return own;
   if (typeof branch !== 'string' || !branch) return null;
+  return prdWork(branch, branches, folders) ?? fixWork(branch, branches, folders);
+}
+
+/** The session's latest draft, as its work (its PRD once it has one), or `null`. */
+function draftWork(claudeSessionId, drafts) {
+  const own = (drafts ?? [])
+    .filter((entry) => entry.claudeSessionId === claudeSessionId)
+    .sort((a, b) => String(a.openedAt).localeCompare(String(b.openedAt)))
+    .at(-1);
+  if (!own) return null;
+  return own.prd === null ? { kind: 'draft', draftId: own.id } : { kind: 'prd', number: own.prd };
+}
+
+/** The PRD a slice, phase-0 or feature branch builds, or `null`. */
+function prdWork(branch, branches, folders) {
   const prdFolders = [...(folders.inbox ?? []), ...(folders.shipped ?? [])];
   // A slice branch is tried before a feature branch: `feat/{topic}` would take `x--s1` as its topic.
   for (const template of [branches.slice, branches.phase0, branches.feature]) {
@@ -78,14 +88,17 @@ export function findWork({ claudeSessionId, drafts, branch, branches, folders })
     const number = topic && numberOf(topic, prdFolders);
     if (number) return { kind: 'prd', number };
   }
-  const fix = topicOf(branches.fix, branch);
-  if (fix) {
-    const visual = numberOf(fix, folders.visual);
-    if (visual) return { kind: 'visual', number: visual };
-    const bug = numberOf(fix, folders.bugs);
-    if (bug) return { kind: 'bug', number: bug };
-  }
   return null;
+}
+
+/** The visual or bug fix a fix branch makes, or `null`. */
+function fixWork(branch, branches, folders) {
+  const fix = topicOf(branches.fix, branch);
+  if (!fix) return null;
+  const visual = numberOf(fix, folders.visual);
+  if (visual) return { kind: 'visual', number: visual };
+  const bug = numberOf(fix, folders.bugs);
+  return bug ? { kind: 'bug', number: bug } : null;
 }
 
 /**

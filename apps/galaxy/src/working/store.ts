@@ -15,7 +15,7 @@ export type Work = { kind: 'draft'; draftId: string } | { kind: WorkKind; number
 export type Heartbeat = { claudeSessionId: string; repo: string; work: Work; ended: boolean };
 
 /** A heartbeat as a reader sees it. */
-export type WorkingPingRow = WorkingPing & {
+type WorkingPingRow = WorkingPing & {
   claude_session_id: string;
   user_id: string;
   workspace_id: string;
@@ -30,15 +30,20 @@ export const PING_COLUMNS = 'claude_session_id, user_id, workspace_id, repo, wor
 /** The database refused or failed; `code` is Postgres's: 42501 another account's session or a
  * repository no workspace of the caller owns, 22023 a malformed argument. */
 export class WorkingStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
-    super(`${what}: ${reason}`);
+  readonly code: string | undefined;
+  readonly reason: string;
+
+  constructor(what: string, failure: Failure) {
+    super(`${what}: ${failure.message}`);
+    this.code = failure.code;
+    this.reason = failure.message;
   }
 }
 
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
+type Failure = { code?: string; message: string };
 
-function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
-  if (error) throw new WorkingStoreError(what, error.code, error.message);
+function settle<T>(what: string, { data, error }: { data: T | null; error: Failure | null }): T | null {
+  if (error) throw new WorkingStoreError(what, error);
   return data;
 }
 
@@ -58,8 +63,6 @@ export function workingStore(db: Pick<SupabaseClient, 'rpc'>) {
   };
 }
 
-export type WorkingStore = ReturnType<typeof workingStore>;
-
 export function workingReader(db: Pick<SupabaseClient, 'from'>) {
   return {
     /** The freshest heartbeat of a session still on the dossier, or null: a dossier is working when
@@ -77,5 +80,3 @@ export function workingReader(db: Pick<SupabaseClient, 'from'>) {
     },
   };
 }
-
-export type WorkingReader = ReturnType<typeof workingReader>;

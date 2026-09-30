@@ -15607,6 +15607,27 @@ function homeTokens({ home = homedir() } = {}) {
   };
 }
 
+// kit/lib/ask/hook-input.mjs
+init_define_OMNI_BUNDLE();
+async function readText(stdin) {
+  if (typeof stdin === "string") return stdin;
+  if (!stdin || stdin.isTTY) return null;
+  stdin.setEncoding?.("utf8");
+  let text4 = "";
+  for await (const chunk of stdin) text4 += chunk;
+  return text4;
+}
+async function readInput(stdin) {
+  const text4 = await readText(stdin);
+  if (text4 === null) return null;
+  try {
+    const value = JSON.parse(text4);
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 // kit/lib/ask/hook.mjs
 init_define_OMNI_BUNDLE();
 
@@ -16322,22 +16343,6 @@ function expired({ expires_at: at }, now = Date.now()) {
 var KINDS = ["pre", "post", "prompt", "end"];
 var MODES = ["on", "off", "status"];
 var USAGE2 = "usage: omni ask hook <pre|post|prompt|end> | omni ask <on|off|status>";
-async function readInput(stdin) {
-  let text4 = "";
-  if (typeof stdin === "string") {
-    text4 = stdin;
-  } else {
-    if (!stdin || stdin.isTTY) return null;
-    stdin.setEncoding?.("utf8");
-    for await (const chunk of stdin) text4 += chunk;
-  }
-  try {
-    const value = JSON.parse(text4);
-    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
 async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
   try {
     const root = findRoot(cwd, exec);
@@ -20579,25 +20584,32 @@ function numberOf(topic, folders) {
   return null;
 }
 function findWork({ claudeSessionId, drafts, branch, branches, folders }) {
-  if (claudeSessionId) {
-    const own = (drafts ?? []).filter((entry) => entry.claudeSessionId === claudeSessionId).sort((a, b) => String(a.openedAt).localeCompare(String(b.openedAt))).at(-1);
-    if (own) return own.prd === null ? { kind: "draft", draftId: own.id } : { kind: "prd", number: own.prd };
-  }
+  const own = claudeSessionId ? draftWork(claudeSessionId, drafts) : null;
+  if (own) return own;
   if (typeof branch !== "string" || !branch) return null;
+  return prdWork(branch, branches, folders) ?? fixWork(branch, branches, folders);
+}
+function draftWork(claudeSessionId, drafts) {
+  const own = (drafts ?? []).filter((entry) => entry.claudeSessionId === claudeSessionId).sort((a, b) => String(a.openedAt).localeCompare(String(b.openedAt))).at(-1);
+  if (!own) return null;
+  return own.prd === null ? { kind: "draft", draftId: own.id } : { kind: "prd", number: own.prd };
+}
+function prdWork(branch, branches, folders) {
   const prdFolders2 = [...folders.inbox ?? [], ...folders.shipped ?? []];
   for (const template of [branches.slice, branches.phase0, branches.feature]) {
     const topic = topicOf(template, branch);
     const number = topic && numberOf(topic, prdFolders2);
     if (number) return { kind: "prd", number };
   }
-  const fix = topicOf(branches.fix, branch);
-  if (fix) {
-    const visual2 = numberOf(fix, folders.visual);
-    if (visual2) return { kind: "visual", number: visual2 };
-    const bug2 = numberOf(fix, folders.bugs);
-    if (bug2) return { kind: "bug", number: bug2 };
-  }
   return null;
+}
+function fixWork(branch, branches, folders) {
+  const fix = topicOf(branches.fix, branch);
+  if (!fix) return null;
+  const visual2 = numberOf(fix, folders.visual);
+  if (visual2) return { kind: "visual", number: visual2 };
+  const bug2 = numberOf(fix, folders.bugs);
+  return bug2 ? { kind: "bug", number: bug2 } : null;
 }
 function readWork({ cwd, config: config2, claudeSessionId, exec = execFileSync11 }) {
   const home = attempt4(() => mainCheckout(cwd, exec));
@@ -20627,44 +20639,37 @@ function forgetWindow(root, claudeSessionId) {
 }
 
 // kit/bin/commands/heartbeat.mjs
-async function readInput2(stdin) {
-  let text4 = "";
-  if (typeof stdin === "string") {
-    text4 = stdin;
-  } else {
-    if (!stdin || stdin.isTTY) return null;
-    stdin.setEncoding?.("utf8");
-    for await (const chunk of stdin) text4 += chunk;
-  }
-  try {
-    const value = JSON.parse(text4);
-    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
 function withDeadline(fetch, ms) {
   const deadline = AbortSignal.timeout(ms);
   return (url, init3 = {}) => fetch(url, { ...init3, signal: init3.signal ? AbortSignal.any([init3.signal, deadline]) : deadline });
 }
-async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
-  const input = await readInput2(stdin);
-  const claudeSessionId = input?.session_id;
-  if (!isSafeId(claudeSessionId)) return;
+function targetOf(cwd, exec, tokens) {
   const root = findRoot(cwd, exec);
   const config2 = loadConfig(root);
   const toggle = dossierSwitch(config2);
   const repo = config2.repo?.slug;
-  if (!toggle.on || !repo) return;
+  if (!toggle.on || !repo) return null;
   const host = credentialsHost(toggle.askUrl);
   const store = tokens ?? homeTokens();
-  if (!store.read(host)) return;
-  const home = mainCheckout(cwd, exec) ?? root;
-  if (end) forgetWindow(home, claudeSessionId);
-  else if (!claimWindow(home, claudeSessionId, now())) return;
-  const where = typeof input.cwd === "string" && input.cwd ? input.cwd : cwd;
-  const work = end ? null : readWork({ cwd: where, config: config2, claudeSessionId, exec });
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
+  if (!store.read(host)) return null;
+  return { root, config: config2, repo, askUrl: toggle.askUrl, host, store };
+}
+function claimed(home, claudeSessionId, end, now) {
+  if (!end) return claimWindow(home, claudeSessionId, now());
+  forgetWindow(home, claudeSessionId);
+  return true;
+}
+var workDir = (input, cwd) => typeof input.cwd === "string" && input.cwd ? input.cwd : cwd;
+async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
+  const input = await readInput(stdin);
+  const claudeSessionId = input?.session_id;
+  if (!isSafeId(claudeSessionId)) return;
+  const target2 = targetOf(cwd, exec, tokens);
+  if (!target2) return;
+  const { root, config: config2, repo, askUrl: askUrl2, host, store } = target2;
+  if (!claimed(mainCheckout(cwd, exec) ?? root, claudeSessionId, end, now)) return;
+  const work = end ? null : readWork({ cwd: workDir(input, cwd), config: config2, claudeSessionId, exec });
+  const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
   await client.heartbeat({ claudeSessionId, repo, work, ended: end });
 }
 var heartbeat = {
@@ -25204,7 +25209,7 @@ function renderLines({ input, facts, env, now }) {
 // kit/bin/commands/statusline.mjs
 var REFRESH_FLAG = "--refresh";
 var CALL_TIMEOUT_MS2 = 60 * 1e3;
-async function readText(stdin) {
+async function readText2(stdin) {
   if (typeof stdin === "string") return stdin;
   if (!stdin || stdin.isTTY) return "";
   stdin.setEncoding?.("utf8");
@@ -25214,7 +25219,7 @@ async function readText(stdin) {
 }
 async function statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts3, spawn: spawn2 }) {
   try {
-    const input = parseInput(await readText(stdin).catch(() => ""));
+    const input = parseInput(await readText2(stdin).catch(() => ""));
     const instant2 = now();
     let facts = null;
     if (input) {

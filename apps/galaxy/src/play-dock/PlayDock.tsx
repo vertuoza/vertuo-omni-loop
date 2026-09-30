@@ -77,32 +77,45 @@ export function DockFrame({ view, answerHref, onOpen, onFold, children }: {
   );
 }
 
-export function PlayDock({ state, player, hero = null, team = null, answerHref, values, supabase = null, workspace = null, account = null, load = loadGame }: PlayDockProps) {
-  const [open, setOpen] = useState(false);
-  const [width, setWidth] = useState(0);
-  const [started, setStarted] = useState(false);
-  const [Game, setGame] = useState<ComponentType<DockGameProps> | null>(null);
-  const door = dockDoor(player);
+/** The views that play the game. */
+const PLAYING: ReadonlyArray<DockView['kind']> = ['playing', 'asking', 'done'];
 
-  // The window's width, and the state kept for the tab, once in the browser.
+/** The window's width, once in the browser; 0 before. */
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(0);
   useEffect(() => {
-    setOpen(readOpen(() => window.sessionStorage));
     const measure = () => setWidth(window.innerWidth);
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, []);
+  return width;
+}
 
-  const view = dockView({ state, door, open, game: started, width });
-  const playing = view.kind === 'playing' || view.kind === 'asking' || view.kind === 'done';
-
-  // The game's code, the first time it is to be played.
+/** The game's code, fetched the first time it is to be played; null until then. */
+function useGameCode(playing: boolean, load: () => Promise<ComponentType<DockGameProps>>) {
+  const [Game, setGame] = useState<ComponentType<DockGameProps> | null>(null);
   useEffect(() => {
     if (!playing || Game) return;
     let live = true;
     load().then((g) => { if (live) setGame(() => g); }).catch((err) => console.error(err));
     return () => { live = false; };
   }, [playing, Game, load]);
+  return Game;
+}
+
+export function PlayDock({ state, player, hero = null, team = null, answerHref, values, supabase = null, workspace = null, account = null, load = loadGame }: PlayDockProps) {
+  const [open, setOpen] = useState(false);
+  const [started, setStarted] = useState(false);
+  const door = dockDoor(player);
+
+  // The state kept for the tab, once in the browser.
+  useEffect(() => { setOpen(readOpen(() => window.sessionStorage)); }, []);
+  const width = useWindowWidth();
+
+  const view = dockView({ state, door, open, game: started, width });
+  const playing = PLAYING.includes(view.kind);
+  const Game = useGameCode(playing, load);
   useEffect(() => { if (playing && Game) setStarted(true); }, [playing, Game]);
 
   const show = useCallback((next: boolean) => {

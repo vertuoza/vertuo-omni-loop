@@ -8,7 +8,7 @@
 /** How long a heartbeat keeps a session working: the kit sends one a minute, so three missed ones end it. */
 export const WORKING_FOR_MS = 3 * 60 * 1000;
 
-export const WORKING_STATES = ['working', 'asking', 'idle'] as const;
+const WORKING_STATES = ['working', 'asking', 'idle'] as const;
 export type WorkingState = (typeof WORKING_STATES)[number];
 
 /** A heartbeat as the rule reads it: when it was last seen, and when its session ended. */

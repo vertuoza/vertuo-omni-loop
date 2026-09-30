@@ -42,18 +42,24 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const hasOnly = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).every((key) => keys.includes(key));
 
+const isText = (value: unknown, max: number): value is string =>
+  typeof value === 'string' && value.length >= 1 && value.length <= max;
+const isWorkNumber = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= 1 && (value as number) <= NUMBER_MAX;
+
+/** A draft's work, or undefined when it is malformed. */
+function draftOf(value: Record<string, unknown>): Work | undefined {
+  return hasOnly(value, ['kind', 'draftId']) && typeof value.draftId === 'string' && UUID.test(value.draftId)
+    ? { kind: 'draft', draftId: value.draftId } : undefined;
+}
+
 /** The work a heartbeat names, or undefined when it is malformed. */
 function workOf(value: unknown): Work | undefined {
   if (value === null) return null;
   if (!isRecord(value)) return undefined;
-  if (value.kind === 'draft') {
-    return hasOnly(value, ['kind', 'draftId']) && typeof value.draftId === 'string' && UUID.test(value.draftId)
-      ? { kind: 'draft', draftId: value.draftId } : undefined;
-  }
+  if (value.kind === 'draft') return draftOf(value);
   if (!WORK_KINDS.includes(value.kind as WorkKind) || !hasOnly(value, ['kind', 'number'])) return undefined;
-  const number = value.number;
-  return Number.isInteger(number) && (number as number) >= 1 && (number as number) <= NUMBER_MAX
-    ? { kind: value.kind as WorkKind, number: number as number } : undefined;
+  return isWorkNumber(value.number) ? { kind: value.kind as WorkKind, number: value.number } : undefined;
 }
 
 /** The heartbeat a body carries, or the problem with it. */
@@ -62,11 +68,9 @@ function heartbeatOf(sent: unknown): Heartbeat | { problem: string } {
   const unknown = Object.keys(sent).find((key) => !FIELDS.has(key));
   if (unknown) return { problem: `A heartbeat carries claudeSessionId, repo, work and ended only, not ${unknown}.` };
   const session = sent.claudeSessionId;
-  if (typeof session !== 'string' || session.length < 1 || session.length > 200) {
-    return { problem: '`claudeSessionId` is a text of 1 to 200 characters.' };
-  }
+  if (!isText(session, 200)) return { problem: '`claudeSessionId` is a text of 1 to 200 characters.' };
   const repo = sent.repo;
-  if (typeof repo !== 'string' || repo.length > 200 || !REPO.test(repo)) return { problem: 'A heartbeat names its repository as owner/name.' };
+  if (!isText(repo, 200) || !REPO.test(repo)) return { problem: 'A heartbeat names its repository as owner/name.' };
   const work = workOf(sent.work);
   if (work === undefined) {
     return { problem: `\`work\` is null, {kind: 'draft', draftId}, or {kind, number} with kind one of ${WORK_KINDS.join(', ')}.` };

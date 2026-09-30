@@ -31,7 +31,7 @@ import type { AskDock } from './dock-player';
 // 757) while its terminal's heartbeat says it works, pausing on the open question and leading to it.
 
 /** Where the dock's ⏸ CLAUDE ASKED · ANSWER leads: the top of the open question, on this page. */
-export const QUESTION_ANCHOR = 'ask-question';
+const QUESTION_ANCHOR = 'ask-question';
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 

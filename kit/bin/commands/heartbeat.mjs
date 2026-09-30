@@ -18,28 +18,11 @@ import { askClient } from '../../lib/ask/client.mjs';
 import { homeTokens } from '../../lib/ask/client-tokens.mjs';
 import { credentialsHost } from '../../lib/ask/credentials.mjs';
 import { claimWindow, forgetWindow, HEARTBEAT_LIMIT_MS, readWork } from '../../lib/ask/heartbeat.mjs';
+import { readInput } from '../../lib/ask/hook-input.mjs';
 import { isSafeId } from '../../lib/ask/local-state.mjs';
 import { dossierSwitch, loadConfig } from '../../lib/config.mjs';
 import { mainCheckout } from '../../lib/dossier/local.mjs';
 import { findRoot } from '../../lib/init/repo.mjs';
-
-/** The hook's input: stdin parsed as a JSON object, or `null`. A terminal is never read. */
-async function readInput(stdin) {
-  let text = '';
-  if (typeof stdin === 'string') {
-    text = stdin;
-  } else {
-    if (!stdin || stdin.isTTY) return null;
-    stdin.setEncoding?.('utf8');
-    for await (const chunk of stdin) text += chunk;
-  }
-  try {
-    const value = JSON.parse(text);
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
 
 /** `fetch` held to one deadline shared by every request of the call, the renewal included. */
 function withDeadline(fetch, ms) {
@@ -47,24 +30,39 @@ function withDeadline(fetch, ms) {
   return (url, init = {}) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
 }
 
-async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
-  const input = await readInput(stdin);
-  const claudeSessionId = input?.session_id;
-  if (!isSafeId(claudeSessionId)) return;
+/** Where this checkout's heartbeats go, or `null` when dossiers are off or this computer is not signed in. */
+function targetOf(cwd, exec, tokens) {
   const root = findRoot(cwd, exec);
   const config = loadConfig(root);
   const toggle = dossierSwitch(config);
   const repo = config.repo?.slug;
-  if (!toggle.on || !repo) return;
+  if (!toggle.on || !repo) return null;
   const host = credentialsHost(toggle.askUrl);
   const store = tokens ?? homeTokens();
-  if (!store.read(host)) return;
-  const home = mainCheckout(cwd, exec) ?? root;
-  if (end) forgetWindow(home, claudeSessionId);
-  else if (!claimWindow(home, claudeSessionId, now())) return;
-  const where = typeof input.cwd === 'string' && input.cwd ? input.cwd : cwd;
-  const work = end ? null : readWork({ cwd: where, config, claudeSessionId, exec });
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
+  if (!store.read(host)) return null;
+  return { root, config, repo, askUrl: toggle.askUrl, host, store };
+}
+
+/** Whether this run sends: `--end` always does, forgetting the session's window; a beat once a window. */
+function claimed(home, claudeSessionId, end, now) {
+  if (!end) return claimWindow(home, claudeSessionId, now());
+  forgetWindow(home, claudeSessionId);
+  return true;
+}
+
+/** The folder the session works in: the hook's `cwd`, else the command's. */
+const workDir = (input, cwd) => (typeof input.cwd === 'string' && input.cwd ? input.cwd : cwd);
+
+async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
+  const input = await readInput(stdin);
+  const claudeSessionId = input?.session_id;
+  if (!isSafeId(claudeSessionId)) return;
+  const target = targetOf(cwd, exec, tokens);
+  if (!target) return;
+  const { root, config, repo, askUrl, host, store } = target;
+  if (!claimed(mainCheckout(cwd, exec) ?? root, claudeSessionId, end, now)) return;
+  const work = end ? null : readWork({ cwd: workDir(input, cwd), config, claudeSessionId, exec });
+  const client = askClient({ baseUrl: askUrl, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
   await client.heartbeat({ claudeSessionId, repo, work, ended: end });
 }
 
