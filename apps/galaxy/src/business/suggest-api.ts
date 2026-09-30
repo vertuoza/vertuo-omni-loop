@@ -1,4 +1,5 @@
 import { claimOf, type StoredClaim } from './model';
+import { refuse, reply } from '../business-api/reply';
 import { suggestInput, type Suggester } from './suggest';
 
 // POST /api/business/suggest-rivals {workspace, product} → 200 {claims} (PRD 748 s3), as a plain
@@ -35,8 +36,6 @@ export type SuggestDeps = {
   suggest: Suggester | null;
 };
 
-const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const refuse = (status: number, error: string) => reply(status, { error });
 const NOTHING = { claims: [] as StoredClaim[] };
 
 const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
@@ -49,42 +48,58 @@ function refusal(error: unknown): Response {
   return refuse(500, 'The business database could not answer. Try again.');
 }
 
-export async function suggestRivalsRoute(request: Request, deps: SuggestDeps): Promise<Response> {
-  const store = await deps.store();
-  if (!store) return refuse(401, 'Sign in first.');
-  let sent: unknown;
-  try {
-    sent = await request.json();
-  } catch {
-    return refuse(400, 'The body must be a JSON object.');
-  }
+type Target = { ws: string; pr: string };
+const NOT_JSON = Symbol('not JSON');
+
+/** The workspace and product a body names, or the Response that refuses it. */
+async function targetOf(request: Request): Promise<Target | Response> {
+  const sent: unknown = await request.json().catch(() => NOT_JSON);
+  if (sent === NOT_JSON) return refuse(400, 'The body must be a JSON object.');
   const { workspace, product } = (sent && typeof sent === 'object' ? sent : {}) as Record<string, unknown>;
   const ws = id(workspace);
   const pr = id(product);
   if (!ws || !pr) return refuse(400, '`workspace` and `product` must be the ids the page shows.');
-  if (!deps.suggest) return reply(200, NOTHING);
+  return { ws, pr };
+}
 
+/** The model's rival names not already held, or null when there is nothing to ask or it failed. */
+async function freshNames(store: SuggestStore, suggest: Suggester, { ws, pr }: Target): Promise<string[] | null> {
+  const stored = (await store.claims(ws, pr)).filter((c) => c.product_id == null || c.product_id === pr);
+  const input = suggestInput(stored.map((c) => claimOf(c)));
+  if (!input) return null;
+  const names = await suggest(input);
+  if (!names) return null;
+  const held = new Set(input.exclude.map((v) => v.trim().toLowerCase()));
+  return names.filter((name) => !held.has(name.trim().toLowerCase()));
+}
+
+/** Stores one name as a proposed rival: the row when it is proposed, else null. One name the database
+ * finds invalid is dropped; a refusal of the caller stops the call. */
+async function proposed(store: SuggestStore, { ws, pr }: Target, name: string): Promise<StoredClaim | null> {
   try {
-    const stored = (await store.claims(ws, pr)).filter((c) => c.product_id == null || c.product_id === pr);
-    const input = suggestInput(stored.map((c) => claimOf(c)));
-    if (!input) return reply(200, NOTHING);
-    const names = await deps.suggest(input);
-    if (!names) return reply(200, NOTHING);
-    const held = new Set(input.exclude.map((v) => v.trim().toLowerCase()));
-    const claims: StoredClaim[] = [];
-    for (const name of names) {
-      if (held.has(name.trim().toLowerCase())) continue;
-      try {
-        const saved = await store.propose(ws, pr, name);
-        if (saved.state === 'proposed') claims.push(saved);
-      } catch (error) {
-        // One name the database finds invalid is dropped; a refusal of the caller stops the call.
-        if (error instanceof SuggestStoreError && error.code === '22023') continue;
-        throw error;
-      }
-    }
-    return reply(200, { claims });
+    const saved = await store.propose(ws, pr, name);
+    return saved.state === 'proposed' ? saved : null;
   } catch (error) {
-    return refusal(error);
+    if (error instanceof SuggestStoreError && error.code === '22023') return null;
+    throw error;
   }
+}
+
+async function suggestAndStore(store: SuggestStore, suggest: Suggester, target: Target): Promise<Response> {
+  const names = await freshNames(store, suggest, target);
+  const claims: StoredClaim[] = [];
+  for (const name of names ?? []) {
+    const saved = await proposed(store, target, name);
+    if (saved) claims.push(saved);
+  }
+  return reply(200, { claims });
+}
+
+export async function suggestRivalsRoute(request: Request, deps: SuggestDeps): Promise<Response> {
+  const store = await deps.store();
+  if (!store) return refuse(401, 'Sign in first.');
+  const target = await targetOf(request);
+  if (target instanceof Response) return target;
+  if (!deps.suggest) return reply(200, NOTHING);
+  return suggestAndStore(store, deps.suggest, target).catch(refusal);
 }

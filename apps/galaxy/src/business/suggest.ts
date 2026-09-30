@@ -8,10 +8,10 @@ import type { Claim, ClaimKind } from './model';
 // unparseable reply, a timeout or a throw give null, and nothing retries: the page then shows no guess
 // and no error. Pure apart from the one fetch, which a test stubs.
 
-export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 /** The small model the ask classifier uses. */
 export const SUGGEST_MODEL = 'anthropic/claude-haiku-4.5';
-export const SUGGEST_TIMEOUT_MS = 15_000;
+const SUGGEST_TIMEOUT_MS = 15_000;
 /** The most guesses the page shows. */
 export const MAX_GUESSES = 5;
 const MAX_NAME = 80;

@@ -44,7 +44,7 @@ function claimOf(value) {
 }
 
 /** The server's reply as the contract's body, or null when it does not read as one. */
-export function businessOf(reply) {
+function businessOf(reply) {
   if (!reply || !['ok', 'none'].includes(reply.state) || !Array.isArray(reply.claims)) return null;
   const claims = reply.claims.map(claimOf);
   if (claims.includes(null)) return null;
@@ -56,7 +56,7 @@ export function businessOf(reply) {
 const joined = (values) => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
 
 /** The sentence the claims make, its blanks left where a kind has none (the Settings page's own). */
-export function sentence(claims) {
+function sentence(claims) {
   const of = (kind) => claims.filter((claim) => claim.kind === kind).map((claim) => claim.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of('size')[0];

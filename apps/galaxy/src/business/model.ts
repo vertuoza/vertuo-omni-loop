@@ -75,10 +75,10 @@ export const REGIONS: readonly string[] = ['Belgium', 'France', 'Netherlands', '
 /** The size slider's stops (decision 10); a size is stored as `<min>-<max>` of them. */
 export const SIZE_STOPS: readonly string[] = ['1', '2', '5', '10', '20', '50', '100', '250', '500', '1000+'];
 /** Where the slider sits before a size is picked: 2 to 50. */
-export const DEFAULT_SIZE: readonly [number, number] = [1, 5];
+const DEFAULT_SIZE: readonly [number, number] = [1, 5];
 
 /** The kinds that hold one value; the others hold several. */
-export const SINGLE: ReadonlySet<ClaimKind> = new Set(['offering', 'size', 'trade']);
+const SINGLE: ReadonlySet<ClaimKind> = new Set(['offering', 'size', 'trade']);
 export const KIND_ORDER: readonly ClaimKind[] = ['offering', 'size', 'trade', 'region', 'rival'];
 
 export const KIND_LABEL: Record<ClaimKind, string> = {
@@ -126,7 +126,7 @@ export const confirmed = (claims: readonly Claim[]) => claims.filter((c) => c.st
 const confirmedOf = (claims: readonly Claim[], kind: ClaimKind) => confirmed(claims).filter((c) => c.kind === kind);
 
 /** `a`, `a and b`, `a, b and c`. */
-export function listed(values: readonly string[]): string {
+function listed(values: readonly string[]): string {
   if (values.length <= 1) return values.join('');
   return `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
 }
@@ -267,7 +267,7 @@ export type BusinessAction =
   | { type: 'product-added'; product: Product }
   | { type: 'show-product'; product: string };
 
-export const initialState = (claims: Claim[], products: Product[] = []): BusinessState => ({
+export const initialBusinessState = (claims: Claim[], products: Product[] = []): BusinessState => ({
   claims, products, current: products[0]?.id ?? null, adding: false,
   busy: false, refusal: null, skipped: false, typing: null, sizeDraft: null,
 });

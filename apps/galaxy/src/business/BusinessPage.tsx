@@ -2,7 +2,7 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import {
-  businessReducer, initialState, planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
+  businessReducer, initialBusinessState, planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
 } from './model';
 import { BusinessView, type BusinessHandlers } from './BusinessView';
 import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type BusinessPort, type Saved } from './store';
@@ -29,7 +29,7 @@ export interface BusinessPageProps {
 }
 
 export function BusinessPage({ source, claims, products }: BusinessPageProps) {
-  const [whole, dispatch] = useReducer(businessReducer, null, () => initialState(claims, products));
+  const [whole, dispatch] = useReducer(businessReducer, null, () => initialBusinessState(claims, products));
   // What the handlers read: the tab's claims (every claim while there is one product).
   const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
   const product = whole.current ?? undefined;

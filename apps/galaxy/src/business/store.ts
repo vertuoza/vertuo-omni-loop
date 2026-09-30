@@ -25,7 +25,7 @@ export interface BusinessPort {
 }
 
 /** The route that asks the small model for rivals and stores them as proposed claims. */
-export const SUGGEST_ROUTE = '/api/business/suggest-rivals';
+const SUGGEST_ROUTE = '/api/business/suggest-rivals';
 
 export const NOT_MEMBER = 'Only a member of the workspace can change its business.';
 const GONE = 'That is no longer in this workspace’s business. Reload the page.';

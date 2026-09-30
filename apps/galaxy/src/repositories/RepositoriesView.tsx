@@ -34,7 +34,7 @@ export interface RepositoriesHandlers {
 const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setProduct() {} };
 
 /** What the head says once each repository has a product select. */
-export const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
+const PRODUCTS_LINE = 'Each repository’s agents read its product’s business.';
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;

@@ -33,35 +33,23 @@ export type RepositoriesLoad =
     workspace: { id: string; name: string };
     owner: boolean;
     repositories: RepositoryRow[];
-    access: Access;
     /** The business's products, first first (PRD 748 s4); a select shows from the second on. */
     products: Product[];
+    access: Access;
   };
+
+async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> {
+  const { data, error } = await db.rpc('is_owner', { workspace });
+  if (error) throw error;
+  return data === true;
+}
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
 
-async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> {
-  try {
-    const { data, error } = await db.rpc('is_owner', { workspace });
-    if (error) throw error;
-    return data === true;
-  } catch (err) {
-    console.error(`repositories: your role could not be read (${why(err)})`);
-    return false;
-  }
-}
-
-/** The business's products, first first (PRD 748 s4). None when there is no business yet, or when
- * they cannot be read: the page then shows no product select, never no list. */
-async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
-  try {
-    const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
-    if (error) throw error;
-    return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
-  } catch (err) {
-    console.error(`repositories: the products could not be read (${why(err)})`);
-    return [];
-  }
+/** A role that cannot be read reads as a member's. */
+function asMember(err: unknown): boolean {
+  console.error(`repositories: your role could not be read (${why(err)})`);
+  return false;
 }
 
 async function rowsOf(db: SupabaseClient, workspace: string): Promise<RepositoryRow[]> {
@@ -79,6 +67,19 @@ async function githubOf(db: SupabaseClient, workspace: string): Promise<GithubOf
   const { data, error } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's GitHub installation (${error.message})`);
   return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null };
+}
+
+/** The business's products, first first (PRD 748 s4). None when there is no business yet. */
+async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
+  const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
+  if (error) throw error;
+  return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
+}
+
+/** Products that cannot be read: the page then shows no product select, never no list. */
+function noProducts(err: unknown): Product[] {
+  console.error(`repositories: the products could not be read (${why(err)})`);
+  return [];
 }
 
 /** The workspace's installation: its stored id's, else its org's or the person's own. */
@@ -129,7 +130,7 @@ export async function loadRepositoriesPage(
     workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
     [repositories, owner, github, products] = await Promise.all([
-      rowsOf(db, workspace.id), ownerOf(db, workspace.id), githubOf(db, workspace.id), productsOf(db, workspace.id),
+      rowsOf(db, workspace.id), ownerOf(db, workspace.id).catch(asMember), githubOf(db, workspace.id), productsOf(db, workspace.id).catch(noProducts),
     ]);
   } catch (err) {
     console.error(`repositories: the page could not be read (${why(err)})`);

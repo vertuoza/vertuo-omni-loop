@@ -72,6 +72,12 @@ describe('POST /api/business/citations', () => {
     ]);
   });
 
+  it('a blank or null ref is sent as null', async () => {
+    const w = world();
+    for (const ref of ['   ', null]) await w.post({ ...CITE, ref });
+    expect(w.log.map((c) => c.ref)).toEqual([null, null]);
+  });
+
   it('403 for a repository outside the caller\'s workspaces, and nothing appended', async () => {
     const w = world();
     const { status, body } = await w.post(CITE, 'carl-token');
@@ -85,6 +91,9 @@ describe('POST /api/business/citations', () => {
     for (const body of [
       'not json', [], { ...CITE, repo: 'widgets' }, { ...CITE, ids: [] }, { ...CITE, ids: 'rival#4' },
       { ...CITE, ids: [4] }, { ...CITE, by: '' }, { ...CITE, by: undefined }, { ...CITE, ref: 9 },
+      'null', { ...CITE, repo: 7 }, { ...CITE, repo: `acme/${'w'.repeat(200)}` }, { ...CITE, ids: [''] },
+      { ...CITE, ids: ['r'.repeat(41)] }, { ...CITE, ids: Array.from({ length: 101 }, () => 'rival#4') },
+      { ...CITE, by: '   ' }, { ...CITE, by: 'b'.repeat(81) }, { ...CITE, ref: {} },
     ]) {
       expect((await w.post(body)).status, JSON.stringify(body)).toBe(400);
     }

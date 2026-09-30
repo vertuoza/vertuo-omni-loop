@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  businessReducer, citationLine, claimOf, displayId, hasProducts, initialState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
+  businessReducer, citationLine, claimOf, displayId, hasProducts, initialBusinessState, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
   sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product,
 } from './model';
 
@@ -115,7 +115,7 @@ describe('the size slider', () => {
 describe('the page\'s state', () => {
   it('keeps a saved claim\'s citations, and adds a new one', () => {
     const cited = claim('offering', 'ERP', { cited: 3, lastBy: 'think-big' });
-    let s = businessReducer(initialState([cited]), { type: 'busy' });
+    let s = businessReducer(initialBusinessState([cited]), { type: 'busy' });
     s = businessReducer(s, { type: 'saved', claim: { ...cited, state: 'rejected', cited: 0, lastBy: null } });
     const fresh = claim('offering', 'CRM');
     s = businessReducer(s, { type: 'saved', claim: fresh });
@@ -125,14 +125,14 @@ describe('the page\'s state', () => {
   });
 
   it('shows a refusal, and lets the slider go back to the stored size', () => {
-    let s = businessReducer(initialState([]), { type: 'size-draft', stops: [6, 2] });
+    let s = businessReducer(initialBusinessState([]), { type: 'size-draft', stops: [6, 2] });
     expect(s.sizeDraft).toEqual([2, 6]);
     s = businessReducer(businessReducer(s, { type: 'busy' }), { type: 'refused', message: 'no' });
     expect(s).toMatchObject({ busy: false, refusal: 'no', sizeDraft: null });
   });
 
   it('folds the picks away on Skip, storing nothing, and opens them again', () => {
-    const s = businessReducer(businessReducer(initialState([]), { type: 'type', kind: 'rival' }), { type: 'skip' });
+    const s = businessReducer(businessReducer(initialBusinessState([]), { type: 'type', kind: 'rival' }), { type: 'skip' });
     expect(s).toMatchObject({ skipped: true, typing: null, claims: [] });
     expect(businessReducer(s, { type: 'unskip' }).skipped).toBe(false);
   });
@@ -140,7 +140,7 @@ describe('the page\'s state', () => {
   it('adds the suggested rivals as guesses, and keeps a claim it already holds with its citations', () => {
     const kept = claim('rival', 'Alpha', { state: 'proposed', source: 'suggestion', cited: 2, lastBy: 'think-big' });
     const beta = claim('rival', 'Beta', { state: 'proposed', source: 'suggestion' });
-    const s = businessReducer(initialState([kept]), { type: 'suggested', claims: [{ ...kept, cited: 0, lastBy: null }, beta] });
+    const s = businessReducer(initialBusinessState([kept]), { type: 'suggested', claims: [{ ...kept, cited: 0, lastBy: null }, beta] });
     expect(s.claims).toEqual([kept, beta]);
     expect(s.busy).toBe(false);
   });
@@ -174,9 +174,9 @@ describe('products (PRD 748 s4)', () => {
   });
 
   it('starts on the first product, adds one and shows it, and switches between them', () => {
-    let s = initialState([region], [ERP]);
+    let s = initialBusinessState([region], [ERP]);
     expect(s).toMatchObject({ products: [ERP], current: 'p-1', adding: false });
-    expect(initialState([]).current).toBeNull();
+    expect(initialBusinessState([]).current).toBeNull();
     s = businessReducer(s, { type: 'add-product' });
     expect(s.adding).toBe(true);
     s = businessReducer(businessReducer(s, { type: 'busy' }), { type: 'product-added', product: LOOP });

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { businessReducer, initialState, type BusinessAction, type Claim, type Product } from './model';
+import { businessReducer, initialBusinessState, type BusinessAction, type Claim, type Product } from './model';
 import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, type BusinessScreenView } from './BusinessScreen';
 import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
 
@@ -25,7 +25,7 @@ const FILLED: Claim[] = [
 ];
 
 const render = (claims: Claim[], { demo = false, actions = [] as BusinessAction[] } = {}) =>
-  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialState(claims)), demo }));
+  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims)), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
 const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
@@ -157,7 +157,7 @@ describe('a filled business', () => {
 const VERTUOZA: Product = { id: 'p-1', name: 'Vertuoza' };
 const LOOP: Product = { id: 'p-2', name: 'Omni Loop' };
 const renderProducts = (claims: Claim[], products: Product[], actions: BusinessAction[] = []) =>
-  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialState(claims, products)) }));
+  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims, products)) }));
 
 describe('products (PRD 748 s4)', () => {
   const TWO: Claim[] = [
