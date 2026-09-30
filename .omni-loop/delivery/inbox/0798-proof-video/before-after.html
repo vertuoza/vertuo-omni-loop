@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proof video</title>
+<style>
+/* Layout: three moments (the feature PR, the PRD page, the brainstorm), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#ffffff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14132e;--termInk:#e7e8ff;--termMuted:#9a9cc9;
+ --shadow:0 1px 0 rgba(23,21,61,.04),0 14px 36px -18px rgba(23,21,61,.35);
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:36px}
+header h1{font:900 30px/1.05 var(--display);letter-spacing:.04em;text-transform:uppercase;margin:0}
+header p{margin:6px 0 0;color:var(--muted);max-width:75ch}
+.moment{display:grid;gap:12px}
+.moment>h2{margin:0;font-size:20px;text-wrap:balance}
+.moment>p{margin:0;color:var(--muted);max-width:80ch}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.pair{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;min-width:0;align-content:start}
+.tag{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.head{padding:12px 14px;border-bottom:2px solid var(--lineStrong)}
+.head h3{margin:0;font-size:17px;line-height:1.25}
+.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 10px;border-bottom:1px solid var(--line);font-size:13px}
+.tabs span{padding:8px 10px;color:var(--muted);white-space:nowrap}
+.tabs .on{color:var(--ink);font-weight:700;border-bottom:3px solid var(--plasma)}
+.main{background:var(--ground);padding:14px;display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.k{font:700 11px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gh{padding:12px 14px;display:grid;gap:10px}
+.cm{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.av{width:28px;height:28px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);display:grid;place-items:center;font:700 11px/1 var(--mono);color:var(--muted)}
+.bubble{border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.bubble .by{background:var(--sunk);padding:5px 10px;font-size:12px;color:var(--muted)}
+.bubble .tx{padding:8px 10px;font-size:14px;display:grid;gap:6px}
+.bubble.bot{border-color:var(--plasma)}
+.bubble.bot .by{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.bubble p{margin:0}
+.row{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;font-size:14px}
+.ok{color:var(--green);font-weight:700}.bad{color:var(--red);font-weight:700}.na{color:var(--muted);font-weight:700}
+.note{font:12px/1.4 var(--mono);color:var(--red)}
+.lk{color:var(--plasma);font-weight:700}
+.gif{border-radius:8px;overflow:hidden;max-width:320px;border:1px solid var(--line)}
+.gif svg{display:block;width:100%;height:auto}
+.video{border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--term)}
+.video svg{display:block;width:100%;height:auto}
+.crit{display:grid;gap:8px}
+.crit h4{margin:0;font-size:14px;display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px}
+.fold{font:12px/1.4 var(--mono);color:var(--muted)}
+.counts{display:flex;flex-wrap:wrap;gap:8px;font:700 12px/1 var(--mono)}
+.empty{color:var(--muted);font-size:14px}
+.term{background:var(--term);color:var(--termInk);font:13px/1.55 var(--mono);padding:12px 14px;border-radius:12px;overflow-x:auto;white-space:pre}
+.term .m{color:var(--termMuted)}.term .q{color:var(--plasma)}
+@media (prefers-reduced-motion:no-preference){.play{animation:p 2.4s ease-in-out infinite}@keyframes p{50%{opacity:.55}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>Proof video</h1>
+<p>PRD 798. <code>/omni:prove &lt;n&gt;</code> films each acceptance criterion on the preview with Playwright, keeps the clips on the PRD's page, and comments ✓/✗ on the feature PR. It never runs by default and never blocks a PR.</p>
+</header>
+
+<section class="moment">
+<h2>1. The feature PR, when it is ready</h2>
+<p>Today the reviewer has the diff and the checks. The evidence that it works is whatever someone clicked through by hand, if anyone did.</p>
+<div class="pair">
+<div class="col"><span class="tag">Today</span>
+<div class="win"><div class="head"><h3>feat(business): evidence draft · #775</h3></div>
+<div class="gh">
+<div class="cm"><span class="av">PD</span><div class="bubble"><div class="by">reviewer</div><div class="tx"><p>Does the draft actually appear after the recheck? Could someone record it?</p></div></div></div>
+<div class="cm"><span class="av">DV</span><div class="bubble"><div class="by">developer</div><div class="tx"><p>I'll try it on the preview tomorrow and drag a screen recording in here.</p></div></div></div>
+</div></div></div>
+<div class="col"><span class="tag after">After</span>
+<div class="win"><div class="head"><h3>feat(business): evidence draft · #775</h3></div>
+<div class="gh">
+<div class="cm"><span class="av">Ω</span><div class="bubble bot"><div class="by">Proof — 3f9a2c1</div><div class="tx">
+<div class="row"><span class="ok">✓</span><span>The Business page shows the evidence draft after a recheck</span></div>
+<div class="row"><span class="ok">✓</span><span>A draft can be edited and saved</span></div>
+<div class="row"><span class="bad">✗</span><span>The size slider keeps its value on reload<br><span class="note">expected "L", saw "M"</span></span></div>
+<div class="row"><span class="na">—</span><span>The recheck secret is set in production <span class="fold">(not filmable)</span></span></div>
+<p><span class="lk">Watch every clip on the PRD page → Proof</span></p>
+<div class="gif"><svg viewBox="0 0 320 180" role="img" aria-label="A GIF of the first clip: the Business page with the evidence draft"><rect width="320" height="180" fill="var(--term)"/><rect x="14" y="14" width="292" height="18" rx="4" fill="var(--sunk)"/><circle cx="24" cy="23" r="3" fill="var(--red)"/><rect x="36" y="20" width="120" height="6" rx="3" fill="var(--lineStrong)"/><rect x="14" y="42" width="70" height="124" rx="6" fill="var(--surface)" opacity=".85"/><rect x="94" y="42" width="212" height="40" rx="6" fill="var(--surface)"/><rect x="104" y="54" width="120" height="8" rx="4" fill="var(--lineStrong)"/><rect x="104" y="68" width="80" height="6" rx="3" fill="var(--line)"/><rect x="94" y="90" width="212" height="76" rx="6" fill="var(--surface)"/><rect x="104" y="102" width="150" height="7" rx="3" fill="var(--line)"/><rect x="104" y="116" width="110" height="7" rx="3" fill="var(--line)"/><rect x="232" y="138" width="62" height="18" rx="9" fill="var(--plasma)"/><path class="play" d="M258 144 l10 8 -4 1 3 6 -3 1 -3 -6 -3 3z" fill="var(--onPlasma)" stroke="var(--ink)" stroke-width="1"/></svg></div>
+</div></div></div>
+</div></div></div>
+</div>
+</section>
+
+<section class="moment">
+<h2>2. The PRD's page on the Omni app</h2>
+<p>A Proof tab appears once a run exists: one player per filmed criterion, its verdict, and the Playwright script behind it. Older runs are chosen with the version picker, as spec versions are.</p>
+<div class="pair">
+<div class="col"><span class="tag">Today</span>
+<div class="win"><div class="tabs"><span class="on">Spec</span><span>Plan</span><span>Before/after</span><span>Questions</span><span>Outbox</span></div>
+<div class="main"><div class="card"><span class="k">Spec · v3</span><p class="empty">The spec's text. Nothing shows that it works.</p></div></div></div></div>
+<div class="col"><span class="tag after">After</span>
+<div class="win"><div class="tabs"><span>Spec</span><span>Plan</span><span>Before/after</span><span>Questions</span><span>Outbox</span><span class="on">Proof</span></div>
+<div class="main">
+<div class="card"><span class="k">Run 2 · 3f9a2c1 · preview · 30 Sep</span><div class="counts"><span class="ok">✓ 2</span><span class="bad">✗ 1</span><span class="na">— 1</span></div></div>
+<div class="card crit"><h4><span class="ok">✓</span><span>The Business page shows the evidence draft after a recheck</span></h4><div class="video"><svg viewBox="0 0 320 196" role="img" aria-label="A video player showing the first criterion's clip"><rect width="320" height="196" fill="var(--term)"/><g transform="translate(0,0)"><rect x="14" y="14" width="292" height="18" rx="4" fill="var(--sunk)"/><circle cx="24" cy="23" r="3" fill="var(--red)"/><rect x="36" y="20" width="120" height="6" rx="3" fill="var(--lineStrong)"/><rect x="14" y="42" width="70" height="124" rx="6" fill="var(--surface)" opacity=".85"/><rect x="94" y="42" width="212" height="40" rx="6" fill="var(--surface)"/><rect x="104" y="54" width="120" height="8" rx="4" fill="var(--lineStrong)"/><rect x="104" y="68" width="80" height="6" rx="3" fill="var(--line)"/><rect x="94" y="90" width="212" height="76" rx="6" fill="var(--surface)"/><rect x="104" y="102" width="150" height="7" rx="3" fill="var(--line)"/><rect x="104" y="116" width="110" height="7" rx="3" fill="var(--line)"/><rect x="232" y="138" width="62" height="18" rx="9" fill="var(--plasma)"/><path class="play" d="M258 144 l10 8 -4 1 3 6 -3 1 -3 -6 -3 3z" fill="var(--onPlasma)" stroke="var(--ink)" stroke-width="1"/></g><rect x="0" y="180" width="320" height="16" fill="var(--sunk)"/><path d="M8 184 l7 4 -7 4z" fill="var(--ink)"/><rect x="24" y="187" width="260" height="3" rx="1.5" fill="var(--line)"/><rect x="24" y="187" width="96" height="3" rx="1.5" fill="var(--plasma)"/><text x="290" y="191" font-size="8" font-family="monospace" fill="var(--muted)">0:14</text></svg></div><span class="fold">▸ Script · 1-evidence-draft.spec.ts</span></div>
+<div class="card crit"><h4><span class="bad">✗</span><span>The size slider keeps its value on reload</span></h4><span class="note">expected "L", saw "M"</span><span class="fold">▸ Video · ▸ Script · 3-slider-reload.spec.ts</span></div>
+</div></div></div>
+</div>
+</section>
+
+<section class="moment">
+<h2>3. The brainstorm, and the run</h2>
+<p>When the repository has <code>proof.url</code> set, the brainstorm asks one more question. A yes puts <code>proof: video</code> in the spec, and <code>/omni:yolo</code> films after it marks the PR ready. Anyone can also run <code>/omni:prove &lt;n&gt;</code> by hand.</p>
+<div class="pair">
+<div class="col"><span class="tag">Today</span>
+<div class="term"><span class="m">/omni:yolo 775</span>
+…
+feature PR #775 marked ready
+<span class="m">(no evidence; the reviewer checks by hand)</span></div></div>
+<div class="col"><span class="tag after">After</span>
+<div class="term"><span class="q">? Record a proof video once it ships?</span>  › Yes
+<span class="m">spec.md: proof: video</span>
+…
+<span class="m">/omni:yolo 775</span>
+feature PR #775 marked ready
+<span class="m">/omni:prove 775</span>
+preview https://…-git-feat-evidence-draft.vercel.app
+filmed 3 of 4 criteria · ✓ 2 ✗ 1 — 1
+proof pushed: https://…/prd/…#proof
+commented on #775</div></div>
+</div>
+</section>
+</div>
+</body>
+</html>
