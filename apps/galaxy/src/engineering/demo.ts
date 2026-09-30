@@ -6,7 +6,8 @@ import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type Sort
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
-// would be, with a member or two for their heroes. Fixed: the same `now` draws the same board. Given a
+// would be, with a member or two for their heroes, the loop's sub-PRs into feature branches and a weekly
+// develop → main promotion, which count nowhere but the sub-PR line (PRD 714). Fixed: the same `now` draws the same board. Given a
 // repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
@@ -42,6 +43,30 @@ function pullRequestOf(i: number, now: Date): PullRequestRow {
     repo: TRACKED[i % 2], number: 100 + i, author, authorIsBot: author === OMNI_MAN, openedAt: opened.toISOString(),
     mergedAt: done, closedAt: done, mergedBy: merged ? person(i + 2) : null,
     commits: 1 + (i % 6), additions: 20 + ((i * 37) % 400), deletions: 5 + ((i * 13) % 120), omniSigned: isSigned(i),
+    base: 'main', head: `feat/work-${i}`,
+  };
+}
+
+/** The i-th of the loop's sub-PRs (PRD 714): signed, into a feature branch, merged within the hour by
+ * who ran the loop. They count on the Omni Loop panel's sub-PR line alone. */
+function subPrOf(i: number, now: Date): PullRequestRow {
+  const opened = new Date(now.getTime() - (i * 5 + 2) * HOUR);
+  const merged = new Date(opened.getTime() + (20 + (i % 30)) * 60_000).toISOString();
+  const topic = `feat/demo-${Math.floor(i / 4)}`;
+  return {
+    repo: TRACKED[i % 2], number: 300 + i, author: person(i), authorIsBot: false, openedAt: opened.toISOString(),
+    mergedAt: merged, closedAt: merged, mergedBy: person(i), commits: 2, additions: 60, deletions: 10, omniSigned: true,
+    base: topic, head: `${topic}--s${(i % 4) + 1}`,
+  };
+}
+
+/** A promotion from develop into main, once a week: counted nowhere. */
+function promotionOf(i: number, now: Date): PullRequestRow {
+  const opened = new Date(now.getTime() - (i * 7 * 24 + 30) * HOUR);
+  const merged = new Date(opened.getTime() + HOUR).toISOString();
+  return {
+    repo: TRACKED[0], number: 400 + i, author: 'dora', authorIsBot: false, openedAt: opened.toISOString(), mergedAt: merged, closedAt: merged,
+    mergedBy: 'dora', commits: 30, additions: 2_000, deletions: 400, omniSigned: true, base: 'main', head: 'develop',
   };
 }
 
@@ -51,7 +76,9 @@ function reviewOf(i: number, now: Date): ReviewRow {
 
 function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[] } {
   const all = Array.from({ length: 90 }, (_, i) => i);
-  return { pullRequests: all.map((i) => pullRequestOf(i, now)), reviews: all.map((i) => reviewOf(i, now)) };
+  const subs = Array.from({ length: 200 }, (_, i) => subPrOf(i, now));
+  const promotions = Array.from({ length: 7 }, (_, i) => promotionOf(i, now));
+  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions], reviews: all.map((i) => reviewOf(i, now)) };
 }
 
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard;

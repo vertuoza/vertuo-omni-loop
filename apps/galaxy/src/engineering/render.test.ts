@@ -19,7 +19,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 let serial = 0;
 const pr = (over: Partial<PullRequestRow> = {}): PullRequestRow => ({
   repo: 'acme/widgets', number: ++serial, author: 'ada', authorIsBot: false, openedAt: '2026-09-24T08:00:00Z', mergedAt: null, closedAt: null,
-  mergedBy: null, commits: 0, additions: 0, deletions: 0, omniSigned: false, ...over,
+  mergedBy: null, commits: 0, additions: 0, deletions: 0, omniSigned: false, base: 'main', head: 'feat/thing', ...over,
 });
 const mergedAfter = (hours: number, over: Partial<PullRequestRow> = {}) => {
   const at = new Date(Date.parse('2026-09-24T08:00:00Z') + hours * HOUR).toISOString();
@@ -60,6 +60,13 @@ describe('the Engineering board, with data', () => {
     expect(t).toContain('Omni Loop 1 of 2 merged PRs signed by Omni-man (50%)');
     expect(t).toContain('Median time to merge: 4.0 h signed vs 20.0 h the rest');
     expect(t).toContain('Lines signed: +10 −3');
+  });
+
+  it('adds the sub-PRs merged into feature branches under the lines, 0 included (PRD 714)', () => {
+    expect(t).toContain('Lines signed: +10 −3 + 0 sub-PRs merged into feature branches');
+    const sub = mergedAfter(1, { omniSigned: true, base: 'feat/loop-health', head: 'feat/loop-health--s1' });
+    expect(text(render(board([...ROWS, sub, { ...sub, number: 999 }])))).toContain('+ 2 sub-PRs merged into feature branches');
+    expect(text(render(board([sub])))).toContain('Omni Loop No PR merged in this period + 1 sub-PR merged into feature branches');
   });
 
   it('draws merged per day with the signed part, and the list a screen reader reads in its place', () => {
@@ -162,6 +169,7 @@ describe('a page per repository (PRD 645 s2)', () => {
 
   it('counts that repository alone, and has no Repositories table', () => {
     expect(t).toContain('PRs merged 1');
+    expect(t).toContain('+ 0 sub-PRs merged into feature branches');
     expect(t).toContain('Most merged');
     expect(t).toContain('Omni Loop');
     expect(t).toContain('PRs merged per day');
@@ -207,6 +215,11 @@ describe('the demo', () => {
       expect(view.kind === 'board' && view.board !== UNREADABLE && view.board.kind).toBe('board');
       expect(render(view)).toBe(render(demoEngineeringBoard(period, 'merged', NOW)));
     }
+  });
+
+  it('shows the sub-PR line, with sub-PRs merged into feature branches (PRD 714)', () => {
+    const view = demoEngineeringBoard('7d', 'merged', NOW);
+    expect(text(render(view))).toMatch(/\+ [1-9]\d* sub-PRs merged into feature branches/);
   });
 
   it('shows both kinds of face: a hero and a GitHub photo', () => {

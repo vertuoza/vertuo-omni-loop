@@ -12,8 +12,11 @@ import type { Face } from '../people/face';
 // - time to merge: merged_at − opened_at, a median over the PRs merged in the window;
 // - commits and lines: summed over the PRs merged in the window;
 // - reviews: first_at in the window, once per reviewer per PR, never by the PR's author;
-// - every base branch counts. Bots count in the tiles and the table, never in the people lists;
-//   Omni-man has the Omni Loop panel instead.
+// - only merges into main count (PRD 714): a pull request counts when its base is main, master or
+//   develop and its head is none of them (a promotion counts nowhere; a row with no stored head is no
+//   promotion). The loop's sub-PRs, into feature branches, count only on the Omni Loop panel's sub-PR
+//   line. Reviews still count on every base branch. Bots count in the tiles and the table, never in
+//   the people lists; Omni-man has the Omni Loop panel instead.
 
 /** Omni-man's GitHub login: the Omni Loop App's bot. */
 export const OMNI_MAN = 'omni-loop-invader[bot]';
@@ -32,7 +35,21 @@ export interface PullRequestRow {
   additions: number;
   deletions: number;
   omniSigned: boolean;
+  /** The base branch; optional so a profile's rows (PRD 698) build without it. */
+  base?: string | null;
+  /** The head branch; null until the collector re-reads the pull request (PRD 714). */
+  head?: string | null;
 }
+
+/** The branches a pull request must merge into to count on the board (PRD 714): a fixed set. */
+export const MAIN_BRANCHES: readonly string[] = ['main', 'master', 'develop'];
+const isMain = (branch: string | null | undefined) => typeof branch === 'string' && MAIN_BRANCHES.includes(branch);
+/** A promotion: its head is itself a main branch, whatever its base. It counts nowhere. */
+const isPromotion = (p: PullRequestRow) => isMain(p.head);
+/** Counts on the board: into a main branch, and not a promotion. */
+export const countsOnBoard = (p: PullRequestRow) => isMain(p.base) && !isPromotion(p);
+/** One of the loop's sub-PRs: signed, into any other base, and not a promotion. */
+const isSubPr = (p: PullRequestRow) => p.omniSigned && !isMain(p.base) && !isPromotion(p);
 
 /** One row of public.pull_request_reviews: a reviewer's first review of a PR. */
 export interface ReviewRow {
@@ -84,6 +101,8 @@ export interface OmniPanel {
   medianRest: number | null;
   additions: number;
   deletions: number;
+  /** The signed pull requests merged in the period into any other base than main, master or develop. */
+  subPrsMerged: number;
 }
 
 export interface MergedDay { date: string; signed: number; rest: number }
@@ -202,7 +221,8 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     const t = Date.parse(at);
     return t >= from && t < to;
   };
-  const prs = read.pullRequests.filter((p) => tracked.has(p.repo.toLowerCase()));
+  const all = read.pullRequests.filter((p) => tracked.has(p.repo.toLowerCase()));
+  const prs = all.filter(countsOnBoard);
   const merged = prs.filter((p) => inWindow(p.mergedAt));
 
   const { repo: _all, lines: _lines, ...tiles } = statsOf('', prs, inWindow);
@@ -214,7 +234,8 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     sort,
   );
 
-  const authorOf = new Map(prs.map((p) => [`${p.repo.toLowerCase()}#${p.number}`, p.author?.toLowerCase() ?? null]));
+  // Reviews count on every base branch: a review is a person's act, whatever the pull request.
+  const authorOf = new Map(all.map((p) => [`${p.repo.toLowerCase()}#${p.number}`, p.author?.toLowerCase() ?? null]));
   const reviews = read.reviews.filter((r) =>
     tracked.has(r.repo.toLowerCase()) && inWindow(r.firstAt) && authorOf.get(`${r.repo.toLowerCase()}#${r.number}`) !== r.reviewer.toLowerCase());
   const people = {
@@ -232,6 +253,7 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     medianRest: median(merged.filter((p) => !p.omniSigned).map(toMerge)),
     additions: signed.reduce((s, p) => s + p.additions, 0),
     deletions: signed.reduce((s, p) => s + p.deletions, 0),
+    subPrsMerged: all.filter((p) => isSubPr(p) && inWindow(p.mergedAt)).length,
   };
 
   const perDay = window.days.map((date) => ({ date, signed: 0, rest: 0 }));
