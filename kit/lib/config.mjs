@@ -93,6 +93,8 @@ export const ConfigSchema = z
       update: text.default('chore/omni-update-{version}'),
       // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
       megaInvade: text.default('docs/omni-mega-invade'),
+      // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
+      concept: text.default('docs/concept-{topic}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -121,6 +123,8 @@ export const ConfigSchema = z
       riskHigh: text.default('omni:risk-high'),
       riskMedium: text.default('omni:risk-medium'),
       riskLow: text.default('omni:risk-low'),
+      // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
+      concept: text.default('omni:concept'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
