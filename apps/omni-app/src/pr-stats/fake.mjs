@@ -151,15 +151,22 @@ function asGraphql(pull) {
     mergedAt: pull.merged_at ?? null,
     closedAt: pull.closed_at ?? null,
     mergedBy: actor(pull.merged_by),
-    baseRefName: pull.base?.ref ?? null,
-    headRefName: pull.head?.ref ?? null,
-    isDraft: Boolean(pull.draft),
-    labels: { nodes: (pull.labels ?? []).map((label) => ({ name: label.name })) },
+    ...loopFactsOf(pull),
     body: pull.body ?? '',
     additions: pull.additions,
     deletions: pull.deletions,
     commits: { totalCount: pull.commits, nodes: messages.map((message, i) => ({ commit: { message, committedDate: dates[i] ?? pull.created_at } })).slice(-100) },
     reviews: { nodes: (pull.reviews ?? []).slice(0, 100).map((review) => ({ author: actor(review.user), submittedAt: review.submitted_at ?? null })) },
+  };
+}
+
+/** The branches, draft, labels and label events of a REST-shaped pull request, as GraphQL answers them. */
+function loopFactsOf(pull) {
+  return {
+    baseRefName: pull.base?.ref ?? null,
+    headRefName: pull.head?.ref ?? null,
+    isDraft: Boolean(pull.draft),
+    labels: { nodes: (pull.labels ?? []).map((label) => ({ name: label.name })) },
     timelineItems: { nodes: (pull.label_events ?? []).slice(0, 100).map((event) => ({ createdAt: event.created_at, label: { name: event.name } })) },
   };
 }

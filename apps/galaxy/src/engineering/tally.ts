@@ -62,12 +62,12 @@ export interface PullRequestRow {
 }
 
 /** The branches a pull request must merge into to count on the board (PRD 714): a fixed set. */
-export const MAIN_BRANCHES: readonly string[] = ['main', 'master', 'develop'];
+const MAIN_BRANCHES: readonly string[] = ['main', 'master', 'develop'];
 const isMain = (branch: string | null | undefined) => typeof branch === 'string' && MAIN_BRANCHES.includes(branch);
 /** A promotion: its head is itself a main branch, whatever its base. It counts nowhere. */
 const isPromotion = (p: PullRequestRow) => isMain(p.head);
 /** Counts on the board: into a main branch, and not a promotion. */
-export const countsOnBoard = (p: PullRequestRow) => isMain(p.base) && !isPromotion(p);
+const countsOnBoard = (p: PullRequestRow) => isMain(p.base) && !isPromotion(p);
 /** One of the loop's sub-PRs: signed, into any other base, and not a promotion. */
 const isSubPr = (p: PullRequestRow) => p.omniSigned && !isMain(p.base) && !isPromotion(p);
 
@@ -76,14 +76,14 @@ const isSubPr = (p: PullRequestRow) => p.omniSigned && !isMain(p.base) && !isPro
 /** The kit's defaults, as every repository running the loop has them unless it renamed them. */
 const KIT = parseConfig('kit: 1\n');
 /** The label a stuck pull request carries: omni:needs-fix. */
-export const NEEDS_FIX_LABEL: string = KIT.labels.needsFix;
+const NEEDS_FIX_LABEL: string = KIT.labels.needsFix;
 /** How old a claim with nothing beyond it is before it reads as stale: the kit's 60 minutes. */
-export const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
+const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
 /** The most rows Loop health lists right now. */
-export const HEALTH_ROWS = 10;
+const HEALTH_ROWS = 10;
 
 /** The status comment's state of a run that ended held: how `/omni:yolo` and `/omni:pr` leave one. */
-export const HELD_STATE = 'stuck';
+const HELD_STATE = 'stuck';
 
 export type HealthKind = 'stuck' | 'held' | 'stale-claim';
 
@@ -106,7 +106,7 @@ const KINDS: readonly { kind: HealthKind; meets: (p: PullRequestRow, now: Date) 
 ];
 
 /** The open pull requests the loop has stuck right now, of `prs` (already narrowed to the tracked repositories). */
-export function loopHealthOf(prs: readonly PullRequestRow[], now: Date): LoopHealth {
+function loopHealthOf(prs: readonly PullRequestRow[], now: Date): LoopHealth {
   const found: HealthRow[] = [];
   for (const p of prs) {
     if (!isOpen(p)) continue;

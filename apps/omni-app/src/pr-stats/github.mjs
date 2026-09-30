@@ -31,13 +31,13 @@ const REVIEWS_READ = 100;
 /** Label events read per pull request, the first ones, for when `omni:needs-fix` was first added (PRD 714 s4). */
 const LABEL_EVENTS_READ = 100;
 /** The label a stuck pull request carries, the kit's default: `omni:needs-fix`. */
-export const NEEDS_FIX_LABEL = parseConfig('kit: 1\n').labels.needsFix;
+const NEEDS_FIX_LABEL = parseConfig('kit: 1\n').labels.needsFix;
 /** Comments read per pull request for its status comment, the first ones: `/omni:pr` posts it early. */
 const COMMENTS_READ = 100;
 /** The branches a status comment is read on (PRD 714): the Engineering board's fixed set. */
 const MAIN_BRANCHES = ['main', 'master', 'develop'];
 /** The marker of the loop's status comment, with the kit's default prefix: `<!-- omni-outbox-status -->`. */
-export const STATUS_MARKER = makeMarkers(parseConfig('kit: 1\n').markers.prefix).status;
+const STATUS_MARKER = makeMarkers(parseConfig('kit: 1\n').markers.prefix).status;
 /** The share of a budget the collector always leaves. */
 const BUDGET_FLOOR = 0.5;
 /** The most points one of the collector's queries can cost; a query is sent only with this much above the floor. */
@@ -172,7 +172,7 @@ async function readStatusStates(octokit, budget, { owner, repo, numbers }) {
 }
 
 /** The value of a status comment's `- state: <value>` line, or null without one. */
-export function stateOf(body) {
+function stateOf(body) {
   return /^\s*-?\s*state:\s*(.+?)\s*$/m.exec(body)?.[1] ?? null;
 }
 
@@ -196,18 +196,25 @@ function recordOf(pull, { workspaceId, fullName }) {
     author_is_bot: Boolean(pull.author) && isBot({ login: author, type: pull.author.__typename }),
     opened_at: pull.createdAt,
     ...closing(pull),
-    base: pull.baseRefName ?? null,
-    head: pull.headRefName ?? null,
-    draft: Boolean(pull.isDraft),
-    labels: (pull.labels?.nodes ?? []).map((label) => label?.name).filter(Boolean),
-    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
-    needs_fix_at: firstNeedsFix(pull),
+    ...loopFacts(pull, commits),
     commits: commits.totalCount,
     additions: pull.additions ?? 0,
     deletions: pull.deletions ?? 0,
     omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) }),
   };
   return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
+}
+
+/** What Loop health reads of a pull request: its branches, draft, labels, last commit and first `omni:needs-fix`. */
+function loopFacts(pull, commits) {
+  return {
+    base: pull.baseRefName ?? null,
+    head: pull.headRefName ?? null,
+    draft: Boolean(pull.isDraft),
+    labels: (pull.labels?.nodes ?? []).map((label) => label?.name).filter(Boolean),
+    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
+    needs_fix_at: firstNeedsFix(pull),
+  };
 }
 
 /** When `omni:needs-fix` was first added to a pull request, of its label events; null when never. */
