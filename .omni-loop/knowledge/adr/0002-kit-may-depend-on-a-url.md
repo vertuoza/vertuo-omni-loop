@@ -52,6 +52,20 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    caller cannot read), 413 and 503. Only the three files, the repository's name, the PRD number, the
    title and the Claude session id (`CLAUDE_CODE_SESSION_ID`) leave the machine. An older kit makes
    neither call; a server without them answers 404, which the kit reports as `refused (404)`.
+   Since PRD 757, the kit makes one more call, with the bearer token, when this computer is signed in
+   and `dossier.enabled` is true with `ask.url` set, whether ask mode is on or off (`omni heartbeat`,
+   run by the plugin's `PostToolUse` hook on every tool and by its `SessionEnd` hook):
+   - `POST /api/ask/heartbeat {claudeSessionId, repo, work, ended?}` → `204` says a Claude session is
+     working. `work` is what it works on, found on this computer: `{kind: 'draft', draftId}`,
+     `{kind: 'prd' | 'visual' | 'bug', number}`, or `null` for the session alone; `ended: true` comes
+     only from the session's end, with `work: null`. It is sent at most once per 60 seconds per
+     Claude session, with a 2-second limit in all and no retry.
+
+   Only the Claude session id, the repository's name, the work's kind and number (or the draft's id)
+   and the time of the call leave the machine: no tool name, no path, no command, no transcript
+   text. Any failure — unreachable, 401, a 404 from a server older than the call, a 5xx, the limit —
+   exits 0 in silence: the hook never blocks or fails a tool. The call names a heartbeat and
+   working, never the game.
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The

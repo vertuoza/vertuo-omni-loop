@@ -12,6 +12,10 @@
 // With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
 // returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
 //
+// It honours `POST /api/ask/heartbeat` (PRD 757): a body of exactly `claudeSessionId`, `repo`, `work`
+// and an optional `ended: true`, else 400; each accepted one is kept in `heartbeats`. With
+// `heartbeat`, it answers what `heartbeat(body)` returns, `{ status, delayMs }`; without it, 204.
+//
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.mjs [--port <p>] [--answer first|none] [--token <t>]
 //              prints one JSON line `{ url, host, sessionId, accessToken, refreshToken }`, then one
@@ -54,6 +58,21 @@ export function firstOptionAnswers(questions) {
   return answers;
 }
 
+const HEARTBEAT_FIELDS = ['claudeSessionId', 'repo', 'work', 'ended'];
+
+/** A heartbeat's body as the contract has it: its session, its repository, what it works on. */
+function isHeartbeat(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return false;
+  if (Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
+  if (typeof body.claudeSessionId !== 'string' || !body.claudeSessionId) return false;
+  if (typeof body.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return false;
+  if (body.ended !== undefined && body.ended !== true) return false;
+  const { work } = body;
+  if (work === null) return true;
+  if (work?.kind === 'draft') return Object.keys(work).length === 2 && typeof work.draftId === 'string' && work.draftId !== '';
+  return ['prd', 'visual', 'bug'].includes(work?.kind) && Object.keys(work).length === 2 && Number.isInteger(work.number) && work.number > 0;
+}
+
 const DOSSIER_KINDS = ['spec', 'plan', 'before-after'];
 const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest('hex');
 
@@ -70,6 +89,8 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *   place?: (repo: string) => ({ workspace: { slug: string, name: string } | null, reason: string | null }),
  *                                where a repository's questions land; absent: the call is a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
+ *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
+ *                                how a well-formed heartbeat is answered, and after how long
  * }} [options]
  */
 export async function startFakeAskServer({
@@ -85,6 +106,7 @@ export async function startFakeAskServer({
   artifactBytes = 512 * 1024,
   place = null,
   tokenExtras = {},
+  heartbeat = () => ({ status: 204 }),
 } = {}) {
   const access = new Set([accessToken]);
   const refresh = new Set([refreshToken]);
@@ -94,6 +116,7 @@ export async function startFakeAskServer({
   const waiters = new Map();
   const calls = [];
   const dossiers = new Map();
+  const heartbeats = [];
   let issued = 1;
   let denied = false;
   let nextId = 1;
@@ -229,6 +252,15 @@ export async function startFakeAskServer({
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       return json(response, 200, place(repo));
     }
+    if (method === 'POST' && path === '/api/ask/heartbeat') {
+      if (!isHeartbeat(body)) return json(response, 400, { error: 'malformed heartbeat' });
+      const { status = 204, delayMs = 0 } = heartbeat(body) ?? {};
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (status === 204) heartbeats.push(body);
+      if (response.destroyed) return undefined;
+      response.writeHead(status);
+      return response.end();
+    }
     if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {
       if (!sessions.has(match[1])) return json(response, 404, { error: 'not found' });
@@ -301,6 +333,8 @@ export async function startFakeAskServer({
     calls,
     sessions,
     rounds,
+    /** Every heartbeat accepted, its body as sent. */
+    heartbeats,
     /** Every dossier, by id: `{ id, repo, prd, title, claudeSessionId, versions: [{ kind, content, sha256 }] }`. */
     dossiers,
     openSession,

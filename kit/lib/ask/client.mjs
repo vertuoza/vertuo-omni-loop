@@ -3,7 +3,8 @@
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
 // them will do. Since PRD 459 it also asks where a repository's questions land (`GET
 // /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
-// screenshots an answer carries, from the signed links `wait` hands back: those carry no token.
+// screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
+// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`).
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -197,6 +198,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
      * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+    /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
+     * from the session's end. Answered 204. */
+    heartbeat: ({ claudeSessionId, repo, work, ended = false }) =>
+      call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
     findDossier: ({ repo, prd, kind = 'prd' }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
   };
