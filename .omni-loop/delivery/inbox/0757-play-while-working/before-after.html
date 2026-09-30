@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Play While Claude Works</title>
+<style>
+/* Layout: today beside after, as the PRD page draws them; the terminal line under each. */
+:root{
+  --bg:#ebe8f5;--page:#f3f1fb;--surface:#fff;--ink:#1d1b4a;--muted:#5b5a86;--line:#b9b6d6;
+  --plasma:#6b3fd6;--on-plasma:#fff;--yellow:#ffd84a;--on-yellow:#1d1b4a;
+  --void:#0b0a1f;--void-ink:#f4f2ff;--red:#ff3d5a;--cyan:#35e0ff;--green:#2fc26b;
+  --gb:#d9d4e8;--gb-edge:#b8b1cc;--lens:#2a2b55;--term:#0c0c0c;--term-ink:#d4d4d4;
+  --body:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12112a;--page:#1a1936;--surface:#232147;--ink:#ecebff;--muted:#a9a7d4;--line:#403e72;
+  --plasma:#a17bff;--on-plasma:#12112a;--gb:#3a3766;--gb-edge:#2a2850;--lens:#0f0e25;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12112a;--page:#1a1936;--surface:#232147;--ink:#ecebff;--muted:#a9a7d4;--line:#403e72;
+  --plasma:#a17bff;--on-plasma:#12112a;--gb:#3a3766;--gb-edge:#2a2850;--lens:#0f0e25;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);padding-inline:16px;padding-block:24px 40px}
+main{max-width:1180px;margin:0 auto;display:grid;gap:28px}
+h1{font-size:24px;margin:0;text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);max-width:72ch}
+.pair{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,500px),1fr))}
+.col{display:grid;gap:10px;min-width:0;align-content:start}
+.tag{font:800 11px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tag b{color:var(--plasma)}
+.page{background:var(--page);border:1px solid var(--line);border-radius:8px;overflow:hidden;position:relative;min-height:330px}
+.head{background:var(--surface);padding:12px 14px 0;border-bottom:1.5px solid var(--line)}
+.title{font-weight:800;font-size:15px;display:flex;gap:8px;align-items:center}
+.draft{background:var(--yellow);color:var(--on-yellow);font-size:10px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.06em}
+.num{color:var(--plasma)}
+.facts{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted);margin:8px 0;flex-wrap:wrap}
+.chip{border:1px solid var(--line);border-radius:10px;padding:1px 6px;font:10px var(--mono)}
+.chip.cur{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma);font-weight:800}
+.tabs{display:flex;gap:16px;font-weight:700;font-size:13px;padding-top:4px;overflow-x:auto}
+.tabs span{padding:6px 0;white-space:nowrap}.tabs .on{box-shadow:inset 0 -3px 0 var(--plasma)}
+.body{padding:14px}
+.empty{border:1.5px dashed var(--line);border-radius:6px;padding:12px;color:var(--muted);background:var(--surface);font-size:13px}
+.term{background:var(--term);color:var(--term-ink);font:12px/1.6 var(--mono);border-radius:6px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.term .g{color:#6bd48b}.term .d{color:#8a8a8a}
+.dock{position:absolute;right:12px;bottom:12px;display:grid;justify-items:end;gap:6px}
+.pill{background:var(--void);color:var(--void-ink);border-radius:18px;padding:7px 12px;font-weight:700;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.25);display:inline-flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.gb{background:var(--gb);border-radius:10px 10px 30px 10px;padding:9px;width:190px;box-shadow:inset -3px -3px 0 var(--gb-edge),0 6px 18px rgba(0,0,0,.25);position:relative}
+.gb .x{position:absolute;top:2px;right:7px;font:700 11px var(--mono);color:var(--muted)}
+.lens{background:var(--lens);border-radius:5px 5px 16px 5px;padding:9px}
+.screen{background:var(--void);aspect-ratio:10/9;max-width:100%;border-radius:2px;position:relative;overflow:hidden;color:var(--void-ink);font:700 8px/1.2 var(--mono)}
+.screen svg{position:absolute;inset:0;width:100%;height:100%}
+.hud{position:absolute;top:3px;left:5px;right:5px;display:flex;justify-content:space-between;color:var(--yellow)}
+.over{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(11,10,31,.72);color:var(--yellow);font-size:9px;letter-spacing:.06em}
+.over .btn{display:inline-block;margin-top:6px;background:var(--red);color:#fff;padding:3px 6px;border-radius:3px}
+.ctl{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.dpad{width:30px;height:30px;background:linear-gradient(var(--ink),var(--ink)) center/10px 30px no-repeat,linear-gradient(var(--ink),var(--ink)) center/30px 10px no-repeat}
+.ab{display:flex;gap:6px}.ab i{width:14px;height:14px;border-radius:50%;background:var(--red);display:block}.ab i+i{background:var(--plasma)}
+.states{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.state{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:10px;justify-items:center;min-width:0}
+.state h3{margin:0;font-size:13px;justify-self:start}
+.state p{margin:0;font-size:12px;color:var(--muted);justify-self:start}
+.same{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 18px}
+.same h2{font-size:15px;margin:0 0 6px}.same ul{margin:0;padding-left:18px;color:var(--muted)}
+h2.sec{font-size:17px;margin:0}
+</style></head><body><main>
+<header><h1>PRD 757 · Play while Claude works</h1>
+<p class="lead">While Claude works a long time on a PRD or a fix, its page offers Entropy Invaders in a corner Game Boy. The game pauses the moment Claude asks something.</p></header>
+
+<section class="pair" aria-label="Today beside after">
+  <div class="col">
+    <div class="tag">Today</div>
+    <div class="page">
+      <div class="head"><div class="title"><span class="draft">DRAFT</span>Readable long questions and designs shown in place</div>
+        <div class="facts"><span>STAGE</span><span class="chip">idea</span><span class="chip">PRD</span><span class="chip">inbox</span><b style="color:var(--ink)">Brainstorming</b><span class="chip">vertuoza/vertuo-omni-loop</span></div>
+        <div class="tabs"><span>Questions</span><span class="on">Before/after</span><span>Spec</span><span>Plan</span><span>Outbox</span><span>Retro</span></div></div>
+      <div class="body"><div class="empty">The before/after page has no version yet. It shows here once it is pushed, or once the page reads it from the repository.</div></div>
+    </div>
+    <div class="term"><span class="g">●</span> Follow along at https://…/prd/f163341d… — waiting for the exploration
+<span class="d">✻ Waiting for 1 background agent to finish</span></div>
+    <p class="lead" style="margin:0">Nothing on the page says Claude is working, and a <code>/omni:yolo</code> run that asks nothing never reaches the page at all.</p>
+  </div>
+
+  <div class="col">
+    <div class="tag"><b>After</b></div>
+    <div class="page">
+      <div class="head"><div class="title"><span class="num">PRD #757 ↗</span>Play while Claude works</div>
+        <div class="facts"><span>STAGE</span><span class="chip">idea</span><span class="chip">PRD</span><span class="chip">inbox</span><span class="chip cur">building</span><span class="chip">vertuoza/vertuo-omni-loop</span></div>
+        <div class="tabs"><span>Questions</span><span class="on">Before/after</span><span>Spec</span><span>Plan</span><span>Outbox</span><span>Retro</span></div></div>
+      <div class="body"><div class="empty">Version 1 of the before/after page…</div></div>
+      <div class="dock"><span class="pill"><span class="dot"></span>▶ Play while Claude works</span></div>
+    </div>
+    <div class="term"><span class="g">●</span> /omni:yolo 757 — wave 2 of 4
+<span class="d">✻ Waiting for 3 background agents to finish</span>
+<span class="d">  (every minute: omni heartbeat → the page knows it is working)</span></div>
+    <p class="lead" style="margin:0">The terminal sends one heartbeat a minute at most. The page shows the pill in the corner while Claude works and nothing waits for you.</p>
+  </div>
+</section>
+
+<section class="col" aria-label="The dock's states">
+  <h2 class="sec">The dock, opened</h2>
+  <div class="states">
+    <div class="state"><h3>Playing</h3>
+      <div class="gb"><span class="x">✕</span><div class="lens"><div class="screen">
+        <div class="hud"><span>SCORE 01 240</span><span>♥♥♥</span></div>
+        <svg viewBox="0 0 100 90" aria-hidden="true">
+          <g fill="#ff3d5a"><rect x="18" y="16" width="9" height="6"/><rect x="33" y="16" width="9" height="6"/><rect x="48" y="16" width="9" height="6"/><rect x="63" y="16" width="9" height="6"/></g>
+          <g fill="#35e0ff"><rect x="18" y="28" width="9" height="6"/><rect x="33" y="28" width="9" height="6"/><rect x="48" y="28" width="9" height="6"/><rect x="63" y="28" width="9" height="6"/><rect x="78" y="28" width="9" height="6"/></g>
+          <rect x="52" y="56" width="1.5" height="6" fill="#ffd84a"/>
+          <rect x="47" y="78" width="12" height="5" fill="#f4f2ff"/>
+        </svg></div></div>
+        <div class="ctl"><div class="dpad"></div><div class="ab"><i></i><i></i></div></div></div>
+      <p>The same game as the arcade, a player at LV 1 or more. The score saves as it does there, and the dock stays open while you switch tabs.</p></div>
+
+    <div class="state"><h3>Claude asked</h3>
+      <div class="gb"><span class="x">✕</span><div class="lens"><div class="screen">
+        <div class="hud"><span>SCORE 01 240</span><span>♥♥♥</span></div>
+        <svg viewBox="0 0 100 90" aria-hidden="true"><g fill="#ff3d5a"><rect x="18" y="16" width="9" height="6"/><rect x="48" y="16" width="9" height="6"/></g><g fill="#35e0ff"><rect x="33" y="28" width="9" height="6"/><rect x="63" y="28" width="9" height="6"/></g><rect x="47" y="78" width="12" height="5" fill="#f4f2ff"/></svg>
+        <div class="over"><div>⏸ CLAUDE ASKED<br><span class="btn">ANSWER</span></div></div></div></div>
+        <div class="ctl"><div class="dpad"></div><div class="ab"><i></i><i></i></div></div></div>
+      <p>It pauses at once and leads to the Questions tab. It never resumes by itself.</p></div>
+
+    <div class="state"><h3>Claude is done</h3>
+      <div class="gb"><span class="x">✕</span><div class="lens"><div class="screen">
+        <div class="hud"><span>SCORE 02 610</span><span>♥♥</span></div>
+        <svg viewBox="0 0 100 90" aria-hidden="true"><g fill="#35e0ff"><rect x="33" y="28" width="9" height="6"/></g><rect x="47" y="78" width="12" height="5" fill="#f4f2ff"/></svg>
+        <div class="over" style="background:rgba(11,10,31,.45)"><div>CLAUDE IS DONE<br>FINISH YOUR GAME</div></div></div></div>
+        <div class="ctl"><div class="dpad"></div><div class="ab"><i></i><i></i></div></div></div>
+      <p>The terminal closed, or has been silent for 3 minutes. The pill is gone, and the game in progress keeps its score.</p></div>
+
+    <div class="state"><h3>Not unlocked</h3>
+      <div class="gb"><span class="x">✕</span><div class="lens"><div class="screen">
+        <div class="over" style="background:transparent"><div>ENTROPY INVADERS<br><br>LINK GITHUB<br>TO EARN XP<br><span class="btn" style="background:#6b3fd6">OPEN THE ARCADE</span></div></div></div></div>
+        <div class="ctl"><div class="dpad"></div><div class="ab"><i></i><i></i></div></div></div>
+      <p>The arcade's own rules: a visitor or a player below LV 1 gets its refusal line and a link to <code>/play</code>.</p></div>
+  </div>
+</section>
+
+<section class="same"><h2>What stays the same</h2><ul>
+  <li>The tabs, the questions, the ask hooks and the "Claude is working" card on /ask.</li>
+  <li>Invaders' rules, levels and scores. There's no new game and no free play.</li>
+  <li>Phones: no dock below 600 px wide. Signed-out terminals and repositories with dossiers off send nothing.</li>
+  <li>The heartbeat sends the Claude session id, the repository and the PRD or fix number. No tool names, paths or text.</li>
+</ul></section>
+</main></body></html>
