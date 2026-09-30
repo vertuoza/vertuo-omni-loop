@@ -27,9 +27,9 @@ dossier:
 releaseNotes:
   enabled: true
 # Proof videos (PRD 798): /omni:prove films a PRD's acceptance criteria on this URL. Production for
-# now: the previews answer 401 until a Vercel bypass secret is set (proof.bypassEnv). The session is
-# a Playwright storageState each person saves once, outside the repository, with
-#   pnpm --filter @omni/galaxy-app exec playwright codegen --save-storage=$HOME/.omni/proof-galaxy.json <url>/app
+# now: the previews answer 401 until a Vercel bypass secret is set (proof.bypassEnv). Each run signs
+# its browser in from the person's own `omni signin` (`omni proof session`, #838): Google refuses a
+# browser login inside Playwright.
 proof:
   url: https://vertuo-omni-loop-galaxy.vercel.app
-  setup: cp "$HOME/.omni/proof-galaxy.json" "$PROOF_STORAGE_STATE"
+  setup: node .omni-loop/bin/omni.mjs proof session
