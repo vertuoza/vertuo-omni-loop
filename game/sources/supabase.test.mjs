@@ -98,11 +98,17 @@ describe('loadConfig', () => {
       { workspace_id: VERTUOZA, github_login: 'bob', team: null },
       { workspace_id: ACME, github_login: 'wile', team: 'roadrunner' },
     ],
+    repositories: [
+      { workspace_id: VERTUOZA, full_name: 'vertuoza/core-repo', tracked: true },
+      { workspace_id: VERTUOZA, full_name: 'vertuoza/old-repo', tracked: false },
+      { workspace_id: ACME, full_name: 'acme-gh/acme-rockets', tracked: true },
+    ],
   });
 
-  it('builds the config from one workspace\'s three tables, with only linked players on the roster', async () => {
+  it('builds the config from one workspace\'s four tables, with only linked players on the roster', async () => {
     const c = await loadConfig(restOn(fakeSupabase(tables())), VERTUOZA);
     expect(c.repos).toEqual(['core-repo']);
+    expect(c.tracked).toEqual(['vertuoza/core-repo']); // PRD 728: only the workspace's tracked repositories are read
     expect(Object.keys(c.teams)).toEqual(['beaver']);
     expect(c.teams.beaver).toMatchObject({ label: 'BEAVER', retired: false });
     expect(c.roster).toEqual({ alice: 'beaver' });
@@ -111,7 +117,7 @@ describe('loadConfig', () => {
   it('filters every read by the workspace', async () => {
     const fake = fakeSupabase(tables());
     await loadConfig(restOn(fake), ACME);
-    expect(fake.calls.map((c) => c.table).sort()).toEqual(['players', 'sectors', 'teams']);
+    expect(fake.calls.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const call of fake.calls) expect(call.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
   });
 
@@ -121,7 +127,7 @@ describe('loadConfig', () => {
     expect(fake.calls).toEqual([]);
   });
 
-  it.each(['sectors', 'teams', 'players'])('fails the poll when %s cannot be read (F7)', async (table) => {
+  it.each(['sectors', 'teams', 'players', 'repositories'])('fails the poll when %s cannot be read (F7)', async (table) => {
     const rest = supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fakeSupabase(tables(), { failOn: table }).fetch });
     await expect(loadConfig(rest, VERTUOZA)).rejects.toThrow(new RegExp(`read ${table} failed`));
   });
@@ -142,6 +148,16 @@ describe('supabaseLedger', () => {
     expect(back[1]).toMatchObject({ contributor: 'alice', team: 'beaver' });
     expect(back[0].contributor).toBeUndefined();
     expect(back[0].workspace_id).toBeUndefined(); // a storage column, never an event field
+  });
+
+  it('writes and reads back each event\'s home, and an old row without one reads without it (PRD 728)', async () => {
+    const fake = fakeSupabase({ ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:88:charted', at: '2026-09-01T10:00:00+00:00', type: 'PLANET_CHARTED', planet: 88, region: null, contributor: null, team: null, data: {}, home: null }] });
+    const ledger = supabaseLedger(restOn(fake), VERTUOZA);
+    await ledger.append([ev('planet:acme/plan#88:charted', '2026-09-02T10:00:00Z', { type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' })]);
+    expect(fake.tables.ledger_events.find((r) => r.id === 'planet:acme/plan#88:charted').home).toBe('acme/plan');
+    const back = await ledger.read();
+    expect(back.map((e) => [e.id, e.home])).toEqual([['planet:88:charted', undefined], ['planet:acme/plan#88:charted', 'acme/plan']]);
+    expect('home' in back[0]).toBe(false);
   });
 
   it('appends each row with its workspace, keyed by workspace and id', async () => {

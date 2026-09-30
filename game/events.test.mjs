@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EVENT_TYPES, WOUND_KINDS, eventId, makeEvent } from './events.mjs';
+import { EVENT_TYPES, WOUND_KINDS, eventId, makeEvent, planetKey, planetKeyOf } from './events.mjs';
 
 describe('events', () => {
   it('builds a deterministic id', () => {
@@ -23,5 +23,21 @@ describe('events', () => {
 
   it('refuses an unknown type', () => {
     expect(() => makeEvent({ id: 'x', at: '2026-09-01T08:00:00Z', type: 'NOPE', planet: 1 })).toThrow();
+  });
+});
+
+describe('the home of a PRD (PRD 728)', () => {
+  it('keeps an event\'s home and keys its planet by <home>#<n>', () => {
+    const e = makeEvent({ id: 'planet:acme/plan#88:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' });
+    expect(e.home).toBe('acme/plan');
+    expect(planetKeyOf(e)).toBe('acme/plan#88');
+    expect(planetKey('acme/other', 88)).not.toBe(planetKeyOf(e));
+    expect(planetKey(undefined, 88)).toBe('88');
+  });
+
+  it('refuses a home that is not owner/name in lower case', () => {
+    for (const home of ['plan', 'Acme/Plan', 'a/b/c']) {
+      expect(() => makeEvent({ id: 'x', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 1, home })).toThrow();
+    }
   });
 });

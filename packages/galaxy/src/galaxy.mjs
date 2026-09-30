@@ -4,9 +4,11 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.mjs';
 import { score } from 'vertuo-omni-plan/game/economy.mjs';
+import { planetKeyOf } from 'vertuo-omni-plan/game/events.mjs';
 
-const ZONE_ID = /^zone:(.+?):(\d+):(.+):(opened|claimed|secured|reverted)$/;
-const FIRE_ID = /^fire:(.+?):(\d+)\/(.+)$/;
+// A zone and a fire name their region, then their PRD: `<home>#<n>` since PRD 728, the number alone before.
+const ZONE_ID = /^zone:([^:]+):((?:[^:#]+#)?\d+):(.+):(opened|claimed|secured|reverted)$/;
+const FIRE_ID = /^fire:([^:]+):((?:[^:#]+#)?\d+)\/(.+)$/;
 
 export const WOUND_LABEL = Object.freeze({
   transmission: 'Transmission',
@@ -67,7 +69,7 @@ function threatOf(openWounds, inDistress) {
   return level;
 }
 
-function derive(prd, events, { sectorOf, now }) {
+function derive(prd, home, events, { sectorOf, now }) {
   const p = {
     prd, title: `PRD #${prd}`, captain: null, ownerTeam: null, chartedAt: null,
     regions: [], blockers: new Set(), zones: new Map(), wounds: new Map(), distress: new Map(), rescues: new Set(),
@@ -148,9 +150,11 @@ function derive(prd, events, { sectorOf, now }) {
   else state = 'charted';
 
   const sectors = [...new Set(p.regions.map(sectorOf).filter(Boolean))];
+  // A repository that no sector names counts as a sector of its own for the cross-sector bonus (PRD 728).
+  const crossSector = new Set(p.regions.map((r) => sectorOf(r) ?? `repo:${r}`)).size > 1;
   return {
-    prd, title: p.title, captain: p.captain, ownerTeam: p.ownerTeam, state,
-    regions: p.regions, sectors, crossSector: sectors.length > 1, class: Math.max(1, Math.min(4, p.regions.length)),
+    prd, home, key: home ? `${home}#${prd}` : String(prd), title: p.title, captain: p.captain, ownerTeam: p.ownerTeam, state,
+    regions: p.regions, sectors, crossSector, class: Math.max(1, Math.min(4, p.regions.length)),
     blockers: [...p.blockers].sort((a, b) => a - b),
     zones, secured, progress: state === 'terraformed' || state === 'aftershock' ? 1 : zones.length ? secured / zones.length : 0,
     openWounds, closedWounds: [...p.wounds.values()].filter((w) => w.closedAt).length,
@@ -185,22 +189,24 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
   const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const repoSector = new Map();
   for (const [name, { repos }] of Object.entries(projects.sectors)) for (const r of repos) repoSector.set(r, name);
-  const sectorOf = (repo) => repoSector.get(repo) ?? null;
+  // A sector names a repository by its full name or its bare one.
+  const sectorOf = (repo) => (repo ? repoSector.get(repo) ?? repoSector.get(String(repo).split('/').pop()) ?? null : null);
 
   const byPlanet = new Map();
-  for (const e of sorted) (byPlanet.get(e.planet) ?? byPlanet.set(e.planet, []).get(e.planet)).push(e);
+  // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 are two planets.
+  for (const e of sorted) { const k = planetKeyOf(e); (byPlanet.get(k) ?? byPlanet.set(k, []).get(k)).push(e); }
   const season = now.toISOString().slice(0, 7);
   const season_ = score(sorted, { season, now });
 
-  const planets = [...byPlanet.entries()].map(([prd, evs]) => {
-    const planet = derive(prd, evs, { sectorOf, now });
+  const planets = [...byPlanet.entries()].map(([key, evs]) => {
+    const planet = derive(evs[0].planet, evs[0].home ?? null, evs, { sectorOf, now });
     // Home sector: where most of its regions live, else its owning fleet's home.
     const counts = new Map();
     for (const r of planet.regions) { const s = sectorOf(r); if (s) counts.set(s, (counts.get(s) ?? 0) + 1); }
     const home = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0]
       ?? projects.teams[planet.ownerTeam]?.home ?? Object.keys(projects.sectors)[0] ?? null;
-    return { ...planet, sector: home, earned: Math.round(season_.planets[prd]?.earned ?? 0) };
-  }).sort((a, b) => a.prd - b.prd);
+    return { ...planet, sector: home, earned: Math.round(season_.planets[key]?.earned ?? 0) };
+  }).sort((a, b) => a.prd - b.prd || (a.home ?? '').localeCompare(b.home ?? ''));
 
   const loginTeam = new Map();
   for (const e of sorted) if (e.contributor && e.team) loginTeam.set(e.contributor, e.team);

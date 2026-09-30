@@ -148,6 +148,25 @@ describe('score', () => {
     expect(s.teams).toEqual({ octopod: 0, beaver: -30 });
   });
 
+  it('keeps two homes\' PRD 88 apart: no shared owner, clawback, terraform or expedition (PRD 728)', () => {
+    const A = { planet: 88, home: 'acme/plan' };
+    const B = { planet: 88, home: 'acme/tools' };
+    const s = score([
+      E('planet:acme/plan#88:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { ...A, data: { ownerTeam: 'beaver' } }),
+      E('planet:acme/tools#88:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { ...B, data: { ownerTeam: 'octopod' } }),
+      E('zone:acme/plan:acme/plan#88:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { ...A, contributor: 'alice', team: 'octopod' }),
+      E('zone:acme/tools:acme/tools#88:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { ...B, contributor: 'bob', team: 'beaver' }),
+      E('planet:acme/plan#88:terraformed', '2026-09-22T12:00:00Z', 'PLANET_TERRAFORMED', { ...A, data: { class: 1 } }),
+      E('planet:acme/tools#88:lost', '2026-09-23T12:00:00Z', 'PLANET_LOST', { ...B, data: { reason: 'closed' } }),
+    ], { season: '2026-09', now: NOW });
+    // acme/plan#88: alice's zone and expedition bonus, beaver's terraform. acme/tools#88: lost, bob's zone clawed.
+    expect(s.individuals).toEqual({ alice: 60, bob: 0 });
+    expect(s.teams).toEqual({ octopod: 60, beaver: 100 });
+    expect(s.planets['acme/plan#88']).toMatchObject({ ownerTeam: 'beaver', terraformed: true, lost: false });
+    expect(s.planets['acme/tools#88']).toMatchObject({ ownerTeam: 'octopod', terraformed: false, lost: true });
+    expect(s.credits.find((c) => c.to === 'alice' && c.reason === 'zone secured')).toMatchObject({ planet: 88, home: 'acme/plan', key: 'acme/plan#88' });
+  });
+
   it('ignores credits outside the season month', () => {
     const s = score([
       charted,
