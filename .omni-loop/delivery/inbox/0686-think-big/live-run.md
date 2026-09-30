@@ -66,10 +66,10 @@ blockers: heavy to start, nothing pulls back, value not visible) and wrote the b
 
 ## The hand-off into `/omni:brainstorm` (acceptance criterion 11)
 
-**Not run yet.** It reads the concept from `main`, so it waits for a person to merge #723. After that
-merge, this record is updated with `/omni:brainstorm --concept 722 receipt-at-merge` (its write-back
-of the wedge's brief and the vision) and `/omni:brainstorm --concept 722 nope` (its refusal naming
-the area ids).
+**Confirmed by the person, 2026-09-30.** The person (the PRD's author) said they had seen the studio
+working and had tried it themselves, and judged it good. This record did not watch that try, so it
+does not say which wedge was used or what `/omni:brainstorm --concept` wrote back; it records the
+person's word. The concept PR #723 is not merged into `main` yet, and merging it is a person's.
 
 ## What the run taught (findings)
 
