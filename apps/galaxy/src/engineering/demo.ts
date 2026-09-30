@@ -8,7 +8,7 @@ import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type Sort
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
 // would be, with a member or two for their heroes, the loop's sub-PRs into feature branches and a weekly
 // develop → main promotion, which count nowhere but the sub-PR line (PRD 714), and for Loop health
-// (PRD 714 s2) one pull request labelled omni:needs-fix and one claim gone cold. Fixed: the same `now` draws the same board. Given a
+// (PRD 714 s2, s3) one pull request labelled omni:needs-fix, one run held and one claim gone cold. Fixed: the same `now` draws the same board. Given a
 // repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
@@ -71,8 +71,9 @@ function promotionOf(i: number, now: Date): PullRequestRow {
   };
 }
 
-/** Loop health's rows (PRD 714 s2): a feature pull request labelled omni:needs-fix, open for two days,
- * and a sub-PR claimed three hours ago with nothing beyond its claim commit. */
+/** Loop health's rows (PRD 714 s2, s3): a feature pull request labelled omni:needs-fix, open for two days,
+ * a feature pull request whose run ended held, open for a day, and a sub-PR claimed three hours ago with
+ * nothing beyond its claim commit. */
 function stuckOf(now: Date): PullRequestRow[] {
   const at = (hours: number) => new Date(now.getTime() - hours * HOUR).toISOString();
   return [
@@ -80,6 +81,11 @@ function stuckOf(now: Date): PullRequestRow[] {
       repo: TRACKED[0], number: 500, author: 'ada', authorIsBot: false, openedAt: at(48), mergedAt: null, closedAt: null, mergedBy: null,
       commits: 9, additions: 400, deletions: 30, omniSigned: true, base: 'main', head: 'feat/demo-stuck', draft: false, labels: ['omni:feature', 'omni:needs-fix'],
       headCommittedAt: at(20),
+    },
+    {
+      repo: TRACKED[0], number: 502, author: 'carl', authorIsBot: false, openedAt: at(26), mergedAt: null, closedAt: null, mergedBy: null,
+      commits: 14, additions: 820, deletions: 95, omniSigned: true, base: 'main', head: 'feat/demo-held', draft: false, labels: ['omni:feature'],
+      headCommittedAt: at(5), statusState: 'stuck',
     },
     {
       repo: TRACKED[1], number: 501, author: 'bob', authorIsBot: false, openedAt: at(3), mergedAt: null, closedAt: null, mergedBy: null,

@@ -117,6 +117,14 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     expect(html).not.toContain('more');
   });
 
+  it('lists a held run as Held, linked to it on GitHub (PRD 714 s3)', () => {
+    const held = pr({ repo: 'acme/gears', number: 77, openedAt: ago(120), omniSigned: true, base: 'main', head: 'feat/y', statusState: 'stuck' });
+    const html = panel(render(board([...ROWS, held])));
+    expect(html).toContain('<span class="eng-health-kind is-held">Held</span>');
+    expect(html).toContain('<a href="https://github.com/acme/gears/pull/77">acme/gears#77</a>');
+    expect(text(html)).toBe('Loop health Right now Held acme/gears#77 opened 2.0 h ago');
+  });
+
   it('shows 10 rows, then how many more', () => {
     const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i));
     const html = panel(render(board(rows)));
@@ -261,9 +269,10 @@ describe('the demo', () => {
     expect(text(render(view))).toMatch(/\+ [1-9]\d* sub-PRs merged into feature branches/);
   });
 
-  it('shows Loop health with a stuck pull request and a stale claim (PRD 714 s2)', () => {
+  it('shows Loop health with a stuck pull request, a held run and a stale claim (PRD 714 s2, s3)', () => {
     const t = text(render(demoEngineeringBoard('7d', 'merged', NOW)));
     expect(t).toMatch(/Loop health Right now .*Stuck acme\/\w+#\d+ opened/);
+    expect(t).toMatch(/Held acme\/\w+#\d+ opened/);
     expect(t).toMatch(/Stale claim acme\/\w+#\d+ opened/);
   });
 

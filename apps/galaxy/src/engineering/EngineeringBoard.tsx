@@ -85,7 +85,7 @@ function OmniLoop({ omni }: { omni: Extract<EngineeringValue, { kind: 'board' }>
 
 // ── Loop health ──────────────────────────────────────────────────────────
 
-const KIND_WORDS: Record<HealthKind, string> = { stuck: 'Stuck', 'stale-claim': 'Stale claim' };
+const KIND_WORDS: Record<HealthKind, string> = { stuck: 'Stuck', held: 'Held', 'stale-claim': 'Stale claim' };
 
 function LoopHealthPanel({ health }: { health: LoopHealth }) {
   return (

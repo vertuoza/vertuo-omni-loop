@@ -22,7 +22,7 @@ const HERO = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 };
 const PR = {
   repo: 'acme/widgets', number: 7, author: 'ada', authorIsBot: false, openedAt: '2026-09-24T08:00:00Z', mergedAt: '2026-09-24T10:00:00Z',
   closedAt: '2026-09-24T10:00:00Z', mergedBy: 'bob', commits: 2, additions: 3, deletions: 1, omniSigned: false, base: 'main', head: 'feat/thing',
-  draft: false, labels: ['bug'], headCommittedAt: '2026-09-24T09:00:00Z',
+  draft: false, labels: ['bug'], headCommittedAt: '2026-09-24T09:00:00Z', statusState: null,
 };
 
 function reads(over: Partial<EngineeringReads> = {}): EngineeringReads & { asked: unknown[] } {
@@ -209,7 +209,7 @@ describe('supabaseEngineeringReads', () => {
     const row = {
       repo: 'acme/widgets', number: 7, author: 'ada', author_is_bot: false, opened_at: PR.openedAt, merged_at: PR.mergedAt,
       closed_at: PR.closedAt, merged_by: 'bob', commits: 2, additions: 3, deletions: 1, omni_signed: false, base: 'main', head: 'feat/thing',
-      draft: false, labels: ['bug'], head_committed_at: PR.headCommittedAt,
+      draft: false, labels: ['bug'], head_committed_at: PR.headCommittedAt, status_state: null,
     };
     const { calls, db } = fakeDb({ pull_requests: [{ data: Array(1000).fill(row), error: null }, { data: [row], error: null }] });
     const rows = await supabaseEngineeringReads(db, 'ws-1').pullRequests(new Date('2026-09-19T22:00:00Z'), ['acme/widgets']);
@@ -217,7 +217,7 @@ describe('supabaseEngineeringReads', () => {
     expect(rows[0]).toEqual(PR);
     expect(calls[0]).toContainEqual(['in', 'repo', ['acme/widgets']]);
     // Every base is read: the board counts main, master and develop, and the sub-PRs into the rest (PRD 714).
-    expect(calls[0]).toContainEqual(['select', expect.stringContaining('omni_signed, base, head, draft, labels, head_committed_at')]);
+    expect(calls[0]).toContainEqual(['select', expect.stringContaining('omni_signed, base, head, draft, labels, head_committed_at, status_state')]);
     expect(calls[0]).toContainEqual(['or', 'opened_at.gte."2026-09-19T22:00:00.000Z",merged_at.gte."2026-09-19T22:00:00.000Z",and(merged_at.is.null,closed_at.is.null)']);
     expect(calls[0]).toContainEqual(['range', 0, 999]);
     expect(calls[1]).toContainEqual(['range', 1000, 1999]);
