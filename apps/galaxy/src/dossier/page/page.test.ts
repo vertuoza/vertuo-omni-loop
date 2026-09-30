@@ -590,7 +590,7 @@ describe('the stylesheet', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
       '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
-      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos',
+      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
     for (const selector of outlined) {

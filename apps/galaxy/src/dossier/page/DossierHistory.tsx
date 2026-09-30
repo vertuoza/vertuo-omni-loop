@@ -15,6 +15,9 @@ import { filtered, HISTORY_PATH, historyAddress, whoLogin, whoParam, type Histor
 // clears it; the form carries it, so filtering stays on it), and each row shows its current stage pill.
 // PRD 698 (s4): under `who=<login>` neither Mine nor All is pressed, a line reads "Opened by @login" and
 // links to their profile, and the form carries the login so filtering stays on their PRDs.
+// Issue #703: Mine / All beside the heading; the search and Filter on one bar, the repository, draft or PRD
+// and the outbox box folded under More filters, open by itself whenever one of them is set; the row's pill
+// beside its title, at the card's right edge (above the title on a phone), no longer at the title's size.
 
 type Choices = { repos: string[] };
 type Option = { value: string; label: string };
@@ -46,27 +49,35 @@ function Who({ filters }: { filters: HistoryFilters }) {
 }
 
 function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilters }) {
+  const folded = Boolean(filters.repo || filters.state || filters.needsAnswer);
   return (
-    <form className="dossier-history-filters" method="get" action={HISTORY_PATH} role="search">
+    <form className="dossier-history-find" method="get" action={HISTORY_PATH} role="search">
       {whoParam(filters.who) && <input type="hidden" name="who" value={whoParam(filters.who)!} />}
       {filters.stage && <input type="hidden" name="stage" value={filters.stage} />}
-      <label className="dossier-history-field dossier-history-search">
-        <span className="ask-hint">Search the titles</span>
-        <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder="a word of a PRD's title" />
-      </label>
-      <Pick name="repo" label="Repository" any="Any" value={filters.repo} options={choices.repos.map((repo) => ({ value: repo, label: repo }))} />
-      <Pick
-        name="state" label="Draft or PRD" any="Drafts and PRDs" value={filters.state}
-        options={[{ value: 'draft', label: 'Drafts' }, { value: 'prd', label: 'PRDs' }]}
-      />
-      <label className="dossier-history-field">
-        <span className="ask-hint">Outbox</span>
-        <span><input type="checkbox" name="needs" value="answer" defaultChecked={filters.needsAnswer === true} /> Needs an answer</span>
-      </label>
-      <p className="dossier-history-actions">
-        <button type="submit" className="ask-button">Filter</button>
+      <div className="dossier-history-line">
+        <div className="dossier-history-bar">
+          <input
+            className="ask-share-link" aria-label="Search the titles" type="search" name="q" defaultValue={filters.search ?? ''}
+            placeholder="a word of a PRD's title"
+          />
+          <button type="submit" className="ask-button">Filter</button>
+        </div>
         {filtered(filters) && <a className="dossier-history-clear" href={historyAddress({ who: filters.who })}>Clear</a>}
-      </p>
+      </div>
+      <details className="dossier-history-more" open={folded}>
+        <summary>More filters <span className="ask-hint">repository, draft or PRD, outbox</span></summary>
+        <div className="dossier-history-fields">
+          <Pick name="repo" label="Repository" any="Any" value={filters.repo} options={choices.repos.map((repo) => ({ value: repo, label: repo }))} />
+          <Pick
+            name="state" label="Draft or PRD" any="Drafts and PRDs" value={filters.state}
+            options={[{ value: 'draft', label: 'Drafts' }, { value: 'prd', label: 'PRDs' }]}
+          />
+          <label className="dossier-history-field">
+            <span className="ask-hint">Outbox</span>
+            <span><input type="checkbox" name="needs" value="answer" defaultChecked={filters.needsAnswer === true} /> Needs an answer</span>
+          </label>
+        </div>
+      </details>
     </form>
   );
 }
@@ -95,10 +106,12 @@ function Row({ item }: { item: HistoryItem }) {
   return (
     <li>
       <a className="dossier-history-row" href={item.href}>
-        <span className="dossier-history-title">
-          {item.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{item.heading}</span>}{' '}
-          {item.stage && <><StagePill stage={item.stage} />{' '}</>}
-          <span>{item.title}</span>
+        <span className="dossier-history-top">
+          <span className="dossier-history-title">
+            {item.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{item.heading}</span>}{' '}
+            <span>{item.title}</span>
+          </span>
+          {item.stage && <StagePill stage={item.stage} />}
         </span>
         <span className="dossier-repos">
           {item.repos.map((repo) => <span key={repo} className="dossier-repo">{repo}</span>)}
@@ -173,7 +186,10 @@ export function DossierHistory({ items, choices, filters, stages }: {
   const nothingYet = items.length === 0 && !filtered(filters) && filters.who === 'all';
   return (
     <div className="dossier dossier-history">
-      <h1 className="dossier-title">PRDs</h1>
+      <div className="dossier-history-head">
+        <h1 className="dossier-title">PRDs</h1>
+        {!nothingYet && <Who filters={filters} />}
+      </div>
       {nothingYet ? (
         <section className="ask-card">
           <h2>No PRD yet</h2>
@@ -184,7 +200,6 @@ export function DossierHistory({ items, choices, filters, stages }: {
         </section>
       ) : (
         <>
-          <Who filters={filters} />
           {login && <OpenedBy login={login} />}
           <Filters choices={choices} filters={filters} />
           {stages && <StageBar stages={stages} />}

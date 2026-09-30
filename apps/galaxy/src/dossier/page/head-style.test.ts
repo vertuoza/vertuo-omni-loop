@@ -53,4 +53,10 @@ describe('the PRD list', () => {
   it('declares no max-width', () => {
     expect(props('.dossier-history')).not.toContain('max-width');
   });
+
+  it('draws a row\'s stage pill at its own 12 px, at the card\'s right edge, and above the title on a phone (issue #703)', () => {
+    expect(value('.dossier-history-top .stage-stop', 'font')).toEqual(['800 12px/1 var(--ask-mono)']);
+    expect(value('.dossier-history-top', 'justify-content')).toEqual(['space-between']);
+    expect(CSS).toMatch(/@media \(max-width: 719\.98px\) \{[^@]*\.dossier-history-top \{ flex-direction: column-reverse;/);
+  });
 });
