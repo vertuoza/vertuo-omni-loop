@@ -662,6 +662,14 @@ function badgeOf(kind: DossierTab, badges: Badges): string | null {
   return badges.count(kind) ? `v${badges.count(kind)}` : null;
 }
 
+/** The tabs drawn dimmed while they hold nothing; any other tab never is. */
+const EMPTY_WHEN: Partial<Record<DossierTab, (badges: Badges, retro: RetroView, care: CareView | null) => boolean>> = {
+  outbox: (badges) => badges.outbox.state !== 'items',
+  retro: (_badges, retro) => retro.state !== 'text',
+  care: (_badges, _retro, care) => care?.state !== 'care',
+  voice: (badges) => badges.count('voice') === 0,
+};
+
 function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView, care: CareView | null): TabEntry {
   return {
     kind,
@@ -670,8 +678,7 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
     alert: kind === 'questions' ? badges.counted.alert : null,
     href: href(kind),
     current: kind === tab,
-    empty: (kind === 'outbox' && badges.outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text')
-      || (kind === 'care' && care?.state !== 'care') || (kind === 'voice' && badges.count(kind) === 0),
+    empty: EMPTY_WHEN[kind]?.(badges, retro, care) ?? false,
   };
 }
 

@@ -25,7 +25,7 @@ const sameProduct = (a: Claim, b: Claim) => (a.product ?? null) === (b.product ?
 const waiting = (c: Claim) => c.state === 'proposed' && c.source === 'evidence';
 
 /** A proposed claim a person answered in a skill run (PRD 822): it waits for a member to confirm it. */
-export const isAnswerToCheck = (c: Claim) => c.state === 'proposed' && c.source === 'answer';
+const isAnswerToCheck = (c: Claim) => c.state === 'proposed' && c.source === 'answer';
 
 /** The confirmed claims an addition would join; none when `claim` is not an addition. */
 function joined(claim: Claim, claims: readonly Claim[]): Claim[] {
