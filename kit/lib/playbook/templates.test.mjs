@@ -13,7 +13,10 @@ const kitRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = join(kitRoot, 'dist/omni.mjs');
 const PROVENANCE = /^<!-- Ported from vertuo-ai-domain@db67fd9da:(.+) — changes in (kit\/porting\/templates--[a-z-]+\.md) -->$/m;
 
-/** Every template's text, keyed by its path under the templates folder: the thirteen forms, then the front door. */
+/** Every template's text, keyed by its path under the templates folder: the fourteen forms, then the front door. */
+/** The templates the kit wrote itself, with no upstream page to port from (PRD 790: the review form). */
+const KIT_ORIGINAL = new Set(['playbook/review.md']);
+
 const ALL = () => [...FORM_IDS.map((id) => [templatePath(id), formTemplate(id)]), [FRONT_DOOR_TEMPLATE, frontDoorTemplate()]];
 
 describe('the kit’s templates folder', () => {
@@ -54,10 +57,16 @@ describe('each form template — the forms table, as the one parser reads it', (
 
 describe('every template — provenance, and the config it names', () => {
   it('carries one provenance line pinned to vertuo-ai-domain@db67fd9da, naming a porting record that exists', () => {
-    for (const [path, text] of ALL()) {
+    for (const [path, text] of ALL().filter(([path]) => !KIT_ORIGINAL.has(path))) {
       const match = text.match(PROVENANCE);
       expect(match, `${path} has no provenance line`).not.toBeNull();
       expect(existsSync(join(kitRoot, '..', match[2])), `${path}: ${match[2]} is missing`).toBe(true);
+    }
+  });
+
+  it('carries no provenance line on a template the kit wrote itself', () => {
+    for (const [path, text] of ALL().filter(([path]) => KIT_ORIGINAL.has(path))) {
+      expect(text, path).not.toMatch(/Ported from/);
     }
   });
 

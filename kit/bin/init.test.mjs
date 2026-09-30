@@ -124,7 +124,7 @@ const SETTINGS = '.claude/settings.json';
 
 /**
  * What `omni kb init` lays down in a repository with none of it, in the order it writes them: the
- * front door's page, the twelve playbook forms, the decisions form, the three empty product registers.
+ * front door's page, the thirteen playbook forms, the decisions form, the three empty product registers.
  */
 const FORM_FILES = [
   `${KNOWLEDGE}/README.md`,
@@ -139,6 +139,7 @@ const FORM_FILES = [
   `${KNOWLEDGE}/playbook/conventions.md`,
   `${KNOWLEDGE}/playbook/releasing.md`,
   `${KNOWLEDGE}/playbook/bug-fixing.md`,
+  `${KNOWLEDGE}/playbook/review.md`,
   `${KNOWLEDGE}/playbook/glossary.md`,
   `${KNOWLEDGE}/adr/README.md`,
   `${KNOWLEDGE}/product/principles.md`,

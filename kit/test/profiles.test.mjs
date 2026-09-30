@@ -93,7 +93,7 @@ const PROFILES = [
     },
     bearsOn: 'P-PRODUCT-1',
     floors: true,
-    forms: '13 blank',
+    forms: '14 blank',
   },
   {
     name: 'claudeMdInvariants',
@@ -102,9 +102,9 @@ const PROFILES = [
     bearsOn: 'ADR-0004',
     floors: true,
     // The decision records live outside the front door, so `kb init` writes the decisions form as a pointer.
-    forms: '1 pointer, 12 blank',
+    forms: '1 pointer, 13 blank',
   },
-  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none', floors: false, forms: '13 blank' },
+  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none', floors: false, forms: '14 blank' },
 ];
 
 describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, forms }) => {
@@ -121,7 +121,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
 
     const checked = [];
     expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => checked.push(s) }, stderr: { write() {} } })).toBe(0);
-    expect(checked.join('')).toMatch(/^check kb — 13 form\(s\): 13 missing; 13 warning\(s\)\.$/m);
+    expect(checked.join('')).toMatch(/^check kb — 14 form\(s\): 14 missing; 14 warning\(s\)\.$/m);
     expect(await main(['status', '42'], { cwd: root, ...quiet() })).toBe(1);
     expect(
       await main(
@@ -181,7 +181,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
 
     const out = [];
     expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } })).toBe(0);
-    expect(out.join('')).toMatch(new RegExp(`^check kb — 13 form\\(s\\): ${forms}; \\d+ warning\\(s\\)\\.$`, 'm'));
+    expect(out.join('')).toMatch(new RegExp(`^check kb — 14 form\\(s\\): ${forms}; \\d+ warning\\(s\\)\\.$`, 'm'));
     expect(out.join('')).toMatch(/^check knowledge — /m);
   });
 

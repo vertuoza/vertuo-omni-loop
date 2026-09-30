@@ -49,7 +49,7 @@ const PLAYBOOK_FORMS = FORM_IDS.filter((id) => id !== 'decisions').map((id) => `
 const REGISTERS = ['principles', 'rules', 'invariants'].map((name) => `.omni-loop/knowledge/product/${name}.md`);
 
 describe('omni kb init — acceptance criterion 1', () => {
-  it('writes the twelve playbook forms, adr/README.md, the front door README and the empty product registers', async () => {
+  it('writes the thirteen playbook forms, adr/README.md, the front door README and the empty product registers', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await omni(root, ['kb', 'init']);
     expect(code).toBe(0);
@@ -130,8 +130,8 @@ describe('omni kb init — acceptance criterion 1', () => {
 
     const second = await omni(root, ['kb', 'init']);
     expect(second.code).toBe(0);
-    // The front door README, the twelve playbook forms, adr/README.md and the three registers.
-    expect(second.out).toBe('kb init — wrote 0 file(s); 17 already there, left as they were.\n');
+    // The front door README, the thirteen playbook forms, adr/README.md and the three registers.
+    expect(second.out).toBe('kb init — wrote 0 file(s); 18 already there, left as they were.\n');
     expect(snapshot(root)).toEqual(after);
   });
 });
@@ -342,6 +342,7 @@ describe('omni kb status — the map, derived every time', () => {
       'conventions extended missing kit',
       'releasing extended missing kit',
       'bug-fixing extended missing kit',
+      'review extended missing kit',
       'glossary extended missing kit',
     ]);
     const testing = status.forms.find((form) => form.form === 'testing');
@@ -362,7 +363,7 @@ describe('omni kb status — the map, derived every time', () => {
     const { code, out } = await omni(root, ['kb', 'status'], { exec });
     expect(code).toBe(0);
     const lines = out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
-    expect(lines[0]).toBe('kb status — 13 form(s) in .omni-loop/knowledge');
+    expect(lines[0]).toBe('kb status — 14 form(s) in .omni-loop/knowledge');
     expect(lines).toContain('briefing core missing kit default');
     expect(lines).toContain('testing core filled repo 1 open question(s) · 2 stale evidence');
     expect(lines).toContain('ci core pointer pointer');
@@ -608,9 +609,10 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       missing('definition-of-done'),
       missing('conventions'),
       missing('bug-fixing'),
+      missing('review'),
       missing('glossary'),
     ]);
-    expect(out).toBe('check kb — 13 form(s): 1 filled, 2 blank, 10 missing; 15 warning(s).\n');
+    expect(out).toBe('check kb — 14 form(s): 1 filled, 2 blank, 11 missing; 16 warning(s).\n');
   });
 });
 
@@ -648,8 +650,8 @@ describe('omni check kb — acceptance criterion 5: check all runs it', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out, err } = await omni(root, ['check', 'all']);
     expect(code).toBe(0);
-    expect(out).toMatch(/^check kb — 13 form\(s\): 13 missing; 13 warning\(s\)\.$/m);
-    expect(err.match(/^warning: .*missing/gm)).toHaveLength(13);
+    expect(out).toMatch(/^check kb — 14 form\(s\): 14 missing; 14 warning\(s\)\.$/m);
+    expect(err.match(/^warning: .*missing/gm)).toHaveLength(14);
   });
 
   it('goes red on a broken form, and stays green after omni kb init', async () => {
@@ -657,7 +659,7 @@ describe('omni check kb — acceptance criterion 5: check all runs it', () => {
     expect((await omni(root, ['kb', 'init'])).code).toBe(0);
     const { code, out } = await omni(root, ['check', 'all']);
     expect(code).toBe(0);
-    expect(out).toMatch(/^check kb — 13 form\(s\): 13 blank; \d+ warning\(s\)\.$/m);
+    expect(out).toMatch(/^check kb — 14 form\(s\): 14 blank; \d+ warning\(s\)\.$/m);
 
     write(TESTING, testingForm({ slots: { never: { body: 'See: gone.md' } } }));
     const red = await omni(root, ['check', 'all']);
@@ -713,7 +715,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { code, out, err } = await omni(root, ['check', 'kb']);
     expect(out).not.toMatch(/does not exist/);
     expect(code).toBe(0);
-    expect(out).toMatch(/^check kb — 13 form\(s\): 13 missing; \d+ warning\(s\); 1 imported copy checked\.$/m);
+    expect(out).toMatch(/^check kb — 14 form\(s\): 14 missing; \d+ warning\(s\); 1 imported copy checked\.$/m);
     expect(err).toContain(`warning: ${COPY}: ${COPY}/playbook/briefing.md: missing — the kit defaults apply; \`omni kb init\` writes it`);
     expect(err).not.toMatch(/evidence composer\.json/);
   });
@@ -785,7 +787,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
     expect(lines.slice(lines.indexOf('Imported copies: 1'), lines.indexOf('Imported copies: 1') + 2)).toEqual([
       'Imported copies: 1',
-      `acme/vertuo-backend-php ${COPY} · 1 filled · 12 missing · 1 register folder(s)`,
+      `acme/vertuo-backend-php ${COPY} · 1 filled · 13 missing · 1 register folder(s)`,
     ]);
     const { root: plain } = makeRepo({ git: true, files: CONFIG });
     expect(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out).targets).toEqual([]);
