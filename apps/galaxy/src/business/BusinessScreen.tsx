@@ -4,6 +4,7 @@ import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { Claim, Product } from './model';
 import { BusinessPage, type BusinessPageProps } from './BusinessPage';
+import type { Persona } from './personas';
 
 // Settings → Business in each situation (PRD 748 s2), decided once by the page: no database here;
 // signed out (sign in on /app, then come back); an account in no workspace; the business that could
@@ -28,6 +29,29 @@ export const DEMO_CLAIMS: Claim[] = [
 
 /** The demo's one product (PRD 748 s4): "+ Add a product" adds a second, in the page only. */
 export const DEMO_PRODUCTS: Product[] = [{ id: 'demo-product-1', name: 'Acme ERP' }];
+
+/** The demo's sample personas (PRD 799 s3): a small cast of kinds of customer, naming no real company
+ * or person. */
+export const DEMO_PERSONAS: Persona[] = [
+  {
+    id: 'demo-persona-1', product: 'demo-product-1', ordinal: 1, name: 'Marc', stance: 'skeptical', trade: 'plumber',
+    avatar: { v: 1, skin: 1, hair: 5, hairColor: 1, outfit: 0, accessory: 1 },
+    who: 'Plumber, runs his own company of 5 plumbers. Does his quotes at night on his phone.',
+    usage: 'Mostly the quotes and the dashboard.',
+  },
+  {
+    id: 'demo-persona-2', product: 'demo-product-1', ordinal: 2, name: 'Sofia', stance: 'excited', trade: 'office',
+    avatar: { v: 1, skin: 3, hair: 3, hairColor: 0, outfit: 0, accessory: 2 },
+    who: 'Keeps a 20-person renovation company running: invoices, planning, suppliers.',
+    usage: 'Invoices, planning and supplier orders, every day.',
+  },
+  {
+    id: 'demo-persona-3', product: 'demo-product-1', ordinal: 3, name: 'Yves', stance: 'neutral', trade: 'electrician',
+    avatar: { v: 1, skin: 0, hair: 0, hairColor: 3, outfit: 1, accessory: 3 },
+    who: 'Two-person electrical company, works mostly for other builders.',
+    usage: 'Quotes and time on site.',
+  },
+];
 
 export function BusinessScreen({ view }: { view: BusinessScreenView }) {
   return (

@@ -10,6 +10,9 @@ import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type Bu
 import { suggestKey } from './suggest';
 import { databaseDraft, demoDraftPort, type DraftDb, type DraftPort } from './draft-port';
 import { thatsUs, type DraftView, type WebPage } from './reveal';
+import { canUndo, initialPersonasState, personasReducer, type Persona } from './personas';
+import { databasePersonas, demoPersonasPort, type PersonaPort } from './personas-store';
+import { PersonasSection, type PersonaHandlers } from './PersonasSection';
 
 // Settings → Business in the browser (PRD 748 s2): keeps the page's state (model.ts) and calls the
 // claim functions as the signed-in person (store.ts), one plan at a time; the view draws each step. A
@@ -26,6 +29,10 @@ import { thatsUs, type DraftView, type WebPage } from './reveal';
 //
 // What the weekly recheck left (PRD 774 s4): ✓ / ✗ on a replacement or an addition saves at once, and
 // ✓ Still true on a faded claim moves its last_seen to now.
+//
+// The personas (PRD 799 s3), through personas-store.ts: the section keeps its own state
+// (personas.ts), and follows the product tab shown. + Add a persona opens the drawer on a random
+// avatar; Save adds or edits, Delete removes at once and Undo restores it for 5 seconds.
 
 export type BusinessSource =
   | { kind: 'demo' }
@@ -43,12 +50,17 @@ export interface BusinessPageProps {
   draft?: DraftView | null;
   /** The web pages pasted on the business. */
   pages?: WebPage[];
+  /** Every persona of the business, of every product (PRD 799 s3). */
+  personas?: Persona[];
 }
 
 /** How often a running draft's row is read again. */
 const POLL_MS = 1500;
 
-export function BusinessPage({ source, claims, products, draft = null, pages = [] }: BusinessPageProps) {
+/** A seed for a new persona's avatar and the picker's order. */
+const freshSeed = () => `${Date.now()}-${Math.random()}`;
+
+export function BusinessPage({ source, claims, products, draft = null, pages = [], personas = [] }: BusinessPageProps) {
   const [whole, dispatch] = useReducer(businessReducer, null, () => initialBusinessState(claims, products, { draft, pages }));
   // What the demo's stores start from: the claims the page holds now.
   const held = useRef(whole);
@@ -231,5 +243,57 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     stillTrue: (claim) => void keepClaim(claim),
   };
 
-  return <BusinessView state={whole} demo={source.kind === 'demo'} on={on} />;
+  // The personas (PRD 799 s3).
+  const [cast, act] = useReducer(personasReducer, personas, initialPersonasState);
+  const castPort = useRef<PersonaPort | null>(null);
+  const getCast = () => (castPort.current ??= source.kind === 'demo'
+    ? demoPersonasPort(personas)
+    : databasePersonas(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+  // Undo goes once its 5 seconds have passed.
+  const until = cast.undo?.until ?? null;
+  useEffect(() => {
+    if (until === null) return;
+    const timer = setTimeout(() => act({ type: 'tick', at: Date.now() }), Math.max(0, until - Date.now()));
+    return () => clearTimeout(timer);
+  }, [until]);
+  const newProduct = whole.current ?? (source.kind === 'database' ? source.product : products[0]?.id ?? null);
+  const persona: PersonaHandlers = {
+    open: () => act({ type: 'new', product: newProduct, seed: freshSeed() }),
+    edit: (p) => act({ type: 'edit', persona: p.id, seed: freshSeed() }),
+    change: (fields) => act({ type: 'change', fields }),
+    shuffle: () => act({ type: 'shuffle' }),
+    close: () => act({ type: 'close' }),
+    save: () => void (async () => {
+      const drawer = cast.drawer;
+      if (cast.busy || !drawer) return;
+      if (drawer.editing === null && !drawer.product) return;
+      act({ type: 'busy' });
+      const saved = drawer.editing === null
+        ? await getCast().add(drawer.product as string, drawer.fields)
+        : await getCast().edit(drawer.editing, drawer.fields);
+      act(saved.ok ? { type: 'saved', persona: saved.persona } : { type: 'refused', message: saved.message });
+    })(),
+    remove: () => void (async () => {
+      const editing = cast.drawer?.editing;
+      if (cast.busy || !editing) return;
+      act({ type: 'busy' });
+      const removed = await getCast().remove(editing);
+      act(removed.ok ? { type: 'deleted', persona: removed.persona, at: Date.now() } : { type: 'refused', message: removed.message });
+    })(),
+    undo: () => void (async () => {
+      if (cast.busy || !cast.undo || !canUndo(cast, Date.now())) return;
+      act({ type: 'busy' });
+      const back = await getCast().restore(cast.undo.persona.id);
+      act(back.ok ? { type: 'restored', persona: back.persona } : { type: 'refused', message: back.message });
+    })(),
+  };
+
+  return (
+    <BusinessView
+      state={whole}
+      demo={source.kind === 'demo'}
+      on={on}
+      personas={<PersonasSection state={cast} products={whole.products} current={whole.current} on={persona} />}
+    />
+  );
 }
