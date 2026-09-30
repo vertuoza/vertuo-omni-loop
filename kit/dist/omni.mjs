@@ -16922,12 +16922,19 @@ function failedContexts(contexts) {
   }
   return failed;
 }
+function rollupOf(pr) {
+  return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+}
+function isFixable(state, failed, gateContexts) {
+  if (state !== "red") return false;
+  const gates = new Set(gateContexts);
+  return failed.length === 0 || failed.some((run) => !gates.has(run.name));
+}
 function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
-  const rollup = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+  const rollup = rollupOf(pr);
   const state = rollup ? ROLLUP[rollup.state] ?? "running" : "none";
   const failed = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
-  const gates = new Set(gateContexts);
-  const fixable = state === "red" && (failed.length === 0 || failed.some((run) => !gates.has(run.name)));
+  const fixable = isFixable(state, failed, gateContexts);
   return { state, failed, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
 }
 function readComment(node) {
@@ -16943,18 +16950,24 @@ function readComment(node) {
 function reasonOf2(body) {
   return body.replace(/\s*<!-- omni-care: [\w-]+ -->\s*$/, "").trim();
 }
+function threadBase(node, comments, resolved) {
+  return { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+}
+function repliedThread(comments, last, resolved) {
+  const reply = comments[last];
+  const reason2 = reasonOf2(reply.body);
+  if (reply.verdict === "asked") return { verdict: "asked", reason: reason2, needs: null };
+  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
+  if (personAfter || !resolved) return { verdict: "asked", reason: reason2, needs: "mark-asked" };
+  return { verdict: reply.verdict, reason: reason2, needs: null };
+}
 function readThread(node) {
   const comments = (node.comments?.nodes ?? []).map(readComment);
   const resolved = Boolean(node.isResolved);
   const last = comments.findLastIndex((c) => c.verdict !== null);
-  const base = { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+  const base = threadBase(node, comments, resolved);
   if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: "judge" };
-  const reply = comments[last];
-  const reason2 = reasonOf2(reply.body);
-  if (reply.verdict === "asked") return { ...base, verdict: "asked", reason: reason2, needs: null };
-  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
-  if (personAfter || !resolved) return { ...base, verdict: "asked", reason: reason2, needs: "mark-asked" };
-  return { ...base, verdict: reply.verdict, reason: reason2, needs: null };
+  return { ...base, ...repliedThread(comments, last, resolved) };
 }
 function readStatus(nodes, statusMarker) {
   const found = nodes.find((node) => statusMarker && String(node.body ?? "").includes(statusMarker));
@@ -17004,10 +17017,9 @@ function graphql({ query, variables }, { exec, env }) {
 }
 function featureBranchFor(prd2, ctx) {
   const where = ctx.layout.whereIs(prd2);
-  if (!where) throw usageError(`omni care: PRD ${prd2} has no inbox or shipped folder.`);
-  const parsed = parseFolderName(where.name);
-  if (!parsed) throw usageError(`omni care: cannot read a topic from folder "${where.name}".`);
-  return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+  const parsed = where ? parseFolderName(where.name) : null;
+  if (parsed) return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+  throw usageError(where ? `omni care: cannot read a topic from folder "${where.name}".` : `omni care: PRD ${prd2} has no inbox or shipped folder.`);
 }
 function findFeaturePr({ repo, branch, exec, env }) {
   const raw = exec(
@@ -17054,9 +17066,7 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   println(stdout, JSON.stringify({ ...full, round: decideRound(full) }, null, 2));
   return 0;
 }
-function runReply(args, { ctx, stdout, stderr, exec, env }) {
-  const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
-  if (positional.length) throw usageError(USAGE4);
+function replyBodyOf(flags, ctx) {
   if (!CARE_VERDICTS.includes(flags.verdict)) {
     throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(", ")}.`);
   }
@@ -17065,18 +17075,26 @@ function runReply(args, { ctx, stdout, stderr, exec, env }) {
   }
   const text4 = flags.body ?? readUserFile("care", ctx, flags.file);
   if (!String(text4).trim()) throw usageError("omni care reply: the reply is empty.");
-  const body = careReplyBody(text4, flags.verdict);
+  return careReplyBody(text4, flags.verdict);
+}
+function runReply(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
+  if (positional.length) throw usageError(USAGE4);
+  const body = replyBodyOf(flags, ctx);
   if (flags.thread === void 0) {
     println(stdout, body);
     return 0;
   }
+  return postReply({ thread: flags.thread, verdict: flags.verdict, body }, { ctx, stdout, stderr, exec, env });
+}
+function postReply({ thread, verdict, body }, { ctx, stdout, stderr, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
-    const posted = graphql({ query: REPLY_MUTATION, variables: { thread: flags.thread, body } }, { exec, env: ghEnv });
-    const resolve4 = flags.verdict !== "asked";
-    if (resolve4) graphql({ query: RESOLVE_MUTATION, variables: { thread: flags.thread } }, { exec, env: ghEnv });
+    const posted = graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv });
+    const resolve4 = verdict !== "asked";
+    if (resolve4) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
-    println(stdout, JSON.stringify({ thread: flags.thread, verdict: flags.verdict, url, resolved: resolve4 }));
+    println(stdout, JSON.stringify({ thread, verdict, url, resolved: resolve4 }));
     return 0;
   } catch (error) {
     if (error?.name !== "GitHubError") throw error;

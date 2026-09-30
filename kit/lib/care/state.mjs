@@ -39,13 +39,22 @@ function failedContexts(contexts) {
   return failed;
 }
 
+function rollupOf(pr) {
+  return pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+}
+
+// Red only on the outbox or inbox gate is the gate doing its job, not a failure to fix (/omni:pr).
+function isFixable(state, failed, gateContexts) {
+  if (state !== 'red') return false;
+  const gates = new Set(gateContexts);
+  return failed.length === 0 || failed.some((run) => !gates.has(run.name));
+}
+
 function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
-  const rollup = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup ?? null;
+  const rollup = rollupOf(pr);
   const state = rollup ? (ROLLUP[rollup.state] ?? 'running') : 'none';
   const failed = state === 'red' ? failedContexts(rollup.contexts?.nodes ?? []) : [];
-  const gates = new Set(gateContexts);
-  // Red only on the outbox or inbox gate is the gate doing its job, not a failure to fix (/omni:pr).
-  const fixable = state === 'red' && (failed.length === 0 || failed.some((run) => !gates.has(run.name)));
+  const fixable = isFixable(state, failed, gateContexts);
   return { state, failed, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
 }
 
@@ -74,18 +83,27 @@ function reasonOf(body) {
  *   reopened: asked, and the round marks it so (the reviewer keeps the last word);
  * - otherwise: the verdict of that reply, handled.
  */
+function threadBase(node, comments, resolved) {
+  return { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+}
+
+/** The verdict, reason and need of a thread whose last care reply sits at `last`. */
+function repliedThread(comments, last, resolved) {
+  const reply = comments[last];
+  const reason = reasonOf(reply.body);
+  if (reply.verdict === 'asked') return { verdict: 'asked', reason, needs: null };
+  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
+  if (personAfter || !resolved) return { verdict: 'asked', reason, needs: 'mark-asked' };
+  return { verdict: reply.verdict, reason, needs: null };
+}
+
 function readThread(node) {
   const comments = (node.comments?.nodes ?? []).map(readComment);
   const resolved = Boolean(node.isResolved);
   const last = comments.findLastIndex((c) => c.verdict !== null);
-  const base = { id: node.id, url: comments[0]?.url ?? null, path: node.path ?? null, line: node.line ?? null, resolved, comments };
+  const base = threadBase(node, comments, resolved);
   if (last === -1) return resolved ? null : { ...base, verdict: null, reason: null, needs: 'judge' };
-  const reply = comments[last];
-  const reason = reasonOf(reply.body);
-  if (reply.verdict === 'asked') return { ...base, verdict: 'asked', reason, needs: null };
-  const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
-  if (personAfter || !resolved) return { ...base, verdict: 'asked', reason, needs: 'mark-asked' };
-  return { ...base, verdict: reply.verdict, reason, needs: null };
+  return { ...base, ...repliedThread(comments, last, resolved) };
 }
 
 function readStatus(nodes, statusMarker) {

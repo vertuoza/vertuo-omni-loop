@@ -156,11 +156,16 @@ function linksOf(summary: GithubSummary | null | undefined): StageLink[] {
   const care = summary.care ?? null;
   for (const [name, pull] of pulls) {
     if (!known(pull) || !pull) continue;
-    const link: StageLink = { label: `${name} #${pull.number}`, href: pull.url, done: pull.state === 'merged' };
-    if (name === 'feature' && pull.state === 'open' && known(care) && care) link.chip = careChipOf(care);
-    links.push(link);
+    links.push(pullLinkOf(name, pull, care));
   }
   return links;
+}
+
+/** One pull request's link; the open feature PR's carries its health chip when its care state was read. */
+function pullLinkOf(name: string, pull: PullRef, care: Read<CareState | null>): StageLink {
+  const link: StageLink = { label: `${name} #${pull.number}`, href: pull.url, done: pull.state === 'merged' };
+  if (name === 'feature' && pull.state === 'open' && known(care) && care) link.chip = careChipOf(care);
+  return link;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

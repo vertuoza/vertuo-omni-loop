@@ -711,7 +711,7 @@ function retroOf(pr: NonNullable<GithubSummary['retro']> | null, text: NonNullab
 }
 
 /** A merged feature PR's PR care tab says why it is empty. */
-export const CARE_DONE = 'The feature PR is merged: nothing is left to look after.';
+const CARE_DONE = 'The feature PR is merged: nothing is left to look after.';
 
 const CI_WORDS: Record<CareCi, string> = { green: 'green', red: 'red', running: 'running', none: 'no check reported' };
 const VERDICT_WORDS: Record<CareVerdict, string> = { open: 'not handled yet', fixed: 'fixed', 'pushed-back': 'pushed back', asked: 'asked: the PM decides' };
@@ -733,7 +733,7 @@ const NO_CARE = { ci: { state: 'none' as const, words: CI_WORDS.none, href: null
 
 /** The PR care tab, from the GitHub summary: null when the PRD is known to have no feature PR (the tab
  * is not shown); pending while GitHub was not asked, unread when it did not answer. */
-export function careView(github: GithubSummary | null | undefined, prd: number | null, people: People, now: number): CareView | null {
+function careView(github: GithubSummary | null | undefined, prd: number | null, people: People, now: number): CareView | null {
   if (prd === null || noFeature(prd, github)) return null;
   const watcher = watcherOf(null, prd, now);
   if (github === undefined) return { state: 'pending', words: GITHUB_PENDING, prUrl: null, ...NO_CARE, watcher };

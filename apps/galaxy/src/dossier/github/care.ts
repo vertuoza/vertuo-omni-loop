@@ -93,33 +93,53 @@ export function careVerdictOf(body: string | null | undefined): Exclude<CareVerd
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 const FAILED_STATUS = new Set(['FAILURE', 'ERROR']);
 
+type RollupContext = NonNullable<NonNullable<NonNullable<z.infer<typeof Rollup>>['contexts']>['nodes'][number]>;
+
+const hasFailed = (c: RollupContext | null): c is RollupContext =>
+  c !== null && (FAILED_RUN.has(c.conclusion ?? '') || FAILED_STATUS.has(c.state ?? ''));
+
+/** The link of the first failed check or status of a red rollup. */
+function failedUrlOf(rollup: NonNullable<z.infer<typeof Rollup>>): string | null {
+  const failed = (rollup.contexts?.nodes ?? []).find(hasFailed);
+  return failed?.detailsUrl ?? failed?.targetUrl ?? null;
+}
+
+const ROLLUP_CI: Record<string, CareCi> = { SUCCESS: 'green', FAILURE: 'red', ERROR: 'red' };
+
 function ciOf(rollup: z.infer<typeof Rollup>): { ci: CareCi; failedUrl: string | null } {
   if (!rollup) return { ci: 'none', failedUrl: null };
-  if (rollup.state === 'SUCCESS') return { ci: 'green', failedUrl: null };
-  if (rollup.state === 'FAILURE' || rollup.state === 'ERROR') {
-    const failed = (rollup.contexts?.nodes ?? []).find((c) =>
-      c && ((c.conclusion && FAILED_RUN.has(c.conclusion)) || (c.state && FAILED_STATUS.has(c.state))));
-    return { ci: 'red', failedUrl: failed?.detailsUrl ?? failed?.targetUrl ?? null };
-  }
-  return { ci: 'running', failedUrl: null };
+  const ci = ROLLUP_CI[rollup.state ?? ''] ?? 'running';
+  return { ci, failedUrl: ci === 'red' ? failedUrlOf(rollup) : null };
 }
 
 const reasonOf = (body: string) => body.replace(MARKER, '').trim() || null;
 
-function threadOf(thread: { isResolved: boolean; comments: { nodes: (z.infer<typeof Comment> | null)[] } }): CareThread | null {
-  const comments = thread.comments.nodes.filter((c): c is z.infer<typeof Comment> => c !== null);
-  const [first] = comments;
-  if (!first) return null;
-  let lastCare = -1;
-  comments.forEach((c, i) => { if (careVerdictOf(c.body)) lastCare = i; });
-  const base = { url: first.url, login: first.author?.login ?? 'ghost', avatar: first.author?.avatarUrl ?? null,
-    firstLine: (first.body ?? '').trim().split('\n')[0].trim(), resolved: thread.isResolved };
-  if (lastCare === -1) return thread.isResolved ? null : { ...base, verdict: 'open', reason: null };
+type CareComment = z.infer<typeof Comment>;
+
+/** What a thread shows of its first comment: who opened it and its first line. */
+function threadBaseOf(first: CareComment, resolved: boolean) {
+  return { url: first.url, login: first.author?.login ?? 'ghost', avatar: first.author?.avatarUrl ?? null,
+    firstLine: (first.body ?? '').trim().split('\n')[0].trim(), resolved };
+}
+
+/** The verdict and reason of the last care reply, at `lastCare`: asked once a person spoke after it
+ * or reopened the thread. */
+function repliedOf(comments: CareComment[], lastCare: number, resolved: boolean): Pick<CareThread, 'verdict' | 'reason'> {
   const reply = comments[lastCare];
   const marked = careVerdictOf(reply.body)!;
   const spokeAfter = lastCare < comments.length - 1;
-  const reopened = !thread.isResolved && marked !== 'asked';
-  return { ...base, verdict: spokeAfter || reopened ? 'asked' : marked, reason: reasonOf(reply.body ?? '') };
+  const reopened = !resolved && marked !== 'asked';
+  return { verdict: spokeAfter || reopened ? 'asked' : marked, reason: reasonOf(reply.body ?? '') };
+}
+
+function threadOf(thread: { isResolved: boolean; comments: { nodes: (CareComment | null)[] } }): CareThread | null {
+  const comments = thread.comments.nodes.filter((c): c is CareComment => c !== null);
+  const [first] = comments;
+  if (!first) return null;
+  const lastCare = comments.findLastIndex((c) => careVerdictOf(c.body) !== null);
+  const base = threadBaseOf(first, thread.isResolved);
+  if (lastCare === -1) return thread.isResolved ? null : { ...base, verdict: 'open', reason: null };
+  return { ...base, ...repliedOf(comments, lastCare, thread.isResolved) };
 }
 
 const CARE_LINE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;

@@ -94,17 +94,27 @@ const PULL_REQUEST = {
 /** A fake `execFileSync` standing in for git and gh. Records every call. */
 function fakeExec(root, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: NOW }], subPrs = [subPr('s1'), subPr('s2')], graphql = {} } = {}) {
   const calls = [];
+  // GraphQL answers by what the query asks for; the first match wins, the read last.
+  const answers = [
+    ['addPullRequestReviewThreadReply', () => graphql.reply ?? { data: { addPullRequestReviewThreadReply: { comment: { url: 'https://github.com/acme/widgets/pull/9#discussion_r9' } } } }],
+    ['resolveReviewThread', () => ({ data: { resolveReviewThread: { thread: { isResolved: true } } } })],
+    ['', () => graphql.read ?? { data: { repository: { pullRequest: PULL_REQUEST } } }],
+  ];
+  const answerGraphql = (options) => {
+    const { query } = JSON.parse(options.input);
+    return JSON.stringify(answers.find(([asks]) => query.includes(asks))[1]());
+  };
+  // Every command the fake answers, by its file and first two arguments.
+  const handlers = {
+    'git rev-parse': () => `${root}\n`,
+    'gh pr list': (args) => JSON.stringify(args.includes('--head') ? featurePrs : subPrs),
+    'gh api graphql': (_args, options) => answerGraphql(options),
+  };
   const exec = (file, args, options = {}) => {
     calls.push({ file, args, options });
-    if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
-    if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(args.includes('--head') ? featurePrs : subPrs);
-    if (file === 'gh' && args[0] === 'api' && args[1] === 'graphql') {
-      const { query } = JSON.parse(options.input);
-      if (query.includes('addPullRequestReviewThreadReply')) return JSON.stringify(graphql.reply ?? { data: { addPullRequestReviewThreadReply: { comment: { url: 'https://github.com/acme/widgets/pull/9#discussion_r9' } } } });
-      if (query.includes('resolveReviewThread')) return JSON.stringify({ data: { resolveReviewThread: { thread: { isResolved: true } } } });
-      return JSON.stringify(graphql.read ?? { data: { repository: { pullRequest: PULL_REQUEST } } });
-    }
-    throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+    const handler = handlers[[file, ...args.slice(0, 2)].join(' ')] ?? handlers[`${file} ${args[0]}`];
+    if (!handler) throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+    return handler(args, options);
   };
   return { exec, calls };
 }

@@ -45,10 +45,11 @@ function graphql({ query, variables }, { exec, env }) {
 
 function featureBranchFor(prd, ctx) {
   const where = ctx.layout.whereIs(prd);
-  if (!where) throw usageError(`omni care: PRD ${prd} has no inbox or shipped folder.`);
-  const parsed = parseFolderName(where.name);
-  if (!parsed) throw usageError(`omni care: cannot read a topic from folder "${where.name}".`);
-  return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+  const parsed = where ? parseFolderName(where.name) : null;
+  if (parsed) return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
+  throw usageError(where
+    ? `omni care: cannot read a topic from folder "${where.name}".`
+    : `omni care: PRD ${prd} has no inbox or shipped folder.`);
 }
 
 /** The feature PR's number: the open one on the feature branch, else the one updated last. */
@@ -102,9 +103,8 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   return 0;
 }
 
-function runReply(args, { ctx, stdout, stderr, exec, env }) {
-  const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo'] });
-  if (positional.length) throw usageError(USAGE);
+/** The reply's body from `--verdict` and `--body` or `--file`, ending with the care marker. */
+function replyBodyOf(flags, ctx) {
   if (!CARE_VERDICTS.includes(flags.verdict)) {
     throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(', ')}.`);
   }
@@ -113,19 +113,29 @@ function runReply(args, { ctx, stdout, stderr, exec, env }) {
   }
   const text = flags.body ?? readUserFile('care', ctx, flags.file);
   if (!String(text).trim()) throw usageError('omni care reply: the reply is empty.');
-  const body = careReplyBody(text, flags.verdict);
+  return careReplyBody(text, flags.verdict);
+}
+
+function runReply(args, { ctx, stdout, stderr, exec, env }) {
+  const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo'] });
+  if (positional.length) throw usageError(USAGE);
+  const body = replyBodyOf(flags, ctx);
   if (flags.thread === undefined) {
     println(stdout, body);
     return 0;
   }
+  return postReply({ thread: flags.thread, verdict: flags.verdict, body }, { ctx, stdout, stderr, exec, env });
+}
 
+/** Posts the reply on its thread and resolves it unless asked; prints what it did as JSON. */
+function postReply({ thread, verdict, body }, { ctx, stdout, stderr, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
-    const posted = graphql({ query: REPLY_MUTATION, variables: { thread: flags.thread, body } }, { exec, env: ghEnv });
-    const resolve = flags.verdict !== 'asked';
-    if (resolve) graphql({ query: RESOLVE_MUTATION, variables: { thread: flags.thread } }, { exec, env: ghEnv });
+    const posted = graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv });
+    const resolve = verdict !== 'asked';
+    if (resolve) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
-    println(stdout, JSON.stringify({ thread: flags.thread, verdict: flags.verdict, url, resolved: resolve }));
+    println(stdout, JSON.stringify({ thread, verdict, url, resolved: resolve }));
     return 0;
   } catch (error) {
     if (error?.name !== 'GitHubError') throw error;
