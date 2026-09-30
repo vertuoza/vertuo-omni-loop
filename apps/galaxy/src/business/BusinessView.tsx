@@ -37,6 +37,8 @@ import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './c
 // answers it (./check.ts): a replacement ("~~ERP~~ → CRM") and an addition ("Region: Belgium → Belgium
 // + France"), each with its receipts and ✓ Right / ✗ Wrong, saved at once; then each faded claim,
 // dimmed, "not seen since 12 Aug", with ✓ Still true and ✗ Wrong. Those rows leave the list below.
+//
+// The Personas section (PRD 799 s3, ./PersonasSection.tsx) follows the claims, the tab's own.
 
 export interface BusinessHandlers {
   /** A chip: on when off, off when on. */
@@ -111,6 +113,8 @@ export interface BusinessViewProps {
   on?: BusinessHandlers;
   /** What "eight weeks ago" is counted from (PRD 774 s4); now, left out. */
   now?: number;
+  /** The Personas section (PRD 799 s3), drawn below the claims of the tab shown. */
+  personas?: ReactNode;
 }
 
 function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
@@ -579,7 +583,7 @@ function ClaimLists({ listed, wrong, busy, on }: { listed: readonly Claim[]; wro
   );
 }
 
-export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now() }: BusinessViewProps) {
+export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now(), personas = null }: BusinessViewProps) {
   // Everything below reads the tab's claims: every claim while there is one product.
   const multi = hasProducts(whole.products);
   const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
@@ -608,6 +612,8 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
       <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
+
+      {personas}
 
       {sure.length > 0 && <Payoff claims={sure} />}
 

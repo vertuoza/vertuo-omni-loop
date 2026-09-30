@@ -193,7 +193,9 @@ export const ENTRIES = deepFreeze([
       "workspace's business, picked or drafted on the Settings › Business page, each with its id (such " +
       'as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has ' +
       'answered yet, is marked as such and left out of the sentence. --json prints them for an agent, ' +
-      'each with its state (confirmed or contradicted). With no business, ' +
+      'each with its state (confirmed or contradicted). Under the claims come the product\'s personas, ' +
+      'one line each (name, stance, trade, who they are and how they use it), and --json carries them ' +
+      'as personas, [] when there are none. With no business, ' +
       'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
       'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
       'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0.',

@@ -345,3 +345,94 @@
 @media (prefers-reduced-motion: no-preference) {
   .business-typing { animation: business-type 1.2s steps(40, end) both; }
 }
+
+/* Personas (PRD 799 s3, direction A): a header with the count and + Add a persona, a grid of cards
+   (portrait, name, trade, stance chip, who, uses), and the drawer with its portrait picker. Portraits
+   are pixel art: never smoothed. At 393 px the grid is one column, the drawer stacks, the header and
+   every chip row wrap, and long words break. */
+.business-personas-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.business-personas-head h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.business-add-persona { margin-left: auto; }
+.business-personas-hint { margin: 0; overflow-wrap: anywhere; }
+.business-personas-empty { margin: 0; color: var(--ask-muted); }
+.business-personas-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+.business-persona-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.business-persona {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+}
+.business-persona-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.business-persona-id { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.business-persona-name { font-size: 16px; overflow-wrap: anywhere; }
+.business-persona-trade { font-size: 13px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-persona-line { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.business-persona-label { font: 700 11px/1 var(--ask-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ask-muted); }
+.business-persona-edit { justify-self: start; }
+
+.business-portrait { display: inline-block; flex: none; line-height: 0; border-radius: 8px; background: var(--ask-sunk); }
+.business-portrait svg { display: block; image-rendering: pixelated; }
+.business-portrait-none { width: 64px; height: 64px; }
+
+.business-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.business-stance[data-stance='excited'] { color: var(--ask-green); }
+.business-stance[data-stance='neutral'] { color: var(--ask-muted); }
+.business-stance[data-stance='skeptical'] { color: var(--ask-red); }
+
+.business-persona-drawer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 16px;
+  padding: 14px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.business-persona-chosen { flex: none; }
+.business-persona-fields { flex: 1 1 240px; min-width: 0; display: grid; gap: 12px; }
+.business-persona-fields h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.business-persona-field { display: grid; gap: 4px; min-width: 0; }
+.business-persona-field input,
+.business-persona-field select,
+.business-persona-field textarea {
+  font: 15px/1.4 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-ground);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+.business-persona-field textarea { resize: vertical; }
+.business-persona-picker { display: grid; gap: 8px; min-width: 0; }
+.business-persona-picker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.business-persona-variations { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; }
+.business-persona-variation {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  background: var(--ask-sunk);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.business-persona-variation[aria-pressed='true'] { border-color: var(--ask-plasma); }
+.business-persona-variation:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-persona-variation:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-persona-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-persona-delete { margin-left: auto; color: var(--ask-red); }
