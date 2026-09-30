@@ -11,7 +11,7 @@
 -- has none. Nobody writes the four tables directly, and nobody updates or deletes a citation. Nothing
 -- is seeded.
 --
--- PRD 774 (20261020090000_business_evidence.sql): a business holds three web pages at most; a draft runs
+-- PRD 774 (20261021090000_business_evidence.sql): a business holds three web pages at most; a draft runs
 -- one at a time; evidence is merged as its decision 9 says (a receipt appends and moves last_seen, a
 -- rejected value adds nothing, another confirmed offering or size is contradicted by a replacement);
 -- That's us confirms the proposed evidence not marked ✗; a replacement's ✓ and ✗ settle both claims;
