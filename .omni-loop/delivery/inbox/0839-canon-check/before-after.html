@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Canon Check</title>
+<style>
+/* Layout: today beside after, per moment; stacks at phone width. GitHub PR view and Omni page, both themes. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#fff;
+ --green:#15703f;--greenSoft:#e4f4ea;--red:#b3122f;--redSoft:#fbe8ec;--amber:#8f5c08;--cyan:#0b6f86;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --green:#4ee08a;--greenSoft:#133b3c;--red:#ff6b86;--redSoft:#3a1633;--amber:#ffd84a;--cyan:#6ff0ff;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --green:#4ee08a;--greenSoft:#133b3c;--red:#ff6b86;--redSoft:#3a1633;--amber:#ffd84a;--cyan:#6ff0ff;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:36px}
+header h1{font:900 30px/1 var(--display);letter-spacing:.05em;text-transform:uppercase;margin:0}
+header p{color:var(--muted);margin:6px 0 0;max-width:80ch}
+.moment{display:grid;gap:12px}.moment>h2{margin:0;font-size:20px}.moment>p{margin:0;color:var(--muted);max-width:80ch}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px}
+@media (max-width:900px){.pair{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;align-content:start;min-width:0}
+.tag{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.tag.after{color:var(--plasma)}
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface)}
+.ph{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:4px}
+.ph .repo{font-size:12px;color:var(--muted)}.ph h3{margin:0;font-size:17px}.ph h3 .num{color:var(--muted);font-weight:400}
+.open{display:inline-block;background:var(--green);color:var(--surface);font-weight:700;font-size:12px;border-radius:999px;padding:2px 8px}
+.pb{padding:14px;display:grid;gap:12px}
+.cmt{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ch{background:var(--sunk);padding:8px 10px;font-size:13px;color:var(--muted)}.ch b{color:var(--ink)}
+.cb{padding:10px;display:grid;gap:8px;font-size:14px}
+.breaks{border-left:4px solid var(--red);background:var(--redSoft);padding:8px 10px;border-radius:6px;display:grid;gap:6px}
+.bt{font-weight:700;color:var(--red)}
+q{font-style:italic}
+.cid{font:700 12px var(--mono);color:var(--cyan);border:1px solid currentColor;border-radius:5px;padding:0 4px}
+.persona{border-left:3px solid var(--plasma);padding-left:8px;color:var(--muted)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:700 13px/1 var(--body);padding:8px 11px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.p{background:var(--plasma);color:var(--onPlasma);border-color:transparent}
+.checks{border:1px solid var(--line);border-radius:10px;display:grid}
+.checks div{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-top:1px solid var(--line);font-size:14px}
+.checks div:first-child{border-top:0}
+.checks small{color:var(--muted);margin-left:auto;text-align:right}
+.ok{color:var(--green);font-weight:700}.ko{color:var(--red);font-weight:700}.neu{color:var(--muted);font-weight:700}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:8px}
+.rows{display:grid}
+.row{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+@media (max-width:480px){.row{grid-template-columns:minmax(0,1fr)}}
+.kind{font:700 11px/1.6 var(--mono);text-transform:uppercase;color:var(--muted)}
+.val{font-weight:700}.meta{font-size:12px;color:var(--muted)}
+.v{font:700 12px/1 var(--body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap}
+.dashed{border-style:dashed}
+.empty{color:var(--muted)}
+ul.notes{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>The canon check</h1><p>PRD 839 · from concept #746, area <code>canon-check</code>. Today beside after: Never lines become business claims, and the omni-loop App's inbox check on phase-0 PRs gains a canon gate. It flags a spec that breaks a Never line or designs for someone outside the ICP, quoting the spec word for word. Names, claims and PR numbers below are examples.</p></header>
+
+<section class="moment"><h2>1 · Stopped before code: the phase-0 PR</h2><p>Today the inbox check grades the layout, the plan and the PRD issue, and a spec written for the wrong customer passes. After, the canon gate reads the spec against the product's claims and personas. It turns red with the spec's own words, the claim it breaks and one persona line, and offers two ways out.</p>
+<div class="pair">
+ <div class="col"><span class="tag">Today</span><div class="win"><div class="ph"><span class="repo">vertuoza / vertuo-app · pull request</span><h3>docs(phase-0): PRD 752 — Group consolidation across entities <span class="num">#753</span></h3><span><span class="open">Open</span></span></div>
+  <div class="pb"><div class="checks">
+   <div><span class="ok">✓</span>omni-loop · inbox<small>layout ✓ · plan ✓ · issue ✓ · docs-only ✓</small></div>
+   <div><span class="ok">✓</span>checks · test</div></div>
+   <p class="empty" style="margin:0">All green. Nothing notices the spec is written for "the CFO of the group" when the product is sold to owner-run firms of 2 to 50 people.</p></div></div></div>
+ <div class="col"><span class="tag after">After</span><div class="win"><div class="ph"><span class="repo">vertuoza / vertuo-app · pull request</span><h3>docs(phase-0): PRD 752 — Group consolidation across entities <span class="num">#753</span></h3><span><span class="open">Open</span></span></div>
+  <div class="pb">
+   <div class="checks">
+    <div><span class="ko">✕</span>omni-loop · inbox<small>layout ✓ · plan ✓ · issue ✓ · docs-only ✓ · <b>canon ✗ 1</b></small></div>
+    <div><span class="ok">✓</span>checks · test</div></div>
+   <div class="cmt"><div class="ch"><b>omni-loop · inbox</b> · canon ✗ 1 · 11 claims and 5 personas read</div><div class="cb">
+    <div class="breaks"><span class="bt">✗ Breaks a Never line</span>
+     <span>spec.md says <q>the CFO of the group signs off each entity's month-end close</q></span>
+     <span>Never: build for groups of companies <span class="cid">never#32</span> · our customer is 2–50 people <span class="cid">size#2</span></span>
+     <span class="persona">Marc, skeptical: “One company, five plumbers. There is no group.” <span class="cid">persona:Marc</span></span></div>
+    <div class="btns"><span class="btn p">Rewrite for Marc</span><span class="btn">Change the claim</span></div>
+    <div class="meta">Rewrite for Marc posts: To rewrite the spec for Marc, run <code>/omni:brainstorm --rework 752</code>. Change the claim posts a link to never#32 on Settings › Business.</div>
+   </div></div>
+  </div></div></div>
+</div></section>
+
+<section class="moment"><h2>2 · When it cannot judge</h2><p>Today there is no canon gate. After, a repository with no business, no claims for its product, no model key, or a model error gets a neutral gate with one line, never a red one.</p>
+<div class="pair">
+ <div class="col"><span class="tag">Today</span><div class="win"><div class="pb"><div class="checks"><div><span class="ok">✓</span>omni-loop · inbox<small>layout ✓ · plan ✓ · issue ✓ · docs-only ✓</small></div></div></div></div></div>
+ <div class="col"><span class="tag after">After</span><div class="win"><div class="pb"><div class="checks"><div><span class="ok">✓</span>omni-loop · inbox<small>layout ✓ · plan ✓ · issue ✓ · docs-only ✓ · <span class="neu">canon –</span> no business yet: agents carry on</small></div></div></div></div></div>
+</div></section>
+
+<section class="moment"><h2>3 · Never lines on the Business page</h2><p>Today the lines the team never crosses live in people's heads. After, they are claims: typed once and confirmed at once, or proposed by the draft with a receipt. Every agent and the canon gate read them.</p>
+<div class="pair">
+ <div class="col"><span class="tag">Today</span><div class="card"><div class="rows">
+  <div class="row"><span class="kind">size</span><div><div class="val">2–50</div><div class="meta">you picked</div></div><span class="v">✓ ✗</span></div>
+  <div class="row"><span class="kind">rival</span><div><div class="val">Procore</div><div class="meta">suggested</div></div><span class="v">✓ ✗</span></div></div>
+  <p class="empty" style="margin:0">No place for "what we never build".</p></div></div>
+ <div class="col"><span class="tag after">After</span><div class="card"><div class="rows">
+  <div class="row"><span class="kind">size</span><div><div class="val">2–50</div><div class="meta">you picked</div></div><span class="v">✓ ✗</span></div>
+  <div class="row"><span class="kind">rival</span><div><div class="val">Procore</div><div class="meta">suggested</div></div><span class="v">✓ ✗</span></div></div>
+  <h3 style="margin:6px 0 0;font-size:16px">Never lines</h3>
+  <div class="rows">
+   <div class="row"><span class="kind">never#32</span><div><div class="val">Build for groups of companies</div><div class="meta">you wrote · cited 2× · last by canon on #753</div></div><span class="v">✓ ✗</span></div>
+   <div class="row"><span class="kind">never#35</span><div><div class="val">Sell to public-sector tenders</div><div class="meta">proposed · <q>we don't answer public tenders</q>, docs/positioning.md</div></div><span class="v dashed">✓ Right ✗ Wrong</span></div>
+  </div>
+  <div class="btns"><span class="btn">+ Never line</span></div></div></div>
+</div></section>
+
+<section class="moment"><h2>What stays the same</h2><ul class="notes">
+ <li>The inbox check's four gates are unchanged. Canon is a fifth, on phase-0 PRs only, and it grades <code>spec.md</code> only.</li>
+ <li>A finding appears only when its quote is found word for word in the spec.</li>
+ <li>An empty business never blocks a PR. The gate is neutral with its reason.</li>
+ <li>No Game-mode VS card in this PRD.</li>
+</ul></section>
+</div>
+</body>
+</html>
