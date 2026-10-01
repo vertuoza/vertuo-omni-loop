@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { installPlugin, pluginLines } from './plugin.ts';
 import { MARKETPLACE, PLUGIN } from './steps.ts';
@@ -11,9 +10,14 @@ const ID = `${PLUGIN}@${MARKETPLACE}`;
  * `claude plugin marketplace list --json` report; `missing` makes every call fail as a missing
  * binary does; `fails` names the one subcommand (`add` or `install`) that fails.
  */
-function fakeClaude({ installed = [], marketplaces = [], missing = false, fails = null } = {}) {
-  const calls = [];
-  const exec = (cmd, args) => {
+function fakeClaude({ installed = [], marketplaces = [], missing = false, fails = null }: {
+  installed?: string[];
+  marketplaces?: string[];
+  missing?: boolean;
+  fails?: 'add' | 'install' | null;
+} = {}) {
+  const calls: string[] = [];
+  const exec = (cmd: string, args: readonly string[]): string => {
     calls.push([cmd, ...args].join(' '));
     if (cmd !== 'claude' || missing) throw new Error('spawn claude ENOENT');
     const key = args.join(' ');
@@ -56,7 +60,7 @@ describe('installPlugin', () => {
   });
 
   it('a list claude cannot give is no reason to skip the install', () => {
-    const exec = (cmd, args) => {
+    const exec = (cmd: string, args: readonly string[]): string => {
       if (args.includes('--json')) return 'not json';
       return '';
     };

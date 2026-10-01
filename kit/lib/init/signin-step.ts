@@ -1,29 +1,42 @@
-// @ts-nocheck
 // The sign-in step of `omni init` (PRD 420): signs this computer in to the Omni page `ask.url` names.
 // Already signed in, it says "already". On a terminal, it runs the `omni signin` flow, which opens
 // the browser; with no terminal, or a sign-in refused or timed out, it leaves `omni signin` as a
 // later step. Nothing here throws: a sign-in that did not happen never makes init fail. A sign-in done
 // here ends on `omni signin`'s own line, which names where this repository goes (PRD 459).
 import { credentials, credentialsHost } from '../ask/credentials.ts';
+import type { StepLines } from './plugin.ts';
+
+/** What the sign-in step did, and who and where for. */
+export type SignInResult = {
+  outcome: 'signed-in' | 'already' | 'later' | 'unset';
+  host?: string;
+  email?: string | null;
+  line?: string;
+  why?: string;
+};
+
+/** A kept sign-in, the fields that say who it is. */
+type KeptSignIn = { email?: string | null; login?: string | null };
 
 /**
- * @param {object} o
- * @param {string|null} o.askUrl           the config's `ask.url`
- * @param {string} [o.home]                the folder the credentials live under (the person's home)
- * @param {boolean} o.interactive          whether a terminal is attached
- * @param {() => Promise<number | { code: number, line?: string }>} o.signIn the `omni signin` flow,
- *   resolving to its exit code, or to that code and the line it ended on
- * @returns {Promise<{ outcome: 'signed-in' | 'already' | 'later' | 'unset', host?: string, email?: string, line?: string, why?: string }>}
+ * `askUrl` is the config's `ask.url`; `home` the folder the credentials live under (the person's
+ * home); `interactive` whether a terminal is attached; `signIn` the `omni signin` flow, resolving to
+ * its exit code, or to that code and the line it ended on.
  */
-export async function signInStep({ askUrl, home, interactive, signIn }) {
+export async function signInStep({ askUrl, home, interactive, signIn }: {
+  askUrl: string | null;
+  home?: string;
+  interactive: boolean;
+  signIn: () => Promise<number | { code: number; line?: string }>;
+}): Promise<SignInResult> {
   if (!askUrl) return { outcome: 'unset' };
   const host = credentialsHost(askUrl);
   const store = credentials({ home });
   const held = store.read(host);
   if (held) return { outcome: 'already', host, email: who(held) };
   if (!interactive) return { outcome: 'later', host, why: 'no terminal' };
-  let code;
-  let line;
+  let code: number | undefined;
+  let line: string | undefined;
   try {
     const done = await signIn();
     ({ code, line } = typeof done === 'number' ? { code: done } : { code: done?.code, line: done?.line });
@@ -36,14 +49,12 @@ export async function signInStep({ askUrl, home, interactive, signIn }) {
 }
 
 /** Who a kept sign-in is: its email, or its GitHub login when the account keeps its email private. */
-const who = (entry) => entry.email ?? entry.login;
+const who = (entry: KeptSignIn): string | null | undefined => entry.email ?? entry.login;
 
 /**
  * The sign-in's status line, and `omni signin` as the line to type later when it was not done.
- *
- * @returns {{ status: string[], todo: string[] }}
  */
-export function signInLines({ outcome, host, email, line, why }) {
+export function signInLines({ outcome, host, email, line, why }: SignInResult): StepLines {
   if (outcome === 'signed-in' && line) return { status: [`  signin  ${line}`], todo: [] };
   if (outcome === 'signed-in') return { status: [`  signin  signed in to ${host} as ${email}`], todo: [] };
   if (outcome === 'already') return { status: [`  signin  signed in to ${host} already, as ${email}`], todo: [] };

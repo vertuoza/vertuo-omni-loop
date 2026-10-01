@@ -1,13 +1,31 @@
-// @ts-nocheck
 // The install pull request `omni init` opens (PRD 420): it switches to `chore/install-omni-loop`
 // before writing anything, then commits only the paths it wrote, pushes that branch and opens (or
 // finds) its pull request into the default branch. Nothing here throws: a step git or gh cannot do
 // is reported, every step after it is skipped, and `installLines` prints the exact commands left to
 // type. Nothing is ever committed on another branch, and nothing but the install branch is pushed.
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ExecText } from '../context.ts';
+import { GhPullRequestsSchema } from './schema.ts';
 
-const QUIET = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
+const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
+
+/** What `switchToInstallBranch` did. */
+export type BranchStep = { outcome: 'created' | 'switched' | 'stayed' | 'failed'; branch: string };
+
+/** The install pull request, found open or just opened. */
+export type InstallPr = { url: string; number: number | null; already: boolean };
+
+/** What `openInstallPr` did, step by step. */
+export type InstallResult = {
+  branch: BranchStep;
+  commit: 'committed' | 'nothing' | 'failed' | 'skipped';
+  push: 'pushed' | 'failed' | null;
+  pr: InstallPr | null;
+};
+
+type Attempt<T> = { ok: true; value: T } | { ok: false; value: null };
 
 /** Fixed, not a config key: init runs before any config exists. */
 export const INSTALL_BRANCH = 'chore/install-omni-loop';
@@ -18,7 +36,7 @@ const PR_BODY = [
 ].join('\n');
 const GITHUB = 'https://github.com';
 
-function attempt(fn) {
+function attempt<T>(fn: () => T): Attempt<T> {
   try {
     return { ok: true, value: fn() };
   } catch {
@@ -26,7 +44,7 @@ function attempt(fn) {
   }
 }
 
-function currentBranch(root, exec) {
+function currentBranch(root: string, exec: ExecText): string | null {
   const { value } = attempt(() => exec('git', ['branch', '--show-current'], { cwd: root, ...QUIET }));
   return typeof value === 'string' ? value.trim() : null;
 }
@@ -34,10 +52,8 @@ function currentBranch(root, exec) {
 /**
  * Puts the repository at `root` on the install branch: stays when already on it, switches to it when
  * a previous run left it, creates it from HEAD otherwise.
- *
- * @returns {{ outcome: 'created' | 'switched' | 'stayed' | 'failed', branch: string }}
  */
-export function switchToInstallBranch(root, { exec }) {
+export function switchToInstallBranch(root: string, { exec }: { exec: ExecText }): BranchStep {
   const branch = INSTALL_BRANCH;
   if (currentBranch(root, exec) === branch) return { outcome: 'stayed', branch };
   const exists = attempt(() => exec('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], { cwd: root, ...QUIET })).ok;
@@ -47,33 +63,28 @@ export function switchToInstallBranch(root, { exec }) {
 }
 
 /** The open pull request whose head is the install branch, `null` when there is none, `undefined` when gh cannot say. */
-function findPr(root, exec) {
-  const listed = attempt(() => JSON.parse(exec('gh', ['pr', 'list', '--head', INSTALL_BRANCH, '--state', 'open', '--json', 'url,number'], { cwd: root, ...QUIET })));
-  if (!listed.ok || !Array.isArray(listed.value)) return undefined;
+function findPr(root: string, exec: ExecText): InstallPr | null | undefined {
+  const listed = attempt(() => GhPullRequestsSchema.parse(JSON.parse(exec('gh', ['pr', 'list', '--head', INSTALL_BRANCH, '--state', 'open', '--json', 'url,number'], { cwd: root, ...QUIET }))));
+  if (!listed.ok) return undefined;
   const [pr] = listed.value;
   return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
 }
 
-const prNumber = (url) => Number(/\/pull\/(\d+)/.exec(url)?.[1]) || null;
+const prNumber = (url: string): number | null => Number(/\/pull\/(\d+)/.exec(url)?.[1]) || null;
 
 /**
  * Commits `paths` on the install branch, pushes it to `remote` and opens its pull request into `base`.
- *
- * @param {string} root
- * @param {object} o
- * @param {Function} o.exec
- * @param {string[]} o.paths        the paths init wrote; nothing else is staged or committed
- * @param {string} o.remote
- * @param {string} o.base           the default branch the pull request targets
- * @param {{ outcome: string, branch: string }} [o.branch]   what switchToInstallBranch did, when it ran
- * @returns {{ branch, commit: 'committed' | 'nothing' | 'failed' | 'skipped', push: 'pushed' | 'failed' | null,
- *   pr: { url: string, number: number|null, already: boolean } | null }}
+ * `paths` are the paths init wrote: nothing else is staged or committed. `base` is the default
+ * branch the pull request targets; `branch` is what switchToInstallBranch did, when it ran.
  */
-export function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
+export function openInstallPr(
+  root: string,
+  { exec, paths: wanted, remote, base, branch }: { exec: ExecText; paths: string[]; remote: string; base: string; branch?: BranchStep },
+): InstallResult {
   // A path that is not there (no settings file, say) would make git refuse the whole commit.
   const paths = wanted.filter((path) => existsSync(join(root, path)));
   const on = currentBranch(root, exec) === INSTALL_BRANCH;
-  const result = {
+  const result: InstallResult = {
     branch: branch ?? { outcome: on ? 'stayed' : 'failed', branch: INSTALL_BRANCH },
     commit: 'skipped',
     push: null,
@@ -113,7 +124,7 @@ export function openInstallPr(root, { exec, paths: wanted, remote, base, branch 
   return result;
 }
 
-const BRANCH_LINE = {
+const BRANCH_LINE: Record<Exclude<BranchStep['outcome'], 'failed'>, (b: string) => string> = {
   created: (b) => `  branch  created ${b}`,
   switched: (b) => `  branch  switched to ${b}`,
   stayed: (b) => `  branch  on ${b} already`,
@@ -122,14 +133,13 @@ const BRANCH_LINE = {
 /**
  * The status lines of the install pull request, then — for every step not done — the exact commands
  * to type, in order.
- *
- * @param {ReturnType<typeof openInstallPr>} result
- * @param {{ paths: string[], remote: string, base: string, slug: string|null }} o
- * @returns {string[]}
  */
-export function installLines({ branch, commit, push, pr }, { paths, remote, base, slug }) {
-  const lines = [];
-  const todo = [];
+export function installLines(
+  { branch, commit, push, pr }: InstallResult,
+  { paths, remote, base, slug }: { paths: string[]; remote: string; base: string; slug: string | null },
+): string[] {
+  const lines: string[] = [];
+  const todo: string[] = [];
   const b = INSTALL_BRANCH;
   const ghLine = `gh pr create --base ${base} --head ${b} --title "${INSTALL_COMMIT}" --fill`;
   const prTodo = () => {

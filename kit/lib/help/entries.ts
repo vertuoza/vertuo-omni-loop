@@ -1,4 +1,3 @@
-// @ts-nocheck
 // What `omni help` says (PRD 315): the loop's seven stages (PRD 587), its principles, then one entry per `omni`
 // command and per plugin skill. Pure data, written by hand for people (a skill's own description is
 // written for Claude's trigger matching), and held to the command table and the skill folders by
@@ -17,17 +16,38 @@
 // Words in braces are the repository's, filled from its config by the renderer, never spelled here:
 // {delivery}, {inbox} and {shipped} (folders), {remote} and {defaultBranch}.
 
-const deepFreeze = (value) => {
+/** A stage of the loop: its name, one line, and the folder that holds it, when one does. */
+export type HelpStage = { readonly name: string; readonly line: string; readonly folder?: string };
+
+/** A group of skills, by what you want to do. */
+export type SkillGroup = { readonly id: string; readonly title: string };
+
+/** A command or a skill, as `omni help` and the docs' skills pages show it. */
+export type HelpEntry = {
+  readonly name: string;
+  readonly kind: 'command' | 'skill';
+  readonly who: 'you' | 'skills';
+  readonly usage: readonly string[];
+  readonly summary: string;
+  readonly detail: string;
+  readonly label?: string;
+  readonly also?: readonly (readonly [string, string])[];
+  readonly group?: string;
+  readonly when?: string;
+  readonly example?: { readonly type: string; readonly result: string };
+};
+
+function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object') {
     for (const inner of Object.values(value)) deepFreeze(inner);
     Object.freeze(value);
   }
   return value;
-};
+}
 
 /** The loop, stage by stage: a name, one line, and the folder that holds it, when one does. The
  * names are the kit's stage words (`STAGE_WORDS` in `kit/lib/status/format.ts`), in its order. */
-export const STAGES = deepFreeze([
+export const STAGES: readonly HelpStage[] = deepFreeze([
   { name: 'idea', line: 'talked through with /omni:brainstorm, or /omni:think-big if vast' },
   { name: 'PRD', line: 'spec, plan and before/after, in a phase-0 PR a person reviews' },
   { name: 'inbox', line: 'phase-0 PR merged: approved, ready to build', folder: '{inbox}' },
@@ -37,14 +57,14 @@ export const STAGES = deepFreeze([
   { name: 'retro', line: 'a retro PR tells how it went; a knowledge PR keeps what it taught' },
 ]);
 
-export const PRINCIPLES = deepFreeze([
+export const PRINCIPLES: readonly string[] = deepFreeze([
   'The folder is the status.',
   'Only a person merges into {defaultBranch}.',
   'Every decision an agent takes alone becomes an outbox item that you answer or adopt.',
 ]);
 
 /** The skills grouped by what you want to do (PRD 580), in the order the docs show them. */
-export const SKILL_GROUPS = deepFreeze([
+export const SKILL_GROUPS: readonly SkillGroup[] = deepFreeze([
   { id: 'start', title: 'Start a change' },
   { id: 'build', title: 'Build it' },
   { id: 'setup', title: 'Set up a repository' },
@@ -53,7 +73,7 @@ export const SKILL_GROUPS = deepFreeze([
   { id: 'run-by-skills', title: 'Run by other skills' },
 ]);
 
-export const ENTRIES = deepFreeze([
+export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
   // Commands you type in the terminal. Their order is the overview's.
   {
     name: 'status',
