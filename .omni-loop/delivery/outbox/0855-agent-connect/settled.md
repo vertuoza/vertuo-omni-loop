@@ -406,6 +406,7 @@ Option B is a one-line change in the web app and dropping one condition in a dat
 - Bears on: ADR-0051
 - Raised: 2026-10-01
 - Slice: s4
+- Stays here: Jev running only when the workspace has its Jev key restates PRD 812's rule for every Jev decision; nothing new to record beyond this PRD.
 - Wave: 4
 
 ### The answer, as it was given
