@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The kit's fallback intros and punchlines** (PRD #50, slice s2).
  *
@@ -93,8 +92,14 @@ const PUNCHLINES = Object.freeze([
   'Small print, big relief once it is settled.',
 ]);
 
+/** A pool of lines: the intros and the punchlines a question is served from. */
+export type BanterPool = { readonly intros: readonly string[]; readonly punchlines: readonly string[] };
+
+/** The intro and the punchline one question carries. */
+export type Banter = { intro: string | undefined; punchline: string | undefined };
+
 /** The kit's pool: `{ intros, punchlines }`. */
-export const BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
+export const BANTER_POOL: BanterPool = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
 
 /**
  * 32-bit FNV-1a over `text`'s UTF-8 bytes: the same number for the same text on every run, machine
@@ -103,7 +108,7 @@ export const BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINE
  * @param {string} text
  * @returns {number} an unsigned 32-bit integer
  */
-export function stableHash(text) {
+export function stableHash(text: string): number {
   let hash = 0x811c9dc5;
   for (const byte of new TextEncoder().encode(text)) {
     hash ^= byte;
@@ -121,9 +126,9 @@ export function stableHash(text) {
  * @param {string} salt keeps an id's intro and punchline from always sharing an index
  * @returns {Map<string, string>}
  */
-function serveLines(ids, lines, salt) {
-  const taken = new Set();
-  const served = new Map();
+function serveLines(ids: readonly string[], lines: readonly string[], salt: string): Map<string, string | undefined> {
+  const taken = new Set<number>();
+  const served = new Map<string, string | undefined>();
   for (const id of ids) {
     if (taken.size === lines.length) taken.clear();
     let index = stableHash(`${salt}:${id}`) % lines.length;
@@ -142,8 +147,8 @@ function serveLines(ids, lines, salt) {
  * @param {{ pool?: { intros: readonly string[], punchlines: readonly string[] } }} [options]
  * @returns {Map<string, { intro: string, punchline: string }>}
  */
-export function assignBanter(ids, { pool = BANTER_POOL } = {}) {
+export function assignBanter(ids: readonly string[], { pool = BANTER_POOL }: { pool?: BanterPool } = {}): Map<string, Banter> {
   const intros = serveLines(ids, pool.intros, 'intro');
   const punchlines = serveLines(ids, pool.punchlines, 'punchline');
-  return new Map(ids.map((id) => [id, { intro: intros.get(id), punchline: punchlines.get(id) }]));
+  return new Map(ids.map((id): [string, Banter] => [id, { intro: intros.get(id), punchline: punchlines.get(id) }]));
 }

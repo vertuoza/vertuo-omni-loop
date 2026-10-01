@@ -75,7 +75,7 @@ function toCandidate(entry: SettledEntry, ledgerFile: string | null): Candidate 
     channel: entry.fields.Channel ?? null,
     channelUrl: entry.fields['Channel URL'] ?? null,
     closed: entry.fields.Closed ?? null,
-    rank: entry.fields.Rank ?? parsed.item?.rank ?? null,
+    rank: entry.fields.Rank ?? (parsed.ok ? parsed.item.rank : null) ?? null,
   };
 }
 

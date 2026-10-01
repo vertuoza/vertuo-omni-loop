@@ -1,13 +1,17 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { ACCOUNTS_DIR, compare, parseAccount, readAccounts } from './account.ts';
+import type { Account, AccountEntry, ParsedAccount } from './account.ts';
 import { settleItem } from './settle.ts';
 
-let root;
+/** A parse result read either way: a test checks `ok` first, then reads the side it expects. */
+type EitherSide = { ok: boolean; account: Account; errors: string[] };
+const view = (result: ParsedAccount | undefined) => result as EitherSide;
+
+let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'outbox-account-'));
 });
@@ -15,7 +19,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-function accountText({ frontMatter = {}, body } = {}) {
+function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, string | undefined>; body?: string } = {}) {
   const fm = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
@@ -32,7 +36,7 @@ function accountText({ frontMatter = {}, body } = {}) {
 }
 
 /** A minimal outbox item file, valid enough for `outboxItemFiles` to see it — content is not read. */
-function seedItem(prd, id) {
+function seedItem(prd: number, id: string) {
   mkdirSync(join(root, 'docs/outbox', String(prd)), { recursive: true });
   writeFileSync(
     join(root, 'docs/outbox', String(prd), `${id}.md`),
@@ -75,7 +79,7 @@ function seedItem(prd, id) {
   );
 }
 
-function seedAccount(prd, slice, text) {
+function seedAccount(prd: number, slice: string, text: string) {
   const dir = join(root, 'docs/outbox', String(prd), ACCOUNTS_DIR);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${slice}.md`), text);
@@ -85,7 +89,7 @@ describe('parseAccount — the happy path', () => {
   it('parses a well-formed account into a typed object', () => {
     const result = parseAccount(accountText(), { file: 'docs/outbox/1044/accounts/s2.md' });
     expect(result.ok).toBe(true);
-    expect(result.account).toEqual({
+    expect(view(result).account).toEqual({
       prd: 1044,
       slice: 's2',
       graded: '2026-09-23',
@@ -111,7 +115,7 @@ describe('parseAccount — the happy path', () => {
     ].join('\n');
     const result = parseAccount(accountText({ body }));
     expect(result.ok).toBe(true);
-    expect(result.account.entries).toEqual([
+    expect(view(result).account.entries).toEqual([
       {
         path: 'docs/knowledge/product/invariants.md',
         rule: 'law-text',
@@ -135,7 +139,7 @@ describe('parseAccount — the happy path', () => {
     ].join('\n');
     const result = parseAccount(accountText({ body }));
     expect(result.ok).toBe(true);
-    expect(result.account.entries).toHaveLength(2);
+    expect(view(result).account.entries).toHaveLength(2);
   });
 });
 
@@ -143,25 +147,25 @@ describe('parseAccount — refusals, by name', () => {
   it('refuses malformed front matter', () => {
     const result = parseAccount(accountText({ frontMatter: { graded: 'not-a-date' } }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([expect.stringContaining('graded must be a YYYY-MM-DD date')]);
+    expect(view(result).errors).toEqual([expect.stringContaining('graded must be a YYYY-MM-DD date')]);
   });
 
   it('refuses a missing front-matter block entirely', () => {
     const result = parseAccount('## Risky changes\n\nnothing here\n');
     expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([expect.stringContaining('missing a front-matter block')]);
+    expect(view(result).errors).toEqual([expect.stringContaining('missing a front-matter block')]);
   });
 
   it('refuses an unknown front-matter field (strict schema)', () => {
     const result = parseAccount(accountText({ frontMatter: { extra: 'nope' } }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((message) => message.includes('extra'))).toBe(true);
+    expect(view(result).errors.some((message) => message.includes('extra'))).toBe(true);
   });
 
   it('refuses a missing "## Risky changes" section', () => {
     const result = parseAccount(accountText({ body: 'Just some prose, no heading.\n' }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([expect.stringContaining('missing section: "## Risky changes"')]);
+    expect(view(result).errors).toEqual([expect.stringContaining('missing section: "## Risky changes"')]);
   });
 
   it('refuses an unexpected extra heading', () => {
@@ -179,7 +183,7 @@ describe('parseAccount — refusals, by name', () => {
     ].join('\n');
     const result = parseAccount(accountText({ body }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((message) => message.includes('Extra section'))).toBe(true);
+    expect(view(result).errors.some((message) => message.includes('Extra section'))).toBe(true);
   });
 
   it('refuses an account that is neither "item" nor "spec"', () => {
@@ -193,7 +197,7 @@ describe('parseAccount — refusals, by name', () => {
     ].join('\n');
     const result = parseAccount(accountText({ body }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([
+    expect(view(result).errors).toEqual([
       expect.stringContaining('account must be "item <id>" or "spec <where>"'),
     ]);
   });
@@ -202,7 +206,7 @@ describe('parseAccount — refusals, by name', () => {
     const body = ['## Risky changes', '', '- `a/migrations.ts`', '  stored-shape', ''].join('\n');
     const result = parseAccount(accountText({ body }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([expect.stringContaining('groups of three lines')]);
+    expect(view(result).errors).toEqual([expect.stringContaining('groups of three lines')]);
   });
 });
 
@@ -213,8 +217,8 @@ describe('readAccounts', () => {
 
     const results = readAccounts(1044, { ctx: flatCtx(root) });
     expect(results).toHaveLength(1);
-    expect(results[0].ok).toBe(true);
-    expect(results[0].account.slice).toBe('s2');
+    expect(results[0]?.ok).toBe(true);
+    expect(view(results[0]).account.slice).toBe('s2');
   });
 
   it('refuses an item account naming an id no outbox file carries', () => {
@@ -223,8 +227,8 @@ describe('readAccounts', () => {
 
     const results = readAccounts(1044, { ctx: flatCtx(root) });
     expect(results).toHaveLength(1);
-    expect(results[0].ok).toBe(false);
-    expect(results[0].errors).toEqual([
+    expect(results[0]?.ok).toBe(false);
+    expect(view(results[0]).errors).toEqual([
       expect.stringContaining(
         'item account names an id no outbox file carries: "s3-01-credit-ledger-shape"',
       ),
@@ -250,7 +254,7 @@ describe('readAccounts', () => {
 
     const results = readAccounts(1044, { ctx });
     expect(results).toHaveLength(1);
-    expect(results[0].ok).toBe(true);
+    expect(results[0]?.ok).toBe(true);
   });
 
   it('returns [] when the PRD has no accounts directory at all', () => {
@@ -274,17 +278,17 @@ describe('readAccounts', () => {
     const results = readAccounts(1044, { ctx: flatCtx(root) });
     expect(results).toHaveLength(2);
 
-    const s2Result = results.find((result) => result.ok && result.account.slice === 's2');
-    const s4Result = results.find((result) => result.ok && result.account.slice === 's4');
+    const s2Result = results.find((result) => result.ok && view(result).account.slice === 's2');
+    const s4Result = results.find((result) => result.ok && view(result).account.slice === 's4');
 
-    expect(s2Result.account.entries).toEqual([
+    expect(view(s2Result).account.entries).toEqual([
       {
         path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
         rule: 'stored-shape',
         account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
       },
     ]);
-    expect(s4Result.account.entries).toEqual([
+    expect(view(s4Result).account.entries).toEqual([
       {
         path: 'docs/knowledge/domains/extraction/rules.md',
         rule: 'law-text',
@@ -302,7 +306,7 @@ describe('readAccounts', () => {
     expect(readAccounts(1044, { ctx })).toHaveLength(1);
     // The 985 account names an item id that does not exist under 985 either, so it refuses —
     // but the point here is isolation: it must not even be considered by the 1044 read.
-    expect(readAccounts(985, { ctx })[0].ok).toBe(false);
+    expect(readAccounts(985, { ctx })[0]?.ok).toBe(false);
   });
 });
 
@@ -311,7 +315,7 @@ describe('compare', () => {
     { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
   ];
 
-  function account(entries, overrides = {}) {
+  function account(entries: AccountEntry[], overrides: Partial<Account> = {}) {
     return { slice: 's2', file: 'docs/outbox/1044/accounts/s2.md', entries, ...overrides };
   }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,19 +9,29 @@ import { adoptItem } from './settle.ts';
 import { formatReport, gateResult, openItemFiles, openItems } from './status.ts';
 
 /** One `docs/outbox/<prd>/accounts/<slice>.md` file, minimal but well-formed (PRD #1044, slice s2). */
-function accountText({ prd = '985', slice = 's1', graded = '2026-09-23', entries = [] } = {}) {
+type FixtureEntry = { path: string; rule: string; account: string };
+
+function accountText({
+  prd = '985',
+  slice = 's1',
+  graded = '2026-09-23',
+  entries = [],
+}: { prd?: string; slice?: string; graded?: string; entries?: FixtureEntry[] } = {}) {
   const fmLines = [`prd: ${prd}`, `slice: ${slice}`, `graded: ${graded}`];
   const entryLines = entries.flatMap(({ path, rule, account }) => [`- \`${path}\``, rule, account]);
   return ['---', ...fmLines, '---', '', '## Risky changes', '', ...entryLines, ''].join('\n');
 }
 
-function writeAccount(root, prd, filename, text) {
+function writeAccount(root: string, prd: string | number, filename: string, text: string) {
   const dir = join(root, 'docs/outbox', String(prd), 'accounts');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), text);
 }
 
-function itemText({ frontMatter = {}, sections = {} } = {}) {
+function itemText({
+  frontMatter = {},
+  sections = {},
+}: { frontMatter?: Record<string, string | undefined>; sections?: Record<string, string | undefined> } = {}) {
   const fm = {
     id: 's3-01-example',
     prd: '985',
@@ -37,7 +46,7 @@ function itemText({ frontMatter = {}, sections = {} } = {}) {
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
 
-  const body = {
+  const body: Record<string, string | undefined> = {
     'The question, in plain words': 'Should this ship as it is?',
     'The decision, in plain words': 'Yes, this is the fixture answer.',
     'What I had to decide': 'x',
@@ -61,7 +70,7 @@ function itemText({ frontMatter = {}, sections = {} } = {}) {
   return ['---', ...fmLines, '---', '', bodyText].join('\n');
 }
 
-const dirs = [];
+const dirs: string[] = [];
 
 function fixtureRoot() {
   const root = mkdtempSync(join(tmpdir(), 'outbox-status-'));
@@ -89,7 +98,7 @@ const RISK = {
   sharedContract: ['libs/system-api-contract/'],
 };
 
-function writeItem(root, prd, filename, text) {
+function writeItem(root: string, prd: string | number, filename: string, text: string) {
   const dir = join(root, 'docs/outbox', String(prd));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), text);
@@ -97,7 +106,7 @@ function writeItem(root, prd, filename, text) {
 
 afterEach(() => {
   while (dirs.length > 0) {
-    rmSync(dirs.pop(), { recursive: true, force: true });
+    rmSync(dirs.pop() ?? '', { recursive: true, force: true });
   }
 });
 
@@ -296,7 +305,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
     expect(result.ok).toBe(false);
     expect(result.items).toEqual([]);
     expect(result.unaccounted).toHaveLength(1);
-    expect(result.unaccounted[0]).toMatchObject({
+    expect(result.unaccounted?.[0]).toMatchObject({
       path: RISKY_CHANGE.path,
       rule: 'stored-shape',
     });
@@ -396,7 +405,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
 // This task: a third reason for the gate to be red — a drifted decision nobody reworked yet, even
 // when the outbox itself carries no open item. Uses the default folders layout (`makeRepo`) rather
 // than `flatCtx`, exactly as the task's own new cases are written.
-function drifted(markers, id, closed) {
+function drifted(markers: ReturnType<typeof makeMarkers>, id: string, closed: string) {
   return [
     markers.settledOpen(id),
     `## ${id} — drifted`,

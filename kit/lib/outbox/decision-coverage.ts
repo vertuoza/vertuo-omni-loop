@@ -31,6 +31,11 @@
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/decision-coverage.mjs — changes in kit/porting/outbox--decision-coverage.md.
 import type { Context } from '../context.ts';
+
+/** What the five rules read: the root, the config, and where the knowledge and decisions live. */
+export type CoverageContext = Pick<Context, 'root' | 'config'> & {
+  layout: Pick<Context['layout'], 'knowledgeRoot' | 'adrDir'>;
+};
 import type { NameStatus } from '../git.ts';
 import { readRegisters } from '../knowledge/registers.ts';
 
@@ -46,7 +51,7 @@ function escapeRegExp(source: string): string {
 
 /** `ctx.config.risk.storedShape.some((s) => new RegExp(s).test(path))` — a repository's own list
  * of stored-shape patterns; `[]` by default, so this fires nothing unless the repository sets it. */
-function isStoredShape(change: NameStatus, { ctx }: { ctx: Context }): boolean {
+function isStoredShape(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   return ctx.config.risk.storedShape.some((source: string) => new RegExp(source).test(change.path));
 }
 
@@ -59,7 +64,7 @@ function isStoredShape(change: NameStatus, { ctx }: { ctx: Context }): boolean {
  * @param {{ ctx: object }} options
  * @returns {Set<string>}
  */
-export function enforcedByPaths({ ctx }: { ctx: Context }): Set<string> {
+export function enforcedByPaths({ ctx }: { ctx: CoverageContext }): Set<string> {
   const { entries } = readRegisters({ ctx });
   const paths = new Set<string>();
   for (const entry of entries) {
@@ -74,7 +79,7 @@ export function enforcedByPaths({ ctx }: { ctx: Context }): Set<string> {
 
 /** The path is named by an `Enforced by:` line under `ctx.layout.knowledgeRoot`, read at call
  * time — only when `ctx.config.laws.source` is `'knowledge'`; otherwise this never fires. */
-function isLawProof(change: NameStatus, { ctx }: { ctx: Context }): boolean {
+function isLawProof(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   if (ctx.config.laws.source !== 'knowledge') return false;
   return enforcedByPaths({ ctx }).has(change.path);
 }
@@ -83,7 +88,7 @@ function isLawProof(change: NameStatus, { ctx }: { ctx: Context }): boolean {
  * `principles.md`, `rules.md` or `invariants.md`; any `.md` under `<knowledgeRoot>/cross-domain/`;
  * or any `.md` directly under `ctx.layout.adrDir` but its `README.md`. A folder's `README.md`
  * describes; it states no law — the ADR folder's is the decisions form (PRD #45). */
-function isLawText(change: NameStatus, { ctx }: { ctx: Context }): boolean {
+function isLawText(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   const knowledgeRoot = escapeRegExp(ctx.layout.knowledgeRoot);
   const adrDir = escapeRegExp(ctx.layout.adrDir);
   const pattern = new RegExp(
@@ -101,7 +106,7 @@ function isTestRemoved(change: NameStatus): boolean {
 
 /** `ctx.config.risk.sharedContract.some((p) => path.startsWith(p))` — a repository's own list of
  * shared-contract prefixes; `[]` by default, so this fires nothing unless the repository sets it. */
-function isSharedContract(change: NameStatus, { ctx }: { ctx: Context }): boolean {
+function isSharedContract(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   return ctx.config.risk.sharedContract.some((prefix: string) => change.path.startsWith(prefix));
 }
 
@@ -110,7 +115,7 @@ function isSharedContract(change: NameStatus, { ctx }: { ctx: Context }): boolea
  * the change and the same `{ ctx }` `riskyChanges` was given, even the ones (`test-removed`) that
  * ignore it.
  */
-const RULES: { id: string; matches: (change: NameStatus, options: { ctx: Context }) => boolean }[] = [
+const RULES: { id: string; matches: (change: NameStatus, options: { ctx: CoverageContext }) => boolean }[] = [
   { id: 'stored-shape', matches: isStoredShape },
   { id: 'law-proof', matches: isLawProof },
   { id: 'law-text', matches: isLawText },
@@ -130,7 +135,7 @@ export const RULE_IDS = RULES.map((rule) => rule.id);
  * @param {{ ctx: object }} options
  * @returns {{ path: string, status: string, rule: string }[]}
  */
-export function riskyChanges(changes: readonly NameStatus[], { ctx }: { ctx: Context }): RiskyChange[] {
+export function riskyChanges(changes: readonly NameStatus[], { ctx }: { ctx: CoverageContext }): RiskyChange[] {
   const risky: RiskyChange[] = [];
   for (const change of changes) {
     for (const rule of RULES) {
