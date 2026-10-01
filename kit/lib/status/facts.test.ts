@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni status`'s facts on a repository whose inbox also holds a concept (PRD 686): a concept waits
 // under `inbox/concepts/<nnnn>-<slug>/`, and `concepts` is no PRD folder name, so the facts count it
 // nowhere — not in the inbox, not among the folders a commit touched, not on a phase-0 branch.
@@ -10,7 +9,7 @@ import { readFacts } from './facts.ts';
 const INBOX = '.omni-loop/delivery/inbox';
 const CONCEPT = `${INBOX}/concepts/0712-x`;
 
-function git(root, ...args) {
+function git(root: string, ...args: string[]): string {
   return execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, encoding: 'utf8' }).trim();
 }
 
@@ -32,7 +31,7 @@ function repoWithConcept() {
 describe('omni status facts — a concept in the inbox (PRD 686)', () => {
   it('counts no concept among the inbox, the shipped or the touched PRD folders', () => {
     const { ctx } = repoWithConcept();
-    const facts = readFacts({ ctx });
+    const facts = readFacts({ ctx })!;
     expect(facts.inbox).toEqual([{ prd: 42, topic: 'topic', name: '0042-topic' }]);
     expect(facts.shipped.map((folder) => folder.prd)).toEqual([7]);
     expect(facts.touched.map((touch) => touch.prd).sort((a, b) => a - b)).toEqual([7, 42]);
@@ -47,9 +46,9 @@ describe('omni status facts — a concept in the inbox (PRD 686)', () => {
     git(root, 'commit', '-q', '-m', 'docs(prd): topic');
     git(root, 'update-ref', 'refs/remotes/origin/docs/phase-0-topic', 'HEAD');
 
-    const [phase0] = readFacts({ ctx }).phase0;
-    expect(phase0.topic).toBe('topic');
-    expect(phase0.inbox.map((folder) => folder.prd)).toEqual([42]);
-    expect(phase0.touched.map((touch) => touch.prd)).toEqual([42]);
+    const [phase0] = readFacts({ ctx })!.phase0;
+    expect(phase0!.topic).toBe('topic');
+    expect(phase0!.inbox.map((folder) => folder.prd)).toEqual([42]);
+    expect(phase0!.touched.map((touch) => touch.prd)).toEqual([42]);
   });
 });

@@ -1,11 +1,13 @@
-// @ts-nocheck
 // One lookup an agent runs before following any delivery path: where PRD <n> lives today.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parsePlanRepositories, parsePlanSlices } from '../inbox/territory.ts';
 import { openItemFiles } from '../outbox/status.ts';
+import type { Context } from '../context.ts';
+import type { PrdNumber } from '../layout.ts';
+import type { PRD } from '../types.ts';
 
-export function whereIs(ctx, prd) {
+export function whereIs(ctx: Context, prd: PrdNumber): PRD | null {
   const where = ctx.layout.whereIs(prd);
   if (!where) return null;
   const absolute = join(ctx.root, where.dir);
@@ -32,17 +34,17 @@ export function whereIs(ctx, prd) {
  * plan is graded, not here. In `## Repositories` order, then any repository a slice names that the
  * table left out, in slice order.
  */
-function planRepos(planPath) {
+function planRepos(planPath: string): string[] {
   if (!existsSync(planPath)) return [];
   const markdown = readFileSync(planPath, 'utf8');
-  let slices;
+  let slices: { repo: string | null }[];
   try {
     slices = parsePlanSlices(markdown);
   } catch {
     return [];
   }
   if (slices.every((slice) => slice.repo === null)) return [];
-  const names = parsePlanRepositories(markdown).map((row) => row.repo);
+  const names: string[] = parsePlanRepositories(markdown).map((row: { repo: string }) => row.repo);
   for (const slice of slices) {
     if (slice.repo && !names.includes(slice.repo)) names.push(slice.repo);
   }

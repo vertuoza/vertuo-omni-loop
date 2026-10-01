@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Every git call of `omni status`'s overview, and nothing else: it reads the base — the default
 // branch as last fetched — and the remote feature and phase-0 branches, who wrote which of their
 // commits, the checkout's `user.email` and whether it is a shallow clone, and returns plain data for
@@ -10,16 +9,67 @@ import { readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:
 import { resolve } from 'node:path';
 import { fillBranch } from '../board.ts';
 import { parseFolderName } from '../layout.ts';
+import type { Context, ExecText } from '../context.ts';
 
-function git(ctx, exec, args) {
+/** A PRD folder read at a commit: its number, its topic and its name. */
+export type FactsFolder = { prd: number; topic: string; name: string };
+
+/** One PRD folder an author's commits touched. */
+export type Touch = { prd: number; email: string };
+
+/** One commit of a log: the email it was authored with and the paths it changed. */
+type Commit = { email: string; paths: string[] };
+
+/** The base: the name it was read under and the commit it names. */
+type Base = { name: string; commit: string };
+
+/** A feature branch on the remote, as {@link readFacts} reads it. */
+export type FeatureFacts = {
+  branch: string;
+  topic: string;
+  forked: string[];
+  differs: string[];
+  outbox: string[];
+  ships: boolean;
+  authors: string[];
+  touched: Touch[];
+};
+
+/** A phase-0 branch on the remote, as {@link readFacts} reads it. */
+export type Phase0Facts = { branch: string; topic: string; inbox: FactsFolder[]; touched: Touch[] };
+
+/** What the overview needs, as {@link readFacts} returns it. */
+export type Facts = {
+  slug: string | null;
+  base: string;
+  fetchedAt: number | null;
+  email: string | null;
+  shallow: boolean;
+  shipped: FactsFolder[];
+  retro: number[];
+  inbox: FactsFolder[];
+  touched: Touch[];
+  features: FeatureFacts[];
+  phase0: Phase0Facts[];
+};
+
+/** `FETCH_HEAD` as it was before a fetch: its bytes and times, or `bytes: null` when it was absent. */
+type Snapshot = { path: string; bytes: Buffer; atime: Date; mtime: Date } | { path: string; bytes: null };
+
+/** The field `key` of a thrown value, or `undefined` when it has none. */
+function fieldOf(error: unknown, key: string): unknown {
+  return typeof error === 'object' && error !== null ? Reflect.get(error, key) : undefined;
+}
+
+function git(ctx: Context, exec: ExecText, args: readonly string[]): string {
   return exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** Git's `-z` output, split into its entries. */
-const entries = (output) => output.split('\0').filter(Boolean);
+const entries = (output: string): string[] => output.split('\0').filter(Boolean);
 
 /** The commit `ref` names, or `null` when it names none. */
-function commitOf(ctx, exec, ref) {
+function commitOf(ctx: Context, exec: ExecText, ref: string): string | null {
   try {
     return git(ctx, exec, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).trim() || null;
   } catch {
@@ -28,14 +78,14 @@ function commitOf(ctx, exec, ref) {
 }
 
 /** The names the base is read under: `<repo.remote>/<repo.defaultBranch>`, else the local branch. */
-export function baseNames(ctx) {
+export function baseNames(ctx: Context): { remote: string; local: string } {
   const { remote, defaultBranch } = ctx.config.repo;
   return { remote: `${remote}/${defaultBranch}`, local: defaultBranch };
 }
 
 /** The base, `{ name, commit }`: the remote-tracking default branch as last fetched, else the local
  * default branch, else `null`. */
-function readBase(ctx, exec) {
+function readBase(ctx: Context, exec: ExecText): Base | null {
   const names = baseNames(ctx);
   const remote = commitOf(ctx, exec, `refs/remotes/${names.remote}`);
   if (remote) return { name: names.remote, commit: remote };
@@ -48,29 +98,29 @@ const RETRO_FILE = 'retro.md';
 
 /** The PRD folders directly under `dir` at `ref`, as `{ prd, topic, name }`; none when `dir` is not
  * there. */
-function foldersAt(ctx, exec, ref, dir) {
+function foldersAt(ctx: Context, exec: ExecText, ref: string, dir: string): FactsFolder[] {
   return entries(git(ctx, exec, ['ls-tree', '-z', '-d', '--name-only', ref, '--', `${dir}/`]))
     .map((path) => {
       const name = path.slice(path.lastIndexOf('/') + 1);
       const folder = parseFolderName(name);
       return folder && { ...folder, name };
     })
-    .filter(Boolean);
+    .filter((folder): folder is FactsFolder => Boolean(folder));
 }
 
 /** The PRD numbers whose folder directly under `dir` at `ref` holds `RETRO_FILE`. */
-function retroAt(ctx, exec, ref, dir) {
-  const out = new Set();
+function retroAt(ctx: Context, exec: ExecText, ref: string, dir: string): number[] {
+  const out = new Set<number>();
   for (const path of entries(git(ctx, exec, ['ls-tree', '-r', '-z', '--name-only', ref, '--', `${dir}/`]))) {
     const parts = path.slice(dir.length + 1).split('/');
-    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0]) : null;
+    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0] ?? '') : null;
     if (folder) out.add(folder.prd);
   }
   return [...out];
 }
 
 /** A path `git rev-parse <args>` prints, made absolute, or `null` when git cannot say. */
-function gitPath(ctx, exec, args) {
+function gitPath(ctx: Context, exec: ExecText, args: readonly string[]): string | null {
   try {
     return resolve(ctx.root, git(ctx, exec, ['rev-parse', ...args]).trim());
   } catch {
@@ -79,11 +129,11 @@ function gitPath(ctx, exec, args) {
 }
 
 /** Where this checkout keeps its `FETCH_HEAD`: a linked worktree keeps its own. */
-const fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ['--git-path', 'FETCH_HEAD']);
+const fetchHeadPath = (ctx: Context, exec: ExecText): string | null => gitPath(ctx, exec, ['--git-path', 'FETCH_HEAD']);
 
 /** When the `FETCH_HEAD` at `path` says a fetch happened, in ms, or `null`. A failed fetch leaves
  * git's `FETCH_HEAD` empty, stamped with the failure's time, so an empty one tells no fetch time. */
-function fetchTime(path) {
+function fetchTime(path: string | null): number | null {
   if (path === null) return null;
   try {
     const stat = statSync(path);
@@ -97,16 +147,16 @@ function fetchTime(path) {
  * this checkout's `FETCH_HEAD` and the one in the repository's common git folder. Git keeps a
  * `FETCH_HEAD` per worktree but shares the remote branches between them all, so a linked worktree
  * also reads a fetch run in the main checkout. */
-function fetchedAt(ctx, exec) {
+function fetchedAt(ctx: Context, exec: ExecText): number | null {
   const common = gitPath(ctx, exec, ['--git-common-dir']);
   const times = [fetchHeadPath(ctx, exec), common && resolve(common, 'FETCH_HEAD')]
     .map(fetchTime)
-    .filter((time) => time !== null);
+    .filter((time): time is number => time !== null);
   return times.length ? Math.max(...times) : null;
 }
 
 /** `FETCH_HEAD` as it is now, to put back after a failed fetch: its bytes and times, or absent. */
-function snapshot(path) {
+function snapshot(path: string | null): Snapshot | null {
   if (path === null) return null;
   try {
     const stat = statSync(path);
@@ -116,7 +166,7 @@ function snapshot(path) {
   }
 }
 
-function putBack(saved) {
+function putBack(saved: Snapshot | null): void {
   if (saved === null) return;
   try {
     if (saved.bytes === null) {
@@ -135,20 +185,20 @@ function putBack(saved) {
  * for its failure. A failed fetch puts `FETCH_HEAD` back as it found it, so the header still says
  * when the last fetch that worked happened.
  */
-export function fetchRemote({ ctx, exec = execFileSync }) {
+export function fetchRemote({ ctx, exec = execFileSync }: { ctx: Context; exec?: ExecText }): string | null {
   const saved = snapshot(fetchHeadPath(ctx, exec));
   try {
     git(ctx, exec, ['fetch', '--prune', ctx.config.repo.remote]);
     return null;
   } catch (error) {
     putBack(saved);
-    const said = `${error?.stderr ?? ''}`.split('\n').map((line) => line.trim()).find(Boolean);
-    return said ?? `${error?.message ?? error}`.split('\n')[0];
+    const said = `${fieldOf(error, 'stderr') ?? ''}`.split('\n').map((line) => line.trim()).find(Boolean);
+    return said ?? `${fieldOf(error, 'message') ?? error}`.split('\n')[0] ?? '';
   }
 }
 
 /** The remote branches, each name under `<repo.remote>/` mapped to its full ref. */
-function remoteBranches(ctx, exec) {
+function remoteBranches(ctx: Context, exec: ExecText): Map<string, string> {
   const prefix = `refs/remotes/${ctx.config.repo.remote}/`;
   const refs = git(ctx, exec, ['for-each-ref', '--format=%(refname)', prefix]).split('\n').filter(Boolean);
   return new Map(refs.map((ref) => [ref.slice(prefix.length), ref]));
@@ -156,28 +206,29 @@ function remoteBranches(ctx, exec) {
 
 /** The `{topic}` that `template` was filled with to name `branch`, or `null` when it does not
  * match. */
-function topicOf(branch, template) {
+function topicOf(branch: string, template: string): string | null {
   if (!template.includes('{topic}')) return null;
-  const [head, tail] = template.split('{topic}');
+  // A template holding `{topic}` splits into at least a head and a tail.
+  const [head = '', tail = ''] = template.split('{topic}');
   if (branch.length <= head.length + tail.length || !branch.startsWith(head) || !branch.endsWith(tail)) return null;
   return branch.slice(head.length, branch.length - tail.length);
 }
 
 /** The paths outside the delivery folder that `git diff --name-only <range>` lists. */
-function changedOutside(ctx, exec, range) {
+function changedOutside(ctx: Context, exec: ExecText, range: readonly string[]): string[] {
   const delivery = `${ctx.config.paths.delivery}/`;
   return entries(git(ctx, exec, ['diff', '--name-only', '-z', '--no-renames', '--no-ext-diff', ...range, '--']))
     .filter((path) => !path.startsWith(delivery));
 }
 
 /** Every file under `dir` at `ref`, named relative to `dir`. */
-function filesUnder(ctx, exec, ref, dir) {
+function filesUnder(ctx: Context, exec: ExecText, ref: string, dir: string): string[] {
   return entries(git(ctx, exec, ['ls-tree', '-r', '-z', '--name-only', ref, '--', `${dir}/`]))
     .map((path) => path.slice(dir.length + 1));
 }
 
 /** What `git config user.email` gives in this checkout, or `null` when it gives nothing. */
-function userEmail(ctx, exec) {
+function userEmail(ctx: Context, exec: ExecText): string | null {
   try {
     return git(ctx, exec, ['config', 'user.email']).trim() || null;
   } catch {
@@ -186,7 +237,7 @@ function userEmail(ctx, exec) {
 }
 
 /** Whether this checkout is a shallow clone, whose history stops short of who wrote what. */
-function isShallow(ctx, exec) {
+function isShallow(ctx: Context, exec: ExecText): boolean {
   try {
     return git(ctx, exec, ['rev-parse', '--is-shallow-repository']).trim() === 'true';
   } catch {
@@ -200,27 +251,28 @@ const COMMIT_MARK = '\x01';
 /** The commits `git log <range> -- <paths>` lists, each as `{ email, paths }`: the email it was
  * authored with and the paths it changed. Every commit is listed, even one whose change the history
  * later undid; a merge lists no path. */
-function commitsIn(ctx, exec, range, paths = []) {
+function commitsIn(ctx: Context, exec: ExecText, range: string, paths: readonly string[] = []): Commit[] {
   const log = git(ctx, exec, ['log', '-z', '--name-only', '--no-renames', '--full-history', '--format=%x01%ae', range, '--', ...paths]);
   return log.split(COMMIT_MARK).filter(Boolean).map((commit) => {
-    const [email, ...changed] = commit.split('\0');
+    // A non-empty entry always has a first field, the email.
+    const [email = '', ...changed] = commit.split('\0');
     return { email, paths: changed.map((path) => path.replace(/^\n/, '')).filter(Boolean) };
   });
 }
 
 /** Each author's email once. */
-const authorsOf = (commits) => [...new Set(commits.map(({ email }) => email))];
+const authorsOf = (commits: readonly Commit[]): string[] => [...new Set(commits.map(({ email }) => email))];
 
 /** The PRD folders `commits` touched under the delivery folder (`<paths.delivery>/<stage>/<prd>-<topic>/…`),
  * as `{ prd, email }`, each pair once. */
-function touchedBy(ctx, commits) {
+function touchedBy(ctx: Context, commits: readonly Commit[]): Touch[] {
   const delivery = `${ctx.config.paths.delivery}/`;
-  const seen = new Map();
+  const seen = new Map<string, Touch>();
   for (const { email, paths } of commits) {
     for (const path of paths) {
       if (!path.startsWith(delivery)) continue;
       const parts = path.slice(delivery.length).split('/');
-      const folder = parts.length > 2 ? parseFolderName(parts[1]) : null;
+      const folder = parts.length > 2 ? parseFolderName(parts[1] ?? '') : null;
       if (folder) seen.set(`${folder.prd}\0${email}`, { prd: folder.prd, email });
     }
   }
@@ -229,7 +281,7 @@ function touchedBy(ctx, commits) {
 
 /** What `read` returns, or `null` when it throws: a branch that cannot be read is skipped, and the
  * overview never fails because of one. */
-function unlessUnreadable(read) {
+function unlessUnreadable<T>(read: () => T): T | null {
   try {
     return read();
   } catch {
@@ -246,8 +298,8 @@ function unlessUnreadable(read) {
  * `omni ship`, done before the feature PR is marked ready), `authors` the emails of its commits
  * beyond the base, and `touched` the PRD folders those commits touched.
  */
-function featuresOf(ctx, exec, base, inbox, remote) {
-  const out = [];
+function featuresOf(ctx: Context, exec: ExecText, base: string, inbox: readonly FactsFolder[], remote: Map<string, string>): FeatureFacts[] {
+  const out: FeatureFacts[] = [];
   for (const { prd, topic, name } of inbox) {
     const branch = fillBranch(ctx.config.branches.feature, { topic });
     const ref = remote.get(branch);
@@ -272,8 +324,8 @@ function featuresOf(ctx, exec, base, inbox, remote) {
 
 /** Every remote branch shaped like `branches.phase0`, with its topic, the PRD folders in its inbox
  * and those its commits beyond the base touched, as `{ branch, topic, inbox, touched }`. */
-function phase0Of(ctx, exec, base, remote) {
-  const out = [];
+function phase0Of(ctx: Context, exec: ExecText, base: string, remote: Map<string, string>): Phase0Facts[] {
+  const out: Phase0Facts[] = [];
   for (const [branch, ref] of remote) {
     const topic = topicOf(branch, ctx.config.branches.phase0);
     if (!topic) continue;
@@ -297,7 +349,7 @@ function phase0Of(ctx, exec, base, remote) {
  * branches of its inbox's PRDs and `phase0` the phase-0 branches, both read on `<repo.remote>`.
  * `null` when neither the remote-tracking default branch nor the local one exists.
  */
-export function readFacts({ ctx, exec = execFileSync }) {
+export function readFacts({ ctx, exec = execFileSync }: { ctx: Context; exec?: ExecText }): Facts | null {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
