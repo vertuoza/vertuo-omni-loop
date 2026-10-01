@@ -1,8 +1,23 @@
-// @ts-nocheck
 // The loop labels `omni init` makes sure exist: named by the config's `labels.*`, each with a fixed
 // colour and description. Reconciled by name only — a label that exists, whatever its colour,
 // description or case, is left alone. Nothing here edits, recolours or deletes a label.
-const QUIET = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import type { ExecText } from '../context.ts';
+import { GhLabelsSchema } from './schema.ts';
+
+const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+
+/** The config's `labels.*` (a name per loop label, and `autoCreate`), read by key. */
+type Labels = Readonly<Record<string, unknown>>;
+
+/** How a loop label is created: its colour and description. */
+type LabelStyle = { color: string; description: string };
+
+/** A loop label to make sure of: its name from the config, and its style. */
+export type LoopLabel = LabelStyle & { name: string };
+
+/** What reconciling did with each loop label. */
+export type LabelsResult = { created: string[]; present: string[]; byHand: string[] };
 
 // More than any repository's label count, so one `gh label list` sees them all (gh stops at 30).
 const LIST_LIMIT = 1000;
@@ -26,12 +41,12 @@ export const LABEL_STYLES = {
   riskMedium: { color: 'fef2c0', description: 'Omni Loop: bug triage — medium risk' },
   riskLow: { color: 'ededed', description: 'Omni Loop: bug triage — low risk' },
   concept: { color: 'fbbf24', description: 'Omni Loop: a vast idea explored as a concept, before it becomes PRDs' },
-};
+} satisfies Record<string, LabelStyle>;
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */
-export function loopLabels(labels) {
-  const seen = new Set();
-  const out = [];
+export function loopLabels(labels: Labels): LoopLabel[] {
+  const seen = new Set<string>();
+  const out: LoopLabel[] = [];
   for (const [key, style] of Object.entries(LABEL_STYLES)) {
     const name = labels[key];
     if (typeof name !== 'string' || seen.has(name.toLowerCase())) continue;
@@ -44,19 +59,17 @@ export function loopLabels(labels) {
 /**
  * Creates the loop labels the repository at `root` lacks. Never throws: what `gh` could not do is
  * returned as `byHand`, for the person to do.
- *
- * @returns {{ created: string[], present: string[], byHand: string[] }}
  */
-export function reconcileLabels(root, { exec, labels }) {
+export function reconcileLabels(root: string, { exec, labels }: { exec: ExecText; labels: Labels }): LabelsResult {
   const wanted = loopLabels(labels);
-  let existing;
+  let existing: Set<string>;
   try {
-    const listed = JSON.parse(exec('gh', ['label', 'list', '--json', 'name', '--limit', String(LIST_LIMIT)], { cwd: root, ...QUIET }));
+    const listed = GhLabelsSchema.parse(JSON.parse(exec('gh', ['label', 'list', '--json', 'name', '--limit', String(LIST_LIMIT)], { cwd: root, ...QUIET })));
     existing = new Set(listed.map((label) => String(label.name).toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
   }
-  const result = { created: [], present: [], byHand: [] };
+  const result: LabelsResult = { created: [], present: [], byHand: [] };
   for (const { name, color, description } of wanted) {
     if (existing.has(name.toLowerCase())) {
       result.present.push(name);
