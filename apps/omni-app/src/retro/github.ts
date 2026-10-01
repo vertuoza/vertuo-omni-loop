@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The GitHub reads the retro shares between its steps: a pull request, the pull requests into a
 // branch, a folder's entries and a few files at one commit. Every call goes through the one Octokit
 // seam the app's other units use, `octokit.request(route, params)`, so a test stubs one function or
@@ -6,21 +5,29 @@
 //
 // Nothing here runs repository code (PRD 72, decision 10): files are read through `snapshot` or the
 // contents API and handed back as text, never executed. Each kind of finding (`kinds/`) reads what
-// else it needs through the same seam, and may use `paginate` from here.
+// else it needs through the same seam, and may use `paginate` from here. Every answer is parsed by
+// its schema in `github.schema.ts` before it is read.
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { snapshot } from '../snapshot/snapshot.ts';
+import { ContentSchema, PullSchema, PullsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
+import type { Octokit, Pull, PullInto } from './retro.types.ts';
 
 export const PER_PAGE = 100;
 /** Pages read at most from a paginated list: 3,000 entries. */
 export const MAX_PAGES = 30;
 
 const TREE = 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}';
+const PULL = 'GET /repos/{owner}/{repo}/pulls/{pull_number}';
+const PULLS = 'GET /repos/{owner}/{repo}/pulls';
+const CONTENTS = 'GET /repos/{owner}/{repo}/contents/{path}';
+
+type Repo = { owner: string; repo: string };
 
 /** Every item of a paginated list, `fetchPage(page)` giving one page's items. */
-export async function paginate(fetchPage) {
-  const all = [];
+export async function paginate<T>(fetchPage: (page: number) => Promise<readonly T[]>): Promise<T[]> {
+  const all: T[] = [];
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const items = await fetchPage(page);
     all.push(...items);
@@ -29,18 +36,14 @@ export async function paginate(fetchPage) {
   return all;
 }
 
-/**
- * A pull request as the retro reads it.
- * @returns {Promise<{ number: number, title: string, url: string, merged: boolean, baseRef: string,
- *   headRef: string, headSha: string, openedAt: string, mergedAt: string | null, mergeSha: string | null,
- *   labels: string[] }>}
- */
-export async function readPull(octokit, { owner, repo, prNumber }) {
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+/** A pull request as the retro reads it. */
+export async function readPull(octokit: Octokit, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Pull> {
+  const { data: answer } = await octokit.request(PULL, {
     owner,
     repo,
     pull_number: prNumber,
   });
+  const data = parseGitHub(PullSchema, answer, PULL);
   return {
     number: data.number,
     title: data.title ?? '',
@@ -56,16 +59,11 @@ export async function readPull(octokit, { owner, repo, prNumber }) {
   };
 }
 
-/**
- * Every pull request into `base`, open or closed, oldest first, in the shape the kinds read.
- * @returns {Promise<{ number: number, title: string, url: string, state: string, draft: boolean,
- *   headRef: string, headSha: string, openedAt: string, closedAt: string | null, mergedAt: string | null,
- *   labels: string[] }[]>}
- */
-export async function listPullsInto(octokit, { owner, repo, base }) {
+/** Every pull request into `base`, open or closed, oldest first, in the shape the kinds read. */
+export async function listPullsInto(octokit: Octokit, { owner, repo, base }: Repo & { base: string }): Promise<PullInto[]> {
   const pulls = await paginate((page) =>
     octokit
-      .request('GET /repos/{owner}/{repo}/pulls', {
+      .request(PULLS, {
         owner,
         repo,
         base,
@@ -73,7 +71,7 @@ export async function listPullsInto(octokit, { owner, repo, base }) {
         per_page: PER_PAGE,
         page,
       })
-      .then(({ data }) => data),
+      .then(({ data }) => parseGitHub(PullsSchema, data, PULLS)),
   );
   return pulls
     .map((data) => ({
@@ -95,23 +93,25 @@ export async function listPullsInto(octokit, { owner, repo, base }) {
 /**
  * The entries of one folder at `ref`, walking the tree one segment at a time from the root, as
  * `snapshot` does; `null` when the ref holds no folder there.
- * @returns {Promise<{ name: string, type: string }[] | null>}
  */
-export async function listFolder(octokit, { owner, repo, ref, path }) {
-  let { data } = await octokit.request(TREE, { owner, repo, tree_sha: ref });
+export async function listFolder(
+  octokit: Octokit,
+  { owner, repo, ref, path }: Repo & { ref: string; path: string },
+): Promise<{ name: string; type: string }[] | null> {
+  let data = parseGitHub(TreeSchema, (await octokit.request(TREE, { owner, repo, tree_sha: ref })).data, TREE);
   for (const name of path.split('/').filter(Boolean)) {
     const entry = data.tree.find((candidate) => candidate.path === name);
     if (!entry || entry.type !== 'tree') return null;
-    ({ data } = await octokit.request(TREE, { owner, repo, tree_sha: entry.sha }));
+    data = parseGitHub(TreeSchema, (await octokit.request(TREE, { owner, repo, tree_sha: entry.sha })).data, TREE);
   }
   return data.tree.map((entry) => ({ name: entry.path, type: entry.type }));
 }
 
-/**
- * The text of each listed file at `ref`, through `snapshot`; a file the ref does not hold reads `null`.
- * @returns {Promise<Record<string, string | null>>}
- */
-export async function readFiles(octokit, { owner, repo, ref, paths }) {
+/** The text of each listed file at `ref`, through `snapshot`; a file the ref does not hold reads `null`. */
+export async function readFiles(
+  octokit: Octokit,
+  { owner, repo, ref, paths }: Repo & { ref: string; paths: string[] },
+): Promise<Record<string, string | null>> {
   const folder = mkdtempSync(join(tmpdir(), 'omni-retro-'));
   try {
     await snapshot(octokit, { owner, repo, ref, paths, dest: folder });
@@ -122,18 +122,27 @@ export async function readFiles(octokit, { owner, repo, ref, paths }) {
 }
 
 /** One file's text on a branch or at a commit, through the contents API; `null` when it is absent. */
-export async function readContent(octokit, { owner, repo, ref, path }) {
+export async function readContent(
+  octokit: Octokit,
+  { owner, repo, ref, path }: Repo & { ref: string; path: string },
+): Promise<string | null> {
   try {
-    const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', { owner, repo, path, ref });
+    const { data: answer } = await octokit.request(CONTENTS, { owner, repo, path, ref });
+    const data = parseGitHub(ContentSchema, answer, CONTENTS);
     if (Array.isArray(data) || data.type !== 'file') return null;
     return Buffer.from(data.content ?? '', data.encoding === 'base64' ? 'base64' : 'utf8').toString('utf8');
   } catch (error) {
-    if (error?.status === 404) return null;
+    if (statusOf(error) === 404) return null;
     throw error;
   }
 }
 
-function readOrNull(file) {
+/** The HTTP status an Octokit error carries, when it carries one. */
+export function statusOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+}
+
+function readOrNull(file: string): string | null {
   try {
     return readFileSync(file, 'utf8');
   } catch {
@@ -141,6 +150,6 @@ function readOrNull(file) {
   }
 }
 
-function labelNames(labels) {
+function labelNames(labels: readonly (string | { name: string })[] | null | undefined): string[] {
   return (labels ?? []).map((label) => (typeof label === 'string' ? label : label.name));
 }

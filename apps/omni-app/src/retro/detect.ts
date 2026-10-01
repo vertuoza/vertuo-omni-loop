@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `detect`: plain records in, the fact sheet out (PRD 72, decision 9). Pure: it touches no GitHub and
 // no clock, so the same records always give the same sheet, and a later PRD can feed it from a clone
 // of the repository instead of from the API.
@@ -8,26 +7,25 @@
 // what `retro.json` keeps for the run, and what `render` reads every number from.
 import { kindsFor } from './kinds/index.ts';
 import { rankOf, rulesSheet } from './rules.ts';
+import type { DetectContext, FactSheet, Finding, Kind, Run } from './retro.types.ts';
 
-/**
- * @param {{
- *   run: 'merge' | 'day-14',
- *   pr: object, prd: object, config: object, pulls: object[],
- *   records: Record<string, unknown>,
- *   kinds?: readonly import('./kinds/index.ts').Kind[],
- * }} input
- */
-export function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) }) {
+export type DetectInput = DetectContext & {
+  run: Run;
+  records: Record<string, unknown>;
+  kinds?: readonly Kind[];
+};
+
+export function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) }: DetectInput): FactSheet {
   const context = { pr, prd, config, pulls };
-  const facts = {};
-  const found = [];
+  const facts: Record<string, unknown> = {};
+  const found: { finding: Finding & { source: string }; kindIndex: number; index: number }[] = [];
   kinds.forEach((kind, kindIndex) => {
     const out = kind.detect(records[kind.id] ?? null, context) ?? {};
     facts[kind.id] = out.facts ?? null;
     (out.findings ?? []).forEach((finding, index) => found.push({ finding: { ...finding, source: kind.id }, kindIndex, index }));
   });
 
-  const seen = new Set();
+  const seen = new Set<string>();
   const findings = found
     .sort((a, b) => rankOf(a.finding.kind) - rankOf(b.finding.kind) || a.kindIndex - b.kindIndex || a.index - b.index)
     .map(({ finding }) => finding)

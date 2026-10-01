@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `publish`: the run record and the prose in, the retro branch, its files and the retro PR out (PRD 72,
 // "The retro PR"). Through GitHub's Git Data API only: it never clones, never force-pushes, never
 // writes to the default branch and never merges.
@@ -20,18 +19,41 @@
 import { addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { mergeRuns, render } from './render.ts';
 import { readContent } from './github.ts';
+import { RefSchema, parseGitHub } from './github.schema.ts';
+import type { Config, FeaturePull, Octokit, Prose, RetroDoc, RunRecord } from './retro.types.ts';
+
+type Repo = { owner: string; repo: string };
+
+const REF = 'GET /repos/{owner}/{repo}/git/ref/{ref}';
+
+/** The shared writer's `addCommit`, as its own documentation types it: the new commit's sha. */
+type AddCommit = (
+  octokit: Octokit,
+  input: Repo & { branch: string; parent: string; message: string; defaultBranch: string; files: { path: string; content: string }[] },
+) => Promise<string>;
+const commitFiles = addCommit as unknown as AddCommit; // ts-allow: git-write.ts is typed by its own slice; until then its `files` default reads as never[]
 
 /** The run that comes fourteen days after the merge, and the suffix of its own branch. */
 const FOLLOW_UP_RUN = 'day-14';
 const FOLLOW_UP_SUFFIX = '-day-14';
 
-/**
- * @param {{ request: Function }} octokit
- * @param {{ owner: string, repo: string, config: object, prd: object, pr: object, record: object,
- *   prose: object | null, earlier?: object[] }} input
- * @returns {Promise<{ branch: string, committed: boolean, commit: string, pr: { number: number, url: string, created: boolean } | null }>}
- */
-export async function publishRetro(octokit, { owner, repo, config, prd, pr, record, prose, earlier = [] }) {
+export type PublishInput = Repo & {
+  config: Config;
+  prd: { topic: string; folder: string };
+  pr: Pick<FeaturePull, 'number' | 'mergeSha'>;
+  record: RunRecord;
+  prose: Prose | null;
+  earlier?: readonly RunRecord[];
+};
+
+export type Published = {
+  branch: string;
+  committed: boolean;
+  commit: string;
+  pr: { number: number; url: string; created: boolean } | null;
+};
+
+export async function publishRetro(octokit: Octokit, { owner, repo, config, prd, pr, record, prose, earlier = [] }: PublishInput): Promise<Published> {
   const base = config.repo.defaultBranch;
   const { branch, from } = await branchFor(octokit, {
     owner,
@@ -53,9 +75,9 @@ export async function publishRetro(octokit, { owner, repo, config, prd, pr, reco
   const out = render({ doc: withRuns(onBranch.json, [...earlier, record]), featurePr: pr.number, prose });
   const unchanged = onBranch.markdown === out.markdown && onBranch.json === out.json;
 
-  let commit = head;
+  let commit: string = head;
   if (!unchanged) {
-    commit = await addCommit(octokit, {
+    commit = await commitFiles(octokit, {
       owner,
       repo,
       branch,
@@ -79,7 +101,7 @@ export async function publishRetro(octokit, { owner, repo, config, prd, pr, reco
       labels: [config.labels.retro],
     });
   }
-  const retroPr = found && { number: found.number, url: found.url, created: found.created };
+  const retroPr = found ? { number: found.number, url: found.url, created: found.created } : null;
   return { branch, committed: !unchanged, commit, pr: retroPr };
 }
 
@@ -88,21 +110,24 @@ export async function publishRetro(octokit, { owner, repo, config, prd, pr, reco
  * branch, from the merge SHA; for the day-14 run once the retro branch's PR is merged or closed,
  * `<branch>-day-14`, from the default branch's head.
  */
-async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
+async function branchFor(
+  octokit: Octokit,
+  { owner, repo, base, first, run, mergeSha }: Repo & { base: string; first: string; run: string; mergeSha: string },
+): Promise<{ branch: string; from: string }> {
   if (run !== FOLLOW_UP_RUN) return { branch: first, from: mergeSha };
   const pulls = await pullsFrom(octokit, { owner, repo, branch: first, base });
-  if (pulls.length === 0 || pulls.some((pull) => pull.state === 'open')) return { branch: first, from: mergeSha };
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', { owner, repo, ref: `heads/${base}` });
-  return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: data.object.sha };
+  if (pulls.length === 0 || pulls.some((pull: { state: string }) => pull.state === 'open')) return { branch: first, from: mergeSha };
+  const { data } = await octokit.request(REF, { owner, repo, ref: `heads/${base}` });
+  return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema, data, REF).object.sha };
 }
 
 /** `retro.json`'s content with each record in it, in order (`mergeRuns`). */
-function withRuns(existing, records) {
+function withRuns(existing: string | null, records: readonly RunRecord[]): RetroDoc {
   let text = existing;
-  let doc = null;
+  let doc: RetroDoc | null = null;
   for (const record of records) {
     doc = mergeRuns(text, record);
     text = JSON.stringify(doc);
   }
-  return doc;
+  return doc!; // ts-allow: a run always publishes its own record, so `records` is never empty
 }

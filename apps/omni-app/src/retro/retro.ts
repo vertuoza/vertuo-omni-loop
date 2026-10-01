@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `retro`: the Inngest function wiring the retro's units (PRD 72, "Flow"). Its own function: it never
 // shares a run with "outbox-check", and never reads or writes a check run.
 //
@@ -46,9 +45,15 @@
 // function against a stubbed GitHub; `followUp` adds the day-14 run and the daily schedule that wakes
 // it, and a test passes its fourteen days through the clock and the waits. `retro` is the one the app
 // serves, with its day-14 run.
+//
+// The event's data is parsed by `RetroEventSchema` before use, and every GitHub answer this file reads
+// by its schema in `github.schema.ts`.
 import { internalEvents } from 'inngest';
+import type { Inngest } from 'inngest';
+import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { KIT_MESSAGES } from 'vertuo-omni-plan/kit/lib/schema/messages.ts';
 import { inngest, RETRO_EVENT } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { listComments } from '../outbox-check/github.ts';
@@ -57,14 +62,31 @@ import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import { upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
+import { BlobSchema, CreatedCommentSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import { guard } from './guard.ts';
 import { publishIssues } from './issues.ts';
 import { followUpAt } from './kinds/after-merge.ts';
-import { KINDS, kindsFor } from './kinds/index.ts';
+import { KINDS } from './kinds/index.ts';
 import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
 import { verdictComment } from './render.ts';
+import type {
+  Config,
+  FactSheet,
+  FeaturePull,
+  IssueLinks,
+  Kind,
+  Known,
+  Lesson,
+  Octokit,
+  PrdFacts,
+  Prose,
+  PullInto,
+  Run,
+  RunRecord,
+  Scope,
+} from './retro.types.ts';
 
 export const RETRO_FUNCTION_ID = 'retro';
 
@@ -104,24 +126,74 @@ const MARKER_PREFIX = parseConfig('kit: 1\n').markers.prefix;
 export const FAILURE_MARKER = `<!-- ${MARKER_PREFIX}-retro-failed -->`;
 
 /** The marker of the comment a retro not worth a pull request keeps on the merged feature PR. */
-export const verdictMarker = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
+export const verdictMarker = (prefix: string): string => `<!-- ${prefix}-retro-verdict -->`;
 export const VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 
 /** How the verdict comment opens: judged not worth a PR, or not judged at all. */
 export const NO_NEW_LESSON = 'no new lesson';
 export const NOT_JUDGED = 'not judged';
 
+/** The data of the event `/api/github` sends for a merged pull request. */
+export const RetroEventSchema = z.object({
+  installationId: z.number(),
+  owner: z.string(),
+  repo: z.string(),
+  prNumber: z.number(),
+  mergeSha: z.string(),
+  mergedAt: z.string().nullish(),
+});
+
 /**
- * @param {{
- *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
- *   env?: Record<string, string | undefined>,
- *   fetch?: typeof fetch,   the model call's fetch; the global one when not given
- *   kinds?: readonly import('./kinds/index.ts').Kind[],
- *   followUp?: boolean,
- * }} deps
+ * The merged pull request a failed run was for, as the failure event carries it; a scheduled run,
+ * or any other event, carries none, and a field of the wrong type reads as missing.
  */
-export function createRetro({ client, octokitFor, env = process.env, fetch = undefined, kinds = KINDS, followUp = false }) {
+const FailedEventSchema = z
+  .object({
+    installationId: z.number().optional().catch(undefined),
+    owner: z.string().optional().catch(undefined),
+    repo: z.string().optional().catch(undefined),
+    prNumber: z.number().optional().catch(undefined),
+  })
+  .catch({});
+
+/** The step tools the retro uses. Every value it hands `run` is plain JSON, so it comes back as given. */
+export type RetroStep = {
+  run<T>(id: string, fn: () => T | Promise<T>): Promise<T>;
+  sendEvent(id: string, payload: { name: string; data: Record<string, never> }): Promise<unknown>;
+  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<{ ts?: number } | null>;
+};
+
+export type OctokitFor = (installationId: number) => Promise<Octokit> | Octokit;
+type Env = Record<string, string | undefined>;
+
+export type RetroDeps = {
+  client: Inngest.Any;
+  octokitFor: OctokitFor;
+  env?: Env;
+  /** The model call's fetch; the global one when not given. */
+  fetch?: typeof fetch;
+  kinds?: readonly Kind[];
+  followUp?: boolean;
+};
+
+/** What the judge said, as the retro acts on it. */
+export type VerdictOutcome = { worthIt: boolean; judged: boolean; reason: string };
+
+type Published = Awaited<ReturnType<typeof publishRetro>>;
+type Commented = Awaited<ReturnType<typeof upsertComment>>;
+
+/** One run of the retro, as the run after it reads it. */
+type RunResult = {
+  sheet: FactSheet;
+  prose: Prose | null;
+  known: Known;
+  record: RunRecord & { issues: IssueLinks };
+  published: Published | null;
+  comment: Commented | null;
+  verdict: VerdictOutcome;
+};
+
+export function createRetro({ client, octokitFor, env = process.env, fetch = undefined, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -131,27 +203,28 @@ export function createRetro({ client, octokitFor, env = process.env, fetch = und
       retries: 3,
       onFailure: createRetroFailureHandler({ octokitFor }),
     },
-    async ({ event, step }) => {
+    async ({ event, step: tools }) => {
+      const step = tools as unknown as RetroStep; // ts-allow: Inngest types step.run's result as its JSON form; every value the retro hands it is plain JSON already
       if (event.name === SCHEDULED) {
         await step.sendEvent(DAY_STEP, { name: DAY_EVENT, data: {} });
         return { sent: DAY_EVENT };
       }
 
-      const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = event.data;
+      const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = parseEvent(event.data);
       const github = async () => octokitFor(installationId);
 
       const qualified = await step.run('qualify', async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
-      if (qualified.skip) return { skipped: qualified.skip };
+      if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
 
       const pulls = await step.run('gather-pulls', async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
+      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
       const context = { step, github, env, fetch, owner, repo, pr, prd, config, pulls };
-      const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsFor(MERGE_RUN, kinds), scope });
+      const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
-      const laterKinds = kindsFor(FOLLOW_UP_RUN, kinds);
+      const laterKinds = kindsIn(FOLLOW_UP_RUN, kinds);
       if (!followUp || laterKinds.length === 0) return result;
 
       await waitForDay(step, followUpAt(scope.mergedAt));
@@ -167,12 +240,26 @@ export function createRetro({ client, octokitFor, env = process.env, fetch = und
   );
 }
 
+/** The kinds that take part in one run, in registry order, as `kindsFor` picks them from any list. */
+function kindsIn(run: Run, kinds: readonly Kind[]): Kind[] {
+  return kinds.filter((kind) => kind.runs.includes(run));
+}
+
+/** The event's data, parsed; an event missing a field fails, naming it. */
+function parseEvent(data: unknown): z.infer<typeof RetroEventSchema> {
+  const parsed = RetroEventSchema.safeParse(data, { error: KIT_MESSAGES });
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
+  throw new Error(`The ${RETRO_EVENT} event carries an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+}
+
 /**
  * Waits until `due` a day at a time, never on one long sleep: each wait ends on the daily schedule's
  * tick, or after `DAY_WAIT` with none, and the tick's time, or the clock read after a wait no tick
  * ended, says whether the day has come. A run already past `due`, like a late replay, does not wait.
  */
-async function waitForDay(step, due) {
+async function waitForDay(step: RetroStep, due: string): Promise<void> {
   const until = Date.parse(due);
   let now = await step.run(CLOCK_STEP, () => Date.now());
   for (let turn = 1; now < until; turn += 1) {
@@ -181,14 +268,31 @@ async function waitForDay(step, due) {
   }
 }
 
+type RunInput = {
+  step: RetroStep;
+  github: () => Promise<Octokit>;
+  env: Env;
+  fetch: typeof fetch | undefined;
+  owner: string;
+  repo: string;
+  pr: FeaturePull;
+  prd: PrdFacts;
+  config: Config;
+  pulls: PullInto[];
+  run: Run;
+  kinds: readonly Kind[];
+  scope: Scope;
+  earlier?: RunResult | null;
+};
+
 /**
  * One run of the retro, from its kinds' reads to its published PR. `earlier` is the run it follows,
  * when there is one: its findings are numbered on from, asked about again, and published again.
  */
-async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier = null }) {
-  const id = (name) => (run === MERGE_RUN ? name : `${name}-${run}`);
+async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier = null }: RunInput): Promise<RunResult> {
+  const id = (name: string) => (run === MERGE_RUN ? name : `${name}-${run}`);
 
-  const records = {};
+  const records: Record<string, unknown> = {};
   for (const kind of kinds) {
     records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
   }
@@ -218,7 +322,7 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
     reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
     dropped: guarded.dropped ?? [],
   };
-  const base = { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
+  const base: RunRecord = { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
   const runs = [...(earlier ? [earlier.record] : []), base];
 
   if (!verdict.worthIt) {
@@ -251,19 +355,19 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
 /**
  * What the judge said, as the retro acts on it: worth a pull request or not, judged or not, and why.
  * Only a verdict `guard` accepted is judged; no prose, or a refused verdict, is not judged.
- * @returns {{ worthIt: boolean, judged: boolean, reason: string }}
  */
-export function verdictOf(prose, narrationReason) {
+export function verdictOf(prose: Prose | null, narrationReason?: string | null): VerdictOutcome {
   const verdict = prose?.verdict;
   if (!prose) return { worthIt: false, judged: false, reason: narrationReason ?? 'the prose was refused' };
-  if (!verdict || typeof verdict.worthIt !== 'boolean') {
-    return { worthIt: false, judged: false, reason: `the verdict was refused: ${verdict?.dropped ?? 'it gives no verdict'}` };
+  if (!verdict || !('worthIt' in verdict) || typeof verdict.worthIt !== 'boolean') {
+    const dropped = verdict && 'dropped' in verdict ? verdict.dropped : undefined;
+    return { worthIt: false, judged: false, reason: `the verdict was refused: ${dropped ?? 'it gives no verdict'}` };
   }
   return { worthIt: verdict.worthIt, judged: true, reason: verdict.reason };
 }
 
 /** The lessons `guard` accepted, as `retro.json` keeps them for the retros after this one. */
-function lessonsOf(prose) {
+function lessonsOf(prose: Prose | null): Lesson[] {
   return (prose?.lessons ?? [])
     .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && !lesson.text.startsWith('_Dropped: '))
     .map((lesson) => ({ text: lesson.text, findings: [...(lesson.findings ?? [])] }));
@@ -276,11 +380,15 @@ function lessonsOf(prose) {
  * `retro.json` files of the shipped folder), oldest PRD first, each once. Only the config and the
  * knowledge folders are snapshotted, never the whole delivery folder: of it, the shipped folder is
  * listed in one request and only its `retro.json` files are read.
- * @returns {Promise<{ knowledge: { principles: object[], laws: object[], decisions: object[] }, lessons: string[] }>}
  */
-export async function gatherKnowledge(octokit, { owner, repo, sha, config }) {
+export async function gatherKnowledge(
+  octokit: Octokit,
+  { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: Config },
+): Promise<Known> {
   const narrowed = { ...config, paths: { ...config.paths, delivery: null, playbook: null, glossary: null } };
-  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx) => knowledgeSummary({ ctx }));
+  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx: Parameters<typeof knowledgeSummary>[0]['ctx']) =>
+    knowledgeSummary({ ctx }),
+  );
   const shipped = foldersLayout('', config.paths).dirs.shipped;
   return {
     knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions },
@@ -296,42 +404,41 @@ const RETRO_JSON = /^[^/]+\/retro\.json$/;
  * The text of every `<folder>/retro.json` directly under `dir` at `sha`, by folder name: the tree
  * walked down to `dir`, `dir` listed in one recursive request, then one blob read per file. Nothing
  * when the commit holds no `dir`.
- * @returns {Promise<string[]>}
  */
-async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
+async function retroFilesAt(octokit: Octokit, { owner, repo, sha, dir }: { owner: string; repo: string; sha: string; dir: string }): Promise<string[]> {
   let treeSha = sha;
   for (const name of dir.split('/').filter(Boolean)) {
-    const { data } = await octokit.request(TREE, { owner, repo, tree_sha: treeSha });
+    const data = parseGitHub(TreeSchema, (await octokit.request(TREE, { owner, repo, tree_sha: treeSha })).data, TREE);
     const entry = data.tree.find((candidate) => candidate.path === name && candidate.type === 'tree');
     if (!entry) return [];
     treeSha = entry.sha;
   }
-  const { data } = await octokit.request(TREE, { owner, repo, tree_sha: treeSha, recursive: '1' });
+  const data = parseGitHub(TreeSchema, (await octokit.request(TREE, { owner, repo, tree_sha: treeSha, recursive: '1' })).data, TREE);
   const files = data.tree
     .filter((entry) => entry.type === 'blob' && RETRO_JSON.test(entry.path))
     .sort((a, b) => a.path.localeCompare(b.path));
   const texts = [];
   for (const file of files) {
-    const { data: blob } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+    const blob = parseGitHub(BlobSchema, (await octokit.request(BLOB, { owner, repo, file_sha: file.sha })).data, BLOB);
     texts.push(Buffer.from(blob.content ?? '', blob.encoding === 'base64' ? 'base64' : 'utf8').toString('utf8'));
   }
   return texts;
 }
 
 /** Every `lessons[].text` of the runs in these `retro.json` texts, in order, each once; a file that is not JSON gives none. */
-export function lessonsIn(texts) {
-  const seen = new Set();
-  const out = [];
+export function lessonsIn(texts: readonly (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
   for (const text of texts) {
-    let doc = null;
+    let doc: unknown = null;
     try {
       doc = text ? JSON.parse(text) : null;
     } catch {
       doc = null;
     }
-    const runs = Array.isArray(doc?.runs) ? doc.runs : [];
-    for (const lesson of runs.flatMap((run) => (Array.isArray(run?.lessons) ? run.lessons : []))) {
-      if (typeof lesson?.text !== 'string' || !lesson.text || seen.has(lesson.text)) continue;
+    const runs = RetroDocSchema.parse(doc).runs;
+    for (const lesson of runs.flatMap((run) => RetroLessonsSchema.parse(run).lessons)) {
+      if (typeof lesson.text !== 'string' || !lesson.text || seen.has(lesson.text)) continue;
       seen.add(lesson.text);
       out.push(lesson.text);
     }
@@ -344,45 +451,52 @@ export function lessonsIn(texts) {
  * without being shipped is shipped by the knowledge harvest on the same merge, so its retro waits
  * for it there rather than in the inbox.
  */
-export function retroFolder(prd, config) {
+export function retroFolder(prd: { folder: string }, config: Config): string {
   return `${foldersLayout('', config.paths).dirs.shipped}/${prd.folder.split('/').at(-1)}`;
 }
 
 /** The fact sheet naming `folder` as the one its retro is written into. */
-function inFolder(sheet, folder) {
+function inFolder(sheet: FactSheet, folder: string): FactSheet {
   return sheet.prd?.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
 
 /** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
-function numberedAfter(sheet, count) {
+function numberedAfter(sheet: FactSheet, count: number): FactSheet {
   if (count === 0) return sheet;
   return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count + index + 1}` })) };
 }
 
 /** What a run did, as the function returns it: what it published, or the verdict comment it left. */
-function outcome({ sheet, record, published, comment, verdict }) {
+function outcome({ sheet, record, published, comment, verdict }: RunResult) {
   const counts = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
   if (published) return { ...counts, ...published };
   return { ...counts, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
 }
+
+/** The failure handler's input: the failure event Inngest sends, and its step tools when it gives them. */
+type FailureInput = {
+  event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
+  error?: { message?: string } | null;
+  step?: { run?: <T>(id: string, fn: () => Promise<T>) => Promise<T> } | null;
+};
 
 /**
  * The failure handler: once the run has failed after its retries, one comment on the merged PR —
  * "The retro could not run: <reason>" — rewritten in place on a later failure, never a second one.
  * A scheduled run has no merged PR, so its failure leaves no comment.
  */
-export function createRetroFailureHandler({ octokitFor }) {
-  return async ({ event, error, step }) => {
-    const { installationId, owner, repo, prNumber } = event.data.event.data ?? {};
+export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+  return async ({ event, error, step }: FailureInput) => {
+    const { installationId, owner, repo, prNumber } = FailedEventSchema.parse(event.data.event.data ?? {});
     if (!installationId || !prNumber) return { skipped: 'not a merge' };
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const body = `${FAILURE_MARKER}\nThe retro could not run: ${reason}\n`;
 
-    const run = (id, fn) => (step?.run ? step.run(id, fn) : fn());
+    const run = <T>(id: string, fn: () => Promise<T>) => (step?.run ? step.run(id, fn) : fn());
     return run('comment-failure', async () => {
       const octokit = await octokitFor(installationId);
       const comments = await listComments(octokit, { owner, repo, prNumber });
-      const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
+      const existing = comments.find((comment: { id: number; body: string }) => comment.body.includes(FAILURE_MARKER));
       if (existing) {
         await octokit.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
           owner,
@@ -392,18 +506,19 @@ export function createRetroFailureHandler({ octokitFor }) {
         });
         return { commentId: existing.id, reason, created: false };
       }
-      const { data } = await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+      const COMMENT = 'POST /repos/{owner}/{repo}/issues/{issue_number}/comments';
+      const { data } = await octokit.request(COMMENT, {
         owner,
         repo,
         issue_number: prNumber,
         body,
       });
-      return { commentId: data.id, reason, created: true };
+      return { commentId: parseGitHub(CreatedCommentSchema, data, COMMENT).id, reason, created: true };
     });
   };
 }
 
-function firstLine(reason) {
+function firstLine(reason: unknown): string {
   const text = String(reason ?? 'unknown error').trim();
   return text.split('\n')[0] || 'unknown error';
 }
