@@ -1,0 +1,44 @@
+/* Settings › Products (PRD 859 s1), on the ask pages' reading surface: the head card, one row per
+   product (a link to its page, its look beside its name), and a product's page with its Pitch look
+   section. Every colour is a token of src/ask/theme-tokens.ts. Nothing is wider than the window: at
+   393 px a row wraps its look under its name. */
+
+.products .ask-card { justify-items: start; }
+.products-refusal { margin: 0; color: var(--ask-red); font-weight: 700; overflow-wrap: anywhere; }
+
+.products-list { display: grid; gap: 12px; }
+.products-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.products-empty { margin: 0; color: var(--ask-muted); }
+
+.products-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+.products-row:hover { border-color: var(--ask-plasma); }
+.products-row:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.products-row strong { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.products-look { font-size: 14px; }
+
+.products-back { font-size: 14px; color: var(--ask-muted); }
+.products-section h2 { margin: 0; }
+.products-look-value { margin: 0; }
+
+.products-look-select {
+  max-width: 100%;
+  font: 600 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.products-look-select:disabled { cursor: not-allowed; opacity: 0.6; }
+.products-look-select:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
