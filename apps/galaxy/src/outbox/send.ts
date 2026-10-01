@@ -80,8 +80,12 @@ export type OutboxSource = {
 
 /** Why GitHub posted nothing: the kind decides the words the send records. */
 export class GitHubError extends Error {
-  constructor(readonly kind: 'refused' | 'down' | 'no-access' | 'gone', readonly status: number | null) {
+  readonly kind: 'refused' | 'down' | 'no-access' | 'gone';
+  readonly status: number | null;
+  constructor(kind: 'refused' | 'down' | 'no-access' | 'gone', status: number | null) {
     super(`GitHub: ${kind}${status === null ? '' : ` (${status})`}`);
+    this.kind = kind;
+    this.status = status;
   }
 }
 

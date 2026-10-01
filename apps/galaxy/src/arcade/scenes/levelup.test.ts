@@ -91,7 +91,12 @@ function textOf(el: ReactElement, grid: Grid): string[] {
 const screen = (levelUp: LevelUp, grid: Grid) => textOf(createElement(LevelUpOverlay, { levelUp }), grid);
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 

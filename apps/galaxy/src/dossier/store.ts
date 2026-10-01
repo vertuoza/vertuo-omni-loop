@@ -66,8 +66,12 @@ export type DossierPushed = { id: string; added: Array<{ kind: ArtifactKind; ver
  * artifact over the cap.
  */
 export class DossierStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 
