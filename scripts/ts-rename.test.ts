@@ -21,6 +21,7 @@ const FILES = {
   'kit/build.mjs': "#!/usr/bin/env node\nimport { main } from './bin/omni.mjs';\nmain();\n",
   'kit/bin/omni.mjs': "export async function main(name) {\n  return import(`./commands/${name}.mjs`);\n}\n",
   'kit/bin/commands/hello.mjs': "export const hello = 'hello';\n",
+  'kit/bin/install.mjs': "export const later = (dir) => `node ${dir}/bin/omni.mjs update`;\nexport const LAYOUT = 'Tests sit beside the code, as `*.test.mjs`.';\n",
   'kit/bin/omni.test.mjs': "import { main } from './omni.mjs';\nimport { hello } from 'acme-widgets/kit/bin/commands/hello.mjs';\n// kit/build.mjs bundles kit/bin/omni.mjs into kit/dist/omni.mjs.\nconst installed = '.omni-loop/bin/omni.mjs';\n",
   'kit/dist/omni.mjs': "// kit/bin/omni.mjs\nexport {};\n",
   'game/cli/play.mjs': "import '../../kit/bin/omni.mjs';\n",
@@ -90,7 +91,7 @@ describe('scripts/ts-rename.mjs', () => {
     expect(read(root, 'kit/build.ts').split('\n').slice(0, 2)).toEqual(['#!/usr/bin/env node', '// @ts-nocheck']);
   });
 
-  it('rewrites imports, package subpaths, dynamic imports and paths that name a renamed file', () => {
+  it('rewrites imports, package subpaths, dynamic imports and paths that name a renamed file, and no pattern that starts with a wildcard', () => {
     const root = fixture();
     rename(root);
     expect(read(root, 'kit/build.ts')).toContain("from './bin/omni.ts'");
@@ -100,6 +101,7 @@ describe('scripts/ts-rename.mjs', () => {
     expect(test).toContain("from 'acme-widgets/kit/bin/commands/hello.ts'");
     expect(test).toContain('// kit/build.ts bundles kit/bin/omni.ts into kit/dist/omni.mjs.');
     expect(test).toContain("'.omni-loop/bin/omni.mjs'");
+    expect(read(root, 'kit/bin/install.ts')).toBe("// @ts-nocheck\n" + FILES['kit/bin/install.mjs']);
     expect(read(root, 'game/cli/play.ts')).toContain("import '../../kit/bin/omni.ts'");
     expect(read(root, '.omni-loop/bin/omni.mjs')).toContain("from '../../kit/bin/omni.ts'");
     expect(read(root, '.github/workflows/release.yml')).toContain('node kit/build.ts');
