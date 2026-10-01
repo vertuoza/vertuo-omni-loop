@@ -16,7 +16,7 @@
 --   constituents_for_repo_app(repo)           the App's read, by repository, service role only
 --   constituents_move_never_claims()          the one-time move below; run once here, by nobody else
 --   claim_pick(…), claim_propose_evidence(…)  as 20261027090000_never_lines.sql, refusing kind `never`
---   jev_decision_names()                      as 20261026090000_jev_decisions.sql, with constituent-break
+--   jev_decision_names()                      as 20261028110000_unknown_worth_asking.sql, with constituent-break
 --
 -- Only a workspace's owner writes (is_owner(), 20261003090000_own_fleets.sql); every member reads both
 -- tables and the terminal's read. Refusals as the business store's: 42501 not an owner (or not a member,
@@ -29,7 +29,7 @@
 -- Proven by supabase/checks/constituents.sql (and the claim kinds by supabase/checks/business.sql).
 -- Rollback: a follow-up migration sets the moved claims (constituent_events.claim_id) back to
 -- `confirmed`, restores claim_pick() and claim_propose_evidence() from 20261027090000_never_lines.sql
--- and jev_decision_names() from 20261026090000_jev_decisions.sql, and drops the two tables and the
+-- and jev_decision_names() from 20261028110000_unknown_worth_asking.sql, and drops the two tables and the
 -- functions below; nothing else reads them.
 
 -- ── The tables ───────────────────────────────────────────────────────────────────
@@ -499,7 +499,7 @@ create or replace function public.jev_decision_names() returns text[]
 language sql immutable
 set search_path = ''
 as $$
-  select array['question-category', 'outbox-risk', 'bug-risk', 'constituent-break']
+  select array['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking', 'constituent-break']
 $$;
 
 -- ── Who may do what ──────────────────────────────────────────────────────────────

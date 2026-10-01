@@ -24,6 +24,10 @@ const STATE = z.object({
   paths: z.array(z.string().min(1).max(500)).max(200).default([]),
 }).strict();
 
+/** A Noul's answer as a yes or no: at or above `threshold` is true; anything but a number from 0 to 1 is null. */
+export const noulAt = (answer: string | number, threshold: number): boolean | null =>
+  typeof answer === 'number' && Number.isFinite(answer) && answer >= 0 && answer <= 1 ? answer >= threshold : null;
+
 const lines = (heading: string, items: string[]) => (items.length ? [heading, ...items.map((i) => `- ${i}`)] : []);
 
 export const outboxRisk: JevDecisionEntry<OutboxRiskInput, boolean> = {

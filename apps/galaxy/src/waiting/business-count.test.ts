@@ -4,11 +4,12 @@ import { waitingBusiness, type BusinessCountDeps } from './business-count';
 // GET /api/waiting/business (PRD 774, s5): for any signed-in member, how many things wait to be
 // checked in their workspace's business (business_to_check()); 0 with no workspace; 401 signed out.
 
-type Over = { user?: string | null; workspace?: string | null; count?: number; error?: string; fail?: boolean };
+type Over = { user?: string | null; workspace?: string | null; count?: number; questions?: number; error?: string; fail?: boolean };
 
 function deps(over: Over = {}) {
-  const rpc = vi.fn(async (_fn: string, _args: Record<string, unknown>) =>
-    (over.error ? { data: null, error: { message: over.error } } : { data: over.count ?? 0, error: null }));
+  const rpc = vi.fn(async (fn: string, _args: Record<string, unknown>) =>
+    (over.error ? { data: null, error: { message: over.error } }
+      : { data: fn === 'agent_questions_open' ? over.questions ?? 0 : over.count ?? 0, error: null }));
   const db = { auth: { getUser: async () => ({ data: { user: over.user === null ? null : { id: over.user ?? 'u1' } } }) }, rpc };
   const workspace = vi.fn(async () => (over.workspace === null ? null : { id: over.workspace ?? 'w1' }));
   const d: BusinessCountDeps = {
@@ -29,6 +30,13 @@ describe('the business count route', () => {
     expect(await body(await waitingBusiness(d))).toEqual({ status: 200, json: { count: 4 } });
     expect(workspace).toHaveBeenCalledWith(expect.anything(), 'u1');
     expect(rpc).toHaveBeenCalledWith('business_to_check', { p_workspace: 'w1' });
+  });
+
+  it('adds the open questions agents couldn\'t answer (PRD 855 s3)', async () => {
+    const { d, rpc } = deps({ count: 4, questions: 3 });
+    expect(await body(await waitingBusiness(d))).toEqual({ status: 200, json: { count: 7 } });
+    expect(rpc).toHaveBeenCalledWith('agent_questions_open', { p_workspace: 'w1' });
+    expect(await body(await waitingBusiness(deps({ questions: 2 }).d))).toEqual({ status: 200, json: { count: 2 } });
   });
 
   it('gives 0 when there is nothing to check, and with no workspace, without asking', async () => {

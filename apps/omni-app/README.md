@@ -10,11 +10,11 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 | Situation | Conclusion |
 |---|---|
 | No `.omni-loop/config.yml` on the base branch | no check run and no comment: the app stays silent |
-| Not a feature PR (sub-PR, other branch, no PRD folder) | `skipped` — omni-loop is not active on this PR |
+| Not an Omni Loop feature PR (a sub-PR, a fix PR, a dependabot or hand-written PR, a `feat/` branch with no PRD folder) | `skipped` — omni-loop is not active on this PR, decided before any gate read; never `failure`, even when the run fails (issue 876) |
 | Outbox clear | `success` |
 | Open items, unreworked drift or unaccounted risky changes | `failure` |
 | Red, but labelled with the override label (`labels.outboxGo`) | `neutral` |
-| Broken base config, snapshot over its bound, or any failure after retries | `failure` |
+| Broken base config, or, on a feature PR, a snapshot over its bound or any failure after retries | `failure` |
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
 

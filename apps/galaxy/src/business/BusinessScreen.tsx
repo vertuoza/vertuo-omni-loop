@@ -6,18 +6,27 @@ import type { Claim, Product } from './model';
 import { faceOf } from '../people/face';
 import { BusinessPage, type BusinessPageProps, type Constituents } from './BusinessPage';
 import type { Persona } from './personas';
+import { ConnectAgent, type ConnectAgentProps } from '../agent-connect/tokens/ConnectAgent';
+import type { AgentToken } from '../agent-connect/tokens/model';
+import { AgentQuestions, type AgentQuestionsProps } from '../agent-connect/questions/AgentQuestions';
+import type { AgentQuestion } from '../agent-connect/questions/model';
 
 // Settings → Business in each situation (PRD 748 s2), decided once by the page: no database here;
 // signed out (sign in on /app, then come back); an account in no workspace; the business that could
 // not be read; or the business itself, any member's to pick and confirm. Every situation starts with
 // the Settings tabs, Fleets · Repositories · Business.
+//
+// Below the business, Connect an agent (PRD 855 s1, ../agent-connect/tokens/): a member's read-only
+// links for their editors' agents, shown once made, and the workspace's list, when the page has it.
+// Above it, the questions agents couldn't answer (PRD 855 s3, ../agent-connect/questions/), when the
+// page has them: each answered once as a confirmed claim, or dismissed.
 
 export type BusinessScreenView =
   | { kind: 'closed' }
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | ({ kind: 'business' } & BusinessPageProps);
+  | ({ kind: 'business'; agents?: ConnectAgentProps; questions?: AgentQuestionsProps } & BusinessPageProps);
 
 /** The demo's sample claims: a filled business, some of it cited. No real company is named. */
 export const DEMO_CLAIMS: Claim[] = [
@@ -64,6 +73,27 @@ export const DEMO_PERSONAS: Persona[] = [
   },
 ];
 
+/** The demo's sample link (PRD 855 s1): one of the viewer's own, made in the demo, never used. */
+export const DEMO_TOKENS: AgentToken[] = [
+  {
+    id: 'demo-token-1', name: 'My editor', lastFour: 'x7Qe', createdAt: '2026-09-28T09:00:00.000Z', lastUsedAt: null,
+    maker: { id: 'demo-me', login: 'you', name: 'You' }, mine: true, canRevoke: true, working: true,
+  },
+];
+
+/** The demo's sample questions (PRD 855 s3): one asked twice by the demo's link, one asked once. */
+export const DEMO_QUESTIONS: AgentQuestion[] = [
+  {
+    id: 'demo-question-1', question: 'Do we sell in Luxembourg?', asked: 2, askedBy: 'My editor', repo: 'acme/erp',
+    file: 'src/quotes/NewQuoteForm.tsx', firstAskedAt: '2026-09-29T14:00:00.000Z', lastAskedAt: '2026-09-30T10:00:00.000Z',
+    product: 'demo-product-1',
+  },
+  {
+    id: 'demo-question-2', question: 'Do our customers invoice in several currencies?', asked: 1, askedBy: 'My editor', repo: null,
+    file: null, firstAskedAt: '2026-09-28T16:00:00.000Z', lastAskedAt: '2026-09-28T16:00:00.000Z', product: 'demo-product-1',
+  },
+];
+
 export function BusinessScreen({ view }: { view: BusinessScreenView }) {
   return (
     <>
@@ -100,8 +130,22 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
         </Notice>
       );
     case 'business': {
-      const { kind: _, ...props } = view;
-      return <BusinessPage {...props} />;
+      const { kind: _, agents, questions, ...props } = view;
+      return (
+        <>
+          <BusinessPage {...props} />
+          {questions && (
+            <div className="ask-col business-agents">
+              <AgentQuestions {...questions} />
+            </div>
+          )}
+          {agents && (
+            <div className="ask-col business-agents">
+              <ConnectAgent {...agents} />
+            </div>
+          )}
+        </>
+      );
     }
   }
 }

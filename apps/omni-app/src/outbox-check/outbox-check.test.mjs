@@ -4,6 +4,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.mjs';
 import { fakeGitHub } from './fake-github.mjs';
+import { startCheck } from '../publish/publish.mjs';
 import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck, outboxCheck } from './outbox-check.mjs';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -171,8 +172,9 @@ describe('outbox-check — fail closed', () => {
     ]);
   });
 
-  it('falls back to the default check name when GitHub cannot be read', async () => {
+  it('falls back to the default check name when GitHub cannot be read, failing the check already started', async () => {
     const github = featureGitHub();
+    await startCheck(github.octokit, { owner: 'acme', repo: 'widgets', headSha: 'head1', name: 'outbox' });
     const flaky = { request: async (route, params) => {
       if (route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}') throw new Error('502');
       return github.octokit.request(route, params);
@@ -200,5 +202,93 @@ describe('outbox-check — fail closed', () => {
     const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
     expect(error?.name).toBe('NonRetriableError');
     expect(error?.message).toMatch(/over the bound of 2,000 files/);
+  });
+});
+
+describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', () => {
+  const failed = (message) => ({
+    event: { name: 'inngest/function.failed', data: { event: event(), error: { message } } },
+    error: new Error(message),
+  });
+  const RATE_LIMIT = 'API rate limit exceeded for installation ID 7.';
+  const dependabotPr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'dependabot/npm_and_yarn/brace-expansion-5.0.12', sha: 'head1' } };
+  const plainFeaturePr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/VS-29444-gantt-node-move-dates', sha: 'head1' } };
+
+  /** A GitHub that rate-limits every read past the pull request and the base config, as on vertuo-backend-php#6333. */
+  function rateLimitedAfterClassify(github) {
+    return { request: async (route, params) => {
+      if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') throw new Error(RATE_LIMIT);
+      if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}/comments') throw new Error(RATE_LIMIT);
+      return github.octokit.request(route, params);
+    } };
+  }
+
+  for (const [kind, pull] of [['a dependabot PR', dependabotPr], ['a plain feature PR', plainFeaturePr]]) {
+    it(`${kind}: one check, completed skipped, before any gate read`, async () => {
+      const github = featureGitHub({ pull });
+      const { result } = await engine(github).execute();
+      expect(result).toMatchObject({ conclusion: 'skipped' });
+      expect(github.state.checkRuns).toEqual([
+        expect.objectContaining({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'skipped' }),
+      ]);
+      const reads = github.state.requests.map((r) => r.route);
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
+      expect(reads).not.toContain('GET /repos/{owner}/{repo}/issues/{issue_number}/comments');
+    });
+
+    it(`${kind}: a run GitHub rate-limits never ends red`, async () => {
+      const github = featureGitHub({ pull });
+      const limited = rateLimitedAfterClassify(github);
+      const fn = createOutboxCheck({ client: inngest, octokitFor: () => limited });
+      await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      expect(github.state.checkRuns.map((r) => r.conclusion)).not.toContain('failure');
+      expect(github.state.checkRuns.map((r) => r.status)).not.toContain('in_progress');
+    });
+
+    it(`${kind}: the failure handler, run with no check yet, posts skipped — never failure`, async () => {
+      const github = featureGitHub({ pull });
+      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      expect(github.state.checkRuns).toEqual([
+        expect.objectContaining({ status: 'completed', conclusion: 'skipped' }),
+      ]);
+    });
+
+    it(`${kind}: a re-synchronize keeps it skipped`, async () => {
+      const github = featureGitHub({ pull });
+      await engine(github).execute();
+      github.state.pull.head.sha = 'head1';
+      const again = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
+      await new InngestTestEngine({ function: again, events: [event({ trigger: 'pull_request.synchronize' })] }).execute();
+      expect(github.state.checkRuns.map((r) => r.conclusion)).toEqual(['skipped', 'skipped']);
+    });
+  }
+
+  it('the failure handler posts nothing when it cannot tell what the pull request is', async () => {
+    const github = featureGitHub({ pull: dependabotPr });
+    const down = { request: async (route, params) => {
+      if (route.startsWith('GET ')) throw new Error(RATE_LIMIT);
+      return github.octokit.request(route, params);
+    } };
+    const out = await createFailureHandler({ octokitFor: () => down })(failed(RATE_LIMIT));
+    expect(out).toMatchObject({ posted: false });
+    expect(github.state.checkRuns).toEqual([]);
+  });
+
+  it('an Omni Loop feature PR GitHub rate-limits still fails closed', async () => {
+    const github = featureGitHub();
+    const limited = rateLimitedAfterClassify(github);
+    const fn = createOutboxCheck({ client: inngest, octokitFor: () => limited });
+    await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+    expect(github.state.checkRuns).toEqual([
+      expect.objectContaining({ status: 'completed', conclusion: 'failure' }),
+    ]);
+  });
+
+  it('an Omni Loop feature PR with an open outbox item is still red', async () => {
+    const github = featureGitHub();
+    const { result } = await engine(github).execute();
+    expect(result).toMatchObject({ conclusion: 'failure' });
   });
 });
