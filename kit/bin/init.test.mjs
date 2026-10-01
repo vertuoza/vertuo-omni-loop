@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeRepo } from '../test/fixture.mjs';
+import { formText, makeRepo } from '../test/fixture.mjs';
 import { parseConfig } from '../lib/config.mjs';
 import { credentials } from '../lib/ask/credentials.mjs';
 import { LABEL_STYLES } from '../lib/init/labels.mjs';
@@ -1232,5 +1232,100 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
       `  signin  signed in to ${ASK_HOST} already, as ${ENTRY.email}`,
     ]);
     expect(closing(out)).toContain('  2. Merge PR #7 into trunk:\n       https://github.com/acme/widgets/pull/7\n');
+  });
+});
+
+describe('omni init — a repository already installed on its default branch (PRD 893)', () => {
+  const INSTALLED_CONFIG = `kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: main\nask:\n  url: https://${ASK_HOST}\n`;
+  const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+  /**
+   * A repository whose bare `origin` has `onMain` on `main`, checked out on a branch `work` of its
+   * own: the branch a teammate is on when they run init.
+   */
+  function withOrigin(onMain) {
+    const made = makeRepo({ git: true, files: onMain });
+    const bare = join(mkdtempSync(join(tmpdir(), 'omni-origin-')), 'origin.git');
+    git(made.root, 'clone', '-q', '--bare', made.root, bare);
+    git(made.root, 'remote', 'add', 'origin', bare);
+    git(made.root, 'fetch', '-q', 'origin');
+    git(made.root, 'switch', '-q', '-c', 'work');
+    return { ...made, bare };
+  }
+  const installedRepo = () => withOrigin({ '.omni-loop/config.yml': INSTALLED_CONFIG, [`${KNOWLEDGE}/playbook/testing.md`]: formText() });
+
+  it('switches no branch, writes, commits, pushes and opens nothing, still installs the plugin and signs in, and ends with /omni:invade', async () => {
+    const { root, bare } = installedRepo();
+    const before = snapshot(root);
+    const originBefore = git(bare, 'rev-parse', 'main');
+    const fake = fakeExec({ defaultBranch: 'main' });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(git(root, 'branch', '--show-current')).toBe('work');
+    expect(fake.install).toEqual([]);
+    expect(fake.calls.filter((args) => args[0] === 'pr' || args[0] === 'label')).toEqual([]);
+    expect(snapshot(root)).toEqual(before);
+    expect(gitStatus(root)).toEqual([]);
+    expect(git(bare, 'rev-parse', 'main')).toBe(originBefore);
+    expect(fake.plugin.filter((call) => !call.endsWith('--json'))).toEqual([
+      `claude plugin marketplace add ${KIT_HOME}`,
+      'claude plugin install omni@omni-loop',
+    ]);
+    expect(out.split('\n')).toEqual([
+      'Already installed on main — no install pull request.',
+      '',
+      'On this computer:',
+      '  plugin  installed omni@omni-loop, run /reload-plugins in an open Claude Code',
+      `  signin  not signed in to ${ASK_HOST}: no terminal`,
+      '',
+      'Type this in a terminal to sign in later:',
+      '     omni signin',
+      '',
+      'Then, by hand:',
+      '  1. Fill the forms in .omni-loop/knowledge/ with what the repository can prove, in Claude Code:',
+      '       /omni:invade',
+      '',
+    ]);
+    expect(out).not.toContain('Merge the install pull request');
+    expect(out).not.toContain('GitHub App');
+  });
+
+  it('reads the install on origin/main even when the branch it runs on has no config', async () => {
+    const { root } = installedRepo();
+    git(root, 'switch', '-q', '--orphan', 'fresh');
+    const { code, out } = await init(root, [], { fake: fakeExec({ defaultBranch: 'main' }) });
+    expect(code).toBe(0);
+    expect(out.split('\n')[0]).toBe('Already installed on main — no install pull request.');
+    expect(existsSync(join(root, '.omni-loop/config.yml'))).toBe(false);
+  });
+
+  it('with --force it switches to the install branch and runs the full install', async () => {
+    const { root } = installedRepo();
+    const fake = fakeExec({ defaultBranch: 'main' });
+    const { code, out } = await init(root, ['--force'], { fake });
+    expect(code).toBe(0);
+    expect(git(root, 'branch', '--show-current')).toBe('chore/install-omni-loop');
+    expect(out).not.toContain('Already installed');
+    expect(installBlock(out)).toContain('  branch  created chore/install-omni-loop');
+    expect(fake.calls.some((args) => args[0] === 'pr' && args[1] === 'create')).toBe(true);
+  });
+
+  it('with no config on origin/main it runs the full install', async () => {
+    const { root } = withOrigin({ 'README.md': 'hello\n' });
+    const fake = fakeExec({ defaultBranch: 'main' });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(out.split('\n')[0]).toBe('omni init — acme/widgets is set up.');
+    expect(git(root, 'branch', '--show-current')).toBe('chore/install-omni-loop');
+    expect(fake.calls.some((args) => args[0] === 'pr' && args[1] === 'create')).toBe(true);
+  });
+
+  it('with a remote it cannot fetch it runs the full install', async () => {
+    const { root } = installedRepo();
+    git(root, 'remote', 'set-url', 'origin', join(tmpdir(), 'omni-no-such-origin.git'));
+    const { code, out } = await init(root, [], { fake: fakeExec({ defaultBranch: 'main' }) });
+    expect(code).toBe(0);
+    expect(out).not.toContain('Already installed');
+    expect(out).toContain(INSTALL_BLOCK);
   });
 });
