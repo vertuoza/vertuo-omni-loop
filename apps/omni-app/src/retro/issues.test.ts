@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
@@ -13,11 +12,18 @@ import { issueMarker, publishIssues, renderIssue } from './issues.ts';
 import { timeline } from './kinds/timeline.ts';
 import { createRetro } from './retro.ts';
 import { ISSUES_PER_RUN, refusedWordsIn } from './rules.ts';
+import type { Config, FactSheet, FeaturePull, Finding, Kind, Octokit, PrdFacts, Prose } from './retro.types.ts';
+
+/** The stubbed GitHub, as the tests read it: its state open to look at. */
+type Stub = { octokit: Octokit; state: any; filesAt: (branch: string, paths: string[]) => Record<string, string | undefined> };
+type Scenario = { github: Stub; event: any };
+const replay = (options?: object): Stub => replayGitHub(options as never) as unknown as Stub;
+const scenarioOf = (options?: object): Scenario => widgetScenario(options as never) as unknown as Scenario;
 
 const GOLDEN = fileURLToPath(new URL('./issues.golden/', import.meta.url));
 
 /** Compares `text` with a golden file; `UPDATE_GOLDEN=1 pnpm test` rewrites the file instead. */
-function golden(name, text) {
+function golden(name: string, text: string): void {
   const file = `${GOLDEN}${name}`;
   if (process.env.UPDATE_GOLDEN) {
     mkdirSync(GOLDEN, { recursive: true });
@@ -38,14 +44,14 @@ const pr = {
   openedAt: FEATURE.created_at,
   mergedAt: FEATURE.merged_at,
   mergeSha: 'merge1',
-};
-const prd = { number: 7, topic: 'widget', title: 'Widgets that remember their colour', state: 'shipped', folder: FOLDER, plan: null };
+} as FeaturePull;
+const prd = { number: 7, topic: 'widget', title: 'Widgets that remember their colour', state: 'shipped', folder: FOLDER, plan: null } as PrdFacts;
 
-const run = (id) => `https://github.com/${OWNER}/${REPO}/actions/runs/${id}`;
+const run = (id: number) => `https://github.com/${OWNER}/${REPO}/actions/runs/${id}`;
 const AWKWARD = 'failing-test:cart --> adds an item: twice #2';
 
 /** Seven findings of seven kinds, listed out of order: `detect` ranks them by the rules. */
-const FOUND = [
+const FOUND: Finding[] = [
   {
     id: 'churn:src/cart.ts:120-160',
     kind: 'churn',
@@ -103,7 +109,7 @@ const FOUND = [
 /** The rank `detect` gives them: drift, repeated red, failing test, review, territory, churn, slow slice. */
 const RANKED = ['drift:s2-04-colour-store', 'repeated-red:e2e', AWKWARD, 'review:14', 'territory:s2', 'churn:src/cart.ts:120-160', 'slow-slice:s3'];
 
-const found = (findings) => ({
+const found = (findings: Finding[]): Kind => ({
   id: 'found',
   section: 'Found',
   runs: ['merge'],
@@ -112,17 +118,17 @@ const found = (findings) => ({
   describe: () => null,
 });
 
-const sheetOf = (findings = FOUND) => detect({ run: 'merge', pr, prd, config, pulls: [], records: {}, kinds: [found(findings)] });
+const sheetOf = (findings: Finding[] = FOUND): FactSheet => detect({ run: 'merge', pr, prd, config, pulls: [], records: {}, kinds: [found(findings)] });
 
 /** The judge's marks alone, keeping every finding of `findings`: no words. */
-const keeping = (findings = FOUND) => ({
+const keeping = (findings: Finding[] = FOUND): Prose => ({
   findings: Object.fromEntries(findings.map((finding) => [finding.id, { keep: true }])),
   lessons: [],
   verdict: { worthIt: true, reason: 'Each finding is new.' },
 });
 const KEEP_ALL = keeping();
 
-const input = ({ sheet = sheetOf(), prose = KEEP_ALL, cfg = config } = {}) => ({
+const input = ({ sheet = sheetOf(), prose = KEEP_ALL, cfg = config }: { sheet?: FactSheet; prose?: Prose | null; cfg?: Config } = {}) => ({
   owner: OWNER,
   repo: REPO,
   config: cfg,
@@ -131,7 +137,7 @@ const input = ({ sheet = sheetOf(), prose = KEEP_ALL, cfg = config } = {}) => ({
   retroPath: RETRO_PATH,
 });
 
-const PROSE = {
+const PROSE: Prose = {
   summary: 'The widgets shipped, but one check kept failing.',
   findings: {
     ...KEEP_ALL.findings,
@@ -151,20 +157,20 @@ const PROSE = {
   ],
 };
 
-const writes = (github) => github.state.requests.filter((r) => !r.route.startsWith('GET '));
-const created = (github) => github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/issues');
-const patched = (github) => github.state.requests.filter((r) => r.route === 'PATCH /repos/{owner}/{repo}/issues/{issue_number}');
+const writes = (github: Stub): any[] => github.state.requests.filter((r: any) => !r.route.startsWith('GET '));
+const created = (github: Stub): any[] => github.state.requests.filter((r: any) => r.route === 'POST /repos/{owner}/{repo}/issues');
+const patched = (github: Stub): any[] => github.state.requests.filter((r: any) => r.route === 'PATCH /repos/{owner}/{repo}/issues/{issue_number}');
 
 /** The YAML block an issue body ends with, parsed. */
-function yamlBlock(body) {
+function yamlBlock(body: string) {
   const match = body.match(/```yaml\n([\s\S]*?)\n```\n$/);
   expect(match, 'the body ends with a YAML block').toBeTruthy();
-  return parse(match[1]);
+  return parse(match![1]!);
 }
 
 describe('publishIssues — the first run', () => {
   it('opens one issue for each of the five most severe findings, in the rules’ order, and none for the rest', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const out = await publishIssues(github.octokit, input());
     expect(ISSUES_PER_RUN).toBe(5);
     const titles = Object.fromEntries(FOUND.map((finding) => [finding.id, `retro(PRD 7): ${finding.title}`]));
@@ -174,7 +180,7 @@ describe('publishIssues — the first run', () => {
   });
 
   it('labels each issue with the retro label, never the PRD label', async () => {
-    const github = replayGitHub();
+    const github = replay();
     await publishIssues(github.octokit, input());
     expect(created(github)).toHaveLength(5);
     for (const request of created(github)) expect(request.labels).toEqual(['omni:retro']);
@@ -182,7 +188,7 @@ describe('publishIssues — the first run', () => {
   });
 
   it('gives back each issue’s number, link and state, so retro.md can link it', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const out = await publishIssues(github.octokit, input());
     const first = github.state.issues[0];
     expect(out['drift:s2-04-colour-store']).toEqual({ number: first.number, url: first.html_url, state: 'open' });
@@ -190,25 +196,25 @@ describe('publishIssues — the first run', () => {
   });
 
   it('starts each body with its marker and ends it with the YAML block /omni:retro-apply reads', async () => {
-    const github = replayGitHub();
+    const github = replay();
     await publishIssues(github.octokit, input());
     const sheet = sheetOf();
     expect(github.state.issues).toHaveLength(5);
     for (const issue of github.state.issues) {
-      const finding = sheet.findings.find((candidate) => issue.body.startsWith(`${issueMarker('omni-outbox', 7, candidate.id)}\n`));
+      const finding = sheet.findings.find((candidate) => issue.body.startsWith(`${issueMarker('omni-outbox', 7, candidate.id)}\n`))!;
       expect(finding, issue.body.split('\n')[0]).toBeTruthy();
       expect(yamlBlock(issue.body)).toEqual({
         prd: 7,
         finding: finding.id,
         kind: finding.kind,
         retro: RETRO_PATH,
-        evidence: finding.evidence.map((item) => item.url),
+        evidence: finding.evidence!.map((item) => item.url),
       });
     }
   });
 
   it('opens issues only for the findings the judge kept, worst first', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const kept = FOUND.filter((finding) => ['slow-slice:s3', 'territory:s2', 'repeated-red:e2e'].includes(finding.id));
     const out = await publishIssues(github.octokit, input({ prose: keeping(kept) }));
     expect(Object.keys(out)).toEqual(['repeated-red:e2e', 'territory:s2', 'slow-slice:s3']);
@@ -217,20 +223,20 @@ describe('publishIssues — the first run', () => {
 
   it('reads and writes nothing when the retro was not judged, or the judge kept nothing', async () => {
     for (const prose of [null, { findings: {}, lessons: [], verdict: { dropped: 'it gives no verdict' } }, keeping([])]) {
-      const github = replayGitHub();
+      const github = replay();
       expect(await publishIssues(github.octokit, input({ prose }))).toEqual({});
       expect(github.state.requests).toEqual([]);
     }
   });
 
   it('reads and writes nothing when the run found nothing', async () => {
-    const github = replayGitHub();
+    const github = replay();
     expect(await publishIssues(github.octokit, input({ sheet: sheetOf([]) }))).toEqual({});
     expect(github.state.requests).toEqual([]);
   });
 
   it('refuses a config whose retro label is the PRD label, before writing anything', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const same = parseConfig('kit: 1\nlabels:\n  retro: omni:prd\n');
     await expect(publishIssues(github.octokit, input({ cfg: same }))).rejects.toThrow(/PRD label/);
     expect(writes(github)).toEqual([]);
@@ -239,20 +245,20 @@ describe('publishIssues — the first run', () => {
 
 describe('publishIssues — a replay', () => {
   it('rewrites the open issues in place and opens none', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const first = await publishIssues(github.octokit, input());
     const again = await publishIssues(github.octokit, input({ prose: PROSE }));
     expect(created(github)).toHaveLength(5);
     expect(github.state.issues).toHaveLength(5);
     expect(again).toEqual(first);
-    const red = github.state.issues.find((issue) => issue.number === first['repeated-red:e2e'].number);
+    const red = github.state.issues.find((issue: any) => issue.number === first['repeated-red:e2e']!.number);
     expect(red.title).toBe('retro(PRD 7): The end-to-end check kept failing');
     expect(red.body).toContain('## Why it matters\n\nEach red run held a slice back');
     expect(patched(github).map((request) => request.issue_number)).toContain(red.number);
   });
 
   it('writes nothing to an issue whose title and body are unchanged', async () => {
-    const github = replayGitHub();
+    const github = replay();
     await publishIssues(github.octokit, input());
     const before = writes(github).length;
     expect(before).toBe(5);
@@ -261,22 +267,22 @@ describe('publishIssues — a replay', () => {
   });
 
   it('leaves a closed issue closed and untouched, and still gives it back for retro.md to link', async () => {
-    const github = replayGitHub();
+    const github = replay();
     const first = await publishIssues(github.octokit, input());
-    const { number } = first['repeated-red:e2e'];
+    const { number } = first['repeated-red:e2e']!;
     await github.octokit.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', { owner: OWNER, repo: REPO, issue_number: number, state: 'closed' });
-    const body = github.state.issues.find((issue) => issue.number === number).body;
+    const body = github.state.issues.find((issue: any) => issue.number === number).body;
 
     const again = await publishIssues(github.octokit, input({ prose: PROSE }));
-    const closed = github.state.issues.find((issue) => issue.number === number);
+    const closed = github.state.issues.find((issue: any) => issue.number === number);
     expect(closed).toMatchObject({ state: 'closed', body });
     expect(patched(github).filter((request) => request.issue_number === number && request.state !== 'closed')).toEqual([]);
-    expect(again['repeated-red:e2e']).toEqual({ number, url: first['repeated-red:e2e'].url, state: 'closed' });
+    expect(again['repeated-red:e2e']).toEqual({ number, url: first['repeated-red:e2e']!.url, state: 'closed' });
     expect(created(github)).toHaveLength(5);
   });
 
   it('finds an issue by its own PRD and finding, never by another PRD’s issue for the same finding', async () => {
-    const github = replayGitHub();
+    const github = replay();
     await github.octokit.request('POST /repos/{owner}/{repo}/issues', {
       owner: OWNER,
       repo: REPO,
@@ -286,13 +292,13 @@ describe('publishIssues — a replay', () => {
     });
     const out = await publishIssues(github.octokit, input());
     expect(created(github)).toHaveLength(1 + 5);
-    expect(out['drift:s2-04-colour-store'].number).not.toBe(github.state.issues[0].number);
+    expect(out['drift:s2-04-colour-store']!.number).not.toBe(github.state.issues[0].number);
   });
 });
 
 describe('publishIssues — the header', () => {
   it('names the PRD and the feature PR, and the retro PR once one is open from the retro branch', async () => {
-    const bare = replayGitHub();
+    const bare = replay();
     await publishIssues(bare.octokit, input());
     expect(bare.state.issues[0].body.split('\n')[1]).toBe('**Retro of PRD 7** (#7 · feature PR #12) · F1');
 
@@ -305,16 +311,16 @@ describe('publishIssues — the header', () => {
       base: { ref: 'main' },
       labels: [{ name: 'omni:retro' }],
     };
-    const withPr = replayGitHub({ pulls: [retroPull] });
+    const withPr = replay({ pulls: [retroPull] });
     await publishIssues(withPr.octokit, input());
-    const first = withPr.state.issues.find((issue) => issue.title.startsWith('retro(PRD 7)'));
+    const first = withPr.state.issues.find((issue: any) => issue.title.startsWith('retro(PRD 7)'));
     expect(first.body.split('\n')[1]).toBe('**Retro of PRD 7** (#7 · feature PR #12 · retro PR #930) · F1');
   });
 });
 
 describe('renderIssue', () => {
   const sheet = sheetOf();
-  const red = sheet.findings.find((finding) => finding.id === 'repeated-red:e2e');
+  const red = sheet.findings.find((finding) => finding.id === 'repeated-red:e2e')!;
 
   it('matches its golden file with facts only', () => {
     const { title, body } = renderIssue({ sheet, finding: red, prose: null, retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' });
@@ -330,7 +336,7 @@ describe('renderIssue', () => {
   });
 
   it('keeps the detector’s title when the model’s was dropped, and names why a field was dropped', () => {
-    const drift = sheet.findings.find((finding) => finding.id === 'drift:s2-04-colour-store');
+    const drift = sheet.findings.find((finding) => finding.id === 'drift:s2-04-colour-store')!;
     const { title, body } = renderIssue({ sheet, finding: drift, prose: PROSE, retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' });
     expect(title).toBe('retro(PRD 7): A decision drifted from its answer');
     expect(body).toContain('## Why it matters\n\n_Dropped: it links outside the evidence._\n');
@@ -338,16 +344,16 @@ describe('renderIssue', () => {
   });
 
   it('keeps an awkward finding id whole: the marker stays one comment, and the YAML block reads it back', () => {
-    const odd = sheet.findings.find((finding) => finding.id === AWKWARD);
+    const odd = sheet.findings.find((finding) => finding.id === AWKWARD)!;
     const { body } = renderIssue({ sheet, finding: odd, prose: null, retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' });
-    const marker = body.split('\n')[0];
+    const marker = body.split('\n')[0]!;
     expect(marker).toMatch(/^<!-- omni-outbox-retro: prd=7 finding=.* -->$/);
     expect(marker.indexOf('-->')).toBe(marker.length - 3);
-    expect(yamlBlock(body)).toMatchObject({ finding: AWKWARD, evidence: [odd.evidence[0].url] });
+    expect(yamlBlock(body)).toMatchObject({ finding: AWKWARD, evidence: [odd.evidence![0]!.url] });
   });
 
   it('writes "None recorded." for a finding without evidence, and an empty list in its YAML block', () => {
-    const review = sheet.findings.find((finding) => finding.id === 'review:14');
+    const review = sheet.findings.find((finding) => finding.id === 'review:14')!;
     const { body } = renderIssue({ sheet, finding: review, prose: null, retroPath: RETRO_PATH, retroPr: null, prefix: 'omni-outbox' });
     expect(body).toContain('## Evidence\n\nNone recorded.\n');
     expect(yamlBlock(body).evidence).toEqual([]);
@@ -363,19 +369,20 @@ describe('renderIssue', () => {
 
 describe('the retro function — its issues', () => {
   /** The widget scenario, its timeline plus the seven findings above: eight findings, the slow slice once. */
-  function engine(scenario) {
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge(), kinds: [timeline, found(FOUND)] });
+  function engine(scenario: Scenario) {
+    const kinds = [timeline as unknown as Kind, found(FOUND)];
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge() as typeof fetch, kinds });
     return new InngestTestEngine({ function: fn, events: [scenario.event] });
   }
-  const markdown = (github) => github.filesAt(BRANCH, [RETRO_PATH])[RETRO_PATH];
+  const markdown = (github: Stub) => github.filesAt(BRANCH, [RETRO_PATH])[RETRO_PATH];
 
   it('publishes five issues before the branch, and retro.md links each', async () => {
-    const scenario = widgetScenario();
+    const scenario = scenarioOf();
     const { result, error } = await engine(scenario).execute();
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ findings: 7, issues: 5 });
 
-    const routes = scenario.github.state.requests.map((r) => r.route);
+    const routes = scenario.github.state.requests.map((r: any) => r.route);
     expect(routes.lastIndexOf('POST /repos/{owner}/{repo}/issues')).toBeLessThan(routes.indexOf('POST /repos/{owner}/{repo}/git/refs'));
 
     const issues = scenario.github.state.issues;
@@ -388,7 +395,7 @@ describe('the retro function — its issues', () => {
   });
 
   it('on a replay opens no second issue, and a closed one stays closed and is still linked', async () => {
-    const scenario = widgetScenario();
+    const scenario = scenarioOf();
     await engine(scenario).execute();
     const [first] = scenario.github.state.issues;
     await scenario.github.octokit.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
@@ -401,7 +408,7 @@ describe('the retro function — its issues', () => {
     const { error } = await engine(scenario).execute();
     expect(error).toBeUndefined();
     expect(created(scenario.github)).toHaveLength(5);
-    expect(scenario.github.state.issues.find((issue) => issue.number === first.number).state).toBe('closed');
+    expect(scenario.github.state.issues.find((issue: any) => issue.number === first.number).state).toBe('closed');
     expect(markdown(scenario.github)).toContain(`[#${first.number}](${first.html_url}) (closed)`);
   });
 });

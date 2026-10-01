@@ -1,19 +1,20 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { detect } from './detect.ts';
 import { KINDS, kindsFor } from './kinds/index.ts';
 import { RULES_VERSION } from './rules.ts';
+import type { Config, DetectContext, FeaturePull, Finding, Kind, PrdFacts } from './retro.types.ts';
 
-const pr = { number: 12, title: 'feat: widgets', url: 'https://x/pull/12', openedAt: 'a', mergedAt: 'b', mergeSha: 'merge1', headRef: 'feat/widget' };
-const prd = { number: 7, title: 'Widgets', topic: 'widget', state: 'shipped', folder: '.omni-loop/delivery/shipped/0007-widget', plan: '', settled: null, problem: 'p' };
+const pr = { number: 12, title: 'feat: widgets', url: 'https://x/pull/12', openedAt: 'a', mergedAt: 'b', mergeSha: 'merge1', headRef: 'feat/widget' } as FeaturePull;
+const prd = { number: 7, title: 'Widgets', topic: 'widget', state: 'shipped', folder: '.omni-loop/delivery/shipped/0007-widget', plan: '', settled: null, problem: 'p' } as PrdFacts;
+const config = {} as Config;
 
-const finding = (id, kind) => ({ id, kind, title: id, happened: `${id} happened.`, evidence: [] });
-const fakeKind = (id, findings, facts = { id }) => ({
+const finding = (id: string, kind: string): Finding => ({ id, kind, title: id, happened: `${id} happened.`, evidence: [] });
+const fakeKind = (id: string, findings: Finding[], facts: object = { id }): Kind => ({
   id,
   section: id,
   runs: ['merge'],
   gather: async () => null,
-  detect: (records, context) => ({ facts: { ...facts, records, prNumber: context.pr.number }, findings }),
+  detect: (records: unknown, context: DetectContext) => ({ facts: { ...facts, records, prNumber: context.pr.number }, findings }),
   describe: () => null,
 });
 
@@ -23,7 +24,7 @@ describe('detect — the fact sheet', () => {
       run: 'merge',
       pr,
       prd,
-      config: {},
+      config,
       pulls: [],
       records: { a: { seen: 1 } },
       kinds: [fakeKind('a', []), fakeKind('b', [])],
@@ -39,7 +40,7 @@ describe('detect — the fact sheet', () => {
       run: 'merge',
       pr,
       prd,
-      config: {},
+      config,
       pulls: [],
       records: {},
       kinds: [
@@ -58,7 +59,7 @@ describe('detect — the fact sheet', () => {
   });
 
   it('records the run, the rules it used, the PRD and the feature PR', () => {
-    const sheet = detect({ run: 'merge', pr, prd, config: {}, pulls: [], records: {}, kinds: [] });
+    const sheet = detect({ run: 'merge', pr, prd, config, pulls: [], records: {}, kinds: [] });
     expect(sheet.run).toBe('merge');
     expect(sheet.rules.version).toBe(RULES_VERSION);
     expect(sheet.prd).toEqual({ number: 7, title: 'Widgets', topic: 'widget', state: 'shipped', folder: prd.folder });
@@ -67,7 +68,7 @@ describe('detect — the fact sheet', () => {
   });
 
   it('is the same sheet for the same records: nothing in it depends on the clock', () => {
-    const input = { run: 'merge', pr, prd, config: {}, pulls: [], records: {}, kinds: [fakeKind('a', [finding('churn:x', 'churn')])] };
+    const input = { run: 'merge' as const, pr, prd, config, pulls: [], records: {}, kinds: [fakeKind('a', [finding('churn:x', 'churn')])] };
     expect(detect(input)).toEqual(detect(input));
   });
 });
@@ -95,8 +96,8 @@ describe('the kind registry', () => {
 
   it('holds kinds that, until they are built, gather nothing, find nothing and leave their section out', async () => {
     for (const kind of KINDS.filter((k) => !['timeline', 'delivery'].includes(k.id))) {
-      expect(await kind.gather({ request: () => { throw new Error('no GitHub'); } }, {})).toBeNull();
-      expect(kind.detect(null, { pr, prd, config: {}, pulls: [] })).toEqual({ facts: null, findings: [] });
+      expect(await kind.gather({ request: () => { throw new Error('no GitHub'); } }, {} as never)).toBeNull();
+      expect(kind.detect(null, { pr, prd, config, pulls: [] } as never)).toEqual({ facts: null, findings: [] });
       expect(kind.describe(null)).toBeNull();
     }
   });
