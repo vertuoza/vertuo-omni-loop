@@ -278,6 +278,12 @@ select pg_temp.sign_out();
 insert into kept select 'junk', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Is the sky blue?', 'vertuoza/vertuo-apps', 'src/Sky.tsx')->>'id')::uuid;
 do $$
 begin
+  -- The link names its own workspace, so galaxy can look for its Jev key before reading any question;
+  -- a link that does not work names none.
+  if public.agent_link_workspace(pg_temp.hash('omb_mo_asks')) is distinct from pg_temp.ws('vertuoza') then
+    raise exception 'FAIL: the link''s workspace';
+  end if;
+  perform pg_temp.refused(format('select public.agent_link_workspace(%L)', pg_temp.hash('omb_nobody')), '28000');
   -- Neither the link nor anybody signed in reads what Jev reads, or sets a question aside.
   perform pg_temp.refused(format('select public.agent_question_for_jev(%L)', pg_temp.kept('junk')), '42501');
   perform pg_temp.refused(format('select public.agent_question_set_aside(%L)', pg_temp.kept('junk')), '42501');

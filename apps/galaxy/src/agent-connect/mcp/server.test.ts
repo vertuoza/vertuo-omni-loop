@@ -58,10 +58,12 @@ async function world({ read = READ as unknown, products = 1, database = true, re
   };
   // Jev's Unknown worth asking (s4): the questions handed to it once reported.
   const judged: string[] = [];
+  const links: string[] = [];
   const deps: McpDeps = {
     connect: database ? () => ({ rpc }) : null,
-    reported: (id) => {
+    reported: (id, link) => {
       judged.push(id);
+      links.push(link);
       judge(id);
     },
   };
@@ -87,7 +89,7 @@ async function world({ read = READ as unknown, products = 1, database = true, re
     }
   };
 
-  return { calls, connect, call, rpc, judged };
+  return { calls, connect, call, rpc, judged, links };
 }
 
 describe('/api/mcp, the MCP link', () => {
@@ -221,6 +223,7 @@ describe('/api/mcp, the MCP link', () => {
     const w = await world();
     expect((await w.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' })).text).toBe(REPORTED);
     expect(w.judged).toEqual(['q-1']);
+    expect(w.links).toEqual([await hashToken(LIVE)]);
     const again = await world({ reported: 1 });
     await again.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
     const limit = await world({ reported: 30 });
