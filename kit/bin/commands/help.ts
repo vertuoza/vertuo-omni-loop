@@ -19,7 +19,7 @@ function configAt(cwd: string, exec: Exec): Config {
   }
 }
 
-export const help: FreeCommand = {
+export const help = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, exec }: FreeIo) {
     const { positional } = parseArgs('help', args);
@@ -35,4 +35,4 @@ export const help: FreeCommand = {
     println(stdout, text);
     return 0;
   },
-};
+} satisfies FreeCommand;

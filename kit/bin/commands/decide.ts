@@ -118,7 +118,7 @@ function report({ stdout, stderr, decision, read, json }: { stdout: Out; stderr:
   if (read.answer === undefined) println(stderr, `omni decide ${decision}: ${read.reason} — your own answer counts`);
 }
 
-export const decide: FreeCommand = {
+export const decide = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & DecideOptions) {
     const { decision, stateFile, old, ref, json } = readArgs(args);
@@ -128,4 +128,4 @@ export const decide: FreeCommand = {
     report({ stdout, stderr, decision, read, json });
     return 0;
   },
-};
+} satisfies FreeCommand;

@@ -11,6 +11,7 @@
 // committed and kept equal to a fresh build by kit/test/dist.test.ts — so the output never depends
 // on the cwd. The package.json defaults to the repository's own; a test names another.
 import { build } from 'esbuild';
+import { z } from 'zod';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -30,9 +31,11 @@ const ENTRY = [
 const kit = fileURLToPath(new URL('.', import.meta.url));
 const outfile = process.argv[2] ? resolve(process.argv[2]) : `${kit}dist/omni.mjs`;
 const pkgFile = process.argv[3] ? resolve(process.argv[3]) : fileURLToPath(new URL('../package.json', import.meta.url));
-const pkgVersion = JSON.parse(readFileSync(pkgFile, 'utf8')).version;
+/** The one key the build reads of `package.json`: its version, a string when it has one. */
+const PackageSchema = z.looseObject({ version: z.unknown().optional() });
+const pkgVersion = PackageSchema.parse(JSON.parse(readFileSync(pkgFile, 'utf8'))).version;
 const version = typeof pkgVersion === 'string' && pkgVersion ? pkgVersion : null;
-let home = null;
+let home: string | null = null;
 try {
   home = slugFromRemote(execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: kit, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
 } catch {

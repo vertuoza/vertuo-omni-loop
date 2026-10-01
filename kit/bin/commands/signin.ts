@@ -66,7 +66,7 @@ export type SigninOptions = {
   onSignedIn?: ((line: string) => void) | undefined;
 };
 
-export const signin: FreeCommand = {
+export const signin = {
   withoutContext: true,
   /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
   async run(
@@ -106,9 +106,9 @@ export const signin: FreeCommand = {
       await listener.close();
     }
   },
-};
+} satisfies FreeCommand;
 
-export const signout: FreeCommand = {
+export const signout = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, home }: FreeIo & { home?: string | undefined }) {
     noArguments('signout', args);
@@ -121,9 +121,9 @@ export const signout: FreeCommand = {
     println(stdout, credentials({ home }).remove(host) ? `signed out of ${host}` : 'signed out');
     return 0;
   },
-};
+} satisfies FreeCommand;
 
-export const whoami: FreeCommand = {
+export const whoami = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }: FreeIo & { home?: string | undefined; fetch?: Fetch }) {
     noArguments('whoami', args);
@@ -152,7 +152,7 @@ export const whoami: FreeCommand = {
     println(stdout, outcome === 'renewed' ? who : `${who} (not checked: ${host} is unreachable)`);
     return 0;
   },
-};
+} satisfies FreeCommand;
 
 /** Past its `expires_at`, in seconds as the sign-in server gives it (or milliseconds, read as such). */
 function expired({ expires_at: at }: Tokens, now: number = Date.now()): boolean {

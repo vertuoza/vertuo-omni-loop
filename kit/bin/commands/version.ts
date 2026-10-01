@@ -8,7 +8,7 @@ import type { RunningKit } from '../../lib/init/bundle.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
 
-export const version: FreeCommand = {
+export const version = {
   withoutContext: true,
   async run(args: string[], { stdout, exec, kit }: FreeIo & { kit?: RunningKit }) {
     const { positional } = parseArgs('version', args);
@@ -18,4 +18,4 @@ export const version: FreeCommand = {
     for (const line of versionLines({ ...running, latest })) println(stdout, line);
     return 0;
   },
-};
+} satisfies FreeCommand;

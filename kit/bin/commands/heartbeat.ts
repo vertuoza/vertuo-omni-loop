@@ -81,7 +81,7 @@ async function beat({
   await client.heartbeat({ claudeSessionId, repo, work, ended: end });
 }
 
-export const heartbeat: FreeCommand = {
+export const heartbeat = {
   withoutContext: true,
   async run(args: string[], { cwd, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, now = Date.now }: FreeIo & HeartbeatOptions) {
     if (args.some((arg) => arg !== '--end')) return 0;
@@ -92,4 +92,4 @@ export const heartbeat: FreeCommand = {
     }
     return 0;
   },
-};
+} satisfies FreeCommand;

@@ -28,6 +28,10 @@
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
 // `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { field } from '../../lib/ask/schema.ts';
+import type { Context } from '../../lib/context.ts';
+import type { FixKind, TooLarge } from '../../lib/dossier/folder.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
@@ -36,57 +40,82 @@ import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+
+/** What a test hands `omni dossier` beyond `main()`'s own. */
+type DossierOptions = {
+  tokens?: TokenStore | undefined;
+  home?: string | undefined;
+  fetch?: Fetch;
+  callMs?: number | undefined;
+  now?: () => number;
+};
+
+/** What each verb is handed once the context, the client and the sign-in are known. */
+type VerbIo = {
+  ctx: Context;
+  repo: string;
+  client: ReturnType<typeof askClient>;
+  exec: Exec;
+  home: string | null;
+  claudeSessionId: string | null;
+  stdout: Out;
+  stderr: Out;
+  now: () => number;
+};
 
 const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
-const KINDS = ['prd', 'visual', 'bug'];
+const KINDS: readonly string[] = ['prd', 'visual', 'bug'];
 /** How long asking GitHub for a fix's issue title may take. */
 const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The Claude session id this terminal runs in, or null: sent only when it could be a real one. */
-function claudeSessionOf(env) {
+function claudeSessionOf(env: Env | undefined): string | null {
   const id = typeof env?.CLAUDE_CODE_SESSION_ID === 'string' ? env.CLAUDE_CODE_SESSION_ID.trim() : '';
   return id.length >= 1 && id.length <= TITLE_MAX ? id : null;
 }
 
 /** The one line a failed call is reported with: a 403 carries the server's reason (PRD 459), when it
  * gave one — which workspace owns the repository, or how to get one. */
-function skipLine(error) {
+function skipLine(error: unknown): string {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return 'unreachable';
   return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 
-const isText = (value) => typeof value === 'string' && value.length > 0;
+const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
 /** `added: spec v2 · unchanged: before-after, plan`, from the push's reply. */
-export function addedLine({ added, unchanged }) {
-  const got = Array.isArray(added) ? added.filter((a) => isText(a?.kind) && Number.isInteger(a?.version)) : [];
+export function addedLine({ added, unchanged }: { added?: unknown; unchanged?: unknown }): string {
+  const got = Array.isArray(added) ? added.filter((a: unknown) => isText(field(a, 'kind')) && Number.isInteger(field(a, 'version'))) : [];
   const kept = Array.isArray(unchanged) ? unchanged.filter(isText) : [];
-  const parts = [`added: ${got.length ? got.map(({ kind, version }) => `${kind} v${version}`).join(', ') : 'none'}`];
+  const parts = [`added: ${got.length ? got.map((a: unknown) => `${field(a, 'kind')} v${field(a, 'version')}`).join(', ') : 'none'}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(', ')}`);
   return parts.join(' · ');
 }
 
-async function open(title, { ctx, repo, client, home, claudeSessionId, stdout, stderr, now }) {
-  let draft;
+async function open(title: string, { ctx, repo, client, home, claudeSessionId, stdout, stderr, now }: VerbIo): Promise<number> {
+  let draft: unknown;
   try {
     draft = await client.openDossier({ title, repo, claudeSessionId });
   } catch (error) {
     println(stderr, skipLine(error));
     return 1;
   }
-  if (!isText(draft?.id) || !isText(draft?.url)) {
+  const id = field(draft, 'id');
+  const url = field(draft, 'url');
+  if (!isText(id) || !isText(url)) {
     println(stderr, 'refused (no dossier in the reply)');
     return 1;
   }
-  recordDraft(home ?? ctx.root, { id: draft.id, url: draft.url, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
-  println(stdout, draft.url);
+  recordDraft(home ?? ctx.root, { id, url, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
+  println(stdout, url);
   return 0;
 }
 
 /** Issue n's title, as `gh` reads it, or null when it cannot: the push then titles the fix after its folder. */
-function issueTitle(issue, { ctx, repo, exec }) {
+function issueTitle(issue: number, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
   try {
     const title = exec('gh', ['issue', 'view', String(issue), '--repo', repo, '--json', 'title', '--jq', '.title'], {
       cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: ISSUE_TITLE_MS,
@@ -98,19 +127,20 @@ function issueTitle(issue, { ctx, repo, exec }) {
 }
 
 /** The dossier's link and the versions the push added, or the one line that says why not. */
-function reportPush(result, tooLarge, { stdout, stderr }) {
-  if (!isText(result?.id) || !isText(result?.url)) {
+function reportPush(result: unknown, tooLarge: readonly TooLarge[], { stdout, stderr }: Pick<VerbIo, 'stdout' | 'stderr'>): number {
+  const url = field(result, 'url');
+  if (!isText(field(result, 'id')) || !isText(url)) {
     println(stderr, 'refused (no dossier in the reply)');
     return 1;
   }
-  println(stdout, result.url);
-  println(stdout, addedLine(result));
+  println(stdout, url);
+  println(stdout, addedLine({ added: field(result, 'added'), unchanged: field(result, 'unchanged') }));
   for (const { path } of tooLarge) println(stderr, `too large: ${path}`);
   return tooLarge.length ? 1 : 0;
 }
 
 /** Issue n's fix of `kind`: its folder, sent with its kind. No draft: a fix never has one. */
-async function pushFix(issue, kind, { ctx, repo, client, exec, stdout, stderr }) {
+async function pushFix(issue: number, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readFixFolder(ctx, kind, issue);
   if (!folder) throw usageError(`omni dossier push: issue ${issue} has no ${kind} fix folder.`);
   // Titled after its issue, asked of GitHub only once the folder is there; after the folder when it cannot.
@@ -125,14 +155,14 @@ async function pushFix(issue, kind, { ctx, repo, client, exec, stdout, stderr })
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
+async function push(prd: number, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd, claudeSessionId });
   const body = { repo, prd, title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
 
-  let result;
+  let result: unknown;
   try {
     result = await client.pushDossier({ ...body, draftId: draft?.id ?? null });
   } catch (error) {
@@ -149,21 +179,23 @@ async function push(prd, { ctx, repo, client, home, claudeSessionId, stdout, std
     }
     forgetDraft(where, draft.id);
   }
-  if (!isText(result?.id) || !isText(result?.url)) return reportPush(result, [], { stdout, stderr });
+  const id = field(result, 'id');
+  const url = field(result, 'url');
+  if (!isText(id) || !isText(url)) return reportPush(result, [], { stdout, stderr });
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
-    markNumbered(where, draft.id, { prd, id: result.id, url: result.url });
+    markNumbered(where, draft.id, { prd, id, url });
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
 /** The last link this computer recorded for PRD n, or null. It records PRDs only: a fix has none. */
-function recordedLink(home, prd, kind) {
+function recordedLink(home: string | null, prd: number, kind: string) {
   if (!home || kind !== 'prd') return null;
   return readDossiers(home).filter((entry) => entry.prd === prd).at(-1) ?? null;
 }
 
-async function link(prd, kind, { repo, client, home, stdout, stderr }) {
-  let found;
+async function link(prd: number, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
+  let found: unknown;
   try {
     found = await client.findDossier({ repo, prd, kind });
   } catch (error) {
@@ -180,16 +212,17 @@ async function link(prd, kind, { repo, client, home, stdout, stderr }) {
     }
     found = recorded;
   }
-  if (!isText(found?.url)) {
+  const url = field(found, 'url');
+  if (!isText(url)) {
     println(stderr, 'refused (no dossier in the reply)');
     return 1;
   }
-  println(stdout, found.url);
+  println(stdout, url);
   return 0;
 }
 
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
-function kindOf(flag, numbered) {
+function kindOf(flag: string | undefined, numbered: boolean): string {
   if (flag === undefined) return 'prd';
   if (!numbered || !KINDS.includes(flag)) throw usageError(USAGE);
   return flag;
@@ -197,15 +230,19 @@ function kindOf(flag, numbered) {
 
 export const dossier = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
+  async run(
+    args: string[],
+    { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
+  ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
-    const [verb, ...rest] = positional;
-    const title = verb === 'open' && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX) : '';
+    const [verb = '', ...rest] = positional;
+    const [first = ''] = rest;
+    const title = verb === 'open' && rest.length === 1 ? first.trim().slice(0, TITLE_MAX) : '';
     const numbered = ['push', 'link'].includes(verb);
     const runnable = (verb === 'status' && rest.length === 0) || (numbered && rest.length === 1) || title.length > 0;
     if (!runnable) throw usageError(USAGE);
     const kind = kindOf(flags.kind, numbered);
-    if (verb === 'link' && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE);
+    if (verb === 'link' && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE);
     const prd = numbered ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
 
     const ctx = loadContext(cwd, { exec });
@@ -228,9 +265,10 @@ export const dossier = {
       return 1;
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
-    const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    if (verb === 'link') return link(prd, kind, options);
-    if (verb === 'push' && kind !== 'prd') return pushFix(prd, kind, options);
-    return verb === 'open' ? open(title, options) : push(prd, options);
+    const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    // `prd` is a number for `push` and `link`, the two verbs that read it.
+    if (verb === 'link') return link(prd!, kind, options); // ts-allow: link is numbered
+    if (verb === 'push' && kind !== 'prd') return pushFix(prd!, kind as FixKind, options); // ts-allow: push is numbered, and kindOf took only a known kind
+    return verb === 'open' ? open(title, options) : push(prd!, options); // ts-allow: push is numbered
   },
-};
+} satisfies FreeCommand;

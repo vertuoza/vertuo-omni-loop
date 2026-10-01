@@ -160,7 +160,7 @@ async function writeSession(
   return 0;
 }
 
-export const proof: FreeCommand = {
+export const proof = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ProofOptions) {
     const parsed = argsOf(args, env);
@@ -186,4 +186,4 @@ export const proof: FreeCommand = {
     }
     return send({ toggle, repo, prd, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
   },
-};
+} satisfies FreeCommand;

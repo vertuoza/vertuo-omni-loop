@@ -46,11 +46,11 @@ export const GhPrListItemSchema = z.looseObject({
 export const GhPrListSchema = z.array(GhPrListItemSchema);
 
 /** What `gh pr list --json number,state,updatedAt` prints: the feature branch's pull requests. */
-export const GhPrStatesSchema = z.array(z.looseObject({ number: z.number(), state: z.string().optional(), updatedAt: z.unknown() }));
+export const GhPrStatesSchema = z.array(z.looseObject({ number: z.number(), state: z.string().optional(), updatedAt: z.unknown().optional() }));
 
 /** Any answer of `gh api graphql`: its data, read by the caller, and the errors GitHub gave. */
 export const GhGraphqlSchema = z.looseObject({
-  data: z.unknown(),
+  data: z.unknown().optional(),
   errors: z.array(z.looseObject({ message: z.string() })).nullish(),
 });
 

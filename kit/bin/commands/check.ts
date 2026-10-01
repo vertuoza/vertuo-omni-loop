@@ -26,12 +26,13 @@ import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
-import type { Command, CommandIo } from '../io.ts';
+import type { Command, CommandIo, Exec, Out } from '../io.ts';
+import type { Context } from '../../lib/context.ts';
 
 const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
-function report(stdout, title, violations, passLine) {
+function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
   if (violations.length > 0) {
     println(stdout, formatFailure(title, violations));
     return false;
@@ -40,7 +41,7 @@ function report(stdout, title, violations, passLine) {
   return true;
 }
 
-function checkInbox({ ctx, stdout }) {
+function checkInbox({ ctx, stdout }: CommandIo): boolean {
   const violations = findInboxViolations({ ctx });
   const count = ctx.layout.specFiles().length;
   return report(
@@ -51,7 +52,7 @@ function checkInbox({ ctx, stdout }) {
   );
 }
 
-function checkOutbox({ ctx, stdout }) {
+function checkOutbox({ ctx, stdout }: CommandIo): boolean {
   const violations = findOutboxViolations({ ctx });
   const count = outboxItemFiles({ ctx }).length;
   return report(
@@ -62,7 +63,7 @@ function checkOutbox({ ctx, stdout }) {
   );
 }
 
-function checkKnowledge({ ctx, stdout, stderr }) {
+function checkKnowledge({ ctx, stdout, stderr }: CommandIo): boolean {
   const root = ctx.layout.knowledgeRoot;
   const title = 'check knowledge — the knowledge folder does not hold what it claims:';
   if (!existsSync(join(ctx.root, root))) {
@@ -78,7 +79,7 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge = readKnowledge({ ctx });
-  const count = (kind) => knowledge.entries.filter((entry) => entry.kind === kind).length;
+  const count = (kind: string) => knowledge.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
@@ -93,14 +94,14 @@ const FORM_STATES = ['filled', 'pointer', 'blank', 'missing'];
 
 // PRD 522: in a plan repository, every imported copy's forms and registers too, each line prefixed
 // by the copy's folder.
-function checkKb({ ctx, stdout, stderr, exec }) {
+function checkKb({ ctx, stdout, stderr, exec }: CommandIo): boolean {
   const own = gradePlaybook({ ctx, exec });
   const copies = gradeCopies({ ctx, exec });
   const violations = [...own.violations, ...copies.violations];
   const warnings = [...own.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
   const { forms } = own;
-  const counts = FORM_STATES.map((state) => [state, forms.filter((form) => form.state === state).length])
+  const counts = FORM_STATES.map((state): [string, number] => [state, forms.filter((form) => form.state === state).length])
     .filter(([, count]) => count > 0)
     .map(([state, count]) => `${count} ${state}`);
   const copied = copies.copies === 0 ? '' : `; ${copies.copies} imported ${copies.copies === 1 ? 'copy' : 'copies'} checked`;
@@ -113,7 +114,7 @@ function checkKb({ ctx, stdout, stderr, exec }) {
 }
 
 // PRD 262: every release note in the inbox and shipped folders, by the note's rules.
-function checkReleases({ ctx, stdout }) {
+function checkReleases({ ctx, stdout }: CommandIo): boolean {
   return report(
     stdout,
     'check releases — a release note does not hold what it claims:',
@@ -122,11 +123,11 @@ function checkReleases({ ctx, stdout }) {
   );
 }
 
-function defaultBase(ctx) {
+function defaultBase(ctx: Context): string {
   return `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
 }
 
-function refExists(ctx, ref, exec) {
+function refExists(ctx: Context, ref: string, exec: Exec): boolean {
   try {
     exec('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     return true;
@@ -135,7 +136,7 @@ function refExists(ctx, ref, exec) {
   }
 }
 
-function checkCoverage({ ctx, stdout, exec }, { base, prd }) {
+function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: string; prd: number | null }): boolean {
   let ok = report(
     stdout,
     'check coverage — an account file does not hold what it claims:',
@@ -163,7 +164,7 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd }) {
   return ok;
 }
 
-const GUARDS = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
+const GUARDS: readonly string[] = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
 
 export const check: Command = {
   async run(args: string[], io: CommandIo) {

@@ -30,12 +30,27 @@ import { findRoot, readRepo } from '../../lib/init/repo.ts';
 import { writeStatusLine } from '../../lib/init/settings.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { signin } from './signin.ts';
+import type { Config } from '../../lib/context.ts';
+import type { InitCommands } from '../../lib/init/config-text.ts';
+import type { FreeCommand, FreeIo } from '../io.ts';
+
+/** How `omni init` asks a question on a terminal: a test answers it with a function of its own. */
+type Ask = (question: string) => Promise<string | null | undefined> | string | null | undefined;
+
+/** What a test hands `omni init` beyond `main()`'s own. */
+type InitOptions = {
+  stdin?: { isTTY?: boolean } | undefined;
+  bundle?: string | null;
+  ask?: Ask;
+  home?: string | undefined;
+  signIn?: (() => Promise<number | { code: number; line?: string }>) | undefined;
+};
 
 const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
 
 /** Whether `path` is the loop's folder or lies under it, however it is spelled. */
-function insideLoop(path) {
+function insideLoop(path: string): boolean {
   const clean = posix.normalize(path).replace(/\/+$/, '');
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
 }
@@ -43,14 +58,14 @@ function insideLoop(path) {
 // The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
 const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
 
-const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' };
-const QUESTIONS = {
+const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' } as const;
+const QUESTIONS: Record<keyof InitCommands, string> = {
   test: 'the command that runs the tests',
   preflight: 'the command a slice must pass before its sub-PR is ready',
   preflightFull: 'the full preflight, run before a feature PR is ready',
 };
 
-async function askTerminal(question) {
+async function askTerminal(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     return await rl.question(question);
@@ -60,10 +75,15 @@ async function askTerminal(question) {
 }
 
 /** Detection, then flags, then — on a terminal — one question per command still unknown, else null. */
-async function resolveCommands(root, flags, { interactive, ask }) {
+async function resolveCommands(
+  root: string,
+  flags: { [K in (typeof FLAGS)[keyof typeof FLAGS]]?: string },
+  { interactive, ask }: { interactive: boolean; ask: Ask },
+): Promise<InitCommands> {
   const commands = detectCommands(root);
   for (const key of COMMAND_KEYS) {
-    if (typeof flags[FLAGS[key]] === 'string') commands[key] = flags[FLAGS[key]];
+    const flag = flags[FLAGS[key]];
+    if (typeof flag === 'string') commands[key] = flag;
   }
   if (interactive) {
     for (const key of COMMAND_KEYS) {
@@ -77,7 +97,10 @@ async function resolveCommands(root, flags, { interactive, ask }) {
 
 export const init = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }) {
+  async run(
+    args: string[],
+    { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }: FreeIo & InitOptions,
+  ) {
     const { positional, flags } = parseArgs('init', args, { values: Object.values(FLAGS), booleans: ['force'] });
     if (positional.length) throw usageError('usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]');
     const force = flags.force === true;
@@ -88,7 +111,7 @@ export const init = {
 
     // Everything that can refuse runs before anything is written.
     const keepConfig = !force && existsSync(configPath);
-    let config = keepConfig ? parseConfig(readFileSync(configPath, 'utf8'), CONFIG_FILE) : null;
+    const kept = keepConfig ? parseConfig(readFileSync(configPath, 'utf8'), CONFIG_FILE) : null;
     const copyBin = force || !existsSync(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -101,7 +124,8 @@ export const init = {
     const branch = switchToInstallBranch(root, { exec });
 
     const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
-    if (!keepConfig) {
+    let config: Config;
+    if (kept === null) {
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
@@ -110,10 +134,12 @@ export const init = {
       const { text } = rendered;
       mkdirSync(dirname(configPath), { recursive: true });
       writeFileSync(configPath, text);
+    } else {
+      config = kept;
     }
     if (copyBin) {
       mkdirSync(dirname(binPath), { recursive: true });
-      copyFileSync(bundle, binPath);
+      copyFileSync(bundle!, binPath); // ts-allow: a copy with no bundle was refused above
       chmodSync(binPath, 0o755);
     }
 
@@ -154,8 +180,8 @@ export const init = {
       home: userHome,
       interactive,
       signIn: signIn ?? (async () => {
-        let line;
-        const code = await signin.run([], { cwd: root, stdout, stderr, exec, home: userHome, onSignedIn: (said) => { line = said; } });
+        let line: string | undefined;
+        const code = await signin.run([], { cwd: root, stdout, stderr, exec, env: process.env, home: userHome, onSignedIn: (said) => { line = said; } });
         return { code, line };
       }),
     });
@@ -178,4 +204,4 @@ export const init = {
     stdout.write(`${closing.join('\n')}\n`);
     return 0;
   },
-};
+} satisfies FreeCommand;

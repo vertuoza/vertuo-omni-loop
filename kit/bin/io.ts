@@ -4,7 +4,7 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import type { Context, ExecText } from '../lib/context.ts';
 
 /** Where a command prints: `process.stdout`, `process.stderr`, or a test's buffer. */
-export type Out = { write(text: string): unknown };
+export type Out = { write(text: string): unknown; isTTY?: boolean };
 
 /** The environment a command reads: `process.env`, or a test's own. */
 export type Env = Record<string, string | undefined>;

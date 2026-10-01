@@ -144,7 +144,7 @@ async function runMode(
   return 0;
 }
 
-export const ask: FreeCommand = {
+export const ask = {
   withoutContext: true,
   async run(
     args: string[],
@@ -158,4 +158,4 @@ export const ask: FreeCommand = {
     if (output) println(stdout, JSON.stringify(output));
     return 0;
   },
-};
+} satisfies FreeCommand;

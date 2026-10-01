@@ -86,7 +86,7 @@ function updateRepository({
   return { code: handOver({ cwd, home: running.home, from, target, exec }), target };
 }
 
-export const update: FreeCommand = {
+export const update = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, kit, bundle }: FreeIo & { kit?: RunningKit; bundle?: string | null }) {
     const { positional, flags } = parseArgs('update', args, { values: ['to', 'from'], booleans: ['apply'] });
@@ -114,4 +114,4 @@ export const update: FreeCommand = {
       return 1;
     }
   },
-};
+} satisfies FreeCommand;

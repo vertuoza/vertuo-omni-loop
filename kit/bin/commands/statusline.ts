@@ -109,7 +109,7 @@ function refresh(value: string | undefined, { cwd, exec, env, now }: { cwd: stri
   }
 }
 
-export const statusline: FreeCommand = {
+export const statusline = {
   withoutContext: true,
   async run(
     args: string[],
@@ -127,4 +127,4 @@ export const statusline: FreeCommand = {
     }
     return 0;
   },
-};
+} satisfies FreeCommand;
