@@ -26,9 +26,12 @@ const HOUR_MS = 60 * 60 * 1000;
 /** A fake `execFileSync`: resolves `git rev-parse --show-toplevel` to `root`, `gh pr list …` to
  * `prs` (as JSON), and `gh pr view <n> … --json commits` to `commitsByNumber[n]` (`[]` for any
  * number not named). Records every call. */
-function fakeExec(root: string, prs, commitsByNumber = {}) {
-  const calls = [];
-  const exec = (file: string, args: any[], options = {}) => {
+/** One call a fake `exec` was handed. */
+type ExecCall = { file: string; args: readonly string[]; options: unknown };
+
+function fakeExec(root: string, prs: unknown[], commitsByNumber: Record<string, unknown[]> = {}) {
+  const calls: ExecCall[] = [];
+  const exec = (file: string, args: readonly string[], options: unknown = {}) => {
     calls.push({ file, args, options });
     if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
     if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
@@ -72,7 +75,7 @@ describe('omni board — the gh pr list call', () => {
     await main(['board', '7'], { cwd: root, exec, ...s });
 
     const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
-    expect(listCall.args).toEqual([
+    expect(listCall!.args).toEqual([
       'pr',
       'list',
       '--repo',
@@ -86,7 +89,7 @@ describe('omni board — the gh pr list call', () => {
       '--base',
       'feat/widgets',
     ]);
-    expect(listCall.args.join(' ')).not.toMatch(/commits/);
+    expect(listCall!.args.join(' ')).not.toMatch(/commits/);
   });
 
   it('narrows by --label instead of --base when board.matchBy is "label"', async () => {
@@ -103,7 +106,7 @@ describe('omni board — the gh pr list call', () => {
     await main(['board', '7'], { cwd: root, exec, ...s });
 
     const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
-    expect(listCall.args).toEqual([
+    expect(listCall!.args).toEqual([
       'pr',
       'list',
       '--repo',
@@ -137,7 +140,7 @@ describe('omni board — head commit dates', () => {
     expect(code).toBe(0);
     expect(s.out.join('')).toMatch(/s1\s+w1\s+claimed-stale/);
     const viewCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'view');
-    expect(viewCall.args).toEqual(['pr', 'view', '42', '--repo', 'acme/widgets', '--json', 'commits']);
+    expect(viewCall!.args).toEqual(['pr', 'view', '42', '--repo', 'acme/widgets', '--json', 'commits']);
   });
 
   it('never calls `gh pr view` for a fresh draft, an open non-draft, or a merged pull request', async () => {
@@ -289,14 +292,18 @@ describe('omni board — a plan repository (PRD 563)', () => {
 
   /** A fake `execFileSync` answering `gh pr list --repo <slug>` from `prsBySlug[slug]`; a slug in
    * `failing` throws as an unreadable repository does. */
-  function fakeMultiExec(root: string, prsBySlug, { failing = [], commitsByNumber = {} } = {}) {
-    const calls = [];
-    const exec = (file: string, args: any[], options = {}) => {
+  function fakeMultiExec(
+    root: string,
+    prsBySlug: Record<string, unknown[]>,
+    { failing = [], commitsByNumber = {} }: { failing?: string[]; commitsByNumber?: Record<string, unknown[]> } = {},
+  ) {
+    const calls: ExecCall[] = [];
+    const exec = (file: string, args: readonly string[], options: unknown = {}) => {
       calls.push({ file, args, options });
       if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
-      const slug = args[args.indexOf('--repo') + 1];
+      const slug = String(args[args.indexOf('--repo') + 1]);
       if (file === 'gh' && args[0] === 'pr' && failing.includes(slug)) {
-        const error = new Error('gh: Could not resolve to a Repository');
+        const error: Error & { stderr?: string } = new Error('gh: Could not resolve to a Repository');
         error.stderr = 'GraphQL: Could not resolve to a Repository';
         throw error;
       }
@@ -316,8 +323,8 @@ describe('omni board — a plan repository (PRD 563)', () => {
     }).root;
   }
 
-  const listCalls = (calls: any[]) => calls.filter((call) => call.file === 'gh' && call.args[1] === 'list');
-  const repoOf = (call) => call.args[call.args.indexOf('--repo') + 1];
+  const listCalls = (calls: ExecCall[]) => calls.filter((call) => call.file === 'gh' && call.args[1] === 'list');
+  const repoOf = (call: ExecCall) => call.args[call.args.indexOf('--repo') + 1];
 
   it('makes one gh pr list per repository a slice names, the plan repository included, narrowed to the feature branch', async () => {
     const root = repoWith(
@@ -373,7 +380,7 @@ describe('omni board — a plan repository (PRD 563)', () => {
 
     expect(code).toBe(0);
     const payload = JSON.parse(s.out.join(''));
-    expect(payload.slices.map(({ id, repo, slug, state }) => ({ id, repo, slug, state }))).toEqual([
+    expect(payload.slices.map(({ id, repo, slug, state }: Record<string, unknown>) => ({ id, repo, slug, state }))).toEqual([
       { id: 's1', repo: 'backend', slug: 'acme/backend', state: 'merged' },
       { id: 's2', repo: 'frontend', slug: 'acme/frontend', state: 'runnable' },
       { id: 's3', repo: 'widgets-plan', slug: 'acme/widgets-plan', state: 'runnable' },
@@ -395,7 +402,7 @@ describe('omni board — a plan repository (PRD 563)', () => {
 
     expect(JSON.parse(s.out.join('')).slices[0].state).toBe('claimed-stale');
     const viewCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'view');
-    expect(viewCall.args).toEqual(['pr', 'view', '42', '--repo', 'acme/frontend', '--json', 'commits']);
+    expect(viewCall!.args).toEqual(['pr', 'view', '42', '--repo', 'acme/frontend', '--json', 'commits']);
   });
 
   it('makes the slices of a repository gh cannot read unreadable, holds what they block, and computes the rest', async () => {
