@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The Vercel ignore step of both projects (PRD 675): a phase-0 branch, in the `branches.phase0` shape
 // this checkout's `omni config` prints, answers 0 (skip the build); any other branch, an empty branch
 // name, or a config the script cannot read answers 1 (build). Each run is on a fixture repository whose
@@ -15,13 +14,13 @@ const script = join(here, 'vercel-ignore.sh');
 const CLI = join(here, '..', 'kit', 'bin', 'omni.ts');
 const SHIM = `import { main } from ${JSON.stringify(CLI)};\nmain(process.argv.slice(2)).then((code) => process.exit(code));\n`;
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
-const dirs = [];
+const dirs: string[] = [];
 
 afterEach(() => {
-  while (dirs.length) rmSync(dirs.pop(), { recursive: true, force: true });
+  while (dirs.length) rmSync(dirs.pop() as string, { recursive: true, force: true });
 });
 
-function fixture(files) {
+function fixture(files: Record<string, string>) {
   const root = mkdtempSync(join(tmpdir(), 'vercel-ignore-'));
   dirs.push(root);
   for (const [path, text] of Object.entries(files)) {
@@ -32,8 +31,8 @@ function fixture(files) {
   return root;
 }
 
-function ignore(root, branch) {
-  const env = { PATH: process.env.PATH };
+function ignore(root: string, branch?: string) {
+  const env: NodeJS.ProcessEnv = { PATH: process.env.PATH };
   if (branch !== undefined) env.VERCEL_GIT_COMMIT_REF = branch;
   return spawnSync('bash', [script], { cwd: root, encoding: 'utf8', env });
 }
@@ -70,7 +69,7 @@ describe('vercel-ignore.sh', () => {
   it.each(['apps/galaxy', 'apps/omni-app'])('%s/vercel.json runs it from the repository root', (app) => {
     const { ignoreCommand } = JSON.parse(readFileSync(join(here, '..', app, 'vercel.json'), 'utf8'));
     expect(ignoreCommand).toBe('cd ../.. && bash scripts/vercel-ignore.sh');
-    const run = (branch) => spawnSync('sh', ['-c', ignoreCommand], {
+    const run = (branch: string) => spawnSync('sh', ['-c', ignoreCommand], {
       cwd: join(here, '..', app),
       encoding: 'utf8',
       env: { PATH: process.env.PATH, VERCEL_GIT_COMMIT_REF: branch },

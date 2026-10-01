@@ -1,17 +1,20 @@
-// @ts-nocheck
 // PRD #99, slices s3 and s4: the credits classifier — whose pull request or issue it is, its kind,
 // its state and its signature — a pure unit over fixture pull requests, issues and commits (AC 7,
 // AC 8, AC 9).
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../config.ts';
+import type { TrailerSignature } from '../signature.ts';
 import { creditCommits, creditItems, mergedPullRequest, summarize } from './classify.ts';
+import type { CreditCommit, CreditItem, CreditPullRequest } from './classify.ts';
 
-const { labels, signature } = ConfigSchema.parse({ kit: 1 });
+const config = ConfigSchema.parse({ kit: 1 });
+const { labels } = config;
+const signature = config.signature as TrailerSignature;
 const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
 const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 
 /** One pull request as the reader hands it over; unlabelled, unsigned and merged unless told otherwise. */
-function pr(number, overrides = {}) {
+function pr(number: number, overrides: Partial<CreditPullRequest> = {}): CreditPullRequest {
   return {
     repo: 'acme/widgets',
     number,
@@ -26,20 +29,21 @@ function pr(number, overrides = {}) {
 }
 
 /** One default-branch commit, carrying Omni-man's trailer unless another message is given. */
-function commit(subject, { repo = 'acme/widgets', trailer = TRAILER } = {}) {
+function commit(subject: string, { repo = 'acme/widgets', trailer = TRAILER } = {}): CreditCommit {
   return { repo, sha: `sha-${subject}`, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${trailer}\n`, date: '2026-08-11T09:00:00Z' };
 }
 
 /** One issue as the reader hands it over; unlabelled, unsigned and open unless told otherwise. */
-function issue(number, overrides = {}) {
+function issue(number: number, overrides: Partial<CreditPullRequest> = {}): CreditPullRequest {
   return { ...pr(number, { state: 'open', title: `Issue ${number}` }), ...overrides };
 }
 
 const BOT = 'omni-loop-invader[bot]';
 
-const credit = (prs, { commits = [], since = null, sig = signature, issues = [] } = {}) =>
+type CreditOptions = { commits?: CreditCommit[]; since?: string | null; sig?: TrailerSignature | null; issues?: CreditPullRequest[] };
+const credit = (prs: CreditPullRequest[], { commits = [], since = null, sig = signature, issues = [] }: CreditOptions = {}) =>
   creditItems({ prs, issues, commits, labels, signature: sig, since });
-const numbers = (items) => items.map((item) => item.number);
+const numbers = (items: CreditItem[]) => items.map((item) => item.number);
 
 describe('mergedPullRequest', () => {
   it('reads the (#<n>) at the end of the subject, and nothing else', () => {
@@ -72,7 +76,7 @@ describe('whose pull request it is (AC 7)', () => {
 
   it('names every reason that holds', () => {
     const [item] = credit([pr(5, { labels: ['omni:feature'], body: SIGNED_BODY })], { commits: [commit('feat: five (#5)')] });
-    expect(item.reasons).toEqual(['label', 'marker', 'commit']);
+    expect(item?.reasons).toEqual(['label', 'marker', 'commit']);
   });
 
   it('a commit whose trailer names another name or another address, or merged another repository\'s number, is not his', () => {

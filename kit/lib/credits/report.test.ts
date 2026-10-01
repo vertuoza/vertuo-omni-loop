@@ -1,9 +1,9 @@
-// @ts-nocheck
 // PRD #99, slices s3 and s4: the text report — the pull request lines, the PRD issues, what the app
 // opened, the co-authored commits, by repository and by month — and the `--list` lines (AC 8, AC 9).
 import { describe, expect, it } from 'vitest';
 import { summarize } from './classify.ts';
 import { creditsList, creditsReport } from './report.ts';
+import type { CreditItem, CreditSummary } from './classify.ts';
 
 /** The spec's own example, as a summary. */
 const EXAMPLE = {
@@ -40,7 +40,7 @@ describe('creditsReport', () => {
   });
 
   it('counts the app\'s pull requests beside its issues, one or many', () => {
-    const line = (byTheApp) => creditsReport({ name: 'OmniMan', scope: 'acme', since: null, summary: { ...EXAMPLE, byTheApp } })[4];
+    const line = (byTheApp: CreditSummary['byTheApp']) => creditsReport({ name: 'OmniMan', scope: 'acme', since: null, summary: { ...EXAMPLE, byTheApp } })[4];
     expect(line({ issues: 1, prs: 1 })).toBe('Opened by the app: 1 issue · 1 pull request');
     expect(line({ issues: 0, prs: 2 })).toBe('Opened by the app: 0 issues · 2 pull requests');
     expect(line({ issues: 0, prs: 0 })).toBe('Opened by the app: 0 issues');
@@ -85,7 +85,7 @@ describe('creditsReport', () => {
 });
 
 describe('creditsList (AC 9)', () => {
-  const item = (overrides) => ({
+  const item = (overrides: Partial<CreditItem>): CreditItem => ({
     type: 'pr',
     repo: 'acme/omni-loop',
     number: 101,

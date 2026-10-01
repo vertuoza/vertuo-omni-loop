@@ -1,4 +1,3 @@
-// @ts-nocheck
 // node apps/galaxy/scripts/timings.ts --cookie <file> [--base <url>] [--runs <n>] (PRD 657) — load
 // /prd, /app, /app/workspace and /app/fleet ten times each as a signed-in person, and print the median
 // and p75 time to first byte and to the full document per page, as a Markdown table for timings.md.

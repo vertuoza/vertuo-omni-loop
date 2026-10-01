@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The rename (PRD 725, s2): `scripts/ts-rename.mjs` turns every `.mjs` file of a repository into
 // `.ts`, outside `kit/dist/`, `.omni-loop/bin/` and itself, opens each with `// @ts-nocheck`, and
 // rewrites every import and path that names a renamed file. A second run changes nothing. The
@@ -39,9 +38,9 @@ const FILES = {
   'vitest.config.mjs': 'export default {};\n',
 };
 
-const roots = [];
+const roots: string[] = [];
 afterEach(() => {
-  while (roots.length) rmSync(roots.pop(), { recursive: true, force: true });
+  while (roots.length) rmSync(roots.pop() as string, { recursive: true, force: true });
 });
 
 function fixture() {
@@ -51,18 +50,18 @@ function fixture() {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
   }
-  const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
   git('init', '-q', '-b', 'main');
   git('add', '-A');
   git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'fixture');
   return root;
 }
 
-const rename = (root) => execFileSync(process.execPath, [SCRIPT, root], { encoding: 'utf8' });
+const rename = (root: string) => execFileSync(process.execPath, [SCRIPT, root], { encoding: 'utf8' });
 
-function snapshot(root) {
-  const out = {};
-  const walk = (dir) => {
+function snapshot(root: string) {
+  const out: Record<string, string> = {};
+  const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {
       if (name === '.git') continue;
       const path = join(dir, name);
@@ -74,7 +73,7 @@ function snapshot(root) {
   return out;
 }
 
-const read = (root, path) => readFileSync(join(root, path), 'utf8');
+const read = (root: string, path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('scripts/ts-rename.mjs', () => {
   it('leaves no .mjs file outside kit/dist/ and .omni-loop/bin/', () => {

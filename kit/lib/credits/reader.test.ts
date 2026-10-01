@@ -1,19 +1,22 @@
-// @ts-nocheck
 // PRD #99, slices s3 and s4: the credits reader, with a stubbed `exec` — the queries it asks `gh`
 // for, what it keeps of each (pull requests, PRD issues, what the app opened, commits), the
 // 1,000-result cap turned into a warning, and a missing or logged-out `gh` and a rate limit turned
 // into errors (AC 8, AC 10). It never calls GitHub.
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../config.ts';
+import type { TrailerSignature } from '../signature.ts';
 import { GitHubUnreadable, readCredits } from './reader.ts';
+import type { CreditsExec, ReadCreditsInput } from './reader.ts';
 
-const { labels, signature } = ConfigSchema.parse({ kit: 1 });
+const config = ConfigSchema.parse({ kit: 1 });
+const { labels } = config;
+const signature = config.signature as TrailerSignature;
 const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
 const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 const PR_FIELDS = 'number,title,state,createdAt,labels,body,repository,author';
 
 /** One pull request as `gh search prs --json` prints it. */
-function searched(number, overrides = {}) {
+function searched(number: number, overrides: Record<string, unknown> = {}) {
   return {
     number,
     title: `PR ${number}`,
@@ -28,7 +31,7 @@ function searched(number, overrides = {}) {
 }
 
 /** One commit as `gh search commits --json` prints it. */
-function searchedCommit(sha, message, repo = 'acme/widgets') {
+function searchedCommit(sha: string, message: string, repo = 'acme/widgets') {
   return { sha, commit: { message, committer: { date: '2026-08-11T09:00:00Z' } }, repository: { fullName: repo, name: repo.split('/')[1] } };
 }
 
@@ -37,9 +40,11 @@ function searchedCommit(sha, message, repo = 'acme/widgets') {
  * order by prefix; the first match answers (JSON-encoded unless a string) or, when it is an Error,
  * throws. Every call is recorded.
  */
-function fakeExec(routes) {
-  const calls = [];
-  const exec = (file, args, options) => {
+type Call = { file: string; args: string[]; options: Parameters<CreditsExec>[2] };
+
+function fakeExec(routes: Array<[string, unknown]>) {
+  const calls: Call[] = [];
+  const exec: CreditsExec = (file, args, options) => {
     calls.push({ file, args, options });
     const key = args.join(' ');
     for (const [prefix, out] of routes) {
@@ -53,13 +58,13 @@ function fakeExec(routes) {
 }
 
 /** Every search answered empty, after `routes`. */
-const quiet = (routes = []) => [...routes, ['search prs', []], ['search issues', []], ['search commits', []]];
+const quiet = (routes: Array<[string, unknown]> = []): Array<[string, unknown]> => [...routes, ['search prs', []], ['search issues', []], ['search commits', []]];
 
-const read = (exec, options = {}) =>
+const read = (exec: CreditsExec, options: Partial<ReadCreditsInput> = {}) =>
   readCredits({ owner: 'acme', repo: null, since: null, labels, signature, exec, ...options });
 
 /** An `execFileSync` failure, shaped as node throws it. */
-function failure({ code, status = 1, stderr = '' } = {}) {
+function failure({ code, status = 1, stderr = '' }: { code?: string; status?: number; stderr?: string } = {}) {
   return Object.assign(new Error(code ? `spawnSync gh ${code}` : `Command failed: gh\n${stderr}`), { code, status, stderr });
 }
 
@@ -126,7 +131,7 @@ describe('the queries it asks gh for', () => {
     const plain = fakeExec(quiet());
     read(plain.exec, { signature: { ...signature, email: 'omniman@example.com' } });
     expect(plain.calls.map((call) => call.args.join(' ')).filter((key) => /--(?:app|author) /.test(key))).toEqual([]);
-    expect(plain.calls.at(-1).args.slice(0, 2)).toEqual(['search', 'commits']);
+    expect(plain.calls.at(-1)?.args.slice(0, 2)).toEqual(['search', 'commits']);
   });
 
   it('with signature: null, asks only for the labels', () => {
@@ -233,6 +238,18 @@ describe('what it keeps', () => {
   });
 });
 
+describe('what gh prints is parsed before use (PRD 725)', () => {
+  it('a row of the wrong shape fails naming its field', () => {
+    const { exec } = fakeExec(quiet([['search prs --owner acme --label omni:sub', [searched(1, { labels: [{ title: 'omni:sub' }] })]]]));
+    expect(() => read(exec)).toThrow('gh search prs printed an unexpected shape: 0.labels.0.name: Required');
+  });
+
+  it('a commit with no repository fails naming it', () => {
+    const { exec } = fakeExec(quiet([['search commits', [{ sha: 'c1', commit: { message: 'x' } }]]]));
+    expect(() => read(exec)).toThrow('gh search commits printed an unexpected shape: 0.repository: Required');
+  });
+});
+
 describe('the 1,000-result cap (AC 10)', () => {
   it('reads what it got, and warns naming each query that hit the cap', () => {
     const full = Array.from({ length: 1000 }, (_, index) => searched(index + 1, { labels: [{ name: 'omni:sub' }] }));
@@ -271,16 +288,16 @@ describe('when gh cannot be read (AC 10)', () => {
 
   it.each(cases)('%s: throws a one-line GitHubUnreadable', (reason, error, message) => {
     const { exec } = fakeExec([['search prs', error]]);
-    let thrown;
+    let thrown: GitHubUnreadable | undefined;
     try {
       read(exec);
     } catch (caught) {
-      thrown = caught;
+      thrown = caught as GitHubUnreadable;
     }
     expect(thrown).toBeInstanceOf(GitHubUnreadable);
-    expect(thrown.reason).toBe(reason);
-    expect(thrown.message).toMatch(message);
-    expect(thrown.message).not.toMatch(/\n/);
+    expect(thrown?.reason).toBe(reason);
+    expect(thrown?.message).toMatch(message as RegExp);
+    expect(thrown?.message).not.toMatch(/\n/);
   });
 
   it('a rate limit met while looking up a pull request still stops the run', () => {

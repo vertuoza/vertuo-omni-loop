@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm releases:sync — stamp each shipped PRD with its version, once, in public.releases (PRD 262).
 // Reads this checkout's shipped folders through the kit and git, reads the table, and adds a row for
 // each PRD shipped since, numbered in the order it reached main, then refreshes the title and

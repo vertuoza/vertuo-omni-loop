@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm galaxy:seed — regenerate supabase/seed.sql from the demo world, dated now.
 // `supabase db reset` loads it, so a local stack opens on the same galaxy the demo mode shows.
 // The demo galaxy is played in the `vertuoza` workspace, which the migrations create, with the demo
@@ -6,6 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
+import { EventSchema } from 'vertuo-omni-plan/game/events.ts';
 import { playerXp } from 'vertuo-omni-plan/game/experience.ts';
 import { arr, json, lit, workspaceId } from './sql.ts';
 
@@ -13,7 +13,8 @@ const WORKSPACE = 'vertuoza';
 const out = fileURLToPath(new URL('../../../supabase/seed.sql', import.meta.url));
 const now = new Date();
 const events = demoEvents(now);
-const xp = playerXp(events, { now }); // what `pnpm game:xp` writes for the ledger below
+// The demo world's events, read as the game reads its ledger, for the XP the ledger below earns.
+const xp = playerXp(events.map((event) => EventSchema.parse(event)), { now }); // what `pnpm game:xp` writes
 const ws = workspaceId(WORKSPACE);
 
 const lines = [

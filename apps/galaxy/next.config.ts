@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { fileURLToPath } from 'node:url';
+import type { NextConfig } from 'next';
 import { createMDX } from 'fumadocs-mdx/next';
 
 // The monorepo root: the app imports the game layer (game/*.ts) through the workspace packages.
@@ -22,10 +22,11 @@ const KNOWLEDGE_FILES = [
 // and teaches the bundler to load them; the pages are built statically, so nothing is traced.
 const withMDX = createMDX();
 
-/** @type {import('next').NextConfig} */
-export default withMDX({
+const config: NextConfig = {
   transpilePackages: ['@omni/galaxy', '@omni/design', 'vertuo-omni-plan'],
   turbopack: { root },
   outputFileTracingRoot: root,
   outputFileTracingIncludes: { '/': KNOWLEDGE_FILES },
-});
+};
+
+export default withMDX(config);

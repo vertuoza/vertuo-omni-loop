@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Whose work it is** (PRD #99, `omni credits`).
  *
@@ -29,25 +28,64 @@
  * Pure: no filesystem, no network, no clock.
  */
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
+import type { TrailerSignature } from '../signature.ts';
 
-export const KINDS = Object.freeze(['phase-0', 'feature', 'slice', 'other']);
-export const SIGNATURES = Object.freeze(['signed', 'before signing', 'missed']);
+/** One pull request or issue the reader kept: `state` is `gh`'s, lower-cased. */
+export type CreditPullRequest = {
+  repo: string;
+  number: number;
+  title: string;
+  state: string;
+  createdAt: string;
+  labels: string[];
+  body: string;
+  author: string | null;
+};
+
+/** One default-branch commit the reader kept. */
+export type CreditCommit = { repo: string; sha: string; message: string; date: string | null };
+
+/** The loop labels whose pull requests and issues are his. */
+export type CreditLabels = { prd: string; phase0: string; feature: string; sub: string };
+
+type Kind = (typeof KINDS)[number];
+export type Signature = (typeof SIGNATURES)[number] | typeof BY_THE_APP;
+
+/** One of his pull requests or issues, classified. `kind` is a {@link Kind} for a pull request,
+ * `prd` or `issue` for an issue. */
+export type CreditItem = {
+  type: 'pr' | 'issue';
+  repo: string;
+  number: number;
+  title: string;
+  kind: string;
+  state: string;
+  createdAt: string;
+  reasons: string[];
+  signature: Signature | null;
+};
+
+/** A default-branch commit, with the pull request it merged. */
+export type CreditedCommit = { repo: string; sha: string; date: string | null; subject: string; pullRequest: number | null };
+
+export const KINDS = Object.freeze(['phase-0', 'feature', 'slice', 'other'] as const);
+export const SIGNATURES = Object.freeze(['signed', 'before signing', 'missed'] as const);
 export const BY_THE_APP = 'by the app';
 
 /** A squash-merge subject's pull request number: `(#<n>)` closing the first line. */
 const MERGED_PR = /\(#(\d+)\)\s*$/;
 
 /** The pull request a default-branch commit merged — the `(#<n>)` ending its subject — or `null`. */
-export function mergedPullRequest(message) {
-  const match = MERGED_PR.exec(String(message ?? '').split('\n')[0]);
+export function mergedPullRequest(message: unknown): number | null {
+  const match = MERGED_PR.exec(String(message ?? '').split('\n')[0] ?? '');
   return match ? Number(match[1]) : null;
 }
 
-const keyOf = (repo, number) => `${repo}#${number}`;
-const time = (iso) => Date.parse(iso);
+const keyOf = (repo: string, number: number): string => `${repo}#${number}`;
+const time = (iso: string | null): number => Date.parse(String(iso));
 
 /** The kind a pull request's labels give it; the first loop label in this order wins. */
-function kindOf(names, labels) {
+function kindOf(names: string[], labels: CreditLabels): Kind {
   if (names.includes(labels.phase0)) return 'phase-0';
   if (names.includes(labels.feature)) return 'feature';
   if (names.includes(labels.sub)) return 'slice';
@@ -58,7 +96,7 @@ function kindOf(names, labels) {
  * Whether `author`, as `gh` printed it, is the account `login` names: the login itself, or — for an
  * app's bot account, `<slug>[bot]` — `app/<slug>`, as `gh pr view` prints it. Case does not matter.
  */
-export function sameAccount(author, login) {
+export function sameAccount(author: unknown, login: string | null): boolean {
   if (!author || !login) return false;
   const said = String(author).toLowerCase();
   const wanted = login.toLowerCase();
@@ -69,14 +107,16 @@ export function sameAccount(author, login) {
  * Gives each item its `signature` around its repository's first signed item, dropping the internal
  * `signed` and `byApp` flags. With signing off, every signature is `null`.
  */
-function withSignatures(items, signing) {
-  const firstSigned = new Map();
+type Classified = Omit<CreditItem, 'signature'> & { signed: boolean; byApp: boolean };
+
+function withSignatures(items: Classified[], signing: boolean): CreditItem[] {
+  const firstSigned = new Map<string, number>();
   for (const item of items) {
     if (!item.signed || item.byApp) continue;
     const seen = firstSigned.get(item.repo);
     if (seen === undefined || time(item.createdAt) < seen) firstSigned.set(item.repo, time(item.createdAt));
   }
-  return items.map(({ signed, byApp, ...item }) => {
+  return items.map(({ signed, byApp, ...item }): CreditItem => {
     if (!signing) return { ...item, signature: null };
     if (byApp) return { ...item, signature: BY_THE_APP };
     if (signed) return { ...item, signature: 'signed' };
@@ -85,40 +125,36 @@ function withSignatures(items, signing) {
   });
 }
 
-/**
- * OmniMan's pull requests among `prs` and issues among `issues`, classified, oldest first.
- *
- * @param {{
- *   prs: Array<{ repo: string, number: number, title: string, state: 'merged' | 'open' | 'closed',
- *                createdAt: string, labels: string[], body: string, author: string | null }>,
- *   issues?: Array<{ repo: string, number: number, title: string, state: 'open' | 'closed',
- *                    createdAt: string, labels: string[], body: string, author: string | null }>,
- *   commits: Array<{ repo: string, message: string }>,
- *   labels: { prd: string, phase0: string, feature: string, sub: string },
- *   signature: { name: string, email: string } | null,
- *   since: string | null,   // `YYYY-MM`: only what was created from that month on
- * }} input
- * @returns {Array<{ type: 'pr' | 'issue', repo: string, number: number, title: string, kind: string,
- *                   state: string, createdAt: string, reasons: string[], signature: string | null }>}
- */
-export function creditItems({ prs, issues = [], commits, labels, signature, since }) {
+export type CreditItemsInput = {
+  prs: CreditPullRequest[];
+  issues?: CreditPullRequest[];
+  commits: Array<Pick<CreditCommit, 'repo' | 'message'>>;
+  labels: CreditLabels;
+  signature: TrailerSignature | null;
+  /** `YYYY-MM`: only what was created from that month on. */
+  since: string | null;
+};
+
+/** OmniMan's pull requests among `prs` and issues among `issues`, classified, oldest first. */
+export function creditItems({ prs, issues = [], commits, labels, signature, since }: CreditItemsInput): CreditItem[] {
   const loopLabels = [labels.phase0, labels.feature, labels.sub];
   const bot = signature ? botLogin(signature.email) : null;
-  const mergedBySigned = new Set();
+  const mergedBySigned = new Set<string>();
   for (const commit of commits) {
     const number = carriesTrailer(commit.message, signature) ? mergedPullRequest(commit.message) : null;
     if (number !== null) mergedBySigned.add(keyOf(commit.repo, number));
   }
   const from = since ? time(`${since}-01T00:00:00Z`) : null;
 
-  const seen = new Set();
-  const items = [];
+  const seen = new Set<string>();
+  const items: Classified[] = [];
+  type Rule = { labelled: (name: string) => boolean; merged: boolean; counted: string[]; kind: (reasons: string[]) => string };
   /** Adds one pull request or issue, when some reason makes it his and it is counted. */
-  const add = (type, raw, { labelled, merged, counted, kind }) => {
+  const add = (type: CreditItem['type'], raw: CreditPullRequest, { labelled, merged, counted, kind }: Rule): void => {
     const key = `${type}:${keyOf(raw.repo, raw.number)}`;
     if (seen.has(key)) return;
     seen.add(key);
-    const reasons = [];
+    const reasons: string[] = [];
     if (raw.labels.some(labelled)) reasons.push('label');
     if (signature && isSignedBody(raw.body)) reasons.push('marker');
     if (merged) reasons.push('commit');
@@ -161,32 +197,46 @@ export function creditItems({ prs, issues = [], commits, labels, signature, sinc
 /**
  * The co-authored commits the reader found on default branches, each with the pull request it
  * merged (`null` when its subject names none), oldest first.
- *
- * @param {Array<{ repo: string, sha: string, message: string, date: string | null }>} commits
  */
-export function creditCommits(commits) {
+export function creditCommits(commits: CreditCommit[]): CreditedCommit[] {
   return commits
-    .map((commit) => ({
+    .map((commit): CreditedCommit => ({
       repo: commit.repo,
       sha: commit.sha,
       date: commit.date,
-      subject: String(commit.message ?? '').split('\n')[0].trim(),
+      subject: (String(commit.message ?? '').split('\n')[0] ?? '').trim(),
       pullRequest: mergedPullRequest(commit.message),
     }))
     .sort((a, b) => (time(a.date) || 0) - (time(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));
 }
 
-const zeros = (keys) => Object.fromEntries(keys.map((key) => [key, 0]));
+const zeros = <K extends string>(keys: readonly K[]): Record<K, number> =>
+  Object.fromEntries(keys.map((key) => [key, 0])) as Record<K, number>; // ts-allow: fromEntries types its keys as string; they are exactly `keys`
+
+/** Counts one more `key` in `counts`; every key `summarize` counts is one it started at zero. */
+function bump(counts: Record<string, number>, key: string): void {
+  counts[key] = (counts[key] ?? 0) + 1;
+}
 
 /** How many items share each value of `keyFor(item)`, as `[value, count]` pairs. */
-function tally(items, keyFor) {
-  const counts = new Map();
+function tally(items: CreditItem[], keyFor: (item: CreditItem) => string): Array<[string, number]> {
+  const counts = new Map<string, number>();
   for (const item of items) {
     const key = keyFor(item);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return [...counts];
 }
+
+/** The totals `summarize` gives, which the report prints and `--json` holds. */
+export type CreditSummary = {
+  prs: { total: number; states: Record<string, number>; kinds: Record<string, number>; signatures: Record<string, number> };
+  prdIssues: { total: number; states: Record<string, number>; signatures: Record<string, number> };
+  byTheApp: { issues: number; prs: number } | null;
+  commits: number | null;
+  byRepo: Array<{ repo: string; count: number }>;
+  byMonth: Array<{ month: string; count: number }>;
+};
 
 /**
  * The totals the report prints, three apart: the pull requests (by state, kind and signature), the
@@ -196,15 +246,12 @@ function tally(items, keyFor) {
  *
  * `byTheApp` is `null` unless `app` says his bot account was looked for; `commits` is `null` unless
  * the commits were read.
- *
- * @param {ReturnType<typeof creditItems>} items
- * @param {{ commits?: unknown[] | null, app?: boolean }} [read]
  */
-export function summarize(items, { commits = null, app = false } = {}) {
+export function summarize(items: CreditItem[], { commits = null, app = false }: { commits?: unknown[] | null; app?: boolean } = {}): CreditSummary {
   const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS), signatures: zeros(SIGNATURES) };
   const prdIssues = { total: 0, states: { open: 0, closed: 0 }, signatures: zeros(SIGNATURES) };
   const byTheApp = { issues: 0, prs: 0 };
-  const counted = [];
+  const counted: CreditItem[] = [];
   for (const item of items) {
     if (item.signature === BY_THE_APP) {
       byTheApp[item.type === 'pr' ? 'prs' : 'issues'] += 1;
@@ -212,10 +259,10 @@ export function summarize(items, { commits = null, app = false } = {}) {
     }
     const totals = item.type === 'pr' ? prs : prdIssues;
     totals.total += 1;
-    totals.states[item.state] += 1;
-    if (item.signature !== null) totals.signatures[item.signature] += 1;
+    bump(totals.states, item.state);
+    if (item.signature !== null) bump(totals.signatures, item.signature);
     if (item.type !== 'pr') continue;
-    prs.kinds[item.kind] += 1;
+    bump(prs.kinds, item.kind);
     counted.push(item);
   }
   return {

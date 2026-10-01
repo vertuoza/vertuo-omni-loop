@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **What `omni credits` reads** (PRD #99), through the `gh` login, on demand: it stores nothing.
  *
@@ -25,8 +24,13 @@
  * Every call goes through `exec` (`execFileSync`'s shape), so the tests stub it and never call GitHub.
  */
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
+import type { TrailerSignature } from '../signature.ts';
 import { mergedPullRequest } from './classify.ts';
+import type { CreditCommit, CreditLabels, CreditPullRequest } from './classify.ts';
+import { parseGh, SearchedCommitsSchema, SearchedItemsSchema, ViewedPullRequestSchema } from './schema.ts';
+import type { ViewedPullRequest } from './schema.ts';
 
 /** The most results GitHub's search API returns for one query. */
 export const SEARCH_CAP = 1000;
@@ -39,18 +43,23 @@ const MAX_BUFFER = 64 * 1024 * 1024;
 
 /** `gh` could not be read: `reason` is `missing`, `logged-out`, `rate-limited` or `failed`; the
  * message is one line. */
+export type UnreadableReason = 'missing' | 'logged-out' | 'rate-limited' | 'failed';
+
 export class GitHubUnreadable extends Error {
-  constructor(reason, message) {
+  reason: UnreadableReason;
+
+  constructor(reason: UnreadableReason, message: string) {
     super(message);
     this.name = 'GitHubUnreadable';
     this.reason = reason;
   }
 }
 
-const firstLine = (text) => String(text ?? '').split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+const firstLine = (text: unknown): string => String(text ?? '').split('\n').map((line) => line.trim()).find(Boolean) ?? '';
 
 /** What a failed `gh` call means, as a {@link GitHubUnreadable}. */
-export function unreadable(error) {
+export function unreadable(caught: unknown): GitHubUnreadable {
+  const error = failureOf(caught);
   if (error?.code === 'ENOENT') {
     return new GitHubUnreadable('missing', 'gh is not installed: install the GitHub CLI, then run gh auth login.');
   }
@@ -64,19 +73,30 @@ export function unreadable(error) {
   return new GitHubUnreadable('failed', `gh failed: ${firstLine(error?.stderr) || firstLine(error?.message)}`);
 }
 
+/** What a thrown `execFileSync` failure may carry, read field by field. */
+type ExecFailure = { code?: unknown; status?: unknown; stderr?: unknown; message?: unknown };
+
+/** `caught` as an object whose fields can be read, or `null` when it is no object. */
+function failureOf(caught: unknown): ExecFailure | null {
+  return typeof caught === 'object' && caught !== null ? caught : null;
+}
+
 /** An ISO timestamp without milliseconds, or `null` when `value` is not a date. */
-function toIso(value) {
+function toIso(value: unknown): string | null {
   const date = new Date(String(value ?? ''));
   return value && !Number.isNaN(date.getTime()) ? date.toISOString().replace(/\.\d{3}Z$/, 'Z') : null;
 }
 
 /** The `gh search` flags that find what `login` opened: `--app <slug>` for an app's bot account. */
-function openedBy(login) {
+function openedBy(login: string): string[] {
   return login.toLowerCase().endsWith(BOT_SUFFIX) ? ['--app', login.slice(0, -BOT_SUFFIX.length)] : ['--author', login];
 }
 
+/** A pull request or issue as read, before the reader drops one whose creation date is unreadable. */
+type ReadPullRequest = Omit<CreditPullRequest, 'createdAt'> & { createdAt: string | null };
+
 /** One pull request or issue, the same shape whether `gh search` or `gh pr view` printed it. */
-function pullRequest(raw, repo) {
+function pullRequest(raw: ViewedPullRequest, repo: string): ReadPullRequest {
   return {
     repo,
     number: raw.number,
@@ -89,57 +109,69 @@ function pullRequest(raw, repo) {
   };
 }
 
-const shown = (arg) => (/\s/.test(arg) ? JSON.stringify(arg) : arg);
+const shown = (arg: string): string => (/\s/.test(arg) ? JSON.stringify(arg) : arg);
 
-/**
- * @param {{
- *   owner: string, repo: string | null, since: string | null,
- *   labels: { prd: string, phase0: string, feature: string, sub: string },
- *   signature: { name: string, email: string } | null,
- *   exec?: typeof execFileSync, env?: object,
- * }} input
- * @returns {{ prs: object[], issues: object[], commits: object[], warnings: string[] }}
- */
-export function readCredits({ owner, repo, since, labels, signature, exec = execFileSync, env }) {
-  const options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(env ? { env } : {}) };
-  const gh = (args) => {
+/** `execFileSync`'s shape, as the reader calls it: the tests stub it. */
+export type CreditsExec = (file: string, args: string[], options: ExecFileSyncOptionsWithStringEncoding) => string | Buffer;
+
+export type ReadCreditsInput = {
+  owner: string;
+  repo: string | null;
+  since: string | null;
+  labels: CreditLabels;
+  signature: TrailerSignature | null;
+  exec?: CreditsExec;
+  env?: NodeJS.ProcessEnv;
+};
+
+export type CreditsRead = { prs: CreditPullRequest[]; issues: CreditPullRequest[]; commits: CreditCommit[]; warnings: string[] };
+
+export function readCredits({ owner, repo, since, labels, signature, exec = execFileSync, env }: ReadCreditsInput): CreditsRead {
+  const options: ExecFileSyncOptionsWithStringEncoding = {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: MAX_BUFFER,
+    ...(env ? { env } : {}),
+  };
+  const gh = (args: string[]): string => {
     try {
       return String(exec('gh', args, options));
     } catch (error) {
       throw unreadable(error);
     }
   };
-  const warnings = [];
+  const warnings: string[] = [];
   const scope = repo ? ['--repo', repo] : ['--owner', owner];
   const from = since ? `>=${since}-01` : null;
 
   /** Runs one search — `query` is what names it, `keyword` goes after `--` — and warns at the cap. */
-  const search = (query, fields, keyword = null) => {
+  const search = (query: string[], fields: string, keyword: string | null = null): unknown => {
     const tail = keyword === null ? [] : ['--', keyword];
     const text = gh([...query, '--limit', String(SEARCH_CAP), '--json', fields, ...tail]).trim();
-    const rows = text ? JSON.parse(text) : [];
-    if (rows.length >= SEARCH_CAP) {
+    const rows: unknown = text ? JSON.parse(text) : [];
+    if (Array.isArray(rows) && rows.length >= SEARCH_CAP) {
       warnings.push(`gh ${[...query, ...tail].map(shown).join(' ')} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
     }
     return rows;
   };
 
-  const prs = new Map();
-  const issues = new Map();
+  const prs = new Map<string, CreditPullRequest>();
+  const issues = new Map<string, CreditPullRequest>();
   /** Keeps the first read of each pull request or issue into `into`, by `<repo>#<n>`. */
-  const keeper = (into) => (item) => {
+  const keeper = (into: Map<string, CreditPullRequest>) => (item: ReadPullRequest): void => {
     const key = `${item.repo}#${item.number}`;
-    if (item.createdAt !== null && !into.has(key)) into.set(key, item);
+    const { createdAt } = item;
+    if (createdAt !== null && !into.has(key)) into.set(key, { ...item, createdAt });
   };
   const keep = keeper(prs);
   const keepIssue = keeper(issues);
   const created = from ? ['--created', from] : [];
   /** One `gh search prs` or `gh search issues`, `narrowing` it, each row in the one shape. */
-  const searchItems = (type, narrowing, keyword) =>
-    search(['search', type, ...scope, ...narrowing, ...created], PR_FIELDS, keyword).map((raw) =>
-      pullRequest(raw, raw.repository?.nameWithOwner),
+  const searchItems = (type: 'prs' | 'issues', narrowing: string[], keyword: string | null = null): ReadPullRequest[] =>
+    parseGh(SearchedItemsSchema, search(['search', type, ...scope, ...narrowing, ...created], PR_FIELDS, keyword), `gh search ${type}`).map(
+      (raw) => pullRequest(raw, raw.repository.nameWithOwner),
     );
-  const result = (commits) => ({ prs: [...prs.values()], issues: [...issues.values()], commits, warnings });
+  const result = (commits: CreditCommit[]): CreditsRead => ({ prs: [...prs.values()], issues: [...issues.values()], commits, warnings });
 
   for (const label of new Set([labels.phase0, labels.feature, labels.sub])) {
     searchItems('prs', ['--label', label]).forEach(keep);
@@ -151,8 +183,8 @@ export function readCredits({ owner, repo, since, labels, signature, exec = exec
   searchItems('issues', ['--match', 'body'], signature.name).filter((issue) => isSignedBody(issue.body)).forEach(keepIssue);
 
   const committed = from ? ['--committer-date', from] : [];
-  const commits = search(['search', 'commits', ...scope, ...committed], COMMIT_FIELDS, signature.name)
-    .map((raw) => ({ repo: raw.repository?.fullName, sha: raw.sha, message: raw.commit?.message ?? '', date: toIso(raw.commit?.committer?.date) }))
+  const commits = parseGh(SearchedCommitsSchema, search(['search', 'commits', ...scope, ...committed], COMMIT_FIELDS, signature.name), 'gh search commits')
+    .map((raw): CreditCommit => ({ repo: raw.repository.fullName, sha: raw.sha, message: raw.commit?.message ?? '', date: toIso(raw.commit?.committer?.date) }))
     .filter((commit) => carriesTrailer(commit.message, signature));
 
   const login = botLogin(signature.email);
@@ -164,15 +196,15 @@ export function readCredits({ owner, repo, since, labels, signature, exec = exec
   for (const commit of commits) {
     const number = mergedPullRequest(commit.message);
     if (number === null || prs.has(`${commit.repo}#${number}`)) continue;
-    let raw;
+    let text: string;
     try {
-      raw = JSON.parse(gh(['pr', 'view', String(number), '--repo', commit.repo, '--json', VIEW_FIELDS]));
+      text = gh(['pr', 'view', String(number), '--repo', commit.repo, '--json', VIEW_FIELDS]);
     } catch (error) {
       if (!(error instanceof GitHubUnreadable) || error.reason !== 'failed') throw error;
       warnings.push(`${commit.repo}#${number}, named by a signed commit, could not be read: ${error.message.replace(/^gh failed: /, '')}`);
       continue;
     }
-    keep(pullRequest(raw, commit.repo));
+    keep(pullRequest(parseGh(ViewedPullRequestSchema, JSON.parse(text), 'gh pr view'), commit.repo));
   }
   return result(commits);
 }

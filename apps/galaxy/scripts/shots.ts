@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm galaxy:shots — a screenshot of every scene of the arcade, and of the app's home, /app, at the
 // three sizes they are checked at, and a report of the text too small to read on a phone held upright.
 //
@@ -26,16 +25,29 @@
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import type { Browser, BrowserContext, Page, PageScreenshotOptions, Route } from 'playwright';
+import { z } from 'zod';
 
 // The arcade is at /play since HOME took `/` (PRD 261), the app's home at /app. Another dev server:
 // GALAXY_URL=http://localhost:3001/
-const ROOT = process.env.GALAXY_URL ?? 'http://localhost:3000/';
+const ROOT = z.string().default('http://localhost:3000/').parse(process.env.GALAXY_URL);
 const BASE = new URL('play', ROOT).href;
 const APP = new URL('app', ROOT).href;
 const OUT = fileURLToPath(new URL('../shots/', import.meta.url));
 const SMALLEST = 8; // CSS px: the smallest text a player should have to read
 
-const SIZES = [
+/** One size the screenshots are taken at; `report` measures its small text. */
+type Size = { name: string; width: number; height: number; touch: boolean; report?: boolean; what: string };
+
+/** A text element below SMALLEST, in the screenshot it was measured in. */
+type SmallText = { px: number; where: string; text: string };
+type SmallHit = SmallText & { shot: string };
+
+/** What /app shows (`appInPage`). */
+type AppSeen = { theme: string | null; dashboard: boolean; heading: string | null; width: number; scrollWidth: number; out: string[] };
+type WideHit = AppSeen & { shot: string };
+
+const SIZES: Size[] = [
   { name: '393x700', width: 393, height: 700, touch: true, report: true, what: 'upright touch, an iPhone with Safari\'s bars' },
   { name: '852x393', width: 852, height: 393, touch: true, what: 'sideways touch' },
   { name: '1440x900', width: 1440, height: 900, touch: false, what: 'a mouse' },
@@ -56,19 +68,19 @@ const SHOTS = [
 const THEMES = ['omni', 'light', 'dark'];
 
 /** Where a screenshot is saved: its place in SHOTS, then its name. */
-const shotFile = (dir, name) => `${dir}/${String(SHOTS.indexOf(name) + 1).padStart(2, '0')}-${name}.png`;
+const shotFile = (dir: string, name: string): string => `${dir}/${String(SHOTS.indexOf(name) + 1).padStart(2, '0')}-${name}.png`;
 
 /** Finite CSS animations (a line typing in, a title zooming) are shown finished, and the dev
  * server's own badge is left out. */
-const STILL = { animations: 'disabled', caret: 'hide', style: 'nextjs-portal { display: none !important; }' };
+const STILL = { animations: 'disabled', caret: 'hide', style: 'nextjs-portal { display: none !important; }' } satisfies PageScreenshotOptions;
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // ── In the page ──────────────────────────────────────────────────────────────
 // The screen is the element that carries the scene's class (`scene-title`), and on /app the app's
 // reading surface (`.ask`); these run in the page.
 
-function sceneInPage() {
+function sceneInPage(): string | null {
   for (const el of document.querySelectorAll('[class*="scene-"]')) {
     for (const c of el.classList) if (/^scene-[a-z]+$/.test(c)) return c.slice('scene-'.length);
   }
@@ -76,7 +88,7 @@ function sceneInPage() {
 }
 
 /** True once React has hydrated the screen: its canvas carries React's props. */
-function hydratedInPage() {
+function hydratedInPage(): boolean {
   const canvas = document.querySelector('[class*="scene-"] canvas');
   return Boolean(canvas && Object.keys(canvas).some((k) => k.startsWith('__reactProps$')));
 }
@@ -85,27 +97,27 @@ function hydratedInPage() {
  * Every element in the screen with text of its own, whose text renders below `min` CSS px: its
  * font size times every scale and zoom above it (the screen is scaled to fit its slot).
  */
-function smallTextInPage(min) {
+function smallTextInPage(min: number): SmallText[] {
   const screen = [...document.querySelectorAll('[class*="scene-"]')]
     .find((el) => [...el.classList].some((c) => /^scene-[a-z]+$/.test(c))) ?? document.querySelector('.ask');
   if (!screen) return [];
-  const scaleOf = (el) => {
+  const scaleOf = (el: Element): number => {
     let k = 1;
-    for (let a = el; a; a = a.parentElement) {
+    for (let a: Element | null = el; a; a = a.parentElement) {
       const cs = getComputedStyle(a);
       if (cs.transform && cs.transform !== 'none') {
         const m = new DOMMatrixReadOnly(cs.transform);
         k *= Math.hypot(m.c, m.d); // how much a vertical line grows: the text's height
       }
       if (cs.scale && cs.scale !== 'none') {
-        const [x, y = x] = cs.scale.split(' ').map(Number);
+        const [x = 1, y = x] = cs.scale.split(' ').map(Number);
         k *= y;
       }
       k *= parseFloat(cs.zoom) || 1; // a computed font size leaves zoom out
     }
     return k;
   };
-  const found = [];
+  const found: SmallText[] = [];
   for (const el of screen.querySelectorAll('*')) {
     const text = [...el.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join('')
       .replace(/\s+/g, ' ').trim();
@@ -120,7 +132,7 @@ function smallTextInPage(min) {
 }
 
 /** Whether React owns /app yet: the app bar's theme switch presses its button once it has hydrated. */
-function appHydratedInPage() {
+function appHydratedInPage(): boolean {
   return Boolean(document.querySelector('.ask-switch button[aria-pressed="true"]'));
 }
 
@@ -129,10 +141,10 @@ function appHydratedInPage() {
  * and, when the page is wider than the window, the innermost elements that stick out past its right
  * edge (their ancestors, widened by them, are left out).
  */
-function appInPage() {
-  const page = document.scrollingElement;
+function appInPage(): AppSeen {
+  const page = document.scrollingElement ?? document.documentElement;
   const width = page.clientWidth;
-  let out = [];
+  let out: Element[] = [];
   if (page.scrollWidth > width) {
     for (const el of document.querySelectorAll('body *')) {
       const box = el.getBoundingClientRect();
@@ -158,12 +170,12 @@ function appInPage() {
 
 class WalkError extends Error {}
 
-function driver(page, size, dir, small) {
+function driver(page: Page, size: Size, dir: string, small: SmallHit[]) {
   const scene = () => page.evaluate(sceneInPage);
   const catchUp = () => sleep(40);
 
   /** Moves the page's clock on by `ms`: a long wait jumps, its last half second plays frame by frame. */
-  const hold = async (ms) => {
+  const hold = async (ms: number): Promise<void> => {
     await catchUp();
     if (ms > 1000) { await page.clock.fastForward(ms - 500); await catchUp(); ms = 500; }
     await page.clock.runFor(ms);
@@ -172,7 +184,7 @@ function driver(page, size, dir, small) {
     await catchUp();
   };
 
-  const expect = async (want, after) => {
+  const expect = async (want: string, after: string): Promise<void> => {
     const now = await scene();
     if (now !== want) throw new WalkError(`${after} should show the ${want} scene; the arcade shows ${now ?? 'no scene'}`);
   };
@@ -181,36 +193,36 @@ function driver(page, size, dir, small) {
     /** A finger, not a mouse: the arcade wears a Game Boy body. */
     touch: size.touch,
     /** Presses a key, lets `ms` pass, and checks the arcade shows `want`. */
-    async key(key, want, ms = 200) {
+    async key(key: string, want: string, ms = 200) {
       await page.keyboard.press(key);
       await hold(ms);
       await expect(want, `pressing ${key}`);
     },
     /** Holds `keys` down together while `ms` pass, lets them go, and checks the arcade shows `want`. */
-    async holdKeys(keys, want, ms) {
+    async holdKeys(keys: string[], want: string, ms: number) {
       for (const k of keys) await page.keyboard.down(k);
       await hold(ms);
       for (const k of keys) await page.keyboard.up(k);
       await expect(want, `holding ${keys.join(' and ')}`);
     },
     /** Taps what `selector` finds with a finger, lets `ms` pass, and checks the arcade shows `want`. */
-    async tap(selector, want, ms = 200) {
+    async tap(selector: string, want: string, ms = 200) {
       await page.tap(selector);
       await hold(ms);
       await expect(want, `tapping ${selector}`);
     },
     /** Checks OPEN THE APP? is up (`up`) or closed, over the scene. */
-    async leaving(up) {
+    async leaving(up: boolean) {
       const now = await page.evaluate(() => Boolean(document.querySelector('.leave')));
       if (now !== up) throw new WalkError(`OPEN THE APP? should be ${up ? 'up' : 'closed'}; it is ${now ? 'up' : 'closed'}`);
     },
     /** Lets `ms` pass, and checks the arcade shows `want`. */
-    async wait(want, ms) {
+    async wait(want: string, ms: number) {
       await hold(ms);
       await expect(want, `waiting ${ms} ms`);
     },
     /** Lets `ms` pass on scene `want`, saves the screenshot and measures its text. */
-    async shot(name, want, ms) {
+    async shot(name: string, want: string, ms: number) {
       await hold(ms);
       await expect(want, `the ${name} screenshot`);
       await page.screenshot({ path: shotFile(dir, name), ...STILL });
@@ -226,10 +238,10 @@ function driver(page, size, dir, small) {
  * whole page, however far down it runs. `wide` collects every screenshot of a page wider than the
  * window.
  */
-function appDriver(page, size, dir, small, wide) {
+function appDriver(page: Page, size: Size, dir: string, small: SmallHit[], wide: WideHit[]) {
   return {
     /** Picks `choice` on the theme switch, with a finger or the mouse, and checks the page wears it. */
-    async theme(choice) {
+    async theme(choice: string) {
       const button = `.ask-switch button[data-choice="${choice}"]`;
       if (size.touch) await page.tap(button);
       else await page.click(button);
@@ -238,7 +250,7 @@ function appDriver(page, size, dir, small, wide) {
       if (theme !== choice) throw new WalkError(`picking ${choice} on /app's theme switch should show it; the page wears ${theme ?? 'no theme'}`);
     },
     /** Checks /app shows the dashboard, saves the whole page, measures its text and its width. */
-    async shot(name) {
+    async shot(name: string) {
       const seen = await page.evaluate(appInPage);
       if (!seen.dashboard) throw new WalkError(`the ${name} screenshot should show the demo's dashboard; /app's heading reads ${seen.heading ?? 'nothing'}`);
       await page.screenshot({ path: shotFile(dir, name), fullPage: true, ...STILL });
@@ -250,7 +262,12 @@ function appDriver(page, size, dir, small, wide) {
 }
 
 /** A fresh page on the arcade, on its boot, with its clock stopped. */
-async function openArcade(context, errors) {
+type Driver = ReturnType<typeof driver>;
+type AppDriver = ReturnType<typeof appDriver>;
+/** Saves one screenshot of a walk, as `Driver.shot` does, into the walk's list. */
+type Shot = (name: string, want: string, ms: number) => Promise<number>;
+
+async function openArcade(context: BrowserContext, errors: string[]): Promise<Page> {
   const page = await context.newPage();
   page.on('pageerror', (err) => errors.push(err.message));
   // The clock is installed stopped, and read by the page's very first script, before the page's
@@ -268,7 +285,7 @@ async function openArcade(context, errors) {
 }
 
 /** A fresh page on /app, once React owns it and its faces are loaded. Its clock is the real one. */
-async function openApp(context, errors) {
+async function openApp(context: BrowserContext, errors: string[]): Promise<Page> {
   const page = await context.newPage();
   page.on('pageerror', (err) => errors.push(err.message));
   await page.goto(APP, { waitUntil: 'load', timeout: 120_000 });
@@ -283,8 +300,8 @@ async function openApp(context, errors) {
 // ── The walks ────────────────────────────────────────────────────────────────
 
 /** A new guest, from the boot to the welcome back: every scene but `outsider`. */
-async function walkGuest(d, taken) {
-  const shot = async (...a) => taken.push(await d.shot(...a));
+async function walkGuest(d: Driver, taken: string[]): Promise<void> {
+  const shot: Shot = async (...a) => taken.push(await d.shot(...a));
   await shot('boot', 'boot', 1500);
   await d.key('Enter', 'title');
   await shot('title', 'title', 2000);
@@ -354,7 +371,7 @@ async function walkGuest(d, taken) {
  * GAME ▮▯ APP switch opens it, and the screenshot shows its knob on APP; on a computer, which has no
  * body, the APP MODE row just above SIGN OUT does (up twice from the first row, and down twice back).
  */
-async function walkLeave(d, shot) {
+async function walkLeave(d: Driver, shot: Shot): Promise<void> {
   if (d.touch) await d.tap('.gb-switch', 'menu');
   else {
     await d.key('ArrowUp', 'menu');
@@ -372,7 +389,7 @@ async function walkLeave(d, shot) {
 }
 
 /** From the game room: A on the lit cabinet, Entropy Invaders' ready screen, a moment of play, the pause, and back. */
-async function walkInvaders(d, shot) {
+async function walkInvaders(d: Driver, shot: Shot): Promise<void> {
   await d.key('Enter', 'invaders'); // the first cabinet, lit by the demo guest's borrowed XP
   await shot('invaders', 'invaders', 800); // the ready screen: the score table
   await d.key('a', 'invaders'); // A plays at once
@@ -387,9 +404,9 @@ async function walkInvaders(d, shot) {
 // is out of its reach. This walk rewrites the guest in the page's scripts as it loads them.
 const GUEST = /(["'])guest@vertuoza\.com\1([^}]*?\bcrew\s*:\s*)(?:true|!0)/;
 
-async function asOutsider(context) {
+async function asOutsider(context: BrowserContext): Promise<() => boolean> {
   let found = false;
-  await context.route(/\/_next\/static\/.+\.js(\?.*)?$/, async (route) => {
+  await context.route(/\/_next\/static\/.+\.js(\?.*)?$/, async (route: Route) => {
     const response = await route.fetch();
     const body = await response.text();
     if (!GUEST.test(body)) return route.fulfill({ response });
@@ -403,7 +420,7 @@ async function asOutsider(context) {
 }
 
 /** A guest from another domain: signs in, comes back to the title, and presses START. */
-async function walkOutsider(d, taken, rewritten) {
+async function walkOutsider(d: Driver, taken: string[], rewritten: () => boolean): Promise<void> {
   await d.key('Enter', 'title');
   await d.key('Enter', 'coin');
   await d.key('a', 'coin');
@@ -424,7 +441,7 @@ async function walkOutsider(d, taken, rewritten) {
  * /app, the app's home: the dashboard the demo draws, signed in as its *you*, in each theme of the
  * app bar's switch, Omni (the default) first.
  */
-async function walkApp(d, taken) {
+async function walkApp(d: AppDriver, taken: string[]): Promise<void> {
   for (const theme of THEMES) {
     await d.theme(theme);
     taken.push(await d.shot(`app-${theme}`));
@@ -433,10 +450,21 @@ async function walkApp(d, taken) {
 
 // ── One size, then all of them ───────────────────────────────────────────────
 
-async function shootSize(browser, size) {
+/** `err`'s name and the first line of its message, as a stuck walk lists it. */
+function stuck(err: unknown): string {
+  if (err instanceof WalkError) return err.message;
+  return err instanceof Error ? `${err.name}: ${err.message.split('\n')[0]}` : String(err);
+}
+
+/** The first line of what `err` says. */
+const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split('\n')[0] ?? '';
+
+type SizeResult = { size: Size; taken: string[]; missed: string[]; small: SmallHit[]; wide: WideHit[]; problems: string[]; errors: string[] };
+
+async function shootSize(browser: Browser, size: Size): Promise<SizeResult> {
   const dir = `${OUT}${size.name}`;
   mkdirSync(dir, { recursive: true });
-  const taken = [], small = [], wide = [], problems = [];
+  const taken: string[] = [], small: SmallHit[] = [], wide: WideHit[] = [], problems: string[] = [];
   const newContext = async () => {
     const context = await browser.newContext({
       viewport: { width: size.width, height: size.height },
@@ -451,22 +479,23 @@ async function shootSize(browser, size) {
     });
     return context;
   };
-  const errors = [];
-  // Each walk: its page, how it is driven, and what the context needs first.
-  const walks = [
-    [walkGuest, openArcade, driver, null],
-    [walkOutsider, openArcade, driver, asOutsider],
-    [walkApp, openApp, appDriver, null],
+  const errors: string[] = [];
+  // Each walk: what the context needs first, its page, how it is driven, then the walk itself.
+  const walks: Array<(context: BrowserContext) => Promise<void>> = [
+    async (context) => walkGuest(driver(await openArcade(context, errors), size, dir, small), taken),
+    async (context) => {
+      const rewritten = await asOutsider(context);
+      await walkOutsider(driver(await openArcade(context, errors), size, dir, small), taken, rewritten);
+    },
+    async (context) => walkApp(appDriver(await openApp(context, errors), size, dir, small, wide), taken),
   ];
-  for (const [walk, open, drive, prepare] of walks) {
+  for (const walk of walks) {
     const context = await newContext();
     try {
-      const rewritten = prepare ? await prepare(context) : null;
-      const page = await open(context, errors);
-      await walk(drive(page, size, dir, small, wide), taken, rewritten);
+      await walk(context);
     } catch (err) {
       // One walk stuck does not stop the others: what it missed is listed, and the run fails.
-      problems.push(err instanceof WalkError ? err.message : `${err.name}: ${err.message.split('\n')[0]}`);
+      problems.push(stuck(err));
     } finally {
       await context.close();
     }
@@ -475,7 +504,7 @@ async function shootSize(browser, size) {
   return { size, taken, missed, small, wide, problems, errors };
 }
 
-function report(results) {
+function report(results: SizeResult[]): boolean {
   let failed = false;
   for (const { size, taken, missed, wide, problems, errors } of results) {
     console.log(`${size.name.padEnd(9)} ${String(taken.length).padStart(2)}/${SHOTS.length} screenshots (${size.what})`);
@@ -506,25 +535,33 @@ function report(results) {
   return failed;
 }
 
-async function main() {
+/** Why the arcade could not be reached: the network's code when it gives one, else the message. */
+function unreachable(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const cause: unknown = err.cause;
+  const code = typeof cause === 'object' && cause !== null && 'code' in cause ? cause.code : undefined;
+  return String(code ?? err.message);
+}
+
+async function main(): Promise<number> {
   try {
     const res = await fetch(BASE, { signal: AbortSignal.timeout(120_000) });
     if (!res.ok) throw new Error(`it answered ${res.status}`);
   } catch (err) {
-    const why = err.cause?.code ?? err.message;
+    const why = unreachable(err);
     console.error(`No arcade at ${BASE} (${why}). Start it with \`pnpm galaxy:dev\`, then run \`pnpm galaxy:shots\` again.`);
     return 1;
   }
-  let browser;
+  let browser: Browser;
   try {
     browser = await chromium.launch();
   } catch (err) {
-    console.error(`Chromium did not start: ${err.message.split('\n')[0]}`);
+    console.error(`Chromium did not start: ${firstLine(err)}`);
     console.error('Install Playwright\'s Chromium once: pnpm --filter @omni/galaxy-app exec playwright install chromium');
     return 1;
   }
   try {
-    const results = [];
+    const results: SizeResult[] = [];
     for (const size of SIZES) results.push(await shootSize(browser, size));
     return report(results) ? 1 : 0;
   } finally {
