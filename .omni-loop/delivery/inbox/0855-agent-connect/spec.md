@@ -10,7 +10,8 @@ spec: file
 **Date:** 2026-10-01 · **PRD:** #855 · **From:** concept #746, area `agent-connect` (the last area,
 after PRDs 748, 774, 799, 822 and 839)
 **Touches:**
-- `supabase/migrations/` (one new file), `supabase/checks/agent_connect.sql` (new)
+- `supabase/migrations/` (three new files: tokens, questions, Jev), `supabase/checks/agent_tokens.sql` and
+  `supabase/checks/agent_questions.sql` (new)
 - `apps/galaxy/app/api/mcp/route.ts` (new), a new `apps/galaxy/src/agent-connect/`
 - `apps/galaxy/src/business/` (two cards on Settings › Business), `apps/galaxy/src/waiting/`
   (the bell's Business count)
@@ -155,7 +156,7 @@ Made in this spec, recorded here:
 Tests follow `omni kb show testing`: beside the code, run by `pnpm test`, never calling GitHub,
 Supabase or TypeSafe.
 
-- **SQL** (`supabase/checks/agent_connect.sql`): a made token reads its workspace's business, and the
+- **SQL** (`supabase/checks/agent_tokens.sql`, `supabase/checks/agent_questions.sql`): a made token reads its workspace's business, and the
   body equals `business_for_repo`'s for the same repository; a revoked token is refused; a token whose
   maker left the workspace is refused; a token never reads another workspace's repository; the 21st
   live token and the 31st report in 24 hours are refused; a repeated question bumps one row; answer
