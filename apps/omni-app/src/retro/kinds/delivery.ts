@@ -1,4 +1,3 @@
-// @ts-nocheck
 // How the delivery went (PRD 72, slice s5): territory breaches through the kit's `breaches`,
 // needs-fix and stuck slices and second claims, decisions from the settled file (drift, rework, a
 // merge under the override label), and review findings left red or unresolved at merge. Its findings

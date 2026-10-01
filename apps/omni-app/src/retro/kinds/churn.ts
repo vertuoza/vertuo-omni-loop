@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Code rewritten again and again (PRD 72, "The facts, and what makes a finding"): every commit's
 // patches, churn per file and per line range followed through the hunks, generated files and
 // lockfiles left out, a file without a patch counted by its totals. Its findings are `churn:<path>`
@@ -291,7 +290,7 @@ function sliceReader(config, prd) {
 }
 
 async function listPullCommits(octokit, { owner, repo, number }) {
-  return paginate((page) =>
+  return paginate((page: number) =>
     octokit
       .request('GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', { owner, repo, pull_number: number, per_page: PER_PAGE, page })
       .then(({ data }) => data),
@@ -299,7 +298,7 @@ async function listPullCommits(octokit, { owner, repo, number }) {
 }
 
 async function listPullFiles(octokit, { owner, repo, number }) {
-  return paginate((page) =>
+  return paginate((page: number) =>
     octokit
       .request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', { owner, repo, pull_number: number, per_page: PER_PAGE, page })
       .then(({ data }) => data),
@@ -310,7 +309,7 @@ async function listPullFiles(octokit, { owner, repo, number }) {
 async function readCommit(octokit, { owner, repo, sha }) {
   let url = null;
   const files = await unlessMissing([404, 422], () =>
-    paginate((page) =>
+    paginate((page: number) =>
       octokit.request('GET /repos/{owner}/{repo}/commits/{ref}', { owner, repo, ref: sha, per_page: PER_PAGE, page }).then(({ data }) => {
         url ??= data.html_url ?? null;
         return data.files ?? [];

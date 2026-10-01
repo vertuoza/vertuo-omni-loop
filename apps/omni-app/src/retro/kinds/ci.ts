@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Checks red again and again (PRD 72, "The facts, and what makes a finding"): every CI run on every
 // slice's commits, the last lines of each red run's log, a check red on several commits or in several
 // slices, a check red then green on one commit, and the tests the logs name as failing. Its findings
@@ -46,7 +45,7 @@ export const ci = Object.freeze({
     const runs = [];
     for (const { slice, branch } of branches) {
       const read = await readOrRefused(() =>
-        paginate((page) =>
+        paginate((page: number) =>
           octokit
             .request(RUNS, { owner, repo, branch, exclude_pull_requests: true, per_page: PER_PAGE, page })
             .then(({ data }) => data.workflow_runs ?? []),
@@ -60,7 +59,7 @@ export const ci = Object.freeze({
 
     const jobsOfRuns = await inParallel(runs, async ({ run, slice }) => {
       const read = await readOrRefused(() =>
-        paginate((page) =>
+        paginate((page: number) =>
           octokit
             .request(JOBS, { owner, repo, run_id: run.id, filter: 'all', per_page: PER_PAGE, page })
             .then(({ data }) => data.jobs ?? []),

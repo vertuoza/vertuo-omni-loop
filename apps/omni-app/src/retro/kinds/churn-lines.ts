@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Churn's line ranges, followed through the hunks (PRD 72, "The facts, and what makes a finding"). Pure.
 //
 // A patch is read as its change blocks: each a run of removed and added lines with no context line

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Fourteen days later (PRD 72, "The facts, and what makes a finding"): the `bug` issues naming the
 // PRD opened within `THRESHOLDS.afterMergeDays` days of the merge, fixed or not; the files their fixes
 // touched, against the churn ranges the merge run found; and the jobs that ran on the merge commit.
@@ -59,7 +58,7 @@ export const afterMerge = Object.freeze({
     const names = namesPrd(prd.number, `${owner}/${repo}`);
 
     const listed = await readOrRefused(() =>
-      paginate((page) =>
+      paginate((page: number) =>
         octokit
           .request(ISSUES, { owner, repo, labels: BUG_LABEL, state: 'all', since: window.from, per_page: PER_PAGE, page })
           .then(({ data }) => data),
@@ -281,7 +280,7 @@ async function mergedSince(octokit, { owner, repo, base, since }) {
 
 /** A pull request's files, each patch reduced to its change blocks (`null` when GitHub sent none). */
 async function listFiles(octokit, { owner, repo, number }) {
-  const files = await paginate((page) =>
+  const files = await paginate((page: number) =>
     octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => data),
   );
   return files.map((file) => ({
@@ -294,7 +293,7 @@ async function listFiles(octokit, { owner, repo, number }) {
 /** The latest jobs of every workflow run on the merge commit, or the status GitHub refused them with. */
 async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
   const runs = await readOrRefused(() =>
-    paginate((page) =>
+    paginate((page: number) =>
       octokit.request(RUNS, { owner, repo, head_sha: mergeSha, per_page: PER_PAGE, page }).then(({ data }) => data.workflow_runs ?? []),
     ),
   );
@@ -302,7 +301,7 @@ async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
   const jobs = [];
   for (const run of runs.value) {
     const read = await readOrRefused(() =>
-      paginate((page) =>
+      paginate((page: number) =>
         octokit.request(JOBS, { owner, repo, run_id: run.id, filter: 'latest', per_page: PER_PAGE, page }).then(({ data }) => data.jobs ?? []),
       ),
     );

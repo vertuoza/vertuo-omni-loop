@@ -1,4 +1,3 @@
-// @ts-nocheck
 // GitHub as the delivery kind's tests read it (PRD 72, slice s5): PRD 7 of `acme/widgets`
 // (`../../../../test/retro-scenario.ts`), its three slices and one more claim of s3, with what each
 // pull request's files, reviews, review threads, comments and label events held. Test support only.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // What churn leaves out (PRD 72, "The facts, and what makes a finding"): the paths a repository marks
 // `linguist-generated` in its `.gitattributes` at the merge, lockfiles by name, and the delivery
 // folder (`paths.delivery`). A generated file or a lockfile is rewritten whole by a tool, so its lines

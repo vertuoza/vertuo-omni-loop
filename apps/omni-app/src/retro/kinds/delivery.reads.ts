@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The GitHub reads of the delivery kind (PRD 72, slice s5), each through the one Octokit seam,
 // `octokit.request(route, params)`, and each giving plain records: a pull request's changed paths,
 // its stuck comments, the times a label was added to it, its reviews and its review threads.
@@ -23,7 +22,7 @@ export async function readOrNull(read) {
 }
 
 function pages(octokit, route, params) {
-  return paginate((page) => octokit.request(route, { ...params, per_page: PER_PAGE, page }).then(({ data }) => data));
+  return paginate((page: number) => octokit.request(route, { ...params, per_page: PER_PAGE, page }).then(({ data }) => data));
 }
 
 /** Every path a pull request changed; a renamed file counts under both its names. */

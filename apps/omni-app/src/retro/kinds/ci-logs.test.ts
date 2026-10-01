@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';

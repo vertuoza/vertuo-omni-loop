@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The after-merge kind's fixture (PRD 72, slice s8): what GitHub holds about PRD 7 of `acme/widgets`
 // (`test/retro-scenario.ts`) in the fourteen days after its feature PR #12 merged, on
 // 2026-09-20T12:00:00Z. The window closes on 2026-10-04T12:00:00Z.

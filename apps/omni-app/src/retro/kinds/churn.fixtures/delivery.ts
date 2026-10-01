@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Churn's fixture (PRD 72, slice s4): PRD 7 of `acme/widgets` (`test/retro-scenario.ts`), its three
 // merged sub-PRs given commits whose patches are real unified diffs, as GitHub's REST API returns them.
 //

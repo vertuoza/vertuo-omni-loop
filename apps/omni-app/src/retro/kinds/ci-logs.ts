@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Reading a failed job's log (PRD 72, "Failing tests"): the last lines of the log in, the reporter it
 // came from, the tests it names as failed and the counts its summary gives out. Pure: text in, plain
 // data out, so the same tail always names the same tests.

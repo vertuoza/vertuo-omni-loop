@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The detectors of the delivery kind (PRD 72, "The facts, and what makes a finding"): decisions and
 // the override label, territory, agent friction and review. Pure: plain records and the PRD's plan
 // and settled file in, facts and findings out. They reuse the kit unchanged: `parsePlanSlices`,
