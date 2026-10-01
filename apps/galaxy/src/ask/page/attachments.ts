@@ -30,8 +30,13 @@ export function progressText(progress: Progress | undefined): string | null {
 
 /** An upload that failed: nothing was recorded. */
 class UploadFailed extends Error {
-  constructor(readonly at: number, readonly total: number) {
+  readonly at: number;
+  readonly total: number;
+
+  constructor(at: number, total: number) {
     super(progressText({ kind: 'failed', at, total }) ?? '');
+    this.at = at;
+    this.total = total;
   }
 }
 

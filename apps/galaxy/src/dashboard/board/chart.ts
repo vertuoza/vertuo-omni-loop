@@ -6,8 +6,8 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 /** A calendar day, named: its weekday (`Saturday`) and its date (`26 September`). */
 export function dayName(date: string): { weekday: string; date: string; day: number } {
-  const [year, month, day] = date.split('-').map(Number);
-  return { weekday: WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()], date: `${day} ${MONTHS[month - 1]}`, day };
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
+  return { weekday: WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]!, date: `${day} ${MONTHS[month - 1]}`, day };
 }
 
 /**

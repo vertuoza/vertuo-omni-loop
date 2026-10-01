@@ -57,6 +57,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     Boolean(visible(table, row, me) && sessionOf(row, table)?.owner === me?.id);
 
   class Query implements PromiseLike<Result> {
+    private table: keyof FakeTables;
+    private me: FakeAccount | null;
     private op: 'select' | 'insert' | 'update' | 'delete' = 'select';
     private values: Row = {};
     private filters: Array<(row: Row) => boolean> = [];
@@ -64,7 +66,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     private sorting: { column: string; ascending: boolean } | null = null;
     private cap: number | null = null;
 
-    constructor(private table: keyof FakeTables, private me: FakeAccount | null) {}
+    constructor(table: keyof FakeTables, me: FakeAccount | null) {
+      this.table = table;
+      this.me = me;
+    }
 
     select(_columns?: string) { return this; }
     insert(values: Row) { this.op = 'insert'; this.values = values; return this; }

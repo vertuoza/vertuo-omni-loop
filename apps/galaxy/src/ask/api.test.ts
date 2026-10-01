@@ -167,7 +167,7 @@ describe('every ask call checks the bearer token, and leaves membership to the d
     const w = world();
     const sessionId = await w.session();
     w.fake.state.fail = { message: 'connection reset' };
-    const { status, body } = await w.read(await CALLS[2].call(w, {}, sessionId));
+    const { status, body } = await w.read(await CALLS[2]!.call(w, {}, sessionId));
     expect(status).toBe(500);
     expect(body.error).toEqual(expect.any(String));
   });
@@ -528,8 +528,8 @@ describe('GET /api/ask/rounds/:id/wait', () => {
       });
       return { asked, deps: { ...w.deps, connect: connect as unknown as AskDeps['connect'] } };
     }
-    const Q1 = QUESTIONS[0].question;
-    const Q2 = QUESTIONS[1].question;
+    const Q1 = QUESTIONS[0]!.question;
+    const Q2 = QUESTIONS[1]!.question;
 
     it('hands each screenshot back by name with a 10-minute signed link, made as the caller', async () => {
       const w = world();
@@ -919,7 +919,7 @@ describe('a round sorted through Jev (PRD 812)', () => {
     const roundId = await w.ask(await w.session());
     await w.runLater();
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'architecture', category_by: 'model' });
-    expect(w.logged[0][1]).toMatchObject({ jevAnswer: 'architecture', oldAnswer: 'business', counted: 'architecture', decidedBy: 'jev' });
+    expect(w.logged[0]![1]).toMatchObject({ jevAnswer: 'architecture', oldAnswer: 'business', counted: 'architecture', decidedBy: 'jev' });
   });
 
   it('On: stores Haiku\'s category when Jev fails or answers under the floor', async () => {
@@ -928,7 +928,7 @@ describe('a round sorted through Jev (PRD 812)', () => {
       const roundId = await w.ask(await w.session());
       await w.runLater();
       expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
-      expect(w.logged[0][1]).toMatchObject({ counted: 'business', decidedBy: 'old' });
+      expect(w.logged[0]![1]).toMatchObject({ counted: 'business', decidedBy: 'old' });
     }
   });
 

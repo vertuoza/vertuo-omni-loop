@@ -21,7 +21,7 @@ export type TokenCheck = {
 /** The token of an `Authorization: Bearer <token>` header, or null for anything else. */
 export function bearerToken(header: string | null | undefined): string | null {
   const match = /^Bearer +(\S+)$/i.exec((header ?? '').trim());
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 /** Where the caller reached this app, behind Vercel's proxy too: the links an API hands back

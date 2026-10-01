@@ -53,7 +53,7 @@ describe('an open round', () => {
 
   it('pairs each question with its answer in the history', () => {
     const view = sessionView(state([answered(MIN, 'page', { 'Which storage?': 'Postgres (Recommended)', 'Which checks?': 'RLS, Handlers' })]), NOW);
-    expect(view.history[0].lines).toEqual([
+    expect(view.history[0]!.lines).toEqual([
       { header: 'Storage', question: 'Which storage?', answer: 'Postgres (Recommended)' },
       { header: 'Checks', question: 'Which checks?', answer: 'RLS, Handlers' },
     ]);
@@ -99,7 +99,7 @@ describe('the other states', () => {
   it('keeps older rounds that were never answered in the history, as such', () => {
     const view = sessionView(state([round({ ago: 30 * MIN, status: 'abandoned' }), round({ ago: 20 * MIN }), answered(10 * MIN, 'page')]), NOW);
     expect(view.history.map((h) => h.outcome)).toEqual(['answered', 'unanswered', 'moved']);
-    expect(view.history[1].lines.every((l) => l.answer === null)).toBe(true);
+    expect(view.history[1]!.lines.every((l) => l.answer === null)).toBe(true);
   });
 
   it('is closed once the session closes or idles for 12 hours, even with a round open', () => {
@@ -123,7 +123,7 @@ describe('the other states', () => {
 
   it('keeps answers the questions do not name', () => {
     const view = sessionView(state([answered(MIN, 'terminal', { 'Which storage?': 'Memory', 'Something else?': 'Yes' })]), NOW);
-    expect(view.history[0].lines).toEqual([
+    expect(view.history[0]!.lines).toEqual([
       { header: 'Storage', question: 'Which storage?', answer: 'Memory' },
       { header: 'Checks', question: 'Which checks?', answer: null },
       { header: '', question: 'Something else?', answer: 'Yes' },
@@ -199,7 +199,7 @@ describe('the context line (PRD 144)', () => {
 
   it('rides along with each round of the history', () => {
     const view = sessionView(state([answered(MIN, 'page')], { repo: 'acme/widgets' }), NOW);
-    expect(view.history[0].context).toEqual(['acme/widgets', 'answered in 1 s']);
+    expect(view.history[0]!.context).toEqual(['acme/widgets', 'answered in 1 s']);
   });
 });
 

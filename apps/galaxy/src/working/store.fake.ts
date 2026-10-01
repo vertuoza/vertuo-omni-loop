@@ -39,7 +39,7 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
   // workspace owns it; else the one joined first.
   const workspaceFor = (account: FakeAccount, repo: string): string | null => {
     const owner = repo.split('/')[0];
-    const owning = Object.keys(orgs).filter((w) => orgs[w].toLowerCase() === owner);
+    const owning = Object.keys(orgs).filter((w) => orgs[w]!.toLowerCase() === owner);
     if (owning.length > 0) return account.workspaces.find((w) => owning.includes(w)) ?? null;
     return account.workspaces[0] ?? null;
   };

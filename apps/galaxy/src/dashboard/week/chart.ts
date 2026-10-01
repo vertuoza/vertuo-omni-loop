@@ -35,7 +35,7 @@ export function brusselsDay(at: Date | string): string | null {
 
 /** The seven days of the week that ends today in Brussels, the first six before it, today last. */
 export function weekDays(now: Date): string[] {
-  const [year, month, day] = brusselsDay(now)!.split('-').map(Number);
+  const [year, month, day] = brusselsDay(now)!.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
   return Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(year, month - 1, day - 6 + i)).toISOString().slice(0, 10));
 }
 
@@ -65,8 +65,8 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 /** A calendar day, as the chart names it: its weekday under its bar (`Sat`), and in full with its
  * date in the text alternative (`Saturday`, `26 September`). */
 export function dayName(date: string): { short: string; long: string; date: string } {
-  const [year, month, day] = date.split('-').map(Number);
-  const long = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
+  const long = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]!;
   return { short: long.slice(0, 3), long, date: `${day} ${MONTHS[month - 1]}` };
 }
 

@@ -11,6 +11,7 @@ import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, tog
 import type { Member } from './question';
 import type { SessionState } from './view';
 import type { AskDock } from './dock-player';
+import type { Database } from '../../../../../supabase/database.types';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
@@ -39,7 +40,7 @@ type Props = {
 
 function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
   if (source.kind === 'demo') return { list: async () => structuredClone(page.rows) };
-  return databaseTabs(createBrowserClient(source.url, source.key), me);
+  return databaseTabs(createBrowserClient<Database>(source.url, source.key), me);
 }
 
 function TabState({ tab }: { tab: Tab }) {

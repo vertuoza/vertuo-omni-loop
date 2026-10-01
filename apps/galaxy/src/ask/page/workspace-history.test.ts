@@ -62,7 +62,7 @@ describe('the workspace history', () => {
       question: 'Should the trial last 30 days?', answer: 'Fourteen days, invoiced monthly', status: 'answered',
       askedBy: 'bob@vertuoza.com', answeredBy: 'bob@vertuoza.com', via: 'terminal', category: 'Business', at: at(5),
     });
-    expect(trial.context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
+    expect(trial!.context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
     expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@vertuoza.com', category: 'Architecture' });
     expect(storage).toMatchObject({ askedByFace: { kind: 'initial', letter: 'A' }, answeredByFace: { kind: 'initial', letter: 'B' } });
     const open = historyList(ROWS, {}, MEMBERS)[0];

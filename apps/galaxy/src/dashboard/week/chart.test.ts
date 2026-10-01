@@ -151,7 +151,7 @@ describe('axisTicks', () => {
       expect(ticks.length, `${max}`).toBeLessThanOrEqual(6);
       expect(ticks[0]).toBe(0);
       expect(ticks.at(-1)).toBe(Math.max(1, max));
-      const step = ticks[1] - ticks[0];
+      const step = ticks[1]! - ticks[0]!;
       if (ticks.length > 2) expect(ticks.at(-1)! - ticks.at(-2)!, `${max}`).toBeGreaterThan(step / 2);
     }
   });

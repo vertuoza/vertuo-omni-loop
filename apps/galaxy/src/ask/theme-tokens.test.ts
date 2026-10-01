@@ -51,7 +51,7 @@ describe('the stylesheet the table becomes', () => {
 describe('the stylesheet', () => {
   const css = readFileSync(new URL('./ask.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   /** Every innermost rule, as its selector and its declarations. */
-  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim(), body: m[2]! }));
 
   it('names no colour of its own: every colour comes from the token table', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);

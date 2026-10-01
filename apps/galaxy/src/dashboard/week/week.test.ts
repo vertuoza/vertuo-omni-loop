@@ -17,13 +17,13 @@ import { barHeight, CHART, Week } from './Week';
 const NOW = new Date('2026-09-26T10:00:00Z'); // Saturday
 const season = seasonBounds(NOW);
 const WEEK = weekDays(NOW);
-const week = (counts: number[]): WeekValue => ({ kind: 'week', days: WEEK.map((date, i) => ({ date, count: counts[i] })) });
+const week = (counts: number[]): WeekValue => ({ kind: 'week', days: WEEK.map((date, i) => ({ date, count: counts[i]! })) });
 const render = (part: Parameters<typeof Week>[0]['part']) => renderToStaticMarkup(createElement(Week, { part, season }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const svgOf = (html: string) => /<svg[\s\S]*<\/svg>/.exec(html)?.[0] ?? '';
 const outside = (html: string) => html.replace(/<svg[\s\S]*<\/svg>/, '');
-const bars = (html: string) => [...html.matchAll(/<path class="dash-week-bar"[^>]*d="([^"]+)"/g)].map((m) => m[1]);
-const listed = (html: string) => [...html.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
+const bars = (html: string) => [...html.matchAll(/<path class="dash-week-bar"[^>]*d="([^"]+)"/g)].map((m) => m[1]!);
+const listed = (html: string) => [...html.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]!));
 const ticks = (html: string) => [...svgOf(html).matchAll(/<text class="dash-week-tick"[^>]*>(\d+)<\/text>/g)].map((m) => Number(m[1]));
 const names = (html: string) => [...svgOf(html).matchAll(/<text class="dash-week-name[^"]*"[^>]*>(\w+)<\/text>/g)].map((m) => m[1]);
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';

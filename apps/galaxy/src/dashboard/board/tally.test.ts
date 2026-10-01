@@ -176,7 +176,7 @@ describe('peopleRows', () => {
 
   it('a fleet the galaxy does not know still shows, by its name in capitals', () => {
     const people = peopleRows([member('a', 'x-gh', 'ghost')], { activity: [], answered: new Map(), heroes: [], fleets: [], prds: [] }, null);
-    expect(people[0].fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null, mascot: null });
+    expect(people[0]!.fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null, mascot: null });
   });
 
   it('a column whose read failed reads unreadable for everyone, and the rest still count', () => {

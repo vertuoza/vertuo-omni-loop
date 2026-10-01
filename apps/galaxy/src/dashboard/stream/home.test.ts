@@ -55,7 +55,7 @@ describe('Home\'s parts, each on its own', () => {
 
   it('reads the galaxy once for the hero block and the board', async () => {
     reads.board.mockImplementationOnce(async (r: unknown) => {
-      await (reads.supabaseReads.mock.calls[0][2] as () => Promise<unknown>)();
+      await (reads.supabaseReads.mock.calls[0]![2] as () => Promise<unknown>)();
       return r;
     });
     const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => []);

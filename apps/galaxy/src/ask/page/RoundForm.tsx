@@ -151,6 +151,7 @@ type OptionProps = { name: string; question: AskQuestion; pick: Pick; k: number;
 /** One option's row: its radio or checkbox, its key, its label with the Recommended badge, its description. */
 function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
   const option = question.options[k];
+  if (!option) return null;
   const shown = shownLabel(option.label);
   return (
     <label className="ask-opt" onMouseEnter={onFocus} onFocus={onFocus}>
@@ -187,7 +188,9 @@ type QuestionProps = {
 function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDraft }: QuestionProps) {
   const question = questions[index];
   const pick = draft[index];
+  if (!question || !pick) return null;
   const preview = shownPreview(question, pick, focused);
+  const previewOption = preview ? question.options[preview.option] : undefined;
   const hasPreview = question.options.some((o) => o.preview !== null);
   const update = (next: Pick) => onDraft(draft.map((p, i) => (i === index ? next : p)));
   return (
@@ -205,9 +208,9 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
           ))}
           <OtherBox name={name} question={question} pick={pick} questions={questions} draft={draft} index={index} onDraft={onDraft} update={update} />
         </fieldset>
-        {preview && (
-          <pre className="ask-preview" aria-label={`Preview of ${shownLabel(question.options[preview.option].label).text}`}>
-            <span className="ask-preview-for" aria-hidden="true">Preview · {shownLabel(question.options[preview.option].label).text}</span>
+        {preview && previewOption && (
+          <pre className="ask-preview" aria-label={`Preview of ${shownLabel(previewOption.label).text}`}>
+            <span className="ask-preview-for" aria-hidden="true">Preview · {shownLabel(previewOption.label).text}</span>
             {preview.text}
           </pre>
         )}

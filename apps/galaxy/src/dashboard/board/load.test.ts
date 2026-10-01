@@ -165,8 +165,8 @@ describe('loadBoard, one read failing', () => {
     expect(board.tiles).toMatchObject({ prs: 'unreadable', repositories: 'unreadable', answered: 11 });
     expect(board.tiles.prds).toEqual(tallyOf({ idea: 1, inbox: 1, building: 1, shipped: 2, retro: 1 }));
     expect([board.merges, board.prdEvents, board.repositories]).toEqual(['unreadable', 'unreadable', 'unreadable']);
-    expect((board.people as { prs: unknown; prds: unknown }[])[0].prs).toBe('unreadable');
-    expect((board.people as { prs: unknown; prds: unknown }[])[0].prds).not.toBe('unreadable');
+    expect((board.people as { prs: unknown; prds: unknown }[])[0]!.prs).toBe('unreadable');
+    expect((board.people as { prs: unknown; prds: unknown }[])[0]!.prds).not.toBe('unreadable');
   });
 
   it('the PRDs now: only the PRDs tile and People\'s PRDs', async () => {

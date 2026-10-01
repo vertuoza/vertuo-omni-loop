@@ -74,10 +74,10 @@ describe('the OpenRouter classifier', () => {
     const classify = openRouterClassifier({ apiKey: 'sk-or-test', fetch });
     expect(await classify(INPUT)).toBe('business');
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect(calls[0].init.method).toBe('POST');
-    expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer sk-or-test');
-    const body = JSON.parse(String(calls[0].init.body));
+    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(calls[0]!.init.method).toBe('POST');
+    expect(new Headers(calls[0]!.init.headers).get('authorization')).toBe('Bearer sk-or-test');
+    const body = JSON.parse(String(calls[0]!.init.body));
     expect(typeof body.model).toBe('string');
     const prompt = body.messages.map((m: { content: string }) => m.content).join('\n');
     for (const category of CATEGORIES) expect(prompt).toContain(category);
@@ -92,7 +92,7 @@ describe('the OpenRouter classifier', () => {
     const { calls, fetch } = stub(() => completion('architecture'));
     const withPreview = { ...INPUT, questions: [{ question: 'Which table?', options: [{ label: 'A', preview: 'create table secret_preview ();' }] }] };
     await openRouterClassifier({ apiKey: 'k', fetch })(withPreview);
-    expect(String(calls[0].init.body)).not.toContain('secret_preview');
+    expect(String(calls[0]!.init.body)).not.toContain('secret_preview');
   });
 
   it('gives null for a reply outside the six', async () => {
