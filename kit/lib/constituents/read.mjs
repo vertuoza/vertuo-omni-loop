@@ -1,7 +1,7 @@
 // A product's constituents as the kit reads them (PRD 871): its Statement (what the product is) and its
 // Never list (what it must never become or do), from `GET /api/constituents?repo=` with the terminal's
-// sign-in. The reply is `{ state, product, statement, never, latestEventId }` (galaxy's
-// `src/constituents/model.ts`): `state` is `ok` exactly when there is a Statement or a Never line,
+// sign-in. The reply is `{ state, product, statement, never, latestEventId }` (the Omni page's
+// constituents model): `state` is `ok` exactly when there is a Statement or a Never line,
 // `product` is `{ name }` or null when the repository has no product, `statement` is
 // `{ id: 'statement', text }` or null, and `never` is `[{ id: 'never#<n>', text }]` in order.
 //
