@@ -35,7 +35,11 @@ export function demoRoster(galaxy: Pick<GalaxyView, 'heroes'>): Member[] {
     avatarUrl: null,
     fleet: h.name.toLowerCase() === DEMO_VIEWER.login ? null : h.team,
   }));
-  return [...heroes, ...NEWCOMERS];
+  // A season is a calendar month: on its first morning *you* have no point in it yet, so are no
+  // hero, and are still a member (bug 864).
+  const you: Member[] = heroes.some((m) => m.login === DEMO_VIEWER.login) ? []
+    : [{ userId: DEMO_VIEWER.userId, name: DEMO_VIEWER.login.toUpperCase(), login: DEMO_VIEWER.login, avatarUrl: null, fleet: null }];
+  return [...heroes, ...you, ...NEWCOMERS];
 }
 
 /** The made-up contributions: each member merges on a fixed rhythm of their own, PRDs open every
