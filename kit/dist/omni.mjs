@@ -34488,7 +34488,7 @@ var FUN_SECTION_FIELDS = [
 function describe3(file2, detail) {
   return `${file2}: ${detail}`;
 }
-function checkItemText(file2, text4, { laws } = {}) {
+function checkItemText(file2, text4, { laws }) {
   const parsed = parseItem(text4, file2);
   if (!parsed.ok) return parsed.errors;
   const { item: item2 } = parsed;
@@ -36621,7 +36621,7 @@ function toCandidate(entry, ledgerFile) {
     channel: entry.fields.Channel ?? null,
     channelUrl: entry.fields["Channel URL"] ?? null,
     closed: entry.fields.Closed ?? null,
-    rank: entry.fields.Rank ?? parsed.item?.rank ?? null
+    rank: entry.fields.Rank ?? (parsed.ok ? parsed.item.rank : null) ?? null
   };
 }
 function candidatesFromLedger(text4, { markers, ledgerFile = null }) {
