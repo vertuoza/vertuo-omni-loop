@@ -27959,6 +27959,27 @@ import { dirname as dirname2, join as join9, posix as posix4 } from "node:path";
 
 // kit/lib/init/labels.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/init/schema.ts
+init_define_OMNI_BUNDLE();
+var JsonObjectSchema = external_exports.record(external_exports.string(), external_exports.unknown());
+var ScriptsFileSchema = external_exports.looseObject({ scripts: JsonObjectSchema.optional() });
+var KitPackageSchema = external_exports.looseObject({
+  version: external_exports.unknown().optional().transform((value) => typeof value === "string" && value ? value : null)
+});
+var GhRepoSchema = external_exports.looseObject({
+  nameWithOwner: external_exports.string().nullish(),
+  defaultBranchRef: external_exports.looseObject({ name: external_exports.string().nullish() }).nullish()
+});
+var GhLabelsSchema = external_exports.array(external_exports.looseObject({ name: external_exports.string() }));
+var GhPullRequestsSchema = external_exports.array(
+  external_exports.looseObject({ url: external_exports.string().nullish(), number: external_exports.number().nullish() })
+);
+var ClaudePluginsSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown() }).nullable().catch(null));
+var ClaudeMarketplacesSchema = external_exports.array(external_exports.looseObject({ name: external_exports.unknown() }).nullable().catch(null));
+var CommandStatusLineSchema = external_exports.looseObject({ command: external_exports.string() });
+
+// kit/lib/init/labels.ts
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var LIST_LIMIT = 1e3;
 var LABEL_STYLES = {
@@ -27995,7 +28016,7 @@ function reconcileLabels(root, { exec, labels }) {
   const wanted = loopLabels(labels);
   let existing;
   try {
-    const listed2 = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET }));
+    const listed2 = GhLabelsSchema.parse(JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET })));
     existing = new Set(listed2.map((label) => String(label.name).toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
@@ -28033,7 +28054,7 @@ function findRoot(cwd, exec) {
   return realpathSync2(root);
 }
 function readRepo(root, { exec, remote }) {
-  const gh = attempt(() => JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 })));
+  const gh = attempt(() => GhRepoSchema.parse(JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 }))));
   const slug = gh?.nameWithOwner || attempt(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET2 })));
   const head = attempt(() => exec("git", ["symbolic-ref", `refs/remotes/${remote}/HEAD`], { cwd: root, ...QUIET2 }).trim());
   const prefix = `refs/remotes/${remote}/`;
@@ -37148,13 +37169,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/help/entries.ts
 init_define_OMNI_BUNDLE();
-var deepFreeze = (value) => {
+function deepFreeze(value) {
   if (value && typeof value === "object") {
     for (const inner of Object.values(value)) deepFreeze(inner);
     Object.freeze(value);
   }
   return value;
-};
+}
 var STAGES = deepFreeze([
   { name: "idea", line: "talked through with /omni:brainstorm, or /omni:think-big if vast" },
   { name: "PRD", line: "spec, plan and before/after, in a phase-0 PR a person reviews" },
@@ -37880,6 +37901,7 @@ var ENTRIES = deepFreeze([
 ]);
 
 // kit/lib/help/render.ts
+var hasLabel2 = (entry) => Boolean(entry.label);
 var HELP_WIDTH = 78;
 var HELP_INDENT = "  ";
 var LABEL_COLUMN = 24;
@@ -37897,7 +37919,7 @@ function repositoryWords(config3) {
     defaultBranch: config3.repo.defaultBranch
   };
 }
-var fillerFor = (words) => (text4) => text4.replace(/\{(\w+)\}/g, (whole, key) => Object.hasOwn(words, key) ? words[key] : whole);
+var fillerFor = (words) => (text4) => text4.replace(/\{(\w+)\}/g, (whole, key) => Object.hasOwn(words, key) ? words[key] ?? whole : whole);
 function wrapWords(text4, { width = HELP_WIDTH, indent = "" } = {}) {
   const lines = [];
   let line = "";
@@ -37932,11 +37954,11 @@ function renderOverview(config3, { entries: entries3 = ENTRIES } = {}) {
   lines.push("", ...wrapWords(PRINCIPLES.map(fill2).join(" "), { indent: HELP_INDENT }), "");
   lines.push("IN CLAUDE (type these)");
   for (const entry of entries3.filter((e) => e.kind === "skill" && e.who === "you")) {
-    lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
+    lines.push(overviewRow(fill2(entry.label ?? ""), fill2(entry.summary)));
   }
   lines.push("", "IN THE TERMINAL");
   const yours2 = entries3.filter((e) => e.kind === "command" && e.who === "you");
-  for (const entry of yours2.filter((e) => e.label)) {
+  for (const entry of yours2.filter(hasLabel2)) {
     lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
     for (const [label, text4] of entry.also ?? []) lines.push(overviewRow(fill2(label), fill2(text4)));
   }
@@ -37968,7 +37990,7 @@ function docsLines(entry, fill2) {
   ];
 }
 function entryLines(entry, fill2) {
-  const [first, ...more] = entry.usage.map(fill2);
+  const [first = "", ...more] = entry.usage.map(fill2);
   const who2 = WHO_RUNS[entry.who];
   const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
   const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill2(paragraph)));
@@ -38036,8 +38058,8 @@ function runningKit({ exec }) {
   if (MARKER2) return { home: MARKER2.home ?? null, version: MARKER2.version ?? null, source: false };
   let version3 = null;
   try {
-    const pkg = JSON.parse(readFileSync34(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8"));
-    version3 = typeof pkg.version === "string" && pkg.version ? pkg.version : null;
+    const text4 = readFileSync34(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8");
+    version3 = KitPackageSchema.parse(JSON.parse(text4)).version;
   } catch {
     version3 = null;
   }
@@ -38072,7 +38094,7 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     section3("laws", { source: lawsSource }),
     "",
     "# The Omni page ask mode's questions and the dossiers go to. null: ask mode and dossiers off.",
-    section3("ask", { url: signature.home }),
+    section3("ask", { url: signature?.home ?? null }),
     "",
     "# Whether omni dossier sends this repository's PRD folders to ask.url.",
     section3("dossier", { enabled: true }),
@@ -38093,12 +38115,15 @@ import { existsSync as existsSync38, readFileSync as readFileSync35 } from "node
 import { join as join45 } from "node:path";
 var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
 var NONE2 = Object.freeze({ test: null, preflight: null, preflightFull: null });
-function readJson2(file2) {
+function readScripts(file2) {
+  let value;
   try {
-    return JSON.parse(readFileSync35(file2, "utf8"));
+    value = JSON.parse(readFileSync35(file2, "utf8"));
   } catch {
     return {};
   }
+  const parsed = ScriptsFileSchema.safeParse(value);
+  return parsed.success ? parsed.data.scripts ?? {} : {};
 }
 function packageManager(root) {
   if (existsSync38(join45(root, "pnpm-lock.yaml"))) return "pnpm";
@@ -38107,7 +38132,7 @@ function packageManager(root) {
   return "npm";
 }
 function fromPackageJson(root) {
-  const scripts = readJson2(join45(root, "package.json")).scripts ?? {};
+  const scripts = readScripts(join45(root, "package.json"));
   const pm = packageManager(root);
   const has = (name) => Object.hasOwn(scripts, name);
   const test = has("test") ? `${pm} test` : null;
@@ -38117,7 +38142,7 @@ function fromPackageJson(root) {
   return { test, preflight, preflightFull };
 }
 function fromComposer(root) {
-  const scripts = readJson2(join45(root, "composer.json")).scripts ?? {};
+  const scripts = readScripts(join45(root, "composer.json"));
   const test = Object.hasOwn(scripts, "test") ? "composer test" : null;
   const preflight = Object.hasOwn(scripts, "preflight") ? "composer preflight" : test;
   return { test, preflight, preflightFull: preflight };
@@ -38194,7 +38219,7 @@ function formatterToExclude(root, dir) {
   const pkg = read(root, "package.json");
   let prettierInPackage = false;
   try {
-    prettierInPackage = pkg !== null && Object.hasOwn(JSON.parse(pkg), "prettier");
+    prettierInPackage = pkg !== null && Object.hasOwn(JsonObjectSchema.parse(JSON.parse(pkg)), "prettier");
   } catch {
     prettierInPackage = false;
   }
@@ -38228,19 +38253,20 @@ function statusLineSetting(bin) {
   };
 }
 function isKitStatusLine(value, bin) {
-  return typeof value?.command === "string" && value.command.includes(`${commandPath(bin)}" statusline`);
+  const parsed = CommandStatusLineSchema.safeParse(value);
+  return parsed.success && parsed.data.command.includes(`${commandPath(bin)}" statusline`);
 }
 function readSettings(file2) {
   try {
     return readFileSync37(file2, "utf8");
   } catch (error62) {
-    return error62?.code === "ENOENT" ? null : void 0;
+    return typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT" ? null : void 0;
   }
 }
 function parseSettings(text4) {
   try {
-    const value = JSON.parse(text4);
-    return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+    const parsed = JsonObjectSchema.safeParse(JSON.parse(text4));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -38381,19 +38407,19 @@ init_define_OMNI_BUNDLE();
 var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 var ID = `${PLUGIN}@${MARKETPLACE}`;
 var PLACEHOLDER_HOME = "<owner>/<kit repository>";
-function listed(exec, args) {
+function listed(exec, args, schema) {
   try {
-    const value = JSON.parse(exec("claude", [...args, "--json"], QUIET8));
-    return Array.isArray(value) ? value : null;
+    const parsed = schema.safeParse(JSON.parse(exec("claude", [...args, "--json"], QUIET8)));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 }
 function installPlugin({ exec, kitHome: kitHome2 }) {
-  if (listed(exec, ["plugin", "list"])?.some((plugin) => plugin?.id === ID)) return { outcome: "already" };
+  if (listed(exec, ["plugin", "list"], ClaudePluginsSchema)?.some((plugin) => plugin?.id === ID)) return { outcome: "already" };
   if (!kitHome2) return { outcome: "failed" };
   try {
-    const marketplaces = listed(exec, ["plugin", "marketplace", "list"]);
+    const marketplaces = listed(exec, ["plugin", "marketplace", "list"], ClaudeMarketplacesSchema);
     if (!marketplaces?.some((marketplace) => marketplace?.name === MARKETPLACE)) {
       exec("claude", ["plugin", "marketplace", "add", kitHome2], QUIET8);
     }
@@ -38474,8 +38500,8 @@ function switchToInstallBranch(root, { exec }) {
   return { outcome: exists ? "switched" : "created", branch };
 }
 function findPr(root, exec) {
-  const listed2 = attempt5(() => JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET9 })));
-  if (!listed2.ok || !Array.isArray(listed2.value)) return void 0;
+  const listed2 = attempt5(() => GhPullRequestsSchema.parse(JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET9 }))));
+  if (!listed2.ok) return void 0;
   const [pr] = listed2.value;
   return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
 }
