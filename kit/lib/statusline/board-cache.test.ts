@@ -1,10 +1,10 @@
-// @ts-nocheck
 // PRD #324, slice s6: the cached board — the file the background refresh writes in the main checkout,
 // its age, its lock, and the one detached refresh the status line starts when the file is missing or
 // a minute old. The clock and the spawn are injected: no test here starts a real process.
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { SpawnOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   BOARD_DIR,
@@ -33,25 +33,26 @@ const SESSION = '/work/repo/.claude/worktrees/s2';
 const SCRIPT = '/work/repo/.omni-loop/bin/omni.mjs';
 
 const tempRoot = () => mkdtempSync(join(tmpdir(), 'omni-board-cache-'));
-const iso = (ms) => new Date(ms).toISOString();
+const iso = (ms: number) => new Date(ms).toISOString();
 
-/** A board file written by hand, its `at` `age` milliseconds before `NOW`. */
-function plantBoard(root, prd, age, body = { slices: SLICES }) {
+/** A board file written by hand, its `at` `age` milliseconds before `NOW`; `body` any JSON at all. */
+function plantBoard(root: string, prd: number, age: number, body: Record<string, unknown> = { slices: SLICES }) {
   mkdirSync(join(root, BOARD_DIR), { recursive: true });
   writeFileSync(boardFile(root, prd), `${JSON.stringify({ at: iso(NOW - age), ...body })}\n`);
 }
 
 /** A lock written by hand, taken `age` milliseconds before `NOW`. */
-function plantLock(root, prd, age) {
+function plantLock(root: string, prd: number, age: number) {
   mkdirSync(join(root, BOARD_DIR), { recursive: true });
   writeFileSync(lockFile(root, prd), `${JSON.stringify({ at: iso(NOW - age) })}\n`);
 }
 
 /** A spawn that starts nothing: it records each call, and whether its child was let go. */
 function fakeSpawn() {
-  const calls = [];
-  const spawn = (command, args, options) => {
-    const child = { unrefed: false, unref() { this.unrefed = true; }, on() { return this; } };
+  type Child = { unrefed: boolean; unref(): void; on(): Child };
+  const calls: { command: string; args: readonly string[]; options: SpawnOptions; child: Child }[] = [];
+  const spawn = (command: string, args: readonly string[], options: SpawnOptions) => {
+    const child: Child = { unrefed: false, unref() { this.unrefed = true; }, on() { return this; } };
     calls.push({ command, args, options, child });
     return child;
   };
@@ -59,7 +60,7 @@ function fakeSpawn() {
 }
 
 /** What the status line shows for PRD 7 in `root` at `now`, and the refreshes it started. */
-function show(root, now = NOW) {
+function show(root: string, now = NOW) {
   const { calls, spawn } = fakeSpawn();
   const slices = cachedSlices({ root, prd: 7, now, cwd: SESSION, spawn, script: SCRIPT, env: { PATH: '/bin' } });
   return { slices, calls };
@@ -84,7 +85,7 @@ describe('the board file', () => {
   it('reads only the id, the wave and the state of each slice', () => {
     const root = tempRoot();
     plantBoard(root, 7, 0, { slices: [{ id: 's1', wave: 1, state: 'merged', title: 'extra', pr: { number: 3 } }] });
-    expect(readBoard(root, 7).slices).toEqual([{ id: 's1', wave: 1, state: 'merged' }]);
+    expect(readBoard(root, 7)?.slices).toEqual([{ id: 's1', wave: 1, state: 'merged' }]);
   });
 
   it('reads a file with no time it can read as missing, and slices it cannot read as an error', () => {
@@ -175,7 +176,7 @@ describe('the status line starts the refresh', () => {
     const { slices, calls } = show(root);
     expect(slices).toBeNull();
     expect(calls).toHaveLength(1);
-    const [{ command, args, options, child }] = calls;
+    const { command, args, options, child } = calls[0]!;
     expect(command).toBe(process.execPath);
     expect(args).toEqual([SCRIPT, 'statusline', '--refresh', '7']);
     expect(options).toMatchObject({ cwd: SESSION, detached: true, stdio: 'ignore', env: { PATH: '/bin' } });
@@ -235,11 +236,11 @@ describe('the status line starts the refresh', () => {
       throw new Error('EAGAIN');
     };
     expect(cachedSlices({ root, prd: 7, now: NOW, cwd: SESSION, spawn: throwing, script: SCRIPT })).toBeNull();
-    const listeners = [];
-    const child = { unref() {}, on(event, listener) { listeners.push([event, listener]); return this; } };
+    const listeners: [string, (error: Error) => void][] = [];
+    const child = { unref() {}, on(event: 'error', listener: (error: Error) => void) { listeners.push([event, listener]); return this; } };
     startRefresh({ spawn: () => child, script: SCRIPT, cwd: SESSION, prd: 7 });
     expect(listeners.map(([event]) => event)).toEqual(['error']);
-    expect(() => listeners[0][1](new Error('ENOENT'))).not.toThrow();
+    expect(() => listeners[0]?.[1](new Error('ENOENT'))).not.toThrow();
   });
 
   it('runs this omni.mjs: the kit source entry, when not bundled', () => {

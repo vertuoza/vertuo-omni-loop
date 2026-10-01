@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The board the status line shows (PRD 324's spec, "The board"): a file the background refresh writes
 // in the main checkout, so that the status line itself never waits on GitHub (the spec's D5 and D12).
 //
@@ -18,12 +17,30 @@
 //   writes nothing. It builds the board, writes the file to a temporary name and renames it into
 //   place, then removes the lock, unless another refresh took it over meanwhile. Any failure is
 //   written as the error entry, so that the next try comes 60 seconds later, not on every render.
+import type { SpawnOptions } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LOCAL_DIR } from '../ask/local-state.ts';
 import { runningBundle } from '../init/bundle.ts';
+import { BoardFileSchema, LockFileSchema } from './schema.ts';
+import type { BoardSlice } from './schema.ts';
+
+/** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
+export type Board = { at: number; slices: BoardSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
+
+/** A board entry as it is written, `at` an ISO time. */
+export type BoardEntry = { at: string; slices: BoardSlice[] } | { at: string; error: string };
+
+/** What starts the refresh: shaped like `spawn` from `node:child_process`; its child may be anything. */
+export type Spawn = (command: string, args: readonly string[], options: SpawnOptions) => {
+  on?: (event: 'error', listener: (error: Error) => void) => unknown;
+  unref?: () => unknown;
+} | null | undefined;
+
+/** `value[key]` for an object `value`, else `undefined`. */
+const prop = (value: unknown, key: string): unknown => (typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined);
 
 export const BOARD_DIR = join(LOCAL_DIR, 'statusline');
 /** How old a board may be before the status line starts a refresh. */
@@ -34,13 +51,11 @@ export const SHOWN_UNDER_MS = 10 * 60 * 1000;
 export const LOCK_ABANDONED_MS = 2 * 60 * 1000;
 const UNREADABLE = 'the board file holds no slices it can read';
 
-export const boardFile = (root, prd) => join(root, BOARD_DIR, `board-${prd}.json`);
-export const lockFile = (root, prd) => join(root, BOARD_DIR, `board-${prd}.lock`);
+export const boardFile = (root: string, prd: number): string => join(root, BOARD_DIR, `board-${prd}.json`);
+export const lockFile = (root: string, prd: number): string => join(root, BOARD_DIR, `board-${prd}.lock`);
 
-const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isSlice = (value) => isObject(value) && typeof value.id === 'string' && Number.isInteger(value.wave) && typeof value.state === 'string';
 /** `fn()`, or `fallback` when it throws. */
-function attempt(fn, fallback) {
+function attempt<T, F>(fn: () => T, fallback: F): T | F {
   try {
     return fn();
   } catch {
@@ -49,51 +64,57 @@ function attempt(fn, fallback) {
 }
 
 /** The `.omni-loop` file that runs this `omni`: the bundle when bundled, else the kit source's entry. */
-export function omniScript() {
+export function omniScript(): string {
   return runningBundle() ?? fileURLToPath(new URL('../../bin/omni.ts', import.meta.url));
 }
 
 /** PRD `prd`'s board in the checkout at `root`: `{ at, slices }` or `{ at, error }` (`at` in
  * milliseconds), or `null` when the file is missing or its time cannot be read. */
-export function readBoard(root, prd) {
-  const value = attempt(() => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')), null);
-  if (!isObject(value) || typeof value.at !== 'string') return null;
-  const at = Date.parse(value.at);
+export function readBoard(root: string, prd: number): Board | null {
+  const value: unknown = attempt(() => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')), null);
+  const parsed = BoardFileSchema.safeParse(value);
+  if (!parsed.success) return null;
+  const at = Date.parse(parsed.data.at);
   if (Number.isNaN(at)) return null;
-  if (Array.isArray(value.slices) && value.slices.every(isSlice)) {
-    return { at, slices: value.slices.map(({ id, wave, state }) => ({ id, wave, state })) };
-  }
-  return { at, error: typeof value.error === 'string' ? value.error : UNREADABLE };
+  const { slices, error } = parsed.data;
+  if (slices) return { at, slices };
+  return { at, error: error ?? UNREADABLE };
 }
 
 /** How long before `now` the board was written; `null` for no board or one written after `now`. */
-function ageOf(board, now) {
+function ageOf(board: Board | null | undefined, now: number): number | null {
   if (!board) return null;
   const age = now - board.at;
   return age >= 0 ? age : null;
 }
 
 /** The slices to show: the board's, when it holds slices under 10 minutes old; else `null`. */
-export function shownSlices(board, now) {
+export function shownSlices(board: Board | null | undefined, now: number): BoardSlice[] | null {
   const age = ageOf(board, now);
   return board?.slices && age !== null && age < SHOWN_UNDER_MS ? board.slices : null;
 }
 
 /** Whether a refresh is due: no board, or one 60 seconds old or more. */
-export function refreshDue(board, now) {
+export function refreshDue(board: Board | null | undefined, now: number): boolean {
   const age = ageOf(board, now);
   return age === null || age >= REFRESH_AFTER_MS;
 }
 
+/** The lock in `path`, read; `null` when it cannot be read or is not the shape. */
+function readLock(path: string): { at?: string | undefined; owner?: string | undefined } | null {
+  const parsed = LockFileSchema.safeParse(JSON.parse(readFileSync(path, 'utf8')));
+  return parsed.success ? parsed.data : null;
+}
+
 /** When the lock in `path` was taken: its `at`, else the file's own time; `null` without a lock. */
-function lockedAt(path) {
+function lockedAt(path: string): number | null {
   if (!existsSync(path)) return null;
-  const at = attempt(() => Date.parse(JSON.parse(readFileSync(path, 'utf8')).at), Number.NaN);
+  const at = attempt(() => Date.parse(readLock(path)?.at ?? ''), Number.NaN);
   return Number.isNaN(at) ? attempt(() => statSync(path).mtimeMs, null) : at;
 }
 
 /** Whether a refresh of PRD `prd` holds the lock: one under 2 minutes old (a time after `now` counts as old). */
-export function lockHeld(root, prd, now) {
+export function lockHeld(root: string, prd: number, now: number): boolean {
   const at = lockedAt(lockFile(root, prd));
   return at !== null && now - at >= 0 && now - at < LOCK_ABANDONED_MS;
 }
@@ -101,10 +122,8 @@ export function lockHeld(root, prd, now) {
 /**
  * Starts `node <script> statusline --refresh <prd>` in `cwd`, detached, its output ignored, and lets
  * it go. Never waits, never throws: a child that fails to start is ignored.
- *
- * @param {{ spawn: Function, script: string, cwd: string, prd: number, env?: object }} options
  */
-export function startRefresh({ spawn, script, cwd, prd, env }) {
+export function startRefresh({ spawn, script, cwd, prd, env }: { spawn: Spawn; script: string; cwd: string; prd: number; env?: NodeJS.ProcessEnv | undefined }): void {
   try {
     const child = spawn(process.execPath, [script, 'statusline', '--refresh', String(prd)], {
       cwd,
@@ -125,12 +144,16 @@ export function startRefresh({ spawn, script, cwd, prd, env }) {
  * board under 10 minutes old, else `null`. When the board is missing or 60 seconds old and no
  * refresh holds the lock, it starts one in `cwd` (the session's folder) with `spawn`, never waiting;
  * without `spawn`, nothing starts. Writes nothing, never throws.
- *
- * @param {{ root: string, prd: number, now: number, cwd: string, spawn?: Function | null,
- *   script?: string, env?: object }} options
- * @returns {{ id: string, wave: number, state: string }[] | null}
  */
-export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }) {
+export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }: {
+  root: string;
+  prd: number;
+  now: number;
+  cwd: string;
+  spawn?: Spawn | null;
+  script?: string;
+  env?: NodeJS.ProcessEnv | undefined;
+}): BoardSlice[] | null {
   const board = attempt(() => readBoard(root, prd), null);
   if (spawn && refreshDue(board, now) && !attempt(() => lockHeld(root, prd, now), true)) {
     startRefresh({ spawn, script: script ?? omniScript(), cwd, prd, env });
@@ -139,14 +162,14 @@ export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env })
 }
 
 /** The folder of the board files, and the local folder's `.gitignore`, written once. */
-function ensureBoardDir(root) {
+function ensureBoardDir(root: string): void {
   mkdirSync(join(root, BOARD_DIR), { recursive: true });
   const ignore = join(root, LOCAL_DIR, '.gitignore');
   if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
 }
 
 /** Writes PRD `prd`'s board entry: to a temporary name, then renamed into place. */
-export function writeBoard(root, prd, entry) {
+export function writeBoard(root: string, prd: number, entry: BoardEntry): void {
   ensureBoardDir(root);
   const path = boardFile(root, prd);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
@@ -159,13 +182,13 @@ export function writeBoard(root, prd, entry) {
 }
 
 /** Creates the lock exclusively, holding `{ at, owner }`; `null` when it exists. */
-function createLock(path, now) {
+function createLock(path: string, now: number): string | null {
   const owner = `${process.pid}-${randomUUID()}`;
-  let fd;
+  let fd: number;
   try {
     fd = openSync(path, 'wx');
   } catch (error) {
-    if (error?.code === 'EEXIST') return null;
+    if (prop(error, 'code') === 'EEXIST') return null;
     throw error;
   }
   try {
@@ -178,7 +201,7 @@ function createLock(path, now) {
 
 /** Takes PRD `prd`'s lock, taking over one 2 minutes old or more: its owner token, or `null` while
  * another refresh holds it. */
-export function takeLock(root, prd, now) {
+export function takeLock(root: string, prd: number, now: number): string | null {
   ensureBoardDir(root);
   const path = lockFile(root, prd);
   const owner = createLock(path, now);
@@ -188,29 +211,26 @@ export function takeLock(root, prd, now) {
 }
 
 /** Removes PRD `prd`'s lock, unless another refresh took it over since `owner` took it. */
-function releaseLock(root, prd, owner) {
+function releaseLock(root: string, prd: number, owner: string): void {
   const path = lockFile(root, prd);
-  const held = attempt(() => JSON.parse(readFileSync(path, 'utf8')).owner, null);
+  const held = attempt(() => readLock(path)?.owner, null);
   if (held === owner) rmSync(path, { force: true });
 }
 
 /** The first line of what `error` says. */
-const oneLine = (error) => String(error?.message ?? error).split('\n')[0].trim() || 'the board could not be built';
+const oneLine = (error: unknown): string => (String(prop(error, 'message') ?? error).split('\n')[0] ?? '').trim() || 'the board could not be built';
 
 /**
  * The refresh of PRD `prd`'s board in the main checkout at `root`: takes the lock (`'held'`, and
  * nothing written, while another refresh holds it), writes what `build()` returns as the board's
  * slices, or what it throws as the error entry, then removes the lock (`'written'`).
- *
- * @param {{ root: string, prd: number, now: number, build: () => { id: string, wave: number, state: string }[] }} options
- * @returns {'written' | 'held'}
  */
-export function refreshBoard({ root, prd, now, build }) {
+export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly BoardSlice[] }): 'written' | 'held' {
   const owner = takeLock(root, prd, now);
   if (owner === null) return 'held';
   try {
     const at = new Date(now).toISOString();
-    let entry;
+    let entry: BoardEntry;
     try {
       entry = { at, slices: build().map(({ id, wave, state }) => ({ id, wave, state })) };
     } catch (error) {

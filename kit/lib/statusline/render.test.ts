@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slices s1, s4 and s6: the status line's lines, drawn from what was read — the context bar
 // and its colours, the 5-hour usage, `ask on`, the PRD line with its slices and the no-PRD line, the
 // width and `NO_COLOR`.
@@ -26,7 +25,7 @@ const RESET = '\x1b[0m';
 const NOW = Date.parse('2026-09-28T12:00:00Z');
 const MINUTE = 60_000;
 
-const bar = (filled) => '█'.repeat(filled) + '░'.repeat(10 - filled);
+const bar = (filled: number) => '█'.repeat(filled) + '░'.repeat(10 - filled);
 
 /** What `parseInput` gives for a full payload: 58.9 % of the context, 25.4 % of the window, 90 minutes left. */
 const INPUT = {
@@ -65,7 +64,7 @@ describe('the context part', () => {
 });
 
 describe('the 5-hour usage part', () => {
-  const window = (minutes, percent = 25.4) => ({ percent, resetsAt: NOW + minutes * MINUTE });
+  const window = (minutes: number, percent = 25.4) => ({ percent, resetsAt: NOW + minutes * MINUTE });
 
   it('reads the percentage rounded down and the time to the reset', () => {
     expect(usagePart(window(90), NOW)).toBe('usage 25%, resets in 1h30');
@@ -157,8 +156,8 @@ describe('renderLines', () => {
       const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env, now: NOW });
       expect(lines).toHaveLength(2);
       for (const line of lines) expect(visibleLength(line)).toBeLessThanOrEqual(columns);
-      if (visibleLength(LINE_1) > columns) expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
-      else expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
+      if (visibleLength(LINE_1) > columns) expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
+      else expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
       expect(lines[1]).toBe(NO_PRD_LINE);
     }
   });
@@ -166,7 +165,7 @@ describe('renderLines', () => {
   it('cuts a line too wide at its end with `…`, closing any colour it cut into', () => {
     const [line] = renderLines({ input: INPUT, facts: null, env: { COLUMNS: '24' }, now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}████${RESET}…`);
-    expect(visibleLength(line)).toBe(24);
+    expect(visibleLength(line!)).toBe(24);
   });
 
   it('does not cut a coloured line whose visible width fits exactly', () => {
@@ -270,7 +269,7 @@ describe('line 2: the PRD', () => {
     const facts = { installed: true, askOn: true, prd: LONG };
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
       const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
       expect(line).not.toContain('\x1b');
       if (columns < 63) expect(line).toMatch(/^PRD 324 statusl[^ ]*… · s4 · /);
       else expect(line).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
@@ -279,7 +278,7 @@ describe('line 2: the PRD', () => {
 });
 
 describe('line 2: the slices, from the board (slice s6)', () => {
-  const slice = (id, wave, state) => ({ id, wave, state });
+  const slice = (id: string, wave: number, state: string) => ({ id, wave, state });
   /** Five slices over four waves: three merged, the lowest wave not all merged is 2. */
   const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'runnable'), slice('s5', 4, 'blocked')];
   const HELP = { number: 315, topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
@@ -342,8 +341,8 @@ describe('line 2: the slices, from the board (slice s6)', () => {
     const full = 'PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items';
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
       const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
-      const shown = line.replace(/\x1b\[[0-9;]*m/g, '');
+      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
+      const shown = line!.replace(/\x1b\[[0-9;]*m/g, '');
       if (columns >= full.length) expect(shown).toBe(full);
       else expect(shown.startsWith('PRD 315 help-an… · outbox · wave 2 of 2')).toBe(true);
       if (columns === 80) expect(shown).toBe('PRD 315 help-an… · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open i…');
