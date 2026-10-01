@@ -4,6 +4,7 @@
 // later step. Nothing here throws: a sign-in that did not happen never makes init fail. A sign-in done
 // here ends on `omni signin`'s own line, which names where this repository goes (PRD 459).
 import { credentials, credentialsHost } from '../ask/credentials.ts';
+import type { Tokens } from '../ask/schema.ts';
 import type { StepLines } from './plugin.ts';
 
 /** What the sign-in step did, and who and where for. */
@@ -16,7 +17,9 @@ export type SignInResult = {
 };
 
 /** A kept sign-in, the fields that say who it is. */
-type KeptSignIn = { email?: string | null; login?: string | null };
+/** A kept sign-in field as text: `null` kept as `null`, anything else that is not text as absent. */
+const textOf = (value: unknown): string | null | undefined =>
+  typeof value === 'string' ? value : value === null ? null : undefined;
 
 /**
  * `askUrl` is the config's `ask.url`; `home` the folder the credentials live under (the person's
@@ -49,7 +52,7 @@ export async function signInStep({ askUrl, home, interactive, signIn }: {
 }
 
 /** Who a kept sign-in is: its email, or its GitHub login when the account keeps its email private. */
-const who = (entry: KeptSignIn): string | null | undefined => entry.email ?? entry.login;
+const who = (entry: Tokens): string | null | undefined => textOf(entry.email) ?? textOf(entry.login);
 
 /**
  * The sign-in's status line, and `omni signin` as the line to type later when it was not done.
