@@ -81,7 +81,7 @@ describe('the user menu', () => {
   it('signs out through signOutAndLeave, with the browser client', () => {
     const source = readFileSync(new URL('./UserMenu.tsx', import.meta.url), 'utf8');
     expect(source).toContain('signOutAndLeave(');
-    expect(source).toContain('createBrowserClient(');
+    expect(source).toContain('createBrowserClient<Database>(');
   });
 });
 

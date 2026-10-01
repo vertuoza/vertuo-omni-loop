@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { buttonKey, initialOf, menuKey, profileHref, publicSupabase, signInFromBar, signOutAndLeave } from './user-menu';
 import type { ViewerView } from './viewer-view';
 import './user-menu.css';
@@ -68,7 +69,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   async function signOut() {
     setBusy(true);
     const supabase = publicSupabase();
-    await signOutAndLeave(supabase && createBrowserClient(supabase.url, supabase.key), (to) => window.location.assign(to));
+    await signOutAndLeave(supabase && createBrowserClient<Database>(supabase.url, supabase.key), (to) => window.location.assign(to));
   }
 
   return (

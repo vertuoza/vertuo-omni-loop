@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { poll } from '../ask/page/poll';
 import {
   announce, claimChime, desktopAtLoad, playChime, raiseAlerts, readSwitches, switchDesktopOn, writeSwitches,
@@ -156,7 +157,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
 
   useEffect(() => {
     if (!url || !key || !me) return;
-    const read = questionsReader(createBrowserClient(url, key), me);
+    const read = questionsReader(createBrowserClient<Database>(url, key), me);
     const log = onceEach();
     return pollQuestions(async () => {
       try {
@@ -205,7 +206,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
     if (!url || !key || !me) return;
-    const read = documentsReader(createBrowserClient(url, key), me);
+    const read = documentsReader(createBrowserClient<Database>(url, key), me);
     const loadedAt = Date.now();
     const log = onceEach();
     // What this tab announced, standing in for storage that cannot be read (s2).
