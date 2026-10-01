@@ -16,6 +16,16 @@ describe('the demo board', () => {
     expect(roster.filter((m) => !galaxy.heroes.some((h) => h.name.toLowerCase() === m.login)).map((m) => m.fleet)).toEqual(['builders', null]);
   });
 
+  // Bug 864: a season is a calendar month, so on its first morning the demo's you has no point in it
+  // yet and is no hero; the demo's you is still a member, whatever the day.
+  it('keeps you on the roster, solo, on a season\'s first morning, before you score in it', () => {
+    for (const at of ['2026-10-01T00:30:00Z', '2026-10-01T08:00:00Z', '2026-11-01T06:00:00Z', '2027-01-01T09:00:00Z']) {
+      const now = new Date(at);
+      const roster = demoRoster(buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' }));
+      expect(roster.filter((m) => m.login === DEMO_VIEWER.login), at).toEqual([expect.objectContaining({ userId: DEMO_VIEWER.userId, fleet: null })]);
+    }
+  });
+
   for (const period of ['7d', '30d', 'season'] as const) {
     it(`shows every part of the workspace's board over ${period}`, () => {
       const board = demoBoard(galaxy, { scope: { kind: 'workspace' }, people: { kind: 'workspace' }, period, now: NOW });

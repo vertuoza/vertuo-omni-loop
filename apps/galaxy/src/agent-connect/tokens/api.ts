@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { refuse, reply } from '../../business-api/reply';
 import { mcpUrlOf, nameOf, NAME_MAX } from './model';
 import { AgentTokenStoreError, type AgentTokenStore } from './store';
@@ -31,9 +32,12 @@ export interface TokenRouteDeps {
 
 const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
 
+/** A JSON object body, or null for anything else (no body, not JSON, an array, a scalar). */
+const bodySchema = z.record(z.string(), z.unknown());
+
 async function bodyOf(request: Request): Promise<Record<string, unknown> | null> {
-  const sent: unknown = await request.json().catch(() => null);
-  return sent && typeof sent === 'object' && !Array.isArray(sent) ? (sent as Record<string, unknown>) : null;
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  return parsed.success ? parsed.data : null;
 }
 
 /** The origin the request reached galaxy at, as the browser saw it. */

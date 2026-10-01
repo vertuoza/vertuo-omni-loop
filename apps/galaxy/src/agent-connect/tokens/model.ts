@@ -10,9 +10,9 @@ export const NAME_MAX = 40;
 /** The live links one person may hold (decision 7). */
 export const LIVE_MAX = 20;
 /** The name the setup gives the MCP server in the editor. */
-export const SERVER_NAME = 'omni-business';
+const SERVER_NAME = 'omni-business';
 /** Where an MCP client reaches the business on galaxy. */
-export const MCP_PATH = '/api/mcp';
+const MCP_PATH = '/api/mcp';
 
 const agentTokenSchema = z.object({
   id: z.string().min(1),
