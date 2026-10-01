@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The gate holds the feature pull request** (PRD #985, slice s3; a second reason to be red added
  * by PRD #1044, slice s4; a third reason added by this task).
@@ -44,16 +43,38 @@
 import { existsSync } from 'node:fs';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';
+import type { Config } from '../types.ts';
 import { compare, readAccounts } from './account.ts';
+import type { Change, RiskyChange } from './account.ts';
 import { riskyChanges } from './decision-coverage.ts';
 import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
+import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+
+/** The part of the context the gate reads. */
+type GateContext = OutboxContext & { config: Config };
+
+/** One open item, described for the report: `id` and `rank` are `null` when the file fails to parse. */
+export type OpenItem = { file: string; id: string | null; rank: string | null };
+
+/** A drifted decision not yet reworked: its id and its `Closed:` line. */
+export type UnreworkedEntry = { id: string; closedLine: string };
+
+/** What {@link gateResult} returns; `unaccounted` is there only when the range was graded. */
+export type GateResult = {
+  ok: boolean;
+  items: OpenItem[];
+  overridden: boolean;
+  unreworked: UnreworkedEntry[];
+  unaccounted?: RiskyChange[];
+  overrideLabel: string;
+};
 
 /**
  * Every open item file for one PRD, sorted — `outboxItemFiles({ ctx })` scoped to its own
  * directory. A PRD with no folder at all (`ctx.layout.outboxDir(prd)` is `null`) has nothing open.
  */
-export function openItemFiles(prd, { ctx }) {
+export function openItemFiles(prd: string | number, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): string[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const prefix = `${outboxDir}/`;
@@ -65,7 +86,7 @@ export function openItemFiles(prd, { ctx }) {
  * }` when the file itself does not parse — a malformed item still holds the gate; it does not need
  * to be well-formed to count as open.
  */
-function describeItem(file, { ctx }) {
+function describeItem(file: string, { ctx }: { ctx: { root: string } }): OpenItem {
   const text = readRepoFile(ctx, file);
   const parsed = parseOutboxItem(text, { file });
   return parsed.ok
@@ -74,7 +95,7 @@ function describeItem(file, { ctx }) {
 }
 
 /** Every open item for one PRD, described for the report. */
-export function openItems(prd, { ctx }) {
+export function openItems(prd: string | number, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): OpenItem[] {
   return openItemFiles(prd, { ctx }).map((file) => describeItem(file, { ctx }));
 }
 
@@ -90,11 +111,13 @@ export function openItems(prd, { ctx }) {
  * @param {{ ctx: object }} options
  * @returns {{ path: string, status: string, rule: string }[]}
  */
-export function unaccountedChanges(prd, changes, { ctx }) {
-  const risky = riskyChanges(changes, { ctx });
-  const accounts = readAccounts(prd, { ctx })
-    .filter((result) => result.ok)
-    .map((result) => result.account);
+export function unaccountedChanges(
+  prd: string | number,
+  changes: readonly Change[],
+  { ctx }: { ctx: GateContext },
+): RiskyChange[] {
+  const risky: RiskyChange[] = riskyChanges(changes, { ctx });
+  const accounts = readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [result.account] : []));
   return compare(risky, accounts).unaccounted;
 }
 
@@ -109,7 +132,7 @@ export function unaccountedChanges(prd, changes, { ctx }) {
  * @param {{ ctx: object }} options
  * @returns {{ id: string, closedLine: string }[]}
  */
-export function unreworkedDrift(prd, { ctx }) {
+export function unreworkedDrift(prd: string | number, { ctx }: { ctx: OutboxContext }): UnreworkedEntry[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
@@ -117,7 +140,7 @@ export function unreworkedDrift(prd, { ctx }) {
   const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
   return entries
     .filter((entry) => entry.verdict === 'drifted' && !entry.closed)
-    .map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
+    .map((entry): UnreworkedEntry => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
 
 /**
@@ -134,7 +157,10 @@ export function unreworkedDrift(prd, { ctx }) {
  * @param {string | number} prd
  * @param {{ ctx: object, labels?: string[], changes?: { path: string, status: string }[] | null }} options
  */
-export function gateResult(prd, { ctx, labels = [], changes = null } = {}) {
+export function gateResult(
+  prd: string | number,
+  { ctx, labels = [], changes = null }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null },
+): GateResult {
   const items = openItems(prd, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });
   const overrideLabel = ctx.config.labels.outboxGo;
@@ -151,15 +177,15 @@ export function gateResult(prd, { ctx, labels = [], changes = null } = {}) {
   return { ok, items, overridden, unreworked, unaccounted, overrideLabel };
 }
 
-function formatItem(item) {
+function formatItem(item: OpenItem): string {
   return item.rank ? `  - ${item.file} (${item.rank})` : `  - ${item.file}`;
 }
 
-function formatUnaccounted(change) {
+function formatUnaccounted(change: RiskyChange): string {
   return `  - ${change.path} (${change.rule})`;
 }
 
-function formatUnreworked(entry) {
+function formatUnreworked(entry: UnreworkedEntry): string {
   return `  - ${entry.id}`;
 }
 
@@ -169,8 +195,18 @@ function formatUnreworked(entry) {
  * there is any), and, when `result` carries an `unaccounted` field at all (i.e. the caller graded
  * the range), the unaccounted-change count too.
  */
-export function formatReport(prd, result) {
-  const lines = [];
+export function formatReport(
+  prd: string | number,
+  result: {
+    ok?: boolean;
+    items: readonly OpenItem[];
+    overridden?: boolean;
+    overrideLabel?: string;
+    unreworked?: readonly UnreworkedEntry[];
+    unaccounted?: readonly RiskyChange[];
+  },
+): string {
+  const lines: string[] = [];
 
   if (result.items.length === 0) {
     lines.push(`outbox-status — PRD #${prd}: no open item.`);
@@ -179,12 +215,13 @@ export function formatReport(prd, result) {
     lines.push(...result.items.map(formatItem));
   }
 
-  if ((result.unreworked ?? []).length > 0) {
-    const n = result.unreworked.length;
+  const unreworked = result.unreworked ?? [];
+  if (unreworked.length > 0) {
+    const n = unreworked.length;
     lines.push(
       `${n} drifted decision${n === 1 ? '' : 's'} not yet reworked — run ${COMMANDS.yoloFix} #${prd}`,
     );
-    lines.push(...result.unreworked.map(formatUnreworked));
+    lines.push(...unreworked.map(formatUnreworked));
   }
 
   if (result.unaccounted !== undefined) {

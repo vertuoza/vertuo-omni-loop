@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The PRD issue carries one comment, kept current** (PRD #985, slice s4).
  *
@@ -88,12 +87,54 @@
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/outbox--comment.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { z } from 'zod';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';
+import type { Config, OutboxItem, OutboxOption, OutboxSections, Rank } from '../types.ts';
+import type { Change } from './account.ts';
 import { assignBanter } from './banter.ts';
+import type { Banter } from './banter.ts';
 import { RANK_ORDER, SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
+import type { OutboxContext } from './outbox.ts';
 import { ADOPTED_VERDICT, parseSettledEntries } from './settle.ts';
 import { unaccountedChanges, unreworkedDrift } from './status.ts';
+
+type Markers = OutboxContext['markers'];
+
+/** The part of the context the comment writers read. */
+type CommentContext = OutboxContext & { config: Config };
+
+/** What this module reads of a settled entry (`parseSettledEntries`, `settle.ts`). */
+export type SettledEntryView = {
+  id: string;
+  verdict: string;
+  closed: boolean;
+  fields: Record<string, string>;
+  answerText: string;
+  itemText: string;
+};
+
+/** One permanent question number: `<number>=<item id>@<ISO time first listed>`. */
+export type Numbering = { number: number; id: string; since: string };
+
+/** One comment of an issue or a pull request, as the client lists it. */
+export type IssueComment = { id: number; body?: string | null; html_url?: string | null };
+
+/** The comment as the client hands it back after a create or an update. */
+type WrittenComment = { id?: number | null; html_url?: string | null } | null | undefined;
+
+/** The client a comment writer goes through, scoped to one issue or pull request. */
+export type CommentClient = {
+  listComments: () => IssueComment[];
+  createComment: (body: string) => WrittenComment;
+  updateComment: (id: number, body: string) => WrittenComment;
+};
+
+/** Who the Slack note names: a Slack id (a mention) or a GitHub login (plain text). */
+export type SlackOwner = { slackId: string } | { login: string };
+
+/** An unaccounted change, as the comment lists it. */
+type RuleChange = { path: string; rule: string };
 
 export { parseNameStatus } from '../git.ts';
 export { unaccountedChanges };
@@ -109,11 +150,11 @@ export { unaccountedChanges };
  * @param {{ ctx: object }} options
  * @returns {object[]} parsed items (see `outbox.mjs`'s `parseOutboxItem`), unsorted
  */
-export function openItemsForPrd(prd, { ctx }) {
+export function openItemsForPrd(prd: string | number, { ctx }: { ctx: OutboxContext }): OutboxItem[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const prefix = `${outboxDir}/`;
-  const items = [];
+  const items: OutboxItem[] = [];
   for (const file of outboxItemFiles({ ctx })) {
     if (!file.startsWith(prefix)) continue;
     const parsed = parseOutboxItem(readRepoFile(ctx, file), { file });
@@ -127,14 +168,14 @@ export function openItemsForPrd(prd, { ctx }) {
  * comment's order is stable run to run rather than depending on directory listing order. Pure —
  * returns a new array, never mutates its input.
  */
-export function sortItems(items) {
+export function sortItems<T extends { id: string; rank: Rank }>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => {
     const byRank = RANK_ORDER[b.rank] - RANK_ORDER[a.rank];
     return byRank !== 0 ? byRank : a.id.localeCompare(b.id);
   });
 }
 
-function fileUrl({ owner, repo, ref, file }) {
+function fileUrl({ owner, repo, ref, file }: { owner: string; repo: string; ref: string; file: string | null }): string {
   return `https://github.com/${owner}/${repo}/blob/${ref}/${file}`;
 }
 
@@ -143,7 +184,7 @@ function fileUrl({ owner, repo, ref, file }) {
  * to run — the same reasoning `sortItems` uses for open items. Pure — returns a new array, never
  * mutates its input.
  */
-export function sortUnaccountedChanges(changes) {
+export function sortUnaccountedChanges<T extends RuleChange>(changes: readonly T[]): T[] {
   return [...changes].sort((a, b) => {
     const byPath = a.path.localeCompare(b.path);
     return byPath !== 0 ? byPath : a.rule.localeCompare(b.rule);
@@ -157,7 +198,13 @@ export function sortUnaccountedChanges(changes) {
  * @param {{ items: { id: string }[], unaccounted: { path: string, rule: string }[] }} args
  * @returns {string[]}
  */
-export function announcedKeys({ items, unaccounted }) {
+export function announcedKeys({
+  items,
+  unaccounted,
+}: {
+  items: readonly { id: string }[];
+  unaccounted: readonly RuleChange[];
+}): string[] {
   const keys = [
     ...items.map((item) => item.id),
     ...unaccounted.map((change) => `${change.rule}:${change.path}`),
@@ -166,7 +213,7 @@ export function announcedKeys({ items, unaccounted }) {
 }
 
 /** The hidden marker line naming `keys`, comma-separated. */
-function formatAnnouncedMarker(keys, markers) {
+function formatAnnouncedMarker(keys: readonly string[], markers: Markers): string {
   return `${markers.announcedPrefix}${keys.join(',')}${markers.announcedSuffix}`;
 }
 
@@ -178,11 +225,11 @@ function formatAnnouncedMarker(keys, markers) {
  * @param {object} markers
  * @returns {string[]}
  */
-export function parseAnnouncedMarker(body, markers) {
+export function parseAnnouncedMarker(body: string | null | undefined, markers: Markers): string[] {
   if (typeof body !== 'string') return [];
   const match = body.match(markers.announcedRe);
   if (!match) return [];
-  const value = match[1].trim();
+  const value = (match[1] ?? '').trim();
   return value === '' ? [] : value.split(',');
 }
 
@@ -212,7 +259,18 @@ export function formatOutboxComment({
   unreworked = [],
   labels = [],
   ctx,
-}) {
+}: {
+  prd: number;
+  owner: string;
+  repo: string;
+  branch: string;
+  ref?: string;
+  items: readonly OutboxItem[];
+  unaccounted?: readonly RuleChange[];
+  unreworked?: readonly { id: string }[];
+  labels?: readonly string[];
+  ctx: Pick<CommentContext, 'layout' | 'markers' | 'config'>;
+}): string {
   const sorted = sortItems(items);
   const lines = [ctx.markers.comment, '', `**Outbox — open items for PRD #${prd}**`, ''];
 
@@ -276,7 +334,7 @@ export function formatOutboxComment({
  *
  * @param {Array<{ id: number, body?: string }> | undefined | null} comments
  */
-function findCommentByMarker(comments, marker) {
+function findCommentByMarker(comments: readonly IssueComment[] | null | undefined, marker: string): IssueComment | null {
   if (!Array.isArray(comments)) return null;
   return (
     comments.find((comment) => typeof comment.body === 'string' && comment.body.includes(marker)) ??
@@ -284,7 +342,7 @@ function findCommentByMarker(comments, marker) {
   );
 }
 
-export function findMarkerComment(comments, markers) {
+export function findMarkerComment(comments: readonly IssueComment[] | null | undefined, markers: Markers): IssueComment | null {
   return findCommentByMarker(comments, markers.comment);
 }
 
@@ -295,14 +353,14 @@ export function findMarkerComment(comments, markers) {
  *
  * @param {Array<{ id: number, body?: string }> | undefined | null} comments
  */
-export function findPrMarkerComment(comments, markers) {
+export function findPrMarkerComment(comments: readonly IssueComment[] | null | undefined, markers: Markers): IssueComment | null {
   return findCommentByMarker(comments, markers.prComment);
 }
 
 // ---- The pull request comment (PRD #1071, slice s2) ----
 
 /** How each rank reads in plain words, on the pull request comment. */
-const RANK_PLAIN_LABEL = { 'human-action': 'needs a person', high: 'high', medium: 'medium' };
+const RANK_PLAIN_LABEL: Readonly<Record<Rank, string>> = { 'human-action': 'needs a person', high: 'high', medium: 'medium' };
 
 /**
  * The hidden marker naming every question number the pull request comment has ever assigned:
@@ -311,7 +369,7 @@ const RANK_PLAIN_LABEL = { 'human-action': 'needs a person', high: 'high', mediu
  * @param {{ number: number, id: string, since: string }[]} numbering
  * @param {object} markers
  */
-export function formatNumbersMarker(numbering, markers) {
+export function formatNumbersMarker(numbering: readonly Numbering[], markers: Markers): string {
   const body = [...numbering]
     .sort((a, b) => a.number - b.number)
     .map((entry) => `${entry.number}=${entry.id}@${entry.since}`)
@@ -327,14 +385,14 @@ export function formatNumbersMarker(numbering, markers) {
  * @param {object} markers
  * @returns {{ number: number, id: string, since: string }[]}
  */
-export function parseNumbersMarker(body, markers) {
+export function parseNumbersMarker(body: string | null | undefined, markers: Markers): Numbering[] {
   if (typeof body !== 'string') return [];
   const match = body.match(markers.numbersRe);
   if (!match) return [];
-  const value = match[1].trim();
+  const value = (match[1] ?? '').trim();
   if (value === '') return [];
   return value.split(',').map((entry) => {
-    const [numberPart, rest] = entry.split(/=(.*)/s);
+    const [numberPart, rest = ''] = entry.split(/=(.*)/s);
     const at = rest.lastIndexOf('@');
     return { number: Number(numberPart), id: rest.slice(0, at), since: rest.slice(at + 1) };
   });
@@ -353,7 +411,15 @@ export function parseNumbersMarker(body, markers) {
  * @param {{ items: { id: string, rank: string }[], previous?: { number: number, id: string, since: string }[], now?: () => string }} args
  * @returns {{ number: number, id: string, since: string }[]}
  */
-export function assignNumbers({ items, previous = [], now = () => new Date().toISOString() }) {
+export function assignNumbers({
+  items,
+  previous = [],
+  now = () => new Date().toISOString(),
+}: {
+  items: readonly { id: string; rank: Rank }[];
+  previous?: readonly Numbering[];
+  now?: () => string;
+}): Numbering[] {
   const known = new Set(previous.map((entry) => entry.id));
   const maxNumber = previous.reduce((max, entry) => Math.max(max, entry.number), 0);
   const fresh = sortItems(items.filter((item) => !known.has(item.id)));
@@ -361,7 +427,7 @@ export function assignNumbers({ items, previous = [], now = () => new Date().toI
 
   const since = now();
   let next = maxNumber + 1;
-  const additions = fresh.map((item) => ({ number: next++, id: item.id, since }));
+  const additions = fresh.map((item): Numbering => ({ number: next++, id: item.id, since }));
   return [...previous, ...additions];
 }
 
@@ -374,27 +440,34 @@ export function assignNumbers({ items, previous = [], now = () => new Date().toI
  * @param {object} markers
  * @returns {Map<number, number>}
  */
-export function parseRoundMarkers(comments, markers) {
-  const rounds = new Map();
+export function parseRoundMarkers(
+  comments: readonly { id?: number; body?: string | null }[] | null | undefined,
+  markers: Markers,
+): Map<number, number> {
+  const rounds = new Map<number, number>();
   for (const comment of comments ?? []) {
     if (typeof comment.body !== 'string') continue;
     const match = comment.body.match(markers.roundRe);
     if (!match) continue;
-    const round = Number(match[1]);
-    for (const numberText of match[2].split(',')) {
-      if (!numberText) continue;
-      const number = Number(numberText);
-      const current = rounds.get(number);
-      if (current === undefined || round > current) rounds.set(number, round);
-    }
+    recordRound(rounds, Number(match[1]), match[2] ?? '');
   }
   return rounds;
+}
+
+/** Records `round` for every number in `numbersText` (comma-separated), keeping the higher round. */
+function recordRound(rounds: Map<number, number>, round: number, numbersText: string): void {
+  for (const numberText of numbersText.split(',')) {
+    if (!numberText) continue;
+    const number = Number(numberText);
+    const current = rounds.get(number);
+    if (current === undefined || round > current) rounds.set(number, round);
+  }
 }
 
 /** Reads a PRD's `settled.md` back into entries, through `settle.mjs`'s own reader — never a second
  * parser for the same ledger. A PRD with no inbox or shipped folder, or an absent ledger, reads as
  * no entries at all, the same as a PRD that has settled nothing yet. */
-function readSettledEntries(prd, { ctx }) {
+function readSettledEntries(prd: string | number, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
@@ -410,14 +483,14 @@ function readSettledEntries(prd, { ctx }) {
  * @param {number} prd
  * @param {{ ctx: object }} options
  */
-export function adoptedEntriesForPrd(prd, { ctx }) {
+export function adoptedEntriesForPrd(prd: string | number, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
 
 /** The first sentence of `text` — the fallback question text for a settled entry whose embedded item
  * predates slice s1's plain sections (`sections.questionPlain` is `undefined`). Mirrors
  * `outbox.mjs`'s own sentence-counting rules closely enough to grab just the first one. */
-function firstSentence(text) {
+function firstSentence(text: string | null | undefined): string {
   const trimmed = (text ?? '').trim();
   const match = trimmed.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed).trim();
@@ -434,7 +507,7 @@ function firstSentence(text) {
  * @param {{ itemText: string }} entry a `parseSettledEntries` entry
  * @returns {string}
  */
-export function answeredQuestionText(entry) {
+export function answeredQuestionText(entry: Pick<SettledEntryView, 'itemText'>): string {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   if (!parsed.ok) return '';
   const { sections } = parsed.item;
@@ -455,7 +528,9 @@ const REWORKED_BY = /reworked by #(\d+)/;
  * @param {{ verdict: string, closed: boolean, fields: Record<string, string> }} entry
  * @returns {string}
  */
-export function answeredOutcome(entry) {
+export function answeredOutcome(
+  entry: Pick<SettledEntryView, 'verdict' | 'closed'> & { fields?: Record<string, string> | null },
+): string {
   if (entry.verdict === 'agreed') return 'kept as built';
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? '').match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : 'to be reworked';
@@ -463,7 +538,7 @@ export function answeredOutcome(entry) {
 
 /** `"…"`, one line, trimmed to a readable length — how an Answered line quotes the reply it settled
  * on. Pure. */
-function quoteReply(text) {
+function quoteReply(text: string | null | undefined): string {
   const oneLine = (text ?? '').replace(/\s+/g, ' ').trim();
   const truncated = oneLine.length > 120 ? `${oneLine.slice(0, 117)}…` : oneLine;
   return `"${truncated}"`;
@@ -487,7 +562,7 @@ const MONTH_NAMES = [
 /** `23 Sep` — a plain, timezone-free reading of an ISO date or date-time's own date part, for an
  * Answered line's "when". Anything that does not start `YYYY-MM-DD` is returned unchanged rather
  * than guessed at. */
-function formatApprovedAt(approvedAt) {
+function formatApprovedAt(approvedAt: string | null | undefined): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(approvedAt ?? '');
   if (!match) return approvedAt ?? '';
   const [, , month, day] = match;
@@ -495,14 +570,14 @@ function formatApprovedAt(approvedAt) {
 }
 
 /** Escapes a table cell: a `|` would split the row, and a line break would end it. */
-function tableCell(text) {
+function tableCell(text: string | null | undefined): string {
   return String(text ?? '')
     .replace(/\s*\n\s*/g, ' ')
     .replace(/\|/g, '\\|');
 }
 
 /** The question as a markdown quote — every line quoted, so a two-line question stays one quote. */
-function quoted(text) {
+function quoted(text: string | null | undefined): string {
   return String(text ?? '')
     .trim()
     .split('\n')
@@ -511,7 +586,7 @@ function quoted(text) {
 }
 
 /** An intro or a punchline in italics, on one line — a line break inside would end the emphasis. */
-function funLine(text) {
+function funLine(text: string | null | undefined): string {
   return `_${String(text ?? '')
     .trim()
     .replace(/\s*\n\s*/g, ' ')}_`;
@@ -525,7 +600,7 @@ function funLine(text) {
  * @param {{ letter: string, text: string }[]} options
  * @param {string} mark
  */
-export function formatOptionsTable(options, mark) {
+export function formatOptionsTable(options: readonly OutboxOption[], mark: string): string[] {
   return [
     '|   | Option | |',
     '| --- | --- | --- |',
@@ -537,13 +612,43 @@ export function formatOptionsTable(options, mark) {
 }
 
 /** The first offered letter that is not A — what the reply line suggests as the way to disagree. */
-function otherLetter(options) {
+function otherLetter(options: readonly OutboxOption[]): string {
   return options.find((option) => option.letter !== 'A')?.letter ?? 'B';
 }
 
-/** Whether an item offers options to choose between (PRD #1166 s4); a legacy item offers none. */
-function hasOptions(item) {
-  return Array.isArray(item.sections?.options) && item.sections.options.length > 0;
+/** The options an item offers to choose between (PRD #1166 s4); `[]` for a legacy item, which offers none. */
+function offeredOptions(item: { sections?: OutboxSections }): OutboxOption[] {
+  const options = item.sections?.options;
+  return Array.isArray(options) && options.length > 0 ? options : [];
+}
+
+/** A question's number, the round it was last asked again in, and its intro and punchline. */
+type QuestionFacts = { number: number | undefined; round: number | undefined; banter: Banter };
+
+/** The banter of a question {@link questionBanter} served no line. */
+const NO_BANTER: Banter = { intro: undefined, punchline: undefined };
+
+/** The facts one question's lines show, by its id. */
+function questionFacts(
+  id: string,
+  { numberById, roundMarkers, banter }: {
+    numberById: ReadonlyMap<string, number>;
+    roundMarkers: ReadonlyMap<number, number>;
+    banter: ReadonlyMap<string, Banter>;
+  },
+): QuestionFacts {
+  const number = numberById.get(id);
+  return {
+    number,
+    round: number === undefined ? undefined : roundMarkers.get(number),
+    banter: banter.get(id) ?? NO_BANTER,
+  };
+}
+
+/** The number the reply example shows: the last open question's, or 1. */
+function exampleNumber(sorted: readonly { id: string }[], numberById: ReadonlyMap<string, number>): number {
+  const last = sorted.at(-1);
+  return (last === undefined ? undefined : numberById.get(last.id)) ?? 1;
 }
 
 /**
@@ -559,15 +664,23 @@ function hasOptions(item) {
  * @param {{ items: object[], adopted: object[], numberById: Map<string, number> }} args
  * @returns {Map<string, { intro: string, punchline: string }>}
  */
-function questionBanter({ items, adopted, numberById }) {
-  const numberOf = (question) => numberById.get(question.id) ?? Infinity;
-  const questions = [
+function questionBanter({
+  items,
+  adopted,
+  numberById,
+}: {
+  items: readonly OutboxItem[];
+  adopted: readonly SettledEntryView[];
+  numberById: ReadonlyMap<string, number>;
+}): Map<string, Banter> {
+  const numberOf = (question: { id: string }): number => numberById.get(question.id) ?? Infinity;
+  const questions: { id: string; sections: OutboxSections | undefined }[] = [
     ...items.map((item) => ({ id: item.id, sections: item.sections })),
     ...adopted.map((entry) => ({ id: entry.id, sections: adoptedItem(entry)?.sections })),
   ].sort((a, b) => numberOf(a) - numberOf(b) || a.id.localeCompare(b.id));
 
-  const banter = new Map();
-  const fromPool = [];
+  const banter = new Map<string, Banter>();
+  const fromPool: string[] = [];
   for (const { id, sections } of questions) {
     if (sections?.introFun && sections?.punchlineFun) {
       banter.set(id, { intro: sections.introFun, punchline: sections.punchlineFun });
@@ -586,8 +699,9 @@ function questionBanter({ items, adopted, numberById }) {
  * person must take. An item raised before options existed keeps its decision and the older `ok` /
  * `no, because …` reply line. Pure.
  */
-function openQuestionLines(item, number, round, banter) {
+function openQuestionLines(item: OutboxItem, { number, round, banter }: QuestionFacts): string[] {
   const humanAction = item.rank === 'human-action';
+  const options = offeredOptions(item);
   const lines = [
     '---',
     '',
@@ -609,8 +723,7 @@ function openQuestionLines(item, number, round, banter) {
       '',
       `Reply \`${number}: ok\` once it is done, or \`${number}: no, because …\``,
     );
-  } else if (hasOptions(item)) {
-    const { options } = item.sections;
+  } else if (options.length > 0) {
     lines.push(
       ...formatOptionsTable(options, 'recommended · built'),
       '',
@@ -634,7 +747,7 @@ function openQuestionLines(item, number, round, banter) {
  * The item an adopted settled entry embeds, parsed — `null` when it cannot be read, so a damaged
  * entry is left off rather than crashing the comment (the same stance `openItemsForPrd` takes).
  */
-function adoptedItem(entry) {
+function adoptedItem(entry: Pick<SettledEntryView, 'itemText'>): OutboxItem | null {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   return parsed.ok ? parsed.item : null;
 }
@@ -644,10 +757,10 @@ function adoptedItem(entry) {
  * quoted, its punchline in italics (PRD #50 s2), its options with A adopted and built, and the one
  * line that says how to object. Pure.
  */
-function adoptedQuestionLines(entry, number, round, banter) {
+function adoptedQuestionLines(entry: SettledEntryView, { number, round, banter }: QuestionFacts): string[] {
   const item = adoptedItem(entry);
   const question = item?.sections.questionPlain ?? answeredQuestionText(entry);
-  const options = item && hasOptions(item) ? item.sections.options : [];
+  const options = item ? offeredOptions(item) : [];
   const lines = [
     `### Question ${number} · medium — adopted`,
     '',
@@ -705,16 +818,26 @@ export function formatOutboxPrComment({
   roundMarkers = new Map(),
   prd = null,
   ctx,
-}) {
+}: {
+  items: readonly OutboxItem[];
+  adopted?: readonly SettledEntryView[];
+  answered?: readonly SettledEntryView[];
+  numbering: readonly Numbering[];
+  roundMarkers?: ReadonlyMap<number, number>;
+  prd?: number | null;
+  ctx: Pick<CommentContext, 'markers' | 'config'>;
+}): string {
   const sorted = sortItems(items);
   const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
-  const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
+  const byNumber = (a: { id: string }, b: { id: string }): number =>
+    (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
+  const facts = { numberById, roundMarkers, banter };
   const lines = [ctx.markers.prComment, ''];
 
   if (sorted.length > 0) {
     const count = sorted.length;
-    const example = numberById.get(sorted.at(-1).id) ?? 1;
+    const example = exampleNumber(sorted, numberById);
     lines.push(
       `**${count} question${count === 1 ? '' : 's'} need${count === 1 ? 's' : ''} your decision**`,
       '',
@@ -726,10 +849,7 @@ export function formatOutboxPrComment({
         'them._',
       '',
     );
-    for (const item of sorted) {
-      const number = numberById.get(item.id);
-      lines.push(...openQuestionLines(item, number, roundMarkers.get(number), banter.get(item.id)));
-    }
+    for (const item of sorted) lines.push(...openQuestionLines(item, questionFacts(item.id, facts)));
   } else if (adopted.length > 0) {
     lines.push('**Nothing needs your decision**', '');
   } else if (answered.length > 0) {
@@ -750,10 +870,7 @@ export function formatOutboxPrComment({
       '',
     );
     for (const entry of [...adopted].sort(byNumber)) {
-      const number = numberById.get(entry.id);
-      lines.push(
-        ...adoptedQuestionLines(entry, number, roundMarkers.get(number), banter.get(entry.id)),
-      );
+      lines.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
     }
     lines.push('</details>', '');
   }
@@ -784,9 +901,9 @@ export function formatOutboxPrComment({
  * `answers.enabled` is on, `ask.url` is set, the repository names its slug and the PRD is known. The
  * kit names only the address a repository configured, never the page behind it. Pure.
  */
-export function omniPageLink(prd, ctx) {
+export function omniPageLink(prd: number | null | undefined, ctx: { config: Config }): string | null {
   const { answers, ask, repo } = ctx.config;
-  if (!answers?.enabled || !ask?.url || !repo?.slug || !Number.isInteger(prd) || prd < 1) return null;
+  if (!answers?.enabled || !ask?.url || !repo?.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
   return `${ask.url.replace(/\/+$/, '')}/prd/at/${repo.slug}/${prd}`;
 }
 
@@ -811,7 +928,19 @@ export function omniPageLink(prd, ctx) {
  *
  * @returns {{ action: 'created' | 'updated' | 'skipped', id: number | null, htmlUrl: string | null, openCount: number, answeredCount: number, adoptedCount: number, newAdoptedCount: number, body: string | null }}
  */
-export function upsertOutboxPrComment({ prd, ctx, now = () => new Date().toISOString() }, client) {
+export function upsertOutboxPrComment(
+  { prd, ctx, now = () => new Date().toISOString() }: { prd: number; ctx: CommentContext; now?: () => string },
+  client: CommentClient,
+): {
+  action: 'created' | 'updated' | 'skipped';
+  id: number | null;
+  htmlUrl: string | null;
+  openCount: number;
+  answeredCount: number;
+  adoptedCount: number;
+  newAdoptedCount: number;
+  body: string | null;
+} {
   const items = openItemsForPrd(prd, { ctx });
   const settledEntries = readSettledEntries(prd, { ctx });
   const comments = client.listComments();
@@ -822,7 +951,7 @@ export function upsertOutboxPrComment({ prd, ctx, now = () => new Date().toISOSt
   const adopted = settledEntries.filter((entry) => entry.verdict === ADOPTED_VERDICT);
   const previous = existing ? parseNumbersMarker(existing.body, ctx.markers) : [];
   const numbering = assignNumbers({
-    items: [...items, ...adopted.map((entry) => ({ id: entry.id, rank: 'medium' }))],
+    items: [...items, ...adopted.map((entry): { id: string; rank: Rank } => ({ id: entry.id, rank: 'medium' }))],
     previous,
     now,
   });
@@ -892,8 +1021,8 @@ export function upsertOutboxPrComment({ prd, ctx, now = () => new Date().toISOSt
 
 /** Open items tallied by rank, e.g. `{ high: 1, medium: 2 }` — a rank with no open item is left off
  * rather than reported as zero, so `slackLine` never has to filter it back out. Pure. */
-export function countsByRank(items) {
-  const counts = {};
+export function countsByRank(items: readonly { rank: string }[]): Record<string, number> {
+  const counts: Record<string, number> = {};
   for (const item of items) {
     counts[item.rank] = (counts[item.rank] ?? 0) + 1;
   }
@@ -902,12 +1031,12 @@ export function countsByRank(items) {
 
 /** Escapes the three characters Slack's mrkdwn reads as markup — `&`, `<`, `>` — so a PRD title or a
  * handle can never open a link, a mention or a `<!channel>` of its own. */
-function slackEscape(text) {
+function slackEscape(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
 /** `count word`, with the noun's plural when `count` is not one. */
-function plural(count, singular, pluralForm = `${singular}s`) {
+function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
@@ -923,14 +1052,17 @@ const SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
  * @param {{ slackId?: string | null, login?: string | null }} args
  * @returns {{ slackId: string } | { login: string } | null}
  */
-export function slackOwner({ slackId, login } = {}) {
+export function slackOwner({
+  slackId,
+  login,
+}: { slackId?: string | null; login?: string | null } = {}): SlackOwner | null {
   if (typeof slackId === 'string' && SLACK_USER_ID.test(slackId)) return { slackId };
   if (typeof login === 'string' && login.trim() !== '') return { login: login.trim() };
   return null;
 }
 
 /** The owner as Slack text: `<@U…>` pings them; `@login` is plain text Slack leaves alone. */
-function ownerText(owner) {
+function ownerText(owner: { slackId?: string; login?: string } | null | undefined): string | null {
   if (owner?.slackId) return `<@${owner.slackId}>`;
   if (owner?.login) return `@${slackEscape(owner.login)}`;
   return null;
@@ -938,7 +1070,7 @@ function ownerText(owner) {
 
 /** The link's words: the pull request's number when the url is its outbox comment, otherwise the
  * PRD issue — the url is the only thing that says which one it is. */
-function linkLabel(url) {
+function linkLabel(url: string): string {
   const pull = url.match(/\/pull\/(\d+)/);
   return pull ? `Answer on pull request #${pull[1]} →` : 'Answer on the PRD issue →';
 }
@@ -970,14 +1102,23 @@ export function slackLine({
   adoptedCount = 0,
   unaccountedCount = 0,
   url,
-}) {
+}: {
+  prd: number;
+  title?: string | null;
+  owner?: { slackId?: string; login?: string } | null;
+  counts: Record<string, number>;
+  adoptedCount?: number;
+  unaccountedCount?: number;
+  newCount?: number;
+  url: string | null | undefined;
+}): string {
   const cleanTitle = (title ?? '').replace(/^\s*PRD:\s*/i, '').trim();
   const name = cleanTitle ? `PRD #${prd} · ${slackEscape(cleanTitle)}` : `PRD #${prd}`;
   const who = ownerText(owner);
   const head = who ? `*${name}* — owner ${who}` : `*${name}*`;
 
   const waiting = Object.values(counts).reduce((sum, count) => sum + count, 0);
-  const parts = [];
+  const parts: string[] = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? ' needs' : 's need'} a decision`);
   }
@@ -991,6 +1132,19 @@ export function slackLine({
 }
 
 /**
+ * The `--result` file the pull request comment's step writes: its own fields are checked, any other
+ * field is kept as written.
+ */
+const PrCommentResultSchema = z
+  .object({
+    htmlUrl: z.string().nullish(),
+    newAdoptedCount: z.number().optional(),
+  })
+  .loose();
+
+export type PrCommentResult = z.infer<typeof PrCommentResultSchema>;
+
+/**
  * What "Post the outbox pull request comment" left for the PRD-issue run (PRD #1166 s7): the
  * `--result` file's `{ htmlUrl, newAdoptedCount, … }`, or `null` when the step never wrote one — it
  * failed, it was skipped, or the file is unreadable. `null` only means the note links to the PRD
@@ -1000,11 +1154,14 @@ export function slackLine({
  * @param {{ read?: (path: string) => string }} [options]
  * @returns {{ htmlUrl?: string | null, newAdoptedCount?: number } | null}
  */
-export function readPrCommentResult(path, { read = (file) => readFileSync(file, 'utf8') } = {}) {
+export function readPrCommentResult(
+  path: string | null | undefined,
+  { read = (file: string) => readFileSync(file, 'utf8') }: { read?: (path: string) => string } = {},
+): PrCommentResult | null {
   if (!path) return null;
   try {
-    const parsed = JSON.parse(read(path));
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    const parsed = PrCommentResultSchema.safeParse(JSON.parse(read(path)));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -1029,7 +1186,22 @@ export function maybeWriteSlackNote({
   prComment = null,
   path,
   write = writeFileSync,
-}) {
+}: {
+  ctx: { config: Config };
+  prd: number;
+  title?: string | null;
+  owner?: { slackId?: string; login?: string } | null;
+  result: {
+    counts: Record<string, number>;
+    adoptedCount?: number;
+    unaccountedCount: number;
+    newCount: number;
+    htmlUrl: string | null;
+  };
+  prComment?: PrCommentResult | null;
+  path?: string | null;
+  write?: (path: string, data: string) => void;
+}): void {
   if (!ctx.config.notify.slack) return;
   const news = (result.newCount ?? 0) + (prComment?.newAdoptedCount ?? 0);
   if (!path || !(news > 0)) return;
@@ -1073,9 +1245,37 @@ export function maybeWriteSlackNote({
  * @returns {{ action: 'created' | 'updated' | 'skipped', id: number | null, htmlUrl: string | null, itemCount: number, unaccountedCount: number, newCount: number, counts: Record<string, number>, body: string }}
  */
 export function upsertOutboxComment(
-  { prd, owner, repo, branch, ref = branch, ctx, changes = [], labels = [] },
-  client,
-) {
+  {
+    prd,
+    owner,
+    repo,
+    branch,
+    ref = branch,
+    ctx,
+    changes = [],
+    labels = [],
+  }: {
+    prd: number;
+    owner: string;
+    repo: string;
+    branch: string;
+    ref?: string;
+    ctx: CommentContext;
+    changes?: readonly Change[];
+    labels?: readonly string[];
+  },
+  client: CommentClient,
+): {
+  action: 'created' | 'updated' | 'skipped';
+  id: number | null;
+  htmlUrl: string | null;
+  itemCount: number;
+  unaccountedCount: number;
+  newCount: number;
+  counts: Record<string, number>;
+  adoptedCount: number;
+  body: string;
+} {
   const items = openItemsForPrd(prd, { ctx });
   const unaccounted = unaccountedChanges(prd, changes, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });

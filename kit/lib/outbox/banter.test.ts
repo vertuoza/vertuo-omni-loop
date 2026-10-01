@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { BANTER_POOL, assignBanter, stableHash } from './banter.ts';
+import type { BanterPool } from './banter.ts';
 import { funLineProblems } from './outbox.ts';
 
 const EVERY_LINE = [...BANTER_POOL.intros, ...BANTER_POOL.punchlines];
@@ -40,7 +40,7 @@ const GAME_WORD_PATTERNS = GAME_WORDS.map((word) => ({
 }));
 
 /** Every game word `line` names. */
-function gameWordsIn(line) {
+function gameWordsIn(line: string) {
   return GAME_WORD_PATTERNS.filter(({ pattern }) => pattern.test(line)).map(({ word }) => word);
 }
 
@@ -59,17 +59,17 @@ const SMALL_POOL = {
 };
 
 /** The intro `id` takes when it is served alone — the line its id hashes to. */
-function hashedIntro(id, pool) {
-  return assignBanter([id], { pool }).get(id).intro;
+function hashedIntro(id: string, pool: BanterPool) {
+  return assignBanter([id], { pool }).get(id)?.intro;
 }
 
 /** Two ids whose intros hash to the same line of `pool`. */
-function collidingIds(pool) {
-  const byLine = new Map();
+function collidingIds(pool: BanterPool): [string, string] {
+  const byLine = new Map<string | undefined, string>();
   for (let n = 1; n < 500; n += 1) {
     const id = `s1-${String(n).padStart(2, '0')}-question`;
     const line = hashedIntro(id, pool);
-    if (byLine.has(line)) return [byLine.get(line), id];
+    if (byLine.has(line)) return [byLine.get(line) as string, id];
     byLine.set(line, id);
   }
   throw new Error('no two ids hash to the same line');
@@ -143,8 +143,8 @@ describe('assignBanter', () => {
     const banter = assignBanter(ids);
     expect([...banter.keys()]).toEqual(ids);
     for (const id of ids) {
-      expect(BANTER_POOL.intros).toContain(banter.get(id).intro);
-      expect(BANTER_POOL.punchlines).toContain(banter.get(id).punchline);
+      expect(BANTER_POOL.intros).toContain(banter.get(id)?.intro);
+      expect(BANTER_POOL.punchlines).toContain(banter.get(id)?.punchline);
     }
   });
 
@@ -156,20 +156,20 @@ describe('assignBanter', () => {
   it('skips a line an earlier id already took: two ids hashing to the same line get different lines, the first keeping it', () => {
     const [first, second] = collidingIds(SMALL_POOL);
     const banter = assignBanter([first, second], { pool: SMALL_POOL });
-    expect(banter.get(first).intro).toBe(hashedIntro(first, SMALL_POOL));
-    expect(banter.get(second).intro).not.toBe(banter.get(first).intro);
+    expect(banter.get(first)?.intro).toBe(hashedIntro(first, SMALL_POOL));
+    expect(banter.get(second)?.intro).not.toBe(banter.get(first)?.intro);
     // In the other order, the other one keeps it: ids are served in the order given.
     const swapped = assignBanter([second, first], { pool: SMALL_POOL });
-    expect(swapped.get(second).intro).toBe(hashedIntro(second, SMALL_POOL));
-    expect(swapped.get(first).intro).not.toBe(swapped.get(second).intro);
+    expect(swapped.get(second)?.intro).toBe(hashedIntro(second, SMALL_POOL));
+    expect(swapped.get(first)?.intro).not.toBe(swapped.get(second)?.intro);
   });
 
   it('never repeats a line while the pool has one unused', () => {
     for (let start = 1; start <= 20; start += 1) {
       const ids = [0, 1, 2, 3, 4].map((offset) => `s${start + offset}-01-question`);
       const banter = assignBanter(ids, { pool: SMALL_POOL });
-      const intros = ids.map((id) => banter.get(id).intro);
-      const punchlines = ids.map((id) => banter.get(id).punchline);
+      const intros = ids.map((id) => banter.get(id)?.intro);
+      const punchlines = ids.map((id) => banter.get(id)?.punchline);
       expect(new Set(intros).size).toBe(5);
       expect(new Set(punchlines).size).toBe(5);
     }
@@ -189,11 +189,11 @@ describe('assignBanter', () => {
     const ids = ['s1-01-a', 's2-01-b', 's3-01-c', 's4-01-d', 's5-01-e', 's6-01-f', 's7-01-g'];
     const banter = assignBanter(ids, { pool: SMALL_POOL });
     for (const id of ids) {
-      expect(SMALL_POOL.intros).toContain(banter.get(id).intro);
-      expect(SMALL_POOL.punchlines).toContain(banter.get(id).punchline);
+      expect(SMALL_POOL.intros).toContain(banter.get(id)?.intro);
+      expect(SMALL_POOL.punchlines).toContain(banter.get(id)?.punchline);
     }
     // The sixth id starts the second round on the very line it hashes to.
-    expect(banter.get('s6-01-f').intro).toBe(hashedIntro('s6-01-f', SMALL_POOL));
+    expect(banter.get('s6-01-f')?.intro).toBe(hashedIntro('s6-01-f', SMALL_POOL));
   });
 
   it('gives nothing for no ids', () => {
