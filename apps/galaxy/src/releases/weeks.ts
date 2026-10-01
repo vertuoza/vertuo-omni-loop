@@ -74,7 +74,7 @@ export function releasesOf(rows: readonly ReleaseRow[]): Release[] {
   for (const row of rows) byRelease.set(row.release, [...(byRelease.get(row.release) ?? []), row]);
   return [...byRelease].map(([release, group]): Release => {
     const lines = [...group].sort((a, b) => a.prd - b.prd);
-    const releasedAt = lines.reduce((latest, row) => (time(row.released_at) > time(latest) ? row.released_at : latest), lines[0].released_at);
+    const releasedAt = lines.reduce((latest, row) => (time(row.released_at) > time(latest) ? row.released_at : latest), lines[0]!.released_at); // ts-allow: a group holds the row that made it
     return { release, version: releaseVersion(release), releasedAt, day: brusselsDay(releasedAt), lines };
   }).sort(newestFirst);
 }

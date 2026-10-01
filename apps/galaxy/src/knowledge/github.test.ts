@@ -29,7 +29,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 function folder(files: Record<string, string>, dir: string, truncated?: string) {
   const under = Object.keys(files).filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1));
   if (!under.length) return null;
-  const names = [...new Set(under.map((rest) => rest.split('/')[0]))].sort();
+  const names = [...new Set(under.map((rest) => rest.split('/')[0]!))].sort();
   return {
     entries: names.map((name) => (under.includes(name)
       ? { name, type: 'blob', object: { text: files[`${dir}/${name}`], isTruncated: `${dir}/${name}` === truncated } }
@@ -66,7 +66,7 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
         const repo = byName.get(`${body.variables.owner}/${body.variables.name}`.toLowerCase());
         if (!repo) return json({ data: { repository: null }, errors: [{ message: 'Could not resolve to a Repository' }] });
         const files = repo.files ?? {};
-        const at = (expression: string) => expression.replace(/^HEAD:/, '');
+        const at = (expression: string | undefined) => expression!.replace(/^HEAD:/, '');
         const domains = folder(files, at(body.variables.domains));
         return json({
           data: {
@@ -83,7 +83,7 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
       const data: Record<string, unknown> = {};
       for (const m of body.query.matchAll(/(r\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ object\(expression: "HEAD:\.omni-loop\/config\.yml"\)/g)) {
         const repo = byName.get(`${m[2]}/${m[3]}`.toLowerCase());
-        data[m[1]] = repo ? { object: repo.config === undefined ? null : { text: repo.config } } : null;
+        data[m[1]!] = repo ? { object: repo.config === undefined ? null : { text: repo.config } } : null;
       }
       return json({ data });
     }
@@ -173,7 +173,7 @@ describe('a repository\'s knowledge, read from GitHub', () => {
     const graph = await read.graph(INSTALLATION, 'ACME/anvils');
     expect(graph?.repo).toBe('acme/Anvils');
     expect(graph?.entries).toHaveLength(4);
-    expect(graph?.entries[0].file).toBe('docs/kb/product/principles.md');
+    expect(graph?.entries[0]!.file).toBe('docs/kb/product/principles.md');
     expect(calls).toContain('graphql knowledge acme/Anvils');
   });
 

@@ -126,7 +126,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     for (const item of items(columns)) {
       const m = /^(?:(\w+):)?(\w+)(?:\((.*)\))?$/s.exec(item);
       if (!m) throw new Error(`fake: cannot read the column list item "${item}"`);
-      const [, alias, name, inner] = m;
+      const [, alias, nameGroup, inner] = m;
+      const name = nameGroup!; // ts-allow: the pattern's second group is not optional
       if (inner === undefined) { out[alias ?? name] = clone(row[name]); continue; }
       const table = name as FakeTable;
       const on = joined(table, row);
@@ -443,7 +444,7 @@ export function twoWorkspaces(): Partial<FakeTables> {
 /** Supabase Auth's user for one of the people, as the page reads it: a first name, and the GitHub
  * identity they signed in with (none for a session from before GitHub sign-in). */
 export function authUser(person: FakeUser) {
-  const local = person.email.split('@')[0];
+  const local = person.email.split('@')[0]!; // ts-allow: split always yields a first part
   return {
     id: person.id, email: person.email, aud: 'authenticated', app_metadata: {}, created_at: '2026-09-01T00:00:00Z',
     user_metadata: { given_name: local.charAt(0).toUpperCase() + local.slice(1), full_name: `${local} Doe` },

@@ -34,7 +34,8 @@ export class DiagramError extends Error {}
  * other name as written, which the compiler reads as SVG's own. */
 function properties(attributes: string): Record<string, unknown> {
   const found: Record<string, unknown> = {};
-  for (const [, name, double, single] of attributes.matchAll(ATTRIBUTE)) {
+  for (const [, attribute, double, single] of attributes.matchAll(ATTRIBUTE)) {
+    const name = attribute!; // ts-allow: the pattern's first group is not optional
     const value = decode(double ?? single ?? '');
     if (name === 'xmlns' || name.startsWith('xmlns:')) continue;
     found[name === 'class' ? 'className' : name] = name === 'class' ? value.split(/\s+/).filter(Boolean) : value;
@@ -71,7 +72,7 @@ export function readSvg(source: string): HastElement {
     const index = match.index ?? 0;
     text(source.slice(at, index), at);
     at = index + match[0].length;
-    const [whole, closing, name, attributes, selfClosing] = match;
+    const [whole, closing, tag, attributes, selfClosing] = match;
     if (whole.startsWith('<!') || whole.startsWith('<?')) continue;
     if (closing) {
       const top = open.pop();
@@ -80,6 +81,7 @@ export function readSvg(source: string): HastElement {
       else if (open.length === 0) root = top;
       continue;
     }
+    const name = tag!; // ts-allow: a tag neither a comment, a declaration nor a closing one is an opening one, named
     if (root || (open.length === 0 && name !== 'svg')) fail(index, `<${name}> outside the one <svg>`);
     const node: HastElement = { type: 'element', tagName: name, properties: properties(attributes ?? ''), children: [] };
     const parent = open.at(-1);
@@ -135,11 +137,12 @@ const IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 /** Every diagram a page's markdown shows. */
 export function diagramsNamed(markdown: string): DiagramLine[] {
   const lines = markdown.split('\n');
-  const blank = (i: number) => i < 0 || i >= lines.length || !lines[i].trim();
+  const blank = (i: number) => i < 0 || i >= lines.length || !lines[i]!.trim(); // ts-allow: i is inside the lines
   return lines.flatMap((text, i) =>
     [...text.matchAll(IMAGE)]
-      .filter((m) => isDiagramPath(m[2]))
-      .map((m) => ({ line: i + 1, alt: m[1], src: m[2], alone: text.trim() === m[0] && blank(i - 1) && blank(i + 1) })));
+      .filter((m) => isDiagramPath(m[2]!)) // ts-allow: both of IMAGE's groups always match
+      .map((m) => ({ line: i + 1, alt: m[1]!, src: m[2]!, // ts-allow: both of IMAGE's groups always match
+        alone: text.trim() === m[0] && blank(i - 1) && blank(i + 1) })));
 }
 
 /** The few mdast shapes the compile step reads and writes: no dependency on mdast's own types. */

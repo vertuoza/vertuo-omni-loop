@@ -143,7 +143,7 @@ export function knowledgeReader(
 
   /** The texts of `repo`'s knowledge folder at `root`, by path from the repository's root. */
   async function texts(id: number, repo: string, root: string): Promise<Record<string, string>> {
-    const [owner, name] = repo.split('/');
+    const [owner, name] = repo.split('/') as [string, string]; // ts-allow: a repository is named owner/name
     const data = Knowledge.parse(await graphql(await tokenFor(id), KNOWLEDGE_QUERY, {
       owner,
       name,

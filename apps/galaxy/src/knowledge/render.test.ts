@@ -52,7 +52,7 @@ describe('the map, for the crew', () => {
 
   it('shows one tab per domain with its entry count, then Between domains', () => {
     const tabs = between(html, 'class="km-tabs"', '</nav>');
-    expect([...tabs.matchAll(/<a [^>]*>([^<]+)<span class="km-count">(\d+)<\/span><\/a>/g)].map((m) => `${m[1].trim()} ${m[2]}`))
+    expect([...tabs.matchAll(/<a [^>]*>([^<]+)<span class="km-count">(\d+)<\/span><\/a>/g)].map((m) => `${m[1]!.trim()} ${m[2]}`))
       .toEqual(['product 8', 'billing 2', 'Between domains 1']);
     expect(tabs).toMatch(/<a [^>]*href="\/knowledge\?domain=product"[^>]*aria-current="page"/);
   });
@@ -204,7 +204,7 @@ describe('the map of a repository the menu shows (PRD 523)', () => {
   it.each(ids)('on %s, leaves no address without the repository', (id) => {
     const html = drawn(id, 'acme/Anvils');
     expect(addresses(html).length).toBeGreaterThan(0);
-    expect(addresses(html).filter((href) => !href.startsWith('/knowledge?repo=acme%2FAnvils&amp;domain='))).toEqual([]);
+    expect(addresses(html).filter((href) => !href!.startsWith('/knowledge?repo=acme%2FAnvils&amp;domain='))).toEqual([]);
     expect(html).not.toMatch(/href="\/knowledge\?domain=/);
   });
 

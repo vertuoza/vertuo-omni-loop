@@ -14,7 +14,7 @@ describe('a row of public.releases', () => {
   it('reads the columns the migration creates, in its order', () => {
     const table = /create table public\.releases \(([\s\S]*?)\n\);/.exec(MIGRATION);
     expect(table).not.toBeNull();
-    const columns = table![1].split('\n').map((line) => line.trim().split(/\s+/)[0]).filter((word) => /^[a-z_]+$/.test(word));
+    const columns = table![1]!.split('\n').map((line) => line.trim().split(/\s+/)[0]!).filter((word) => /^[a-z_]+$/.test(word));
     expect(RELEASE_COLUMNS.split(',')).toEqual(columns);
     expect(RELEASES_TABLE).toBe('releases');
   });

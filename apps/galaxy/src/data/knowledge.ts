@@ -75,9 +75,10 @@ export function systems(graph: KnowledgeGraph): KnowledgeSystem[] {
 export function lanes(graph: KnowledgeGraph): KnowledgeLane[] {
   const byPair = new Map<string, KnowledgeLane>();
   for (const entry of graph.entries) {
-    if (entry.domain !== null || entry.domains.length !== 2) continue;
+    const [one, two] = entry.domains;
+    if (entry.domain !== null || entry.domains.length !== 2 || one === undefined || two === undefined) continue;
     const key = entry.domains.join('--');
-    const lane = byPair.get(key) ?? { pair: [entry.domains[0], entry.domains[1]], entries: [] };
+    const lane: KnowledgeLane = byPair.get(key) ?? { pair: [one, two], entries: [] };
     lane.entries.push(entry);
     byPair.set(key, lane);
   }

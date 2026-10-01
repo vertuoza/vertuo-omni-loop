@@ -52,8 +52,8 @@ describe('a sign-in by someone in no workspace', () => {
   it('picks up the installation before GitHub is linked, so they are a player at once', async () => {
     const w = world([OWN]);
     await afterSignIn(w.db, w.session(DAN), w.deps, null);
-    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
-    expect(w.linkGithub.mock.invocationCallOrder[0]).toBeGreaterThan(created);
+    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
+    expect(w.linkGithub.mock.invocationCallOrder[0]!).toBeGreaterThan(created);
   });
 
   it('looks up nothing when joining failed, since it cannot tell whether they are in one', async () => {

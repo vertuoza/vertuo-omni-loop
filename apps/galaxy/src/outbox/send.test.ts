@@ -118,14 +118,14 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     expect(status).toBe(200);
     expect(w.outbox.reads).toEqual([DOSSIER]);
     const [send] = w.sends.sends;
-    expect(send.reply).toBe('1: ok\n2: B because orange is softer sneaky\n\n_answered on the Omni page · PRD 7_');
+    expect(send!.reply).toBe('1: ok\n2: B because orange is softer sneaky\n\n_answered on the Omni page · PRD 7_');
     expect(send).toMatchObject({ owner: 'u-ada', dossier_id: DOSSIER, pr_number: 12, nonce_hash: hash(NONCE), posted_at: null });
     expect(body.dropped).toEqual([]);
     const authorize = new URL(body.authorize);
     expect(authorize.origin + authorize.pathname).toBe('https://github.com/login/oauth/authorize');
     expect(authorize.searchParams.get('client_id')).toBe('Iv1.client');
     expect(authorize.searchParams.get('redirect_uri')).toBe(`${ORIGIN}/prd/github/callback`);
-    expect(authorize.searchParams.get('state')).toBe(`${send.id}.${NONCE}`);
+    expect(authorize.searchParams.get('state')).toBe(`${send!.id}.${NONCE}`);
     // The nonce rides in a short-lived, http-only cookie, only as far as the callback.
     expect(cookie).toContain(`${NONCE_COOKIE}=${NONCE}`);
     expect(cookie).toMatch(/HttpOnly/i);
@@ -138,7 +138,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     const w = world();
     const { status } = await w.start({ dossier: DOSSIER, picks: [{ number: 3, pick: 'B', reason: 'too big' }] });
     expect(status).toBe(200);
-    expect(w.sends.sends[0].reply).toBe('3: B because too big\n\n_answered on the Omni page · PRD 7_');
+    expect(w.sends.sends[0]!.reply).toBe('3: B because too big\n\n_answered on the Omni page · PRD 7_');
   });
 
   it('drops a pick whose question was settled meanwhile, and says so', async () => {
@@ -146,7 +146,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
     const { status, body } = await w.start({ dossier: DOSSIER, picks: [...PICKS, { number: 4, pick: 'A' }, { number: 9, pick: 'A' }] });
     expect(status).toBe(200);
     expect(body.dropped).toEqual([4, 9]);
-    expect(w.sends.sends[0].reply).not.toMatch(/^[49]:/m);
+    expect(w.sends.sends[0]!.reply).not.toMatch(/^[49]:/m);
   });
 
   it('records nothing when every pick was settled meanwhile', async () => {
@@ -207,7 +207,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
 describe('/prd/github/callback: the reply posted once, as the person', () => {
   async function started(w = world()) {
     const { body } = await w.start({ dossier: DOSSIER, picks: PICKS });
-    return { w, state: new URL(body.authorize).searchParams.get('state')!, id: w.sends.sends[0].id };
+    return { w, state: new URL(body.authorize).searchParams.get('state')!, id: w.sends.sends[0]!.id };
   }
 
   it('trades the code, posts the reply on the feature pull request, records its link and author, drops the token and clears the cache', async () => {
@@ -220,12 +220,12 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     expect(status).toBe(303);
     expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
     const [exchange, comment] = w.gh.calls;
-    expect(exchange.url).toBe('https://github.com/login/oauth/access_token');
-    expect(JSON.parse(exchange.body)).toEqual({ client_id: 'Iv1.client', client_secret: 'shh-client-secret', code: 'the-code' });
-    expect(comment.url).toBe('https://api.github.com/repos/acme/widgets/issues/12/comments');
-    expect(comment.method).toBe('POST');
-    expect(comment.headers.authorization).toBe(`Bearer ${w.gh.token}`);
-    expect(JSON.parse(comment.body)).toEqual({ body: w.sends.sends[0].reply });
+    expect(exchange!.url).toBe('https://github.com/login/oauth/access_token');
+    expect(JSON.parse(exchange!.body)).toEqual({ client_id: 'Iv1.client', client_secret: 'shh-client-secret', code: 'the-code' });
+    expect(comment!.url).toBe('https://api.github.com/repos/acme/widgets/issues/12/comments');
+    expect(comment!.method).toBe('POST');
+    expect(comment!.headers.authorization).toBe(`Bearer ${w.gh.token}`);
+    expect(JSON.parse(comment!.body)).toEqual({ body: w.sends.sends[0]!.reply });
     expect(w.sends.sends[0]).toMatchObject({
       posted_at: expect.any(String), comment_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', login: 'ada', counted: true, error: null,
     });
@@ -258,7 +258,7 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     w.deps.recount = async () => { throw new Error('Supabase is down'); };
     const { location } = await w.back({ code: 'the-code', state });
     expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
-    expect(w.sends.sends[0].posted_at).not.toBeNull();
+    expect(w.sends.sends[0]!.posted_at).not.toBeNull();
     expect(log.mock.calls.flat().join('\n')).toContain('could not be recounted');
   });
 
@@ -326,7 +326,7 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
       const { location } = await w.back({ code: 'c', state });
       expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
       expect(w.sends.sends[0]).toMatchObject({ posted_at: null, comment_url: null, error: expect.stringMatching(error) });
-      expect(w.sends.sends[0].error).not.toContain('ghu_');
+      expect(w.sends.sends[0]!.error).not.toContain('ghu_');
       expect(w.outbox.forgotten).toEqual([]);
     });
   }
@@ -336,7 +336,7 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     const { w, state } = await started();
     await w.back({ error: 'access_denied', error_description: 'The user has denied your application access.', state });
     expect(w.gh.calls).toEqual([]);
-    expect(w.sends.sends[0].error).toMatch(/authorisation was refused/);
+    expect(w.sends.sends[0]!.error).toMatch(/authorisation was refused/);
   });
 });
 
@@ -350,7 +350,7 @@ describe('GET /api/outbox/send: the result, for the tab', () => {
     const w = world();
     const { body } = await w.start({ dossier: DOSSIER, picks: PICKS });
     await w.back({ code: 'c', state: new URL(body.authorize).searchParams.get('state')! });
-    const { status, body: sent } = await get(w, `id=${w.sends.sends[0].id}`);
+    const { status, body: sent } = await get(w, `id=${w.sends.sends[0]!.id}`);
     expect(status).toBe(200);
     expect(sent).toMatchObject({ state: 'posted', login: 'ada', next: '/omni:yolo-fix 7', counted: true });
     expect(JSON.stringify(sent)).not.toContain('nonce');
@@ -361,10 +361,10 @@ describe('GET /api/outbox/send: the result, for the tab', () => {
     await w.start({ dossier: DOSSIER, picks: PICKS });
     const bob = world({ viewer: 'u-bob' });
     (bob.sends.sends as unknown[]).push(...w.sends.sends);
-    expect((await get(bob, `id=${w.sends.sends[0].id}`)).status).toBe(404);
+    expect((await get(bob, `id=${w.sends.sends[0]!.id}`)).status).toBe(404);
     expect((await get(w, 'id=nope')).status).toBe(400);
     w.deps.store = async () => null;
-    expect((await get(w, `id=${w.sends.sends[0].id}`)).status).toBe(401);
+    expect((await get(w, `id=${w.sends.sends[0]!.id}`)).status).toBe(401);
   });
 });
 

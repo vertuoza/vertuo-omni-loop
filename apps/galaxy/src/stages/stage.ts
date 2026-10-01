@@ -55,7 +55,7 @@ const SYNCING = 'Syncing…';
 export function currentStage(rows: readonly Pick<StageRow, 'stage'>[]): StoredStage | null {
   let at = -1;
   for (const { stage } of rows) at = Math.max(at, STORED_STAGES.indexOf(stage));
-  return at === -1 ? null : STORED_STAGES[at];
+  return at === -1 ? null : STORED_STAGES[at]!; // ts-allow: at is an index indexOf found
 }
 
 function trackOf(current: StageId | null): TrackStop[] {

@@ -34,8 +34,8 @@ describe('the skills in the search index', () => {
 
   it('carries the summary and the sentences, braces filled with generic words', () => {
     const [index] = skillSearchIndexes([skill('lone', 'a lone summary', 'Merges into {defaultBranch}. Never twice.')]);
-    expect(index.description).toBe('a lone summary');
-    const text = index.structuredData.contents.map((content) => content.content);
+    expect(index!.description).toBe('a lone summary');
+    const text = index!.structuredData.contents.map((content) => content.content);
     expect(text).toContain('a lone summary');
     expect(text).toContain('Merges into the default branch. Never twice.');
     expect(text).toContain('Use it when you want it.');

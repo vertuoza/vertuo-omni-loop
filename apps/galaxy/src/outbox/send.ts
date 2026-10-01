@@ -235,7 +235,7 @@ export async function startSend(request: Request, deps: SendDeps): Promise<Respo
   }
   const parsed = SendBody.safeParse(sent);
   if (!parsed.success) {
-    const [issue] = parsed.error.issues;
+    const issue = parsed.error.issues[0]!; // ts-allow: a failed parse has an issue
     return refuse(400, `The answers are malformed: ${issue.path.join('.') || 'the body'}: ${issue.message}.`);
   }
   const { dossier, picks } = parsed.data;
@@ -287,7 +287,7 @@ export function failureWords(error: GitHubError, repo: string | null, number: nu
     case 'refused': return "GitHub's authorisation was refused, so nothing was posted.";
     case 'down': return 'GitHub did not answer, so nothing was posted. Try again in a moment.';
     case 'no-access': return `Your GitHub account may not comment on ${pr}, so nothing was posted.`;
-    case 'gone': return `${pr[0].toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`;
+    case 'gone': return `${pr[0]!.toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`; // ts-allow: the words are never empty
   }
 }
 
@@ -306,7 +306,8 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
   const store = await deps.store();
   if (!store) return refused('signin', null);
   if (!state) return refused('state', null);
-  const [, sendId, nonce] = state;
+  const sendId = state[1]!; // ts-allow: the pattern's groups always match
+  const nonce = state[2]!; // ts-allow: the pattern's groups always match
 
   // Someone else's send reads as none: nothing is posted, nothing recorded.
   const send = await store.read(sendId);

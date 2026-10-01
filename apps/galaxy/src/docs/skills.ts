@@ -80,7 +80,7 @@ const GENERIC_WORDS: Readonly<Record<string, string>> = {
 
 /** `text` with every known word in braces filled with its generic word; an unknown one is kept. */
 export function fillGeneric(text: string): string {
-  return text.replace(/\{(\w+)\}/g, (whole, key: string) => (Object.hasOwn(GENERIC_WORDS, key) ? GENERIC_WORDS[key] : whole));
+  return text.replace(/\{(\w+)\}/g, (whole, key: string) => (Object.hasOwn(GENERIC_WORDS, key) ? (GENERIC_WORDS[key] ?? whole) : whole));
 }
 
 const skillsOf = (entries: readonly SkillEntry[]) => entries.filter((entry) => entry.kind === 'skill');
@@ -88,7 +88,7 @@ const skillsOf = (entries: readonly SkillEntry[]) => entries.filter((entry) => e
 const linkTo = (name: string): SkillLink => ({ name, command: `/omni:${name}`, url: `${SKILLS_PATH}/${name}` });
 
 /** The skill names `texts` name as /omni:<name>, in order, once each. */
-const named = (texts: readonly string[]) => [...new Set(texts.flatMap((text) => [...text.matchAll(/\/omni:([a-z](?:[a-z0-9-]*[a-z0-9])?)/g)].map((m) => m[1])))];
+const named = (texts: readonly string[]) => [...new Set(texts.flatMap((text) => [...text.matchAll(/\/omni:([a-z](?:[a-z0-9-]*[a-z0-9])?)/g)].map((m) => m[1]!)))]; // ts-allow: the group always matches
 
 /** The overview: one section per group in SKILL_GROUPS order, its skills in the entries' order; a
  * group with no skill is left out. */

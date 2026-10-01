@@ -62,7 +62,7 @@ type SkippedRepo = { workspace: string; repository: string | null; reason: strin
 type SyncReply = { synced_at: string; repositories: SyncedRepo[]; skipped: SkippedRepo[] };
 
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0] : String(error));
+const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0]! : String(error)); // ts-allow: split always yields a first part
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** How far before the last sync a repository is read again, for clocks that disagree. */
@@ -80,7 +80,7 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer (.+)$/.exec(header);
   if (!match) return false;
-  return timingSafeEqual(digest(match[1]), digest(secret));
+  return timingSafeEqual(digest(match[1]!), digest(secret)); // ts-allow: the group always matches
 }
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */

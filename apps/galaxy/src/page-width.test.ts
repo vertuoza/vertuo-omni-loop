@@ -68,8 +68,8 @@ function selectorList(prelude: string): string[] {
 /** Every declaration, as `property: value`, of the rules whose selector list names `selector`. */
 function declarations(css: string, selector: string): string[] {
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .filter(([, prelude]) => selectorList(prelude.split(';').pop() ?? '').includes(selector))
-    .flatMap(([, , body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+    .filter(([, prelude]) => selectorList(prelude!.split(';').pop() ?? '').includes(selector))
+    .flatMap(([, , body]) => body!.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
 }
 
 const has = (css: string, selector: string, property: string) =>

@@ -33,9 +33,10 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
   // An answer to a question the round does not name (an older kit's) is still an answer.
   const questions = [...asked, ...Object.keys(answers).filter((q) => !asked.includes(q))];
   const first = questions.find((q) => typeof answers[q] === 'string');
-  if (first === undefined || !row.answered_at) return null;
+  const answer = first === undefined ? undefined : answers[first];
+  if (first === undefined || typeof answer !== 'string' || !row.answered_at) return null;
   const more = questions.filter((q) => q !== first && typeof answers[q] === 'string').length;
-  return { question: first, answer: shownLabel(answers[first]).text, more, at: row.answered_at };
+  return { question: first, answer: shownLabel(answer).text, more, at: row.answered_at };
 }
 
 /**
