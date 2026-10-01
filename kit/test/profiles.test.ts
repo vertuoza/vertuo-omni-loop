@@ -119,7 +119,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
       },
     });
 
-    const checked = [];
+    const checked: string[] = [];
     expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => checked.push(s) }, stderr: { write() {} } })).toBe(0);
     expect(checked.join('')).toMatch(/^check kb — 14 form\(s\): 14 missing; 14 warning\(s\)\.$/m);
     expect(await main(['status', '42'], { cwd: root, ...quiet() })).toBe(1);
@@ -141,7 +141,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
 
     // Ship refuses an uncommitted settle — one line, exit 2 — rather than crash on the item file
     // settle removed from disk but git still tracks.
-    const refused = [];
+    const refused: string[] = [];
     expect(
       await main(['ship', '42'], { cwd: root, stdout: { write() {} }, stderr: { write: (s) => refused.push(s) } }),
     ).toBe(2);
@@ -159,7 +159,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
     expect(existsSync(join(root, `${D}/shipped/0042-a/spec.md`))).toBe(true);
     expect(existsSync(join(root, `${D}/shipped/0042-a/outbox/settled.md`))).toBe(true);
 
-    const prdOut = [];
+    const prdOut: string[] = [];
     expect(
       await main(['prd', '42'], {
         cwd: root,
@@ -179,7 +179,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
     execFileSync('git', ['add', '-A'], { cwd: root });
     execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'forms'], { cwd: root });
 
-    const out = [];
+    const out: string[] = [];
     expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } })).toBe(0);
     expect(out.join('')).toMatch(new RegExp(`^check kb — 14 form\\(s\\): ${forms}; \\d+ warning\\(s\\)\\.$`, 'm'));
     expect(out.join('')).toMatch(/^check knowledge — /m);
@@ -213,8 +213,8 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
         '.omni-loop/knowledge/product/invariants.md': EMPTY_INVARIANTS,
       },
     });
-    const out = [];
-    const err = [];
+    const out: string[] = [];
+    const err: string[] = [];
     expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } })).toBe(0);
     expect(out.join('')).toMatch(/^check knowledge — .*1 proposed\.$/m);
     expect(err.join('')).toMatch(/warning: \.omni-loop\/knowledge\/product\/principles\.md: P-PRODUCT-2 — is proposed by invade on 2026-09-25/);

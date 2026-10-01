@@ -16,7 +16,7 @@ const config = ({ enabled = true } = {}) => `kit: 1\nrepo:\n  slug: acme/widgets
 
 function memoryTokens(entries = {}) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
 
@@ -39,12 +39,12 @@ function checkout({ enabled, files = RUN_FILES } = {}) {
   });
 }
 
-const json = (status, body = {}) => new Response(JSON.stringify(body), { status });
+const json = (status: number, body = {}) => new Response(JSON.stringify(body), { status });
 
 /** A fetch that follows the contract, or answers `over(url, init)` when that gives a Response. */
 function fakeApp(over = () => null) {
   const calls = [];
-  const fetch = async (url, init) => {
+  const fetch = async (url: string, init) => {
     const href = String(url);
     calls.push({ url: href, method: init.method, authorization: init.headers.authorization, type: init.headers['content-type'], body: init.body });
     const replaced = over(href, init);
@@ -60,9 +60,9 @@ function fakeApp(over = () => null) {
   return { calls, fetch };
 }
 
-async function push(args, { root, tokens = signedIn(), fetch }) {
-  const out = [];
-  const err = [];
+async function push(args: string[], { root, tokens = signedIn(), fetch }) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['proof', 'push', ...args], {
     cwd: root, tokens, env: {}, fetch,
     stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
@@ -115,7 +115,7 @@ describe('omni proof push', () => {
 
   it('a PRD without a dossier: none, exit 1, and nothing is uploaded', async () => {
     const { root } = checkout();
-    const { calls, fetch } = fakeApp((url) => (url.endsWith('/uploads') ? json(404, { error: 'No dossier for PRD #7.' }) : null));
+    const { calls, fetch } = fakeApp((url: string) => (url.endsWith('/uploads') ? json(404, { error: 'No dossier for PRD #7.' }) : null));
     expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 1, out: '', err: 'none\n' });
     expect(calls).toHaveLength(1);
   });
@@ -142,17 +142,17 @@ describe('omni proof push', () => {
 
   it('any other refusal: refused (<status>), a 403 with its reason, exit 1', async () => {
     const { root } = checkout();
-    const register = fakeApp((url) => (url === `${BASE}/api/proofs` ? json(409, { error: 'registered already' }) : null));
+    const register = fakeApp((url: string) => (url === `${BASE}/api/proofs` ? json(409, { error: 'registered already' }) : null));
     expect(await push(['7', DIR], { root, fetch: register.fetch })).toEqual({ code: 1, out: '', err: 'refused (409)\n' });
-    const upload = fakeApp((url) => (url.startsWith('https://files.example/') ? json(400) : null));
+    const upload = fakeApp((url: string) => (url.startsWith('https://files.example/') ? json(400) : null));
     expect(await push(['7', DIR], { root, fetch: upload.fetch })).toEqual({ code: 1, out: '', err: 'refused (400)\n' });
-    const member = fakeApp((url) => (url.endsWith('/uploads') ? json(403, { error: 'Join the workspace first.' }) : null));
+    const member = fakeApp((url: string) => (url.endsWith('/uploads') ? json(403, { error: 'Join the workspace first.' }) : null));
     expect(await push(['7', DIR], { root, fetch: member.fetch })).toEqual({ code: 1, out: '', err: 'refused (403): Join the workspace first.\n' });
   });
 
   it('a reply without the tab\'s link: refused (no link in the reply), exit 1', async () => {
     const { root } = checkout();
-    const { fetch } = fakeApp((url) => (url === `${BASE}/api/proofs` ? json(200, {}) : null));
+    const { fetch } = fakeApp((url: string) => (url === `${BASE}/api/proofs` ? json(200, {}) : null));
     expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 1, out: '', err: 'refused (no link in the reply)\n' });
   });
 
@@ -174,13 +174,13 @@ describe('omni proof session', () => {
   const EXP = Math.floor(Date.now() / 1000) + 3600;
   const jwt = (claims) => ['h', Buffer.from(JSON.stringify(claims)).toString('base64url'), 's'].join('.');
   const FRESH = jwt({ iss: `https://${REF}.supabase.co/auth/v1`, sub: 'u-1', email: 'pat@acme.test', exp: EXP });
-  const renewing = (status = 200) => fakeApp((href) => (href === `${BASE}/api/ask/token`
+  const renewing = (status = 200) => fakeApp((href: string) => (href === `${BASE}/api/ask/token`
     ? json(status, status === 200 ? { access_token: FRESH, refresh_token: 'refresh-2', expires_at: EXP } : {})
     : null));
 
-  async function session(args, { root, tokens = signedIn(), fetch, env = {} }) {
-    const out = [];
-    const err = [];
+  async function session(args: string[], { root, tokens = signedIn(), fetch, env = {} }) {
+    const out: string[] = [];
+    const err: string[] = [];
     const code = await main(['proof', 'session', ...args], { cwd: root, tokens, env, fetch, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
     return { code, out: out.join(''), err: err.join('') };
   }

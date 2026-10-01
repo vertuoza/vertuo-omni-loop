@@ -64,12 +64,12 @@ function itemText({ id, rank, slice = 's1', personSteps = false }) {
   ].join('\n');
 }
 
-function adopted(id) {
+function adopted(id: string) {
   const text = itemText({ id, rank: 'medium', slice: 's0' });
   return renderAdoptedEntry({ item: parseOutboxItem(text).item, itemText: text, markers });
 }
 
-function drifted(id) {
+function drifted(id: string) {
   const text = itemText({ id, rank: 'high', slice: 's0' });
   return renderSettledEntry({
     item: parseOutboxItem(text).item,
@@ -146,13 +146,13 @@ const MERGED_PR = {
 };
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function fakeExec(pr, calls = []) {
-  return (cmd, args, options) => {
+  return (cmd: string, args: readonly string[], options) => {
     if (cmd === 'gh') {
       calls.push(args);
       return JSON.stringify(pr);
@@ -163,7 +163,7 @@ function fakeExec(pr, calls = []) {
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 function fakeFetch(replies) {
-  return vi.fn(async (_url, init) => {
+  return vi.fn(async (_url: string, init) => {
     const body = JSON.parse(init.body);
     const user = body.messages.find((m) => m.role === 'user').content;
     const id = /^## The decision: (\S+)$/m.exec(user)[1];
@@ -180,10 +180,10 @@ function repo(files = FILES) {
   repos.push(r);
   return r;
 }
-const head = (root) => execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-const status = (root) => execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+const head = (root: string) => execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const status = (root: string) => execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
 
-let fetch;
+let fetch: unknown;
 beforeEach(() => {
   fetch = fakeFetch(REPLIES);
   vi.stubGlobal('fetch', fetch);
@@ -195,7 +195,7 @@ afterEach(() => {
 
 async function harvest(r, { args = ['42', '--pr', '43'], pr = MERGED_PR, env = { OPENROUTER_API_KEY: KEY } } = {}) {
   const streams = io();
-  const calls = [];
+  const calls: never[] | undefined = [];
   const code = await main(['harvest', ...args], { cwd: r.root, exec: fakeExec(pr, calls), env, ...streams });
   return { code, out: streams.out.join(''), err: streams.err.join(''), calls };
 }
@@ -312,7 +312,7 @@ describe('omni harvest — refusals', () => {
     [['42', '--pr']],
     [['x', '--pr', '43']],
     [['42', '--pr', '43', '--nope']],
-  ])('exits 2 on a usage error: %j', async (args) => {
+  ])('exits 2 on a usage error: %j', async (args: any) => {
     const r = repo();
     const { code } = await harvest(r, { args });
     expect(code).toBe(2);

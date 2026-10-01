@@ -13,15 +13,15 @@ import { main } from './omni.ts';
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 /** A fake `exec` whose `gh release view` answers `tag`, or throws `error`. It records every call. */
 function fakeGh({ tag = null, error = null } = {}) {
   const calls = [];
-  const exec = (file, args, options) => {
+  const exec = (file: string, args: any, options: any) => {
     calls.push({ file, args, options });
     if (file !== 'gh') throw new Error(`unexpected ${file}`);
     if (error) throw error;
@@ -32,7 +32,7 @@ function fakeGh({ tag = null, error = null } = {}) {
 
 const KIT = { home: 'acme/kit', version: '0.0.13', source: false };
 
-async function version(argv, { kit = KIT, gh = fakeGh() } = {}) {
+async function version(argv: readonly string[], { kit = KIT, gh = fakeGh() } = {}) {
   const s = io();
   const code = await main(argv, { cwd: mkdtempSync(join(tmpdir(), 'omni-version-')), ...s, exec: gh.exec, kit });
   return { code, out: s.out.join(''), err: s.err.join(''), calls: gh.calls };
@@ -60,7 +60,7 @@ describe('omni version', () => {
     ['gh timing out', { error: Object.assign(new Error('spawnSync gh ETIMEDOUT'), { code: 'ETIMEDOUT' }) }],
     ['no release yet', { error: Object.assign(new Error('release not found'), { status: 1 }) }],
     ['an answer that is no version', { tag: 'release-3' }],
-  ])('%s: the first line alone, exit 0', async (_, gh) => {
+  ])('%s: the first line alone, exit 0', async (_: any, gh) => {
     const { code, out, err } = await version(['version'], { gh: fakeGh(gh) });
     expect(code).toBe(0);
     expect(out).toBe('omni v0.0.13\n');

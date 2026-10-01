@@ -5,7 +5,7 @@ import { ghClient, githubClientFor } from './github.ts';
 // these are new, against a fake `exec` that records every call.
 function fakeExec(responses = {}) {
   const calls = [];
-  const exec = (file, args, options = {}) => {
+  const exec = (file: any, args: any[], options = {}) => {
     calls.push({ file, args, options });
     const key = args.join(' ');
     for (const [prefix, value] of Object.entries(responses)) {
@@ -49,7 +49,7 @@ describe('ghClient', () => {
 });
 
 describe('githubClientFor', () => {
-  const ctx = (user) => ({ config: { repo: { slug: 'acme/widgets' }, github: { user } } });
+  const ctx = (user: string | null) => ({ config: { repo: { slug: 'acme/widgets' }, github: { user } } });
 
   it('uses the ambient gh login when no github.user is configured', () => {
     const { exec, calls } = fakeExec({ 'api': '[]' });

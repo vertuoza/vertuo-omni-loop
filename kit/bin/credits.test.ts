@@ -10,7 +10,7 @@ const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
 const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 
-function searched(number, { repo = 'acme/widgets', labels = [], ...overrides } = {}) {
+function searched(number: number, { repo = 'acme/widgets', labels = [], ...overrides } = {}) {
   return {
     number,
     title: `PR ${number}`,
@@ -30,8 +30,8 @@ function searched(number, { repo = 'acme/widgets', labels = [], ...overrides } =
  * Error is thrown). Unrouted searches answer `[]`.
  */
 function fakeExec(routes = []) {
-  const calls = [];
-  const exec = (file, args, options) => {
+  const calls: any[] = [];
+  const exec = (file: string, args: any[] | readonly string[], options) => {
     if (file === 'git') return execFileSync(file, args, options);
     calls.push(args.join(' '));
     const key = args.join(' ');
@@ -46,11 +46,11 @@ function fakeExec(routes = []) {
 }
 
 /** Runs `omni <argv>` in a fixture repository whose config is `config`: `{ code, out, err, calls }`. */
-async function omni(argv, { config = CONFIG, routes = [] } = {}) {
+async function omni(argv: readonly string[], { config = CONFIG, routes = [] } = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const { exec, calls } = fakeExec(routes);
-  const out = [];
-  const err = [];
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, exec, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join(''), calls };
 }
@@ -221,7 +221,7 @@ describe('omni credits', () => {
     ['rate limited', Object.assign(new Error('Command failed'), { status: 1, stderr: 'HTTP 403: API rate limit exceeded for user ID 1.\n' }), "omni credits: GitHub's rate limit"],
   ];
 
-  it.each(unreadable)('gh %s: exits 2 with one line saying so, and prints no report (AC 10)', async (_, error, said) => {
+  it.each(unreadable)('gh %s: exits 2 with one line saying so, and prints no report (AC 10)', async (_: any, error: any, said: string) => {
     const { code, out, err } = await omni(['credits'], { routes: [['search', error]] });
     expect(code).toBe(2);
     expect(out).toBe('');

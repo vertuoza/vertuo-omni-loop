@@ -3,9 +3,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: vertuoza/vertuo-automation-plan\n' };
@@ -46,13 +46,13 @@ async function prdOut(files) {
   return { code, text: s.out.join('') };
 }
 
-function expectedLines(files) {
+function expectedLines(files: any[]) {
   return [
     'PRD 7 — 0007-quote',
     'state: inbox',
     `dir: ${DIR}`,
     'files:',
-    ...files.map((file) => `  - ${DIR}/${file}`),
+    ...files.map((file: any) => `  - ${DIR}/${file}`),
     'outbox: .omni-loop/delivery/outbox/0007-quote',
     'open items: none',
   ];

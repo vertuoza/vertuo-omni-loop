@@ -21,14 +21,14 @@ const PAGE = '<!doctype html>\n<title>Before and after</title>\n';
 const FOLDER = { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/plan.md`]: PLAN, [`${INBOX}/before-after.html`]: PAGE };
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries = {}) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
 const config = ({ url, enabled = true }) =>
@@ -49,7 +49,7 @@ async function signedIn({ serverOptions = {}, files = FOLDER, enabled = true } =
 }
 
 /** `omni dossier <args>`, with the terminal's environment given as `env` and nothing else. */
-async function dossier(args, { root, tokens, env = {}, ...more }) {
+async function dossier(args: string[], { root, tokens, env = {}, ...more }) {
   const s = io();
   const started = Date.now();
   const code = await main(['dossier', ...args], { cwd: root, ...s, tokens, env, ...more });

@@ -20,11 +20,11 @@ const GAME_WORD = /galax(?:y|ies)|galactic/i;
 // The one address the kit may carry, as a whole host: no host character right before it, and none
 // right after it but a path, a port or the end of the address.
 const HOME_ADDRESS = /(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g;
-const isTest = (name) => /\.test\.[cm]?[jt]sx?$/.test(name);
+const isTest = (name: string) => /\.test\.[cm]?[jt]sx?$/.test(name);
 
 /** Every file under `dir` that is not a test, dependencies left out. */
 function nonTestFiles(dir) {
-  let out = [];
+  let out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
@@ -35,8 +35,8 @@ function nonTestFiles(dir) {
 }
 
 /** Every line naming the game's world under `root`, as `<file>:<line>: <text>`. */
-function gameWordHits(root) {
-  const hits = [];
+function gameWordHits(root: string) {
+  const hits: string[] = [];
   for (const file of nonTestFiles(root)) {
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
       if (GAME_WORD.test(line.replace(HOME_ADDRESS, ''))) hits.push(`${relative(root, file)}:${index + 1}: ${line.trim()}`);

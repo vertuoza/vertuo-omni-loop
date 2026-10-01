@@ -13,9 +13,9 @@ import { main } from './omni.ts';
 const FILE = ['.config', 'omni', 'credentials.json'];
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, text: () => out.join(''), errors: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, text: () => out.join(''), errors: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function freshHome(entries) {
@@ -27,15 +27,15 @@ function freshHome(entries) {
   return dir;
 }
 
-const credentialsOf = (home) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8'));
-const repoWith = (url) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
+const credentialsOf = (home: string) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8'));
+const repoWith = (url: string | null) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
 
 /**
  * A browser that does what the sign-in page does once the person has signed in: it comes back to the
  * loopback with the state it was given and a code — or with whatever `callbacks` says instead.
  */
 function fakeBrowser({ code = 'code-1', callbacks } = {}) {
-  const opened = [];
+  const opened: any[] = [];
   const visits = [];
   const open = (url) => {
     opened.push(url);
@@ -105,7 +105,7 @@ describe('omni signin', () => {
         // The fake page, with the token reply the real one gives: the login, where the repository
         // goes, and no email (a GitHub account that keeps it private).
         server = await startFakeAskServer({ codes: ['code-1'] });
-        const sent = [];
+        const sent: any[] = [];
         const fetch = async (url, init) => {
           const response = await globalThis.fetch(url, init);
           if (!String(url).endsWith('/api/ask/token')) return response;
@@ -143,7 +143,7 @@ describe('omni signin', () => {
     server = await startFakeAskServer({ codes: ['code-1', 'planted'] });
     const { root } = repoWith(server.url);
     const home = freshHome();
-    const browser = fakeBrowser({ callbacks: (state) => ['state=not-this-terminal&code=planted', `state=${state}&code=code-1`] });
+    const browser = fakeBrowser({ callbacks: (state: any) => ['state=not-this-terminal&code=planted', `state=${state}&code=code-1`] });
 
     expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: browser.open })).toBe(0);
 
@@ -184,7 +184,7 @@ describe('omni signin', () => {
     const home = freshHome();
     const browser = fakeBrowser();
     const std = io();
-    const failing = (url) => {
+    const failing = (url: string) => {
       browser.open(url);
       throw new Error('no browser here');
     };

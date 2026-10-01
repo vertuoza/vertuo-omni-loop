@@ -15,7 +15,7 @@ import { main } from './omni.ts';
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept'];
 const CONFIG = 'kit: 1\n# kept by hand, comments and all\nrepo:\n  slug: acme/widgets\npaths:\n  context: []\n';
 // Each bin carries its marker the way esbuild writes it into a real bundle (kit/build.ts).
-const binOf = (version) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;
+const binOf = (version: string) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;
 const OLD_BIN = binOf('0.0.13');
 const NEW_BIN = binOf('0.0.15');
 const UNVERSIONED_BIN = '#!/usr/bin/env node\n// omni, installed before versions\n';
@@ -25,12 +25,12 @@ const KIT = { home: 'acme/kit', version: '0.0.15', source: false };
 const PR_URL = 'https://github.com/acme/widgets/pull/88';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 /**
  * A repository installed at v0.0.13, pushed to a bare `origin`: its config, its bin, every form but
@@ -59,7 +59,7 @@ function installedRepo({ config = CONFIG, bin = OLD_BIN } = {}) {
  */
 function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = false, openPr = '', nodeStatus = 0, claude = 'ok' } = {}) {
   const calls = [];
-  const exec = (file, args, options = {}) => {
+  const exec = (file: string, args: string | any[] | readonly string[], options = {}) => {
     if (file === 'git') return execFileSync(file, args, options);
     calls.push({ file, args, options });
     if (file === 'claude') {
@@ -91,9 +91,9 @@ function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = 
   return { exec, calls };
 }
 
-const claudeCalls = (calls) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
+const claudeCalls = (calls: any[]) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
 const PLUGIN_CALLS = ['plugin marketplace update omni-loop', 'plugin update omni@omni-loop'];
-const gh = (calls, area, verb) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
+const gh = (calls: any[], area: string, verb: string) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
 
 /** A fake bundle file: the new version's `omni.mjs`, as `--apply` runs from it. */
 function newBundle() {
@@ -102,15 +102,15 @@ function newBundle() {
   return file;
 }
 
-async function update(root, argv, { fake = fakeExec(), kit = KIT, bundle = newBundle() } = {}) {
+async function update(root: string, argv: string[], { fake = fakeExec(), kit = KIT, bundle = newBundle() } = {}) {
   const s = io();
   const code = await main(['update', ...argv], { cwd: root, ...s, exec: fake.exec, kit, bundle });
   return { code, out: s.out.join(''), err: s.err.join(''), calls: fake.calls };
 }
 
 const BRANCH = 'chore/omni-update-v0.0.15';
-const onRemote = (remote, path, branch = BRANCH) => git(remote, 'show', `${branch}:${path}`);
-const remoteBranches = (remote) => git(remote, 'branch', '--format=%(refname:short)').split('\n').filter(Boolean);
+const onRemote = (remote: string, path: string, branch = BRANCH) => git(remote, 'show', `${branch}:${path}`);
+const remoteBranches = (remote: string) => git(remote, 'branch', '--format=%(refname:short)').split('\n').filter(Boolean);
 
 describe('omni update: the running bin finds the release and hands over to it', () => {
   it('behind the latest: downloads its bundle and runs it as update --apply --from the running version', async () => {
@@ -233,7 +233,7 @@ describe('omni update --apply: the new version opens the pull request', () => {
 
     // The PR: into the default branch, with the compare link and the footer line.
     const create = gh(calls, 'pr', 'create')[0].args;
-    const flag = (name) => create[create.indexOf(name) + 1];
+    const flag = (name: string) => create[create.indexOf(name) + 1];
     expect(flag('--base')).toBe('main');
     expect(flag('--head')).toBe(BRANCH);
     expect(flag('--title')).toBe('chore(omni): update to v0.0.15');

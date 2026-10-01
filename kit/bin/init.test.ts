@@ -13,12 +13,12 @@ import { main } from './omni.ts';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
 const FIXTURES = join(kitRoot, 'test/fixtures/init');
-const fixture = (name) => readFileSync(join(FIXTURES, name), 'utf8');
+const fixture = (name: string) => readFileSync(join(FIXTURES, name), 'utf8');
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 /**
@@ -30,14 +30,14 @@ function fakeExec({
   slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false,
   realCommit = false, pushFails = false, openPr = null, claude = 'ok',
 } = {}) {
-  const calls = [];
+  const calls: any[] = [];
   // Every `claude` call, as `claude args…`: never a real one. `claude` is `ok`, `installed` (the plugin
   // is there already), `missing` (no binary) or `fails` (the install is refused).
-  const plugin = [];
+  const plugin: string[] = [];
   // Every outward step of the install pull request, in the order it ran, as `cmd verb`.
   const install = [];
   const present = labels.map((label) => ({ description: '', ...label }));
-  const exec = (cmd, args, options) => {
+  const exec = (cmd: string, args: any[] | readonly string[], options) => {
     if (cmd === 'git' && ['switch', 'add', 'commit', 'push'].includes(args[0])) {
       install.push({ cmd: `git ${args[0]}`, args });
       // The commit and the push are faked unless the test asks for a real commit: the footprint tests
@@ -81,9 +81,9 @@ function fakeExec({
 }
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept'];
-const labelCalls = (calls, verb) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
-const created = (calls) => labelCalls(calls, 'create').map((args) => args[2]);
-const edits = (calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
+const labelCalls = (calls: any[], verb: string) => calls.filter((args: any[]) => args[0] === 'label' && args[1] === verb);
+const created = (calls: any[]) => labelCalls(calls, 'create').map((args: any[]) => args[2]);
+const edits = (calls: any[]) => calls.filter((args: string[]) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
 
 /** A fake bundle file the tests inject as "the running bundle". */
 function fakeBundle() {
@@ -95,7 +95,7 @@ function fakeBundle() {
 /** A home folder of the test's own: the credentials init reads are never the person's. */
 const freshHome = () => mkdtempSync(join(tmpdir(), 'omni-home-'));
 
-async function init(root, argv = [], extra = {}) {
+async function init(root: string, argv = [], extra = {}) {
   const s = io();
   const { exec, calls } = extra.fake ?? fakeExec();
   const code = await main(['init', ...argv], { cwd: root, ...s, exec, bundle: 'bundle' in extra ? extra.bundle : fakeBundle(), home: freshHome(), ...extra.options });
@@ -108,16 +108,16 @@ const INSTALL_BLOCK = '\nInstall pull request:\n';
 const COMPUTER_BLOCK = '\nOn this computer:\n';
 const CLOSING_BLOCK = /\n(Heads-up|Then, by hand):\n/;
 /** The lines of the block that starts at `heading`, up to the next one, one line per entry. */
-const block = (out, heading, next) => {
+const block = (out: string | any[], heading: string | any[], next: RegExp) => {
   const from = out.slice(out.indexOf(heading) + heading.length);
   return from.slice(0, from.search(next)).split('\n').filter(Boolean);
 };
 /** The install pull request block, one line per entry. */
-const installBlock = (out) => block(out, INSTALL_BLOCK, /\nOn this computer:\n/);
+const installBlock = (out: string) => block(out, INSTALL_BLOCK, /\nOn this computer:\n/);
 /** What init did on this computer: the plugin and the sign-in, one line per entry. */
-const computerBlock = (out) => block(out, COMPUTER_BLOCK, CLOSING_BLOCK);
+const computerBlock = (out: string) => block(out, COMPUTER_BLOCK, CLOSING_BLOCK);
 /** What init prints last: the heads-up and the closing steps. */
-const closing = (out) => out.slice(out.search(CLOSING_BLOCK));
+const closing = (out: string) => out.slice(out.search(CLOSING_BLOCK));
 
 const KNOWLEDGE = '.omni-loop/knowledge';
 const SETTINGS = '.claude/settings.json';
@@ -153,13 +153,13 @@ const RULE = '# Billing rules\n\n## BR-BILLING-1\n\nAn invoice is never deleted.
 const INVARIANT = '# Billing and quotes\n\n## X-BILLING-QUOTES-1\n\nA quote names its invoice.\n\nKind: invariant\nSource: x\nEnforced by: unenforced\nStated: 2026-09-25\n';
 
 /** The paths `git status` lists in `root`, untracked files one by one. */
-function gitStatus(root) {
+function gitStatus(root: string) {
   const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
   return status.split('\n').filter(Boolean).map((line) => line.slice(3)).sort();
 }
 
 /** Every file under `root`, as `{ <path>: text }`, `.git` left out. */
-function snapshot(root, dir = '') {
+function snapshot(root: string, dir = '') {
   const out = {};
   for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
     const path = dir ? `${dir}/${entry.name}` : entry.name;
@@ -171,7 +171,7 @@ function snapshot(root, dir = '') {
 }
 
 /** Runs any other `omni <argv>` in `root`, once init has written a config: `{ code, out, err }`. */
-async function omni(root, argv) {
+async function omni(root: string, argv: readonly string[]) {
   const s = io();
   const code = await main(argv, { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
@@ -331,7 +331,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
 
   it('on a terminal it asks once per unknown command, and an empty answer means none', async () => {
     const { root, read } = makeRepo({ git: true });
-    const questions = [];
+    const questions: any[] = [];
     const answers = ['make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };
@@ -340,7 +340,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const code = await main(['init'], {
       cwd: root, stdout: tty, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
       home: freshHome(), signIn: async () => 1,
-      ask: async (question) => { questions.push(question); return answers.shift(); },
+      ask: async (question: any) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
     expect(questions).toHaveLength(3);
@@ -364,7 +364,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
 
   it('falls back to the origin remote and origin/HEAD when gh cannot answer', async () => {
     const { root, read } = makeRepo({ git: true });
-    const run = (...args) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
     run('remote', 'add', 'origin', 'git@github.com:acme/gadgets.git');
     run('update-ref', 'refs/remotes/origin/develop', 'HEAD');
     run('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/develop');
@@ -547,7 +547,7 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
   it('when one creation fails, the rest are still tried and the failed one is a human step, exit 0', async () => {
     const { root } = makeRepo({ git: true });
     const base = fakeExec({ labels: [{ name: 'omni:prd' }] });
-    const exec = (cmd, args, options) => {
+    const exec = (cmd: string, args: string[], options: any) => {
       if (cmd === 'gh' && args[0] === 'label' && args[1] === 'create' && args[2] === 'omni:sub') {
         base.calls.push(args);
         throw new Error('gh: HTTP 403');
@@ -609,11 +609,11 @@ describe('omni init — a retro in a PRD folder', () => {
   it('omni check all, coverage included, stays green with retro.md and retro.json in a shipped and an inbox folder', async () => {
     const { root, write } = makeRepo({ git: true });
     await init(root);
-    const git = (...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, stdio: 'ignore' });
+    const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, stdio: 'ignore' });
     git('add', '-A');
     git('commit', '-q', '-m', 'omni init');
     git('update-ref', 'refs/remotes/origin/trunk', 'HEAD');
-    const spec = (prd) => `---\nprd: ${prd}\ntitle: A PRD\nblocked-by: none\nspec: file\n---\n\n# A PRD\n`;
+    const spec = (prd: string | number | undefined) => `---\nprd: ${prd}\ntitle: A PRD\nblocked-by: none\nspec: file\n---\n\n# A PRD\n`;
     const shipped = '.omni-loop/delivery/shipped/0050-question-intros';
     const inbox = '.omni-loop/delivery/inbox/0051-merged-unshipped';
     for (const [folder, prd] of [[shipped, 50], [inbox, 51]]) {
@@ -730,7 +730,7 @@ describe('omni init — the closing steps (AC 8)', () => {
   });
 
   it('only the slug and the default branch vary between two repositories', async () => {
-    const run = async (slug, defaultBranch) => {
+    const run = async (slug: string, defaultBranch: string) => {
       const { root } = makeRepo({ git: true });
       const { out } = await init(root, [], { fake: fakeExec({ slug, defaultBranch }) });
       return out.split(slug).join('<slug>').split(defaultBranch).join('<branch>');
@@ -1032,7 +1032,7 @@ describe('omni init — the status line (PRD 324)', () => {
 
 describe('omni init — the install pull request (PRD 420)', () => {
   const BRANCH = 'chore/install-omni-loop';
-  const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  const git = (root: string, ...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   /** A fixture repository whose commits need no global identity, and one tracked file of the person's. */
   function repo() {
     const made = makeRepo({ git: true, files: { 'README.md': 'hello\n' } });
@@ -1135,7 +1135,7 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
   const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: null, email: 'ada@example.test' };
 
   /** A terminal: stdin and stdout are TTYs, and every command question is answered empty. */
-  async function onTerminal(root, { fake = fakeExec(), home = freshHome(), signIn } = {}) {
+  async function onTerminal(root: string, { fake = fakeExec(), home = freshHome(), signIn } = {}) {
     const s = io();
     s.stdout.isTTY = true;
     const code = await main(['init'], { cwd: root, ...s, exec: fake.exec, bundle: fakeBundle(), home, signIn, stdin: { isTTY: true }, ask: async () => '' });

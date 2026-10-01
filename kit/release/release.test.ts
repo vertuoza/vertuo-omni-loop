@@ -11,7 +11,7 @@ const BUNDLE = 'kit/dist/omni.mjs';
 /** A kit checkout with its two manifests and its bundle, as the release reads them. */
 function fixtureRepo() {
   const root = mkdtempSync(join(tmpdir(), 'omni-release-'));
-  const write = (path, text) => {
+  const write = (path: string, text) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
   };
@@ -26,8 +26,8 @@ function fixtureRepo() {
  * stdout, or to a function that returns it or throws. Unmatched calls print nothing.
  */
 function fakeExec(answers = {}) {
-  const calls = [];
-  const exec = (cmd, args) => {
+  const calls: string[] = [];
+  const exec = (cmd: any, args: any) => {
     const line = [cmd, ...args].join(' ');
     calls.push(line);
     const key = Object.keys(answers).find((start) => line.startsWith(start));
@@ -49,7 +49,7 @@ function run(answers) {
     'node .omni-loop/bin/omni.mjs sign trailer': `${TRAILER}\n`,
     ...answers,
   });
-  const out = [];
+  const out: string[] = [];
   const code = release({ root, exec, log: (line) => out.push(line) });
   return { root, calls, out, code };
 }

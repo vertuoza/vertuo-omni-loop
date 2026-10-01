@@ -4,12 +4,13 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { testContext } from './fixture.ts';
+import type { Overrides } from './fixture.ts';
 
 const unsupported = () => {
   throw new Error('flat test layout: inbox paths are not supported');
 };
 
-export function flatLayout(root) {
+export function flatLayout(root: string) {
   return Object.freeze({
     kind: 'flat',
     dirs: { inbox: 'docs/inbox', outbox: 'docs/outbox', shipped: null, archive: null },
@@ -19,7 +20,7 @@ export function flatLayout(root) {
     specPath: unsupported,
     planPath: unsupported,
     beforeAfterPath: unsupported,
-    outboxDir: (prd) => `docs/outbox/${Number(prd)}`,
+    outboxDir: (prd: number | string) => `docs/outbox/${Number(prd)}`,
     outboxDirs() {
       const dir = join(root, 'docs/outbox');
       if (!existsSync(dir)) return [];
@@ -32,7 +33,8 @@ export function flatLayout(root) {
   });
 }
 
-export function flatCtx(root, overrides = {}) {
+export function flatCtx(rootDir: string | undefined, overrides: Overrides = {}) {
+  const root = rootDir as string; // ts-allow: a test hands its fixture's root, set before each case
   const ctx = testContext(root, {
     markers: { prefix: 'vertuo-outbox' },
     laws: { source: 'knowledge' },

@@ -7,10 +7,10 @@ import { main } from './omni.ts';
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 
 /** Runs `omni <argv>` in a fixture repository whose config is `config`: `{ code, out, err }`. */
-async function omni(argv, config = CONFIG) {
+async function omni(argv: readonly string[], config = CONFIG) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
-  const out = [];
-  const err = [];
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join('') };
 }

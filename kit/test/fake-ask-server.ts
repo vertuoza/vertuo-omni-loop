@@ -27,21 +27,32 @@
 //              JSON line per call it serves.
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const json = (response, status, body) => {
+/** A request body, a round, a dossier: JSON the fake reads field by field and refuses as the server does. */
+type Json = any; // ts-allow: a test fake reads whatever JSON a test sends, as the real server's handlers do
+
+/** A handler's answer: its status (200 when not given) and its body. */
+type Reply = { status?: number; body: unknown };
+
+/** What the fake records of each call. */
+type Call = { method: string | undefined; path: string; body: Json; authorization: string | null };
+
+const json = (response: ServerResponse, status: number, body?: unknown) => {
   response.writeHead(status, { 'content-type': 'application/json' });
   response.end(body === undefined ? '' : JSON.stringify(body));
 };
 
-async function readText(request) {
+async function readText(request: IncomingMessage): Promise<string> {
   let text = '';
   for await (const chunk of request) text += chunk;
   return text;
 }
 
-function parseBody(text) {
+function parseBody(text: string): Json {
   if (!text) return undefined;
   try {
     return JSON.parse(text);
@@ -54,10 +65,10 @@ function parseBody(text) {
  * The answer every question's first option gives: a multi-select takes its first two labels, joined
  * the way `AskUserQuestion` joins them.
  */
-export function firstOptionAnswers(questions) {
-  const answers = {};
+export function firstOptionAnswers(questions: Json): Record<string, string> {
+  const answers: Record<string, string> = {};
   for (const question of questions ?? []) {
-    const labels = (question.options ?? []).map((option) => option.label);
+    const labels = (question.options ?? []).map((option: Json) => option.label);
     answers[question.question] = question.multiSelect ? labels.slice(0, 2).join(', ') : labels[0];
   }
   return answers;
@@ -65,10 +76,10 @@ export function firstOptionAnswers(questions) {
 
 const HEARTBEAT_FIELDS = ['claudeSessionId', 'repo', 'work', 'ended'];
 
-const isObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const isObject = (value: unknown): boolean => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 /** A heartbeat's body as the contract has it: its session, its repository, what it works on. */
-function isHeartbeat(body) {
+function isHeartbeat(body: Json): boolean {
   if (!isObject(body) || Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
   if (typeof body.claudeSessionId !== 'string' || !body.claudeSessionId) return false;
   if (typeof body.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return false;
@@ -76,7 +87,7 @@ function isHeartbeat(body) {
 }
 
 /** A heartbeat's work: null, a draft by its id, or a PRD or fix by its number. */
-function isWork(work) {
+function isWork(work: Json): boolean {
   if (work === null) return true;
   if (!isObject(work) || Object.keys(work).length !== 2) return false;
   if (work.kind === 'draft') return typeof work.draftId === 'string' && work.draftId !== '';
@@ -84,10 +95,11 @@ function isWork(work) {
 }
 
 const DOSSIER_KINDS = ['spec', 'plan', 'before-after'];
-const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest('hex');
+const sha256 = (content: string): string => createHash('sha256').update(content, 'utf8').digest('hex');
 
 /**
- * @param {{
+ * The options, each with its default below:
+ *
  *   port?: number,
  *   holdMs?: number,             how long `wait` holds an open round (the real server: 50 s)
  *   dossierBodyBytes?: number, artifactBytes?: number,
@@ -107,7 +119,6 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
  *                                how a well-formed heartbeat is answered, and after how long
- * }} [options]
  */
 export async function startFakeAskServer({
   port = 0,
@@ -126,22 +137,39 @@ export async function startFakeAskServer({
   claim = null,
   tokenExtras = {},
   heartbeat = () => ({ status: 204 }),
+}: {
+  port?: number;
+  holdMs?: number;
+  accessToken?: string;
+  refreshToken?: string;
+  codes?: string[];
+  email?: string;
+  answer?: (round: Json) => Record<string, string> | null;
+  onCall?: (call: Call) => void;
+  dossierBodyBytes?: number;
+  artifactBytes?: number;
+  place?: ((repo: string) => unknown) | null;
+  business?: ((repo: string) => Reply) | null;
+  cite?: ((body: Json) => Reply) | null;
+  claim?: ((body: Json) => Reply) | null;
+  tokenExtras?: Record<string, unknown>;
+  heartbeat?: (body: Json) => { status?: number; delayMs?: number } | null | undefined;
 } = {}) {
   const access = new Set([accessToken]);
   const refresh = new Set([refreshToken]);
   const oneTimeCodes = new Set(codes);
-  const sessions = new Map();
-  const rounds = new Map();
-  const waiters = new Map();
-  const calls = [];
-  const dossiers = new Map();
-  const heartbeats = [];
+  const sessions = new Map<string, Json>();
+  const rounds = new Map<string, Json>();
+  const waiters = new Map<string, (() => void)[]>();
+  const calls: Call[] = [];
+  const dossiers = new Map<string, Json>();
+  const heartbeats: Json[] = [];
   let issued = 1;
   let denied = false;
   let nextId = 1;
   let base = '';
 
-  const settle = (roundId) => {
+  const settle = (roundId: string) => {
     for (const wake of waiters.get(roundId) ?? []) wake();
     waiters.delete(roundId);
   };
@@ -154,33 +182,33 @@ export async function startFakeAskServer({
     return tokens;
   }
 
-  function openSession(title = 'fake session', context = null) {
+  function openSession(title: string = 'fake session', context: unknown = null) {
     const id = `sess-${nextId++}`;
     sessions.set(id, { id, title, status: 'open', context });
     return { id, url: `${base}/ask/${id}` };
   }
 
-  function answerRound(roundId, answers, via = 'page') {
+  function answerRound(roundId: string, answers: unknown, via: unknown = 'page') {
     const round = rounds.get(roundId);
     Object.assign(round, { status: 'answered', answers, answeredVia: via });
     settle(roundId);
   }
 
-  function closeSession(id) {
+  function closeSession(id: string) {
     sessions.get(id).status = 'closed';
     for (const round of rounds.values()) if (round.sessionId === id) settle(round.id);
   }
 
-  function waitResult(round) {
+  function waitResult(round: Json) {
     if (sessions.get(round.sessionId)?.status === 'closed') return { status: 'closed' };
     if (round.status === 'answered') return { status: 'answered', answers: round.answers };
     return { status: round.status };
   }
 
   /** A dossier as the contract answers it. */
-  const dossierReply = (dossier, more = {}) => ({ id: dossier.id, url: `${base}/prd/${dossier.id}`, ...more });
+  const dossierReply = (dossier: Json, more: Record<string, unknown> = {}) => ({ id: dossier.id, url: `${base}/prd/${dossier.id}`, ...more });
 
-  function openDossier(body) {
+  function openDossier(body: Json): Json {
     const title = typeof body?.title === 'string' ? body.title.trim() : '';
     if (!title || title.length > 200 || typeof body?.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return null;
     const id = `dossier-${nextId++}`;
@@ -191,17 +219,17 @@ export async function startFakeAskServer({
   }
 
   /** The push: `{ status, body }`, as the real server answers it. */
-  function pushDossier(body, raw) {
+  function pushDossier(body: Json, raw: string): { status: number; body: unknown } {
     if (Buffer.byteLength(raw) > dossierBodyBytes) return { status: 413, body: { error: 'too large' } };
     const { repo, prd, title, draftId = null, artifacts } = body ?? {};
     const fine = typeof repo === 'string' && /^[\w.-]+\/[\w.-]+$/.test(repo) && Number.isInteger(prd) && prd > 0
       && typeof title === 'string' && title.trim() && Array.isArray(artifacts)
-      && artifacts.every((a) => DOSSIER_KINDS.includes(a?.kind) && typeof a.content === 'string');
+      && artifacts.every((a: Json) => DOSSIER_KINDS.includes(a?.kind) && typeof a.content === 'string');
     if (!fine) return { status: 400, body: { error: 'malformed push' } };
-    if (artifacts.some((a) => Buffer.byteLength(a.content) > artifactBytes)) return { status: 413, body: { error: 'artifact too large' } };
+    if (artifacts.some((a: Json) => Buffer.byteLength(a.content) > artifactBytes)) return { status: 413, body: { error: 'artifact too large' } };
     const home = repo.toLowerCase();
-    const keyed = () => [...dossiers.values()].find((d) => d.repo === home && d.prd === prd);
-    let dossier;
+    const keyed = () => [...dossiers.values()].find((d: Json) => d.repo === home && d.prd === prd);
+    let dossier: Json;
     if (draftId !== null) {
       const draft = dossiers.get(draftId);
       if (!draft) return { status: 404, body: { error: 'no such draft' } };
@@ -227,10 +255,10 @@ export async function startFakeAskServer({
       }
     }
     dossier.title = title.trim();
-    const added = [];
-    const unchanged = [];
+    const added: { kind: string; version: number }[] = [];
+    const unchanged: string[] = [];
     for (const { kind, content } of artifacts) {
-      const ofKind = dossier.versions.filter((v) => v.kind === kind);
+      const ofKind = dossier.versions.filter((v: Json) => v.kind === kind);
       const hash = sha256(content);
       if (ofKind.at(-1)?.sha256 === hash) {
         unchanged.push(kind);
@@ -242,8 +270,8 @@ export async function startFakeAskServer({
     return { status: 200, body: dossierReply(dossier, { added, unchanged }) };
   }
 
-  async function route(method, path, body, request, response, raw) {
-    let match;
+  async function route(method: string | undefined, path: string, body: Json, request: IncomingMessage, response: ServerResponse, raw: string): Promise<unknown> {
+    let match: RegExpExecArray | null;
     if (method === 'POST' && path === '/api/ask/token') {
       if (body?.refresh_token && refresh.has(body.refresh_token)) {
         refresh.delete(body.refresh_token);
@@ -267,7 +295,7 @@ export async function startFakeAskServer({
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/business' && business) {
-      const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
+      const repo = new URL(String(request.url), 'http://fake').searchParams.get('repo') ?? '';
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       const { status = 200, body: reply } = business(repo);
       return json(response, status, reply);
@@ -281,7 +309,7 @@ export async function startFakeAskServer({
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {
-      const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
+      const repo = new URL(String(request.url), 'http://fake').searchParams.get('repo') ?? '';
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       return json(response, 200, place(repo));
     }
@@ -296,12 +324,13 @@ export async function startFakeAskServer({
     }
     if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {
-      if (!sessions.has(match[1])) return json(response, 404, { error: 'not found' });
-      closeSession(match[1]);
+      const id = String(match[1]);
+      if (!sessions.has(id)) return json(response, 404, { error: 'not found' });
+      closeSession(id);
       return json(response, 200, {});
     }
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/rounds$/.exec(path))) {
-      const session = sessions.get(match[1]);
+      const session = sessions.get(String(match[1]));
       if (!session) return json(response, 404, { error: 'not found' });
       if (session.status === 'closed') return json(response, 409, { error: 'session closed' });
       if (!Array.isArray(body?.questions)) return json(response, 400, { error: 'questions' });
@@ -315,12 +344,12 @@ export async function startFakeAskServer({
       return json(response, 200, { roundId: round.id });
     }
     if ((match = /^\/api\/ask\/rounds\/([^/]+)\/(wait|answers|abandon)$/.exec(path))) {
-      const round = rounds.get(match[1]);
+      const round = rounds.get(String(match[1]));
       if (!round) return json(response, 404, { error: 'not found' });
       const [, , action] = match;
       if (method === 'GET' && action === 'wait') {
         if (waitResult(round).status === 'open') {
-          await new Promise((resolve) => {
+          await new Promise<void>((resolve) => {
             const timer = setTimeout(resolve, holdMs);
             const wake = () => { clearTimeout(timer); resolve(); };
             waiters.set(round.id, [...(waiters.get(round.id) ?? []), wake]);
@@ -343,20 +372,20 @@ export async function startFakeAskServer({
   }
 
   const server = createServer(async (request, response) => {
-    const path = new URL(request.url, 'http://fake').pathname;
+    const path = new URL(String(request.url), 'http://fake').pathname;
     const raw = await readText(request);
     const body = parseBody(raw);
-    const call = { method: request.method, path, body, authorization: request.headers.authorization ?? null };
+    const call: Call = { method: request.method, path, body, authorization: request.headers.authorization ?? null };
     calls.push(call);
     onCall(call);
     try {
       await route(request.method, path, body, request, response, raw);
     } catch (error) {
-      json(response, 500, { error: String(error?.message ?? error) });
+      json(response, 500, { error: String((error as Json)?.message ?? error) }); // ts-allow: whatever a handler threw
     }
   });
-  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
-  const { port: bound } = server.address();
+  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
+  const { port: bound } = server.address() as AddressInfo; // ts-allow: a server listening on a port has an address
   base = `http://127.0.0.1:${bound}`;
 
   return {
@@ -379,14 +408,14 @@ export async function startFakeAskServer({
     expireRefresh: () => refresh.clear(),
     /** Every call but the token exchange gets a 401, even with a token the exchange just issued. */
     denyAccess: () => { denied = true; },
-    close: () => new Promise((resolve) => {
+    close: () => new Promise<void>((resolve) => {
       server.closeAllConnections();
       server.close(() => resolve());
     }),
   };
 }
 
-function flag(argv, name, fallback) {
+function flag<T>(argv: string[], name: string, fallback: T): string | T | undefined {
   const index = argv.indexOf(`--${name}`);
   return index === -1 ? fallback : argv[index + 1];
 }

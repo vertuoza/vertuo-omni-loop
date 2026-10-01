@@ -10,9 +10,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -57,7 +57,7 @@ function validFolder(dir = DIR) {
 }
 
 /** Commits everything, signed as a skill signs it unless `signed` is false. Returns the short sha. */
-function commit(root, message, { signed = true } = {}) {
+function commit(root: string, message: string, { signed = true } = {}) {
   const text = signed ? `${message}\n\n${CLAUDE}\n${TRAILER}\n` : message;
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', text], { cwd: root, stdio: 'ignore' });
@@ -75,7 +75,7 @@ function setup(configText = CONFIG_TEXT) {
   return { root, write, writeAll, base };
 }
 
-async function run(root, base, concept = CONCEPT) {
+async function run(root: string, base: string | undefined, concept = CONCEPT) {
   const s = io();
   const argv = base === undefined ? ['concept', String(concept)] : ['concept', String(concept), '--base', base];
   const code = await main(argv, { cwd: root, ...s });
@@ -83,8 +83,8 @@ async function run(root, base, concept = CONCEPT) {
 }
 
 /** The lines after `not ok` that name a failed check. */
-function failures(out) {
-  return out.split('\n').filter((line) => line.startsWith('- '));
+function failures(out: string) {
+  return out.split('\n').filter((line: string) => line.startsWith('- '));
 }
 
 /** A valid concept, committed signed, then `change` applied and committed: its run's result. */
@@ -129,7 +129,7 @@ describe('omni concept', () => {
     expect(failures(out)[0]).toMatch(/^- 2 folders for issue 712, one expected: .*0712-again.*0712-team-agenda/);
   });
 
-  it.each(['concept.md', 'vision.html', 'debate.md', 'board-r1.html'])('is not ok, exit 1, naming a missing %s alone', async (file) => {
+  it.each(['concept.md', 'vision.html', 'debate.md', 'board-r1.html'])('is not ok, exit 1, naming a missing %s alone', async (file: string) => {
     const { code, out } = await withChange(({ root }) => {
       rmSync(join(root, DIR, file));
       if (file === 'board-r1.html') rmSync(join(root, DIR, 'board-r2.html'));
@@ -184,7 +184,7 @@ describe('omni concept', () => {
   it.each([
     ['a script', '<script src="https://cdn.example.com/app.js"></script>', '<script src> https://cdn.example.com/app.js'],
     ['a stylesheet', '<link rel="stylesheet" href="https://fonts.example.com/css">', '<link href> https://fonts.example.com/css'],
-  ])('is not ok, exit 1, naming a page loading %s from the network', async (_what, tag, load) => {
+  ])('is not ok, exit 1, naming a page loading %s from the network', async (_what: any, tag: any, load: any) => {
     const { code, out } = await withChange(({ write }) => write(`${DIR}/board-r1.html`, `${PAGE}${tag}\n`));
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/board-r1.html: loads from the network: ${load}; inline it, and keep only links a person follows.`]);

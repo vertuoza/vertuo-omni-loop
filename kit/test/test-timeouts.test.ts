@@ -18,7 +18,7 @@ const SELF = 'kit/test/test-timeouts.test.ts';
 const OWN_LIMIT = [/^\s*\}\s*,\s*\d[\d_]{3,}\s*\)\s*;?\s*$/m, /\b(?:describe|it|test)(?:\.\w+)*\([^\n]*\{\s*timeout\s*:/, /\bvi\.setConfig\(\s*\{[^}]*\b(?:test|hook)Timeout\b/];
 
 /** The first line of `source` that sets a test's own time limit, or `null`. */
-export function ownLimit(source) {
+export function ownLimit(source: string) {
   for (const pattern of OWN_LIMIT) {
     const match = pattern.exec(source);
     if (!match) continue;

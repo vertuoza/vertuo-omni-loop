@@ -26,14 +26,14 @@ function repoWithBundle() {
 }
 
 /** `omni <argv>` run by the bundle, with plain node. */
-function bundled(root, argv) {
+function bundled(root: string, argv: string[]) {
   const run = spawnSync(process.execPath, [BIN, ...argv], { cwd: root, encoding: 'utf8' });
   return { code: run.status, out: run.stdout, err: run.stderr };
 }
 
 /** `omni <argv>` run from the kit's source. */
-async function fromSource(root, argv) {
-  const out = [];
+async function fromSource(root: string, argv: readonly string[]) {
+  const out: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } });
   return { code, out: out.join('') };
 }

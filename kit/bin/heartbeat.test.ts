@@ -8,14 +8,14 @@ import { HEARTBEAT_EVERY_MS } from '../lib/ask/heartbeat.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
 let server;
@@ -24,7 +24,7 @@ afterEach(async () => {
   server = undefined;
 });
 
-const configText = (url, { dossier = true } = {}) =>
+const configText = (url: null, { dossier = true } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url === null ? 'null' : url}\ndossier:\n  enabled: ${dossier}\n`;
 
 async function signedIn(options = {}, { dossier = true, askUrl } = {}) {
@@ -40,9 +40,9 @@ async function signedIn(options = {}, { dossier = true, askUrl } = {}) {
   return { ...repo, tokens };
 }
 
-const input = (root, session = 'claude-a') => JSON.stringify({ hook_event_name: 'PostToolUse', session_id: session, cwd: root, tool_name: 'Bash' });
+const input = (root: string, session = 'claude-a') => JSON.stringify({ hook_event_name: 'PostToolUse', session_id: session, cwd: root, tool_name: 'Bash' });
 
-async function beat(root, { tokens, now = () => 1_000_000, session = 'claude-a', args = [] } = {}) {
+async function beat(root: string, { tokens, now = () => 1_000_000, session = 'claude-a', args = [] } = {}) {
   const s = io();
   const code = await main(['heartbeat', ...args], { cwd: root, ...s, stdin: input(root, session), tokens, now });
   return { code, out: s.out.join(''), err: s.err.join('') };

@@ -6,14 +6,14 @@ import { main } from './omni.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 const D = '.omni-loop/delivery';
-const SPEC = (prd) => `---\nprd: ${prd}\ntitle: A\nblocked-by: none\nspec: file\n---\n\nBody.\n`;
-const NOTE = (prd, title = 'Jump between work and play in one tap') =>
+const SPEC = (prd: number) => `---\nprd: ${prd}\ntitle: A\nblocked-by: none\nspec: file\n---\n\nBody.\n`;
+const NOTE = (prd: number, title = 'Jump between work and play in one tap') =>
   `---\nprd: ${prd}\ntitle: ${title}\n---\nOne tap moves you between the reading pages and the game.\n`;
 
 /** Runs `omni <argv>` in `root`: `{ code, out, err }`. */
-async function omni(root, argv) {
-  const out = [];
-  const err = [];
+async function omni(root: string, argv: readonly string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join('') };
 }

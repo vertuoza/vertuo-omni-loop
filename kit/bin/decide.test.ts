@@ -14,22 +14,22 @@ const HOST = 'omni.test';
 const STATE = { decision: 'Keep the sessions in Postgres.', options: ['A: Postgres', 'B: Redis'], slice: 's3', paths: ['supabase/'] };
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries = {}) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
-const config = (url) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
+const config = (url: string) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
 
 /** A fetch that answers every call with `answer(url, init)`, `{ status, body }`, and records the calls. */
 function stubFetch(answer) {
   const calls = [];
-  const fetch = async (url, init) => {
+  const fetch = async (url: string, init) => {
     calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body ? JSON.parse(init.body) : undefined });
     const { status = 200, body } = await answer(String(url), init);
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -43,7 +43,7 @@ function checkout({ url = URL_, signedIn = true } = {}) {
   return { root, tokens };
 }
 
-async function decide(args, { root, tokens, fetch = stubFetch(() => ({ status: 500, body: {} })).fetch, callMs }) {
+async function decide(args: string[], { root, tokens, fetch = stubFetch(() => ({ status: 500, body: {} })).fetch, callMs }) {
   const s = io();
   const code = await main(['decide', ...args], { cwd: root, ...s, tokens, env: {}, fetch, ...(callMs ? { callMs } : {}) });
   return { code, out: s.out(), err: s.err() };
@@ -113,7 +113,7 @@ describe('omni decide', () => {
 
   it('prints unset on a timeout', async () => {
     const c = checkout();
-    const hang = (_url, init) => new Promise((_resolve, reject) => {
+    const hang = (_url: string, init) => new Promise((_resolve, reject) => {
       init.signal.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })));
     });
     const run = await decide(ARGS, { ...c, fetch: hang, callMs: 20 });

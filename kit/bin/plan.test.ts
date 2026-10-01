@@ -5,14 +5,14 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
-function planMd(rows) {
+function planMd(rows: string[]) {
   return [
     '# A plan',
     '',
@@ -149,7 +149,7 @@ function multiPlan({ repos = REPOS_OK, slices = SLICES_OK, header = '| id | repo
   return lines.join('\n');
 }
 
-async function check(config, plan) {
+async function check(config, plan: string) {
   const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
   const s = io();
   const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
@@ -348,8 +348,8 @@ describe('omni plan moved (PRD 563)', () => {
 
   /** A fake `execFileSync` answering `gh api` from `world`: `{ slug: { compare } }`, a missing slug a 404. */
   function fakeGh(world) {
-    const calls = [];
-    const exec = (file, args, options) => {
+    const calls: any[] = [];
+    const exec = (file: string, args: any[] | readonly string[], options) => {
       if (file === 'git') return execFileSync(file, args, options);
       if (file !== 'gh') throw new Error(`unexpected ${file}`);
       calls.push(args.join(' '));
@@ -381,7 +381,7 @@ describe('omni plan moved (PRD 563)', () => {
     },
   };
 
-  async function moved(args, { config = planRepoConfig(), plan = multiPlan({ repos: MOVED_REPOS, slices: MOVED_SLICES }), world }) {
+  async function moved(args: string[], { config = planRepoConfig(), plan = multiPlan({ repos: MOVED_REPOS, slices: MOVED_SLICES }), world }) {
     const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
     const { exec, calls } = fakeGh(world);
     const s = io();

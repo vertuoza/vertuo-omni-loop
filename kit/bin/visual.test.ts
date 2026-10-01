@@ -7,9 +7,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -21,7 +21,7 @@ const CLAUDE = 'Co-Authored-By: Claude <noreply@anthropic.com>';
 const VALID_PAGE = '<!doctype html><title>Sidebar</title><img src="data:image/svg+xml;base64,PHN2Zy8+">\n';
 
 /** Commits everything, signed as a skill signs it unless `signed` is false. Returns the short sha. */
-function commit(root, message, { signed = true } = {}) {
+function commit(root: string, message: string, { signed = true } = {}) {
   const text = signed ? `${message}\n\n${CLAUDE}\n${TRAILER}\n` : message;
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', text], { cwd: root, stdio: 'ignore' });
@@ -35,15 +35,15 @@ function setup(configText = CONFIG_TEXT) {
   return { root, write, base };
 }
 
-async function run(root, base, issue = ISSUE) {
+async function run(root: string, base: string, issue = ISSUE) {
   const s = io();
   const code = await main(['visual', String(issue), '--base', base], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
 
 /** The lines after `not ok` that name a failed check. */
-function failures(out) {
-  return out.split('\n').filter((line) => line.startsWith('- '));
+function failures(out: string) {
+  return out.split('\n').filter((line: string) => line.startsWith('- '));
 }
 
 describe('omni visual', () => {
@@ -125,7 +125,7 @@ describe('omni visual', () => {
   it.each([
     ['png', 'data:image/png;base64,iVBORw0KGgo='],
     ['jpeg', 'data:image/jpeg;base64,/9j/4AAQ'],
-  ])('is not ok, exit 1, when the page holds a base64 %s image', async (_kind, url) => {
+  ])('is not ok, exit 1, when the page holds a base64 %s image', async (_kind: any, url: any) => {
     const { root, write, base } = setup();
     write(PAGE, `<!doctype html><img src="${url}">\n`);
     commit(root, 'fix(app): sidebar darker (#12)');

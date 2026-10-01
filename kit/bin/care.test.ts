@@ -6,9 +6,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
@@ -27,7 +27,7 @@ function repo() {
 }
 
 const NOW = new Date().toISOString();
-const subPr = (slice, over = {}) => ({
+const subPr = (slice: string | any[], over = {}) => ({
   number: 20 + Number(slice.slice(1)),
   title: slice,
   headRefName: `feat/widgets--${slice}`,
@@ -92,7 +92,7 @@ const PULL_REQUEST = {
 };
 
 /** A fake `execFileSync` standing in for git and gh. Records every call. */
-function fakeExec(root, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: NOW }], subPrs = [subPr('s1'), subPr('s2')], graphql = {} } = {}) {
+function fakeExec(root: string, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: NOW }], subPrs = [subPr('s1'), subPr('s2')], graphql = {} } = {}) {
   const calls = [];
   // GraphQL answers by what the query asks for; the first match wins, the read last.
   const answers = [
@@ -107,10 +107,10 @@ function fakeExec(root, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: N
   // Every command the fake answers, by its file and first two arguments.
   const handlers = {
     'git rev-parse': () => `${root}\n`,
-    'gh pr list': (args) => JSON.stringify(args.includes('--head') ? featurePrs : subPrs),
-    'gh api graphql': (_args, options) => answerGraphql(options),
+    'gh pr list': (args: string | string[]) => JSON.stringify(args.includes('--head') ? featurePrs : subPrs),
+    'gh api graphql': (_args: any, options: any) => answerGraphql(options),
   };
-  const exec = (file, args, options = {}) => {
+  const exec = (file: any, args: any[], options = {}) => {
     calls.push({ file, args, options });
     const handler = handlers[[file, ...args.slice(0, 2)].join(' ')] ?? handlers[`${file} ${args[0]}`];
     if (!handler) throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
@@ -119,7 +119,7 @@ function fakeExec(root, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: N
   return { exec, calls };
 }
 
-async function run(argv, root, fake) {
+async function run(argv: any[] | readonly string[], root: string, fake) {
   const s = io();
   const code = await main(argv, { cwd: root, exec: fake.exec, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
@@ -208,7 +208,7 @@ describe('omni care reply', () => {
     expect(out).toBe('Fixed in abc1234: one helper.\n\n<!-- omni-care: fixed -->\n');
   });
 
-  it.each(['fixed', 'pushed-back'])('posts a %s reply on the thread and resolves it', async (verdict) => {
+  it.each(['fixed', 'pushed-back'])('posts a %s reply on the thread and resolves it', async (verdict: any) => {
     const root = repo();
     const fake = fakeExec(root);
     const { code, out } = await run(['care', 'reply', '--verdict', verdict, '--body', 'Why.', '--thread', 'T1'], root, fake);

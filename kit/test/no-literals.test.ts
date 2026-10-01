@@ -33,8 +33,8 @@ const EXEMPT_VALUES = {
   'lib/config.ts': [/(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g],
 };
 
-function files(dir, ext) {
-  let out = [];
+function files(dir, ext: string) {
+  let out: string[] = [];
   let names = [];
   try { names = readdirSync(dir); } catch { return out; }
   for (const name of names) {
@@ -46,14 +46,14 @@ function files(dir, ext) {
 }
 
 /** Every forbidden literal under `root`, as `<file>:<line>: <text>`, outside provenance lines. */
-function literalHits(root) {
-  const hits = [];
+function literalHits(root: string) {
+  const hits: string[] = [];
   for (const { dir, ext, also = [] } of SCANNED) {
     for (const file of files(join(root, dir), ext)) {
       const relPath = relative(root, file);
       readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
         if (PROVENANCE.test(line.trim())) return;
-        const tested = (EXEMPT_VALUES[relPath] || []).reduce((rest, value) => rest.replace(value, ''), line);
+        const tested = (EXEMPT_VALUES[relPath] || []).reduce((rest: string, value: any) => rest.replace(value, ''), line);
         for (const pattern of [...FORBIDDEN, ...also]) {
           const exempt = EXEMPT_PATHS[pattern.source] || [];
           if (exempt.includes(relPath)) continue;
@@ -72,7 +72,7 @@ describe('kit source carries no repository literal', () => {
 
   it('scans the kit defaults under templates/, and exempts their provenance lines', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path, text) => {
+    const write = (path: string, text) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };
@@ -96,7 +96,7 @@ describe('kit source carries no repository literal', () => {
 
   it('lets the arcade\'s exact address through in lib/config.ts only, and nothing else (ADR-0047)', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path, text) => {
+    const write = (path: string, text) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };
@@ -117,7 +117,7 @@ describe('kit source carries no repository literal', () => {
 
   it('scans skill prose under plugin/, and exempts its provenance lines', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path, text) => {
+    const write = (path: string, text) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };

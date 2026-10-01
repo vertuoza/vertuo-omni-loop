@@ -8,18 +8,18 @@ import { ENTRIES } from '../lib/help/entries.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\npaths:\n  delivery: work/delivery\n' };
 
-async function run(argv, cwd) {
+async function run(argv: readonly string[], cwd: string) {
   const s = io();
   const code = await main(argv, { cwd, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
-const widest = (text) => Math.max(...text.split('\n').map((line) => [...line].length));
+const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => [...line].length));
 
 describe('omni help', () => {
   it('prints the loop, its principles, Claude, the terminal and what the skills run, in order, and exits 0', async () => {

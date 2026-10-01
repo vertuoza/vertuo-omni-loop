@@ -10,7 +10,7 @@ import { main } from './omni.ts';
 const markers = makeMarkers('omni-outbox');
 const OUTBOX = '.omni-loop/delivery/outbox/0042-widgets';
 
-function itemText(id, rank, letters = ['A', 'B']) {
+function itemText(id: string, rank: string, letters = ['A', 'B']) {
   const body = rank === 'human-action'
     ? ['## What a person must do', '', '1. Add the secret to the project.', '']
     : ['## The options, in plain words', '', ...letters.map((letter) => `${letter}. Option ${letter} for ${id}.`), ''];
@@ -66,9 +66,9 @@ const PR_COMMENT = {
 
 /** A fake `gh`: lists `comments`, records every comment posted, and fails to post when told to. */
 function fakeGh({ comments = [PR_COMMENT], failPost = false } = {}) {
-  const posted = [];
-  const calls = [];
-  const exec = (cmd, args, options) => {
+  const posted: any[] = [];
+  const calls: any[] = [];
+  const exec = (cmd: string, args: readonly string[], options) => {
     if (cmd !== 'gh') return execFileSync(cmd, args, options);
     calls.push(args);
     if (args.includes('--paginate')) return JSON.stringify(comments);
@@ -92,9 +92,9 @@ afterEach(() => {
   while (repos.length) rmSync(repos.pop().root, { recursive: true, force: true });
 });
 
-async function omni(r, args, gh = fakeGh()) {
-  const out = [];
-  const err = [];
+async function omni(r, args: string[], gh = fakeGh()) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['answers', ...args], {
     cwd: r.root,
     exec: gh.exec,
@@ -113,7 +113,7 @@ describe('omni answers ask (PRD 251)', () => {
     expect(code).toBe(0);
     const printed = JSON.parse(out);
     expect(printed).toMatchObject({ prd: 42, pr: 9 });
-    expect(printed.batches.map((batch) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
+    expect(printed.batches.map((batch: any[]) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
     expect(printed.batches[0][0]).toMatchObject({
       number: 19,
       id: 's2-01-secret',

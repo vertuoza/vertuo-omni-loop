@@ -9,9 +9,9 @@ import { main, prdNamedBy } from './omni.ts';
 import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
@@ -336,7 +336,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
   const NO_SIGN_IN = { read: () => null, write() {} };
 
   /** `execFileSync` for git; `gh pr list` lists nothing, and any other `gh` call fails: no test calls GitHub. */
-  const noGitHub = (file, args, options) => {
+  const noGitHub = (file: string, args: any[] | readonly string[], options) => {
     if (file !== 'gh') return execFileSync(file, args, options);
     if (args[0] === 'pr' && args[1] === 'list') return '[]';
     throw new Error(`no gh here: ${args.join(' ')}`);
@@ -346,7 +346,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
   async function omni(argv, { root, cwd = root, env = {} }) {
     const s = io();
     const code = await main(argv, { cwd, ...s, exec: noGitHub, env, tokens: NO_SIGN_IN });
-    const clean = (text) => text.split(realpathSync(root)).join('<root>').split(root).join('<root>');
+    const clean = (text: string) => text.split(realpathSync(root)).join('<root>').split(root).join('<root>');
     return { code, out: clean(s.out.join('')), err: clean(s.err.join('')) };
   }
 
@@ -365,7 +365,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
     ['item', 'new', '--prd', '7', '--slice', 's1', '--file', 'missing.json'],
   ];
 
-  it.each(FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records PRD 7, and prints and exits as it does without', async (_name, argv) => {
+  it.each(FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records PRD 7, and prints and exits as it does without', async (_name: any, argv: any) => {
     const without = makeRepo({ git: true, files: FILES });
     const within = makeRepo({ git: true, files: FILES });
     const before = Date.now();
@@ -473,7 +473,7 @@ describe('prdNamedBy: the one PRD a command names', () => {
 // PRD 420: run as a program (the global `omni`), the entry is a launcher. These start the real CLI.
 describe('omni — the launcher', () => {
   const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
-  const run = (argv, { cwd, input = '' }) => {
+  const run = (argv: string[], { cwd, input = '' }) => {
     try {
       return { code: 0, out: execFileSync(process.execPath, [CLI, ...argv], { cwd, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }), err: '' };
     } catch (error) {

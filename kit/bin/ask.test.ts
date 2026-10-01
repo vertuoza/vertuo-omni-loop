@@ -23,26 +23,26 @@ const QUESTION = {
   multiSelect: false,
   options: [{ label: 'System (Recommended)', description: 'follow the computer' }, { label: 'Dark', description: 'always dark' }],
 };
-const preFrom = (terminalId, toolUseId = 'toolu_01') =>
+const preFrom = (terminalId: string, toolUseId = 'toolu_01') =>
   JSON.stringify({ hook_event_name: 'PreToolUse', session_id: terminalId, tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: toolUseId });
 const PRE = preFrom('term-a');
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries = {}) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
-const config = (url, slug = 'acme/widgets') =>
+const config = (url: string | null, slug = 'acme/widgets') =>
   `kit: 1\nrepo:\n  slug: ${slug}\nask:\n  url: ${url === null ? 'null' : url}\n`;
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
-function runCli(args, { cwd, env = {} }) {
+function runCli(args: string[], { cwd, env = {} }) {
   return new Promise((resolve) => {
     execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
@@ -69,12 +69,12 @@ async function signedIn(options = {}) {
   return { ...repo, tokens };
 }
 
-const ask = (sub, { root, tokens, ...more }) => {
+const ask = (sub: string, { root, tokens, ...more }) => {
   const s = io();
   return main(['ask', sub], { cwd: root, ...s, tokens, ...more }).then((code) => ({ code, ...s }));
 };
 
-const hook = (kind, stdin, { root, tokens }) => {
+const hook = (kind: string, stdin: string, { root, tokens }) => {
   const s = io();
   return main(['ask', 'hook', kind], { cwd: root, ...s, stdin, tokens }).then((code) => ({ code, ...s }));
 };
@@ -142,8 +142,8 @@ describe('omni ask on', () => {
   });
 
   it('asks for the checkout\'s repository, repo.slug', async () => {
-    const asked = [];
-    const { root, tokens } = await signedIn({ place: (repo) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
+    const asked: any[] = [];
+    const { root, tokens } = await signedIn({ place: (repo: any) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
     await ask('on', { root, tokens });
     expect(asked).toEqual(['acme/widgets']);
   });

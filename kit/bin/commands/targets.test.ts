@@ -34,8 +34,8 @@ const WITH_TYPO = `${PLAN}    - repo: acme/typo
 
 /** A fake `execFileSync` answering `gh api` for the repositories of `world` (see targets.test.mjs). */
 function fakeGh(world) {
-  const calls = [];
-  const exec = (file, args, options) => {
+  const calls: any[] = [];
+  const exec = (file: string, args: any[] | readonly string[], options) => {
     if (file === 'git') return execFileSync(file, args, options);
     if (file !== 'gh') throw new Error(`unexpected ${file}`);
     calls.push(args.join(' '));
@@ -53,11 +53,11 @@ function fakeGh(world) {
   return { exec, calls };
 }
 
-async function targets(args, { config, world = {} }) {
+async function targets(args: string[], { config, world = {} }) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const { exec, calls } = fakeGh(world);
-  const out = [];
-  const err = [];
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['targets', ...args], { cwd: root, exec, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join(''), calls };
 }
@@ -108,7 +108,7 @@ describe('omni targets', () => {
       },
     });
     const { exec } = fakeGh(ALL_OK);
-    const faked = (file, args, options) => {
+    const faked = (file: string, args: string | any[] | readonly string[], options) => {
       if (file === 'git') return execFileSync(file, args, options);
       const endpoint = args[args.length - 1];
       if (endpoint === 'repos/acme/back') return JSON.stringify({ default_branch: 'main' });
@@ -116,7 +116,7 @@ describe('omni targets', () => {
       if (endpoint.startsWith('repos/acme/back/')) throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });
       return exec(file, args, options);
     };
-    const out = [];
+    const out: string[] = [];
     const code = await main(['targets', '--json'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(JSON.parse(out.join(''))[2]).toEqual({
       repo: 'acme/back', role: 'back-end', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '3 commits, 1 evidence file changed',
@@ -134,7 +134,7 @@ describe('omni targets', () => {
   });
 
   it('has its entry in omni help targets', async () => {
-    const out = [];
+    const out: string[] = [];
     const code = await main(['help', 'targets'], { cwd: makeRepo({ git: true, files: { '.omni-loop/config.yml': PLAN } }).root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(code).toBe(0);
     expect(out.join('')).toMatch(/omni targets \[--json\]/);

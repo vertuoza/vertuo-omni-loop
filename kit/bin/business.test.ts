@@ -7,19 +7,19 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries = {}) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
-const config = (url) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
+const config = (url: string) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
 
-const claim = (id, value, source = 'pick', state = 'confirmed') =>
+const claim = (id: string, value: string, source = 'pick', state = 'confirmed') =>
   ({ id, kind: id.split('#')[0], value, source, state, receipt: null, lastSeen: null });
 
 const FILLED = {
@@ -37,7 +37,7 @@ const FILLED = {
   personas: [],
 };
 
-const persona = (name, stance, trade, who, usage) => ({ name, stance, trade, who, usage });
+const persona = (name: string, stance: string, trade: string, who: string, usage: string) => ({ name, stance, trade, who, usage });
 const CAST = [
   persona('Marc', 'skeptical', 'plumber', 'Runs a company of five plumbers', 'Mostly the quotes'),
   persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
@@ -57,7 +57,7 @@ async function checkout({ business, signedIn = true, url } = {}) {
   return { root, tokens };
 }
 
-async function show(args, { root, tokens, ...more }) {
+async function show(args: string[], { root, tokens, ...more }) {
   const s = io();
   const code = await main(['business', ...args], { cwd: root, ...s, tokens, env: {}, ...more });
   return { code, out: s.out(), err: s.err() };
@@ -87,8 +87,8 @@ describe('omni business show', () => {
   });
 
   it('asks for this repository by its slug', async () => {
-    const asked = [];
-    const c = await checkout({ business: (repo) => { asked.push(repo); return { body: FILLED }; } });
+    const asked: any[] = [];
+    const c = await checkout({ business: (repo: any) => { asked.push(repo); return { body: FILLED }; } });
     await show(['show'], c);
     expect(asked).toEqual(['acme/widgets']);
   });
@@ -310,7 +310,7 @@ describe('omni business cited', () => {
   }
 
   it('appends one citation through POST /api/business/citations, and says so', async () => {
-    const sent = [];
+    const sent: any[] = [];
     const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited rival#4 (think-big, concept #9)\n' });
@@ -321,7 +321,7 @@ describe('omni business cited', () => {
   });
 
   it('cites several ids in one call, and --ref may be left out', async () => {
-    const sent = [];
+    const sent: any[] = [];
     const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'region#1', 'rival#4', '--by', 'think-big'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited region#1, rival#4 (think-big)\n' });
@@ -398,14 +398,14 @@ describe('omni business claim add (PRD 822)', () => {
     return { root, tokens };
   }
   const ADD = ['claim', 'add', '--kind', 'size', '--value', '20-50', '--ref', 'brainstorm · PRD 822'];
-  const stored = (sent) => (body) => {
+  const stored = (sent: any[]) => (body) => {
     sent.push(body);
     return { body: { id: 'size#12', state: body.state, added: true } };
   };
 
   for (const state of ['proposed', 'confirmed']) {
     it(`stores a ${state} claim through POST /api/business/claims, and says so`, async () => {
-      const sent = [];
+      const sent: never[] = [];
       const c = await claiming({ claim: stored(sent) });
       const run = await show([...ADD, '--state', state], c);
       expect(run).toEqual({ code: 0, err: '', out: `claim saved: size#12 (${state})\n` });
@@ -482,7 +482,7 @@ describe('omni business claim add (PRD 822)', () => {
     });
   }
 
-  const flags = (without, extra = []) => {
+  const flags = (without: string | null, extra = []) => {
     const all = { '--kind': 'size', '--value': '20-50', '--state': 'proposed', '--ref': 'brainstorm · PRD 822' };
     return ['claim', 'add', ...Object.entries(all).filter(([flag]) => flag !== without).flat(), ...extra];
   };

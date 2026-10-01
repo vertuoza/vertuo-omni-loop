@@ -27,18 +27,18 @@ const PRE = JSON.stringify({ hook_event_name: 'PreToolUse', session_id: 'term-a'
 const STDINS = ['', 'not json at all', '{}', PRE, JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'hello' })];
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 function memoryTokens(entries) {
   const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
 }
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
-function runCli(args, { cwd, input = '', env = {} }) {
+function runCli(args: string[], { cwd, input = '', env = {} }) {
   return new Promise((resolve) => {
     const child = execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
@@ -295,11 +295,11 @@ describe('omni ask usage', () => {
 describe('the plugin\'s hooks.json', () => {
   const hooks = JSON.parse(readFileSync(HOOKS, 'utf8')).hooks;
   /** The event's hooks, each with its entry's matcher, in order. */
-  const all = (event) => hooks[event].flatMap((entry) => {
+  const all = (event: string) => hooks[event].flatMap((entry) => {
     expect(entry.hooks).toHaveLength(1);
     return [{ matcher: entry.matcher, ...entry.hooks[0] }];
   });
-  const only = (event) => {
+  const only = (event: string) => {
     expect(hooks[event]).toHaveLength(1);
     return all(event)[0];
   };

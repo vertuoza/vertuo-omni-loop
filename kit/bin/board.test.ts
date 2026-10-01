@@ -3,14 +3,14 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
-function planMd(rows) {
+function planMd(rows: string[]) {
   return [
     '# A plan',
     '',
@@ -26,9 +26,9 @@ const HOUR_MS = 60 * 60 * 1000;
 /** A fake `execFileSync`: resolves `git rev-parse --show-toplevel` to `root`, `gh pr list …` to
  * `prs` (as JSON), and `gh pr view <n> … --json commits` to `commitsByNumber[n]` (`[]` for any
  * number not named). Records every call. */
-function fakeExec(root, prs, commitsByNumber = {}) {
+function fakeExec(root: string, prs, commitsByNumber = {}) {
   const calls = [];
-  const exec = (file, args, options = {}) => {
+  const exec = (file: string, args: any[], options = {}) => {
     calls.push({ file, args, options });
     if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
     if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
@@ -276,7 +276,7 @@ describe('omni board — a plan repository (PRD 563)', () => {
     '',
   ].join('\n');
 
-  function multiPlan(rows) {
+  function multiPlan(rows: string[]) {
     return [
       '# A plan',
       '',
@@ -289,9 +289,9 @@ describe('omni board — a plan repository (PRD 563)', () => {
 
   /** A fake `execFileSync` answering `gh pr list --repo <slug>` from `prsBySlug[slug]`; a slug in
    * `failing` throws as an unreadable repository does. */
-  function fakeMultiExec(root, prsBySlug, { failing = [], commitsByNumber = {} } = {}) {
+  function fakeMultiExec(root: string, prsBySlug, { failing = [], commitsByNumber = {} } = {}) {
     const calls = [];
-    const exec = (file, args, options = {}) => {
+    const exec = (file: string, args: any[], options = {}) => {
       calls.push({ file, args, options });
       if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
       const slug = args[args.indexOf('--repo') + 1];
@@ -309,14 +309,14 @@ describe('omni board — a plan repository (PRD 563)', () => {
     return { exec, calls };
   }
 
-  function repoWith(plan, config = PLAN_CONFIG) {
+  function repoWith(plan: string, config = PLAN_CONFIG) {
     return makeRepo({
       git: true,
       files: { '.omni-loop/config.yml': config, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
     }).root;
   }
 
-  const listCalls = (calls) => calls.filter((call) => call.file === 'gh' && call.args[1] === 'list');
+  const listCalls = (calls: any[]) => calls.filter((call) => call.file === 'gh' && call.args[1] === 'list');
   const repoOf = (call) => call.args[call.args.indexOf('--repo') + 1];
 
   it('makes one gh pr list per repository a slice names, the plan repository included, narrowed to the feature branch', async () => {

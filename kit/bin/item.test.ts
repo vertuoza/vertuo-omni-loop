@@ -18,9 +18,9 @@ vi.mock('../lib/outbox/settle.ts', async (importOriginal) => {
 });
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
@@ -40,7 +40,7 @@ const FIELDS = {
   ],
 };
 
-function writeJson(dir, fields) {
+function writeJson(dir: string, fields) {
   const path = join(dir, 'item.json');
   writeFileSync(path, JSON.stringify(fields));
   return path;
@@ -691,7 +691,7 @@ describe('omni item relay (PRD 563, s3)', () => {
   const repo = () => makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
   const scratch = () => mkdtempSync(join(tmpdir(), 'omni-out-'));
 
-  async function raise(root, out, fields) {
+  async function raise(root: string, out: string, fields) {
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, fields), '--out', out], { cwd: root, ...s });
     expect(code).toBe(0);

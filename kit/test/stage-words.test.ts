@@ -12,7 +12,7 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const GALAXY_STAGE = 'apps/galaxy/src/stages/stage.ts';
 
 /** The ids of the `export const STAGES` array literal in `source`, or null when it holds none. */
-function galaxyStages(source) {
+function galaxyStages(source: string) {
   const found = source.match(/export const STAGES\b[^=]*=\s*\[([^\]]*)\]/);
   if (!found) return null;
   return [...found[1].matchAll(/'([^']*)'|"([^"]*)"/g)].map((quoted) => quoted[1] ?? quoted[2]);

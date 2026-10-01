@@ -7,9 +7,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -44,7 +44,7 @@ function record(overrides = {}) {
 }
 
 /** Commits everything, signed as a skill signs it unless `signed` is false. Returns the short sha. */
-function commit(root, message, { signed = true } = {}) {
+function commit(root: string, message: string, { signed = true } = {}) {
   const text = signed ? `${message}\n\n${CLAUDE}\n${TRAILER}\n` : message;
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', text], { cwd: root, stdio: 'ignore' });
@@ -67,19 +67,19 @@ function fixBranch({ bug = record(), configText, signed } = {}) {
   return { ...repo, sha };
 }
 
-async function run(root, base, issue = ISSUE) {
+async function run(root: string, base: string, issue = ISSUE) {
   const s = io();
   const code = await main(['bug', String(issue), '--base', base], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
 
 /** The lines after `not ok` that name a failed check. */
-function failures(out) {
-  return out.split('\n').filter((line) => line.startsWith('- '));
+function failures(out: string) {
+  return out.split('\n').filter((line: string) => line.startsWith('- '));
 }
 
 /** Runs `omni bug` and expects `not ok`, exit 1, with exactly one failure line; returns it. */
-async function onlyFailure(root, base) {
+async function onlyFailure(root: string, base: string) {
   const { code, out } = await run(root, base);
   expect(code).toBe(1);
   expect(out).toMatch(/^not ok$/m);
@@ -141,12 +141,12 @@ describe('omni bug', () => {
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: missing.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name: any) => {
     const { root, base } = fixBranch({ bug: record({ [name]: null }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: no "## ${name}" section.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name: any) => {
     const { root, base } = fixBranch({ bug: record({ [name]: '' }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: the "## ${name}" section is empty.`);
   });

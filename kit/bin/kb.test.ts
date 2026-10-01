@@ -20,21 +20,21 @@ const TESTING = `${PLAYBOOK}/testing.md`;
 const DECISIONS = '.omni-loop/knowledge/adr/README.md';
 
 /** Runs `omni <argv>` in `root`: `{ code, out, err }`. */
-async function omni(root, argv, options = {}) {
-  const out = [];
-  const err = [];
+async function omni(root: string, argv: readonly string[], options = {}) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) }, ...options });
   return { code, out: out.join(''), err: err.join('') };
 }
 
 /** The kit default of `form`'s slot `slot`, filled from `config` as `omni kb show` fills it. */
-function kitDefault(form, slot, config = { commands: { test: 'make check' } }) {
+function kitDefault(form: string, slot: string, config = { commands: { test: 'make check' } }) {
   const body = parseForm(formTemplate(form)).form.slots.find((entry) => entry.id === slot).body.text;
   return fillConfig(body, ConfigSchema.parse({ kit: 1, ...config })).text;
 }
 
 /** Every file under `root`, as `{ <path>: text }`, `.git` left out. */
-function snapshot(root, dir = '') {
+function snapshot(root: string, dir = '') {
   const out = {};
   for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
     const path = dir ? `${dir}/${entry.name}` : entry.name;
@@ -291,14 +291,14 @@ function testingForm({ frontMatter = {}, slots = {}, extra = [] } = {}) {
 
 /** `git hash-object` answered from `hashes` (path → hex), every other command run for real. */
 function hashing(hashes) {
-  return (command, args, options) => {
+  return (command: string, args: readonly string[] | (string | number)[], options) => {
     if (command === 'git' && args[0] === 'hash-object') return `${hashes[args.at(-1)]}\n`;
     return execFileSync(command, args, options);
   };
 }
 
 /** The violation lines of a failed guard's report. */
-const violations = (out) => out.split('\n').filter((line) => line.startsWith('  ')).map((line) => line.trim());
+const violations = (out: string) => out.split('\n').filter((line: string) => line.startsWith('  ')).map((line: string) => line.trim());
 
 describe('omni kb status — the map, derived every time', () => {
   const FILES = {
@@ -388,8 +388,8 @@ describe('omni kb status — the map, derived every time', () => {
 describe('omni kb status — laws and proposals per register folder (PRD #68)', () => {
   const K = '.omni-loop/knowledge';
   const PROPOSED = 'Proposed: invade 2026-09-25\n';
-  const principle = (id, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #68\n${proposed ? PROPOSED : ''}\n`;
-  const rule = (id, serves, proposed = false) =>
+  const principle = (id: string, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #68\n${proposed ? PROPOSED : ''}\n`;
+  const rule = (id: string, serves: string, proposed = false) =>
     `## ${id}\n\nA rule.\n\nServes: ${serves}\nSource: PRD #68\nEnforced by: unenforced\nStated: 2026-09-25\n${proposed ? PROPOSED : ''}\n`;
   const FILES = {
     ...CONFIG,
@@ -451,8 +451,8 @@ describe('omni kb status — laws and proposals per register folder (PRD #68)', 
 describe('omni kb graph — the knowledge graph (PRD #149, acceptance criterion 1)', () => {
   const K = '.omni-loop/knowledge';
   const PROPOSED = 'Proposed: harvest 2026-09-26\n';
-  const principle = (id, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nSource: PRD #3\n${proposed ? PROPOSED : ''}\n`;
-  const kept = (id, serves, { proposed = false, kind = null } = {}) =>
+  const principle = (id: string, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nSource: PRD #3\n${proposed ? PROPOSED : ''}\n`;
+  const kept = (id: string, serves: string | null, { proposed = false, kind = null } = {}) =>
     `## ${id}\n\nA rule.\n\n${kind ? `Kind: ${kind}\n` : ''}${serves ? `Serves: ${serves}\n` : ''}Source: PRD #7\nEnforced by: unenforced\n${proposed ? PROPOSED : ''}\n`;
   const PRODUCT = {
     ...CONFIG,
@@ -465,7 +465,7 @@ describe('omni kb graph — the knowledge graph (PRD #149, acceptance criterion 
     [`${K}/domains/quote/rules.md`]: `# Rules\n\n${kept('BR-QUOTE-1', 'P-PRODUCT-1', { proposed: true })}${kept('BR-QUOTE-2', 'P-QUOTE-3', { proposed: true })}`,
     [`${K}/cross-domain/advisor--quote.md`]: `# Advisor and quote\n\n${kept('X-ADVISOR-QUOTE-1', 'P-PRODUCT-1', { kind: 'invariant' })}`,
   };
-  const squeeze = (out) => out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+  const squeeze = (out: string) => out.split('\n').map((line: string) => line.trim().replace(/\s+/g, ' '));
 
   it('--json prints one JSON document: version 1, the repository slug, the domains, the entries and the links', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
@@ -558,7 +558,7 @@ describe('omni check kb — acceptance criterion 4: fails naming the file', () =
     ['front matter naming another form', { [TESTING]: testingForm({ frontMatter: { form: 'ci' } }) }, `${TESTING}: front matter says form: ci, but this is the testing form's file`],
   ];
 
-  it.each(FAILURES)('fails on %s', async (_, files, line) => {
+  it.each(FAILURES)('fails on %s', async (_: any, files, line: string) => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, ...files } });
     const { code, out } = await omni(root, ['check', 'kb']);
     expect(code).toBe(1);
@@ -578,7 +578,7 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.ts@1234567'] },
       slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?\nTODO(human): who owns the fixtures?' } },
     });
-    const blank = (form) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form).slots.map(({ id, required }) => ({ id, required })) });
+    const blank = (form: string) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form).slots.map(({ id, required }) => ({ id, required })) });
     const { root } = makeRepo({
       git: true,
       files: {
@@ -593,7 +593,7 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
     const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.ts': '89abcdef01234567' });
     const { code, out, err } = await omni(root, ['check', 'kb'], { exec });
     expect(code).toBe(0);
-    const missing = (form) => `warning: ${form === 'decisions' ? DECISIONS : `${PLAYBOOK}/${form}.md`}: missing — the kit defaults apply; \`omni kb init\` writes it`;
+    const missing = (form: string) => `warning: ${form === 'decisions' ? DECISIONS : `${PLAYBOOK}/${form}.md`}: missing — the kit defaults apply; \`omni kb init\` writes it`;
     expect(err.split('\n').filter(Boolean)).toEqual([
       missing('briefing'),
       missing('setup'),
@@ -688,8 +688,8 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       '',
     ].join('\n'),
   };
-  const principle = (id) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #1\n\n`;
-  const rule = (id, serves, { source = 'src/Quote/QuoteRule.php', enforcedBy = 'tests/QuoteRuleTest.php', stated = 'Stated: 2026-09-29\n' } = {}) =>
+  const principle = (id: string) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #1\n\n`;
+  const rule = (id: string, serves: string, { source = 'src/Quote/QuoteRule.php', enforcedBy = 'tests/QuoteRuleTest.php', stated = 'Stated: 2026-09-29\n' } = {}) =>
     `## ${id}\n\nA rule.\n\nServes: ${serves}\nSource: ${source}\nEnforced by: ${enforcedBy}\n${stated}\n`;
   const OWN = {
     [`${K}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}`,
@@ -736,7 +736,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       { [`${COPY}/product/invariants.md`]: null },
       `${COPY}: ${COPY}/product/invariants.md: product — is missing.`,
     ],
-  ])('omni check kb fails on a malformed copy (%s) with the own-knowledge message, prefixed by the copy', async (_, change, line) => {
+  ])('omni check kb fails on a malformed copy (%s) with the own-knowledge message, prefixed by the copy', async (_: any, change: any, line: string) => {
     const files = { ...FILES, ...change };
     for (const [path, text] of Object.entries(files)) if (text === null) delete files[path];
     const { root } = makeRepo({ git: true, files });

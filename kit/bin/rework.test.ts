@@ -3,9 +3,9 @@ import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
@@ -74,7 +74,7 @@ function baseFiles() {
   };
 }
 
-async function settle(root, file, answer, extra = {}) {
+async function settle(root: string, file: string, answer: string, extra = {}) {
   return main(
     ['settle', file, '--by', 'pierrederval', '--at', '2026-09-22', '--channel', 'prd-issue', '--number', '1', '--answer', answer, ...Object.entries(extra).flatMap(([k, v]) => [`--${k}`, v])],
     { cwd: root, ...io() },
@@ -94,7 +94,7 @@ async function driftedRepo() {
 
 /** Adds a second PRD to `root`, drifted under the exact same item id as `driftedRepo`'s own PRD
  * 985 — the collision `--prd` exists to prevent. */
-async function addOtherDriftedPrd(root, write) {
+async function addOtherDriftedPrd(root: string, write) {
   write(`${OTHER_DIR}/spec.md`, '# spec\n');
   write(`${OTHER_DIR}/plan.md`, PLAN);
   write(`${OTHER_OUTBOX}/s1-01-default-country.md`, ITEM_TEXT.replace(`prd: ${PRD}`, `prd: ${OTHER_PRD}`));
