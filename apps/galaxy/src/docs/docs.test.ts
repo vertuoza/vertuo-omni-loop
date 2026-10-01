@@ -87,8 +87,8 @@ describe('the sidebar', () => {
   it('lists the nine pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
-      { name: 'Join a team', url: '/docs/join' },
       { name: 'Install', url: '/docs/install' },
+      { name: 'Join a team', url: '/docs/join' },
       { name: 'Invade', url: '/docs/invade' },
       { name: 'How the loop works', url: '/docs/loop' },
       { name: 'Your first PRD', url: '/docs/first-prd' },
@@ -103,8 +103,8 @@ describe('the sidebar', () => {
     expect(html).toContain('<nav class="docs-nav" aria-label="Guide">');
     expect([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0][0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
       '<a href="/docs">Getting started</a>',
-      '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/install" aria-current="page">Install</a>',
+      '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/invade">Invade</a>',
       '<a href="/docs/loop">How the loop works</a>',
       '<a href="/docs/first-prd">Your first PRD</a>',
@@ -124,9 +124,9 @@ describe('the pages', () => {
   });
 
   it.each([
-    [[], 'Getting started', '/docs/join'],
+    [[], 'Getting started', '/docs/install'],
+    [['install'], 'Install', '/docs/join'],
     [['join'], 'Join a team', '/docs/loop'],
-    [['install'], 'Install', '/docs/invade'],
     [['invade'], 'Invade', '/docs/loop'],
     [['loop'], 'How the loop works', '/docs/first-prd'],
     [['first-prd'], 'Your first PRD', '/docs/several-repositories'],
@@ -257,7 +257,8 @@ describe('a code block', () => {
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni --version']);
     expect(install).toContainEqual(['TERMINAL', 'omni init']);
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'git switch main']);
-    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+    expect(install).toContainEqual(['CODING AGENT', '/omni:ask on']);
     expect(install).toContainEqual(['CODING AGENT', '/omni:help']);
     const troubleshooting = blocks(render(['troubleshooting']));
     expect(troubleshooting).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
@@ -268,11 +269,11 @@ describe('a code block', () => {
     expect(firstPrd).toContainEqual(['GITHUB COMMENT', '1: A']);
   });
 
-  it('shows the plugin a newcomer installs, from a terminal or from Claude Code', () => {
-    const join = blocks(render(['join']));
-    expect(join).toContainEqual(['TERMINAL', 'claude plugin marketplace add vertuoza/vertuo-omni-loop']);
-    expect(join).toContainEqual(['CODING AGENT', '/plugin marketplace add vertuoza/vertuo-omni-loop']);
-    expect(join).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+  it('shows the plugin a newcomer installs, from a terminal or from Claude Code, on Install (#890)', () => {
+    const install = blocks(render(['install']));
+    expect(install).toContainEqual(['TERMINAL', 'claude plugin marketplace add vertuoza/vertuo-omni-loop']);
+    expect(install).toContainEqual(['TERMINAL', 'claude plugin install omni@omni-loop']);
+    expect(install).toContainEqual(['CODING AGENT', '/plugin marketplace add vertuoza/vertuo-omni-loop']);
   });
 
   it('shows a path that is neither run nor pasted as inline code, not as a block', () => {
