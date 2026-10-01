@@ -18,8 +18,8 @@ export type PitchRead = {
   links: Record<string, Record<string, string | null>>;
 };
 
-export const AUDIENCE_LABELS: Readonly<Record<Audience, string>> = { customers: 'Customers', inside: 'Inside' };
-export const LOOK_LABELS: Readonly<Record<Look, string>> = { arcade: 'Arcade poster', keynote: 'Clean keynote' };
+const AUDIENCE_LABELS: Readonly<Record<Audience, string>> = { customers: 'Customers', inside: 'Inside' };
+const LOOK_LABELS: Readonly<Record<Look, string>> = { arcade: 'Arcade poster', keynote: 'Clean keynote' };
 
 /** One file of the shown pitch: its name and signed link, null when it could not be signed. */
 export type PitchDownload = { name: string; href: string | null };
@@ -53,7 +53,7 @@ export type PitchAudienceView = {
 export type PitchView = { audiences: PitchAudienceView[] };
 
 /** The GIF's stable link of a pitch, as a path on this host. */
-export const pitchGifPath = (runId: string) => `/api/pitches/${runId}/${PITCH_GIF}`;
+const pitchGifPath = (runId: string) => `/api/pitches/${runId}/${PITCH_GIF}`;
 
 /** The pitch each audience shows: the one picked when it is of that audience, else its newest. `runs`
  * is newest first; an audience without a pitch is left out. */

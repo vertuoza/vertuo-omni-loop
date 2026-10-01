@@ -17,14 +17,14 @@ const isText = (value) => typeof value === 'string' && value.length > 0;
 /** The upload link of each of `files`, by name, from the upload call's reply. */
 function linksOf(reply, files) {
   if (!isText(reply?.run)) throw new PitchReplyError('no run in the reply');
-  const given = Array.isArray(reply.files) ? reply.files : [];
-  const links = files.map(({ name }) => {
-    const url = given.find((file) => file?.name === name)?.url;
-    if (!isText(url)) throw new PitchReplyError(`no upload link for ${name} in the reply`);
-    return url;
-  });
+  const byName = new Map((Array.isArray(reply.files) ? reply.files : []).map((file) => [file?.name, file?.url]));
+  const links = files.map(({ name }) => (isText(byName.get(name)) ? byName.get(name) : missingLink(name)));
   return { runId: reply.run, links };
 }
+
+const missingLink = (name) => {
+  throw new PitchReplyError(`no upload link for ${name} in the reply`);
+};
 
 /**
  * @param {{ client: { requestPitchUploads: Function, upload: Function, registerPitch: Function }, repo: string, prd: number,

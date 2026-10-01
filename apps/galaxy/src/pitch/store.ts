@@ -38,7 +38,7 @@ export const AUDIENCES = ['customers', 'inside'] as const;
 export type Audience = (typeof AUDIENCES)[number];
 export const isAudience = (value: unknown): value is Audience => AUDIENCES.includes(value as Audience);
 
-export const LOOKS = ['arcade', 'keynote'] as const;
+const LOOKS = ['arcade', 'keynote'] as const;
 export type Look = (typeof LOOKS)[number];
 export const isLook = (value: unknown): value is Look => LOOKS.includes(value as Look);
 
@@ -121,18 +121,24 @@ function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
   return data;
 }
 
-async function signedLinks(db: Pick<SupabaseClient, 'storage'>, paths: string[], seconds: number): Promise<Array<string | null>> {
-  if (paths.length === 0) return [];
+/** A signed link per path, by path; a path missing could not be signed, and none are when the call fails. */
+async function signedByPath(db: Pick<SupabaseClient, 'storage'>, paths: string[], seconds: number): Promise<Map<string, string>> {
+  const signed = new Map<string, string>();
+  if (paths.length === 0) return signed;
   try {
-    const { data, error } = await db.storage.from(PITCH_BUCKET).createSignedUrls(paths, seconds);
-    if (error || !data) return paths.map(() => null);
-    return paths.map((path, i) => {
-      const signed = data.find((d) => d.path === path) ?? data[i];
-      return signed && !signed.error && signed.signedUrl ? signed.signedUrl : null;
-    });
-  } catch {
-    return paths.map(() => null);
+    const { data } = await db.storage.from(PITCH_BUCKET).createSignedUrls(paths, seconds);
+    for (const entry of data ?? []) {
+      if (entry.path && !entry.error && entry.signedUrl) signed.set(entry.path, entry.signedUrl);
+    }
+  } catch (error) {
+    console.error(error);
   }
+  return signed;
+}
+
+async function signedLinks(db: Pick<SupabaseClient, 'storage'>, paths: string[], seconds: number): Promise<Array<string | null>> {
+  const signed = await signedByPath(db, paths, seconds);
+  return paths.map((path) => signed.get(path) ?? null);
 }
 
 /** The pitch store as the caller: row-level security and the bucket's rules decide. */
@@ -144,14 +150,15 @@ export function pitchStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>)
       return settle<boolean>('read the stage', await db.rpc('pitch_dossier_shipped', { p_dossier: dossierId })) === true;
     },
 
-    async signUploads(dossierId, runId, names) {
+    signUploads(dossierId, runId, names) {
       const bucket = db.storage.from(PITCH_BUCKET);
-      return Promise.all(names.map(async (name) => {
+      const signOne = async (name: string): Promise<SignedUpload> => {
         const path = pitchPath(dossierId, runId, name);
-        const { data, error } = await bucket.createSignedUploadUrl(path);
-        if (error || !data) throw new PitchStoreError('sign the upload', '42501', error?.message ?? 'no link came back');
-        return { name, path, url: data.signedUrl };
-      }));
+        const signed = await bucket.createSignedUploadUrl(path);
+        if (!signed.data) throw new PitchStoreError('sign the upload', '42501', signed.error?.message ?? 'no link came back');
+        return { name, path, url: signed.data.signedUrl };
+      };
+      return Promise.all(names.map(signOne));
     },
 
     async uploaded(dossierId, runId) {

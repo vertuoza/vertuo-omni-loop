@@ -61,15 +61,21 @@ function localRun(cwd, dir, prd) {
   return { run };
 }
 
-/** Sends the run and prints its links, or the one line that stopped it; the exit code. */
-async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
-  const host = credentialsHost(toggle.askUrl);
+/** A client signed in to the Omni page at `askUrl`, or null when this computer holds no sign-in for it. */
+function signedInClient(askUrl, { tokens, home, fetch, callMs }) {
+  const host = credentialsHost(askUrl);
   const store = tokens ?? homeTokens(home ? { home } : undefined);
-  if (!store.read(host)) {
+  const timeout = callMs ? { callMs } : {};
+  return store.read(host) ? askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...timeout }) : null;
+}
+
+/** Sends the run and prints its links, or the one line that stopped it; the exit code. */
+async function send({ toggle, repo, prd, run }, { stdout, stderr, ...io }) {
+  const client = signedInClient(toggle.askUrl, io);
+  if (!client) {
     println(stderr, NO_SIGN_IN);
     return 1;
   }
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
   let pushed;
   try {
     pushed = await pushPitch({ client, repo, prd, run });

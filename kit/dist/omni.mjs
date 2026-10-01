@@ -24242,14 +24242,13 @@ var PitchReplyError = class extends Error {
 var isText7 = (value) => typeof value === "string" && value.length > 0;
 function linksOf(reply, files) {
   if (!isText7(reply?.run)) throw new PitchReplyError("no run in the reply");
-  const given = Array.isArray(reply.files) ? reply.files : [];
-  const links = files.map(({ name }) => {
-    const url = given.find((file) => file?.name === name)?.url;
-    if (!isText7(url)) throw new PitchReplyError(`no upload link for ${name} in the reply`);
-    return url;
-  });
+  const byName2 = new Map((Array.isArray(reply.files) ? reply.files : []).map((file) => [file?.name, file?.url]));
+  const links = files.map(({ name }) => isText7(byName2.get(name)) ? byName2.get(name) : missingLink(name));
   return { runId: reply.run, links };
 }
+var missingLink = (name) => {
+  throw new PitchReplyError(`no upload link for ${name} in the reply`);
+};
 async function pushPitch({ client, repo, prd: prd2, run, read: read2 = readFileSync43 }) {
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
   const { runId, links } = linksOf(reply, run.files);
@@ -24289,6 +24288,13 @@ var refuse = (message, status3 = 400) => {
   throw new PitchRunRefused(status3, message);
 };
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function parsedOrNull(text4) {
+  try {
+    return JSON.parse(text4);
+  } catch {
+    return null;
+  }
+}
 function fileOf(dir, name) {
   const path = join54(dir, name);
   if (!existsSync45(path) || !statSync9(path).isFile()) refuse(`${name}: not in the run folder`);
@@ -24308,12 +24314,7 @@ function wordsOf(sent) {
 function readPitchRun(dir, prd2) {
   const file = join54(dir, PITCH_RUN_FILE);
   if (!existsSync45(file)) return null;
-  let sent;
-  try {
-    sent = JSON.parse(readFileSync44(file, "utf8"));
-  } catch {
-    sent = null;
-  }
+  const sent = parsedOrNull(readFileSync44(file, "utf8"));
   if (!isRecord2(sent)) refuse(`${PITCH_RUN_FILE} is not a JSON object`);
   if (sent.prd !== void 0 && sent.prd !== prd2) refuse(`${PITCH_RUN_FILE} is for PRD ${String(sent.prd)}, not ${prd2}`);
   if (!AUDIENCES.includes(sent.audience)) refuse(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(sent.audience)}`);
@@ -24353,14 +24354,18 @@ function localRun(cwd, dir, prd2) {
   if (!run) throw usageError(`omni pitch push: ${dir} holds no ${PITCH_RUN_FILE}.`);
   return { run };
 }
-async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
-  const host = credentialsHost(toggle.askUrl);
+function signedInClient(askUrl2, { tokens, home, fetch, callMs }) {
+  const host = credentialsHost(askUrl2);
   const store = tokens ?? homeTokens(home ? { home } : void 0);
-  if (!store.read(host)) {
+  const timeout = callMs ? { callMs } : {};
+  return store.read(host) ? askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...timeout }) : null;
+}
+async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, ...io }) {
+  const client = signedInClient(toggle.askUrl, io);
+  if (!client) {
     println(stderr, NO_SIGN_IN2);
     return 1;
   }
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
   let pushed;
   try {
     pushed = await pushPitch({ client, repo, prd: prd2, run });

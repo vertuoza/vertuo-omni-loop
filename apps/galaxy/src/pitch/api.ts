@@ -68,17 +68,21 @@ function refusal(error: PitchStoreError): Response {
   return refuse(500, 'The pitch database could not answer. Try again.');
 }
 
+/** The pitch store as the call's signed-in caller, or the Response that refuses the call (503, 401). */
+async function callerPitches(request: Request, { connect }: PitchDeps): Promise<PitchStore | Response> {
+  if (connect === null) return refuse(503, 'Pitches are not available here: this deployment has no database.');
+  const auth = await authenticate(request.headers.get('authorization'), connect);
+  return auth.ok ? connect(auth.caller.token).pitches : refuse(auth.status, auth.error);
+}
+
 /** Runs a handler as the signed-in caller, turning the database's refusals into the contract's. */
 async function handle(request: Request, deps: PitchDeps, run: (pitches: PitchStore) => Promise<Response>): Promise<Response> {
-  if (!deps.connect) return refuse(503, 'Pitches are not available here: this deployment has no database.');
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
-  if (!auth.ok) return refuse(auth.status, auth.error);
-  try {
-    return await run(deps.connect(auth.caller.token).pitches);
-  } catch (error) {
-    if (!(error instanceof PitchStoreError)) throw error;
-    return refusal(error);
-  }
+  const pitches = await callerPitches(request, deps);
+  if (pitches instanceof Response) return pitches;
+  return run(pitches).catch((error: unknown) => {
+    if (error instanceof PitchStoreError) return refusal(error);
+    throw error;
+  });
 }
 
 /** The JSON object a call sent, or the Response that refuses it (400, or 413 past `max` bytes). */
@@ -201,12 +205,8 @@ export function registerPitch(request: Request, deps: PitchDeps): Promise<Respon
 /** The GIF's stable link: a redirect to a fresh signed one, or 404. */
 export async function pitchGif(_request: Request, runId: string, deps: PitchDeps): Promise<Response> {
   if (!deps.open) return refuse(503, 'Pitches are not available here: this deployment has no service key.');
-  const missing = () => refuse(404, 'No such pitch GIF.');
-  if (!UUID.test(runId)) return missing();
   const open = deps.open();
-  const path = await open.gifPath(runId.toLowerCase());
-  if (!path) return missing();
-  const link = await open.link(path, PITCH_GIF_LINK_SECONDS);
-  if (!link) return missing();
-  return new Response(null, { status: 302, headers: { location: link, ...noStore } });
+  const path = UUID.test(runId) ? await open.gifPath(runId.toLowerCase()) : null;
+  const link = path ? await open.link(path, PITCH_GIF_LINK_SECONDS) : null;
+  return link ? new Response(null, { status: 302, headers: { location: link, ...noStore } }) : refuse(404, 'No such pitch GIF.');
 }

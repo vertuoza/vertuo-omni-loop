@@ -11,9 +11,9 @@ import { join } from 'node:path';
 
 export const PITCH_RUN_FILE = 'pitch.json';
 /** The largest file the app's bucket takes. */
-export const PITCH_FILE_MAX_BYTES = 50 * 1024 * 1024;
+const PITCH_FILE_MAX_BYTES = 50 * 1024 * 1024;
 /** The five files of every pitch, by name, and the type each is sent as. */
-export const PITCH_FILES = Object.freeze({
+const PITCH_FILES = Object.freeze({
   'slide.png': 'image/png',
   'slide-square.png': 'image/png',
   'pitch.mp4': 'video/mp4',
@@ -39,6 +39,15 @@ const refuse = (message, status = 400) => {
   throw new PitchRunRefused(status, message);
 };
 const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The JSON `text` holds, or null when it is not JSON. */
+function parsedOrNull(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
 
 /** The file `name` of the folder, with its size and type, or the refusal. */
 function fileOf(dir, name) {
@@ -69,12 +78,7 @@ function wordsOf(sent) {
 export function readPitchRun(dir, prd) {
   const file = join(dir, PITCH_RUN_FILE);
   if (!existsSync(file)) return null;
-  let sent;
-  try {
-    sent = JSON.parse(readFileSync(file, 'utf8'));
-  } catch {
-    sent = null;
-  }
+  const sent = parsedOrNull(readFileSync(file, 'utf8'));
   if (!isRecord(sent)) refuse(`${PITCH_RUN_FILE} is not a JSON object`);
   if (sent.prd !== undefined && sent.prd !== prd) refuse(`${PITCH_RUN_FILE} is for PRD ${String(sent.prd)}, not ${prd}`);
   if (!AUDIENCES.includes(sent.audience)) refuse(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(sent.audience)}`);
