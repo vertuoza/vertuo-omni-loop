@@ -106,9 +106,11 @@ export function githubClient({ store, fetch: send = globalThis.fetch, clock = Da
 
     const conditional = method === 'GET' && resource === 'core';
     const kept = conditional ? await stored((s) => s.etag(installation, url)) : null;
-    const headers = new Headers(rest.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined));
-    if (kept) headers.set('if-none-match', kept.etag);
-    const res = await send(input, { ...rest, headers });
+    // The caller's headers go out as given; a stored ETag adds one, as a plain object of lowercase names.
+    const headers = kept
+      ? { ...Object.fromEntries(new Headers(rest.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined))), 'if-none-match': kept.etag }
+      : rest.headers;
+    const res = await send(input, headers === undefined ? rest : { ...rest, headers });
 
     const answered = clock();
     const reported = budgetOf(res.headers);

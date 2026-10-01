@@ -3,9 +3,11 @@ export type Resource = 'core' | 'graphql' | (string & {});
 
 /** The two options githubFetch adds to a fetch's init. */
 export interface GithubCallOptions { installation: number; priority: Priority }
-export type GithubInit = RequestInit & GithubCallOptions;
-export type GithubFetch = (input: string | URL | Request, init: GithubInit) => Promise<Response>;
-export type PlainFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+/** A fetch's init with the two options; `priority` is the budget's, never the browser's request priority. */
+export type GithubInit = Omit<RequestInit, 'priority'> & GithubCallOptions;
+export type GithubFetch = (url: string, init: GithubInit) => Promise<Response>;
+/** What the client sends through, and what `bound` gives: a fetch called with a URL and an init. */
+export type PlainFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Times are epoch milliseconds. */
 export interface StoredEtag { etag: string; body: string; contentType: string | null; readAt: number }
