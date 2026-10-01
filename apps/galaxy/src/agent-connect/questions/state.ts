@@ -1,7 +1,7 @@
 import type { ClaimKind } from '../../business/model';
 import type { AgentQuestion } from './model';
 
-// The questions card's state in the page (PRD 855 s3): the open questions, the one whose Answer once is
+// The questions card's state in the page (PRD 855 s3): the open questions (and those Jev set aside, s4), the one whose Answer once is
 // open with its kind, value and product, the line saying what was last saved, and the last refusal.
 
 export interface Answering {
@@ -30,6 +30,7 @@ export type QuestionsAction =
   | { type: 'busy' }
   | { type: 'answered'; id: string; claim: string }
   | { type: 'dismissed'; id: string }
+  | { type: 'brought-back'; id: string }
   | { type: 'refused'; message: string };
 
 export const initialQuestionsState = (questions: readonly AgentQuestion[]): QuestionsState =>
@@ -58,6 +59,11 @@ export function questionsReducer(state: QuestionsState, action: QuestionsAction)
       return closing(state, action.id, `✓ Saved as ${action.claim}. Every agent reads it from the next call.`);
     case 'dismissed':
       return closing(state, action.id, 'Dismissed. Nothing was stored.');
+    case 'brought-back':
+      return {
+        ...state, busy: false, done: 'Brought back: it waits with the open questions.',
+        questions: state.questions.map((q) => (q.id === action.id ? { ...q, setAside: false } : q)),
+      };
     case 'refused':
       return { ...state, busy: false, refusal: action.message };
   }

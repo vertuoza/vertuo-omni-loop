@@ -44,6 +44,12 @@ export function AgentQuestions({ source, questions, products }: AgentQuestionsPr
     const got = await getPort().dismiss(question);
     act(got.ok ? { type: 'dismissed', id: question.id } : { type: 'refused', message: got.message });
   };
+  const bringBack = async (question: AgentQuestion) => {
+    if (state.busy) return;
+    act({ type: 'busy' });
+    const got = await getPort().bringBack(question);
+    act(got.ok ? { type: 'brought-back', id: question.id } : { type: 'refused', message: got.message });
+  };
   const on: QuestionsHandlers = {
     answer: (question) => act({ type: 'answer', id: question.id }),
     kind: (kind) => act({ type: 'kind', kind }),
@@ -52,6 +58,7 @@ export function AgentQuestions({ source, questions, products }: AgentQuestionsPr
     save: () => void save(),
     cancel: () => act({ type: 'cancel' }),
     dismiss: (question) => void dismiss(question),
+    bringBack: (question) => void bringBack(question),
   };
   return <QuestionsCard state={state} products={products} demo={source.kind === 'demo'} on={on} />;
 }

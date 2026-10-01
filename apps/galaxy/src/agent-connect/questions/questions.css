@@ -7,3 +7,5 @@
 .agent-question-file { overflow-wrap: anywhere; word-break: break-all; }
 .agent-question-answer select { font: inherit; color: inherit; padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-surface); max-width: 100%; }
 .business-agents + .business-agents { margin-top: 16px; }
+.agent-set-aside { margin-top: 12px; min-width: 0; }
+.agent-set-aside > summary { cursor: pointer; }
