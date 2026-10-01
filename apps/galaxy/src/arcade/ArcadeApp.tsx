@@ -612,7 +612,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return u.name.chars.length ? nameAction({ type: 'erase' }) : leave('name');
         return;
       case 'hero': {
-        const row = BUILDER_ROWS[u.heroRow];
+        const row = BUILDER_ROWS[u.heroRow]!;
         if (action === 'up') return go({ heroRow: (u.heroRow + BUILDER_ROWS.length - 1) % BUILDER_ROWS.length }, 'move');
         if (action === 'down') return go({ heroRow: (u.heroRow + 1) % BUILDER_ROWS.length }, 'move');
         if ((action === 'left' || action === 'right') && row !== 'RANDOM' && row !== 'DONE') {
@@ -676,7 +676,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
         if (action === 'select') return go({ cabinet: turnPage(at, room.length, 'right') }, 'move');
         if (action === 'a' || action === 'start') {
-          const door = cabinetDoor(room[at], status);
+          const door = cabinetDoor(room[at]!, status);
           if (!('scene' in door)) return go({ toast: door.refused }, 'buzz');
           if (door.scene === 'platformer') return playPlatformer();
           return door.scene === 'invaders' ? playInvaders() : go({ scene: door.scene }, 'select');

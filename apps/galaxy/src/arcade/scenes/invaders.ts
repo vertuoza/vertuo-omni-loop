@@ -53,7 +53,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
     if (!on) return;
     const row = Math.floor(i / g.cols);
     const a = alienAt(g, row, i % g.cols);
-    sprite(ctx, s, 'entropy', a.x, a.y, { tint: tintOf(g.kinds[row]), frame: step });
+    sprite(ctx, s, 'entropy', a.x, a.y, { tint: tintOf(g.kinds[row]!), frame: step });
   });
 
   // An alien hit bursts for a moment.

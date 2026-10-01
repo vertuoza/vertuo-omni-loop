@@ -60,7 +60,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
         </span>
       ))}
       {layout.lanes.map((lane) => {
-        const a = layout.suns[lane.from], b = layout.suns[lane.to];
+        const a = layout.suns[lane.from]!, b = layout.suns[lane.to]!;
         return (
           <span key={`${a.name}--${b.name}`} className="lane-label" style={{ left: Math.round((a.x + b.x) / 2), top: Math.round((a.y + b.y) / 2) }}>
             {lane.count}
@@ -200,7 +200,7 @@ export function ReadingCard({ graph, entry, page, onPage }: { graph: KnowledgeGr
         <StatusChip entry={entry} />
       </header>
       <div className="read-body">
-        {pages[at].map((line, i) => <p key={i} className={`read-${line.tone}`}>{line.text}</p>)}
+        {pages[at]!.map((line, i) => <p key={i} className={`read-${line.tone}`}>{line.text}</p>)}
       </div>
       <footer className="read-foot">
         {pages.length > 1 ? (

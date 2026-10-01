@@ -47,7 +47,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
   const { grid } = useScreen();
   if (!fleets.length) return <RaiseOverlay owner={owner} />;
   const solo = pick >= fleets.length;
-  const f = solo ? { ...SOLO, name: null } : fleets[pick];
+  const f = solo ? { ...SOLO, name: null } : fleets[pick]!;
   const from = crewLook(current);
   const count = f.name ? crew[f.name] ?? 0 : 0;
   const row = cardRow(fleets.length + 1, pick, grid);

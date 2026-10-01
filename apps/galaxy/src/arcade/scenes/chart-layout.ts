@@ -157,10 +157,10 @@ function spread(arc: Arc, n: number, offset: number): { x: number; y: number; an
   let i = 1;
   for (let j = 0; j < n; j++) {
     const s = (((j + offset) / n) % 1) * arc.total;
-    if (s < arc.length[i - 1]) i = 1;
-    while (i < SAMPLES && arc.length[i] < s) i++;
-    const k = (s - arc.length[i - 1]) / Math.max(1e-9, arc.length[i] - arc.length[i - 1]);
-    const angle = arc.theta[i - 1] + (arc.theta[i] - arc.theta[i - 1]) * k;
+    if (s < arc.length[i - 1]!) i = 1;
+    while (i < SAMPLES && arc.length[i]! < s) i++;
+    const k = (s - arc.length[i - 1]!) / Math.max(1e-9, arc.length[i]! - arc.length[i - 1]!);
+    const angle = arc.theta[i - 1]! + (arc.theta[i]! - arc.theta[i - 1]!) * k;
     out.push({ x: arc.rx * Math.sin(angle), y: -arc.ry * Math.cos(angle), angle });
   }
   return out;
@@ -172,7 +172,7 @@ function seats(arc: Arc, n: number, r: number, gap: number): boolean {
   return [0, 0.5].every((offset) => {
     const pts = spread(arc, n, offset);
     return pts.every((p, j) => {
-      const q = pts[(j + 1) % n];
+      const q = pts[(j + 1) % n]!;
       return Math.hypot(p.x - q.x, p.y - q.y) >= 2 * r + gap;
     });
   });
@@ -189,15 +189,15 @@ function capacity(arc: Arc, r: number, gap: number): number {
 function share(n: number, caps: number[]): number[] {
   const total = caps.reduce((a, b) => a + b, 0);
   const exact = caps.map((c) => (total ? (n * c) / total : 0));
-  const out = exact.map((e, i) => Math.min(caps[i], Math.floor(e)));
+  const out = exact.map((e, i) => Math.min(caps[i]!, Math.floor(e)));
   let left = n - out.reduce((a, b) => a + b, 0);
   const order = exact.map((e, i) => ({ i, frac: e - Math.floor(e) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
   while (left > 0) {
     const before = left;
     for (const { i } of order) {
-      if (left > 0 && out[i] < caps[i]) { out[i]++; left--; }
+      if (left > 0 && out[i]! < caps[i]!) { out[i]!++; left--; }
     }
-    if (left === before) { out[out.length - 1] += left; left = 0; } // more than they seat: the last takes the rest
+    if (left === before) { out[out.length - 1]! += left; left = 0; } // more than they seat: the last takes the rest
   }
   return out;
 }
@@ -224,17 +224,17 @@ function fit(kinds: { kind: EntryKind; entries: KnowledgeEntry[] }[], r: number,
   for (const [k, { kind, entries }] of kinds.entries()) {
     const start = next;
     let seated = 0;
-    if (forced) next += forced[k];
+    if (forced) next += forced[k]!;
     else {
       do {
         if (next >= count) return null;
-        seated += caps[next];
+        seated += caps[next]!;
         next++;
       } while (seated < entries.length);
     }
     const counts = share(entries.length, caps.slice(start, next));
     let at = 0;
-    counts.forEach((c, i) => { rings.push({ kind, ry: sizes[start + i], entries: entries.slice(at, at + c) }); at += c; });
+    counts.forEach((c, i) => { rings.push({ kind, ry: sizes[start + i]!, entries: entries.slice(at, at + c) }); at += c; });
   }
   return rings;
 }
@@ -270,7 +270,8 @@ export function layoutOrbits(entries: KnowledgeEntry[], box: Box, o: { sun: numb
     const rx = (ring.ry * room.ax) / room.ay;
     const pts = spread(arcOf(rx, ring.ry), ring.entries.length, orbit % 2 ? 0.5 : 0);
     ring.entries.forEach((entry, j) => {
-      worlds.push({ entry, x: cx + pts[j].x, y: cy + pts[j].y, r, index: worlds.length, orbit, angle: pts[j].angle });
+      const pt = pts[j]!;
+      worlds.push({ entry, x: cx + pt.x, y: cy + pt.y, r, index: worlds.length, orbit, angle: pt.angle });
     });
     return { kind: ring.kind, rx, ry: ring.ry, count: ring.entries.length };
   });
@@ -300,7 +301,7 @@ export function orbitStep(layout: SystemLayout, from: number, dir: Dir): number 
   if (dir === 'left' || dir === 'right') {
     const ring = layout.worlds.filter((w) => w.orbit === cur.orbit);
     const i = ring.indexOf(cur);
-    return ring[(i + (dir === 'left' ? ring.length - 1 : 1)) % ring.length].index;
+    return ring[(i + (dir === 'left' ? ring.length - 1 : 1)) % ring.length]!.index;
   }
   const step = dir === 'up' ? -1 : 1;
   for (let orbit = cur.orbit + step; orbit >= 0 && orbit < layout.orbits.length; orbit += step) {

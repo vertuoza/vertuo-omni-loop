@@ -144,7 +144,7 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
 export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: T[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
   const cur = layout.find((s) => s.index === from);
   if (!cur) return layout[0]?.index ?? 0;
-  const [vx, vy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
+  const [vx, vy] = ({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } satisfies Record<string, [number, number]>)[dir];
   let best: T | null = null;
   let bestScore = Infinity;
   for (const s of layout) {
@@ -164,7 +164,7 @@ export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: 
 /** The cursor's four blinking corners around a disc of radius `r`: the selected planet, sun or world. */
 export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, color: string) {
   const m = r + 6 + (Math.floor(t * 4) % 2) * 2;
-  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] satisfies [number, number][]) {
     const cx = x + sx * m, cy = y + sy * m;
     ctx.fillStyle = '#0b0a26';
     ctx.fillRect((sx < 0 ? cx : cx - 7) + 1, cy + 1, 8, 2);
@@ -204,7 +204,7 @@ const SKY = {
 export function hyperlanes(view: GalaxyView, layout: MapSlot[]): Array<[MapSlot, MapSlot]> {
   const bySlot = new Map(layout.map((l) => [view.planets[l.index]?.key, l]));
   return layout.flatMap((slot) => {
-    const p = view.planets[slot.index];
+    const p = view.planets[slot.index]!;
     return p.blockers.flatMap((b) => {
       const to = bySlot.get(p.home ? `${p.home}#${b}` : String(b));
       return to ? [[slot, to] as [MapSlot, MapSlot]] : [];
@@ -227,7 +227,7 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   });
   for (const [from, to] of hyperlanes(view, layout)) dashedLine(ctx, from, to, s.t, s.theme.red);
   for (const slot of layout) {
-    const p = view.planets[slot.index];
+    const p = view.planets[slot.index]!;
     const look = planetLook(p, s.theme);
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
     if (p.state === 'distress' && !s.reduced) pulseRing(ctx, slot.x, slot.y, slot.r, s.t, s.theme.red);

@@ -60,7 +60,7 @@ const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
 export function worldScenes<T>(make: (so: SceneOptions) => T, o: Pick<PlatformerOptions, 'held' | 'onEvent'>, art: (palette: string) => SceneOptions['art']): T[] {
   return STAGES.map((stage, i) => make({
     stage, art: art(stage.palette), held: o.held, onEvent: o.onEvent,
-    next: STAGES[i + 1] ? sceneKey(STAGES[i + 1].id) : null,
+    next: STAGES[i + 1] ? sceneKey(STAGES[i + 1]!.id) : null,
   }));
 }
 

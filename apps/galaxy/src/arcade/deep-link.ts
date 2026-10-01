@@ -28,7 +28,7 @@ const named = (h: string): h is SceneName => (DEEP_LINKS as readonly string[]).i
 function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
   if (home) return view.planets.findIndex((p) => p.prd === prd && p.home === home.toLowerCase());
   const holders = view.planets.flatMap((p, i) => (p.prd === prd ? [i] : []));
-  return holders.length === 1 ? holders[0] : -1;
+  return holders.length === 1 ? holders[0]! : -1;
 }
 
 /**

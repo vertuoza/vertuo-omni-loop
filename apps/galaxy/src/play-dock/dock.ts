@@ -50,7 +50,7 @@ export type DockScreen = { kind: 'picker'; sel: number } | { kind: 'game'; game:
 
 /** Where the device opens: straight into the one game open, or the picker on the game chosen last. */
 export function dockStart(games: readonly DockGameId[], chosen: string | null): DockScreen {
-  if (games.length === 1) return { kind: 'game', game: games[0] };
+  if (games.length === 1) return { kind: 'game', game: games[0]! };
   return { kind: 'picker', sel: Math.max(0, games.findIndex((g) => g === chosen)) };
 }
 
@@ -59,7 +59,7 @@ export function pickerPress(games: readonly DockGameId[], sel: number, action: A
   const n = games.length;
   if (action === 'up') return { sel: (sel + n - 1) % n };
   if (action === 'down') return { sel: (sel + 1) % n };
-  if (action === 'a' || action === 'start') return { play: games[sel] };
+  if (action === 'a' || action === 'start') return { play: games[sel]! };
   if (action === 'b') return { fold: true };
   return null;
 }

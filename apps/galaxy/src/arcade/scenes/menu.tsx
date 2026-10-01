@@ -90,7 +90,7 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
     chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
-    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0].name).label} lead` : 'No fleets yet',
+    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0]!.name).label} lead` : 'No fleets yet',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     games: gamesHint(xp),
     briefing: 'How points are won and lost',
@@ -230,7 +230,7 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
       <h2>HOW TO PLAY</h2>
       {tall && <p className="brief-page"><span aria-hidden="true">◀</span> {`PAGE ${at + 1}/${BRIEFING_PAGES.length}`} <span aria-hidden="true">▶</span></p>}
       <div className="brief-cols">
-        {tall ? sections[BRIEFING_PAGES[at]] : BRIEFING_PAGES.map((p) => sections[p])}
+        {tall ? sections[BRIEFING_PAGES[at]!] : BRIEFING_PAGES.map((p) => sections[p])}
       </div>
       <p className="hint">RUN /omni-yolo &lt;prd&gt; TO LEND YOUR AGENT TO A PLANET · B · MENU</p>
     </div>

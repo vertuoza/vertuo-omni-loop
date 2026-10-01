@@ -99,8 +99,8 @@ const TITLE: Record<Grid['name'], TitleLayout> = {
 export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
   const at = TITLE[s.grid.name];
   space(ctx, s, 3);
-  ctx.drawImage(nebulaFor('title', 0, 400, 240), ...at.nebulae[0]);
-  ctx.drawImage(nebulaFor('title2', 2, 320, 200), ...at.nebulae[1]);
+  ctx.drawImage(nebulaFor('title', 0, 400, 240), ...at.nebulae[0]!);
+  ctx.drawImage(nebulaFor('title2', 2, 320, 200), ...at.nebulae[1]!);
   const rot = s.reduced ? 0.6 : s.t * 0.02;
   drawPlanet(ctx, { ...at.world, seed: 2332, rot, progress: 0.62, atmosphere: '#8fd8ff' });
   drawPlanet(ctx, { ...at.ringed, seed: 985, rot: rot * 3, progress: 0, ring: RING, atmosphere: '#7a64b8' });
@@ -113,7 +113,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
     ? s.join.fleets.map((f) => fleet(f.name))
     : MASCOTS.map((m) => ({ sprite: m, tint: null }));
   flying.slice(0, at.spots.length).forEach((look, i) => {
-    const [x, y, rate, phase] = at.spots[i];
+    const [x, y, rate, phase] = at.spots[i]!;
     const k = at.fleetScale;
     sprite(ctx, s, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
   });
@@ -134,7 +134,7 @@ export function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
   for (let i = 0; i < lap / 80; i++) {
     const x = ((i * 80 - s.sceneT * 36) % lap + lap) % lap - 40;
     const y = h - 64 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 3));
-    sprite(ctx, s, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]), frame: frameOf(s, 3, i * 0.5) });
+    sprite(ctx, s, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]!), frame: frameOf(s, 3, i * 0.5) });
   }
   drawPlanet(ctx, { ...STORY_PLANET[s.grid.name], seed: 2410, rot: s.t * 0.06, progress: 0.15, atmosphere: '#7a64b8' });
 }

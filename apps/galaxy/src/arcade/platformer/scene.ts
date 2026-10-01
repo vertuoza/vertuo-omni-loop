@@ -44,8 +44,8 @@ type Sprite = Phaser.Physics.Arcade.Sprite;
 export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene {
   const { stage, art } = o;
   const width = stage.cols * TILE, height = stage.rows * TILE;
-  const [start] = stage.starts;
-  const [flag] = stage.flags;
+  const start = stage.starts[0]!;
+  const flag = stage.flags[0]!;
   const startX = start.col * TILE + TILE / 2, startY = (start.row + 1) * TILE - PHYSICS.heroH / 2 - 4;
   const flagX = flag.col * TILE + TILE / 2;
 

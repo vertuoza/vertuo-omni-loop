@@ -47,7 +47,7 @@ function comicWall(ctx: CanvasRenderingContext2D, color: string, stage: (typeof 
   heroSelectWall(ctx);
   // A spotlight in the fleet's colour, dithered.
   const { cx, top, bottom, near, far } = stage;
-  const dark = rampFrom(color)[3];
+  const dark = rampFrom(color)[3]!;
   ctx.fillStyle = dark;
   for (let y = top; y < bottom; y += 2) {
     const half = near + ((y - top) / (bottom - top)) * (far - near);
@@ -80,7 +80,7 @@ export function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
     const i = row.first + k;
     const on = i === pick, x = row.x0 + k * (cardW + gap), y = on ? row.y : row.y + row.lift;
     ctx.fillStyle = '#0b0a26'; ctx.fillRect(x + 2, y + 2, cardW, cardH);
-    ctx.fillStyle = on ? rampFrom(card.color)[3] : '#16195a'; ctx.fillRect(x, y, cardW, cardH);
+    ctx.fillStyle = on ? rampFrom(card.color)[3]! : '#16195a'; ctx.fillRect(x, y, cardW, cardH);
     ctx.fillStyle = on ? card.color : '#2a2f7a';
     ctx.fillRect(x, y, cardW, 2); ctx.fillRect(x, y + cardH - 2, cardW, 2); ctx.fillRect(x, y, 2, cardH); ctx.fillRect(x + cardW - 2, y, 2, cardH);
     const look = card.look;

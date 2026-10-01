@@ -15,7 +15,7 @@ export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f
 const ENEMY_KIND: Readonly<Record<string, WoundKind>> = Object.freeze({ underground: 'transmission', castle: 'beacon' });
 
 /** The blobs' tint in a palette's stage, none for Entropy's own colours. */
-export const enemyTint = (palette: string): Tint | null => (Object.hasOwn(ENEMY_KIND, palette) ? woundTint(ENEMY_KIND[palette]) : null);
+export const enemyTint = (palette: string): Tint | null => (Object.hasOwn(ENEMY_KIND, palette) ? woundTint(ENEMY_KIND[palette]!) : null);
 
 /** The hero's poses in the game: standing, the two strides of the run, and the jump. */
 export type Pose = 'stand' | 'run0' | 'run1' | 'jump';
@@ -50,7 +50,7 @@ export function tileFrame(stage: Stage, row: number, col: number): number {
     case 'stone': return at('tile-stone');
     case 'pipe': {
       let first = col;
-      while (stage.tiles[row][first - 1] === 'pipe') first -= 1;
+      while (stage.tiles[row]![first - 1] === 'pipe') first -= 1;
       const side = (col - first) % 2 ? 'r' : 'l';
       return at(above === 'pipe' ? `tile-pipe-${side}` : `tile-pipe-top-${side}`);
     }
@@ -100,6 +100,6 @@ export function drawArt(hero: Hero, team: string | null, palette: string): Art {
     flag: [sprite('flag', null, 0), sprite('flag', null, 1)],
     coin: [sprite('coin', null, 0), sprite('coin', null, 1)],
     enemy: [sprite('entropy', enemyTint(palette), 0), sprite('entropy', enemyTint(palette), 1)],
-    sky: SKY[palette] ?? SKY.grass,
+    sky: SKY[palette] ?? SKY.grass!,
   };
 }

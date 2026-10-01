@@ -117,7 +117,7 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
       {tall && <p className="games-page"><Hint k="◀ ▶">PAGE {at + 1}/{room.length}</Hint></p>}
       <div className="cabinets">
         {shown.map((i) => {
-          const c = room[i];
+          const c = room[i]!;
           return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => onPick(i)} />;
         })}
       </div>

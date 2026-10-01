@@ -216,7 +216,7 @@ const PENTATONIC = ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6'];
 export function motifNotes(fleet: string): string[] {
   let h = 2166136261;
   for (const c of fleet) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  return [0, 1, 2].map((i) => PENTATONIC[(h >>> (i * 5)) % PENTATONIC.length]);
+  return [0, 1, 2].map((i) => PENTATONIC[(h >>> (i * 5)) % PENTATONIC.length]!);
 }
 
 function out() {
@@ -236,7 +236,7 @@ export function motif(f: { name: string; mascot: string | null }) {
   if (!ac) return;
   const o = out(), t = ac.currentTime + 0.01;
   const written = writtenMotif(f);
-  if (written) return MOTIFS[written](o, t);
+  if (written) return MOTIFS[written]!(o, t);
   motifNotes(f.name).forEach((n, i) => note(o, freqOf(n)!, t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045));
 }
 
@@ -290,7 +290,7 @@ const MARCH = ['C2', 'Bb1', 'Ab1', 'G1'];
 export function march(step: number) {
   if (!ac) return;
   const o = out(), t = ac.currentTime + 0.01;
-  note(o, freqOf(MARCH[((step % MARCH.length) + MARCH.length) % MARCH.length])!, t, 0.09, 'triangle', 0.16);
+  note(o, freqOf(MARCH[((step % MARCH.length) + MARCH.length) % MARCH.length]!)!, t, 0.09, 'triangle', 0.16);
 }
 
 /** Mutes music and effects with a short fade. */
