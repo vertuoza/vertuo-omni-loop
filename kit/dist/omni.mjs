@@ -36288,7 +36288,7 @@ async function askModel({
   call = MODEL_CALL,
   title = "omni loop",
   stream = false
-} = {}) {
+}) {
   const key = env[KEY_VAR];
   if (!key) return failure2(NO_KEY, null, `${KEY_VAR} is not set`);
   const model = env[MODEL_VAR] || DEFAULT_MODEL;
@@ -36331,7 +36331,7 @@ var unavailable = (status3) => `model unavailable (${status3})`;
 function runCheck(check3, value) {
   try {
     if (value === void 0) return { errors: ["the reply must be one JSON object"], reply: null };
-    if (check3 && typeof check3.safeParse === "function") {
+    if (check3 && typeof check3 === "object" && typeof check3.safeParse === "function") {
       const parsed = check3.safeParse(value, { error: KIT_MESSAGES });
       if (parsed.success) return { errors: [], reply: parsed.data };
       const issues = parsed.error?.issues ?? [];
@@ -36341,12 +36341,12 @@ function runCheck(check3, value) {
     if (typeof check3 === "function") {
       const out = check3(value) ?? {};
       const errors = Array.isArray(out.errors) ? out.errors : [];
-      if (errors.length === 0 && out.reply !== void 0 && out.reply !== null) return { errors, reply: out.reply };
-      return { errors: errors.length ? errors : ["the reply does not fit the shape asked for"], reply: null };
+      if (errors.length === 0 && out.reply !== void 0 && out.reply !== null) return { errors: [], reply: out.reply };
+      return { errors: errors.length ? errors.map(String) : ["the reply does not fit the shape asked for"], reply: null };
     }
     return { errors: ["no check was given for the reply"], reply: null };
   } catch (error62) {
-    return { errors: [`the reply could not be checked: ${error62?.message ?? error62}`], reply: null };
+    return { errors: [`the reply could not be checked: ${messageOf(error62)}`], reply: null };
   }
 }
 async function ask4({ fetch, sleep, call, deadline, key, title, body }) {
@@ -36362,7 +36362,13 @@ async function ask4({ fetch, sleep, call, deadline, key, title, body }) {
   }
   return outcome;
 }
-async function once({ fetch, key, title, body, signal }) {
+async function once({
+  fetch,
+  key,
+  title,
+  body,
+  signal
+}) {
   try {
     const response = await fetch(OPENROUTER_URL, {
       method: "POST",
@@ -36378,7 +36384,8 @@ async function once({ fetch, key, title, body, signal }) {
     return { ok: true, content: await readContent(response) };
   } catch (error62) {
     if (error62 instanceof ModelError) return { ok: false, status: error62.code, retry: retriable(error62.code) };
-    if (error62?.name === "TimeoutError" || error62?.name === "AbortError") return { ok: false, status: "timeout", retry: false };
+    const { name } = Thrown.parse(error62);
+    if (name === "TimeoutError" || name === "AbortError") return { ok: false, status: "timeout", retry: false };
     return { ok: false, status: "network error", retry: true };
   }
 }
@@ -36387,17 +36394,37 @@ function retriable(status3) {
   return code === 408 || code === 429 || code >= 500;
 }
 var ModelError = class extends Error {
+  code;
   constructor(code) {
     super(`model error ${code}`);
     this.code = code ?? "error";
   }
 };
+var Text = external_exports.string().optional().catch(void 0);
+var ModelBody = external_exports.object({
+  error: external_exports.unknown().optional(),
+  choices: external_exports.array(
+    external_exports.object({
+      message: external_exports.object({ content: Text }).catch({ content: void 0 }),
+      delta: external_exports.object({ content: Text }).catch({ content: void 0 })
+    }).catch({ message: { content: void 0 }, delta: { content: void 0 } })
+  ).catch([])
+}).catch({ error: void 0, choices: [] });
+var ErrorCode = external_exports.object({ code: external_exports.union([external_exports.string(), external_exports.number()]).optional().catch(void 0) }).catch({ code: void 0 });
+function errorCode2(error62) {
+  return ErrorCode.parse(error62).code;
+}
+var Thrown = external_exports.object({ name: external_exports.unknown().optional(), message: external_exports.unknown().optional() }).catch({ name: void 0, message: void 0 });
+function messageOf(error62) {
+  return Thrown.parse(error62).message ?? error62;
+}
 async function readContent(response) {
   if (!(response.headers.get("content-type") ?? "").includes("text/event-stream")) {
-    const data = await response.json();
-    if (data?.error) throw new ModelError(data.error.code);
-    return data?.choices?.[0]?.message?.content ?? "";
+    const data = ModelBody.parse(await response.json());
+    if (data.error) throw new ModelError(errorCode2(data.error));
+    return data.choices[0]?.message.content ?? "";
   }
+  if (!response.body) return "";
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -36406,14 +36433,15 @@ async function readContent(response) {
     if (!text5.startsWith("data:")) return false;
     const data = text5.slice(5).trim();
     if (data === "[DONE]") return true;
-    let chunk;
+    let raw;
     try {
-      chunk = JSON.parse(data);
+      raw = JSON.parse(data);
     } catch {
       return false;
     }
-    if (chunk?.error) throw new ModelError(chunk.error.code);
-    content += chunk?.choices?.[0]?.delta?.content ?? "";
+    const chunk = ModelBody.parse(raw);
+    if (chunk.error) throw new ModelError(errorCode2(chunk.error));
+    content += chunk.choices[0]?.delta.content ?? "";
     return false;
   };
   for (; ; ) {
