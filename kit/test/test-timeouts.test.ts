@@ -1,7 +1,7 @@
 // @ts-nocheck
 // The suite's time limits (#570). Tests that build git repositories and run child processes slow down
 // with the machine's load, so a limit sized for a quiet machine fails a correct test on a busy one.
-// The limit is one generous value in vitest.config.mjs, meant to catch a hang; a test that sets its own
+// The limit is one generous value in vitest.config.ts, meant to catch a hang; a test that sets its own
 // brings the flake back one file at a time, which is how #570 grew. This file holds both.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

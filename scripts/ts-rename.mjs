@@ -12,8 +12,10 @@
 // Not renamed: `kit/dist/` (the bundle other repositories carry is still `kit/dist/omni.mjs`),
 // `.omni-loop/bin/` (where a repository carries it; here, the shim onto the source) and this file.
 // Not rewritten: the records that say what was true when they were written (the delivery records and
-// the knowledge under `.omni-loop/`, the kit's porting notes, the design specs and plans under
-// `docs/superpowers/`, the migrations, the recorded fixtures under a `fixtures/` folder) and the bundle, which only a build writes.
+// the decision records under `.omni-loop/`, the kit's porting notes, the design specs and plans under
+// `docs/superpowers/`, the migrations, the recorded fixtures under a `fixtures/` folder) and the
+// bundle, which only a build writes. The playbook and the registers are rewritten: they say what is
+// true now, and `omni check kb` reads the files their evidence names.
 //
 // A path is rewritten only when it names a file this run renames (or renamed before): read from the
 // folder of the file that names it, from the repository root, from the folder of the package.json it
@@ -26,7 +28,7 @@ import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'n
 import { join, posix, resolve } from 'node:path';
 
 const KEEP = [/^kit\/dist\//, /^\.omni-loop\/bin\//, /^scripts\/ts-rename\.mjs$/];
-const FROZEN = [/^kit\/dist\//, /^kit\/porting\//, /^docs\/superpowers\//, /^\.omni-loop\/delivery\//, /^\.omni-loop\/knowledge\//, /^supabase\/migrations\//, /(^|\/)fixtures\//];
+const FROZEN = [/^kit\/dist\//, /^kit\/porting\//, /^docs\/superpowers\//, /^\.omni-loop\/delivery\//, /^\.omni-loop\/knowledge\/adr\//, /^supabase\/migrations\//, /(^|\/)fixtures\//];
 const SKIP = [/(^|\/)node_modules\//, /^\.claude\/worktrees\//];
 // This script and its test, whose fixture names `.mjs` paths on purpose.
 const SELF = /^scripts\/ts-rename\.(mjs|test\.ts)$/;
@@ -103,15 +105,12 @@ function candidates(from, token, packages) {
 }
 
 // A pattern that starts with a wildcard (`*.test.mjs`, `${dir}/bin/omni.mjs`) names no folder of its
-// own: it may mean any repository's files. A bare file name (`'omni.mjs'`, `settle.mjs`) names no
-// folder either: `join(dir, 'omni.mjs')` is as likely the bundle as the module beside it. Both stay.
-function namesNoFolder(token) {
-  return token.startsWith('*') || token.startsWith('${') || !token.includes('/');
-}
-
-// The renamed file (or files, for a pattern) a token names, or null.
+// own: it may mean any repository's files, and stays. A bare file name (`'omni.mjs'`, `settle.mjs`)
+// names no folder either: `join(dir, 'omni.mjs')` is as likely the bundle as the module beside it, so
+// it is read as a file at the root (`vitest.config.mjs`) or not at all.
 function named(from, token, { targets, packages }) {
-  if (namesNoFolder(token)) return null;
+  if (token.startsWith('*') || token.startsWith('${')) return null;
+  if (!token.includes('/')) return !token.includes('*') && !token.includes('${') && targets.has(token) ? token : null;
   const wild = token.includes('*') || token.includes('${');
   const matches = (base) => (wild ? [...targets].some((target) => globToRegExp(base).test(target)) : targets.has(base));
   return candidates(from, token, packages).find((base) => !base.startsWith('../') && matches(base)) ?? null;

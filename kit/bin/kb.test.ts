@@ -305,7 +305,7 @@ describe('omni kb status — the map, derived every time', () => {
   const FILES = {
     ...CONFIG,
     [TESTING]: testingForm({
-      frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.mjs@1234567', 'gone.json@7654321'] },
+      frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.ts@1234567', 'gone.json@7654321'] },
       slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?' } },
     }),
     [`${PLAYBOOK}/ci.md`]: formText({ frontMatter: { form: 'ci', state: 'pointer', 'points-to': 'guides/ci.md' }, title: 'CI', slots: [] }),
@@ -320,9 +320,9 @@ describe('omni kb status — the map, derived every time', () => {
     'guides/ci.md': '# CI\n',
     'guides/setup.md': '# Setup\n',
     'package.json': '{}\n',
-    'vitest.config.mjs': 'export default {};\n',
+    'vitest.config.ts': 'export default {};\n',
   };
-  const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.mjs': '89abcdef01234567' });
+  const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.ts': '89abcdef01234567' });
 
   it('--json lists each form with its state, source, open questions and stale evidence', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
@@ -351,7 +351,7 @@ describe('omni kb status — the map, derived every time', () => {
       file: TESTING,
       questions: [{ slot: 'data', question: 'is there a naming rule for fixture repositories?' }],
       stale: [
-        { path: 'vitest.config.mjs', hash: '1234567', now: '89abcdef01234567' },
+        { path: 'vitest.config.ts', hash: '1234567', now: '89abcdef01234567' },
         { path: 'gone.json', hash: '7654321', now: null },
       ],
     });
@@ -373,7 +373,7 @@ describe('omni kb status — the map, derived every time', () => {
       `testing#data (${TESTING}): is there a naming rule for fixture repositories?`,
       `verification#preflight (${PLAYBOOK}/verification.md): which command is the preflight?`,
       'Stale evidence: 2',
-      `testing (${TESTING}): vitest.config.mjs@1234567 — now 89abcde`,
+      `testing (${TESTING}): vitest.config.ts@1234567 — now 89abcde`,
       `testing (${TESTING}): gone.json@7654321 — gone`,
       '',
     ]);
@@ -576,7 +576,7 @@ describe('omni check kb — acceptance criterion 4: fails naming the file', () =
 describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
   it('prints one warning line for each TODO(human), blank required core slot, stale evidence and missing form', async () => {
     const testing = testingForm({
-      frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.mjs@1234567'] },
+      frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.ts@1234567'] },
       slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?\nTODO(human): who owns the fixtures?' } },
     });
     const blank = (form) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form).slots.map(({ id, required }) => ({ id, required })) });
@@ -588,10 +588,10 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
         [`${PLAYBOOK}/ci.md`]: blank('ci'),
         [`${PLAYBOOK}/releasing.md`]: blank('releasing'),
         'package.json': '{}\n',
-        'vitest.config.mjs': 'export default {};\n',
+        'vitest.config.ts': 'export default {};\n',
       },
     });
-    const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.mjs': '89abcdef01234567' });
+    const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.ts': '89abcdef01234567' });
     const { code, out, err } = await omni(root, ['check', 'kb'], { exec });
     expect(code).toBe(0);
     const missing = (form) => `warning: ${form === 'decisions' ? DECISIONS : `${PLAYBOOK}/${form}.md`}: missing — the kit defaults apply; \`omni kb init\` writes it`;
@@ -599,7 +599,7 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       missing('briefing'),
       missing('setup'),
       missing('architecture'),
-      `warning: ${TESTING}: evidence vitest.config.mjs@1234567 is stale — the file has changed since (now 89abcde)`,
+      `warning: ${TESTING}: evidence vitest.config.ts@1234567 is stale — the file has changed since (now 89abcde)`,
       `warning: ${TESTING}: "## Test data" TODO(human): is there a naming rule for fixture repositories?`,
       `warning: ${TESTING}: "## Test data" TODO(human): who owns the fixtures?`,
       missing('verification'),

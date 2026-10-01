@@ -35,6 +35,8 @@ const FILES = {
   'docs/notes.md': 'Run `node kit/build.mjs`; another repository runs `lib/other.mjs`.\n',
   '.omni-loop/delivery/shipped/0001-start/spec.md': 'Built `kit/build.mjs`.\n',
   '.omni-loop/knowledge/adr/0001-build.md': 'We build with `kit/build.mjs`.\n',
+  '.omni-loop/knowledge/playbook/verification.md': 'The preflight builds with `kit/build.mjs`, as `vitest.config.mjs` says.\n',
+  'vitest.config.mjs': 'export default {};\n',
 };
 
 const roots = [];
@@ -80,6 +82,7 @@ describe('scripts/ts-rename.mjs', () => {
     rename(root);
     const left = Object.keys(snapshot(root)).filter((path) => path.endsWith('.mjs'));
     expect(left.sort()).toEqual(['.omni-loop/bin/omni.mjs', 'kit/dist/omni.mjs']);
+    expect(existsSync(join(root, 'vitest.config.ts'))).toBe(true);
     expect(existsSync(join(root, 'kit/bin/omni.ts'))).toBe(true);
     expect(existsSync(join(root, 'kit/bin/omni.test.ts'))).toBe(true);
   });
@@ -112,11 +115,12 @@ describe('scripts/ts-rename.mjs', () => {
     expect(pkg.exports['.'].default).toBe('./src/index.ts');
   });
 
-  it('leaves the delivery records and the knowledge as they were written', () => {
+  it('leaves the delivery and decision records as they were written, and rewrites the playbook', () => {
     const root = fixture();
     rename(root);
     expect(read(root, '.omni-loop/delivery/shipped/0001-start/spec.md')).toBe('Built `kit/build.mjs`.\n');
     expect(read(root, '.omni-loop/knowledge/adr/0001-build.md')).toBe('We build with `kit/build.mjs`.\n');
+    expect(read(root, '.omni-loop/knowledge/playbook/verification.md')).toBe('The preflight builds with `kit/build.ts`, as `vitest.config.ts` says.\n');
   });
 
   it('leaves the bundle untouched, and a declaration file still naming its hand-written declarations', () => {
