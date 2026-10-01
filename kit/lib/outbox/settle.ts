@@ -44,7 +44,7 @@ import { COMMANDS } from '../commands.ts';
 import type { Layout } from '../layout.ts';
 import type { makeMarkers } from '../markers.ts';
 import type { OutboxItem } from '../types.ts';
-import { SETTLED_FILE, parseOutboxItem } from './outbox.ts';
+import { SETTLED_FILE, parseOutboxItem, type ParsedOutboxItem } from './outbox.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** The markers the ledger is written and read with. */
@@ -58,12 +58,9 @@ export type SettleContext = {
   config: { paths: { delivery: string } };
 };
 
-/** An outbox item parsed, or the errors that kept it from parsing. */
-export type ParsedOutboxItem = { ok: true; item: OutboxItem } | { ok: false; errors: string[] };
-
-/** {@link parseOutboxItem}, with the result shape its callers here narrow on. */
+/** {@link parseOutboxItem}, for one item's text and the file it came from. */
 export function parseItem(text: string, file: string | null): ParsedOutboxItem {
-  return parseOutboxItem(text, { file }) as ParsedOutboxItem; // ts-allow: outbox.ts is typed by its own slice; its result is this union
+  return parseOutboxItem(text, { file });
 }
 
 /**

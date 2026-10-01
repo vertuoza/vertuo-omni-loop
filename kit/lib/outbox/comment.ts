@@ -96,23 +96,17 @@ import { assignBanter } from './banter.ts';
 import type { Banter } from './banter.ts';
 import { RANK_ORDER, SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
-import { ADOPTED_VERDICT, parseSettledEntries } from './settle.ts';
+import { ADOPTED_VERDICT, parseSettledEntries, type SettledEntry } from './settle.ts';
+import type { CoverageContext } from './decision-coverage.ts';
 import { unaccountedChanges, unreworkedDrift } from './status.ts';
 
 type Markers = OutboxContext['markers'];
 
 /** The part of the context the comment writers read. */
-type CommentContext = OutboxContext & { config: Config };
+type CommentContext = OutboxContext & CoverageContext;
 
 /** What this module reads of a settled entry (`parseSettledEntries`, `settle.ts`). */
-export type SettledEntryView = {
-  id: string;
-  verdict: string;
-  closed: boolean;
-  fields: Record<string, string>;
-  answerText: string;
-  itemText: string;
-};
+export type SettledEntryView = SettledEntry;
 
 /** One permanent question number: `<number>=<item id>@<ISO time first listed>`. */
 export type Numbering = { number: number; id: string; since: string };
@@ -334,7 +328,7 @@ export function formatOutboxComment({
  *
  * @param {Array<{ id: number, body?: string }> | undefined | null} comments
  */
-function findCommentByMarker(comments: readonly IssueComment[] | null | undefined, marker: string): IssueComment | null {
+function findCommentByMarker<C extends IssueComment>(comments: readonly C[] | null | undefined, marker: string): C | null {
   if (!Array.isArray(comments)) return null;
   return (
     comments.find((comment) => typeof comment.body === 'string' && comment.body.includes(marker)) ??
@@ -342,7 +336,7 @@ function findCommentByMarker(comments: readonly IssueComment[] | null | undefine
   );
 }
 
-export function findMarkerComment(comments: readonly IssueComment[] | null | undefined, markers: Markers): IssueComment | null {
+export function findMarkerComment<C extends IssueComment>(comments: readonly C[] | null | undefined, markers: Markers): C | null {
   return findCommentByMarker(comments, markers.comment);
 }
 
@@ -353,7 +347,7 @@ export function findMarkerComment(comments: readonly IssueComment[] | null | und
  *
  * @param {Array<{ id: number, body?: string }> | undefined | null} comments
  */
-export function findPrMarkerComment(comments: readonly IssueComment[] | null | undefined, markers: Markers): IssueComment | null {
+export function findPrMarkerComment<C extends IssueComment>(comments: readonly C[] | null | undefined, markers: Markers): C | null {
   return findCommentByMarker(comments, markers.prComment);
 }
 

@@ -91,7 +91,7 @@ function describe(file: string, detail: string): string {
 export function checkItemText(
   file: string,
   text: string,
-  { laws }: { ctx?: Context; laws?: Laws } = {},
+  { laws }: { ctx?: unknown; laws: Laws },
 ): string[] {
   const parsed = parseItem(text, file);
   if (!parsed.ok) return parsed.errors;

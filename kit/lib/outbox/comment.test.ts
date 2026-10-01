@@ -1339,6 +1339,7 @@ describe('formatOutboxPrComment', () => {
           Closed: 'yes',
         },
         answerText: 'approve all',
+        became: [],
         itemText: [
           '---',
           'id: s2-01-a',
@@ -2317,6 +2318,7 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
           closed: true,
           fields: { 'Approved by': 'pierrederval', 'Approved at': '2026-09-25T10:00:00Z' },
           answerText: 'ok',
+          became: [],
           itemText: optionedItemText({
             id: 's2-01-a',
             prd: 50,

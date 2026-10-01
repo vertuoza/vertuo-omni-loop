@@ -338,7 +338,8 @@ describe('an answer that contradicts what was built', () => {
 
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
     const item = parseOutboxItem(entry!.itemText);
-    expect(item.item!.sections.whatItCostsToChangeLater).toBe(
+    if (!item.ok) throw new Error('settled item does not parse');
+    expect(item.item.sections.whatItCostsToChangeLater).toBe(
       'One constant, and a migration over contacts already created with the default.',
     );
   });

@@ -7,9 +7,9 @@ import { candidatesFromLedger, harvestCandidates, writtenBack, type Candidate } 
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
-  const { item } = parseOutboxItem(text);
-  if (!item) throw new Error('fixture outbox item does not parse');
-  return item;
+  const parsed = parseOutboxItem(text);
+  if (!parsed.ok) throw new Error('fixture outbox item does not parse');
+  return parsed.item;
 }
 
 const markers = makeMarkers('omni-outbox');

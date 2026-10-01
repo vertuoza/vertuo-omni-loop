@@ -110,7 +110,7 @@ describe('gradePrd', () => {
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toEqual([]);
 
-    const line = describeUnaccounted(1044, result.unaccounted[0]);
+    const line = describeUnaccounted(1044, result.unaccounted[0]!);
     expect(line).toContain('libs/vertuo-ai-credit/src/server/migrations.ts');
     expect(line).toContain('stored-shape');
   });
@@ -144,7 +144,7 @@ describe('gradePrd', () => {
     const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toHaveLength(1);
-    expect(result.stale[0].path).toBe('some/other/path.ts');
+    expect(result.stale[0]!.path).toBe('some/other/path.ts');
   });
 
   it('a malformed account is refused by name and never silently compared', () => {
