@@ -50,7 +50,12 @@ export function planetPixels(progress: number): PixelGrid {
   const before = g.OffscreenCanvas;
   class Keeper {
     image: ImageData | null = null;
-    constructor(readonly width: number, readonly height: number) {}
+    readonly width: number;
+    readonly height: number;
+    constructor(width: number, height: number) {
+      this.width = width;
+      this.height = height;
+    }
     getContext() {
       return {
         createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),

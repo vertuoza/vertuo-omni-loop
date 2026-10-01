@@ -12,7 +12,11 @@ import type { SceneOptions } from './scene';
 class StubGame {
   static made: StubGame[] = [];
   calls: string[] = [];
-  constructor(readonly config: Record<string, unknown>) { StubGame.made.push(this); }
+  readonly config: Record<string, unknown>;
+  constructor(config: Record<string, unknown>) {
+    this.config = config;
+    StubGame.made.push(this);
+  }
   pause() { this.calls.push('pause'); }
   resume() { this.calls.push('resume'); }
   destroy(removeCanvas: boolean) { this.calls.push(`destroy:${removeCanvas}`); }

@@ -199,7 +199,7 @@ export function remarkDiagrams() {
         try {
           figure = diagramFigure(readSvg(readFileSync(path, 'utf8')), diagram.alt);
         } catch (error) {
-          throw new Error(`the diagram ${diagram.url} ${file.path ? `of ${file.path} ` : ''}does not read: ${(error as Error).message}`, { cause: error });
+          throw new Error(`the diagram ${diagram.url} ${file.path ? `of ${file.path} ` : ''}does not read: ${(error as Error).message}`, { cause: error }); // ts-allow: a caught value is unknown; the readers throw Errors
         }
         const children: HastNode[] = figure.children;
         return { type: 'diagram', data: { hName: figure.tagName, hProperties: figure.properties, hChildren: children } };

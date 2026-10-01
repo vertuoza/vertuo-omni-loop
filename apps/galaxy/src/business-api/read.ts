@@ -73,8 +73,12 @@ type StoredClaim = z.infer<typeof storedClaimSchema>;
  * repository's business (its reason as the database wrote it), 22023 a malformed repository or claim
  * id, P0002 a claim id the business does not hold. */
 export class BusinessStoreError extends Error {
-  constructor(readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(code: string | undefined, reason: string) {
     super(`read the business: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 

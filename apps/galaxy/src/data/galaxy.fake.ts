@@ -150,7 +150,12 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     private most: number | null = null;
     private shape: 'many' | 'single' | 'maybe' = 'many';
 
-    constructor(private table: FakeTable, private me: FakeUser | null) {}
+    private table: FakeTable;
+    private me: FakeUser | null;
+    constructor(table: FakeTable, me: FakeUser | null) {
+      this.table = table;
+      this.me = me;
+    }
 
     select(columns = '*', options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
       this.columns = columns;

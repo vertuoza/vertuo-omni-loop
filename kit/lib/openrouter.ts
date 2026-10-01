@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **One OpenRouter client for the loop** (PRD #82; moved here from PRD #72's retro `narrate`).
  *
@@ -22,6 +21,7 @@
  *        `ok` true: `reply` is what the check kept. Otherwise `error` is `NO_KEY` (no request was
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
  */
+import { z } from 'zod';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 /** The model asked when `OPENROUTER_MODEL` names none. */
@@ -60,20 +60,46 @@ const BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 export const MASK = '[masked]';
 
 /** `text` with every token-shaped string replaced by `[masked]`. Masking twice changes nothing. */
-export function maskSecrets(text) {
+export function maskSecrets(text: unknown): string {
   let out = String(text ?? '');
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
 
-/**
- * @param {{ system: string, user: string,
- *   check: ((value: unknown) => { errors: string[], reply: unknown }) | { safeParse: Function },
- *   schema?: { name: string, schema: object }, env?: Record<string, string | undefined>,
- *   fetch?: typeof fetch, sleep?: (ms: number) => Promise<void>, call?: typeof MODEL_CALL,
- *   title?: string, stream?: boolean }} input
- * @returns {Promise<{ ok: boolean, error: string | null, model: string | null, reply: unknown, reason: string | null }>}
- */
+/** How a reply is checked: a function returning `{ errors, reply }`, or a zod schema. */
+export type ReplyCheck =
+  | ((value: unknown) => { errors?: unknown; reply?: unknown } | null | undefined)
+  | { safeParse(value: unknown, params?: { error?: z.core.$ZodErrorMap }): SafeParsed };
+
+type SafeParsed =
+  | { success: true; data: unknown }
+  | { success: false; error?: { issues?: ReadonlyArray<{ path?: ReadonlyArray<PropertyKey>; message: string }> } };
+
+/** The failures a call returns in `error`. */
+export type ModelFailure = typeof NO_KEY | typeof UNAVAILABLE | typeof REFUSED;
+
+export type AskInput = {
+  system: string;
+  user: string;
+  check: ReplyCheck;
+  schema?: { name: string; schema: object };
+  env?: Record<string, string | undefined>;
+  fetch?: typeof fetch;
+  sleep?: ((ms: number) => Promise<void>) | undefined;
+  call?: ModelCall;
+  title?: string;
+  stream?: boolean;
+};
+
+export type AskResult = { ok: boolean; error: ModelFailure | null; model: string | null; reply: unknown; reason: string | null };
+
+/** How the model is asked (see `MODEL_CALL`). */
+export type ModelCall = { attempts: number; backoffMs: readonly number[]; budgetMs: number; maxTokens: number };
+
+type Message = { role: 'system' | 'user' | 'assistant'; content: string };
+type Status = number | string;
+type Outcome = { ok: true; content: string } | { ok: false; status: Status; retry?: boolean };
+
 export async function askModel({
   system,
   user,
@@ -85,18 +111,18 @@ export async function askModel({
   call = MODEL_CALL,
   title = 'omni loop',
   stream = false,
-} = {}) {
+}: AskInput): Promise<AskResult> {
   const key = env[KEY_VAR];
   if (!key) return failure(NO_KEY, null, `${KEY_VAR} is not set`);
   const model = env[MODEL_VAR] || DEFAULT_MODEL;
   if (typeof fetch !== 'function') return failure(UNAVAILABLE, model, 'model unavailable (no fetch given)');
 
-  const messages = [
+  const messages: Message[] = [
     { role: 'system', content: maskSecrets(system) },
     { role: 'user', content: maskSecrets(user) },
   ];
   const deadline = Date.now() + call.budgetMs;
-  const body = (conversation) => ({
+  const body = (conversation: Message[]) => ({
     model,
     temperature: 0,
     max_tokens: call.maxTokens,
@@ -104,7 +130,7 @@ export async function askModel({
     ...(schema ? { response_format: { type: 'json_schema', json_schema: { name: schema.name, strict: true, schema: schema.schema } } } : {}),
     messages: conversation,
   });
-  const request = (conversation) => ask({ fetch, sleep, call, deadline, key, title, body: body(conversation) });
+  const request = (conversation: Message[]): Promise<Outcome> => ask({ fetch, sleep, call, deadline, key, title, body: body(conversation) });
 
   const first = await request(messages);
   if (!first.ok) return failure(UNAVAILABLE, model, unavailable(first.status));
@@ -125,17 +151,17 @@ export async function askModel({
   return failure(REFUSED, model, `model reply invalid: ${repaired.errors.join('; ')}`);
 }
 
-function failure(error, model, reason) {
+function failure(error: ModelFailure, model: string | null, reason: string): AskResult {
   return { ok: false, error, model, reply: null, reason };
 }
 
-const unavailable = (status) => `model unavailable (${status})`;
+const unavailable = (status: Status) => `model unavailable (${status})`;
 
 /** The caller's check run on `value`: `{ errors, reply }`, `reply` null when refused. Never throws. */
-function runCheck(check, value) {
+function runCheck(check: ReplyCheck | undefined, value: unknown): { errors: string[]; reply: unknown } {
   try {
     if (value === undefined) return { errors: ['the reply must be one JSON object'], reply: null };
-    if (check && typeof check.safeParse === 'function') {
+    if (check && typeof check === 'object' && typeof check.safeParse === 'function') {
       const parsed = check.safeParse(value, { error: KIT_MESSAGES });
       if (parsed.success) return { errors: [], reply: parsed.data };
       const issues = parsed.error?.issues ?? [];
@@ -144,19 +170,29 @@ function runCheck(check, value) {
     }
     if (typeof check === 'function') {
       const out = check(value) ?? {};
-      const errors = Array.isArray(out.errors) ? out.errors : [];
-      if (errors.length === 0 && out.reply !== undefined && out.reply !== null) return { errors, reply: out.reply };
-      return { errors: errors.length ? errors : ['the reply does not fit the shape asked for'], reply: null };
+      const errors: unknown[] = Array.isArray(out.errors) ? out.errors : [];
+      if (errors.length === 0 && out.reply !== undefined && out.reply !== null) return { errors: [], reply: out.reply };
+      return { errors: errors.length ? errors.map(String) : ['the reply does not fit the shape asked for'], reply: null };
     }
     return { errors: ['no check was given for the reply'], reply: null };
   } catch (error) {
-    return { errors: [`the reply could not be checked: ${error?.message ?? error}`], reply: null };
+    return { errors: [`the reply could not be checked: ${messageOf(error)}`], reply: null };
   }
 }
 
 /** One request, tried again on a failure worth trying again, within the budget. */
-async function ask({ fetch, sleep, call, deadline, key, title, body }) {
-  let outcome = { ok: false, status: 'timeout', retry: false };
+type Request = {
+  fetch: typeof globalThis.fetch;
+  sleep: (ms: number) => Promise<void>;
+  call: ModelCall;
+  deadline: number;
+  key: string;
+  title: string;
+  body: object;
+};
+
+async function ask({ fetch, sleep, call, deadline, key, title, body }: Request): Promise<Outcome> {
+  let outcome: Outcome = { ok: false, status: 'timeout', retry: false };
   for (let attempt = 1; attempt <= call.attempts; attempt += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return { ok: false, status: 'timeout' };
@@ -169,7 +205,13 @@ async function ask({ fetch, sleep, call, deadline, key, title, body }) {
   return outcome;
 }
 
-async function once({ fetch, key, title, body, signal }) {
+async function once({
+  fetch,
+  key,
+  title,
+  body,
+  signal,
+}: Pick<Request, 'fetch' | 'key' | 'title' | 'body'> & { signal: AbortSignal }): Promise<Outcome> {
   try {
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
@@ -184,47 +226,88 @@ async function once({ fetch, key, title, body, signal }) {
     return { ok: true, content: await readContent(response) };
   } catch (error) {
     if (error instanceof ModelError) return { ok: false, status: error.code, retry: retriable(error.code) };
-    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return { ok: false, status: 'timeout', retry: false };
+    const { name } = Thrown.parse(error);
+    if (name === 'TimeoutError' || name === 'AbortError') return { ok: false, status: 'timeout', retry: false };
     return { ok: false, status: 'network error', retry: true };
   }
 }
 
-function retriable(status) {
+function retriable(status: Status): boolean {
   const code = Number(status);
   return code === 408 || code === 429 || code >= 500;
 }
 
 /** An error OpenRouter reported after the request was accepted: inside the stream, or in the body. */
 class ModelError extends Error {
-  constructor(code) {
+  code: Status;
+  constructor(code: Status | undefined) {
     super(`model error ${code}`);
     this.code = code ?? 'error';
   }
 }
 
+/**
+ * OpenRouter's JSON body, or one server-sent event's: an error, or the first choice's text. It
+ * never refuses: a field that is missing or of another shape reads as absent, as before.
+ */
+const Text = z.string().optional().catch(undefined);
+const ModelBody = z
+  .object({
+    error: z.unknown().optional(),
+    choices: z
+      .array(
+        z
+          .object({
+            message: z.object({ content: Text }).catch({ content: undefined }),
+            delta: z.object({ content: Text }).catch({ content: undefined }),
+          })
+          .catch({ message: { content: undefined }, delta: { content: undefined } }),
+      )
+      .catch([]),
+  })
+  .catch({ error: undefined, choices: [] });
+
+const ErrorCode = z.object({ code: z.union([z.string(), z.number()]).optional().catch(undefined) }).catch({ code: undefined });
+
+/** The code of an error OpenRouter reported, when it gave one. */
+function errorCode(error: unknown): Status | undefined {
+  return ErrorCode.parse(error).code;
+}
+
+/** What a thrown value says of itself: its name and its message, each absent when it has none. */
+const Thrown = z
+  .object({ name: z.unknown().optional(), message: z.unknown().optional() })
+  .catch({ name: undefined, message: undefined });
+
+function messageOf(error: unknown): unknown {
+  return Thrown.parse(error).message ?? error;
+}
+
 /** The reply's text: from OpenRouter's server-sent events when streamed, else from its JSON body. */
-async function readContent(response) {
+async function readContent(response: Response): Promise<string> {
   if (!(response.headers.get('content-type') ?? '').includes('text/event-stream')) {
-    const data = await response.json();
-    if (data?.error) throw new ModelError(data.error.code);
-    return data?.choices?.[0]?.message?.content ?? '';
+    const data = ModelBody.parse(await response.json());
+    if (data.error) throw new ModelError(errorCode(data.error));
+    return data.choices[0]?.message.content ?? '';
   }
+  if (!response.body) return '';
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let content = '';
-  const line = (text) => {
+  const line = (text: string): boolean => {
     if (!text.startsWith('data:')) return false;
     const data = text.slice(5).trim();
     if (data === '[DONE]') return true;
-    let chunk;
+    let raw: unknown;
     try {
-      chunk = JSON.parse(data);
+      raw = JSON.parse(data);
     } catch {
       return false;
     }
-    if (chunk?.error) throw new ModelError(chunk.error.code);
-    content += chunk?.choices?.[0]?.delta?.content ?? '';
+    const chunk = ModelBody.parse(raw);
+    if (chunk.error) throw new ModelError(errorCode(chunk.error));
+    content += chunk.choices[0]?.delta.content ?? '';
     return false;
   };
   for (;;) {
@@ -247,7 +330,7 @@ async function readContent(response) {
 }
 
 /** The JSON object in the model's text, a code fence around it allowed; `undefined` when there is none. */
-function parseJson(text) {
+function parseJson(text: string): unknown {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start === -1 || end < start) return undefined;
@@ -258,6 +341,6 @@ function parseJson(text) {
   }
 }
 
-function wait(ms) {
+function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

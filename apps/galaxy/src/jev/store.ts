@@ -63,8 +63,10 @@ export interface JevCallRow extends JevCall {
 
 /** A refusal or a failure of the database, with its code (42501, 22023, P0002…) when it gave one. */
 export class JevStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, reason: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`Could not ${what}: ${reason}${code ? ` (${code})` : ''}`);
+    this.code = code;
     this.name = 'JevStoreError';
   }
 }

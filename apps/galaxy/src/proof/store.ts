@@ -78,8 +78,12 @@ export const proofPath = (dossierId: string, runId: string, name: string) => `${
  * registered already.
  */
 export class ProofStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 

@@ -57,8 +57,10 @@ export type Receipt = { kind: 'file' | 'pr' | 'link'; where: string; quote: stri
 
 /** A store call that failed, with the database's code. */
 export class DraftStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, message: string) {
     super(`Could not ${what}: ${message}`);
+    this.code = code;
   }
 }
 

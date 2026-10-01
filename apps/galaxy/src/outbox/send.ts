@@ -80,8 +80,12 @@ export type OutboxSource = {
 
 /** Why GitHub posted nothing: the kind decides the words the send records. */
 export class GitHubError extends Error {
-  constructor(readonly kind: 'refused' | 'down' | 'no-access' | 'gone', readonly status: number | null) {
+  readonly kind: 'refused' | 'down' | 'no-access' | 'gone';
+  readonly status: number | null;
+  constructor(kind: 'refused' | 'down' | 'no-access' | 'gone', status: number | null) {
     super(`GitHub: ${kind}${status === null ? '' : ` (${status})`}`);
+    this.kind = kind;
+    this.status = status;
   }
 }
 
@@ -347,13 +351,13 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
     try {
       await deps.recount?.(send.dossier_id);
     } catch (error) {
-      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`);
+      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
     }
   }
   try {
     await store.done(send.id, outcome);
   } catch (error) {
-    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`);
+    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
   }
   return tab(send.dossier_id, send.id);
 }

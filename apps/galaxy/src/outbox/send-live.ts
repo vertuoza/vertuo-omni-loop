@@ -25,8 +25,10 @@ type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** A store call that failed: which, and the database's code. Never the row. */
 export class SendStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, message: string) {
     super(`Could not ${what}: ${message}`);
+    this.code = code;
   }
 }
 

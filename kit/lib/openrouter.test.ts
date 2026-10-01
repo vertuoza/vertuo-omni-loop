@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import type { AskInput } from './openrouter.ts';
 import {
   DEFAULT_MODEL,
   MASK,
@@ -26,18 +26,19 @@ const SCHEMA = {
 };
 
 /** A check in the retro's shape: what is wrong with a value, and the value kept. */
-function check(value) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+function check(input: unknown) {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     return { errors: ['the reply must be a JSON object'], reply: null };
   }
-  const errors = [];
+  const value = input as { kind?: unknown; statement?: unknown };
+  const errors: string[] = [];
   if (typeof value.kind !== 'string') errors.push('kind must be a string');
   if (typeof value.statement !== 'string') errors.push('statement must be a string');
   return errors.length ? { errors, reply: null } : { errors, reply: { kind: value.kind, statement: value.statement } };
 }
 
 /** OpenRouter's streamed reply: a keep-alive comment, the content in pieces, split mid-line, then [DONE]. */
-function streamed(content, { error = null } = {}) {
+function streamed(content: string, { error = null as unknown } = {}) {
   const pieces = [content.slice(0, 10), content.slice(10, 25), content.slice(25)];
   const events = [
     ': OPENROUTER PROCESSING\n\n',
@@ -56,30 +57,32 @@ function streamed(content, { error = null } = {}) {
   return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
 }
 
-const plain = (content) =>
+const plain = (content: string) =>
   new Response(JSON.stringify({ choices: [{ message: { content } }] }), { headers: { 'content-type': 'application/json' } });
-const failed = (status) => new Response(JSON.stringify({ error: { code: status, message: 'no' } }), { status });
+const failed = (status: number) => new Response(JSON.stringify({ error: { code: status, message: 'no' } }), { status });
 
 /** A stubbed fetch answering each call with the next response (the last one repeats). */
-function stubFetch(...answers) {
-  const calls = [];
-  const fn = vi.fn(async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
-    const answer = answers[Math.min(calls.length, answers.length) - 1];
+type Answer = Response | Error | ((init: RequestInit) => Response | Promise<Response>);
+function stubFetch(...answers: Answer[]) {
+  // A test may cast its fixtures freely: each recorded call is read as the test needs it.
+  const calls: any[] = [];
+  const fn = vi.fn(async (url: string, init: RequestInit): Promise<Response> => {
+    calls.push({ url, init, body: JSON.parse(String(init.body)) });
+    const answer = answers[Math.min(calls.length, answers.length) - 1]!;
     if (answer instanceof Error) throw answer;
     return typeof answer === 'function' ? answer(init) : answer.clone();
   });
   return Object.assign(fn, { calls });
 }
 
-const noSleep = vi.fn(async () => {});
-const ask = (fetch, over = {}) =>
-  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, env: KEY, fetch, sleep: noSleep, ...over });
+const noSleep = vi.fn(async (_ms: number) => {});
+const ask = (fetch: unknown, over: Partial<AskInput> = {}) =>
+  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, env: KEY, fetch: fetch as unknown as typeof globalThis.fetch, sleep: noSleep, ...over });
 
 describe('askModel — no key', () => {
   it('returns an error naming OPENROUTER_API_KEY, before any request', async () => {
     const fetch = stubFetch(plain(JSON.stringify(REPLY)));
-    const out = await askModel({ system: 's', user: 'u', check, env: {}, fetch });
+    const out = await askModel({ system: 's', user: 'u', check, env: {}, fetch: fetch as unknown as typeof globalThis.fetch });
     expect(out).toEqual({ ok: false, error: NO_KEY, model: null, reply: null, reason: 'OPENROUTER_API_KEY is not set' });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -171,7 +174,7 @@ describe('askModel — a reply the schema refuses', () => {
     expect((await ask(fetch)).reply).toEqual(REPLY);
     expect(fetch).toHaveBeenCalledTimes(2);
     const repair = fetch.calls[1].body.messages;
-    expect(repair.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(repair.map((message: { role: string }) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
     expect(repair[2].content).toBe(broken);
     expect(repair[3].content).toContain('kind must be a string');
   });
@@ -209,7 +212,7 @@ describe('askModel — a reply the schema refuses', () => {
 
 describe('askModel — the model unavailable', () => {
   it('tries a 500 again, and after its retries says so', async () => {
-    const sleep = vi.fn(async () => {});
+    const sleep = vi.fn(async (_ms: number) => {});
     const fetch = stubFetch(failed(500));
     const out = await ask(fetch, { sleep });
     expect(out).toEqual({ ok: false, error: UNAVAILABLE, model: DEFAULT_MODEL, reply: null, reason: 'model unavailable (500)' });
@@ -237,7 +240,7 @@ describe('askModel — the model unavailable', () => {
   });
 
   it('gives up when the call outlasts its time budget', async () => {
-    const hang = (init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)));
+    const hang = (init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)));
     const out = await ask(stubFetch(hang), { call: { ...MODEL_CALL, budgetMs: 20 } });
     expect(out.reason).toBe('model unavailable (timeout)');
   });

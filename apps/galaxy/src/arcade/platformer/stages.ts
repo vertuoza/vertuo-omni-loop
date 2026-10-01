@@ -50,8 +50,16 @@ export interface Stage {
 
 /** A map with a character the legend does not know, named with its row and column (from 1). */
 export class StageError extends Error {
-  constructor(readonly stage: string, readonly char: string, readonly row: number, readonly col: number) {
+  readonly stage: string;
+  readonly char: string;
+  readonly row: number;
+  readonly col: number;
+  constructor(stage: string, char: string, row: number, col: number) {
     super(`stage ${stage}: unknown tile "${char}" at row ${row}, column ${col}`);
+    this.stage = stage;
+    this.char = char;
+    this.row = row;
+    this.col = col;
     this.name = 'StageError';
   }
 }
