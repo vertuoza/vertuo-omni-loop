@@ -22382,7 +22382,7 @@ var help = {
 init_define_OMNI_BUNDLE();
 import { chmodSync as chmodSync4, copyFileSync as copyFileSync2, existsSync as existsSync43, mkdirSync as mkdirSync14, readFileSync as readFileSync40, writeFileSync as writeFileSync16 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname14, join as join51, posix as posix6 } from "node:path";
+import { dirname as dirname15, join as join51 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
@@ -22764,7 +22764,12 @@ function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms,
 // kit/lib/init/installed.mjs
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync41, readFileSync as readFileSync39 } from "node:fs";
-import { join as join49 } from "node:path";
+import { dirname as dirname14, join as join49, posix as posix6 } from "node:path";
+var LOOP_DIR2 = dirname14(CONFIG_FILE);
+function insideLoop2(path) {
+  const clean = posix6.normalize(path).replace(/\/+$/, "");
+  return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
+}
 var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } };
 function attempt5(fn) {
   try {
@@ -22985,12 +22990,7 @@ function installLines({ branch, commit, push: push2, pr }, { paths, remote, base
 }
 
 // kit/bin/commands/init.mjs
-var LOOP_DIR2 = dirname14(CONFIG_FILE);
 var BIN_FILE2 = join51(LOOP_DIR2, "bin", "omni.mjs");
-function insideLoop2(path) {
-  const clean = posix6.normalize(path).replace(/\/+$/, "");
-  return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
-}
 var OWN_STATUS_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
 var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
 var QUESTIONS = {
@@ -23074,11 +23074,11 @@ var init = {
       const rendered = renderConfig({ ...repo, commands, lawsSource });
       config2 = rendered.config;
       const { text: text4 } = rendered;
-      mkdirSync14(dirname14(configPath), { recursive: true });
+      mkdirSync14(dirname15(configPath), { recursive: true });
       writeFileSync16(configPath, text4);
     }
     if (copyBin) {
-      mkdirSync14(dirname14(binPath), { recursive: true });
+      mkdirSync14(dirname15(binPath), { recursive: true });
       copyFileSync2(bundle, binPath);
       chmodSync4(binPath, 493);
     }

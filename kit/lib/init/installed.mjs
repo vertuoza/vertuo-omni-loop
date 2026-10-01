@@ -8,10 +8,19 @@
 // names is filled (playbook/filled.mjs); its date is the latest `invaded:` among the filled forms. A
 // playbook git cannot list there is no invasion, never a failed detection.
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.mjs';
 import { invadedOn, isFilled, playbookOf } from '../playbook/filled.mjs';
 import { readRepo } from './repo.mjs';
+
+/** The loop's own folder, where `omni init` writes everything but the status line. */
+export const LOOP_DIR = dirname(CONFIG_FILE);
+
+/** Whether `path` is the loop's folder or lies under it, however it is spelled. */
+export function insideLoop(path) {
+  const clean = posix.normalize(path).replace(/\/+$/, '');
+  return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
+}
 
 // No prompt for credentials: a remote that wants them is a failed fetch, never a hung init.
 const QUIET = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } };

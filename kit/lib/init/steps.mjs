@@ -53,7 +53,7 @@ function byHand(steps) {
 export const installedHeadline = (defaultBranch) => `Already installed on ${defaultBranch} — no install pull request.`;
 
 /** The line that says a repository is invaded, with its date when one is known. */
-export const invadedLine = (invaded) => `Already invaded${invaded.date ? ` (${invaded.date})` : ''}.`;
+const invadedLine = (invaded) => `Already invaded${invaded.date ? ` (${invaded.date})` : ''}.`;
 
 /**
  * The closing lines of a repository already installed: the App, the merge, the labels and the

@@ -17,7 +17,7 @@
 // always runs the full install.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { dirname, join, posix } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseArgs, usageError } from '../args.mjs';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../../lib/config.mjs';
 import { createContext } from '../../lib/context.mjs';
@@ -27,7 +27,7 @@ import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/d
 import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
 import { closingSteps, computerLines, installedHeadline, installedSteps, setupLines } from '../../lib/init/steps.mjs';
-import { detectInstall } from '../../lib/init/installed.mjs';
+import { detectInstall, insideLoop, LOOP_DIR } from '../../lib/init/installed.mjs';
 import { installPlugin, pluginLines } from '../../lib/init/plugin.mjs';
 import { signInLines, signInStep } from '../../lib/init/signin-step.mjs';
 import { installLines, openInstallPr, switchToInstallBranch } from '../../lib/init/install-pr.mjs';
@@ -36,14 +36,7 @@ import { writeStatusLine } from '../../lib/init/settings.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
 import { signin } from './signin.mjs';
 
-const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
-
-/** Whether `path` is the loop's folder or lies under it, however it is spelled. */
-function insideLoop(path) {
-  const clean = posix.normalize(path).replace(/\/+$/, '');
-  return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
-}
 
 // The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
 const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
