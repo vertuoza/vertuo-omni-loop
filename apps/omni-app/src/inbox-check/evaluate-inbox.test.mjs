@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createCanon } from '../canon/canon.mjs';
+import { createCanon, neutral } from '../canon/canon.mjs';
 import { readCanonMarker } from './canon-actions.mjs';
 import { evaluateInbox, inboxPrd, phase0Topic } from './evaluate-inbox.mjs';
 
@@ -183,6 +183,12 @@ describe('evaluateInbox — the canon gate, fifth', () => {
     expect(verdict.summary).toContain('- ok — canon: canon ✓ · 2 claims read');
     expect(verdict.canon).toMatchObject({ state: 'green', claimsRead: 2 });
     expect(readCanonMarker(verdict.summary)).toBeNull();
+  });
+
+  it('grades with the PRD as its ref, so a Jev call is recorded against it', async () => {
+    const grade = vi.fn(async () => neutral('stub'));
+    const verdict = await evaluateInbox(input({ canon: { grade } }));
+    expect(grade).toHaveBeenCalledWith(expect.objectContaining({ repo: 'acme/widgets', ref: `PRD ${verdict.prd}` }));
   });
 
   it('red: "canon ✗ N", listing the claim, the quoted spec line and one persona line', async () => {

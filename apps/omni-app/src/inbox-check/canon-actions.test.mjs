@@ -16,10 +16,10 @@ const NEUTRAL = Object.freeze({ state: 'neutral', reason: 'no business', claimsR
 const GALAXY = 'https://galaxy.example';
 
 describe('canonActions — the buttons on a red canon check run', () => {
-  it('a red canon check carries Rewrite for <persona> and Change the claim', () => {
+  it('a red canon check carries Rewrite for <persona> and Change the line', () => {
     expect(canonActions(RED)).toEqual([
       { label: 'Rewrite for Marc', description: 'Post the command that reworks the spec', identifier: CANON_ACTION.rewrite },
-      { label: 'Change the claim', description: 'Open the claim on Settings › Business', identifier: CANON_ACTION.claim },
+      { label: 'Change the line', description: 'Open the line on Settings › Business', identifier: CANON_ACTION.claim },
     ]);
   });
 
@@ -77,11 +77,18 @@ describe('canonComment — the one comment each action posts', () => {
     expect(body).toContain('To rewrite the spec, run `/omni:brainstorm --rework 839`.');
   });
 
-  it('Change the claim links each cited claim on Settings › Business: a Never line at its #never-<seq>', () => {
+  it('Change the line links each cited line on Settings › Business: a Never line at its #never-<seq>', () => {
     const body = canonComment(CANON_ACTION.claim, facts, { galaxyUrl: `${GALAXY}/` });
     expect(body).toContain(commentMarker(CANON_ACTION.claim));
     expect(body).toContain('[never#4](https://galaxy.example/app/settings/business#never-4)');
     expect(body).toContain('[size#1](https://galaxy.example/app/settings/business)');
+  });
+
+  it('Change the line links the Statement at #statement, and says an owner changes a constituent', () => {
+    const body = canonComment(CANON_ACTION.claim, { prd: 871, persona: null, claims: ['statement', 'never#1'] }, { galaxyUrl: GALAXY });
+    expect(body).toContain('[statement](https://galaxy.example/app/settings/business#statement)');
+    expect(body).toContain('[never#1](https://galaxy.example/app/settings/business#never-1)');
+    expect(body).toContain('an owner of the workspace changes it on the Constituents panel');
   });
 
   it('the two actions carry different markers, so each edits only its own comment', () => {
