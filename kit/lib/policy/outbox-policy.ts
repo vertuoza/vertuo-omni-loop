@@ -472,7 +472,7 @@ export function renderOutboxItem({
   laws,
 }: OutboxItemFields): string {
   const couldNotKnow = unknowable(gaps);
-  const settledRank: string = floorRank(bearsOn, rank, laws);
+  const settledRank: string = floorRank(bearsOn, rank as Rank, laws); // ts-allow: an unknown rank is refused just below, after the floor, as it always was
   if (!RANK_VALUES.some((value: string) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(', ')} — got "${rank}"`);
   }

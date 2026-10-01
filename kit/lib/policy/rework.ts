@@ -42,7 +42,7 @@ import type { makeMarkers } from '../markers.ts';
 import type { OutboxItem, OutboxOption } from '../types.ts';
 
 /** The markers this module reads: a settled entry's opening and closing lines. */
-export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' | 'settledClose'>;
+export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' | 'settledOpenRe' | 'settledClose'>;
 
 /** The branch templates a rework is named from (`ctx.config.branches`). */
 export type ReworkBranches = Pick<Config['branches'], 'feature' | 'slice' | 'rework'>;
