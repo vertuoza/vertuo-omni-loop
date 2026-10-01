@@ -1,11 +1,12 @@
 # The galaxy database. On a pull request: every migration and the demo seed apply to an empty
-# database, and supabase/checks/access.sql proves who may read and write what. On main: the
+# database, supabase/database.types.ts is what they generate (PRD 725), and supabase/checks/access.sql
+# proves who may read and write what. On main: the
 # migrations are applied to the production project. Off until the repository variable SUPABASE_PROJECT_ID is set.
 # Setup (project, secrets, variables): apps/galaxy/README.md, "Deploy to production".
 name: supabase
 on:
   pull_request:
-    paths: ['supabase/**', '.github/workflows/supabase.yml']
+    paths: ['supabase/**', 'scripts/supabase-types.ts', '.github/workflows/supabase.yml']
   push:
     branches: [main]
     paths: ['supabase/migrations/**', '.github/workflows/supabase.yml']
@@ -22,6 +23,13 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }  # runs the script's TypeScript natively (Node >= 22.18)
+      - name: The database's types are what the migrations generate
+        # `supabase gen types --local`, by the pinned CLI above, against the database just started;
+        # fails, naming the first line, when the committed supabase/database.types.ts differs. To
+        # refresh it: `supabase db start`, then `node scripts/supabase-types.ts`, and commit the file.
+        run: node scripts/supabase-types.ts --check
       - name: Who may sign up, and how a workspace is born
         # The hook: any GitHub account, with or without an email, and no other provider. Installing
         # the App makes one workspace per GitHub account, its installer the owner; a replay makes
