@@ -5,7 +5,8 @@
 //   get_business   {repo?}         exactly the body GET /api/business?repo= answers (decision 8)
 //   get_claims     {kind?, repo?}  that body's claims, of one kind when given
 //   report_unknown {question, repo?, file?}   stores the question on Settings › Business (PRD 855 s3,
-//                                  agent_question_report(), 20261028100000_agent_questions.sql), and says so
+//                                  agent_question_report(), 20261028100000_agent_questions.sql), and says so;
+//                                  a new question then goes to Jev's Unknown worth asking (s4, deps.reported)
 //
 // The token is checked by the database: galaxy hashes it and business_for_token() reads the business
 // for that hash (supabase/migrations/20261028090000_agent_tokens.sql), as nobody, with no service key
@@ -24,6 +25,11 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
 export type McpDeps = {
   /** A database client acting as nobody (the anon key), or null when no database is configured. */
   connect: (() => Rpc) | null;
+  /**
+   * Hands a question just stored for the first time to Jev's Unknown worth asking (PRD 855 s4), to run
+   * after report_unknown has answered (decision 13). Never awaited; a throw is only logged.
+   */
+  reported?: (question: string) => void;
 };
 
 export const LINK_REFUSED = 'This link does not work: make a new one on Settings › Business.';
@@ -81,6 +87,14 @@ function server(hash: string | null, deps: McpDeps): McpServer {
     });
     return reader.forRepo(repo ?? '');
   };
+  /** A new question to Jev, after the answer; its failure never reaches the agent. */
+  const judge = (question: string) => {
+    try {
+      deps.reported?.(question);
+    } catch (error) {
+      console.error(`mcp: Unknown worth asking was not run on ${question} (${error instanceof Error ? error.message : String(error)})`);
+    }
+  };
   const answered = async (work: () => Promise<string>) => {
     try {
       return text(await work());
@@ -127,7 +141,8 @@ function server(hash: string | null, deps: McpDeps): McpServer {
       const e = error as { code?: string; message?: string };
       throw new BusinessStoreError(e.code, e.message ?? 'no answer');
     }
-    const asked = (data as { asked?: unknown } | null)?.asked;
+    const { id, asked } = (data ?? {}) as { id?: unknown; asked?: unknown };
+    if (asked === 1 && typeof id === 'string') judge(id);
     return typeof asked === 'number' && asked > 1 ? `${REPORTED} It was asked ${asked}× so far.` : REPORTED;
   }));
 
