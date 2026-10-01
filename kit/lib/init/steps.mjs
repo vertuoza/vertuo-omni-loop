@@ -5,7 +5,10 @@
 // optional branch protection, filling the forms with /omni:invade — the commands it could not fill,
 // what it noticed and left alone, who sees the status line it switched on, how to update the loop later
 // (`omni update`), and how to remove it again (`closingSteps`). Only the repository's slug, its default
-// branch and the install pull request vary from one repository to the next.
+// branch and the install pull request vary from one repository to the next. A repository already
+// installed on its default branch (installed.mjs, PRD 893) gets only `installedHeadline` and
+// `installedSteps` around the computer's lines: the steps already taken there are not repeated, and
+// an invaded one is pointed at `omni update` and `/omni:invade --refresh` instead of the forms.
 import { dirname } from 'node:path';
 import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.mjs';
 
@@ -30,6 +33,48 @@ const KIT_LINE_IN_PLACE = new Set(['wrote', 'kept']);
 // The closing steps' numbers: the App, then the merge, then the labels step when there is one.
 const LABELS_STEP = 3;
 const formsStep = (labels) => (labels.byHand.length ? 5 : 4);
+
+/** The step that fills the forms in the front door `forms.dir`, with /omni:invade. */
+const fillStep = (forms) => [
+  `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
+  `     /${PLUGIN}:invade`,
+];
+
+/** The numbered steps only a person can take, under their heading. */
+function byHand(steps) {
+  const lines = ['', 'Then, by hand:'];
+  steps.forEach(([first, ...rest], index) => {
+    lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
+  });
+  return lines;
+}
+
+/** The first line of a repository already installed on `defaultBranch`: nothing is written or opened. */
+export const installedHeadline = (defaultBranch) => `Already installed on ${defaultBranch} — no install pull request.`;
+
+/** The line that says a repository is invaded, with its date when one is known. */
+const invadedLine = (invaded) => `Already invaded${invaded.date ? ` (${invaded.date})` : ''}.`;
+
+/**
+ * The closing lines of a repository already installed: the App, the merge, the labels and the
+ * required check are behind it, so only the forms are left — or, once it is invaded, how to update
+ * the loop and refresh the forms.
+ *
+ * @param {object} s
+ * @param {{ dir: string }} s.forms   the forms' front door, as the default branch's config places it
+ * @param {{ date: string|null } | null} [s.invaded]   its invasion (installed.mjs), `null` when no form is filled
+ * @param {string} s.configPath       the config file: its folder is the loop's
+ * @returns {string[]}
+ */
+export function installedSteps({ forms, invaded = null, configPath }) {
+  if (!invaded) return byHand([fillStep(forms)]);
+  return [
+    '',
+    invadedLine(invaded),
+    `To update the loop: node ${dirname(configPath)}/bin/omni.mjs update`,
+    `To refresh the forms: /${PLUGIN}:invade --refresh`,
+  ];
+}
 
 /**
  * The first lines: what init wrote or kept.
@@ -146,14 +191,8 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
     '   is to remove the requirement, never to fake a status.',
   ]);
   // Last: the skill needs the plugin, and opens a pull request into the branch the forms were merged to.
-  steps.push([
-    `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
-    `     /${PLUGIN}:invade`,
-  ]);
-  lines.push('', 'Then, by hand:');
-  steps.forEach(([first, ...rest], index) => {
-    lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
-  });
+  steps.push(fillStep(forms));
+  lines.push(...byHand(steps));
 
   if (unfilled.length) {
     lines.push('', `Not filled — set them in ${configPath} or rerun with the flag:`);

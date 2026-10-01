@@ -11,9 +11,13 @@
 // older copy of the loop or a formatter that would reject the bin. The one command that runs before a
 // config exists, so `main()` hands it no context. It writes no file outside `.omni-loop/` but the
 // `statusLine` key of `.claude/settings.json` (N-PRODUCT-6).
+// A repository already installed on its default branch (PRD 893) skips all of that but this computer:
+// no branch switch, no write, no commit, push or pull request, and only the forms left as a step —
+// or, when a form is filled there, the `omni update` and `/omni:invade --refresh` lines. `--force`
+// always runs the full install.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { dirname, join, posix } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseArgs, usageError } from '../args.mjs';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../../lib/config.mjs';
 import { createContext } from '../../lib/context.mjs';
@@ -22,7 +26,8 @@ import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
-import { closingSteps, computerLines, setupLines } from '../../lib/init/steps.mjs';
+import { closingSteps, computerLines, installedHeadline, installedSteps, setupLines } from '../../lib/init/steps.mjs';
+import { detectInstall, insideLoop, LOOP_DIR } from '../../lib/init/installed.mjs';
 import { installPlugin, pluginLines } from '../../lib/init/plugin.mjs';
 import { signInLines, signInStep } from '../../lib/init/signin-step.mjs';
 import { installLines, openInstallPr, switchToInstallBranch } from '../../lib/init/install-pr.mjs';
@@ -31,14 +36,7 @@ import { writeStatusLine } from '../../lib/init/settings.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
 import { signin } from './signin.mjs';
 
-const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
-
-/** Whether `path` is the loop's folder or lies under it, however it is spelled. */
-function insideLoop(path) {
-  const clean = posix.normalize(path).replace(/\/+$/, '');
-  return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
-}
 
 // The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
 const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
@@ -75,6 +73,23 @@ async function resolveCommands(root, flags, { interactive, ask }) {
   return commands;
 }
 
+/** This computer's lines: the plugin, then the sign-in to the Omni page. Neither ever fails init. */
+async function thisComputer({ root, config, interactive, stdout, stderr, exec, home, signIn }) {
+  const kit = kitHome({ exec });
+  const plugin = pluginLines(installPlugin({ exec, kitHome: kit }), { kitHome: kit });
+  const signedIn = await signInStep({
+    askUrl: config.ask.url,
+    home,
+    interactive,
+    signIn: signIn ?? (async () => {
+      let line;
+      const code = await signin.run([], { cwd: root, stdout, stderr, exec, home, onSignedIn: (said) => { line = said; } });
+      return { code, line };
+    }),
+  });
+  return computerLines(plugin, signInLines(signedIn));
+}
+
 export const init = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }) {
@@ -85,6 +100,17 @@ export const init = {
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
     const configPath = join(root, CONFIG_FILE);
     const binPath = join(root, BIN_FILE);
+    const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
+    const computer = (config) => thisComputer({ root, config, interactive, stdout, stderr, exec, home: userHome, signIn });
+
+    // Already installed on the default branch: only this computer's steps, and nothing written.
+    const installed = force ? null : detectInstall(root, { exec });
+    if (installed) {
+      stdout.write(`${installedHeadline(installed.defaultBranch)}\n`);
+      const forms = { dir: createContext(root, installed.config).layout.frontDoor };
+      stdout.write(`${['', ...(await computer(installed.config)), ...installedSteps({ forms, invaded: installed.invaded, configPath: CONFIG_FILE })].join('\n')}\n`);
+      return 0;
+    }
 
     // Everything that can refuse runs before anything is written.
     const keepConfig = !force && existsSync(configPath);
@@ -100,7 +126,6 @@ export const init = {
     // the person was on. A branch git refuses is reported with the install pull request below.
     const branch = switchToInstallBranch(root, { exec });
 
-    const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
     if (!keepConfig) {
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
@@ -146,22 +171,10 @@ export const init = {
     // Printed before the steps that may take a while, or open the browser.
     stdout.write(`${out.join('\n')}\n`);
 
-    // Then this computer: the plugin, and the sign-in to the Omni page. Neither ever fails init.
-    const kit = kitHome({ exec });
-    const plugin = pluginLines(installPlugin({ exec, kitHome: kit }), { kitHome: kit });
-    const signedIn = await signInStep({
-      askUrl: config.ask.url,
-      home: userHome,
-      interactive,
-      signIn: signIn ?? (async () => {
-        let line;
-        const code = await signin.run([], { cwd: root, stdout, stderr, exec, home: userHome, onSignedIn: (said) => { line = said; } });
-        return { code, line };
-      }),
-    });
+    // Then this computer: the plugin, and the sign-in to the Omni page.
     const closing = [
       '',
-      ...computerLines(plugin, signInLines(signedIn)),
+      ...(await computer(config)),
       ...closingSteps({
         slug,
         defaultBranch: config.repo.defaultBranch,
