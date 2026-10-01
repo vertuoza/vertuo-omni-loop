@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 420: `npm install -g` of this repository installs the bundle alone. The bundle carries every
 // module it needs, so the root package declares no runtime dependencies for npm to download.
 import { readFileSync } from 'node:fs';

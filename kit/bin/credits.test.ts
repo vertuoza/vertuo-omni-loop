@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #99, slices s3 and s4: `omni credits`, through `main()` on a fixture repository, with `gh`
 // stubbed — the text report, `--repo`, `--since`, `--list`, `--json`, `signature: null`, a `gh` that
 // cannot be read and the 1,000-result cap (AC 7 to AC 10). It never calls GitHub.
@@ -6,12 +5,14 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
 const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 
-function searched(number, { repo = 'acme/widgets', labels = [], ...overrides } = {}) {
+function searched(number: number, { repo = 'acme/widgets', labels = [], ...overrides }: { repo?: string; labels?: string[]; [field: string]: unknown } = {}) {
   return {
     number,
     title: `PR ${number}`,
@@ -30,13 +31,16 @@ function searched(number, { repo = 'acme/widgets', labels = [], ...overrides } =
  * arguments, joined by spaces, are answered by the first route whose prefix they start with (an
  * Error is thrown). Unrouted searches answer `[]`.
  */
-function fakeExec(routes = []) {
-  const calls = [];
-  const exec = (file, args, options) => {
-    if (file === 'git') return execFileSync(file, args, options);
+/** A route: the start of a `gh` call's arguments, and what it answers, or the error it throws. */
+type Route = [string, unknown];
+
+function fakeExec(routes: Route[] = []) {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (file === 'git') return realExec(file, args, options);
     calls.push(args.join(' '));
     const key = args.join(' ');
-    for (const [prefix, out] of [...routes, ['search ', []]]) {
+    for (const [prefix, out] of [...routes, ['search ', []] as Route]) {
       if (!key.startsWith(prefix)) continue;
       if (out instanceof Error) throw out;
       return typeof out === 'string' ? out : JSON.stringify(out);
@@ -47,17 +51,17 @@ function fakeExec(routes = []) {
 }
 
 /** Runs `omni <argv>` in a fixture repository whose config is `config`: `{ code, out, err, calls }`. */
-async function omni(argv, { config = CONFIG, routes = [] } = {}) {
+async function omni(argv: readonly string[], { config = CONFIG, routes = [] }: { config?: string; routes?: Route[] } = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const { exec, calls } = fakeExec(routes);
-  const out = [];
-  const err = [];
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, exec, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join(''), calls };
 }
 
 /** A small organisation: one pull request for each way of being his, plus ones that are not. */
-const WORLD = [
+const WORLD: Route[] = [
   ['search prs --owner acme --label omni:phase-0', [searched(1, { labels: ['omni:phase-0'], createdAt: '2026-07-02T09:00:00Z' })]],
   ['search prs --owner acme --label omni:feature', [searched(2, { labels: ['omni:feature'], state: 'open', createdAt: '2026-08-01T09:00:00Z', body: SIGNED_BODY })]],
   ['search prs --owner acme --label omni:sub', [
@@ -137,7 +141,7 @@ describe('omni credits', () => {
       commits: 1,
       byRepo: [{ repo: 'acme/widgets', count: 4 }, { repo: 'acme/gadgets', count: 2 }],
     });
-    expect(doc.items.map(({ type, repo, number, reasons, signature }) => `${type} ${repo}#${number} ${reasons.join('+')} ${signature}`)).toEqual([
+    expect(doc.items.map(({ type, repo, number, reasons, signature }: { type: string; repo: string; number: number; reasons: string[]; signature: string }) => `${type} ${repo}#${number} ${reasons.join('+')} ${signature}`)).toEqual([
       'issue acme/widgets#20 label before signing',
       'pr acme/widgets#1 label before signing',
       'pr acme/widgets#2 label+marker signed',
@@ -158,7 +162,7 @@ describe('omni credits', () => {
 
   it('--json carries the scope it was narrowed to, and the warnings in place of the stderr lines', async () => {
     const full = Array.from({ length: 1000 }, (_, index) => searched(index + 1, { repo: 'acme/gadgets', labels: ['omni:sub'], createdAt: '2026-09-02T09:00:00Z' }));
-    const routes = [['search prs --repo acme/gadgets --label omni:sub', full]];
+    const routes: Route[] = [['search prs --repo acme/gadgets --label omni:sub', full]];
     const { code, out, err } = await omni(['credits', '--json', '--list', '--repo', 'acme/gadgets', '--since', '2026-09'], { routes });
     expect({ code, err }).toEqual({ code: 0, err: '' });
     const doc = JSON.parse(out);
@@ -175,12 +179,12 @@ describe('omni credits', () => {
     const doc = JSON.parse(out);
     expect(doc.name).toBeNull();
     expect(doc.totals).toMatchObject({ byTheApp: null, commits: null, prdIssues: { total: 1 } });
-    expect(doc.items.every((item) => item.signature === null)).toBe(true);
+    expect(doc.items.every((item: { signature: unknown }) => item.signature === null)).toBe(true);
     expect(doc.commits).toEqual([]);
   });
 
   it('--repo narrows to one repository and --since to what was created from that month on (AC 9)', async () => {
-    const routes = [
+    const routes: Route[] = [
       ['search prs --repo acme/gadgets --label omni:sub --created >=2026-09-01', [searched(7, { repo: 'acme/gadgets', labels: ['omni:sub'], createdAt: '2026-09-01T09:00:00Z' })]],
     ];
     const { code, out, calls } = await omni(['credits', '--repo', 'acme/gadgets', '--since', '2026-09'], { routes });
@@ -216,13 +220,13 @@ describe('omni credits', () => {
     expect(err).toBe("warning: gh search prs --owner acme --label omni:sub hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.\n");
   });
 
-  const unreadable = [
+  const unreadable: [string, Error, string][] = [
     ['missing', Object.assign(new Error('spawnSync gh ENOENT'), { code: 'ENOENT' }), 'omni credits: gh is not installed'],
     ['logged out', Object.assign(new Error('Command failed'), { status: 4, stderr: 'To get started with GitHub CLI, please run:  gh auth login\n' }), 'omni credits: gh is not logged in'],
     ['rate limited', Object.assign(new Error('Command failed'), { status: 1, stderr: 'HTTP 403: API rate limit exceeded for user ID 1.\n' }), "omni credits: GitHub's rate limit"],
   ];
 
-  it.each(unreadable)('gh %s: exits 2 with one line saying so, and prints no report (AC 10)', async (_, error, said) => {
+  it.each(unreadable)('gh %s: exits 2 with one line saying so, and prints no report (AC 10)', async (_: string, error: Error, said: string) => {
     const { code, out, err } = await omni(['credits'], { routes: [['search', error]] });
     expect(code).toBe(2);
     expect(out).toBe('');

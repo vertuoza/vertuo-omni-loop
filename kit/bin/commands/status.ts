@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni status [--fetch]` — the repository's overview, read from git: exit 0, or 2 when the default
 // branch cannot be read (`kit/lib/status/`).
 // `omni status <prd> [--labels a,b] [--base <ref> | --changes]` — the outbox gate: exit 0 green, 1 red.
@@ -10,12 +9,13 @@ import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
 import { list, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]';
 
 /** The overview: fetch first when asked (a failed fetch is one line, never a stop), then read the
  * base, which only a checkout with neither default branch cannot do. */
-function overview({ ctx, stdout, exec, fetch }) {
+function overview({ ctx, stdout, exec, fetch }: Pick<CommandIo, 'ctx' | 'stdout' | 'exec'> & { fetch: boolean }): number {
   if (fetch) {
     const failure = fetchRemote({ ctx, exec });
     if (failure !== null) println(stdout, `fetch failed: ${failure}; showing your last fetch`);
@@ -29,8 +29,8 @@ function overview({ ctx, stdout, exec, fetch }) {
   return 0;
 }
 
-export const status = {
-  async run(args, { ctx, stdout, exec, env }) {
+export const status: Command = {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('status', args, { values: ['labels', 'base'], booleans: ['changes', 'fetch'] });
     const gateFlags = flags.labels !== undefined || flags.base !== undefined || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
@@ -44,7 +44,7 @@ export const status = {
       try {
         changes = rangeChanges({ ctx, base, exec });
       } catch (error) {
-        throw usageError(error.message.split('\n')[0]);
+        throw usageError((error as Error).message.split('\n')[0] ?? ''); // ts-allow: rangeChanges throws an Error
       }
     }
     const result = gateResult(prd, { ctx, labels, changes });

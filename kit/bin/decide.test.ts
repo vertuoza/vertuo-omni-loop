@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni decide <decision>` (PRD 812 s3), seen from the outside: through `main()` on a fixture
 // repository, with a stubbed `fetch` and an in-memory token store. Jev can never block (decision 6):
 // every decision outcome exits 0, printing `<answer> <confidence>` when Jev's answer counted and
@@ -9,28 +8,33 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
+import type { FetchInit } from '../test/fixture.ts';
 
 const URL_ = 'https://omni.test';
 const HOST = 'omni.test';
 const STATE = { decision: 'Keep the sessions in Postgres.', options: ['A: Postgres', 'B: Redis'], slice: 's3', paths: ['supabase/'] };
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
-const config = (url) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
+const config = (url: string | null) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
 
 /** A fetch that answers every call with `answer(url, init)`, `{ status, body }`, and records the calls. */
-function stubFetch(answer) {
-  const calls = [];
-  const fetch = async (url, init) => {
+/** What a stubbed call answers: its status (200 when not given) and its body. */
+type Stubbed = { status?: number; body?: unknown };
+
+function stubFetch(answer: (url: string, init: FetchInit) => Stubbed | Promise<Stubbed>) {
+  const calls: { url: string; method?: string; authorization?: string; body: unknown }[] = [];
+  const fetch = async (url: string, init: FetchInit) => {
     calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body ? JSON.parse(init.body) : undefined });
     const { status = 200, body } = await answer(String(url), init);
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -38,13 +42,16 @@ function stubFetch(answer) {
   return { fetch, calls };
 }
 
-function checkout({ url = URL_, signedIn = true } = {}) {
+function checkout({ url = URL_, signedIn = true }: { url?: string | null; signedIn?: boolean } = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url), 'state.json': JSON.stringify(STATE) } });
   const tokens = memoryTokens(signedIn ? { [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
   return { root, tokens };
 }
 
-async function decide(args, { root, tokens, fetch = stubFetch(() => ({ status: 500, body: {} })).fetch, callMs }) {
+async function decide(
+  args: string[],
+  { root, tokens, fetch = stubFetch(() => ({ status: 500, body: {} })).fetch, callMs }: { root: string; tokens: unknown; fetch?: (url: string, init: FetchInit) => Promise<unknown>; callMs?: number },
+) {
   const s = io();
   const code = await main(['decide', ...args], { cwd: root, ...s, tokens, env: {}, fetch, ...(callMs ? { callMs } : {}) });
   return { code, out: s.out(), err: s.err() };
@@ -70,7 +77,7 @@ describe('omni decide', () => {
     const c = checkout();
     const stub = stubFetch(() => ({ body: JEV }));
     await decide(['outbox-risk', '--state-file', join(c.root, 'state.json'), '--old', 'true'], { ...c, fetch: stub.fetch });
-    expect(stub.calls[0].body).toEqual({ repo: 'acme/widgets', state: STATE, old: 'true' });
+    expect(stub.calls[0]!.body).toEqual({ repo: 'acme/widgets', state: STATE, old: 'true' });
   });
 
   it('prints --json as the answer, its confidence and who decided', async () => {
@@ -114,8 +121,8 @@ describe('omni decide', () => {
 
   it('prints unset on a timeout', async () => {
     const c = checkout();
-    const hang = (_url, init) => new Promise((_resolve, reject) => {
-      init.signal.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })));
+    const hang = (_url: string, init: FetchInit) => new Promise((_resolve, reject) => {
+      init.signal!.addEventListener('abort', () => reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })));
     });
     const run = await decide(ARGS, { ...c, fetch: hang, callMs: 20 });
     expect(run).toMatchObject({ code: 0, out: 'unset\n' });

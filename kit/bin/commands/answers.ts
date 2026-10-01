@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni answers ask <prd> --pr <n> [--repo owner/name] [--json]` and
 // `omni answers post --prd <n> --pr <n> --answers <file> [--repo owner/name] [--print]` — the terminal
 // door of an outbox (PRD 251).
@@ -18,29 +17,33 @@ import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumber
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
 import { githubClientFor } from '../github.ts';
 import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
+import type { Command, CommandIo, Out } from '../io.ts';
+import type { CommentClient } from '../../lib/outbox/comment.ts';
+import type { Context } from '../../lib/context.ts';
 
 const USAGE =
   'usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | ' +
   'omni answers post --prd <n> --pr <n> --answers <file> [--repo <owner/name>] [--print]';
 
 /** A one-line refusal on stderr, exit 1. */
-function fail(stderr, message) {
+function fail(stderr: Out, message: string): number {
   stderr.write(`omni answers: ${message}\n`);
   return 1;
 }
 
-function firstLine(error) {
-  return String(error?.message ?? error).split('\n')[0].trim();
+function firstLine(error: unknown): string {
+  const message = (error as { message?: unknown } | null | undefined)?.message; // ts-allow: whatever was thrown, read as `error?.message` reads it
+  return (String(message ?? error).split('\n')[0] ?? '').trim();
 }
 
 /** The numbering the pull request's outbox comment carries, or null when it has none yet. */
-function numberingOf(ctx, client) {
+function numberingOf(ctx: Context, client: CommentClient) {
   const comments = client.listComments();
   const prComment = findPrMarkerComment(comments, ctx.markers);
   return prComment ? parseNumbersMarker(prComment.body, ctx.markers) : null;
 }
 
-function printBatches(stdout, batches) {
+function printBatches(stdout: Out, batches: ReturnType<typeof askBatches>): void {
   batches.forEach((batch, index) => {
     println(stdout, `Batch ${index + 1} of ${batches.length}`);
     for (const question of batch) {
@@ -54,7 +57,7 @@ function printBatches(stdout, batches) {
   });
 }
 
-async function ask(args, { ctx, stdout, stderr, exec, env }) {
+async function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('answers', args, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = positiveInt('answers', '<prd>', positional[0]);
@@ -82,7 +85,7 @@ async function ask(args, { ctx, stdout, stderr, exec, env }) {
   return 0;
 }
 
-async function post(args, { ctx, stdout, stderr, exec, env }) {
+async function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('answers', args, {
     values: ['prd', 'pr', 'repo', 'answers'],
     booleans: ['print'],
@@ -94,7 +97,7 @@ async function post(args, { ctx, stdout, stderr, exec, env }) {
   if (typeof flags.answers !== 'string') throw usageError(`omni answers: --answers <file> is required. ${USAGE}`);
   const source = readUserFile('answers', ctx, flags.answers);
 
-  let picks;
+  let picks: unknown;
   try {
     picks = JSON.parse(source);
   } catch {
@@ -132,8 +135,8 @@ async function post(args, { ctx, stdout, stderr, exec, env }) {
   return 0;
 }
 
-export const answers = {
-  async run(args, io) {
+export const answers: Command = {
+  async run(args: string[], io: CommandIo) {
     const [verb, ...rest] = args;
     if (verb === 'ask') return ask(rest, io);
     if (verb === 'post') return post(rest, io);

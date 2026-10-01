@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni visual <n> [--base <ref>]` — the proof step of a visual fix (PRD #541), run on its fix branch,
 // mirroring `omni phase0`: one folder under `<paths.delivery>/visual/` for issue <n>, holding a
 // before-after.html and its rounds of variations, `variations-r<k>.html` (PRD #627), each under the

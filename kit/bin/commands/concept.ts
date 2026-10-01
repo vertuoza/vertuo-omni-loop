@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni concept <n> [--base <ref>]` — the proof step of a concept (PRD 686), run on its concept
 // branch, mirroring `omni visual`: one folder under the inbox's concepts folder for concept <n>,
 // holding a valid concept.md, its vision tour, its debate and its boards, every page self-contained

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { isReleaseSubject, nextVersion } from './next-version.ts';
 

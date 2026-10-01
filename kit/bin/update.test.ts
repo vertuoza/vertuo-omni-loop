@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni update` (PRD 347, s3): the pull request that brings a repository to a release. Through
 // `main()` on a fixture repository whose remote is a local bare repository: git is real, `gh` and
 // the hand-over to the new bundle (`node <bundle> update --apply`) are faked. No test here ever
@@ -12,33 +11,37 @@ import { makeRepo } from '../test/fixture.ts';
 import { planLaunch } from '../lib/launch/launch.ts';
 import { writeForms } from '../lib/playbook/write-forms.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { FakeExec } from '../test/fixture.ts';
+import type { RunningKit } from '../lib/init/bundle.ts';
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept'];
 const CONFIG = 'kit: 1\n# kept by hand, comments and all\nrepo:\n  slug: acme/widgets\npaths:\n  context: []\n';
 // Each bin carries its marker the way esbuild writes it into a real bundle (kit/build.ts).
-const binOf = (version) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;
+const binOf = (version: string) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;
 const OLD_BIN = binOf('0.0.13');
 const NEW_BIN = binOf('0.0.15');
 const UNVERSIONED_BIN = '#!/usr/bin/env node\n// omni, installed before versions\n';
 const MISSING_FORM = '.omni-loop/knowledge/playbook/releasing.md';
 const KEPT_FORM = '.omni-loop/knowledge/playbook/testing.md';
-const KIT = { home: 'acme/kit', version: '0.0.15', source: false };
+const KIT: RunningKit = { home: 'acme/kit', version: '0.0.15', source: false };
 const PR_URL = 'https://github.com/acme/widgets/pull/88';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 /**
  * A repository installed at v0.0.13, pushed to a bare `origin`: its config, its bin, every form but
  * one, and a form the person filled in.
  */
-function installedRepo({ config = CONFIG, bin = OLD_BIN } = {}) {
-  const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': bin } });
+function installedRepo({ config = CONFIG, bin = OLD_BIN }: { config?: string; bin?: string | null } = {}) {
+  const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': bin as string } });
   writeForms({ ctx: repo.ctx });
   rmSync(join(repo.root, MISSING_FORM));
   repo.write(KEPT_FORM, '# Testing\n\nOurs, by hand.\n');
@@ -59,9 +62,9 @@ function installedRepo({ config = CONFIG, bin = OLD_BIN } = {}) {
  * `label list` holds every loop label. `node` is the hand-over, answered with `nodeStatus`.
  */
 function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = false, openPr = '', nodeStatus = 0, claude = 'ok' } = {}) {
-  const calls = [];
-  const exec = (file, args, options = {}) => {
-    if (file === 'git') return execFileSync(file, args, options);
+  const calls: { file: string; args: readonly string[]; options: ExecFileSyncOptions }[] = [];
+  const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}) => {
+    if (file === 'git') return realExec(file, args, options);
     calls.push({ file, args, options });
     if (file === 'claude') {
       if (claude === 'missing') throw Object.assign(new Error('spawnSync claude ENOENT'), { code: 'ENOENT' });
@@ -81,7 +84,7 @@ function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = 
       return `${tag}\n`;
     }
     if (area === 'release' && verb === 'download') {
-      writeFileSync(join(args[args.indexOf('--dir') + 1], 'omni.mjs'), NEW_BIN);
+      writeFileSync(join(String(args[args.indexOf('--dir') + 1]), 'omni.mjs'), NEW_BIN);
       return '';
     }
     if (area === 'pr' && verb === 'list') return `${openPr}\n`;
@@ -92,9 +95,9 @@ function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = 
   return { exec, calls };
 }
 
-const claudeCalls = (calls) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
+const claudeCalls = (calls: any[]) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
 const PLUGIN_CALLS = ['plugin marketplace update omni-loop', 'plugin update omni@omni-loop'];
-const gh = (calls, area, verb) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
+const gh = (calls: any[], area: string, verb: string) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
 
 /** A fake bundle file: the new version's `omni.mjs`, as `--apply` runs from it. */
 function newBundle() {
@@ -103,15 +106,19 @@ function newBundle() {
   return file;
 }
 
-async function update(root, argv, { fake = fakeExec(), kit = KIT, bundle = newBundle() } = {}) {
+async function update(
+  root: string,
+  argv: string[],
+  { fake = fakeExec(), kit = KIT, bundle = newBundle() }: { fake?: ReturnType<typeof fakeExec>; kit?: RunningKit; bundle?: string | null } = {},
+) {
   const s = io();
-  const code = await main(['update', ...argv], { cwd: root, ...s, exec: fake.exec, kit, bundle });
+  const code = await main(['update', ...argv], { cwd: root, ...s, exec: fake.exec as FakeExec, kit, bundle });
   return { code, out: s.out.join(''), err: s.err.join(''), calls: fake.calls };
 }
 
 const BRANCH = 'chore/omni-update-v0.0.15';
-const onRemote = (remote, path, branch = BRANCH) => git(remote, 'show', `${branch}:${path}`);
-const remoteBranches = (remote) => git(remote, 'branch', '--format=%(refname:short)').split('\n').filter(Boolean);
+const onRemote = (remote: string, path: string, branch = BRANCH) => git(remote, 'show', `${branch}:${path}`);
+const remoteBranches = (remote: string) => git(remote, 'branch', '--format=%(refname:short)').split('\n').filter(Boolean);
 
 describe('omni update: the running bin finds the release and hands over to it', () => {
   it('behind the latest: downloads its bundle and runs it as update --apply --from the running version', async () => {
@@ -123,17 +130,17 @@ describe('omni update: the running bin finds the release and hands over to it', 
     expect(download.slice(0, 6)).toEqual(['release', 'download', 'v0.0.15', '--repo', 'acme/kit', '--pattern']);
     const node = calls.find(({ file }) => file === 'node');
     const dir = download[download.indexOf('--dir') + 1];
-    expect(node.args).toEqual([join(dir, 'omni.mjs'), 'update', '--apply', '--from', '0.0.13']);
-    expect(node.options.cwd).toBe(root);
+    expect(node!.args).toEqual([join(dir, 'omni.mjs'), 'update', '--apply', '--from', '0.0.13']);
+    expect(node!.options.cwd).toBe(root);
     expect(existsSync(dir)).toBe(false);
   });
 
   it('the hand-over is one the launcher lets the new bundle run itself, not the repository’s older bin (#643)', async () => {
-    for (const [bin, version] of [[OLD_BIN, '0.0.13'], [UNVERSIONED_BIN, null]]) {
+    for (const [bin, version] of [[OLD_BIN, '0.0.13'], [UNVERSIONED_BIN, null]] as const) {
       const { root } = installedRepo({ bin });
       const { calls } = await update(root, [], { kit: { ...KIT, version } });
-      const [bundle, ...argv] = calls.find(({ file }) => file === 'node').args;
-      expect(planLaunch(argv, { cwd: root, self: bundle }), argv.join(' ')).toEqual({ kind: 'self' });
+      const [bundle, ...argv] = calls.find(({ file }) => file === 'node')!.args;
+      expect(planLaunch(argv, { cwd: root, self: bundle! }), argv.join(' ')).toEqual({ kind: 'self' });
     }
   });
 
@@ -146,7 +153,7 @@ describe('omni update: the running bin finds the release and hands over to it', 
   it('an unversioned bin hands over with no --from', async () => {
     const { root } = installedRepo({ bin: UNVERSIONED_BIN });
     const { calls } = await update(root, [], { kit: { ...KIT, version: null } });
-    expect(calls.find(({ file }) => file === 'node').args.slice(1)).toEqual(['update', '--apply']);
+    expect(calls.find(({ file }) => file === 'node')!.args.slice(1)).toEqual(['update', '--apply']);
   });
 
   it('--to v0.0.12 targets that tag', async () => {
@@ -234,7 +241,7 @@ describe('omni update --apply: the new version opens the pull request', () => {
 
     // The PR: into the default branch, with the compare link and the footer line.
     const create = gh(calls, 'pr', 'create')[0].args;
-    const flag = (name) => create[create.indexOf(name) + 1];
+    const flag = (name: string) => create[create.indexOf(name) + 1];
     expect(flag('--base')).toBe('main');
     expect(flag('--head')).toBe(BRANCH);
     expect(flag('--title')).toBe('chore(omni): update to v0.0.15');
@@ -390,6 +397,6 @@ describe('omni update run by npx, in a repository installed before versions (s4)
   it('--to an older release hands over from the version the repository runs', async () => {
     const { root } = installedRepo();
     const { calls } = await update(root, ['--to', 'v0.0.12']);
-    expect(calls.find(({ file }) => file === 'node').args.slice(1)).toEqual(['update', '--apply', '--from', '0.0.13']);
+    expect(calls.find(({ file }) => file === 'node')!.args.slice(1)).toEqual(['update', '--apply', '--from', '0.0.13']);
   });
 });

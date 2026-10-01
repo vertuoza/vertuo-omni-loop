@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { adoptItem } from '../lib/outbox/settle.ts';
 import { main } from './omni.ts';
+import type { Io } from '../test/fixture.ts';
 
 // `adoptItem`'s own two failure conditions (a rendered item that fails to parse, or one whose rank
 // is not `medium`) are both already excluded by the time `item new --adopt` calls it: the same
@@ -14,14 +14,14 @@ import { main } from './omni.ts';
 // ledger-refusal branch anyway — a `settle.mjs` internal detail (a malformed `settled.md`, say)
 // that has nothing to do with the item text itself — without touching any other test's behavior.
 vi.mock('../lib/outbox/settle.ts', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import('../lib/outbox/settle.ts')>();
   return { ...actual, adoptItem: vi.fn(actual.adoptItem) };
 });
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
@@ -41,7 +41,7 @@ const FIELDS = {
   ],
 };
 
-function writeJson(dir, fields) {
+function writeJson(dir: string, fields: Record<string, unknown>) {
   const path = join(dir, 'item.json');
   writeFileSync(path, JSON.stringify(fields));
   return path;
@@ -162,7 +162,7 @@ describe('omni item new', () => {
   it('an adoption the ledger refuses writes nothing, names the refusal, and exits 1', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, FIELDS);
-    adoptItem.mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
+    vi.mocked(adoptItem).mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
     const s = io();
     const code = await main(
       ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'],
@@ -248,7 +248,7 @@ describe('omni item new', () => {
 });
 
 describe('omni item new --json', () => {
-  function jsonOut(s) {
+  function jsonOut(s: Io) {
     return JSON.parse(s.out.join('').trim());
   }
 
@@ -295,7 +295,7 @@ describe('omni item new --json', () => {
   it('an adoption the ledger refuses prints outcome null, adopted false, and the reason, exit 1', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, FIELDS);
-    adoptItem.mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
+    vi.mocked(adoptItem).mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
     const s = io();
     const code = await main(
       ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt', '--json'],
@@ -388,7 +388,7 @@ describe('omni item new --json', () => {
 });
 
 describe('omni item new — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
 
   it('a missing flag', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
@@ -692,7 +692,7 @@ describe('omni item relay (PRD 563, s3)', () => {
   const repo = () => makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
   const scratch = () => mkdtempSync(join(tmpdir(), 'omni-out-'));
 
-  async function raise(root, out, fields) {
+  async function raise(root: string, out: string, fields: Record<string, unknown>) {
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, fields), '--out', out], { cwd: root, ...s });
     expect(code).toBe(0);
@@ -814,6 +814,6 @@ describe('omni item relay (PRD 563, s3)', () => {
   });
 });
 
-function readTextFile(path) {
+function readTextFile(path: string) {
   return readFileSync(path, 'utf8');
 }

@@ -1,12 +1,12 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import type { Files } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: vertuoza/vertuo-automation-plan\n' };
@@ -40,20 +40,20 @@ const ORDINARY = [
   '',
 ].join('\n');
 
-async function prdOut(files) {
+async function prdOut(files: Files) {
   const { root } = makeRepo({ git: true, files: { ...CONFIG, [`${DIR}/spec.md`]: 'x', ...files } });
   const s = io();
   const code = await main(['prd', '7'], { cwd: root, ...s });
   return { code, text: s.out.join('') };
 }
 
-function expectedLines(files) {
+function expectedLines(files: any[]) {
   return [
     'PRD 7 — 0007-quote',
     'state: inbox',
     `dir: ${DIR}`,
     'files:',
-    ...files.map((file) => `  - ${DIR}/${file}`),
+    ...files.map((file: any) => `  - ${DIR}/${file}`),
     'outbox: .omni-loop/delivery/outbox/0007-quote',
     'open items: none',
   ];

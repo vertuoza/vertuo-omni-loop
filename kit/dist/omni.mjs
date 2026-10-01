@@ -29145,8 +29145,9 @@ function readUserFile(command, ctx, path) {
   try {
     return readFileSync10(inRoot(ctx, path), "utf8");
   } catch (error62) {
-    if (error62?.code === "ENOENT" || error62?.code === "EISDIR" || error62?.code === "EACCES") {
-      throw usageError(`omni ${command}: cannot read ${path} (${error62.code}).`);
+    const code = error62?.code;
+    if (code === "ENOENT" || code === "EISDIR" || code === "EACCES") {
+      throw usageError(`omni ${command}: cannot read ${path} (${code}).`);
     }
     throw error62;
   }
@@ -29163,9 +29164,16 @@ function withPrdFolder(command, fn) {
   try {
     return fn();
   } catch (error62) {
-    if (NO_FOLDER.test(error62?.message ?? "")) throw usageError(`omni ${command}: ${error62.message}.`);
+    const message = error62 instanceof Error ? error62.message : "";
+    if (NO_FOLDER.test(message)) throw usageError(`omni ${command}: ${message}.`);
     throw error62;
   }
+}
+function errorCode(error62) {
+  return error62?.code;
+}
+function errorMessage(error62) {
+  return error62.message;
 }
 
 // kit/bin/commands/index.ts
@@ -29978,13 +29986,14 @@ function isUnder(dir, file2) {
 var adopt = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional } = parseArgs("adopt", args);
-    if (positional.length !== 1) throw usageError("usage: omni adopt <item-text-file>");
-    const file2 = relative2(ctx.root, inRoot(ctx, positional[0]));
-    const itemText = readUserFile("adopt", ctx, positional[0]);
+    const [path] = positional;
+    if (positional.length !== 1 || path === void 0) throw usageError("usage: omni adopt <item-text-file>");
+    const file2 = relative2(ctx.root, inRoot(ctx, path));
+    const itemText = readUserFile("adopt", ctx, path);
     const parsedItem = parseOutboxItem(itemText, { file: null });
     if (parsedItem.ok) {
       const outboxDir = ctx.layout.outboxDir(parsedItem.item.prd);
-      if (outboxDir !== null && !isUnder(inRoot(ctx, outboxDir), inRoot(ctx, positional[0]))) {
+      if (outboxDir !== null && !isUnder(inRoot(ctx, outboxDir), inRoot(ctx, path))) {
         throw usageError(`omni adopt: ${file2} is not under ${outboxDir}, PRD ${parsedItem.item.prd}'s outbox directory.`);
       }
     }
@@ -29994,7 +30003,7 @@ var adopt = {
       for (const error62 of result.errors) println(stderr, `  - ${error62}`);
       return 1;
     }
-    rmSync4(inRoot(ctx, positional[0]));
+    rmSync4(inRoot(ctx, path));
     println(
       stdout,
       `omni adopt \u2014 ${result.item.id} adopted; appended to ${result.settledFile}; removed ${file2}. Commit the append and the deletion together.`
@@ -31227,25 +31236,83 @@ function askBatches({ numbering, items }) {
 // kit/bin/github.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync6 } from "node:child_process";
-function ghClient({ owner, repo, issue: issue2, exec = execFileSync6, env }) {
+
+// kit/bin/schema.ts
+init_define_OMNI_BUNDLE();
+var GhCommentSchema = external_exports.looseObject({
+  id: external_exports.number(),
+  body: external_exports.string().nullish(),
+  html_url: external_exports.string().nullish()
+});
+var GhCommentsSchema = external_exports.array(GhCommentSchema);
+var GhWrittenCommentSchema = external_exports.looseObject({ id: external_exports.number().nullish(), html_url: external_exports.string().nullish() }).nullish();
+var GhPullRequestSchema = external_exports.looseObject({
+  number: external_exports.number(),
+  html_url: external_exports.string(),
+  merged_at: external_exports.string().nullish(),
+  merged_by: external_exports.looseObject({ login: external_exports.string() }).nullish(),
+  merge_commit_sha: external_exports.string().nullish(),
+  base: external_exports.looseObject({ ref: external_exports.string() }).nullish(),
+  head: external_exports.looseObject({ ref: external_exports.string() }).nullish()
+});
+var GhPrListItemSchema = external_exports.looseObject({
+  number: external_exports.number().optional(),
+  title: external_exports.string().optional(),
+  headRefName: external_exports.string().optional(),
+  baseRefName: external_exports.string().optional(),
+  state: external_exports.string().optional(),
+  isDraft: external_exports.boolean().optional(),
+  mergedAt: external_exports.string().nullish(),
+  body: external_exports.string().optional(),
+  labels: external_exports.array(external_exports.union([external_exports.string(), external_exports.looseObject({ name: external_exports.string().nullish() })]).nullish()).nullish(),
+  updatedAt: external_exports.string().optional(),
+  createdAt: external_exports.string().nullish()
+});
+var GhPrListSchema = external_exports.array(GhPrListItemSchema);
+var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: external_exports.number(), state: external_exports.string().optional(), updatedAt: external_exports.unknown().optional() }));
+var GhGraphqlSchema = external_exports.looseObject({
+  data: external_exports.unknown().optional(),
+  errors: external_exports.array(external_exports.looseObject({ message: external_exports.string() })).nullish()
+});
+var GhReplyMutationSchema = external_exports.looseObject({
+  data: external_exports.looseObject({
+    addPullRequestReviewThreadReply: external_exports.looseObject({ comment: external_exports.looseObject({ url: external_exports.string().nullish() }).nullish() }).nullish()
+  }).nullish()
+});
+var GhPrCommitsSchema = external_exports.looseObject({
+  commits: external_exports.array(external_exports.looseObject({ committedDate: external_exports.string().nullish(), authoredDate: external_exports.string().nullish() })).nullish()
+});
+
+// kit/bin/github.ts
+function ghClient({
+  owner,
+  repo,
+  issue: issue2,
+  exec = execFileSync6,
+  env
+}) {
   const repoSlug2 = `${owner}/${repo}`;
-  const options = (extra = {}) => ({ encoding: "utf8", ...extra, ...env ? { env } : {} });
+  const options = (extra = {}) => ({
+    encoding: "utf8",
+    ...extra,
+    ...env ? { env } : {}
+  });
   return {
-    listComments: () => JSON.parse(exec("gh", ["api", `repos/${repoSlug2}/issues/${issue2}/comments`, "--paginate"], options())),
-    createComment: (body) => JSON.parse(
+    listComments: () => GhCommentsSchema.parse(JSON.parse(exec("gh", ["api", `repos/${repoSlug2}/issues/${issue2}/comments`, "--paginate"], options()))),
+    createComment: (body) => GhWrittenCommentSchema.parse(JSON.parse(
       exec(
         "gh",
         ["api", `repos/${repoSlug2}/issues/${issue2}/comments`, "--input", "-"],
         options({ input: JSON.stringify({ body }) })
       )
-    ),
-    updateComment: (id, body) => JSON.parse(
+    )),
+    updateComment: (id, body) => GhWrittenCommentSchema.parse(JSON.parse(
       exec(
         "gh",
         ["api", "-X", "PATCH", `repos/${repoSlug2}/issues/comments/${id}`, "--input", "-"],
         options({ input: JSON.stringify({ body }) })
       )
-    )
+    ))
   };
 }
 function githubEnv(ctx, { exec = execFileSync6, env = process.env } = {}) {
@@ -31276,8 +31343,8 @@ function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue: issue2, exec
 }
 function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number: number4, exec = execFileSync6, env = process.env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
-  const data = JSON.parse(
-    exec("gh", ["api", `repos/${repo}/pulls/${number4}`], { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} })
+  const data = GhPullRequestSchema.parse(
+    JSON.parse(exec("gh", ["api", `repos/${repo}/pulls/${number4}`], { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} }))
   );
   return {
     number: data.number,
@@ -31299,7 +31366,8 @@ function fail(stderr, message) {
   return 1;
 }
 function firstLine(error62) {
-  return String(error62?.message ?? error62).split("\n")[0].trim();
+  const message = error62?.message;
+  return (String(message ?? error62).split("\n")[0] ?? "").trim();
 }
 function numberingOf(ctx, client) {
   const comments = client.listComments();
@@ -32372,7 +32440,7 @@ var whoami = {
       println(stdout, "signed out");
       return 0;
     }
-    const who2 = entry.email ?? entry.login ?? `signed in to ${host}`;
+    const who2 = String(entry.email ?? entry.login ?? `signed in to ${host}`);
     if (!expired(entry)) {
       println(stdout, who2);
       return 0;
@@ -32416,11 +32484,19 @@ async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
     return null;
   }
 }
-async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
+async function whereLine({
+  baseUrl,
+  host,
+  slug,
+  tokens,
+  fetch
+}) {
   if (!slug) return null;
   try {
-    const { workspace, reason: reason2 } = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
-    if (typeof workspace?.name === "string" && workspace.name) return `questions go to ${workspace.name}'s page`;
+    const reply = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
+    const name = field(field(reply, "workspace"), "name");
+    const reason2 = field(reply, "reason");
+    if (typeof name === "string" && name) return `questions go to ${name}'s page`;
     return typeof reason2 === "string" && reason2.trim() ? reason2.replace(/\s+/g, " ").trim() : null;
   } catch {
     return null;
@@ -32468,7 +32544,7 @@ var ask2 = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS }) {
     const { positional } = parseArgs("ask", args);
-    const [sub, kind, ...rest] = positional;
+    const [sub = "", kind = "", ...rest] = positional;
     if (MODES.includes(sub) && positional.length === 1) return runMode(sub, { cwd, stdout, stderr, exec, tokens, fetch });
     if (sub !== "hook" || !KINDS.includes(kind) || rest.length > 0) throw usageError(USAGE2);
     const output2 = await runHook(kind, { cwd, exec, stdin, tokens, fetch, limits });
@@ -32768,7 +32844,7 @@ function readPlan(prd2, { ctx }) {
   try {
     return { planPath, markdown: readFileSync18(join21(ctx.root, planPath), "utf8") };
   } catch (error62) {
-    if (error62?.code === "ENOENT") throw usageError(`omni board: no plan at ${planPath}.`);
+    if (errorCode(error62) === "ENOENT") throw usageError(`omni board: no plan at ${planPath}.`);
     throw error62;
   }
 }
@@ -32802,7 +32878,7 @@ function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
     ],
     options
   );
-  return JSON.parse(raw).map((pr) => ({ ...pr, headCommitDate: null }));
+  return GhPrListSchema.parse(JSON.parse(raw)).map((pr) => ({ ...pr, headCommitDate: null }));
 }
 function couldBeStale(pr, now, staleMinutes) {
   if (!pr.isDraft || pr.state !== "OPEN" || !pr.createdAt) return false;
@@ -32811,7 +32887,7 @@ function couldBeStale(pr, now, staleMinutes) {
 function fetchHeadCommitDate({ repo, number: number4, exec, env }) {
   const options = { encoding: "utf8", ...env ? { env } : {} };
   const raw = exec("gh", ["pr", "view", String(number4), "--repo", repo, "--json", "commits"], options);
-  const commits = JSON.parse(raw).commits ?? [];
+  const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
   const last = commits.at(-1);
   return last?.committedDate ?? last?.authoredDate ?? null;
 }
@@ -32832,7 +32908,7 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) 
   try {
     slices = parsePlanSlices(markdown);
   } catch (error62) {
-    throw usageError(`omni board: ${error62.message}`);
+    throw usageError(`omni board: ${errorMessage(error62)}`);
   }
   const topic = topicFor(prd2, { ctx });
   const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
@@ -32855,17 +32931,18 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) 
   const prs = [];
   const unreadable2 = [];
   for (const name of new Set(slices.map((slice) => slice.repo))) {
-    const slug = known.get(name) ?? null;
+    const key = String(name);
+    const slug = (typeof name === "string" ? known.get(name) : void 0) ?? null;
     if (slug === null) {
-      repos[name] = { slug: null, readable: false };
+      repos[key] = { slug: null, readable: false };
       unreadable2.push({ repo: name, slug: null, reason: "neither a target nor this plan repository" });
       continue;
     }
     try {
       prs.push(...read2(slug).map((pr) => ({ ...pr, slug })));
-      repos[name] = { slug, readable: true };
+      repos[key] = { slug, readable: true };
     } catch (error62) {
-      repos[name] = { slug, readable: false };
+      repos[key] = { slug, readable: false };
       unreadable2.push({ repo: name, slug, reason: ghReason(error62) });
     }
   }
@@ -32882,8 +32959,9 @@ function knownRepositories(ctx, planSlug) {
   return known;
 }
 function ghReason(error62) {
-  const lines = `${error62?.stderr ?? ""}
-${error62?.message ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
+  const failure3 = error62;
+  const lines = `${failure3?.stderr ?? ""}
+${failure3?.message ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? "gh could not read it";
 }
 var board = {
@@ -33090,7 +33168,9 @@ function graphql({ query, variables }, { exec, env }) {
     ...env ? { env } : {}
   });
   const parsed = JSON.parse(raw);
-  if (parsed.errors?.length) throw Object.assign(new Error(parsed.errors[0].message), { name: "GitHubError" });
+  const { errors } = GhGraphqlSchema.parse(parsed);
+  const first = errors?.[0];
+  if (first) throw Object.assign(new Error(first.message), { name: "GitHubError" });
   return parsed;
 }
 function featureBranchFor(prd2, ctx) {
@@ -33105,7 +33185,7 @@ function findFeaturePr({ repo, branch, exec, env }) {
     ["pr", "list", "--repo", repo, "--head", branch, "--state", "all", "--json", "number,state,updatedAt", "--limit", "20"],
     { encoding: "utf8", ...env ? { env } : {} }
   );
-  const prs = JSON.parse(raw);
+  const prs = GhPrStatesSchema.parse(JSON.parse(raw));
   const open3 = prs.find((pr) => pr.state === "OPEN");
   if (open3) return open3.number;
   const latest = [...prs].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
@@ -33117,7 +33197,7 @@ function waveClaims(prd2, { ctx, exec, env, repo }) {
     const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
     return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
   } catch (error62) {
-    return { holdsClaims: null, claimed: [], unreadable: String(error62?.message ?? error62).split("\n")[0] };
+    return { holdsClaims: null, claimed: [], unreadable: String(error62?.message ?? error62).split("\n")[0] ?? "" };
   }
 }
 function runState(args, { ctx, stdout, stderr, exec, env }) {
@@ -33135,6 +33215,7 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   const [owner, name] = repo.split("/");
   const response = graphql({ query: CARE_QUERY, variables: { owner, name, number: number4 } }, { exec, env: ghEnv });
   const state = careState(response, {
+    // ts-allow: careState reads the answer field by field (PRD 725 outbox item s16-01-hand-checks-stand-in-for-schemas)
     statusMarker: `<!-- ${ctx.config.markers.prefix}-status -->`,
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean)
@@ -33151,9 +33232,9 @@ function replyBodyOf(flags, ctx) {
   if (flags.body === void 0 === (flags.file === void 0)) {
     throw usageError("omni care reply: give the text with exactly one of --body or --file.");
   }
-  const text5 = flags.body ?? readUserFile("care", ctx, flags.file);
+  const text5 = flags.body ?? readUserFile("care", ctx, flags.file ?? "");
   if (!String(text5).trim()) throw usageError("omni care reply: the reply is empty.");
-  return careReplyBody(text5, flags.verdict);
+  return careReplyBody(text5, flags.verdict ?? "");
 }
 function runReply(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["verdict", "body", "file", "thread", "repo"] });
@@ -33163,19 +33244,19 @@ function runReply(args, { ctx, stdout, stderr, exec, env }) {
     println(stdout, body);
     return 0;
   }
-  return postReply({ thread: flags.thread, verdict: flags.verdict, body }, { ctx, stdout, stderr, exec, env });
+  return postReply({ thread: flags.thread, verdict: flags.verdict ?? "", body }, { ctx, stdout, stderr, exec, env });
 }
 function postReply({ thread, verdict, body }, { ctx, stdout, stderr, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
-    const posted = graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv });
+    const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv }));
     const resolve5 = verdict !== "asked";
     if (resolve5) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url2 = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
     println(stdout, JSON.stringify({ thread, verdict, url: url2, resolved: resolve5 }));
     return 0;
   } catch (error62) {
-    if (error62?.name !== "GitHubError") throw error62;
+    if (!(error62 instanceof Error) || error62.name !== "GitHubError") throw error62;
     println(stderr, `omni care reply: GitHub refused it: ${error62.message}`);
     return 1;
   }
@@ -33205,43 +33286,50 @@ var STANCES = ["excited", "neutral", "skeptical"];
 var BLANK = "___";
 var CONTRADICTED = "  (contradicted: evidence disagrees, nobody answered yet)";
 var isText2 = (value) => typeof value === "string" && value.length > 0;
-var named = (value) => value && isText2(value.name) ? { name: value.name } : null;
-function claimOf(value) {
+var named = (value) => {
+  const name = jsonObject(value)?.name;
+  return isText2(name) ? { name } : null;
+};
+function claimOf(raw) {
+  const value = jsonObject(raw);
   if (!value || !isText2(value.id) || !READ_KINDS.includes(value.kind) || !isText2(value.value) || !SOURCES.includes(value.source)) return null;
-  if (!value.id.startsWith(`${value.kind}#`)) return null;
+  const kind = String(value.kind);
+  if (!value.id.startsWith(`${kind}#`)) return null;
   const state = value.state ?? "confirmed";
   if (!STATES.includes(state)) return null;
   const orNull = (field3) => isText2(field3) ? field3 : null;
   return {
     id: value.id,
-    kind: value.kind,
+    kind,
     value: value.value,
-    source: value.source,
-    state,
+    source: String(value.source),
+    state: String(state),
     receipt: orNull(value.receipt),
     lastSeen: orNull(value.lastSeen)
   };
 }
-function personaOf(value) {
+function personaOf(raw) {
+  const value = jsonObject(raw);
   if (!value || !isText2(value.name) || !STANCES.includes(value.stance) || !isText2(value.trade)) return null;
   if (typeof value.who !== "string" || typeof value.usage !== "string") return null;
-  return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
+  return { name: value.name, stance: String(value.stance), trade: value.trade, who: value.who, usage: value.usage };
 }
 function claimsOf(reply) {
   const claims = reply.claims.map(claimOf);
-  if (claims.includes(null)) return null;
+  if (!claims.every((one) => one !== null)) return null;
   return reply.state === "ok" === claims.length > 0 ? claims : null;
 }
 function personasOf(value) {
   if (value !== void 0 && !Array.isArray(value)) return null;
   const personas = (value ?? []).map(personaOf);
-  return personas.includes(null) ? null : personas;
+  return personas.every((one) => one !== null) ? personas : null;
 }
-function businessOf(reply) {
-  if (!reply || !["ok", "none"].includes(reply.state) || !Array.isArray(reply.claims)) return null;
-  const claims = claimsOf(reply);
+function businessOf(raw) {
+  const reply = jsonObject(raw);
+  if (!reply || !["ok", "none"].includes(String(reply.state)) || typeof reply.state !== "string" || !Array.isArray(reply.claims)) return null;
+  const claims = claimsOf({ state: reply.state, claims: reply.claims });
   const personas = claims && personasOf(reply.personas);
-  if (!personas) return null;
+  if (!claims || !personas) return null;
   return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
 }
 var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
@@ -33285,7 +33373,7 @@ async function cited(ids, flags, env) {
     return 0;
   };
   const reached = reach(env);
-  if (!reached.client) return skip(reached.line);
+  if (reached.client === void 0) return skip(reached.line);
   try {
     await reached.client.citeClaims({ repo: reached.repo, ids, by: flags.by, ref });
   } catch (error62) {
@@ -33295,14 +33383,17 @@ async function cited(ids, flags, env) {
   return 0;
 }
 function answerOf(positional, flags) {
-  const text5 = (value) => typeof value === "string" && value.trim() ? value.trim() : null;
-  const fields = { kind: text5(flags.kind), value: text5(flags.value), state: text5(flags.state), ref: text5(flags.ref) };
-  if (positional.length !== 1 || positional[0] !== "add" || Object.values(fields).includes(null)) throw usageError(CLAIM_USAGE);
-  if (!KINDS2.includes(fields.kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
-  if (!ANSWER_STATES.includes(fields.state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(" or ")}.`);
-  return fields;
+  const text5 = (value2) => typeof value2 === "string" && value2.trim() ? value2.trim() : null;
+  const [kind, value, state, ref] = [text5(flags.kind), text5(flags.value), text5(flags.state), text5(flags.ref)];
+  if (positional.length !== 1 || positional[0] !== "add" || kind === null || value === null || state === null || ref === null) throw usageError(CLAIM_USAGE);
+  if (!KINDS2.includes(kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
+  if (!ANSWER_STATES.includes(state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(" or ")}.`);
+  return { kind, value, state, ref };
 }
-var storedOf = (reply) => reply && isText2(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === "boolean" ? reply : null;
+var storedOf = (raw) => {
+  const reply = jsonObject(raw);
+  return reply && isText2(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === "boolean" ? { id: reply.id, state: String(reply.state), added: reply.added } : null;
+};
 async function claim2(positional, flags, env) {
   const answer = answerOf(positional, flags);
   const skip = (line) => {
@@ -33310,7 +33401,7 @@ async function claim2(positional, flags, env) {
     return 0;
   };
   const reached = reach(env);
-  if (!reached.client) return skip(reached.line);
+  if (reached.client === void 0) return skip(reached.line);
   let reply;
   try {
     reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
@@ -33339,7 +33430,7 @@ async function show(args, env) {
   if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE5);
   const out = { json: flags.json === true, stdout: env.stdout };
   const reached = reach(env);
-  if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+  if (reached.client === void 0) return print(out, empty(reached.state), [reached.line]);
   const { repo, client } = reached;
   let reply;
   try {
@@ -33533,7 +33624,7 @@ function rangeBase(verb, ctx, flags, exec) {
 function rangeCommits(root, base, exec) {
   return git2(["log", "--reverse", "--format=%h%x00%B%x1e", `${base}..HEAD`], root, exec).split("").map((record2) => record2.replace(/^\n/, "")).filter((record2) => record2.includes("\0")).map((record2) => {
     const [sha, message] = record2.split("\0");
-    return { sha, message };
+    return { sha: sha ?? "", message: message ?? "" };
   });
 }
 function loggedPaths(root, base, exec) {
@@ -33542,7 +33633,11 @@ function loggedPaths(root, base, exec) {
 function branchPaths(root, base, exec) {
   return git2(["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", `${base}...HEAD`, "--"], root, exec).split("\0").filter(Boolean);
 }
-function branchVerdictCommand({ verb, paths, grade }) {
+function branchVerdictCommand({
+  verb,
+  paths,
+  grade
+}) {
   const usage = `usage: omni ${verb} <n> [--base <ref>]`;
   return {
     async run(args, { ctx, stdout, exec }) {
@@ -35018,7 +35113,7 @@ var comment = {
     if (positional.length) throw usageError(USAGE7);
     const prd2 = positiveInt("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
-    const [owner, name] = repo.split("/");
+    const [owner = "", name = ""] = repo.split("/");
     if (flags.pr !== void 0) {
       const pr = positiveInt("comment", "--pr", flags.pr);
       const result2 = upsertOutboxPrComment({ prd: prd2, ctx }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
@@ -35041,7 +35136,7 @@ var comment = {
       try {
         changes = rangeChanges({ ctx, base: flags.base, exec });
       } catch (error62) {
-        throw usageError(error62.message.split("\n")[0]);
+        throw usageError(errorMessage(error62).split("\n")[0] ?? "");
       }
     }
     const result = upsertOutboxComment(
@@ -35744,7 +35839,7 @@ var credits = {
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
     const repo = flags.repo ?? null;
-    const owner = slug.split("/")[0];
+    const owner = slug.split("/")[0] ?? "";
     const { labels, signature } = ctx.config;
     let ghEnv;
     try {
@@ -35785,9 +35880,12 @@ var DECIDE_MS = 1e4;
 var UNSET = "unset";
 var isUnit = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 function readReply(reply) {
-  if (reply?.decidedBy === "old") return { reason: "the decision is Off or in Shadow, or Jev did not decide" };
-  if (reply?.decidedBy === "jev" && typeof reply.answer === "string" && reply.answer !== "" && isUnit(reply.confidence)) {
-    return { answer: reply.answer, confidence: reply.confidence };
+  const decidedBy = field(reply, "decidedBy");
+  const answer = field(reply, "answer");
+  const confidence = field(reply, "confidence");
+  if (decidedBy === "old") return { reason: "the decision is Off or in Shadow, or Jev did not decide" };
+  if (decidedBy === "jev" && typeof answer === "string" && answer !== "" && isUnit(confidence)) {
+    return { answer, confidence };
   }
   return { reason: "the reply is not a decision" };
 }
@@ -35805,7 +35903,17 @@ function stateOf(ctx, path) {
     throw usageError(`omni decide: ${path} is not JSON.`);
   }
 }
-async function ask3({ ctx, decision, state, old, ref, tokens, home, fetch, callMs }) {
+async function ask3({
+  ctx,
+  decision,
+  state,
+  old,
+  ref,
+  tokens,
+  home,
+  fetch,
+  callMs
+}) {
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError("omni decide: no repository slug \u2014 set repo.slug in the config.");
   const askUrl2 = ctx.config.ask.url;
@@ -35826,17 +35934,16 @@ function readArgs(args) {
   const old = flags.old;
   if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE9);
   const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
-  return { decision: positional[0], stateFile, old, ref, json: Boolean(flags.json) };
+  return { decision: positional[0] ?? "", stateFile, old, ref, json: Boolean(flags.json) };
 }
 function report2({ stdout, stderr, decision, read: read2, json: json2 }) {
-  const counted3 = read2.answer !== void 0;
   if (json2) {
-    const shown3 = counted3 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
+    const shown3 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
     println(stdout, JSON.stringify(shown3));
   } else {
-    println(stdout, counted3 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
+    println(stdout, read2.answer !== void 0 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
   }
-  if (!counted3) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
+  if (read2.answer === void 0) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
 }
 var decide = {
   withoutContext: true,
@@ -35974,9 +36081,9 @@ function skipLine(error62) {
 }
 var isText4 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
-  const got = Array.isArray(added) ? added.filter((a) => isText4(a?.kind) && Number.isInteger(a?.version)) : [];
+  const got = Array.isArray(added) ? added.filter((a) => isText4(field(a, "kind")) && Number.isInteger(field(a, "version"))) : [];
   const kept = Array.isArray(unchanged) ? unchanged.filter(isText4) : [];
-  const parts = [`added: ${got.length ? got.map(({ kind, version: version3 }) => `${kind} v${version3}`).join(", ") : "none"}`];
+  const parts = [`added: ${got.length ? got.map((a) => `${field(a, "kind")} v${field(a, "version")}`).join(", ") : "none"}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(", ")}`);
   return parts.join(" \xB7 ");
 }
@@ -35988,12 +36095,14 @@ async function open2(title, { ctx, repo, client, home, claudeSessionId, stdout, 
     println(stderr, skipLine(error62));
     return 1;
   }
-  if (!isText4(draft?.id) || !isText4(draft?.url)) {
+  const id = field(draft, "id");
+  const url2 = field(draft, "url");
+  if (!isText4(id) || !isText4(url2)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
-  recordDraft(home ?? ctx.root, { id: draft.id, url: draft.url, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
-  println(stdout, draft.url);
+  recordDraft(home ?? ctx.root, { id, url: url2, claudeSessionId, prd: null, openedAt: new Date(now()).toISOString() });
+  println(stdout, url2);
   return 0;
 }
 function issueTitle(issue2, { ctx, repo, exec }) {
@@ -36010,12 +36119,13 @@ function issueTitle(issue2, { ctx, repo, exec }) {
   }
 }
 function reportPush(result, tooLarge, { stdout, stderr }) {
-  if (!isText4(result?.id) || !isText4(result?.url)) {
+  const url2 = field(result, "url");
+  if (!isText4(field(result, "id")) || !isText4(url2)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
-  println(stdout, result.url);
-  println(stdout, addedLine(result));
+  println(stdout, url2);
+  println(stdout, addedLine({ added: field(result, "added"), unchanged: field(result, "unchanged") }));
   for (const { path } of tooLarge) println(stderr, `too large: ${path}`);
   return tooLarge.length ? 1 : 0;
 }
@@ -36054,9 +36164,11 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
     }
     forgetDraft(where, draft.id);
   }
-  if (!isText4(result?.id) || !isText4(result?.url)) return reportPush(result, [], { stdout, stderr });
+  const id = field(result, "id");
+  const url2 = field(result, "url");
+  if (!isText4(id) || !isText4(url2)) return reportPush(result, [], { stdout, stderr });
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
-    markNumbered(where, draft.id, { prd: prd2, id: result.id, url: result.url });
+    markNumbered(where, draft.id, { prd: prd2, id, url: url2 });
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
@@ -36081,11 +36193,12 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
     }
     found = recorded;
   }
-  if (!isText4(found?.url)) {
+  const url2 = field(found, "url");
+  if (!isText4(url2)) {
     println(stderr, "refused (no dossier in the reply)");
     return 1;
   }
-  println(stdout, found.url);
+  println(stdout, url2);
   return 0;
 }
 function kindOf2(flag, numbered) {
@@ -36097,13 +36210,14 @@ var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
     const { positional, flags } = parseArgs("dossier", args, { values: ["kind"] });
-    const [verb, ...rest] = positional;
-    const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
+    const [verb = "", ...rest] = positional;
+    const [first = ""] = rest;
+    const title = verb === "open" && rest.length === 1 ? first.trim().slice(0, TITLE_MAX3) : "";
     const numbered = ["push", "link"].includes(verb);
     const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE10);
     const kind = kindOf2(flags.kind, numbered);
-    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE10);
+    if (verb === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE10);
     const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -37303,7 +37417,7 @@ var harvest = {
       println(stderr, `omni harvest: pull request #${number4} merged into ${pr.base}, not into ${defaultBranch} \u2014 only a feature pull request is harvested.`);
       return 1;
     }
-    const merge2 = { by: pr.mergedBy ?? "", at: pr.mergedAt, pr: pr.number ?? number4, ...pr.url ? { url: pr.url } : {} };
+    const merge2 = { by: pr.mergedBy ?? "", at: pr.mergedAt ?? "", pr: pr.number ?? number4, ...pr.url ? { url: pr.url } : {} };
     const prepared = prepareHarvest({ ctx, prd: prd2, merge: merge2 });
     if (!prepared.ok) {
       println(stderr, [`omni harvest \u2014 PRD ${prd2}: cannot harvest:`, ...prepared.errors.map((e) => `  - ${e}`)].join("\n"));
@@ -37452,7 +37566,15 @@ function claimed(home, claudeSessionId, end, now) {
   return true;
 }
 var workDir = (input2, cwd) => typeof input2.cwd === "string" && input2.cwd ? input2.cwd : cwd;
-async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
+async function beat({
+  end,
+  cwd,
+  exec,
+  stdin,
+  tokens,
+  fetch,
+  now
+}) {
   const input2 = await readInput(stdin);
   const claudeSessionId = input2?.session_id;
   if (!isSafeId(claudeSessionId)) return;
@@ -37460,7 +37582,7 @@ async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
   if (!target2) return;
   const { root, config: config3, repo, askUrl: askUrl2, host, store } = target2;
   if (!claimed(mainCheckout(cwd, exec) ?? root, claudeSessionId, end, now)) return;
-  const work = end ? null : readWork({ cwd: workDir(input2, cwd), config: config3, claudeSessionId, exec });
+  const work = end || !input2 ? null : readWork({ cwd: workDir(input2, cwd), config: config3, claudeSessionId, exec });
   const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
   await client.heartbeat({ claudeSessionId, repo, work, ended: end });
 }
@@ -38324,7 +38446,7 @@ function configAt(cwd, exec) {
   try {
     return loadContext(cwd, { exec }).config;
   } catch (error62) {
-    if (error62 instanceof ConfigError || error62?.name === "ConfigError") return ConfigSchema.parse({ kit: CONFIG_VERSION });
+    if (error62 instanceof ConfigError || error62 instanceof Error && error62.name === "ConfigError") return ConfigSchema.parse({ kit: CONFIG_VERSION });
     throw error62;
   }
 }
@@ -38338,7 +38460,7 @@ var help = {
       println(stdout, renderOverview(config3));
       return 0;
     }
-    const [name] = positional;
+    const [name = ""] = positional;
     const text5 = renderEntry(name, config3);
     if (text5 === null) throw usageError(`omni help: no command "${name}"; omni help lists them all`);
     println(stdout, text5);
@@ -38909,7 +39031,7 @@ function insideLoop2(path) {
   return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
 }
 var OWN_STATUS_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
-var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
+var FLAGS = Object.freeze({ test: "test", preflight: "preflight", preflightFull: "preflight-full" });
 var QUESTIONS = {
   test: "the command that runs the tests",
   preflight: "the command a slice must pass before its sub-PR is ready",
@@ -38926,7 +39048,8 @@ async function askTerminal(question) {
 async function resolveCommands(root, flags, { interactive, ask: ask5 }) {
   const commands = detectCommands(root);
   for (const key of COMMAND_KEYS) {
-    if (typeof flags[FLAGS[key]] === "string") commands[key] = flags[FLAGS[key]];
+    const flag = flags[FLAGS[key]];
+    if (typeof flag === "string") commands[key] = flag;
   }
   if (interactive) {
     for (const key of COMMAND_KEYS) {
@@ -38948,7 +39071,7 @@ var init = {
     const configPath = join49(root, CONFIG_FILE);
     const binPath = join49(root, BIN_FILE2);
     const keepConfig = !force && existsSync41(configPath);
-    let config3 = keepConfig ? parseConfig(readFileSync38(configPath, "utf8"), CONFIG_FILE) : null;
+    const kept = keepConfig ? parseConfig(readFileSync38(configPath, "utf8"), CONFIG_FILE) : null;
     const copyBin = force || !existsSync41(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -38957,7 +39080,8 @@ var init = {
     }
     const branch = switchToInstallBranch(root, { exec });
     const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
-    if (!keepConfig) {
+    let config3;
+    if (kept === null) {
       const commands = await resolveCommands(root, flags, { interactive, ask: ask5 });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
@@ -38966,6 +39090,8 @@ var init = {
       const { text: text5 } = rendered;
       mkdirSync13(dirname14(configPath), { recursive: true });
       writeFileSync15(configPath, text5);
+    } else {
+      config3 = kept;
     }
     if (copyBin) {
       mkdirSync13(dirname14(binPath), { recursive: true });
@@ -38995,7 +39121,7 @@ var init = {
       interactive,
       signIn: signIn ?? (async () => {
         let line;
-        const code = await signin.run([], { cwd: root, stdout, stderr, exec, home: userHome, onSignedIn: (said) => {
+        const code = await signin.run([], { cwd: root, stdout, stderr, exec, env: process.env, home: userHome, onSignedIn: (said) => {
           line = said;
         } });
         return { code, line };
@@ -39431,13 +39557,13 @@ function readItemInput(ctx, path) {
   try {
     parsed = JSON.parse(text5);
   } catch (error62) {
-    throw usageError(`omni item new: ${path} is not valid JSON (${error62.message}).`);
+    throw usageError(`omni item new: ${path} is not valid JSON (${errorMessage(error62)}).`);
   }
   const result = ItemInputSchema.safeParse(parsed, { error: KIT_MESSAGES });
   if (!result.success) {
-    const [issue2] = result.error.issues;
-    const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
-    throw usageError(`omni item new: ${path}: "${field3}" \u2014 ${issue2.message}.`);
+    const issue2 = result.error.issues[0];
+    const field3 = issue2 && issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
+    throw usageError(`omni item new: ${path}: "${field3}" \u2014 ${issue2?.message}.`);
   }
   return result.data;
 }
@@ -39499,7 +39625,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd2} has no inbox or shipped folder.`);
   const outDir = flags.out === void 0 ? null : inRoot(ctx, flags.out);
-  const destination = outDir === null ? { abs: join51(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out };
+  const destination = outDir === null ? { abs: join51(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out ?? "" };
   const input2 = readItemInput(ctx, flags.file);
   const laws = lawsFor(ctx);
   const bearsOn = input2.bearsOn ?? "none";
@@ -39514,7 +39640,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
       laws
     });
   } catch (error62) {
-    throw usageError(`omni item new: ${error62.message}`);
+    throw usageError(`omni item new: ${errorMessage(error62)}`);
   }
   if (!decision.writesItem) {
     if (asJson) {
@@ -39541,6 +39667,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
       raised: input2.raised ?? todayUtc(),
       bearsOn,
       rank: decision.rank,
+      // ts-allow: a decision that writes an item carries a rank
       questionPlain: input2.questionPlain,
       decisionPlain: input2.decisionPlain,
       introFun: input2.introFun,
@@ -39554,7 +39681,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
       laws
     });
   } catch (error62) {
-    throw usageError(`omni item new: ${error62.message}`);
+    throw usageError(`omni item new: ${errorMessage(error62)}`);
   }
   const renderedFile = `${outboxDir}/${id}.md`;
   const violations = checkItemText(renderedFile, text5, { ctx, laws });
@@ -39613,16 +39740,17 @@ function writeItemFile(destination, id, text5) {
 }
 async function runRelay(args, { ctx, stdout, stderr }) {
   const { positional, flags } = parseArgs("item relay", args, { values: ["prd"] });
-  if (positional.length !== 1 || flags.prd === void 0) throw usageError(RELAY_USAGE);
+  const [named3] = positional;
+  if (positional.length !== 1 || named3 === void 0 || flags.prd === void 0) throw usageError(RELAY_USAGE);
   const prd2 = positiveInt("item relay", "--prd", flags.prd);
   if (ctx.layout.outboxDir(prd2) === null) throw usageError(`omni item relay: PRD ${prd2} has no inbox or shipped folder.`);
-  const dir = inRoot(ctx, positional[0]);
+  const dir = inRoot(ctx, named3);
   if (!existsSync43(dir) || !statSync8(dir).isDirectory()) {
-    throw usageError(`omni item relay: ${positional[0]} is not a folder.`);
+    throw usageError(`omni item relay: ${named3} is not a folder.`);
   }
   const { moved: moved2, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd: prd2, dir });
   if (moved2.length === 0 && refused.length === 0) {
-    println(stdout, `omni item relay \u2014 nothing to relay in ${positional[0]}.`);
+    println(stdout, `omni item relay \u2014 nothing to relay in ${named3}.`);
     return 0;
   }
   for (const { from, to } of moved2) println(stdout, `moved ${from} \u2192 ${to}`);
@@ -39736,7 +39864,7 @@ function showText(resolved, records) {
   return lines.join("\n");
 }
 function show2(positional, flags, { ctx, stdout, stderr }) {
-  const [id] = positional;
+  const [id = ""] = positional;
   if (positional.length !== 1 || !FORM_IDS.includes(id)) {
     throw usageError(`usage: omni kb show <form> [--json] \u2014 the forms: ${FORM_IDS.join(", ")}`);
   }
@@ -39774,7 +39902,7 @@ function statusText({ frontDoor, forms, registers, targets: targets2 }) {
     const counts2 = [];
     if (questions2.length > 0) counts2.push(`${questions2.length} open question(s)`);
     if (stale2.length > 0) counts2.push(`${stale2.length} stale evidence`);
-    const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts2.join(" \xB7 ")];
+    const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source]).padEnd(11), counts2.join(" \xB7 ")];
     lines.push(`  ${columns2.join("  ").trimEnd()}`);
   }
   const questions = forms.flatMap(({ form: form2, file: file2, questions: open3 }) => open3.map(({ slot, question }) => `  ${form2}#${slot} (${file2}): ${question}`));
@@ -39889,7 +40017,7 @@ var knowledge = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional } = parseArgs("knowledge", args);
     if (positional.length !== 1) throw usageError("usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1");
-    const [id] = positional;
+    const [id = ""] = positional;
     const text5 = describeEntry(readKnowledge({ ctx }), id);
     if (text5 === null) {
       println(stderr, `omni knowledge: nothing in ${ctx.layout.knowledgeRoot}/ claims ${id}.`);
@@ -40265,7 +40393,7 @@ function readPlanText(prd2, { ctx, verb }) {
   try {
     return { planPath, markdown: readFileSync41(join52(ctx.root, planPath), "utf8") };
   } catch (error62) {
-    if (error62?.code === "ENOENT") throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
+    if (errorCode(error62) === "ENOENT") throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error62;
   }
 }
@@ -40275,7 +40403,7 @@ function readPlan2(prd2, { ctx, verb }) {
   try {
     slices = parsePlanSlices(markdown);
   } catch (error62) {
-    throw usageError(`omni plan ${verb}: ${planPath}: ${error62.message}`);
+    throw usageError(`omni plan ${verb}: ${planPath}: ${errorMessage(error62)}`);
   }
   return { planPath, slices, repositories: parsePlanRepositories(markdown) };
 }
@@ -40297,6 +40425,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
   const { slices, repositories } = readPlan2(prd2, { ctx, verb: "moved" });
   const rows2 = planMoved(
     { slices, repositories, planSlug: ctx.config.repo.slug, targets: planSection2.targets },
+    // ts-allow: a plan repository with no slug still crashes in planMoved (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     { exec, env: githubEnv(ctx, { exec, env }) }
   );
   if (flags.json) println(stdout, JSON.stringify(rows2.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));
@@ -40727,7 +40856,7 @@ var proof = {
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError("omni proof: no repository slug \u2014 set repo.slug in the config.");
     const local = localRun(cwd, dir);
-    if (local.line) {
+    if (local.run === void 0) {
       println(stderr, local.line);
       return 1;
     }
@@ -41058,7 +41187,8 @@ var replies = {
     println(stdout, summarize2(result));
     if (result.round) {
       if (result.round.posted) {
-        println(stdout, `Posted outbox round ${result.round.number}: ${result.round.posted.html_url ?? ""}`);
+        const posted = result.round.posted;
+        println(stdout, `Posted outbox round ${result.round.number}: ${posted.html_url ?? ""}`);
       } else {
         println(stdout, `
 Outbox round ${result.round.number} (not posted \u2014 pass --post):
@@ -41312,6 +41442,7 @@ async function runPlan(args, { ctx, stdout }) {
     planMarkdown,
     prd: prd2,
     featureBranch,
+    // ts-allow: planRework reads a null feature branch (no topic) as unknown, though its type says string
     markers: ctx.markers,
     branches: ctx.config.branches,
     // In a plan repository (PRD 563) each rework names the repository its item was raised in.
@@ -41329,7 +41460,7 @@ async function runClose(args, { ctx, stdout }) {
   if (positional.length !== 1 || flags.pr === void 0 || flags.prd === void 0) {
     throw usageError(CLOSE_USAGE);
   }
-  const id = positional[0];
+  const id = positional[0] ?? "";
   const prd2 = positiveInt("rework close", "--prd", flags.prd);
   const pr = positiveInt("rework close", "--pr", flags.pr);
   const pullRequest2 = `#${pr}`;
@@ -41341,7 +41472,7 @@ async function runClose(args, { ctx, stdout }) {
   try {
     closedText = closeDriftedEntry(text5, { id, pullRequest: pullRequest2, markers: ctx.markers });
   } catch (error62) {
-    throw usageError(error62.message.split("\n")[0]);
+    throw usageError(error62.message.split("\n")[0] ?? "");
   }
   writeFileSync20(join56(ctx.root, settledFile), closedText);
   println(
@@ -41368,11 +41499,12 @@ var settle2 = {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
-    if (positional.length !== 1) throw usageError(USAGE18);
+    const [path] = positional;
+    if (positional.length !== 1 || path === void 0) throw usageError(USAGE18);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
-    const file2 = relative3(ctx.root, inRoot(ctx, positional[0]));
+    const file2 = relative3(ctx.root, inRoot(ctx, path));
     const text5 = flags["answer-file"] ? readUserFile("settle", ctx, flags["answer-file"]) : flags.answer;
     const result = withPrdFolder("settle", () => settleItem({
       ctx,
@@ -41433,8 +41565,9 @@ var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   async run(args, { ctx, stdout }) {
     const { positional } = parseArgs("sign", args);
-    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE19);
-    const line = LINES2[positional[0]](ctx.config.signature);
+    const [which = ""] = positional;
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE19);
+    const line = LINES2[which](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
   }
@@ -41924,7 +42057,7 @@ var status2 = {
       try {
         changes = rangeChanges({ ctx, base, exec });
       } catch (error62) {
-        throw usageError(error62.message.split("\n")[0]);
+        throw usageError(error62.message.split("\n")[0] ?? "");
       }
     }
     const result = gateResult(prd2, { ctx, labels, changes });
@@ -42475,7 +42608,15 @@ async function readText2(stdin) {
   for await (const chunk of stdin) text5 += chunk;
   return text5;
 }
-async function statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts3, spawn: spawn2 }) {
+async function statusLines({
+  cwd,
+  exec,
+  env,
+  stdin,
+  now,
+  readFacts: readFacts3,
+  spawn: spawn2
+}) {
   try {
     const input2 = parseInput(await readText2(stdin).catch(() => ""));
     const instant2 = now();
@@ -42505,7 +42646,7 @@ function refresh(value, { cwd, exec, env, now }) {
   try {
     const root = mainCheckout(cwd, exec);
     if (!root) return;
-    const timed = (file2, args, options) => exec(file2, args, { ...options, timeout: CALL_TIMEOUT_MS2 });
+    const timed = ((file2, args, options) => exec(file2, args, { ...options, timeout: CALL_TIMEOUT_MS2 }));
     const instant2 = now();
     const build = () => buildBoard(prd2, { ctx: loadContext(cwd, { exec: timed }), exec: timed, env, now: instant2 }).result.slices;
     refreshBoard({ root, prd: prd2, now: instant2, build });
@@ -42563,7 +42704,8 @@ function handOver2({ cwd, home, from, target: target2, exec }) {
       exec("node", [bundle, "update", "--apply", ...fromFlag], { cwd, stdio: "inherit" });
       return 0;
     } catch (error62) {
-      return Number.isInteger(error62?.status) ? error62.status : 1;
+      const status3 = error62?.status;
+      return typeof status3 === "number" && Number.isInteger(status3) ? status3 : 1;
     }
   } finally {
     rmSync10(dir, { recursive: true, force: true });
@@ -42576,7 +42718,14 @@ function rootOf(cwd, exec) {
     return null;
   }
 }
-function updateRepository({ cwd, flags, running, file: file2, exec, out }) {
+function updateRepository({
+  cwd,
+  flags,
+  running,
+  file: file2,
+  exec,
+  out
+}) {
   if (running.source) {
     out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ""}: there is no bin to update here.`);
     return { code: 0, target: null };
@@ -42728,15 +42877,15 @@ function prdNumber2(value) {
   }
 }
 function prdNamedBy(argv) {
-  const [name, ...rest] = argv;
+  const [name = "", ...rest] = argv;
   const named3 = [];
-  const subcommands = Object.hasOwn(PRD_BY_POSITION, name ?? "") ? PRD_BY_POSITION[name] : null;
+  const subcommands = Object.hasOwn(PRD_BY_POSITION, name) ? PRD_BY_POSITION[name] : null;
   if (subcommands && subcommands.every((sub, index) => rest[index] === sub)) named3.push(rest[subcommands.length]);
   rest.forEach((arg, index) => {
     if (arg === PRD_FLAG) named3.push(rest[index + 1]);
   });
   const numbers = new Set(named3.map(prdNumber2).filter((number4) => number4 !== null));
-  return numbers.size === 1 ? [...numbers][0] : null;
+  return numbers.size === 1 ? [...numbers][0] ?? null : null;
 }
 function recordPrd(argv, { cwd, env, exec }) {
   try {
@@ -42745,10 +42894,17 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync15, env = process.env, ...more } = {}) {
-  const [first, ...rest] = argv;
+async function main(argv, {
+  cwd = process.cwd(),
+  stdout = process.stdout,
+  stderr = process.stderr,
+  exec = execFileSync15,
+  env = process.env,
+  ...more
+} = {}) {
+  const [first = "", ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
-  const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
+  const command = Object.hasOwn(COMMAND_TABLE, name) ? COMMAND_TABLE[name] : void 0;
   if (!command) {
     stderr.write(USAGE23);
     return 2;
@@ -42759,7 +42915,7 @@ async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr
     const ctx = loadContext(cwd, { exec });
     return await command.run(rest, { ctx, stdout, stderr, exec, env });
   } catch (error62) {
-    if (error62 instanceof ConfigError || error62?.name === "ConfigError" || error62?.name === "UsageError") {
+    if (error62 instanceof ConfigError || error62 instanceof Error && (error62.name === "ConfigError" || error62.name === "UsageError")) {
       stderr.write(`${error62.message.split("\n")[0]}
 `);
       return 2;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni heartbeat [--end]` through `main()` (PRD 757): the throttle, the body, when it stays silent,
 // and that it always exits 0 — against the fake contract server.
 import { spawnSync } from 'node:child_process';
@@ -7,28 +6,30 @@ import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { HEARTBEAT_EVERY_MS } from '../lib/ask/heartbeat.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
-const configText = (url, { dossier = true } = {}) =>
+const configText = (url: string | null, { dossier = true } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url === null ? 'null' : url}\ndossier:\n  enabled: ${dossier}\n`;
 
-async function signedIn(options = {}, { dossier = true, askUrl } = {}) {
+async function signedIn(options: Parameters<typeof startFakeAskServer>[0] = {}, { dossier = true, askUrl }: { dossier?: boolean; askUrl?: string | null } = {}) {
   server = await startFakeAskServer(options);
   const repo = makeRepo({
     git: true,
@@ -41,9 +42,12 @@ async function signedIn(options = {}, { dossier = true, askUrl } = {}) {
   return { ...repo, tokens };
 }
 
-const input = (root, session = 'claude-a') => JSON.stringify({ hook_event_name: 'PostToolUse', session_id: session, cwd: root, tool_name: 'Bash' });
+const input = (root: string, session = 'claude-a') => JSON.stringify({ hook_event_name: 'PostToolUse', session_id: session, cwd: root, tool_name: 'Bash' });
 
-async function beat(root, { tokens, now = () => 1_000_000, session = 'claude-a', args = [] } = {}) {
+async function beat(
+  root: string,
+  { tokens, now = () => 1_000_000, session = 'claude-a', args = [] }: { tokens?: unknown; now?: () => number; session?: string; args?: string[] } = {},
+) {
   const s = io();
   const code = await main(['heartbeat', ...args], { cwd: root, ...s, stdin: input(root, session), tokens, now });
   return { code, out: s.out.join(''), err: s.err.join('') };
@@ -70,15 +74,15 @@ describe('omni heartbeat', () => {
     spawnSync('git', ['checkout', '-q', '-b', 'feat/play-while-working--s1'], { cwd: root });
     await beat(root, { tokens });
     const [call] = heartbeatCalls();
-    expect(call.authorization).toBe('Bearer access-1');
-    expect(call.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: { kind: 'prd', number: 757 } });
+    expect(call!.authorization).toBe('Bearer access-1');
+    expect(call!.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: { kind: 'prd', number: 757 } });
     expect(server.heartbeats).toHaveLength(1);
   });
 
   it('sends work: null on a branch the loop does not know', async () => {
     const { root, tokens } = await signedIn();
     await beat(root, { tokens });
-    expect(heartbeatCalls()[0].body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: null });
+    expect(heartbeatCalls()[0]!.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: null });
   });
 
   it('--end sends ended: true once, with work null, inside the window too', async () => {

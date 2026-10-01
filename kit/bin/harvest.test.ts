@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +10,10 @@ import { parseOutboxItem } from '../lib/outbox/outbox.ts';
 import { parseSettledEntries, renderAdoptedEntry, renderSettledEntry, settledHeader } from '../lib/outbox/settle.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { FetchInit } from '../test/fixture.ts';
+import type { Files, Repo } from '../test/fixture.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -22,7 +25,7 @@ const LEDGER = `${SHIPPED}/outbox/settled.md`;
 const KEY = 'test-key-not-a-secret';
 const TODAY = new Date().toISOString().slice(0, 10);
 
-function itemText({ id, rank, slice = 's1', personSteps = false }) {
+function itemText({ id, rank, slice = 's1', personSteps = false }: { id: string; rank: string; slice?: string; personSteps?: boolean }) {
   const last = personSteps
     ? ['## What a person must do', '', '1. Set the secret in the console.', '']
     : ['## The options, in plain words', '', 'A. Keep what was built.', 'B. Change it.', ''];
@@ -65,15 +68,18 @@ function itemText({ id, rank, slice = 's1', personSteps = false }) {
   ].join('\n');
 }
 
-function adopted(id) {
+/** The item `text` holds: every fixture here parses. */
+const parsedItem = (text: string) => (parseOutboxItem(text) as Extract<ReturnType<typeof parseOutboxItem>, { ok: true }>).item;
+
+function adopted(id: string) {
   const text = itemText({ id, rank: 'medium', slice: 's0' });
-  return renderAdoptedEntry({ item: parseOutboxItem(text).item, itemText: text, markers });
+  return renderAdoptedEntry({ item: parsedItem(text), itemText: text, markers });
 }
 
-function drifted(id) {
+function drifted(id: string) {
   const text = itemText({ id, rank: 'high', slice: 's0' });
   return renderSettledEntry({
-    item: parseOutboxItem(text).item,
+    item: parsedItem(text),
     itemText: text,
     answer: {
       text: 'No, build it the other way.',
@@ -147,27 +153,27 @@ const MERGED_PR = {
 };
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function fakeExec(pr, calls = []) {
-  return (cmd, args, options) => {
+function fakeExec(pr: unknown, calls: (readonly string[])[] = []) {
+  return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd === 'gh') {
       calls.push(args);
       return JSON.stringify(pr);
     }
-    return execFileSync(cmd, args, options);
+    return realExec(cmd, args, options);
   };
 }
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
-function fakeFetch(replies) {
-  return vi.fn(async (_url, init) => {
-    const body = JSON.parse(init.body);
-    const user = body.messages.find((m) => m.role === 'user').content;
-    const id = /^## The decision: (\S+)$/m.exec(user)[1];
+function fakeFetch(replies: Record<string, unknown>) {
+  return vi.fn(async (_url: string, init: FetchInit) => {
+    const body = JSON.parse(String(init.body));
+    const user = body.messages.find((m: { role: string }) => m.role === 'user').content;
+    const id = String(/^## The decision: (\S+)$/m.exec(user)![1]);
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(replies[id]) } }] }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -175,28 +181,31 @@ function fakeFetch(replies) {
   });
 }
 
-const repos = [];
-function repo(files = FILES) {
+const repos: Repo[] = [];
+function repo(files: Files = FILES) {
   const r = makeRepo({ files, git: true });
   repos.push(r);
   return r;
 }
-const head = (root) => execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-const status = (root) => execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+const head = (root: string) => execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const status = (root: string) => execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
 
-let fetch;
+let fetch: ReturnType<typeof fakeFetch>;
 beforeEach(() => {
   fetch = fakeFetch(REPLIES);
   vi.stubGlobal('fetch', fetch);
 });
 afterEach(() => {
   vi.unstubAllGlobals();
-  while (repos.length) rmSync(repos.pop().root, { recursive: true, force: true });
+  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
 });
 
-async function harvest(r, { args = ['42', '--pr', '43'], pr = MERGED_PR, env = { OPENROUTER_API_KEY: KEY } } = {}) {
+async function harvest(
+  r: Repo,
+  { args = ['42', '--pr', '43'], pr = MERGED_PR, env = { OPENROUTER_API_KEY: KEY } }: { args?: string[]; pr?: Record<string, unknown>; env?: Record<string, string> } = {},
+) {
   const streams = io();
-  const calls = [];
+  const calls: (readonly string[])[] = [];
   const code = await main(['harvest', ...args], { cwd: r.root, exec: fakeExec(pr, calls), env, ...streams });
   return { code, out: streams.out.join(''), err: streams.err.join(''), calls };
 }
@@ -220,9 +229,9 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(ledger.startsWith(LEDGER_TEXT)).toBe(false); // lines were added inside entries
     const latest = Object.fromEntries(parseSettledEntries(ledger, markers).map((e) => [e.id, e]));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
-      expect(latest[id].verdict).toBe('adopted');
-      expect(latest[id].fields['Approved by']).toBe('@octocat');
-      expect(latest[id].fields.Basis).toMatch(/^merged-over-red/);
+      expect(latest[id]!.verdict).toBe('adopted');
+      expect(latest[id]!.fields['Approved by']).toBe('@octocat');
+      expect(latest[id]!.fields.Basis).toMatch(/^merged-over-red/);
     }
     // The plan's paths follow the move.
     expect(r.read(`${SHIPPED}/plan.md`)).toContain(`\`${SHIPPED}/spec.md\``);
@@ -235,10 +244,10 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(r.read(`${K}/product/rules.md`)).toContain('## BR-PRODUCT-1');
     expect(r.read(`${K}/product/rules.md`)).toContain(`Proposed: harvest ${TODAY}`);
     expect(r.read(`${K}/product/principles.md`)).toContain('## P-PRODUCT-2');
-    expect(latest['s1-01-high-one'].became).toEqual(['ADR-0002']);
-    expect(latest['s1-02-set-secret'].became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(latest['s0-04-drift'].became).toEqual(['ADR-0001']);
-    expect(latest['s0-01-local-name'].fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(latest['s1-01-high-one']!.became).toEqual(['ADR-0002']);
+    expect(latest['s1-02-set-secret']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(latest['s0-04-drift']!.became).toEqual(['ADR-0001']);
+    expect(latest['s0-01-local-name']!.fields['Stays here']).toBe('a local choice, nothing lasting');
 
     expect(out).toContain('omni harvest — PRD 42, pull request #43 merged by @octocat on 2026-09-26 (abcdef1):');
     expect(out).toContain('settled at merge: 2 open item(s), 1 drift(s) never reworked, adopted by @octocat');
@@ -264,8 +273,8 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(code).toBe(0);
     expect(out).toMatch(/s0-02-cited — the checks refused it: .*BR-GHOST-9/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-02-cited'].became).toEqual([]);
-    expect(latest['s0-02-cited'].fields['Stays here']).toBeUndefined();
+    expect(latest['s0-02-cited']!.became).toEqual([]);
+    expect(latest['s0-02-cited']!.fields['Stays here']).toBeUndefined();
     expect(r.read(`${K}/product/invariants.md`)).not.toContain('BR-GHOST-9');
   });
 
@@ -274,8 +283,8 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const { out } = await harvest(r);
     expect(out).toMatch(/s0-03-refused — the model's reply was refused twice/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-03-refused'].became).toEqual([]);
-    const refusedCalls = fetch.mock.calls.filter(([, init]) => init.body.includes('## The decision: s0-03-refused'));
+    expect(latest['s0-03-refused']!.became).toEqual([]);
+    const refusedCalls = fetch.mock.calls.filter(([, init]) => String(init.body).includes('## The decision: s0-03-refused'));
     expect(refusedCalls).toHaveLength(2);
   });
 });
@@ -313,7 +322,7 @@ describe('omni harvest — refusals', () => {
     [['42', '--pr']],
     [['x', '--pr', '43']],
     [['42', '--pr', '43', '--nope']],
-  ])('exits 2 on a usage error: %j', async (args) => {
+  ])('exits 2 on a usage error: %j', async (args: any) => {
     const r = repo();
     const { code } = await harvest(r, { args });
     expect(code).toBe(2);
@@ -328,16 +337,19 @@ describe('omni harvest — refusals', () => {
   });
 });
 
+/** A harvest that prepared: every fixture here does. */
+const preparedOk = (prepared: ReturnType<typeof prepareHarvest>) => prepared as Extract<ReturnType<typeof prepareHarvest>, { ok: true }>;
+
 describe('the pipeline halves', () => {
   const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: 43, url: 'https://github.com/acme/widgets/pull/43' };
 
   it('return edits as data, touch no file, and give the same edits for the same input', () => {
     const r = repo();
     const run = () => {
-      const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE });
+      const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
       const classified = prepared.candidates.map((c) =>
-        c.id === 's0-03-refused' ? { id: c.id, reply: null, reason: 'refused' } : { id: c.id, reply: REPLIES[c.id] },
-      );
+        c.id === 's0-03-refused' ? { id: c.id, reply: null, reason: 'refused' } : { id: c.id, reply: REPLIES[c.id as keyof typeof REPLIES] },
+      ) as Parameters<typeof finishHarvest>[0]['classified'];
       return { prepared, finished: finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' }) };
     };
     const first = run();
@@ -368,7 +380,7 @@ describe('the pipeline halves', () => {
 
   it('with nothing classified, settles and ships, and places nothing', () => {
     const r = repo();
-    const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
     const classified = prepared.candidates.map((c) => ({ id: c.id, reply: null, reason: 'OPENROUTER_API_KEY is not set' }));
     const finished = finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' });
     expect(finished.placed).toEqual([]);
@@ -382,7 +394,7 @@ describe('the pipeline halves', () => {
     const r = repo();
     await harvest(r);
     execFileSync('git', ['add', '-A'], { cwd: r.root });
-    const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE });
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
     const leftover = prepared.candidates.map((c) => c.id).sort();
     expect(leftover).toEqual(['s0-02-cited', 's0-03-refused']);
     expect(prepared.edits).toEqual({ deletes: [], moves: [], writes: [] });

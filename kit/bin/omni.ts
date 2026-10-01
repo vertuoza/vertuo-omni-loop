@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 // omni — the kit's one entry point. Installed into a repository as .omni-loop/bin/omni.mjs (bundled),
 // called by the skills and by the outbox workflow. Exit 0 ok, 1 red, 2 usage or configuration.
 //
@@ -17,6 +16,7 @@ import { handOver, planLaunch } from '../lib/launch/launch.ts';
 import { recordSession } from '../lib/statusline/sessions.ts';
 import { positiveInt } from './args.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
+import type { Env, Exec, Out } from './io.ts';
 
 const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TABLE).join(', ')}\nomni help: what each command does\n`;
 // `omni --help` and `omni -h` are `omni help`; `omni --version` is `omni version`.
@@ -26,7 +26,7 @@ const VERSION_FLAG = '--version';
 // The commands that name their PRD by position: the argument right after the command, or right after
 // the subcommand listed here (`omni prd 7`, `omni dossier push 7`). Any command names one with
 // `--prd <n>` as well.
-const PRD_BY_POSITION = Object.freeze({
+const PRD_BY_POSITION: Readonly<Record<string, readonly string[]>> = Object.freeze({
   prd: [],
   board: [],
   status: [],
@@ -40,7 +40,7 @@ const PRD_BY_POSITION = Object.freeze({
 const PRD_FLAG = '--prd';
 
 /** `value` as a PRD number, read as the commands read it (`positiveInt`), or `null`. */
-function prdNumber(value) {
+function prdNumber(value: string | undefined): number | null {
   try {
     return positiveInt('record', '<prd>', value);
   } catch {
@@ -53,20 +53,20 @@ function prdNumber(value) {
  * value of every `--prd`. `null` when none of them is a positive integer, or when they name two
  * different PRDs.
  */
-export function prdNamedBy(argv) {
-  const [name, ...rest] = argv;
-  const named = [];
-  const subcommands = Object.hasOwn(PRD_BY_POSITION, name ?? '') ? PRD_BY_POSITION[name] : null;
+export function prdNamedBy(argv: readonly string[]): number | null {
+  const [name = '', ...rest] = argv;
+  const named: (string | undefined)[] = [];
+  const subcommands = Object.hasOwn(PRD_BY_POSITION, name) ? PRD_BY_POSITION[name] : null;
   if (subcommands && subcommands.every((sub, index) => rest[index] === sub)) named.push(rest[subcommands.length]);
   rest.forEach((arg, index) => {
     if (arg === PRD_FLAG) named.push(rest[index + 1]);
   });
   const numbers = new Set(named.map(prdNumber).filter((number) => number !== null));
-  return numbers.size === 1 ? [...numbers][0] : null;
+  return numbers.size === 1 ? ([...numbers][0] ?? null) : null;
 }
 
 /** Records the PRD `argv` names for the Claude session `env` names; never throws, never prints. */
-function recordPrd(argv, { cwd, env, exec }) {
+function recordPrd(argv: readonly string[], { cwd, env, exec }: { cwd: string; env: Env; exec: Exec }): void {
   try {
     const prd = prdNamedBy(argv);
     if (prd !== null) recordSession({ cwd, exec, sessionId: env?.CLAUDE_CODE_SESSION_ID, prd, now: Date.now() });
@@ -76,12 +76,19 @@ function recordPrd(argv, { cwd, env, exec }) {
 }
 
 export async function main(
-  argv,
-  { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync, env = process.env, ...more } = {},
-) {
-  const [first, ...rest] = argv;
+  argv: readonly string[],
+  {
+    cwd = process.cwd(),
+    stdout = process.stdout,
+    stderr = process.stderr,
+    exec = execFileSync,
+    env = process.env,
+    ...more
+  }: { cwd?: string; stdout?: Out; stderr?: Out; exec?: Exec; env?: Env; [option: string]: unknown } = {},
+): Promise<number> {
+  const [first = '', ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? 'help' : first === VERSION_FLAG ? 'version' : first;
-  const command = Object.hasOwn(COMMAND_TABLE, name ?? '') ? COMMAND_TABLE[name] : undefined;
+  const command = Object.hasOwn(COMMAND_TABLE, name) ? COMMAND_TABLE[name] : undefined;
   if (!command) {
     stderr.write(USAGE);
     return 2;
@@ -94,7 +101,7 @@ export async function main(
     const ctx = loadContext(cwd, { exec });
     return await command.run(rest, { ctx, stdout, stderr, exec, env });
   } catch (error) {
-    if (error instanceof ConfigError || error?.name === 'ConfigError' || error?.name === 'UsageError') {
+    if (error instanceof ConfigError || (error instanceof Error && (error.name === 'ConfigError' || error.name === 'UsageError'))) {
       stderr.write(`${error.message.split('\n')[0]}\n`);
       return 2;
     }
@@ -110,8 +117,8 @@ const self = fileURLToPath(import.meta.url);
 const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(self);
 if (invoked) {
   const argv = process.argv.slice(2);
-  const fail = (error) => {
-    process.stderr.write(`${error?.stack ?? error}\n`);
+  const fail = (error: unknown) => {
+    process.stderr.write(`${(error as { stack?: unknown } | null)?.stack ?? error}\n`); // ts-allow: whatever was thrown, its stack when it has one
     process.exit(1);
   };
   try {

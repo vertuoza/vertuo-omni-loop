@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni rework plan <prd> [--json]` and `omni rework close <id> --prd <n> --pr <n>` — the CLI half
 // of `/omni:yolo-fix`: deriving what a drifted PRD needs reworked, then recording that a sub-PR
 // closed one of those drifts. Both commands are thin over `kit/lib/policy/rework.ts`, which is the
@@ -10,34 +9,37 @@ import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { closeDriftedEntry, planRework } from '../../lib/policy/rework.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Command, CommandIo, Out } from '../io.ts';
+import type { Context } from '../../lib/context.ts';
+import type { Rework, ReworkPlan } from '../../lib/policy/rework.ts';
 
 const USAGE = 'usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>';
 const PLAN_USAGE = 'usage: omni rework plan <prd> [--json]';
 const CLOSE_USAGE = 'usage: omni rework close <id> --prd <n> --pr <n>';
 
 /** `path`'s text, or `''` when it does not exist yet — a PRD not yet drifted has no `settled.md`. */
-function readIfExists(ctx, path) {
+function readIfExists(ctx: Context, path: string): string {
   try {
     return readFileSync(join(ctx.root, path), 'utf8');
   } catch (error) {
-    if (error?.code === 'ENOENT') return '';
+    if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') return ''; // ts-allow: readFileSync throws a system error
     throw error;
   }
 }
 
 /** The PRD folder's own topic, which fills `{topic}` in `branches.feature` — the same reading
  * `omni board` already does. */
-function topicFor(prd, { ctx }) {
+function topicFor(prd: number, { ctx }: { ctx: Context }): string | null {
   const where = ctx.layout.whereIs(prd);
   const parsed = where ? parseFolderName(where.name) : null;
   return parsed ? parsed.topic : null;
 }
 
-function territoryOf(rework) {
+function territoryOf(rework: Rework): string {
   return rework.territory.map((path) => `\`${path}\``).join(', ') || '(none declared)';
 }
 
-function printPlan(stdout, result) {
+function printPlan(stdout: Out, result: ReworkPlan): void {
   if (result.reworks.length === 0) {
     for (const line of result.report) println(stdout, line);
     return;
@@ -54,7 +56,7 @@ function printPlan(stdout, result) {
   }
 }
 
-async function runPlan(args, { ctx, stdout }) {
+async function runPlan(args: string[], { ctx, stdout }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('rework plan', args, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(PLAN_USAGE);
   const prd = positiveInt('rework plan', '<prd>', positional[0]);
@@ -72,7 +74,7 @@ async function runPlan(args, { ctx, stdout }) {
     settledText,
     planMarkdown,
     prd,
-    featureBranch,
+    featureBranch: featureBranch as string, // ts-allow: planRework reads a null feature branch (no topic) as unknown, though its type says string
     markers: ctx.markers,
     branches: ctx.config.branches,
     // In a plan repository (PRD 563) each rework names the repository its item was raised in.
@@ -88,12 +90,12 @@ async function runPlan(args, { ctx, stdout }) {
   return 0;
 }
 
-async function runClose(args, { ctx, stdout }) {
+async function runClose(args: string[], { ctx, stdout }: CommandIo): Promise<number> {
   const { positional, flags } = parseArgs('rework close', args, { values: ['pr', 'prd'] });
   if (positional.length !== 1 || flags.pr === undefined || flags.prd === undefined) {
     throw usageError(CLOSE_USAGE);
   }
-  const id = positional[0];
+  const id = positional[0] ?? '';
   const prd = positiveInt('rework close', '--prd', flags.prd);
   const pr = positiveInt('rework close', '--pr', flags.pr);
   const pullRequest = `#${pr}`;
@@ -110,7 +112,7 @@ async function runClose(args, { ctx, stdout }) {
   try {
     closedText = closeDriftedEntry(text, { id, pullRequest, markers: ctx.markers });
   } catch (error) {
-    throw usageError(error.message.split('\n')[0]);
+    throw usageError((error as Error).message.split('\n')[0] ?? ''); // ts-allow: closeDriftedEntry throws only Error
   }
 
   writeFileSync(join(ctx.root, settledFile), closedText);
@@ -121,8 +123,8 @@ async function runClose(args, { ctx, stdout }) {
   return 0;
 }
 
-export const rework = {
-  async run(args, io) {
+export const rework: Command = {
+  async run(args: string[], io: CommandIo) {
     const [sub, ...rest] = args;
     if (sub === 'plan') return runPlan(rest, io);
     if (sub === 'close') return runClose(rest, io);

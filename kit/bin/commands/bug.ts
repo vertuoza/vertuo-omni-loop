@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni bug <n> [--base <ref>]` — the proof step of a bug fix (PRD #556), run on its fix branch,
 // shaped like `omni visual`: one folder under `<paths.delivery>/bugs/` for issue <n>, holding a
 // complete bug.md whose reproduction file the range `<base>..HEAD` changes, and every commit of that

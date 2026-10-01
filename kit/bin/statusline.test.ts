@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slices s1, s4, s5 and s6: `omni statusline` through `main()` — Claude Code's JSON on
 // stdin, the session line out, then the PRD of the session's branch, else the one the session last
 // worked on, with its stage and, in the outbox, the slices of its cached board (or the no-PRD line)
@@ -16,6 +15,8 @@ import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.ts
 import { makeRepo } from '../test/fixture.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
 
 const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
@@ -28,7 +29,7 @@ const NO_PRD = 'no PRD · /omni:brainstorm to start';
 const BAR = '█████░░░░░';
 
 /** Claude Code's JSON for a session in `dir`: 58.9 % of the context, 25.4 % of the 5-hour window, 90 minutes left. */
-function payload(dir, more = {}) {
+function payload(dir: string, more = {}) {
   return JSON.stringify({
     session_id: 'abc',
     cwd: dir,
@@ -42,18 +43,18 @@ function payload(dir, more = {}) {
 
 /** `execFileSync`, with every call it runs recorded as `<file> <args…>`. */
 function recordingExec() {
-  const calls = [];
-  const exec = (file, args, options) => {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     calls.push([file, ...args].join(' '));
-    return execFileSync(file, args, options);
+    return realExec(file, args, options);
   };
   return { calls, exec };
 }
 
 /** A spawn that starts nothing: it records each call as `{ command, args, options }`. */
 function recordingSpawn() {
-  const spawns = [];
-  const spawn = (command, args, options) => {
+  const spawns: { command: string; args: readonly string[]; options: unknown }[] = [];
+  const spawn = (command: string, args: readonly string[], options: unknown) => {
     spawns.push({ command, args, options });
     return { unref() {}, on() { return this; } };
   };
@@ -61,13 +62,13 @@ function recordingSpawn() {
 }
 
 /** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns }`. */
-async function statusline(cwd, stdin, options = {}, args = []) {
-  const out = [];
-  const err = [];
+async function statusline(cwd: string | undefined, stdin: string, options: Record<string, unknown> = {}, args: string[] = []) {
+  const out: string[] = [];
+  const err: string[] = [];
   const { calls, exec } = recordingExec();
   const { spawns, spawn } = recordingSpawn();
   const code = await main(['statusline', ...args], {
-    cwd,
+    cwd: cwd as string,
     stdout: { write: (s) => out.push(s) },
     stderr: { write: (s) => err.push(s) },
     exec,
@@ -80,12 +81,12 @@ async function statusline(cwd, stdin, options = {}, args = []) {
   return { code, out: out.join(''), err: err.join(''), calls, spawns };
 }
 
-const neverFetches = (calls) => calls.every((call) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
+const neverFetches = (calls: any[]) => calls.every((call: string) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
 
 describe('omni statusline', () => {
   it('is in the command table', () => {
     expect(Object.keys(COMMAND_TABLE)).toContain('statusline');
-    expect(COMMAND_TABLE.statusline.withoutContext).toBe(true);
+    expect(COMMAND_TABLE.statusline!.withoutContext).toBe(true);
   });
 
   it('prints the session line, then the no-PRD line, where the loop is installed', async () => {
@@ -155,7 +156,7 @@ describe('omni statusline', () => {
 
   it('exits 0 with nothing on stderr when its output cannot be written', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
-    const err = [];
+    const err: string[] = [];
     const code = await main(['statusline'], {
       cwd: root,
       stdout: { write: () => { throw new Error('EPIPE'); } },
@@ -167,7 +168,7 @@ describe('omni statusline', () => {
     expect({ code, err: err.join('') }).toEqual({ code: 0, err: '' });
   });
 
-  it.each([40, 80, 200])('fits every line within COLUMNS=%i', async (columns) => {
+  it.each([40, 80, 200])('fits every line within COLUMNS=%i', async (columns: number) => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     writeMode(root, { host: 'ask.example.test' });
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
@@ -175,7 +176,7 @@ describe('omni statusline', () => {
       const lines = run.out.replace(/\x1b\[[0-9;]*m/g, '').split('\n').slice(0, -1);
       expect(lines).toHaveLength(2);
       for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
-      expect(lines[0].endsWith('…')).toBe(columns < 70);
+      expect(lines[0]!.endsWith('…')).toBe(columns < 70);
     }
   });
 
@@ -184,8 +185,8 @@ describe('omni statusline', () => {
     const long = payload(root, { model: { display_name: 'A model whose display name is long enough to push the line past eighty' } });
     for (const env of [PLAIN, { ...PLAIN, COLUMNS: 'wide' }]) {
       const [line] = (await statusline(root, long, { env })).out.split('\n');
-      expect([...line].length).toBe(80);
-      expect(line.endsWith('…')).toBe(true);
+      expect([...line!].length).toBe(80);
+      expect(line!.endsWith('…')).toBe(true);
     }
   });
 
@@ -195,7 +196,7 @@ describe('omni statusline', () => {
       const child = execFile(process.execPath, [CLI, 'statusline'], { cwd: root, env: { ...process.env, NO_COLOR: '1', COLUMNS: '200' }, encoding: 'utf8' }, (error, stdout, stderr) => {
         resolve({ code: error ? error.code : 0, stdout, stderr });
       });
-      child.stdin.end(payload(root, { rate_limits: undefined }));
+      child.stdin!.end(payload(root, { rate_limits: undefined }));
     });
     expect(run).toEqual({ code: 0, stderr: '', stdout: `Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n` });
   });
@@ -205,10 +206,10 @@ const DELIVERY = '.omni-loop/delivery';
 const LONG_TOPIC = 'statusline-for-claude-code';
 
 /** Runs git in `cwd` as a fixture author. */
-const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
+const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
 
 /** Writes `files` under `root` and commits them. */
-function commit(root, files, message = 'change') {
+function commit(root: string, files: Record<string, string>, message = 'change') {
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(join(root, path, '..'), { recursive: true });
     writeFileSync(join(root, path), text);
@@ -260,7 +261,7 @@ function originFixture() {
   git(seed.root, 'push', '-q', 'origin', 'main', 'feat/bravo', 'feat/charlie', `feat/${LONG_TOPIC}`, 'docs/phase-0-delta');
   const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
   git(tmpdir(), 'clone', '-q', bare, root);
-  const on = (branch, start = 'origin/main') => {
+  const on = (branch: any, start = 'origin/main') => {
     const dir = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
     git(root, 'worktree', 'add', '-q', '-b', branch, dir, start);
     return dir;
@@ -270,7 +271,7 @@ function originFixture() {
 
 describe('omni statusline: line 2 names the PRD of the session branch', () => {
   const fixture = originFixture();
-  const line2 = async (dir, options = {}) => {
+  const line2 = async (dir: string, options = {}) => {
     const run = await statusline(dir, payload(dir), options);
     expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
     expect(neverFetches(run.calls)).toBe(true);
@@ -324,8 +325,8 @@ describe('omni statusline: line 2 names the PRD of the session branch', () => {
 describe('omni statusline: line 2 names the PRD the session last worked on', () => {
   const fixture = originFixture();
   /** `omni <argv>` in `cwd`, run as Claude Code runs a command of the session `abc`: its exit code. */
-  const inSession = (argv, cwd) => main(argv, { cwd, stdout: { write() {} }, stderr: { write() {} }, env: { CLAUDE_CODE_SESSION_ID: 'abc' } });
-  const line2 = async (dir, more = {}) => {
+  const inSession = (argv: readonly string[], cwd: string) => main(argv, { cwd, stdout: { write() {} }, stderr: { write() {} }, env: { CLAUDE_CODE_SESSION_ID: 'abc' } });
+  const line2 = async (dir: string, more = {}) => {
     const run = await statusline(dir, payload(dir, more));
     expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
     expect(neverFetches(run.calls)).toBe(true);
@@ -363,23 +364,23 @@ describe('omni statusline: line 2 names the PRD the session last worked on', () 
 });
 
 const SECOND = 1000;
-const iso = (ms) => new Date(ms).toISOString();
+const iso = (ms: number) => new Date(ms).toISOString();
 
 describe('omni statusline: the slices, from a board refreshed in the background', () => {
   const fixture = originFixture();
-  const slice = (id, wave, state) => ({ id, wave, state });
+  const slice = (id: string, wave: number, state: string) => ({ id, wave, state });
   const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'claimed-stale'), slice('s5', 4, 'stuck')];
   const WIDE = { ...PLAIN, COLUMNS: '200' };
 
   /** PRD `prd`'s board in the fixture's main checkout, written `age` milliseconds before `NOW`. */
-  function plantBoard(prd, age, body) {
+  function plantBoard(prd: number, age: number, body: Record<string, unknown>) {
     mkdirSync(join(fixture.root, BOARD_DIR), { recursive: true });
     writeFileSync(boardFile(fixture.root, prd), JSON.stringify({ at: iso(NOW - age), ...body }));
   }
 
   /** Line 2 in `dir`, and the refreshes the run started; exit 0, nothing on stderr, no `gh`, no fetch. */
-  async function run(dir, env = WIDE) {
-    const result = await statusline(dir, payload(dir), { env });
+  async function run(dir: string | undefined, env: Record<string, string> = WIDE) {
+    const result = await statusline(dir, payload(dir as string), { env });
     expect({ code: result.code, err: result.err }).toEqual({ code: 0, err: '' });
     expect(neverFetches(result.calls)).toBe(true);
     return { line: result.out.split('\n')[1], spawns: result.spawns };
@@ -417,7 +418,7 @@ describe('omni statusline: the slices, from a board refreshed in the background'
     const { line, spawns } = await run(dir);
     expect(line).toBe('PRD 7 bravo · s9 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
     expect(spawns).toHaveLength(1);
-    const [{ command, args, options }] = spawns;
+    const [{ command, args, options }] = spawns as [(typeof spawns)[number]];
     expect(command).toBe(process.execPath);
     expect(args).toEqual([CLI, 'statusline', '--refresh', '7']);
     expect(options).toMatchObject({ cwd: dir, detached: true, stdio: 'ignore' });
@@ -490,7 +491,7 @@ describe('omni statusline --refresh <n>', () => {
   };
 
   /** A pull request of the feature `widgets`, as `gh pr list` returns one. */
-  function pr(number, slice, more = {}) {
+  function pr(number: number, slice: string, more = {}) {
     return {
       number,
       title: slice,
@@ -514,10 +515,10 @@ describe('omni statusline --refresh <n>', () => {
 
   /** `execFileSync` for git, and a stub for `gh`: `pr list` returns `prs`, and any `gh` throws when `ghFails`. */
   function stubbedExec({ prs = PRS, ghFails = false } = {}) {
-    const calls = [];
-    const exec = (file, args, options) => {
+    const calls: string[] = [];
+    const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([file, ...args].join(' '));
-      if (file !== 'gh') return execFileSync(file, args, options);
+      if (file !== 'gh') return realExec(file, args, options);
       if (ghFails) throw new Error('spawnSync gh ENOENT\n    at stub');
       if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
       if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ commits: [] });
@@ -527,9 +528,9 @@ describe('omni statusline --refresh <n>', () => {
   }
 
   /** `omni statusline --refresh <prd>` in `cwd`: `{ code, out, err, calls }`. */
-  async function refresh(cwd, prd = '7', stub = stubbedExec()) {
-    const out = [];
-    const err = [];
+  async function refresh(cwd: string, prd = '7', stub = stubbedExec()) {
+    const out: string[] = [];
+    const err: string[] = [];
     const code = await main(['statusline', '--refresh', prd], {
       cwd,
       stdout: { write: (s) => out.push(s) },
@@ -545,7 +546,7 @@ describe('omni statusline --refresh <n>', () => {
     return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
   }
 
-  const readBoardJson = (root, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8'));
+  const readBoardJson = (root: string, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8'));
 
   it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
     const { root } = makeRepo({ git: true, files: FILES });

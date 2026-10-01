@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni dossier link <n>` (PRD 413), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the lookup's contract (`GET /api/dossiers?repo=<owner/name>&prd=<n>`). The sign-in is an
 // in-memory token store and the environment is passed in, so nothing real is read or written.
@@ -9,30 +8,35 @@ import { describe, expect, it } from 'vitest';
 import { DOSSIERS_FILE } from '../../lib/dossier/local.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../../test/fixture.ts';
+import type { Tokens } from '../../lib/ask/schema.ts';
+import type { FetchInit } from '../../test/fixture.ts';
+import type { FakeExec } from '../../test/fixture.ts';
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
 const LINK = `${BASE}/prd/0b7c-dossier-7`;
 
-const config = ({ url = BASE, enabled = true } = {}) =>
+const config = ({ url = BASE, enabled = true }: { url?: string | null; enabled?: boolean } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
 
 /** A fetch that answers every call with `reply(url, init)` and keeps each call. */
-function stubFetch(reply) {
-  const calls = [];
-  const fetch = async (url, init) => {
+function stubFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
+  const calls: { url: string; method?: string; authorization?: string }[] = [];
+  const fetch = async (url: string, init: FetchInit) => {
     calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization });
     return reply(String(url), init);
   };
   return { calls, fetch };
 }
-const json = (status, body = {}) => new Response(JSON.stringify(body), { status });
+const json = (status: number, body = {}) => new Response(JSON.stringify(body), { status });
 const down = () => { throw new TypeError('fetch failed'); };
 
 /** A local record holding a draft still unnumbered and PRD 7's numbered dossier. */
@@ -41,22 +45,22 @@ const RECORD = [
   { id: 'local-7', url: `${BASE}/prd/local-7`, claudeSessionId: 's', prd: 7, openedAt: '2026-09-02T00:00:00.000Z' },
 ];
 
-function checkout({ enabled, url, record } = {}) {
+function checkout({ enabled, url, record }: { enabled?: boolean; url?: string | null; record?: unknown } = {}) {
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config({ url, enabled }) } });
   if (record) repo.write(DOSSIERS_FILE, `${JSON.stringify(record, null, 2)}\n`);
   return repo;
 }
 
 /** Every file under `.omni-loop/local/`, with its text: what `link` must leave as it found it. */
-function localFiles(root) {
+function localFiles(root: string) {
   const dir = join(root, '.omni-loop/local');
   if (!existsSync(dir)) return {};
   return Object.fromEntries(readdirSync(dir).map((name) => [name, readFileSync(join(dir, name), 'utf8')]));
 }
 
-async function link(args, { root, tokens = signedIn(), fetch }) {
-  const out = [];
-  const err = [];
+async function link(args: string[], { root, tokens = signedIn(), fetch }: { root: string; tokens?: ReturnType<typeof memoryTokens>; fetch: unknown }) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['dossier', 'link', ...args], {
     cwd: root, tokens, env: {}, fetch,
     stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
@@ -147,7 +151,7 @@ describe('omni dossier link skips as open and push do', () => {
 
   it('a 401 after one refresh: refused (401)', async () => {
     const { root } = checkout();
-    const { calls, fetch } = stubFetch((url) => (url.endsWith('/api/ask/token') ? json(200, { access_token: 'access-2' }) : json(401)));
+    const { calls, fetch } = stubFetch((url: string) => (url.endsWith('/api/ask/token') ? json(200, { access_token: 'access-2' }) : json(401)));
     expect(await link(['7'], { root, fetch })).toEqual({ code: 1, out: '', err: 'refused (401)\n' });
     expect(calls.map((call) => new URL(call.url).pathname)).toEqual(['/api/dossiers', '/api/ask/token', '/api/dossiers']);
   });
@@ -184,9 +188,9 @@ describe('omni dossier link refuses what it cannot run', () => {
 describe('omni dossier open and push print the server\'s reason (PRD 459)', () => {
   const REASON = 'no workspace owns acme/widgets yet — install the Omni App: https://github.com/apps/omni-loop-invader/installations/new';
 
-  async function run(args, { root, fetch }) {
-    const out = [];
-    const err = [];
+  async function run(args: string[], { root, fetch }: { root: string; fetch: unknown }) {
+    const out: string[] = [];
+    const err: string[] = [];
     const code = await main(['dossier', ...args], {
       cwd: root, tokens: signedIn(), env: {}, fetch,
       stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
@@ -216,9 +220,9 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   const PAGE = '<!doctype html>\n<title>Links</title>\n';
 
   /** A fetch that keeps each call with its body, and answers with `reply`. */
-  function recordingFetch(reply) {
-    const calls = [];
-    const fetch = async (url, init) => {
+  function recordingFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
+    const calls: { url: string; method?: string; body: Record<string, unknown> | undefined }[] = [];
+    const fetch = async (url: string, init: FetchInit) => {
       calls.push({ url: String(url), method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) });
       return reply(String(url), init);
     };
@@ -226,16 +230,16 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   }
 
   /** git as it is; gh answers the issue's title with `title`, or fails when it is null. */
-  const withIssue = (title, seen = []) => (command, args, options) => {
-    if (command !== 'gh') return execFileSync(command, args, options);
+  const withIssue = (title: string | null, seen: (readonly string[])[] = []) => (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (command !== 'gh') return realExec(command, args, options);
     seen.push(args);
     if (title === null) throw new Error('gh: not found');
     return `${title}\n`;
   };
 
-  async function run(args, { root, fetch, exec }) {
-    const out = [];
-    const err = [];
+  async function run(args: string[], { root, fetch, exec }: { root: string; fetch: unknown; exec?: FakeExec }) {
+    const out: string[] = [];
+    const err: string[] = [];
     const code = await main(['dossier', ...args], {
       cwd: root, tokens: signedIn(), env: {}, fetch, ...(exec ? { exec } : {}),
       stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
@@ -243,7 +247,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     return { code, out: out.join(''), err: err.join('') };
   }
 
-  const pushed = (url) => json(200, { id: 'd-1', url, added: [{ kind: 'before-after', version: 1 }], unchanged: [] });
+  const pushed = (url: string) => json(200, { id: 'd-1', url, added: [{ kind: 'before-after', version: 1 }], unchanged: [] });
 
   it('push <n> sends voice.json as the voice artifact when the PRD folder has one (PRD 822)', async () => {
     const { root, write } = checkout();
@@ -253,14 +257,14 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: LINK, added: [{ kind: 'voice', version: 2 }], unchanged: ['spec'] }));
     const result = await run(['push', '7'], { root, fetch });
     expect(result).toEqual({ code: 0, out: `${LINK}\nadded: voice v2 · unchanged: spec\n`, err: '' });
-    expect(calls[0].body.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
+    expect(calls[0]!.body!.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
   });
 
   it('push <n> with no --kind sends exactly what it sent before: no kind, the PRD folder, and asks GitHub nothing', async () => {
     const { root, write } = checkout();
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
-    const seen = [];
+    const seen: never[] | undefined = [];
     expect((await run(['push', '7'], { root, fetch, exec: withIssue('never asked', seen) })).code).toBe(0);
     expect(calls.map((c) => c.body)).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [{ kind: 'spec', content: SPEC }] }]);
     expect(seen).toEqual([]);
@@ -272,7 +276,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write(`${VISUAL}/variations-r2.html`, 'round 2');
     write(`${VISUAL}/variations-r1.html`, 'round 1');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/visual/d-1`));
-    const seen = [];
+    const seen: never[] | undefined = [];
     const result = await run(['push', '548', '--kind', 'visual'], { root, fetch, exec: withIssue('Visual: Omni links open in a new tab', seen) });
     expect(result).toEqual({ code: 0, out: `${BASE}/visual/d-1\nadded: before-after v1\n`, err: '' });
     expect(calls).toEqual([{
@@ -291,7 +295,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write(`${BUGS}/bug.md`, '# Bug 571\n');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
     expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, exec: withIssue(null) })).code).toBe(0);
-    expect(calls[0].body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
+    expect(calls[0]!.body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
   });
 
   it('push <n> --kind prd is the PRD push', async () => {
@@ -299,7 +303,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
     expect((await run(['push', '7', '--kind', 'prd'], { root, fetch })).code).toBe(0);
-    expect(calls[0].body).not.toHaveProperty('kind');
+    expect(calls[0]!.body).not.toHaveProperty('kind');
   });
 
   it('exits 2 for a fix with no folder, an unknown kind, or a kind on open or status, and calls nothing', async () => {

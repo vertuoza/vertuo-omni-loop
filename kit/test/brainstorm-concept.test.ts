@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 686, slice s3: `/omni:brainstorm --concept <n> <area>` starts a PRD from one area of a concept
 // that `/omni:think-big` recorded and a person merged into the inbox. Each point of the slice's "done
 // when" is read here against the brainstorm's SKILL.md text; `kit/test/plugin.test.ts` keeps its own
@@ -8,12 +7,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AREA_COLUMNS, CONCEPT_SECTIONS } from '../lib/concept/parse.ts';
 import { foldersLayout } from '../lib/layout.ts';
+import type { LayoutPaths } from '../lib/layout.ts';
 
 const TEXT = readFileSync(new URL('../plugin/skills/brainstorm/SKILL.md', import.meta.url), 'utf8');
-const CONCEPTS = foldersLayout('/nowhere', { delivery: '<paths.delivery>', playbook: '<paths.playbook>' }).dirs.concepts;
+const CONCEPTS = foldersLayout('/nowhere', { delivery: '<paths.delivery>', playbook: '<paths.playbook>' } as LayoutPaths).dirs.concepts;
 
 /** The `## ` headings of a text, outside fenced blocks, in order. */
-function headings(text) {
+function headings(text: string) {
   let fenced = false;
   const out = [];
   for (const line of text.split('\n')) {
@@ -24,7 +24,7 @@ function headings(text) {
 }
 
 /** The section whose `## ` heading starts with `start`, up to the next `## ` heading outside a fence. */
-function section(text, start) {
+function section(text: string, start: string) {
   const lines = text.split('\n');
   let fenced = false;
   let from = -1;
@@ -39,19 +39,19 @@ function section(text, start) {
 }
 
 /** A text with each run of whitespace made one space: prose wraps its lines anywhere. */
-const flat = (text) => text.replace(/\s+/g, ' ');
+const flat = (text: string) => text.replace(/\s+/g, ' ');
 
 /** The blank-line-separated paragraphs of a text. */
-const paragraphs = (text) => text.split(/\n\s*\n/);
+const paragraphs = (text: string) => text.split(/\n\s*\n/);
 
 /** The first paragraph of `text` holding `phrase`, flattened, or '' when none does. */
-const paragraphWith = (text, phrase) => paragraphs(text).map(flat).find((p) => p.includes(phrase)) ?? '';
+const paragraphWith = (text: string, phrase: string) => paragraphs(text).map(flat).find((p) => p.includes(phrase)) ?? '';
 
 // What only a run from a concept reads or writes.
 const CONCEPT_ONLY = /concept\.md|vision\.html|<concept>|<concept folder>|<area>/;
 
 /** Each paragraph from step 1 on that names what only a concept run touches, without saying `--concept`. */
-function unconditionalParagraphs(text) {
+function unconditionalParagraphs(text: string) {
   const from = text.search(/^## 1\. /m);
   return paragraphs(text.slice(from)).filter((p) => CONCEPT_ONLY.test(p) && !p.includes('--concept'));
 }
@@ -133,7 +133,7 @@ describe('/omni:brainstorm --concept <n> <area> (PRD 686)', () => {
 
   it("step 9 carries the concept's concept.md into the phase-0 PR", () => {
     const step9 = section(TEXT, '9.');
-    const checkout = step9.split('\n').find((line) => line.trim().startsWith('git checkout <remote>/<feature branch> --'));
+    const checkout = step9.split('\n').find((line: string) => line.trim().startsWith('git checkout <remote>/<feature branch> --'));
     expect(checkout).toContain("<the concept's concept.md, with --concept>");
     const carried = paragraphWith(step9, 'With `--concept`, that last path');
     expect(carried).toContain('`<concept folder>/concept.md`');

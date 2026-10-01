@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The `release` workflow only calls the release script: it runs on push to main, one run at a time,
 // with `contents: write` and nothing else.
 import { readFileSync } from 'node:fs';
@@ -8,6 +7,9 @@ import { parse } from 'yaml';
 
 const workflow = parse(readFileSync(fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url)), 'utf8'));
 const job = workflow.jobs.release;
+
+/** One step of the workflow's job, as the YAML reads. */
+type Step = { uses?: string; run?: string; with?: Record<string, unknown> };
 
 describe('the release workflow', () => {
   it('runs on every push to main', () => {
@@ -29,9 +31,9 @@ describe('the release workflow', () => {
   });
 
   it('checks out main with its whole history and tags, installs, and only calls the script', () => {
-    const checkout = job.steps.find((step) => String(step.uses).startsWith('actions/checkout@'));
+    const checkout = job.steps.find((step: Step) => String(step.uses).startsWith('actions/checkout@'));
     expect(checkout.with).toMatchObject({ ref: 'main', 'fetch-depth': 0, 'fetch-tags': true });
-    const runs = job.steps.filter((step) => step.run).map((step) => step.run);
+    const runs = job.steps.filter((step: Step) => step.run).map((step: Step) => step.run);
     expect(runs).toEqual(['pnpm install --frozen-lockfile', 'node kit/release/release.ts']);
   });
 });

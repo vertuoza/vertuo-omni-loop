@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni kb init | show <form> [--json] | status [--json] | graph [--json]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
@@ -19,10 +18,20 @@ import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
+import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
+import type { Decisions } from '../../lib/playbook/decisions.ts';
+import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
+
+/** The one flag every `omni kb` verb reads. */
+type KbFlags = { json?: true };
+
+/** The map `omni kb status` prints. */
+export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus> };
 
 const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]';
 
-function init(positional, flags, { ctx, stdout }) {
+function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
   const files = writeForms({ ctx });
   const wrote = files.filter((file) => file.wrote);
@@ -32,7 +41,7 @@ function init(positional, flags, { ctx, stdout }) {
 }
 
 /** The decision records as text: one line each, every shared number flagged, the next free one. */
-function recordLines({ dir, records, shared, next }) {
+function recordLines({ dir, records, shared, next }: Decisions): string[] {
   const lines = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines.push('No decision records yet.');
   lines.push(...records.map(({ number, file, title }) => `${number}  ${title ?? file}`));
@@ -42,7 +51,7 @@ function recordLines({ dir, records, shared, next }) {
 }
 
 /** One resolved form as text: its title, its file and state, then each section under its label. */
-function showText(resolved, records) {
+function showText(resolved: ResolvedForm, records: Decisions | null): string {
   const lines = [`# ${resolved.title}`, `${resolved.file} · ${resolved.state}`];
   for (const section of resolved.sections) {
     lines.push('', section.slot === null ? section.label : `## ${section.heading}  ${section.label}`);
@@ -54,8 +63,8 @@ function showText(resolved, records) {
   return lines.join('\n');
 }
 
-function show(positional, flags, { ctx, stdout, stderr }) {
-  const [id] = positional;
+function show(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
+  const [id = ''] = positional;
   if (positional.length !== 1 || !FORM_IDS.includes(id)) {
     throw usageError(`usage: omni kb show <form> [--json] — the forms: ${FORM_IDS.join(', ')}`);
   }
@@ -66,10 +75,10 @@ function show(positional, flags, { ctx, stdout, stderr }) {
   return 0;
 }
 
-const SOURCE_LABEL = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
+const SOURCE_LABEL: Record<string, string> = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
 
 /** The register folders as text: a line per folder, its laws and its proposed entries (PRD #68). */
-function registerLines(registers) {
+function registerLines(registers: StatusMap['registers']): string[] {
   if (registers.length === 0) return ['Registers: none.'];
   const width = Math.max(...registers.map(({ folder }) => folder.length));
   return [
@@ -82,13 +91,13 @@ function registerLines(registers) {
 const COPY_STATES = ['filled', 'pointer', 'blank', 'missing', 'invalid'];
 
 /** The imported copies as text (PRD 522): a line per copy, its forms by state and its register folders. */
-function copyLines(targets) {
+function copyLines(targets: StatusMap['targets']): string[] {
   if (targets.length === 0) return [];
   const width = Math.max(...targets.map(({ repo }) => repo.length));
   return [
     `Imported copies: ${targets.length}`,
     ...targets.map(({ repo, folder, forms, registers }) => {
-      const states = COPY_STATES.map((state) => [state, forms.filter((form) => form.state === state).length])
+      const states = COPY_STATES.map((state): [string, number] => [state, forms.filter((form) => form.state === state).length])
         .filter(([, count]) => count > 0)
         .map(([state, count]) => `${count} ${state}`);
       return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(' · ')}`;
@@ -100,14 +109,14 @@ function copyLines(targets) {
  * The map as text: a line per form, then each register folder's laws and proposals, then each
  * imported copy, then every open question, then every stale evidence entry.
  */
-function statusText({ frontDoor, forms, registers, targets }) {
+function statusText({ frontDoor, forms, registers, targets }: StatusMap): string {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
   for (const { form, kind, state, source, questions, stale } of forms) {
-    const counts = [];
+    const counts: string[] = [];
     if (questions.length > 0) counts.push(`${questions.length} open question(s)`);
     if (stale.length > 0) counts.push(`${stale.length} stale evidence`);
-    const columns = [form.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(' · ')];
+    const columns = [form.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source]).padEnd(11), counts.join(' · ')];
     lines.push(`  ${columns.join('  ').trimEnd()}`);
   }
   const questions = forms.flatMap(({ form, file, questions: open }) => open.map(({ slot, question }) => `  ${form}#${slot} (${file}): ${question}`));
@@ -120,18 +129,18 @@ function statusText({ frontDoor, forms, registers, targets }) {
   return lines.join('\n');
 }
 
-function status(positional, flags, { ctx, stdout, exec }) {
+function status(positional: string[], flags: KbFlags, { ctx, stdout, exec }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
-  const map = { ...playbookStatus({ ctx, exec }), targets: copiesStatus({ ctx, exec }) };
+  const map: StatusMap = { ...playbookStatus({ ctx, exec }), targets: copiesStatus({ ctx, exec }) };
   println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;
 }
 
 /** `n` and its noun, in the singular for one. */
-const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 /** A group of entries as two columns: its kinds, then its laws and proposals. */
-function columns({ principles, rules, invariants, laws, proposed }) {
+function columns({ principles, rules, invariants, laws, proposed }: GraphCounts): [string, string] {
   return [
     [count(principles, 'principle', 'principles'), count(rules, 'rule', 'rules'), count(invariants, 'invariant', 'invariants')].join(' · '),
     `${count(laws, 'law', 'laws')} · ${proposed} proposed`,
@@ -139,23 +148,23 @@ function columns({ principles, rules, invariants, laws, proposed }) {
 }
 
 /** A cross-domain entry's pair, `<a>--<b>`, or its file when the file's name names no pair. */
-const pairOf = (entry) => (entry.domains.length === 2 ? entry.domains.join('--') : entry.file);
+const pairOf = (entry: GraphEntry): string => (entry.domains.length === 2 ? entry.domains.join('--') : entry.file);
 
 /**
  * The graph as text: the totals; a line per domain, then per cross-domain pair, each with its kinds
  * and its laws and proposals, the columns lined up; then the unserved principles and the loose
  * entries, every id named.
  */
-function graphText({ domains, entries, links, loose, unserved }) {
-  const pairs = new Map();
+function graphText({ domains, entries, links, loose, unserved }: Graph): string {
+  const pairs = new Map<string, GraphEntry[]>();
   for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...(pairs.get(pairOf(entry)) ?? []), entry]);
-  const rows = [
-    ...domains.map(({ name, counts }) => [name, ...columns(counts)]),
-    ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))]),
+  const rows: [string, string, string][] = [
+    ...domains.map(({ name, counts }): [string, string, string] => [name, ...columns(counts)]),
+    ...[...pairs].map(([name, held]): [string, string, string] => [name, ...columns(countsOf(held))]),
   ];
   const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
   const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
-  const ids = (label, list) => `  ${label}${list.length > 0 ? ` (${list.length}): ${list.join(', ')}` : ': none'}`;
+  const ids = (label: string, list: readonly string[]) => `  ${label}${list.length > 0 ? ` (${list.length}): ${list.join(', ')}` : ': none'}`;
   return [
     `kb graph — ${count(domains.length, 'domain', 'domains')}, ${count(entries.length, 'entry', 'entries')}, ${count(links.length, 'link', 'links')}`,
     ...rows.map(([name, kinds, status]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status}`),
@@ -164,15 +173,15 @@ function graphText({ domains, entries, links, loose, unserved }) {
   ].join('\n');
 }
 
-function graph(positional, flags, { ctx, stdout }) {
+function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
   return 0;
 }
 
-export const kb = {
-  async run(args, io) {
+export const kb: Command = {
+  async run(args: string[], io: CommandIo) {
     const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
     const [sub, ...rest] = positional;
     if (sub === 'init') return init(rest, flags, io);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni update [--to <version>]` — the pull request that brings a repository to a release of the kit
 // (PRD 347). The running bin only finds the target (the latest release, or the one `--to` names),
 // downloads its bundle and runs it as `update --apply [--from <installed version>]`: only the new
@@ -21,21 +20,24 @@ import { installedVersion } from '../../lib/update/installed.ts';
 import { updatePlugin } from '../../lib/update/plugin.ts';
 import { UpdateError, downloadBundle, findTarget } from '../../lib/update/release.ts';
 import { parseVersion } from '../../lib/version/version.ts';
+import type { RunningKit } from '../../lib/init/bundle.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
 const USAGE = 'usage: omni update [--to <version>]';
 
 /** The repository brought from `from` to `target` by the target's own bundle: its exit code. */
-function handOver({ cwd, home, from, target, exec }) {
+function handOver({ cwd, home, from, target, exec }: { cwd: string; home: string | null; from: string | null; target: string; exec: Exec }): number {
   const dir = mkdtempSync(join(tmpdir(), 'omni-update-'));
   try {
-    const bundle = downloadBundle({ home, version: target, dir, exec });
+    const bundle = downloadBundle({ home: home!, version: target, dir, exec }); // ts-allow: findTarget refused a kit with no home before any hand-over
     const fromFlag = from ? ['--from', from] : [];
     try {
       exec('node', [bundle, 'update', '--apply', ...fromFlag], { cwd, stdio: 'inherit' });
       return 0;
     } catch (error) {
-      return Number.isInteger(error?.status) ? error.status : 1;
+      const status = (error as { status?: unknown } | null)?.status; // ts-allow: execFileSync's error carries the exit status
+      return typeof status === 'number' && Number.isInteger(status) ? status : 1;
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -43,7 +45,7 @@ function handOver({ cwd, home, from, target, exec }) {
 }
 
 /** The repository's root, or `null` outside one. */
-function rootOf(cwd, exec) {
+function rootOf(cwd: string, exec: Exec): string | null {
   try {
     return findRoot(cwd, exec);
   } catch {
@@ -52,7 +54,21 @@ function rootOf(cwd, exec) {
 }
 
 /** The repository step: its exit code. Throws UpdateError when it stops before writing anything. */
-function updateRepository({ cwd, flags, running, file, exec, out }) {
+function updateRepository({
+  cwd,
+  flags,
+  running,
+  file,
+  exec,
+  out,
+}: {
+  cwd: string;
+  flags: { to?: string };
+  running: RunningKit;
+  file: string | null;
+  exec: Exec;
+  out: (line: string) => void;
+}): { code: number; target: string | null } {
   if (running.source) {
     out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ''}: there is no bin to update here.`);
     return { code: 0, target: null };
@@ -72,14 +88,14 @@ function updateRepository({ cwd, flags, running, file, exec, out }) {
 
 export const update = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
+  async run(args: string[], { cwd, stdout, stderr, exec, kit, bundle }: FreeIo & { kit?: RunningKit; bundle?: string | null }) {
     const { positional, flags } = parseArgs('update', args, { values: ['to', 'from'], booleans: ['apply'] });
     if (positional.length) throw usageError(USAGE);
     if (flags.to !== undefined && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== undefined && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
     const file = bundle === undefined ? runningBundle() : bundle;
-    const out = (line) => println(stdout, line);
+    const out = (line: string) => println(stdout, line);
 
     try {
       if (flags.apply) {
@@ -98,4 +114,4 @@ export const update = {
       return 1;
     }
   },
-};
+} satisfies FreeCommand;

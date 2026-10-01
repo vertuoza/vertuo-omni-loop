@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -7,11 +6,14 @@ import { makeRepo } from '../test/fixture.ts';
 import { makeMarkers } from '../lib/markers.ts';
 import { formatNumbersMarker } from '../lib/outbox/comment.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { Files, Repo } from '../test/fixture.ts';
 
 const markers = makeMarkers('omni-outbox');
 const OUTBOX = '.omni-loop/delivery/outbox/0042-widgets';
 
-function itemText(id, rank, letters = ['A', 'B']) {
+function itemText(id: string, rank: string, letters = ['A', 'B']) {
   const body = rank === 'human-action'
     ? ['## What a person must do', '', '1. Add the secret to the project.', '']
     : ['## The options, in plain words', '', ...letters.map((letter) => `${letter}. Option ${letter} for ${id}.`), ''];
@@ -47,8 +49,8 @@ const NUMBERING = [
   { number: 19, id: 's2-01-secret' },
 ].map((entry) => ({ ...entry, since: '2026-09-27T08:00:00Z' }));
 
-function files({ items = ITEMS, config = '' } = {}) {
-  const out = {
+function files({ items = ITEMS, config = '' }: { items?: Record<string, string>; config?: string } = {}) {
+  const out: Files = {
     '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\n${config}`,
     '.omni-loop/delivery/inbox/0042-widgets/spec.md': 'x\n',
   };
@@ -67,15 +69,15 @@ const PR_COMMENT = {
 
 /** A fake `gh`: lists `comments`, records every comment posted, and fails to post when told to. */
 function fakeGh({ comments = [PR_COMMENT], failPost = false } = {}) {
-  const posted = [];
-  const calls = [];
-  const exec = (cmd, args, options) => {
-    if (cmd !== 'gh') return execFileSync(cmd, args, options);
+  const posted: unknown[] = [];
+  const calls: any[] = [];
+  const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (cmd !== 'gh') return realExec(cmd, args, options);
     calls.push(args);
     if (args.includes('--paginate')) return JSON.stringify(comments);
     if (args.includes('--input')) {
       if (failPost) throw new Error('HTTP 403: Resource not accessible');
-      posted.push(JSON.parse(options.input).body);
+      posted.push(JSON.parse(String(options?.input)).body);
       return JSON.stringify({ id: 77, html_url: 'https://github.com/acme/widgets/pull/9#issuecomment-77' });
     }
     throw new Error(`unexpected gh call: ${args.join(' ')}`);
@@ -83,19 +85,19 @@ function fakeGh({ comments = [PR_COMMENT], failPost = false } = {}) {
   return { exec, posted, calls };
 }
 
-const repos = [];
-function repo(options) {
+const repos: Repo[] = [];
+function repo(options?: Parameters<typeof files>[0]) {
   const r = makeRepo({ files: files(options), git: true });
   repos.push(r);
   return r;
 }
 afterEach(() => {
-  while (repos.length) rmSync(repos.pop().root, { recursive: true, force: true });
+  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
 });
 
-async function omni(r, args, gh = fakeGh()) {
-  const out = [];
-  const err = [];
+async function omni(r: Repo, args: string[], gh = fakeGh()) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(['answers', ...args], {
     cwd: r.root,
     exec: gh.exec,
@@ -114,7 +116,7 @@ describe('omni answers ask (PRD 251)', () => {
     expect(code).toBe(0);
     const printed = JSON.parse(out);
     expect(printed).toMatchObject({ prd: 42, pr: 9 });
-    expect(printed.batches.map((batch) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
+    expect(printed.batches.map((batch: any[]) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
     expect(printed.batches[0][0]).toMatchObject({
       number: 19,
       id: 's2-01-secret',
@@ -173,7 +175,7 @@ describe('omni answers ask (PRD 251)', () => {
 });
 
 describe('omni answers post (PRD 251)', () => {
-  const answersFile = (r, picks) => {
+  const answersFile = (r: Repo, picks: unknown) => {
     const path = join(r.root, 'answers.json');
     writeFileSync(path, JSON.stringify(picks));
     return path;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni ask on`, `omni ask off` and `omni ask status`: ask mode switched on and off in one checkout,
 // seen from the outside — the server is the fake contract server, the sign-in an in-memory token
 // store or a temporary home folder. The real `~/.config/omni/` is never touched.
@@ -14,6 +13,8 @@ import { activeMode } from '../lib/ask/hook.ts';
 import { LOCAL_DIR, readMode, readRound, readTerminal, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
 import { ASK_URL_UNSET } from './commands/signin.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.ts');
@@ -24,27 +25,30 @@ const QUESTION = {
   multiSelect: false,
   options: [{ label: 'System (Recommended)', description: 'follow the computer' }, { label: 'Dark', description: 'always dark' }],
 };
-const preFrom = (terminalId, toolUseId = 'toolu_01') =>
+const preFrom = (terminalId: string, toolUseId = 'toolu_01') =>
   JSON.stringify({ hook_event_name: 'PreToolUse', session_id: terminalId, tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: toolUseId });
 const PRE = preFrom('term-a');
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
-const config = (url, slug = 'acme/widgets') =>
+const config = (url: string | null, slug = 'acme/widgets') =>
   `kit: 1\nrepo:\n  slug: ${slug}\nask:\n  url: ${url === null ? 'null' : url}\n`;
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
-function runCli(args, { cwd, env = {} }) {
-  return new Promise((resolve) => {
+/** What a run of the CLI as a process came to: its exit status and its output. */
+type CliRun = { status: number | string | null | undefined; stdout: string; stderr: string };
+
+function runCli(args: string[], { cwd, env = {} }: { cwd: string; env?: Record<string, string> }) {
+  return new Promise<CliRun>((resolve) => {
     execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
     });
@@ -56,26 +60,26 @@ const sessionCalls = () => server.calls.filter((call) => call.path !== '/api/ask
 const WHERE = 'GET /api/ask/workspace';
 const whereCalls = () => server.calls.filter((call) => `${call.method} ${call.path}` === WHERE);
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 /** A checkout whose `ask.url` is the fake server, signed in to it. */
-async function signedIn(options = {}) {
+async function signedIn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
   server = await startFakeAskServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(server.url) } });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' } });
   return { ...repo, tokens };
 }
 
-const ask = (sub, { root, tokens, ...more }) => {
+const ask = (sub: string, { root, tokens, ...more }: { root: string; tokens: unknown; [option: string]: unknown }) => {
   const s = io();
   return main(['ask', sub], { cwd: root, ...s, tokens, ...more }).then((code) => ({ code, ...s }));
 };
 
-const hook = (kind, stdin, { root, tokens }) => {
+const hook = (kind: string, stdin: string, { root, tokens }: { root: string; tokens: unknown }) => {
   const s = io();
   return main(['ask', 'hook', kind], { cwd: root, ...s, stdin, tokens }).then((code) => ({ code, ...s }));
 };
@@ -113,7 +117,7 @@ describe('omni ask on', () => {
     const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
     await ask('on', { root, tokens });
     expect((await hook('pre', preFrom('term-a'), { root, tokens })).code).toBe(0);
-    const { sessionId } = readTerminal(root, 'term-a');
+    const { sessionId } = readTerminal(root, 'term-a')!;
 
     await ask('on', { root, tokens });
 
@@ -143,8 +147,8 @@ describe('omni ask on', () => {
   });
 
   it('asks for the checkout\'s repository, repo.slug', async () => {
-    const asked = [];
-    const { root, tokens } = await signedIn({ place: (repo) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
+    const asked: unknown[] = [];
+    const { root, tokens } = await signedIn({ place: (repo: any) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
     await ask('on', { root, tokens });
     expect(asked).toEqual(['acme/widgets']);
   });
@@ -219,7 +223,7 @@ describe('each terminal\'s session', () => {
     await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
     await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
     expect(server.sessions.size).toBe(2);
-    expect(readTerminal(root, 'term-a').sessionId).not.toBe(readTerminal(root, 'term-b').sessionId);
+    expect(readTerminal(root, 'term-a')!.sessionId).not.toBe(readTerminal(root, 'term-b')!.sessionId);
   });
 });
 
@@ -329,7 +333,7 @@ describe('omni ask status', () => {
   });
 
   it('while on, says where the questions land, or the page\'s reason (PRD 459)', async () => {
-    let placed = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+    let placed: { workspace: { slug: string; name: string } | null; reason: string | null } = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
     const { root, tokens } = await signedIn({ place: () => placed });
     await ask('on', { root, tokens });
     expect((await ask('status', { root, tokens })).out()).toBe(`${server.url}/ask\nquestions go to Acme's page\n`);

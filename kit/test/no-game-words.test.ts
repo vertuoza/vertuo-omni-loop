@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The kit may depend on a URL the game's app serves (ask mode's `ask.url`), but it still never names
 // the game (ADR-0002, amending PRD 3's principle 7). This guard fails on the game's world — "galaxy",
 // in any case and inside any word — in every file under `kit/` that is not a test: code, the bundle,
@@ -21,11 +20,11 @@ const GAME_WORD = /galax(?:y|ies)|galactic/i;
 // The one address the kit may carry, as a whole host: no host character right before it, and none
 // right after it but a path, a port or the end of the address.
 const HOME_ADDRESS = /(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g;
-const isTest = (name) => /\.test\.[cm]?[jt]sx?$/.test(name);
+const isTest = (name: string) => /\.test\.[cm]?[jt]sx?$/.test(name);
 
 /** Every file under `dir` that is not a test, dependencies left out. */
-function nonTestFiles(dir) {
-  let out = [];
+function nonTestFiles(dir: string): string[] {
+  let out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
@@ -36,8 +35,8 @@ function nonTestFiles(dir) {
 }
 
 /** Every line naming the game's world under `root`, as `<file>:<line>: <text>`. */
-function gameWordHits(root) {
-  const hits = [];
+function gameWordHits(root: string) {
+  const hits: string[] = [];
   for (const file of nonTestFiles(root)) {
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
       if (GAME_WORD.test(line.replace(HOME_ADDRESS, ''))) hits.push(`${relative(root, file)}:${index + 1}: ${line.trim()}`);
@@ -46,7 +45,7 @@ function gameWordHits(root) {
   return hits.sort();
 }
 
-function fixture(files) {
+function fixture(files: Record<string, string>) {
   const root = mkdtempSync(join(tmpdir(), 'omni-game-words-'));
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });

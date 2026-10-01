@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni heartbeat [--end]` — tells the Omni page this Claude session is working (PRD 757's spec, "The
 // heartbeat"). The plugin's `PostToolUse` hook runs it after every tool call, and its `SessionEnd`
 // hook runs it with `--end`. It reads the hook's JSON on stdin (`session_id`, `cwd`).
@@ -16,6 +15,10 @@
 // It runs before a context exists, like `ask`; a test also passes `stdin` (a string), `tokens` (the
 // token store), `fetch` and `now`.
 import { askClient } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import type { HookStdin } from '../../lib/ask/hook-input.ts';
+import type { JsonObject } from '../../lib/ask/schema.ts';
+import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { claimWindow, forgetWindow, HEARTBEAT_LIMIT_MS, readWork } from '../../lib/ask/heartbeat.ts';
@@ -26,13 +29,13 @@ import { mainCheckout } from '../../lib/dossier/local.ts';
 import { findRoot } from '../../lib/init/repo.ts';
 
 /** `fetch` held to one deadline shared by every request of the call, the renewal included. */
-function withDeadline(fetch, ms) {
+function withDeadline(fetch: Fetch, ms: number): Fetch {
   const deadline = AbortSignal.timeout(ms);
-  return (url, init = {}) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
+  return (url: string, init: RequestInit = {}) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
 }
 
 /** Where this checkout's heartbeats go, or `null` when dossiers are off or this computer is not signed in. */
-function targetOf(cwd, exec, tokens) {
+function targetOf(cwd: string, exec: Exec, tokens: TokenStore | undefined) {
   const root = findRoot(cwd, exec);
   const config = loadConfig(root);
   const toggle = dossierSwitch(config);
@@ -45,16 +48,27 @@ function targetOf(cwd, exec, tokens) {
 }
 
 /** Whether this run sends: `--end` always does, forgetting the session's window; a beat once a window. */
-function claimed(home, claudeSessionId, end, now) {
+function claimed(home: string, claudeSessionId: string, end: boolean, now: () => number): boolean {
   if (!end) return claimWindow(home, claudeSessionId, now());
   forgetWindow(home, claudeSessionId);
   return true;
 }
 
 /** The folder the session works in: the hook's `cwd`, else the command's. */
-const workDir = (input, cwd) => (typeof input.cwd === 'string' && input.cwd ? input.cwd : cwd);
+const workDir = (input: JsonObject, cwd: string): string => (typeof input.cwd === 'string' && input.cwd ? input.cwd : cwd);
 
-async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
+/** What a test hands the heartbeat beyond `main()`'s own. */
+type HeartbeatOptions = { stdin?: HookStdin; tokens?: TokenStore | undefined; fetch?: Fetch; now?: () => number };
+
+async function beat({
+  end,
+  cwd,
+  exec,
+  stdin,
+  tokens,
+  fetch,
+  now,
+}: { end: boolean; cwd: string; exec: Exec; stdin: HookStdin; tokens: TokenStore | undefined; fetch: Fetch; now: () => number }): Promise<void> {
   const input = await readInput(stdin);
   const claudeSessionId = input?.session_id;
   if (!isSafeId(claudeSessionId)) return;
@@ -62,14 +76,14 @@ async function beat({ end, cwd, exec, stdin, tokens, fetch, now }) {
   if (!target) return;
   const { root, config, repo, askUrl, host, store } = target;
   if (!claimed(mainCheckout(cwd, exec) ?? root, claudeSessionId, end, now)) return;
-  const work = end ? null : readWork({ cwd: workDir(input, cwd), config, claudeSessionId, exec });
+  const work = end || !input ? null : readWork({ cwd: workDir(input, cwd), config, claudeSessionId, exec });
   const client = askClient({ baseUrl: askUrl, host, tokens: store, fetch: withDeadline(fetch, HEARTBEAT_LIMIT_MS), callMs: HEARTBEAT_LIMIT_MS });
   await client.heartbeat({ claudeSessionId, repo, work, ended: end });
 }
 
 export const heartbeat = {
   withoutContext: true,
-  async run(args, { cwd, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, now = Date.now }) {
+  async run(args: string[], { cwd, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, now = Date.now }: FreeIo & HeartbeatOptions) {
     if (args.some((arg) => arg !== '--end')) return 0;
     try {
       await beat({ end: args.includes('--end'), cwd, exec, stdin, tokens, fetch, now });
@@ -78,4 +92,4 @@ export const heartbeat = {
     }
     return 0;
   },
-};
+} satisfies FreeCommand;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -12,7 +11,7 @@ const BUNDLE = 'kit/dist/omni.mjs';
 /** A kit checkout with its two manifests and its bundle, as the release reads them. */
 function fixtureRepo() {
   const root = mkdtempSync(join(tmpdir(), 'omni-release-'));
-  const write = (path, text) => {
+  const write = (path: string, text: string) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
   };
@@ -26,14 +25,17 @@ function fixtureRepo() {
  * A fake `exec`: every call is recorded as `cmd args…`; `answers` maps the start of a call to its
  * stdout, or to a function that returns it or throws. Unmatched calls print nothing.
  */
-function fakeExec(answers = {}) {
-  const calls = [];
-  const exec = (cmd, args) => {
+/** What a fake call answers: its stdout, or a function that returns it or throws. */
+type Answer = string | ((line: string, calls: string[]) => string);
+
+function fakeExec(answers: Record<string, Answer> = {}) {
+  const calls: string[] = [];
+  const exec = (cmd: string, args: string[]) => {
     const line = [cmd, ...args].join(' ');
     calls.push(line);
     const key = Object.keys(answers).find((start) => line.startsWith(start));
     const answer = key === undefined ? '' : answers[key];
-    return typeof answer === 'function' ? answer(line, calls) : answer;
+    return typeof answer === 'function' ? answer(line, calls) : (answer ?? '');
   };
   return { exec, calls };
 }
@@ -42,7 +44,7 @@ const rejected = () => {
   throw new Error('! [rejected] HEAD -> main (fetch first)');
 };
 
-function run(answers) {
+function run(answers: Record<string, Answer> = {}) {
   const root = fixtureRepo();
   const { exec, calls } = fakeExec({
     'git log -1 --format=%s': 'feat(kit): omni version (#351)\n',
@@ -50,7 +52,7 @@ function run(answers) {
     'node .omni-loop/bin/omni.mjs sign trailer': `${TRAILER}\n`,
     ...answers,
   });
-  const out = [];
+  const out: string[] = [];
   const code = release({ root, exec, log: (line) => out.push(line) });
   return { root, calls, out, code };
 }

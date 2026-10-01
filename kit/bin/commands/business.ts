@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni business show [--json]` — the business agents in this repository read (PRD 748's spec, "The
 // read"): the confirmed claims of its workspace's business, the region from the business and the rest
 // from the repository's product, read with the terminal's sign-in through `GET /api/business`.
@@ -43,97 +42,125 @@
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { jsonObject } from '../../lib/ask/schema.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
+
+/** One claim, as the contract carries it. */
+type Claim = { id: string; kind: string; value: string; source: string; state: string; receipt: string | null; lastSeen: string | null };
+
+/** One persona, as the contract carries it. */
+type Persona = { name: string; stance: string; trade: string; who: string; usage: string };
+
+/** The business the server read, as the contract's body. */
+type Business = { state: string; business: { name: string } | null; product: { name: string } | null; claims: Claim[]; personas: Persona[] };
+
+/** What a test hands `omni business` beyond `main()`'s own. */
+type BusinessOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
+
+/** What each verb is handed. */
+type BusinessIo = { cwd: string; stdout: Out; exec: Exec; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
+
+/** Where a verb stopped before it could call: the state and the one line. */
+type Unreached = { state: string; line: string; client?: undefined; repo?: undefined };
 
 const CLAIM_USAGE = 'usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>';
 const USAGE = `usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice('usage: '.length)}`;
 const CITED_USAGE = 'usage: omni business cited <id>… --by <skill> [--ref <text>]';
 /** The states an answered claim is stored in: an overrule's (proposed) or a gap question's (confirmed). */
-const ANSWER_STATES = ['proposed', 'confirmed'];
+const ANSWER_STATES: readonly string[] = ['proposed', 'confirmed'];
 /** Every state a stored claim may be in: a value already held keeps its own. */
-const STORED_STATES = ['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown'];
+const STORED_STATES: readonly unknown[] = ['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown'];
 const CARRY_ON = '— agents carry on';
 /** The kinds a person may answer as a claim. */
-const KINDS = ['region', 'offering', 'size', 'trade', 'rival'];
+const KINDS: readonly string[] = ['region', 'offering', 'size', 'trade', 'rival'];
 /** The kinds a read carries: the answerable ones and the product's Never lines (PRD 839). */
-const READ_KINDS = [...KINDS, 'never'];
-const SOURCES = ['pick', 'suggestion', 'evidence', 'answer'];
-const STATES = ['confirmed', 'contradicted'];
-const STANCES = ['excited', 'neutral', 'skeptical'];
+const READ_KINDS: readonly unknown[] = [...KINDS, 'never'];
+const SOURCES: readonly unknown[] = ['pick', 'suggestion', 'evidence', 'answer'];
+const STATES: readonly unknown[] = ['confirmed', 'contradicted'];
+const STANCES: readonly unknown[] = ['excited', 'neutral', 'skeptical'];
 const BLANK = '___';
 const CONTRADICTED = '  (contradicted: evidence disagrees, nobody answered yet)';
 
-const isText = (value) => typeof value === 'string' && value.length > 0;
-const named = (value) => (value && isText(value.name) ? { name: value.name } : null);
+const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+const named = (value: unknown): { name: string } | null => {
+  const name = jsonObject(value)?.name;
+  return isText(name) ? { name } : null;
+};
 
 /** One claim as the contract carries it, its fields in the contract's order, or null when it is not one. */
-function claimOf(value) {
+function claimOf(raw: unknown): Claim | null {
+  const value = jsonObject(raw);
   if (!value || !isText(value.id) || !READ_KINDS.includes(value.kind) || !isText(value.value) || !SOURCES.includes(value.source)) return null;
-  if (!value.id.startsWith(`${value.kind}#`)) return null;
+  const kind = String(value.kind);
+  if (!value.id.startsWith(`${kind}#`)) return null;
   const state = value.state ?? 'confirmed';
   if (!STATES.includes(state)) return null;
-  const orNull = (field) => (isText(field) ? field : null);
+  const orNull = (field: unknown): string | null => (isText(field) ? field : null);
   return {
-    id: value.id, kind: value.kind, value: value.value, source: value.source, state,
+    id: value.id, kind, value: value.value, source: String(value.source), state: String(state),
     receipt: orNull(value.receipt), lastSeen: orNull(value.lastSeen),
   };
 }
 
 /** One persona as the contract carries it, its fields in the contract's order, or null when it is not one. */
-function personaOf(value) {
+function personaOf(raw: unknown): Persona | null {
+  const value = jsonObject(raw);
   if (!value || !isText(value.name) || !STANCES.includes(value.stance) || !isText(value.trade)) return null;
   if (typeof value.who !== 'string' || typeof value.usage !== 'string') return null;
-  return { name: value.name, stance: value.stance, trade: value.trade, who: value.who, usage: value.usage };
+  return { name: value.name, stance: String(value.stance), trade: value.trade, who: value.who, usage: value.usage };
 }
 
 /** The reply's claims, or null when one is not a claim or they disagree with its state. */
-function claimsOf(reply) {
+function claimsOf(reply: { state: unknown; claims: unknown[] }): Claim[] | null {
   const claims = reply.claims.map(claimOf);
-  if (claims.includes(null)) return null;
+  if (!claims.every((one) => one !== null)) return null;
   return (reply.state === 'ok') === (claims.length > 0) ? claims : null;
 }
 
 /** The reply's personas (`[]` when it sends none), or null when one is not a persona. */
-function personasOf(value) {
+function personasOf(value: unknown): Persona[] | null {
   if (value !== undefined && !Array.isArray(value)) return null;
-  const personas = (value ?? []).map(personaOf);
-  return personas.includes(null) ? null : personas;
+  const personas = ((value ?? []) as unknown[]).map(personaOf); // ts-allow: an array, or undefined read as none
+  return personas.every((one) => one !== null) ? personas : null;
 }
 
 /** The server's reply as the contract's body, or null when it does not read as one. */
-function businessOf(reply) {
-  if (!reply || !['ok', 'none'].includes(reply.state) || !Array.isArray(reply.claims)) return null;
-  const claims = claimsOf(reply);
+function businessOf(raw: unknown): Business | null {
+  const reply = jsonObject(raw);
+  if (!reply || !['ok', 'none'].includes(String(reply.state)) || typeof reply.state !== 'string' || !Array.isArray(reply.claims)) return null;
+  const claims = claimsOf({ state: reply.state, claims: reply.claims });
   const personas = claims && personasOf(reply.personas);
-  if (!personas) return null;
+  if (!claims || !personas) return null;
   return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
 }
 
 /** One printed line per persona, its label padded to the claims' ids. */
-const personaLines = (personas, width) => personas.map((p) =>
+const personaLines = (personas: readonly Persona[], width: number): string[] => personas.map((p) =>
   `  ${'persona'.padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || '—'} — uses: ${p.usage || '—'}`);
 
 /** `a`, `a and b`, `a, b and c`. */
-const joined = (values) => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
+const joined = (values: readonly string[]): string => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
 
 /** The sentence the confirmed claims make, its blanks left where a kind has none (the Settings page's own). */
-function sentence(claims) {
-  const of = (kind) => claims.filter((claim) => claim.kind === kind && claim.state === 'confirmed').map((claim) => claim.value);
-  const blankOr = (values) => joined(values) || BLANK;
+function sentence(claims: readonly Claim[]): string {
+  const of = (kind: string) => claims.filter((claim) => claim.kind === kind && claim.state === 'confirmed').map((claim) => claim.value);
+  const blankOr = (values: readonly string[]) => joined(values) || BLANK;
   const size = of('size')[0];
   const who = size ? `${size.replace('-', '–')}-person` : `${BLANK}-person`;
   return `We sell ${blankOr(of('offering'))} to ${who} ${blankOr(of('trade'))} in ${blankOr(of('region'))}, up against ${blankOr(of('rival'))}.`;
 }
 
 /** The body `--json` prints when there is nothing to read. */
-const empty = (state, read = null) =>
+const empty = (state: string, read: Business | null = null) =>
   ({ state, business: read?.business ?? null, product: read?.product ?? null, claims: [], personas: read?.personas ?? [] });
 
 /** Where the read stopped, as the one line and the `--json` body. */
-function stopped(error) {
+function stopped(error: unknown): { state: string; line: string } {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return { state: 'unreachable', line: `the Omni page could not be reached ${CARRY_ON}` };
   if (error.status === 401) return { state: 'no-sign-in', line: `the sign-in was refused (omni signin) ${CARRY_ON}` };
@@ -141,7 +168,7 @@ function stopped(error) {
   return { state: 'refused', line: `refused (${error.status})${why} ${CARRY_ON}` };
 }
 
-function print({ json, stdout }, body, lines) {
+function print({ json, stdout }: { json: boolean; stdout: Out }, body: unknown, lines: readonly string[]): number {
   if (json) println(stdout, JSON.stringify(body));
   else for (const line of lines) println(stdout, line);
   return 0;
@@ -151,7 +178,7 @@ function print({ json, stdout }, body, lines) {
  * This repository's slug and a client signed in to its Omni page, or `{ state, line }` when there is
  * none to call: no Omni page set here, or no sign-in for it.
  */
-function reach({ cwd, exec, tokens, home, fetch, callMs }) {
+function reach({ cwd, exec, tokens, home, fetch, callMs }: BusinessIo): Unreached | { repo: string; client: ReturnType<typeof askClient> } {
   const ctx = loadContext(cwd, { exec });
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError('omni business: no repository slug — set repo.slug in the config.');
@@ -168,15 +195,15 @@ function reach({ cwd, exec, tokens, home, fetch, callMs }) {
  * business's log. The ids are the server's to judge, so a skill line naming a wrong one never stops a
  * run: every failed call prints one "citation skipped" line and exits 0.
  */
-async function cited(ids, flags, env) {
+async function cited(ids: string[], flags: { by?: string; ref?: string }, env: BusinessIo): Promise<number> {
   if (ids.length === 0 || typeof flags.by !== 'string' || !flags.by.trim()) throw usageError(CITED_USAGE);
   const ref = typeof flags.ref === 'string' && flags.ref.trim() ? flags.ref : null;
-  const skip = (line) => {
+  const skip = (line: string) => {
     println(env.stdout, `citation skipped: ${line}`);
     return 0;
   };
   const reached = reach(env);
-  if (!reached.client) return skip(reached.line);
+  if (reached.client === undefined) return skip(reached.line);
   try {
     await reached.client.citeClaims({ repo: reached.repo, ids, by: flags.by, ref });
   } catch (error) {
@@ -187,33 +214,40 @@ async function cited(ids, flags, env) {
 }
 
 /** The claim `claim add` was given, or a `UsageError` saying what is missing or wrong. */
-function answerOf(positional, flags) {
-  const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
-  const fields = { kind: text(flags.kind), value: text(flags.value), state: text(flags.state), ref: text(flags.ref) };
-  if (positional.length !== 1 || positional[0] !== 'add' || Object.values(fields).includes(null)) throw usageError(CLAIM_USAGE);
-  if (!KINDS.includes(fields.kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS.join(', ')}.`);
-  if (!ANSWER_STATES.includes(fields.state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(' or ')}.`);
-  return fields;
+function answerOf(
+  positional: string[],
+  flags: { kind?: string; value?: string; state?: string; ref?: string },
+): { kind: string; value: string; state: string; ref: string } {
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  const [kind, value, state, ref] = [text(flags.kind), text(flags.value), text(flags.state), text(flags.ref)];
+  if (positional.length !== 1 || positional[0] !== 'add' || kind === null || value === null || state === null || ref === null) throw usageError(CLAIM_USAGE);
+  if (!KINDS.includes(kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS.join(', ')}.`);
+  if (!ANSWER_STATES.includes(state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(' or ')}.`);
+  return { kind, value, state, ref };
 }
 
 /** The server's reply to a stored claim, or null when it does not read as one. */
-const storedOf = (reply) =>
-  (reply && isText(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === 'boolean' ? reply : null);
+const storedOf = (raw: unknown): { id: string; state: string; added: boolean } | null => {
+  const reply = jsonObject(raw);
+  return reply && isText(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === 'boolean'
+    ? { id: reply.id, state: String(reply.state), added: reply.added }
+    : null;
+};
 
 /**
  * `omni business claim add …`: stores a claim a person answered. The kind, value and state are the
  * server's to judge in the end, so a refusal never stops a run: every failed call prints one
  * "claim skipped" line and exits 0.
  */
-async function claim(positional, flags, env) {
+async function claim(positional: string[], flags: { kind?: string; value?: string; state?: string; ref?: string }, env: BusinessIo): Promise<number> {
   const answer = answerOf(positional, flags);
-  const skip = (line) => {
+  const skip = (line: string) => {
     println(env.stdout, `claim skipped: ${line}`);
     return 0;
   };
   const reached = reach(env);
-  if (!reached.client) return skip(reached.line);
-  let reply;
+  if (reached.client === undefined) return skip(reached.line);
+  let reply: unknown;
   try {
     reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
   } catch (error) {
@@ -226,7 +260,7 @@ async function claim(positional, flags, env) {
 }
 
 /** What `show` prints of a business it read: the `--json` body and the lines. */
-function shown(repo, read) {
+function shown(repo: string, read: Business): [unknown, string[]] {
   if (read.state === 'none') {
     const line = read.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
     return [empty('none', read), [line, ...personaLines(read.personas, 'persona'.length)]];
@@ -240,15 +274,15 @@ function shown(repo, read) {
 }
 
 /** `omni business show [--json]`: reads the business and prints it, or the one line saying why not. */
-async function show(args, env) {
+async function show(args: string[], env: BusinessIo): Promise<number> {
   const { positional, flags } = parseArgs('business', args, { booleans: ['json'] });
   if (positional.length !== 1 || positional[0] !== 'show') throw usageError(USAGE);
   const out = { json: flags.json === true, stdout: env.stdout };
 
   const reached = reach(env);
-  if (!reached.client) return print(out, empty(reached.state), [reached.line]);
+  if (reached.client === undefined) return print(out, empty(reached.state), [reached.line]);
   const { repo, client } = reached;
-  let reply;
+  let reply: unknown;
   try {
     reply = await client.readBusiness(repo);
   } catch (error) {
@@ -262,8 +296,8 @@ async function show(args, env) {
 
 export const business = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
-    const env = { cwd, stdout, exec, tokens, home, fetch, callMs };
+  async run(args: string[], { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & BusinessOptions) {
+    const env: BusinessIo = { cwd, stdout, exec, tokens, home, fetch, callMs };
     if (args[0] === 'cited') {
       const { positional, flags } = parseArgs('business', args.slice(1), { values: ['by', 'ref'] });
       return cited(positional, flags, env);
@@ -274,4 +308,4 @@ export const business = {
     }
     return show(args, env);
   },
-};
+} satisfies FreeCommand;

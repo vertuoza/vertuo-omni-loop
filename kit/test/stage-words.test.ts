@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 587: the seven stages of the loop are the same words everywhere. Each side keeps its list in one
 // place — `STAGES` in galaxy's stage module, and `STAGE_ORDER` in the kit's `kit/lib/status/format.ts`,
 // which `omni status`, `omni help` and the skills' hand-offs are held to — and this test holds the two
@@ -13,10 +12,10 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const GALAXY_STAGE = 'apps/galaxy/src/stages/stage.ts';
 
 /** The ids of the `export const STAGES` array literal in `source`, or null when it holds none. */
-function galaxyStages(source) {
+function galaxyStages(source: string) {
   const found = source.match(/export const STAGES\b[^=]*=\s*\[([^\]]*)\]/);
   if (!found) return null;
-  return [...found[1].matchAll(/'([^']*)'|"([^"]*)"/g)].map((quoted) => quoted[1] ?? quoted[2]);
+  return [...(found[1] ?? '').matchAll(/'([^']*)'|"([^"]*)"/g)].map((quoted) => quoted[1] ?? quoted[2]);
 }
 
 describe("the kit's stage words and galaxy's (PRD 587)", () => {

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 // Cuts the kit's next release (PRD #347), from a checkout of `main` with its whole history and
 // tags. The `release` workflow (`.github/workflows/release.yml`) runs it after every push to `main`,
 // and does nothing else. It:
@@ -21,7 +20,18 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { z } from 'zod';
 import { isReleaseSubject, nextVersion } from './next-version.ts';
+
+/** A manifest the release stamps (`package.json`, the plugin's `plugin.json`): a JSON object. */
+const ManifestSchema = z.record(z.string(), z.unknown());
+type Manifest = z.infer<typeof ManifestSchema>;
+
+/** How the release runs a command: it returns the command's stdout. */
+type Exec = (cmd: string, args: string[]) => string;
+
+/** Where the release prints. */
+type Log = (line: string) => void;
 
 const REMOTE = 'origin';
 const BRANCH = 'main';
@@ -30,9 +40,9 @@ const PLUGIN = 'kit/plugin/.claude-plugin/plugin.json';
 const BUNDLE = 'kit/dist/omni.mjs';
 
 /** `package.json` with `version` set, placed right after `name` when it is new. */
-function withVersion(manifest, version) {
+function withVersion(manifest: Manifest, version: string): Manifest {
   if ('version' in manifest) return { ...manifest, version };
-  const out = {};
+  const out: Manifest = {};
   let placed = false;
   for (const [key, value] of Object.entries(manifest)) {
     out[key] = value;
@@ -44,19 +54,19 @@ function withVersion(manifest, version) {
   return placed ? out : { version, ...manifest };
 }
 
-function stamp(root, path, version) {
+function stamp(root: string, path: string, version: string): void {
   const file = join(root, path);
-  const manifest = JSON.parse(readFileSync(file, 'utf8'));
+  const manifest = ManifestSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
   writeFileSync(file, `${JSON.stringify(withVersion(manifest, version), null, 2)}\n`);
 }
 
 /** Runs one command, and says whether it succeeded, instead of throwing. */
-function attempt(exec, cmd, args, log) {
+function attempt(exec: Exec, cmd: string, args: string[], log: Log): boolean {
   try {
     exec(cmd, args);
     return true;
   } catch (error) {
-    log(`${cmd} ${args.join(' ')} failed: ${String(error.message).trim()}`);
+    log(`${cmd} ${args.join(' ')} failed: ${String((error as { message?: unknown } | null)?.message).trim()}`); // ts-allow: whatever was thrown, its message
     return false;
   }
 }
@@ -64,11 +74,8 @@ function attempt(exec, cmd, args, log) {
 /**
  * Cuts one release. Returns the exit code: 0 when a release was published or none was due, 1 when
  * it failed.
- *
- * @param {{ root: string, exec: (cmd: string, args: string[]) => string, log?: (line: string) => void }} options
- * @returns {number}
  */
-export function release({ root, exec, log = console.log }) {
+export function release({ root, exec, log = console.log }: { root: string; exec: Exec; log?: Log }): number {
   const subject = exec('git', ['log', '-1', '--format=%s']).trim();
   if (isReleaseSubject(subject)) {
     log(`The head commit is a release commit (${subject}): nothing to release.`);
@@ -115,12 +122,13 @@ export function release({ root, exec, log = console.log }) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const root = fileURLToPath(new URL('../..', import.meta.url));
-  const exec = (cmd, args) =>
+  const exec: Exec = (cmd, args) =>
     execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   try {
     process.exitCode = release({ root, exec });
   } catch (error) {
-    console.error(String(error.stderr || error.message).trim());
+    const failure = error as { stderr?: unknown; message?: unknown } | null; // ts-allow: whatever was thrown, its stderr or its message
+    console.error(String(failure?.stderr || failure?.message).trim());
     process.exitCode = 1;
   }
 }

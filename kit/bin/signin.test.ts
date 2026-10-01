@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni signin`, `omni signout` and `omni whoami`, seen from the outside: the browser is faked by a
 // plain HTTP GET on the loopback callback, the sign-in server by the fake contract server, and the
 // home folder by a temporary one — the real `~/.config/omni/` is never touched.
@@ -10,16 +9,17 @@ import { homeTokens } from '../lib/ask/client-tokens.ts';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 const FILE = ['.config', 'omni', 'credentials.json'];
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, text: () => out.join(''), errors: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, text: () => out.join(''), errors: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function freshHome(entries) {
+function freshHome(entries?: Record<string, Record<string, unknown>>) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-home-'));
   if (entries) {
     mkdirSync(join(dir, '.config', 'omni'), { recursive: true });
@@ -28,24 +28,24 @@ function freshHome(entries) {
   return dir;
 }
 
-const credentialsOf = (home) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8'));
-const repoWith = (url) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
+const credentialsOf = (home: string) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8'));
+const repoWith = (url: string | null) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
 
 /**
  * A browser that does what the sign-in page does once the person has signed in: it comes back to the
  * loopback with the state it was given and a code — or with whatever `callbacks` says instead.
  */
-function fakeBrowser({ code = 'code-1', callbacks } = {}) {
-  const opened = [];
-  const visits = [];
-  const open = (url) => {
+function fakeBrowser({ code = 'code-1', callbacks }: { code?: string; callbacks?: (state: string | null) => string[] } = {}) {
+  const opened: string[] = [];
+  const visits: Promise<{ status: number; body: string }[]>[] = [];
+  const open = (url: string) => {
     opened.push(url);
     const page = new URL(url);
     const port = page.searchParams.get('port');
     const state = page.searchParams.get('state');
-    const queries = callbacks ? callbacks(state) : [`state=${encodeURIComponent(state)}&code=${code}`];
+    const queries = callbacks ? callbacks(state) : [`state=${encodeURIComponent(String(state))}&code=${code}`];
     const visit = (async () => {
-      const results = [];
+      const results: { status: number; body: string }[] = [];
       for (const query of queries) {
         const response = await fetch(`http://127.0.0.1:${port}/callback?${query}`);
         results.push({ status: response.status, body: await response.text() });
@@ -57,10 +57,10 @@ function fakeBrowser({ code = 'code-1', callbacks } = {}) {
   return { open, opened, visits };
 }
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 describe('omni signin', () => {
@@ -76,7 +76,7 @@ describe('omni signin', () => {
     expect(std.errors()).toBe('');
     expect(code).toBe(0);
     expect(browser.opened).toHaveLength(1);
-    const page = new URL(browser.opened[0]);
+    const page = new URL(String(browser.opened[0]));
     expect(`${page.origin}${page.pathname}`).toBe(`${server.url}/ask/signin`);
     expect(Number(page.searchParams.get('port'))).toBeGreaterThan(0);
     expect(page.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{32,}$/);
@@ -84,7 +84,7 @@ describe('omni signin', () => {
     expect(std.text().trim().split('\n').at(-1)).toBe('signed in as ada@example.com');
 
     const [visit] = await Promise.all(browser.visits);
-    expect(visit[0]).toMatchObject({ status: 200 });
+    expect(visit![0]).toMatchObject({ status: 200 });
     expect(server.calls.at(-1)).toMatchObject({ method: 'POST', path: '/api/ask/token', body: { code: 'code-1' } });
     expect(statSync(join(home, ...FILE)).mode & 0o777).toBe(0o600);
     const kept = credentialsOf(home);
@@ -96,7 +96,7 @@ describe('omni signin', () => {
 
   describe('names where the checkout\'s repository goes, and exits 0 on each (PRD 459)', () => {
     const INSTALL = 'https://github.com/apps/omni-loop/installations/new';
-    const cases = [
+    const cases: [Record<string, unknown>, string][] = [
       [{ workspace: { slug: 'acme', name: 'Acme' } }, 'signed in as ned — acme/api goes to Acme'],
       [{ workspace: null, reason: `no workspace owns acme/api yet — install the Omni App: ${INSTALL}` }, `signed in as ned — no workspace owns acme/api yet — install the Omni App: ${INSTALL}`],
       [{ workspace: null, reason: 'you are not a member of Globex, which owns acme/api' }, 'signed in as ned — you are not a member of Globex, which owns acme/api'],
@@ -106,11 +106,11 @@ describe('omni signin', () => {
         // The fake page, with the token reply the real one gives: the login, where the repository
         // goes, and no email (a GitHub account that keeps it private).
         server = await startFakeAskServer({ codes: ['code-1'] });
-        const sent = [];
-        const fetch = async (url, init) => {
+        const sent: unknown[] = [];
+        const fetch = async (url: string, init: RequestInit) => {
           const response = await globalThis.fetch(url, init);
           if (!String(url).endsWith('/api/ask/token')) return response;
-          sent.push(JSON.parse(init.body));
+          sent.push(JSON.parse(String(init.body)));
           const { email: _hidden, ...tokens } = await response.json();
           return Response.json({ ...tokens, login: 'ned', ...where }, { status: response.status });
         };
@@ -136,8 +136,8 @@ describe('omni signin', () => {
     const second = fakeBrowser({ code: 'code-2' });
     expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: first.open })).toBe(0);
     expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: second.open })).toBe(0);
-    const stateOf = (url) => new URL(url).searchParams.get('state');
-    expect(stateOf(first.opened[0])).not.toBe(stateOf(second.opened[0]));
+    const stateOf = (url: string) => new URL(url).searchParams.get('state');
+    expect(stateOf(String(first.opened[0]))).not.toBe(stateOf(String(second.opened[0])));
   });
 
   it('refuses a callback with another state, writes nothing for it, and takes the right one', async () => {
@@ -149,7 +149,7 @@ describe('omni signin', () => {
     expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: browser.open })).toBe(0);
 
     const [visit] = await Promise.all(browser.visits);
-    expect(visit.map((v) => v.status)).toEqual([400, 200]);
+    expect(visit!.map((v: { status: number }) => v.status)).toEqual([400, 200]);
     expect(server.calls.filter((c) => c.path === '/api/ask/token').map((c) => c.body)).toEqual([{ code: 'code-1' }]);
   });
 
@@ -185,7 +185,7 @@ describe('omni signin', () => {
     const home = freshHome();
     const browser = fakeBrowser();
     const std = io();
-    const failing = (url) => {
+    const failing = (url: string) => {
       browser.open(url);
       throw new Error('no browser here');
     };

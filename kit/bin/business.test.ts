@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni business show [--json]` (PRD 748), seen from the outside: through `main()` on a fixture
 // repository, against the fake contract server, with the sign-in an in-memory token store. Every
 // reading outcome exits 0 with one "— agents carry on" line; only a usage error exits 2.
@@ -6,21 +5,24 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
+import type { Json } from '../test/fake-ask-server.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
-const config = (url) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
+const config = (url: string | null) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;
 
-const claim = (id, value, source = 'pick', state = 'confirmed') =>
+const claim = (id: string, value: string, source = 'pick', state = 'confirmed') =>
   ({ id, kind: id.split('#')[0], value, source, state, receipt: null, lastSeen: null });
 
 const FILLED = {
@@ -38,27 +40,33 @@ const FILLED = {
   personas: [],
 };
 
-const persona = (name, stance, trade, who, usage) => ({ name, stance, trade, who, usage });
+const persona = (name: string, stance: string, trade: string, who: string, usage: string) => ({ name, stance, trade, who, usage });
 const CAST = [
   persona('Marc', 'skeptical', 'plumber', 'Runs a company of five plumbers', 'Mostly the quotes'),
   persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
 ];
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 /** A checkout of acme/widgets pointed at the fake server, signed in to it unless `signedIn` is false. */
-async function checkout({ business, signedIn = true, url } = {}) {
+/** What a fake server answers a handled call with: its status (200 when not given) and its body. */
+type Answered = { status?: number; body: unknown };
+
+/** What a checkout of the fake server takes: the handler, the sign-in, and the config's ask.url. */
+type Checkout<K extends string> = { [key in K]?: (input: Json) => Answered } & { signedIn?: boolean; url?: string | null };
+
+async function checkout({ business, signedIn = true, url }: Checkout<'business'> = {}) {
   server = await startFakeAskServer({ business });
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
   const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
   return { root, tokens };
 }
 
-async function show(args, { root, tokens, ...more }) {
+async function show(args: string[], { root, tokens, ...more }: { root: string; tokens: unknown; [option: string]: unknown }) {
   const s = io();
   const code = await main(['business', ...args], { cwd: root, ...s, tokens, env: {}, ...more });
   return { code, out: s.out(), err: s.err() };
@@ -88,8 +96,8 @@ describe('omni business show', () => {
   });
 
   it('asks for this repository by its slug', async () => {
-    const asked = [];
-    const c = await checkout({ business: (repo) => { asked.push(repo); return { body: FILLED }; } });
+    const asked: unknown[] = [];
+    const c = await checkout({ business: (repo: string) => { asked.push(repo); return { body: FILLED }; } });
     await show(['show'], c);
     expect(asked).toEqual(['acme/widgets']);
   });
@@ -303,7 +311,7 @@ describe('omni business: usage errors exit 2', () => {
 
 describe('omni business cited', () => {
   /** A checkout whose fake server logs citations with `cite`, or answers 404 without it. */
-  async function citing({ cite, signedIn = true, url } = {}) {
+  async function citing({ cite, signedIn = true, url }: Checkout<'cite'> = {}) {
     server = await startFakeAskServer({ cite });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
     const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
@@ -311,8 +319,8 @@ describe('omni business cited', () => {
   }
 
   it('appends one citation through POST /api/business/citations, and says so', async () => {
-    const sent = [];
-    const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const sent: unknown[] = [];
+    const c = await citing({ cite: (body: Json) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited rival#4 (think-big, concept #9)\n' });
     expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['rival#4'], by: 'think-big', ref: 'concept #9' }]);
@@ -322,8 +330,8 @@ describe('omni business cited', () => {
   });
 
   it('cites several ids in one call, and --ref may be left out', async () => {
-    const sent = [];
-    const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
+    const sent: unknown[] = [];
+    const c = await citing({ cite: (body: Json) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'region#1', 'rival#4', '--by', 'think-big'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited region#1, rival#4 (think-big)\n' });
     expect(sent).toEqual([{ repo: 'acme/widgets', ids: ['region#1', 'rival#4'], by: 'think-big', ref: null }]);
@@ -392,21 +400,21 @@ describe('omni business cited', () => {
 
 describe('omni business claim add (PRD 822)', () => {
   /** A checkout whose fake server stores claims with `claim`, or answers 404 without it. */
-  async function claiming({ claim: store, signedIn = true, url } = {}) {
+  async function claiming({ claim: store, signedIn = true, url }: Checkout<'claim'> = {}) {
     server = await startFakeAskServer({ claim: store });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url === undefined ? server.url : url) } });
     const tokens = memoryTokens(signedIn ? { [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } } : {});
     return { root, tokens };
   }
   const ADD = ['claim', 'add', '--kind', 'size', '--value', '20-50', '--ref', 'brainstorm · PRD 822'];
-  const stored = (sent) => (body) => {
+  const stored = (sent: unknown[]) => (body: Json) => {
     sent.push(body);
     return { body: { id: 'size#12', state: body.state, added: true } };
   };
 
   for (const state of ['proposed', 'confirmed']) {
     it(`stores a ${state} claim through POST /api/business/claims, and says so`, async () => {
-      const sent = [];
+      const sent: never[] = [];
       const c = await claiming({ claim: stored(sent) });
       const run = await show([...ADD, '--state', state], c);
       expect(run).toEqual({ code: 0, err: '', out: `claim saved: size#12 (${state})\n` });
@@ -483,7 +491,7 @@ describe('omni business claim add (PRD 822)', () => {
     });
   }
 
-  const flags = (without, extra = []) => {
+  const flags = (without: string | null, extra: string[] = []) => {
     const all = { '--kind': 'size', '--value': '20-50', '--state': 'proposed', '--ref': 'brainstorm · PRD 822' };
     return ['claim', 'add', ...Object.entries(all).filter(([flag]) => flag !== without).flat(), ...extra];
   };

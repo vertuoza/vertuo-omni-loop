@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #45, acceptance criterion 6: the committed `kit/dist/omni.mjs`, copied alone into a fixture
 // repository with no `node_modules` and no kit beside it, prints the kit defaults — the very text
 // `omni kb show` prints from the kit's source — and lays down the same blank forms.
@@ -27,14 +26,14 @@ function repoWithBundle() {
 }
 
 /** `omni <argv>` run by the bundle, with plain node. */
-function bundled(root, argv) {
+function bundled(root: string, argv: string[]) {
   const run = spawnSync(process.execPath, [BIN, ...argv], { cwd: root, encoding: 'utf8' });
   return { code: run.status, out: run.stdout, err: run.stderr };
 }
 
 /** `omni <argv>` run from the kit's source. */
-async function fromSource(root, argv) {
-  const out = [];
+async function fromSource(root: string, argv: readonly string[]) {
+  const out: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } });
   return { code, out: out.join('') };
 }
@@ -60,7 +59,7 @@ describe('the committed bundle, alone in a fixture repository (acceptance criter
     const wrote = bundled(bundle.root, ['kb', 'init']);
     expect(wrote.code).toBe(0);
     expect(wrote.out).toBe((await fromSource(source.root, ['kb', 'init'])).out);
-    for (const path of wrote.out.match(/^wrote (.+)$/gm).map((line) => line.slice('wrote '.length))) {
+    for (const path of (wrote.out.match(/^wrote (.+)$/gm) ?? []).map((line) => line.slice('wrote '.length))) {
       expect(readFileSync(join(bundle.root, path), 'utf8'), path).toBe(source.read(path));
     }
     const checked = bundled(bundle.root, ['check', 'kb']);

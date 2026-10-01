@@ -1,13 +1,13 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import type { Repo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -18,7 +18,7 @@ const CLAUDE = 'Co-Authored-By: Claude <noreply@anthropic.com>';
 
 /** Commits everything, signed as a skill signs it (the session's trailer, then Omni-man's) unless
  * `signed` is false. Returns the commit's short sha. */
-function commit(root, message, { signed = true } = {}) {
+function commit(root: string, message: string, { signed = true } = {}) {
   const text = signed ? `${message}\n\n${CLAUDE}\n${TRAILER}\n` : message;
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', text], { cwd: root, stdio: 'ignore' });
@@ -35,7 +35,7 @@ function setup(configText = CONFIG_TEXT) {
 }
 
 /** The three files a phase-0 pull request carries for PRD 7. */
-function writeDocs(write) {
+function writeDocs(write: Repo['write']) {
   write(`${DIR}/spec.md`, '# spec\n');
   write(`${DIR}/plan.md`, '# plan\n');
   write(`${DIR}/before-after.html`, '<html></html>\n');

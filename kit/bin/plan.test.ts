@@ -1,19 +1,22 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { Io } from '../test/fixture.ts';
+import type { Files } from '../test/fixture.ts';
 
 function io() {
-  const out = [];
-  const err = [];
-  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
-function planMd(rows) {
+function planMd(rows: string[]) {
   return [
     '# A plan',
     '',
@@ -141,16 +144,20 @@ const SLICES_OK = [
   '| s3 | vertuo-apps | the empty quote says why | `src/` | — | 1 |',
 ];
 
-function multiPlan({ repos = REPOS_OK, slices = SLICES_OK, header = '| id | repo | slice | territory | blocked by | wave |' } = {}) {
+function multiPlan({
+  repos = REPOS_OK,
+  slices = SLICES_OK,
+  header = '| id | repo | slice | territory | blocked by | wave |',
+}: { repos?: readonly (string | undefined)[] | null; slices?: readonly string[]; header?: string } = {}) {
   const lines = ['# A plan', ''];
   if (repos !== null) {
-    lines.push('## Repositories', '', '| repo | role | read at | knowledge |', '| --- | --- | --- | --- |', ...repos, '');
+    lines.push('## Repositories', '', '| repo | role | read at | knowledge |', '| --- | --- | --- | --- |', ...(repos as string[]), '');
   }
   lines.push('## Slices', '', header, `|${' --- |'.repeat(header.split('|').length - 2)}`, ...slices, '');
   return lines.join('\n');
 }
 
-async function check(config, plan) {
+async function check(config: Files, plan: string) {
   const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
   const s = io();
   const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
@@ -289,7 +296,7 @@ describe('omni plan check — outside a plan repository (PRD 549)', () => {
 });
 
 describe('omni plan check — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
 
   it('an unknown plan subcommand', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
@@ -348,19 +355,19 @@ describe('omni plan moved (PRD 563)', () => {
   const MOVED_REPOS = [...REPOS_OK, '| vertuo-automation-plan | plan | — | own |'];
 
   /** A fake `execFileSync` answering `gh api` from `world`: `{ slug: { compare } }`, a missing slug a 404. */
-  function fakeGh(world) {
-    const calls = [];
-    const exec = (file, args, options) => {
-      if (file === 'git') return execFileSync(file, args, options);
+  function fakeGh(world: Record<string, Record<string, unknown>>) {
+    const calls: string[] = [];
+    const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+      if (file === 'git') return realExec(file, args, options);
       if (file !== 'gh') throw new Error(`unexpected ${file}`);
       calls.push(args.join(' '));
-      const endpoint = args[args.length - 1];
-      const [, owner, name, kind, range] = endpoint.split('?')[0].split('/');
+      const endpoint = String(args[args.length - 1]);
+      const [, owner, name, kind, range] = String(endpoint.split('?')[0]).split('/');
       const repo = world[`${owner}/${name}`];
       if (!repo) throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });
       if (kind === undefined) return JSON.stringify({ default_branch: 'main' });
       if (kind === 'compare') {
-        expect(decodeURIComponent(range)).toMatch(/^[0-9a-f]{40}\.\.\.main$/);
+        expect(decodeURIComponent(String(range))).toMatch(/^[0-9a-f]{40}\.\.\.main$/);
         if (repo.compare === null) throw Object.assign(new Error('gh failed'), { stderr: 'gh: No common ancestor (HTTP 404)\n' });
         return JSON.stringify(repo.compare);
       }
@@ -382,7 +389,7 @@ describe('omni plan moved (PRD 563)', () => {
     },
   };
 
-  async function moved(args, { config = planRepoConfig(), plan = multiPlan({ repos: MOVED_REPOS, slices: MOVED_SLICES }), world }) {
+  async function moved(args: string[], { config = planRepoConfig(), plan = multiPlan({ repos: MOVED_REPOS, slices: MOVED_SLICES }), world }: { config?: Files; plan?: string; world: Record<string, Record<string, unknown>> }) {
     const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
     const { exec, calls } = fakeGh(world);
     const s = io();

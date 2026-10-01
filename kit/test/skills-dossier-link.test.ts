@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 413, Decision 8: every skill that reports on a PRD prints its page, from `omni dossier link <n>`,
 // beside the PRD's number, or its issue when it has no page. This text check fails as soon as one
 // of those skills stops naming the command or the fallback.
@@ -8,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const SKILLS = ['plan', 'wave', 'yolo', 'yolo-fix', 'status', 'brainstorm'];
 
 /** A skill's SKILL.md, as text. */
-const skillText = (name) => readFileSync(new URL(`../plugin/skills/${name}/SKILL.md`, import.meta.url), 'utf8');
+const skillText = (name: string) => readFileSync(new URL(`../plugin/skills/${name}/SKILL.md`, import.meta.url), 'utf8');
 
 // The command, run as a Bash step (`omni.mjs dossier link <n>`) or named in prose (`omni dossier link <n>`).
 const RUNS_LINK = /omni(?:\.mjs)?\s+dossier\s+link\s+<n>/;
@@ -16,7 +15,7 @@ const RUNS_LINK = /omni(?:\.mjs)?\s+dossier\s+link\s+<n>/;
 const FALLS_BACK = /issues\/<n>/;
 
 /** What `text` lacks of the rule: `[]` when it runs the command and names the fallback. */
-function linkRuleGaps(text) {
+function linkRuleGaps(text: string) {
   const gaps = [];
   if (!RUNS_LINK.test(text)) gaps.push('does not run omni dossier link <n>');
   if (!FALLS_BACK.test(text)) gaps.push('gives no issue link when there is no page');

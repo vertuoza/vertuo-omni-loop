@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #99, slice s1: `omni sign trailer | footer`, through `main()` on a fixture repository (AC 3).
 // PRD #215: the footer links home (slice s1), and the hero is Omni-man (slice s2).
 import { describe, expect, it } from 'vitest';
@@ -8,10 +7,10 @@ import { main } from './omni.ts';
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 
 /** Runs `omni <argv>` in a fixture repository whose config is `config`: `{ code, out, err }`. */
-async function omni(argv, config = CONFIG) {
+async function omni(argv: readonly string[], config = CONFIG) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
-  const out = [];
-  const err = [];
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
   return { code, out: out.join(''), err: err.join('') };
 }

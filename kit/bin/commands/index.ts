@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
 // one marked `withoutContext` (init, ask, heartbeat, signin, signout, whoami, dossier, proof, business, decide, version, update, help, statusline)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
@@ -6,6 +5,7 @@
 // signout's and whoami's `home`; dossier's `tokens`, `home`, `fetch`, `callMs` and `now`; proof's `tokens`, `home`, `fetch` and `callMs`;
 // business's and decide's `tokens`, `home`, `fetch` and `callMs`; version's `kit`;
 // update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`).
+import type { Command, FreeCommand } from '../io.ts';
 import { adopt } from './adopt.ts';
 import { answers } from './answers.ts';
 import { ask } from './ask.ts';
@@ -44,4 +44,4 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, decide, version, update, help, statusline, targets });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, decide, version, update, help, statusline, targets });
