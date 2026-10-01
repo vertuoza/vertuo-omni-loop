@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slice s4: the stage of one PRD — shipped, outbox, inbox or in review — with built and
 // open items read by the rule of PRD #315, written for one PRD.
 import { describe, expect, it } from 'vitest';
@@ -42,7 +41,7 @@ describe('stageOf', () => {
 });
 
 describe('stageOf, with the board (slice s6)', () => {
-  const board = (...states) => states.map((state, index) => ({ id: `s${index + 1}`, wave: index + 1, state }));
+  const board = (...states: string[]) => states.map((state, index) => ({ id: `s${index + 1}`, wave: index + 1, state }));
 
   it.each(['merged', 'in-flight', 'claimed-stale'])('reads outbox for a PRD git reads as inbox, when its board shows a slice %s', (state) => {
     expect(stageOf({ folder: FOLDER, base: BASE, feature: NOTHING, slices: board('runnable', state, 'blocked') })).toBe('outbox');

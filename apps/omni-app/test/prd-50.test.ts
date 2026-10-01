@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
@@ -45,7 +44,7 @@ async function replay() {
 
 /** The fact sheet the replay counts, from its step "facts". */
 async function sheet() {
-  const { result } = await engine().run.executeStep('facts');
+  const { result }: any = await engine().run.executeStep('facts');
   return result;
 }
 
@@ -70,7 +69,7 @@ describe('the PRD 50 recording, replayed offline', () => {
     const timeline = (await sheet()).kinds.timeline;
     expect(timeline.sliceCount).toBe(3);
     expect(timeline.waves).toEqual({ planned: 2, merged: 2 });
-    expect(timeline.slices.map((slice) => [slice.slice, slice.pr, slice.minutes, slice.plannedWave, slice.mergedWave])).toEqual([
+    expect(timeline.slices.map((slice: any) => [slice.slice, slice.pr, slice.minutes, slice.plannedWave, slice.mergedWave])).toEqual([
       ['s1', 54, 13, 1, 1],
       ['s2', 56, 20, 2, 2],
       ['s3', 57, 21, 2, 2],
@@ -82,13 +81,13 @@ describe('the PRD 50 recording, replayed offline', () => {
   it('finds no slow slice, and says "Retro: not judged — no model key" without a model key', async () => {
     expect((await sheet()).findings).toEqual([]);
     const { comments } = await replay();
-    expect(comments[0].body).toContain('\nRetro: not judged — no model key\n');
+    expect(comments[0]!.body).toContain('\nRetro: not judged — no model key\n');
   });
 
   it('writes the verdict comment pinned beside the recording', async () => {
     const { comments } = await replay();
     const golden = `${FIXTURE}verdict.golden.md`;
-    if (process.env.UPDATE_GOLDEN) writeFileSync(golden, comments[0].body);
-    expect(comments[0].body).toBe(readFileSync(golden, 'utf8'));
+    if (process.env.UPDATE_GOLDEN) writeFileSync(golden, comments[0]!.body);
+    expect(comments[0]!.body).toBe(readFileSync(golden, 'utf8'));
   });
 });

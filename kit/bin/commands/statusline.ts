@@ -73,7 +73,7 @@ async function statusLines({
     let facts = null;
     if (input) {
       try {
-        facts = readFacts(input, { cwd, exec, now: instant, spawn: spawn as unknown as null, env }); // ts-allow: lib/statusline is untyped until s18, so its `spawn = null` default reads as null only
+        facts = readFacts(input, { cwd, exec, now: instant, spawn, env });
       } catch {
         facts = null;
       }

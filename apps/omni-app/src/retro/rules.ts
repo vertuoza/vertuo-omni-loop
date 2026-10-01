@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `rules`: every threshold the retro counts against, the order its findings are ranked in, the words
 // its prose may not hold, and a version number that `retro.md` records (PRD 72, decision 16). Nothing
 // here reads or writes anything. A change to any value here bumps `RULES_VERSION`, so every retro says
@@ -112,12 +111,12 @@ const REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
 }));
 
 /** Every refused word `text` holds, in the order `REFUSED_WORDS` lists them. */
-export function refusedWordsIn(text) {
+export function refusedWordsIn(text: string): string[] {
   return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text)).map(({ word }) => word);
 }
 
 /** The rank of a kind of finding: its index in `FINDING_ORDER`, or past the end for a kind it does not list. */
-export function rankOf(kind) {
+export function rankOf(kind: string): number {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
   return index === -1 ? FINDING_ORDER.length : index;
 }

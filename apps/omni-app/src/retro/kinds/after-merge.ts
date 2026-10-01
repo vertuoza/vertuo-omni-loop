@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Fourteen days later (PRD 72, "The facts, and what makes a finding"): the `bug` issues naming the
 // PRD opened within `THRESHOLDS.afterMergeDays` days of the merge, fixed or not; the files their fixes
 // touched, against the churn ranges the merge run found; and the jobs that ran on the merge commit.
@@ -22,6 +21,40 @@
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
+import type { Block } from './churn-lines.ts';
+import type { Evidence, Kind, KindContext, KindScope, Octokit } from './index.ts';
+import { ChangedFileSchema, ClosedPullSchema, IssueSchema, JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import type { ChangedFile, ClosedPull, Issue, Job, WorkflowRun } from './schema.ts';
+
+type Window = { from: string; to: string };
+type Bug = { number: number; url: string; createdAt: string; closedAt: string | null };
+type FixFile = { path: string; previous: string | null; blocks: Block[] | null };
+type Fix = { number: number; url: string; mergedAt: string; closes: number[]; files: FixFile[] | null };
+type MergeJob = { name: string; workflow: string | null; conclusion: string | null; url: string | null };
+type MergeChecks = { commit: string; status: number | null; jobs: MergeJob[] };
+type ChurnRange = { path: string; from: number; to: number };
+type Unread = { read: 'bugs' | 'fixes' | 'files' | 'jobs'; pr?: number; run?: number; status: number };
+type Records = { window: Window; bugs: Bug[]; fixes: Fix[]; checks: MergeChecks; ranges: ChurnRange[]; unread: Unread[] };
+type Repo = { owner: string | undefined; repo: string | undefined };
+
+type Link = { fix: number; path: string; from: number; to: number; finding: string; byFile: boolean };
+type BugFacts = { number: number; url: string; daysAfterMerge: number; closed: boolean; fixes: number[]; linked: Link[] };
+type Facts = {
+  prd: number | null;
+  days: number;
+  from: string;
+  to: string;
+  total: number;
+  fixed: number;
+  linked: number;
+  bugs: BugFacts[];
+  fixes: { number: number; url: string; mergedAt: string }[];
+  checks: { commit: string; read: boolean; status: number | null; total: number; green: number; red: number; other: number; jobs: MergeJob[] };
+  unread: Unread[];
+};
+
+/** What `readOrRefused` gives: the value read, or the status GitHub refused it with. */
+type Read<T> = { value: T; status: null } | { value: null; status: number };
 
 /** The label a bug report carries, as GitHub names it in every new repository. */
 export const BUG_LABEL = 'bug';
@@ -35,49 +68,51 @@ const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHORT = 7;
 /** What GitHub answers for what it will not let the app read, or no longer has. */
-const UNREADABLE = new Set([403, 404, 410]);
-const GREEN = new Set(['success']);
-const RED = new Set(['failure', 'timed_out', 'startup_failure']);
+const UNREADABLE: ReadonlySet<unknown> = new Set([403, 404, 410]);
+const GREEN: ReadonlySet<string | null> = new Set(['success']);
+const RED: ReadonlySet<string | null> = new Set(['failure', 'timed_out', 'startup_failure']);
 /** GitHub's closing words, then the issue: `#40`, `owner/repo#40` or its URL. */
 const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)#(\d+)|#(\d+))(?!\d)/gi;
 
+/** What the day-14 run reads back of the merge run's churn facts: the ranges it found. */
+type ChurnAtMerge = { ranges?: { path: string; from: number; to: number }[] };
+
 /** When the day-14 run wakes, and its window closes: the merge plus `THRESHOLDS.afterMergeDays` days. */
-export function followUpAt(mergedAt) {
-  return new Date(Date.parse(mergedAt) + THRESHOLDS.afterMergeDays * DAY_MS).toISOString();
+export function followUpAt(mergedAt: string | null): string {
+  return new Date(Date.parse(mergedAt ?? '') + THRESHOLDS.afterMergeDays * DAY_MS).toISOString();
 }
 
-/** @type {import('./index.ts').Kind} */
-export const afterMerge = Object.freeze({
+export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
   id: 'after-merge',
   section: 'After merge',
-  runs: Object.freeze(['day-14']),
+  runs: Object.freeze(['day-14'] as const),
 
-  async gather(octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge } = {}) {
+  async gather(octokit: Octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge }: Partial<KindScope> = {}) {
     if (!mergedAt || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
-    const unread = [];
+    const unread: Unread[] = [];
     const names = namesPrd(prd.number, `${owner}/${repo}`);
 
-    const listed = await readOrRefused(() =>
-      paginate((page) =>
+    const listed = await readOrRefused((): Promise<Issue[]> =>
+      paginate((page: number) =>
         octokit
           .request(ISSUES, { owner, repo, labels: BUG_LABEL, state: 'all', since: window.from, per_page: PER_PAGE, page })
-          .then(({ data }) => data),
+          .then(({ data }) => IssueSchema.array().parse(data)),
       ),
     );
     if (listed.status) unread.push({ read: 'bugs', status: listed.status });
-    const bugs = (listed.value ?? [])
+    const bugs: Bug[] = (listed.value ?? [])
       .filter((issue) => !issue.pull_request && within(window, issue.created_at) && names(`${issue.title ?? ''}\n${issue.body ?? ''}`))
       .map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null }))
       .sort((a, b) => a.number - b.number);
 
-    let fixes = [];
+    const fixes: Fix[] = [];
     if (bugs.length > 0) {
       const wanted = new Set(bugs.map((bug) => bug.number));
       const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base: config.repo.defaultBranch, since: window.from }));
       if (merged.status) unread.push({ read: 'fixes', status: merged.status });
       const found = (merged.value ?? [])
-        .filter((pull) => pull.number !== pr?.number && within(window, pull.merged_at))
+        .filter((pull): pull is ClosedPull & { merged_at: string } => pull.number !== pr?.number && within(window, pull.merged_at))
         .map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ''}\n${pull.body ?? ''}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) }))
         .filter(({ closes }) => closes.length > 0)
         .sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
@@ -88,12 +123,13 @@ export const afterMerge = Object.freeze({
       }
     }
 
-    const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread });
-    const ranges = (atMerge?.kinds?.churn?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
+    const checks = await mergeJobs(octokit, { owner, repo, mergeSha: mergeSha as string, unread }); // ts-allow: a merged feature PR always has its merge commit
+    const churnAtMerge = atMerge?.kinds?.churn as ChurnAtMerge | null | undefined; // ts-allow: the merge run's sheet keeps the churn kind's facts as it wrote them
+    const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
     return { window, bugs, fixes, checks, ranges, unread };
   },
 
-  detect(records, { prd } = {}) {
+  detect(records, { prd }: Partial<KindContext> = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
     const fixes = (records.fixes ?? []).filter((fix) => within(window, fix.mergedAt));
@@ -114,7 +150,7 @@ export const afterMerge = Object.freeze({
       });
 
     const jobs = records.checks?.jobs ?? [];
-    const facts = {
+    const facts: Facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
       from: window.from,
@@ -143,15 +179,15 @@ export const afterMerge = Object.freeze({
       kind: 'bug',
       title: `Bug #${bug.number} was reported against the PRD after the merge`,
       happened: happened(bug, facts),
-      evidence: [{ label: `Bug #${bug.number}`, url: bug.url }, ...bug.fixes.map((n) => ({ label: `Fix #${n}`, url: urlOf.get(n) }))],
+      evidence: [{ label: `Bug #${bug.number}`, url: bug.url }, ...bug.fixes.map((n): Evidence => ({ label: `Fix #${n}`, url: urlOf.get(n) ?? null }))],
     }));
     return { facts, findings };
   },
 
   describe(facts) {
     if (!facts) return null;
-    const refused = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines = [];
+    const refused = (read: Unread['read']) => facts.unread.find((entry) => entry.read === read);
+    const lines: string[] = [];
     const bugsUnread = refused('bugs');
     if (bugsUnread) {
       lines.push(`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`);
@@ -199,7 +235,7 @@ export const afterMerge = Object.freeze({
 });
 
 /** What happened to one bug, every number from its facts or the rules. */
-function happened(bug, facts) {
+function happened(bug: BugFacts, facts: Facts): string {
   const sentences = [
     `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and was opened ${daysText(bug.daysAfterMerge)} after the merge.`,
   ];
@@ -221,40 +257,40 @@ function happened(bug, facts) {
 }
 
 /** The churn ranges one fix touched: by its change blocks, or by its file when GitHub sent no patch. */
-function linksOf(fix, ranges) {
-  const links = [];
+function linksOf(fix: Fix, ranges: readonly ChurnRange[]): Link[] {
+  const links: Link[] = [];
   for (const range of ranges) {
     const file = (fix.files ?? []).find((candidate) => candidate.path === range.path || candidate.previous === range.path);
     if (!file) continue;
     const byFile = file.blocks === null;
-    if (!byFile && !file.blocks.some((block) => overlaps(block, range))) continue;
+    if (file.blocks !== null && !file.blocks.some((block) => overlaps(block, range))) continue;
     links.push({ fix: fix.number, path: range.path, from: range.from, to: range.to, finding: `churn:${range.path}:${range.from}-${range.to}`, byFile });
   }
   return links;
 }
 
 /** A change block against a range of old lines: lines it replaced inside the range, or lines inserted between two of them. */
-function overlaps([oldStart, oldCount], { from, to }) {
+function overlaps([oldStart, oldCount]: Block, { from, to }: ChurnRange): boolean {
   if (oldCount === 0) return from < oldStart && oldStart <= to;
   return oldStart <= to && oldStart + oldCount - 1 >= from;
 }
 
 /** Whether `at` falls within the window, its ends included. */
-function within(window, at) {
+function within(window: Window, at: string | null | undefined): at is string {
   if (!at) return false;
   const time = Date.parse(at);
   return time >= Date.parse(window.from) && time <= Date.parse(window.to);
 }
 
 /** Whether a text names `#<prd>`, or `<owner>/<repo>#<prd>`: not `#70` for `#7`, nor an HTML entity. */
-function namesPrd(prd, slug) {
+function namesPrd(prd: number, slug: string): (text: string) => boolean {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape(slug)})#${prd}(?!\\d)`, 'i');
-  return (text) => pattern.test(text);
+  return (text: string) => pattern.test(text);
 }
 
 /** The issue numbers of this repository a pull request's text closes. */
-function closedBy(text, slug) {
-  const numbers = [];
+function closedBy(text: string, slug: string): number[] {
+  const numbers: number[] = [];
   for (const match of text.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
@@ -268,10 +304,11 @@ function closedBy(text, slug) {
  * The closed pull requests into `base`, most recently updated first, until a page ends before `since`:
  * a pull request merged since then was updated since then too.
  */
-async function mergedSince(octokit, { owner, repo, base, since }) {
-  const all = [];
+async function mergedSince(octokit: Octokit, { owner, repo, base, since }: Repo & { base: string; since: string }): Promise<ClosedPull[]> {
+  const all: ClosedPull[] = [];
   for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const { data } = await octokit.request(PULLS, { owner, repo, base, state: 'closed', sort: 'updated', direction: 'desc', per_page: PER_PAGE, page });
+    const { data: answer } = await octokit.request(PULLS, { owner, repo, base, state: 'closed', sort: 'updated', direction: 'desc', per_page: PER_PAGE, page });
+    const data = ClosedPullSchema.array().parse(answer);
     all.push(...data.filter((pull) => pull.merged_at));
     const last = data.at(-1);
     if (data.length < PER_PAGE || Date.parse(last?.updated_at ?? last?.closed_at ?? '') < Date.parse(since)) break;
@@ -280,9 +317,9 @@ async function mergedSince(octokit, { owner, repo, base, since }) {
 }
 
 /** A pull request's files, each patch reduced to its change blocks (`null` when GitHub sent none). */
-async function listFiles(octokit, { owner, repo, number }) {
-  const files = await paginate((page) =>
-    octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => data),
+async function listFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: number }): Promise<FixFile[]> {
+  const files: ChangedFile[] = await paginate((page: number) =>
+    octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => ChangedFileSchema.array().parse(data)),
   );
   return files.map((file) => ({
     path: file.filename,
@@ -292,18 +329,25 @@ async function listFiles(octokit, { owner, repo, number }) {
 }
 
 /** The latest jobs of every workflow run on the merge commit, or the status GitHub refused them with. */
-async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
-  const runs = await readOrRefused(() =>
-    paginate((page) =>
-      octokit.request(RUNS, { owner, repo, head_sha: mergeSha, per_page: PER_PAGE, page }).then(({ data }) => data.workflow_runs ?? []),
+async function mergeJobs(
+  octokit: Octokit,
+  { owner, repo, mergeSha, unread }: Repo & { mergeSha: string; unread: Unread[] },
+): Promise<MergeChecks> {
+  const runs = await readOrRefused((): Promise<WorkflowRun[]> =>
+    paginate((page: number) =>
+      octokit
+        .request(RUNS, { owner, repo, head_sha: mergeSha, per_page: PER_PAGE, page })
+        .then(({ data }) => WorkflowRunsPageSchema.parse(data).workflow_runs ?? []),
     ),
   );
-  if (runs.status) return { commit: mergeSha, status: runs.status, jobs: [] };
-  const jobs = [];
+  if (runs.status !== null) return { commit: mergeSha, status: runs.status, jobs: [] };
+  const jobs: MergeJob[] = [];
   for (const run of runs.value) {
-    const read = await readOrRefused(() =>
-      paginate((page) =>
-        octokit.request(JOBS, { owner, repo, run_id: run.id, filter: 'latest', per_page: PER_PAGE, page }).then(({ data }) => data.jobs ?? []),
+    const read = await readOrRefused((): Promise<Job[]> =>
+      paginate((page: number) =>
+        octokit
+          .request(JOBS, { owner, repo, run_id: run.id, filter: 'latest', per_page: PER_PAGE, page })
+          .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
       ),
     );
     if (read.status) unread.push({ read: 'jobs', run: run.id, status: read.status });
@@ -315,29 +359,35 @@ async function mergeJobs(octokit, { owner, repo, mergeSha, unread }) {
 }
 
 /** What `read` returns, or the status when GitHub will not let the app read it. Anything else is thrown, so Inngest retries. */
-async function readOrRefused(read) {
+async function readOrRefused<T>(read: () => Promise<T>): Promise<Read<T>> {
   try {
     return { value: await read(), status: null };
   } catch (error) {
-    if (UNREADABLE.has(error?.status)) return { value: null, status: error.status };
+    const status = statusOf(error);
+    if (typeof status === 'number' && UNREADABLE.has(status)) return { value: null, status };
     throw error;
   }
 }
 
-function daysText(days) {
+function daysText(days: number): string {
   if (days < 1) return 'less than a day';
   return days === 1 ? '1 day' : `${days} days`;
 }
 
-function plural(count, noun) {
+function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 /** `a`, `a and b`, `a, b and c`; `last` joins the last two. */
-function and(items, last = ' and ') {
+function and(items: readonly string[], last = ' and '): string {
   return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')}${last}${items.at(-1)}`;
 }
 
-function escape(text) {
+function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** The HTTP status a failed request carries, when it carries one. */
+function statusOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
 }

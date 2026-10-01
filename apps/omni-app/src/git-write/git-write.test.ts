@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { DefaultBranchError, addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from './git-write.ts';
@@ -17,7 +16,7 @@ const FILES = {
 
 const scenario = () => replayGitHub({ commits: { [FROM]: FILES } });
 const at = { owner: OWNER, repo: REPO, defaultBranch: BASE };
-const writes = (github) => github.state.requests.filter((r) => !r.route.startsWith('GET ')).map((r) => r.route);
+const writes = (github: any) => github.state.requests.filter((r: any) => !r.route.startsWith('GET ')).map((r: any) => r.route);
 
 describe('git-write — the default branch', () => {
   it('refuses to write to the default branch before any request', async () => {
@@ -56,13 +55,13 @@ describe('git-write — one commit', () => {
       files: [{ path: 'notes/a.md', content: 'A\n' }],
     });
     expect(github.state.refs.get(`heads/${branch}`)).toBe(sha);
-    expect(github.state.commits.get(sha).parents).toEqual([{ sha: FROM }]);
+    expect(github.state.commits.get(sha)!.parents).toEqual([{ sha: FROM }]);
     expect(github.filesAt(branch, ['notes/a.md', '.omni-loop/config.yml'])).toEqual({
       'notes/a.md': 'A\n',
       '.omni-loop/config.yml': 'kit: 1\n',
     });
     const move = github.state.requests.find((r) => r.route === 'PATCH /repos/{owner}/{repo}/git/refs/{ref}');
-    expect(move.force).toBe(false);
+    expect(move!.force).toBe(false);
   });
 
   it('moves a file and a folder by reusing their blobs, and deletes what it is told to', async () => {
@@ -80,7 +79,7 @@ describe('git-write — one commit', () => {
       ],
       deletes: ['.omni-loop/delivery/outbox/0007-widget/s1-01-item.md'],
     });
-    const { tree } = github.state.requests.find((r) => r.route === 'POST /repos/{owner}/{repo}/git/trees');
+    const { tree } = github.state.requests.find((r) => r.route === 'POST /repos/{owner}/{repo}/git/trees')!;
     expect(tree).toEqual([
       { path: '.omni-loop/delivery/shipped/0007-widget/plan.md', mode: '100644', type: 'blob', sha: `${FROM}:.omni-loop/delivery/inbox/0007-widget/plan.md` },
       { path: '.omni-loop/delivery/shipped/0007-widget/spec.md', mode: '100644', type: 'blob', sha: `${FROM}:.omni-loop/delivery/inbox/0007-widget/spec.md` },

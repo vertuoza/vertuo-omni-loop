@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
@@ -19,12 +18,12 @@ import {
 
 const SECRET = 'shh-test-secret';
 
-const sign = (body, secret = SECRET) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
+const sign = (body: any, secret = SECRET) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 
 const REPOSITORY = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
 const INSTALLATION = { id: 4242 };
 
-const pullRequestPayload = (action, over = {}) => ({
+const pullRequestPayload = (action: any, over = {}): any => ({
   action,
   number: 28,
   installation: INSTALLATION,
@@ -37,18 +36,18 @@ const pullRequestPayload = (action, over = {}) => ({
   ...over,
 });
 
-const rerequestedPayload = (pullRequests = [{ number: 28, head: { sha: 'abc123', ref: 'feat/x' }, base: { ref: 'main' } }]) => ({
+const rerequestedPayload = (pullRequests: any[] = [{ number: 28, head: { sha: 'abc123', ref: 'feat/x' }, base: { ref: 'main' } }]): any => ({
   action: 'rerequested',
   installation: INSTALLATION,
   repository: REPOSITORY,
   check_run: { id: 9, name: 'outbox', head_sha: 'abc123', pull_requests: pullRequests },
 });
 
-function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'), signature, secret = SECRET, send } = {}) {
+function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'), signature, secret = SECRET, send }: any = {}) {
   const body = JSON.stringify(payload);
-  const headers = { 'x-github-event': event, 'x-github-delivery': 'd-1' };
+  const headers: Record<string, string> = { 'x-github-event': event, 'x-github-delivery': 'd-1' };
   if (signature !== null) headers['x-hub-signature-256'] = signature ?? sign(body);
-  const sent = send ?? vi.fn(async () => ({ ids: ['evt'] }));
+  const sent = send ?? vi.fn(async (_events: any) => ({ ids: ['evt'] }));
   return receiveWebhook({ body, headers, secret, send: sent }).then((response) => ({ response, send: sent }));
 }
 
@@ -111,7 +110,7 @@ describe('webhook — the event and action filter', () => {
     const { response, send } = await deliver({ payload: pullRequestPayload(action) });
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0][0][0].data.trigger).toBe(`pull_request.${action}`);
+    expect(send.mock.calls[0]?.[0][0].data.trigger).toBe(`pull_request.${action}`);
   });
 
   it('answers 200 and sends nothing to a closed pull request that was not merged', async () => {
@@ -147,7 +146,7 @@ describe('webhook — the event and action filter', () => {
     const { response, send } = await deliver({ event: 'check_run', payload: rerequestedPayload() });
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0][0]).toEqual([
+    expect(send.mock.calls[0]?.[0]).toEqual([
       {
         name: OUTBOX_CHECK_EVENT,
         data: {
@@ -167,7 +166,7 @@ describe('webhook — the event and action filter', () => {
     const payload = rerequestedPayload();
     payload.check_run = { ...payload.check_run, name: 'inbox', external_id: INBOX_EXTERNAL_ID };
     const { send } = await deliver({ event: 'check_run', payload });
-    expect(send.mock.calls[0][0]).toEqual([
+    expect(send.mock.calls[0]?.[0]).toEqual([
       expect.objectContaining({ name: INBOX_CHECK_EVENT, data: expect.objectContaining({ prNumber: 28, trigger: 'check_run.rerequested' }) }),
     ]);
   });
@@ -236,7 +235,7 @@ const MERGED_AT = '2026-09-25T14:44:12Z';
 const MERGE_SHA = '4e2dc907b5fdb1d86f28778fa67ee5953981abc5';
 
 /** A `pull_request.closed` delivery for a pull request that was merged. */
-const mergedPayload = (over = {}) =>
+const mergedPayload = (over = {}): any =>
   pullRequestPayload('closed', {
     pull_request: {
       number: 28,
@@ -255,7 +254,7 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toBe('sent 2');
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0][0]).toEqual([
+    expect(send.mock.calls[0]?.[0]).toEqual([
       {
         name: RETRO_EVENT,
         data: {
@@ -313,7 +312,7 @@ describe('webhook — the retro route (PRD 72)', () => {
 
 describe('webhook — the stage events (PRD 587)', () => {
   const REPO = { ...REPOSITORY, default_branch: 'main' };
-  const stagePayload = (action, head, base) => ({
+  const stagePayload = (action: any, head: any, base: any): any => ({
     action,
     number: 40,
     installation: INSTALLATION,
@@ -331,7 +330,7 @@ describe('webhook — the stage events (PRD 587)', () => {
     },
   });
 
-  const receive = (payload, { forward, send = vi.fn(async () => ({ ids: ['e'] })), signature } = {}) => {
+  const receive = (payload: any, { forward, send = vi.fn(async (_events: any) => ({ ids: ['e'] })), signature }: any = {}) => {
     const body = JSON.stringify(payload);
     return receiveWebhook({
       body,
@@ -351,40 +350,40 @@ describe('webhook — the stage events (PRD 587)', () => {
   ];
 
   it.each(cases)('forwards %s as one stage event', async (_, payload, stage) => {
-    const forward = vi.fn(async () => {});
+    const forward = vi.fn(async (_event: any) => {});
     const response = await receive(payload, { forward });
     expect(response.status).toBe(200);
     expect(forward).toHaveBeenCalledTimes(1);
-    expect(forward.mock.calls[0][0]).toEqual({
+    expect(forward.mock.calls[0]?.[0]).toEqual({
       repository: 'vertuoza/vertuo-omni-loop', topic: 'real-stages', prd: 587, stage, at: expect.any(String),
     });
   });
 
   it('keeps the retro, harvest and outbox-check events unchanged beside it', async () => {
-    const send = vi.fn(async () => ({ ids: ['e'] }));
+    const send = vi.fn(async (_events: any) => ({ ids: ['e'] }));
     await receive(stagePayload('closed', 'feat/real-stages', 'main'), { send, forward: async () => {} });
-    expect(send.mock.calls[0][0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+    expect(send.mock.calls[0]?.[0].map((event: any) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
     expect(toEvents('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
   });
 
   it('forwards nothing for any other branch or action, and nothing on a bad signature', async () => {
-    const forward = vi.fn(async () => {});
+    const forward = vi.fn(async (_event: any) => {});
     await receive(stagePayload('closed', 'fix/typo', 'main'), { forward });
     await receive(stagePayload('synchronize', 'feat/x', 'main'), { forward });
-    const refused = await receive(cases[0][1], { forward, signature: sign('x') });
+    const refused = await receive(cases[0]?.[1], { forward, signature: sign('x') });
     expect(refused.status).toBe(401);
     expect(forward).not.toHaveBeenCalled();
   });
 
   it('never fails the reply when the forward throws, nor when the Inngest send finds nothing to send', async () => {
-    const response = await receive(cases[0][1], { forward: async () => { throw new Error('galaxy down'); } });
+    const response = await receive(cases[0]?.[1], { forward: async () => { throw new Error('galaxy down'); } });
     expect(response.status).toBe(200);
   });
 });
 
 describe('webhook — the two actions on a red canon check (PRD 839)', () => {
   const FACTS = { prd: 839, persona: 'Marc', claims: ['never#4'] };
-  const clicked = (identifier, over = {}) => ({
+  const clicked = (identifier: any, over = {}): any => ({
     action: 'requested_action',
     installation: INSTALLATION,
     repository: REPOSITORY,
@@ -408,7 +407,7 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
   it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon action event', async (identifier) => {
     const { response, send } = await deliver({ event: 'check_run', payload: clicked(identifier) });
     expect(response.status).toBe(200);
-    expect(send.mock.calls[0][0]).toEqual([
+    expect(send.mock.calls[0]?.[0]).toEqual([
       {
         name: CANON_ACTION_EVENT,
         data: {

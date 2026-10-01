@@ -10,7 +10,7 @@ wave: 5
 
 ## The question, in plain words
 
-A few library parts the command line calls are still untyped, or typed a little narrower than what really reaches them. Should the command line bridge those gaps with marked shortcuts for now?
+A few library parts the command line calls are typed a little narrower than what really reaches them. Should the command line bridge those gaps with marked shortcuts for now?
 
 ## The decision, in plain words
 
@@ -26,21 +26,21 @@ A cone and a sign do the job until the bridge crew arrives.
 
 ## The options, in plain words
 
-A. A: keep the marked bridges now; s18 and the final tightening slice remove them
+A. A: keep the marked bridges now; the final tightening slice removes them
 B. B: widen the neighbouring library types in their own follow-up pull request before the ratchet
-C. C: wait for s18 to merge and rebase this slice to drop the update and statusline bridges
+C. C: have the command line refuse the values the library types leave out, such as a missing feature branch
 
 ## What I had to decide
 
-How the typed CLI calls lib/update and lib/statusline (still @ts-nocheck until s18), and library functions whose types are narrower than the values they are handed today.
+How the typed CLI calls library functions whose types are narrower than the values they are handed today. The lib/update and lib/statusline bridges this slice first needed were dropped once s18 merged.
 
 ## What I did meanwhile
 
-Marked casts (// ts-allow) in commands/update.ts (findTarget `to`, updatePlugin `version`) and commands/statusline.ts (readFacts `spawn`) for the s18 modules; commands/rework.ts passes a null feature branch to planRework, typed string; commands/proof.ts hands the ask client to pushProof, whose upload takes Uint8Array where the client's takes BodyInit; commands/board.ts reads plan slices whose wave may be null as the board's number; commands/plan.ts keeps the slug-less plan repository crash of s10-01; commands/replies.ts reads the posted comment readReplies types unknown.
+Marked casts (// ts-allow): commands/rework.ts passes a null feature branch to planRework, typed string; commands/proof.ts hands the ask client to pushProof, whose upload takes Uint8Array where the client's takes BodyInit; commands/board.ts reads plan slices whose wave may be null as the board's number; commands/plan.ts keeps the slug-less plan repository crash of s10-01; commands/replies.ts reads the posted comment readReplies types unknown.
 
 ## What it costs to change later
 
-Each bridge is one line to delete once its neighbour is typed (s18 for update and statusline) or widened (policy/rework featureBranch, proof/push upload, board wave, replies posted).
+Each bridge is one line to delete once its neighbour is widened (policy/rework featureBranch, proof/push upload, board wave, replies posted).
 
 ## What I could not know
 

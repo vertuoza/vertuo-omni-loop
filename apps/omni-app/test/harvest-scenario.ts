@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A synthetic repository for the knowledge harvest's tests (PRD 82): `acme/widgets`, whose PRD 42
 // (`widgets`) was merged through feature PR #43 by @octocat over a red outbox — a high item and a
 // human-action item still open, and the PRD still in `inbox/`. Its ledger already holds four settled
@@ -6,7 +5,7 @@
 // other. The model is a fake OpenRouter answering each decision from `REPLIES`. Test support only;
 // nothing in the app imports it.
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { parseOutboxItem as parseOutboxItemOf } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { renderAdoptedEntry, renderSettledEntry, settledHeader } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { vi } from 'vitest';
 import { HARVEST_EVENT } from '../src/inngest-client.ts';
@@ -29,7 +28,7 @@ export const LEDGER = `${SHIPPED}/outbox/settled.md`;
 
 const markers = makeMarkers('omni-outbox');
 
-export function itemText({ id, prd = 42, rank, slice = 's1', personSteps = false }) {
+export function itemText({ id, prd = 42, rank, slice = 's1', personSteps = false }: any) {
   const last = personSteps
     ? ['## What a person must do', '', '1. Set the secret in the console.', '']
     : ['## The options, in plain words', '', 'A. Keep what was built.', 'B. Change it.', ''];
@@ -72,12 +71,19 @@ export function itemText({ id, prd = 42, rank, slice = 's1', personSteps = false
   ].join('\n');
 }
 
-function adopted(id, prd = 42) {
+/** A parsed item, which every item these scenarios write is. */
+function parseOutboxItem(text: string) {
+  const parsed = parseOutboxItemOf(text);
+  if (!parsed.ok) throw new Error(parsed.errors.join('; '));
+  return parsed;
+}
+
+function adopted(id: any, prd = 42) {
   const text = itemText({ id, prd, rank: 'medium', slice: 's0' });
   return renderAdoptedEntry({ item: parseOutboxItem(text).item, itemText: text, markers });
 }
 
-function drifted(id) {
+function drifted(id: any) {
   const text = itemText({ id, rank: 'high', slice: 's0' });
   return renderSettledEntry({
     item: parseOutboxItem(text).item,
@@ -93,7 +99,7 @@ function drifted(id) {
   });
 }
 
-const header = (prd) => settledHeader(prd, { ctx: { config: { paths: { delivery: D } } } });
+const header = (prd: any) => settledHeader(prd, { ctx: { config: { paths: { delivery: D } } } });
 
 export const LEDGER_TEXT = [header(42), adopted('s0-01-local-name'), adopted('s0-02-cited'), adopted('s0-03-refused'), drifted('s0-04-drift')].join('\n');
 
@@ -149,18 +155,18 @@ export const REPLIES = {
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 export function fakeFetch(replies = REPLIES) {
-  return vi.fn(async (_url, init) => {
+  return vi.fn(async (_url: string | URL | Request, init: any) => {
     const body = JSON.parse(init.body);
-    const user = body.messages.find((m) => m.role === 'user').content;
-    const id = /^## The decision: (\S+)$/m.exec(user)[1];
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(replies[id]) } }] }), {
+    const user = body.messages.find((m: any) => m.role === 'user').content;
+    const id = /^## The decision: (\S+)$/m.exec(user)?.[1] ?? '';
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify((replies as Record<string, unknown>)[id]) } }] }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
   });
 }
 
-const pull = ({ number, head, base = 'main', mergedAt = MERGED_AT, mergedBy = MERGER, mergeSha = MERGE_SHA, title = `PR ${number}` }) => ({
+const pull = ({ number, head, base = 'main', mergedAt = MERGED_AT, mergedBy = MERGER, mergeSha = MERGE_SHA, title = `PR ${number}` }: any) => ({
   number,
   title,
   state: 'closed',

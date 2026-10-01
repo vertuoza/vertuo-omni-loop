@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { isBot, isOmniSigned, OMNI_LOGIN, SIGNATURE } from './signed.ts';
 

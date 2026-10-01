@@ -1,22 +1,23 @@
-// @ts-nocheck
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
-import { evaluate } from './evaluate.ts';
+import { evaluate, type Verdict } from './evaluate.ts';
+
+const gateSpy = vi.mocked(gateResult);
 
 // The kit's gate, wrapped so a test can see evaluate call it — the real one still runs.
 vi.mock('vertuo-omni-plan/kit/lib/outbox/status.ts', async (importOriginal) => {
-  const kit = await importOriginal();
+  const kit = await importOriginal<typeof import('vertuo-omni-plan/kit/lib/outbox/status.ts')>();
   return { ...kit, gateResult: vi.fn(kit.gateResult) };
 });
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
-const fixture = (name) => join(FIXTURES, name);
+const fixture = (name: string) => join(FIXTURES, name);
 
-const featurePr = (over = {}) => ({
+const featurePr = (over: Record<string, unknown> = {}) => ({
   baseRef: 'main',
   headRef: 'feat/widget',
   headSha: 'abc123',
@@ -26,7 +27,7 @@ const featurePr = (over = {}) => ({
 
 const NOW = () => '2026-09-25T10:00:00.000Z';
 
-function run({ base = 'base-active', head = 'head-clear', pr = featurePr(), ...rest } = {}) {
+function run({ base = 'base-active', head = 'head-clear', pr = featurePr(), ...rest }: { base?: string; head?: string; pr?: ReturnType<typeof featurePr>; [input: string]: unknown } = {}): Verdict {
   return evaluate({ base: fixture(base), head: fixture(head), pr, now: NOW, ...rest });
 }
 
@@ -70,9 +71,9 @@ describe('evaluate — the conclusion table', () => {
     expect(verdict.conclusion).toBe('failure');
     expect(verdict.title).toBe('1 open outbox item');
     expect(verdict.summary).toContain('s1-01-widget-colour.md (high)');
-    expect(verdict.comment.id).toBeNull();
-    expect(verdict.comment.body).toContain('<!-- omni-outbox-pr -->');
-    expect(verdict.comment.body).toContain('Which colour should the widget be?');
+    expect(verdict.comment?.id).toBeNull();
+    expect(verdict.comment?.body).toContain('<!-- omni-outbox-pr -->');
+    expect(verdict.comment?.body).toContain('Which colour should the widget be?');
   });
 
   it('fails a feature pull request with a drifted decision nobody reworked', () => {
@@ -118,19 +119,19 @@ describe('evaluate — config from base, delivery from head', () => {
 });
 
 describe('evaluate — a snapshot holding only config and delivery is enough', () => {
-  const copies = [];
+  const copies: string[] = [];
   afterEach(() => {
     for (const dir of copies.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
-  function copyOf(name) {
+  function copyOf(name: string) {
     const dir = mkdtempSync(join(tmpdir(), 'omni-app-'));
     cpSync(fixture(name), dir, { recursive: true });
     copies.push(dir);
     return dir;
   }
 
-  function filesUnder(dir) {
+  function filesUnder(dir: string) {
     return readdirSync(dir, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile())
       .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
@@ -148,7 +149,7 @@ describe('evaluate — a snapshot holding only config and delivery is enough', (
 
 describe('evaluate — reuses the kit', () => {
   it('asks the kit gate, not a copy of it', () => {
-    gateResult.mockClear();
+    gateSpy.mockClear();
     run({ head: 'head-open' });
     expect(gateResult).toHaveBeenCalledWith(42, expect.objectContaining({ labels: [] }));
   });
@@ -161,8 +162,8 @@ describe('evaluate — the pull request comment', () => {
       { id: 9, body: '<!-- omni-outbox-pr -->\n\nold' },
     ];
     const verdict = run({ head: 'head-open', comments });
-    expect(verdict.comment.id).toBe(9);
-    expect(verdict.comment.body).not.toContain('old');
+    expect(verdict.comment?.id).toBe(9);
+    expect(verdict.comment?.body).not.toContain('old');
   });
 
   it('posts nothing on a clear pull request that never had a comment', () => {
@@ -172,14 +173,14 @@ describe('evaluate — the pull request comment', () => {
   it('still rewrites an existing comment once the outbox is clear', () => {
     const comments = [{ id: 9, body: '<!-- omni-outbox-pr -->\n\nold' }];
     const verdict = run({ comments });
-    expect(verdict.comment.id).toBe(9);
-    expect(verdict.comment.body).toContain('No open items.');
+    expect(verdict.comment?.id).toBe(9);
+    expect(verdict.comment?.body).toContain('No open items.');
   });
 });
 
 describe('evaluate — the range, when changed files are given', () => {
   it('hands the changed files to the gate', () => {
-    gateResult.mockClear();
+    gateSpy.mockClear();
     const changes = [{ path: 'src/a.mjs', status: 'M' }];
     run({ changes });
     expect(gateResult).toHaveBeenCalledWith(42, expect.objectContaining({ changes }));

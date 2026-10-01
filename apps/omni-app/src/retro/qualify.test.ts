@@ -1,13 +1,18 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { FEATURE, MERGE_SHA, OWNER, PLAN, REPO, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.ts';
 import { qualify } from './qualify.ts';
+import type { Config, Octokit, PrdFacts, Pull } from './retro.types.ts';
 
-const run = (scenario) => qualify(scenario.github.octokit, scenario.event.data);
+type Scenario = ReturnType<typeof widgetScenario>;
+/** `qualify`'s answer, every field read as the test reads it. */
+type Out = { skip: string | null; pr: Pull; prd: PrdFacts; config: Config };
+
+const run = async (scenario: Scenario) =>
+  (await qualify(scenario.github.octokit as Octokit, scenario.event.data as Parameters<typeof qualify>[1])) as Out;
 
 describe('qualify — a merged feature PR', () => {
   it('names the PRD, its shipped folder, its title, its problem, its plan and its settled file', async () => {
-    const out = await run(widgetScenario({ files: mergeFiles({ settled: '# Settled\n' }) }));
+    const out = await run(widgetScenario({ files: mergeFiles({ settled: '# Settled\n' } as never) }));
     expect(out.skip).toBeNull();
     expect(out.prd).toEqual({
       number: 7,
@@ -33,7 +38,7 @@ describe('qualify — a merged feature PR', () => {
   });
 
   it('finds a PRD merged without being shipped in the inbox, its settled file in the outbox', async () => {
-    const out = await run(widgetScenario({ files: mergeFiles({ state: 'inbox', settled: '# In the outbox\n' }) }));
+    const out = await run(widgetScenario({ files: mergeFiles({ state: 'inbox', settled: '# In the outbox\n' } as never) }));
     expect(out.prd).toMatchObject({
       state: 'inbox',
       folder: '.omni-loop/delivery/inbox/0007-widget',
@@ -50,8 +55,8 @@ describe('qualify — a merged feature PR', () => {
     const scenario = widgetScenario();
     await run(scenario);
     const shas = scenario.github.state.requests
-      .filter((request) => request.route.includes('/git/'))
-      .map((request) => request.tree_sha ?? request.file_sha);
+      .filter((request: { route: string }) => request.route.includes('/git/'))
+      .map((request) => (request.tree_sha ?? request.file_sha ?? '') as string);
     expect(shas.length).toBeGreaterThan(0);
     for (const sha of shas) expect(sha.startsWith(MERGE_SHA)).toBe(true);
   });
@@ -60,7 +65,7 @@ describe('qualify — a merged feature PR', () => {
 describe('qualify — what gets no retro', () => {
   it('a merged sub-PR: its base is not the default branch', async () => {
     const sub = { ...SUB_PULLS[0], merge_commit_sha: MERGE_SHA };
-    const out = await run(widgetScenario({ feature: sub, subPulls: [] }));
+    const out = await run(widgetScenario({ feature: sub as never, subPulls: [] }));
     expect(out.skip).toMatch(/not the default branch/);
   });
 
@@ -76,7 +81,7 @@ describe('qualify — what gets no retro', () => {
   });
 
   it('a repository without config', async () => {
-    const out = await run(widgetScenario({ files: mergeFiles({ config: null }) }));
+    const out = await run(widgetScenario({ files: mergeFiles({ config: null } as never) }));
     expect(out.skip).toMatch(/No `\.omni-loop\/config\.yml` at the merge/);
   });
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { LOCKFILES, isLockfile, leftOutAs, linguistGenerated } from './churn-generated.ts';
 

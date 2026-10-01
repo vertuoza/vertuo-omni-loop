@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,11 +7,11 @@ import { MAX_BYTES, MAX_FILES, SnapshotBoundError, snapshot } from './snapshot.t
 // A stubbed Octokit holding one repository as a tree of `{ path: content }` at one ref. It answers
 // the two Git Data routes `snapshot` may use — trees and blobs — and records every request, so a
 // test can prove nothing outside the listed paths is fetched.
-function stubRepo(files, { ref = 'abc123', sizes = {} } = {}) {
+function stubRepo(files: Record<string, string>, { ref = 'abc123', sizes = {} }: { ref?: string; sizes?: Record<string, number> } = {}) {
   const blobs = new Map();
   const trees = new Map();
   let nextSha = 0;
-  const sha = (kind) => `${kind}-${nextSha++}`;
+  const sha = (kind: any) => `${kind}-${nextSha++}`;
 
   // Build nested trees from the flat file list.
   const root = { entries: new Map() };
@@ -25,7 +24,7 @@ function stubRepo(files, { ref = 'abc123', sizes = {} } = {}) {
     }
     node.entries.set(parts.at(-1), { content, path });
   }
-  const register = (node) => {
+  const register = (node: any) => {
     const treeSha = sha('tree');
     const entries = [];
     for (const [name, child] of node.entries) {
@@ -43,23 +42,23 @@ function stubRepo(files, { ref = 'abc123', sizes = {} } = {}) {
   };
   const rootSha = register(root);
 
-  const flatten = (treeSha, prefix = '') =>
-    trees.get(treeSha).flatMap((entry) => {
+  const flatten = (treeSha: any, prefix = '') =>
+    trees.get(treeSha).flatMap((entry: any) => {
       const path = prefix + entry.path;
       const own = { ...entry, path, _node: undefined };
       return entry.type === 'tree' ? [own, ...flatten(entry.sha, `${path}/`)] : [own];
     });
 
-  const requests = [];
+  const requests: any[] = [];
   const octokit = {
-    async request(route, params) {
+    async request(route: any, params: any) {
       requests.push({ route, ...params });
       if (route === 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}') {
         const treeSha = params.tree_sha === ref ? rootSha : params.tree_sha;
         if (!trees.has(treeSha)) throw Object.assign(new Error('Not Found'), { status: 404 });
         const tree = params.recursive
           ? flatten(treeSha)
-          : trees.get(treeSha).map(({ _node, ...entry }) => entry);
+          : trees.get(treeSha).map(({ _node, ...entry }: any) => entry);
         return { data: { sha: treeSha, tree, truncated: false } };
       }
       if (route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}') {
@@ -73,7 +72,7 @@ function stubRepo(files, { ref = 'abc123', sizes = {} } = {}) {
 }
 
 const REPO = { owner: 'vertuoza', repo: 'widget' };
-const created = [];
+const created: any[] = [];
 const dest = () => {
   const dir = mkdtempSync(join(tmpdir(), 'snapshot-test-'));
   created.push(dir);
@@ -156,7 +155,7 @@ describe('snapshot — only the listed paths', () => {
 
 describe('snapshot — the bound', () => {
   it(`fails naming the file bound past ${MAX_FILES} files, before fetching any blob`, async () => {
-    const many = {};
+    const many: Record<string, string> = {};
     for (let i = 0; i <= MAX_FILES; i += 1) many[`.omni-loop/delivery/f${i}.md`] = 'x';
     const { octokit, requests } = stubRepo(many);
     const run = snapshot(octokit, { ...REPO, ref: 'abc123', paths: ['.omni-loop/delivery'], dest: dest() });
@@ -168,7 +167,7 @@ describe('snapshot — the bound', () => {
   });
 
   it('accepts exactly the file bound', async () => {
-    const many = {};
+    const many: Record<string, string> = {};
     for (let i = 0; i < MAX_FILES; i += 1) many[`d/f${i}.md`] = 'x';
     const { octokit } = stubRepo(many);
     await expect(snapshot(octokit, { ...REPO, ref: 'abc123', paths: ['d'], dest: dest() })).resolves.toBeTruthy();

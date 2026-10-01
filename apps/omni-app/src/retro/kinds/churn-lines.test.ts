@@ -1,8 +1,9 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { changeBlocks, followLines, rewrittenRanges } from './churn-lines.ts';
+import type { Line } from './churn-lines.ts';
 
-const lines = (from, to, history) => Array.from({ length: to - from + 1 }, (_, i) => [from + i, history]);
+const lines = (from: number, to: number, history: string[]): Line[] =>
+  Array.from({ length: to - from + 1 }, (_, i): Line => [from + i, history]);
 
 describe('changeBlocks', () => {
   it('reads a new file as one block adding every line', () => {
@@ -79,14 +80,14 @@ describe('followLines', () => {
   });
 
   it('keeps each commit once, oldest first', () => {
-    const before = [[1, ['c1', 'c2']], [2, ['c2']]];
+    const before: Line[] = [[1, ['c1', 'c2']], [2, ['c2']]];
     expect(followLines(before, [[1, 2, 1, 1]], 'c2')).toEqual([[1, ['c1', 'c2']]]);
   });
 });
 
 describe('rewrittenRanges', () => {
   it('groups consecutive lines each written in at least the given number of commits', () => {
-    const tracked = [
+    const tracked: Line[] = [
       ...lines(1, 3, ['c1']),
       ...lines(4, 6, ['c1', 'c2', 'c3']),
       [7, ['c1', 'c2', 'c4']],

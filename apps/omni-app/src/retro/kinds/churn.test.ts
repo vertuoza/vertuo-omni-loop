@@ -1,14 +1,14 @@
-// @ts-nocheck
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { failing, replayGitHub } from '../../../test/github-replay.ts';
-import { JUDGE_ENV, MERGE_SHA, judge, mergeFiles, widgetScenario } from '../../../test/retro-scenario.ts';
+import { failing } from '../../../test/github-replay.ts';
+import { JUDGE_ENV, MERGE_SHA, judge, mergeFiles } from '../../../test/retro-scenario.ts';
 import { inngest } from '../../inngest-client.ts';
 import { listPullsInto } from '../github.ts';
-import { createRetro } from '../retro.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { churn } from './churn.ts';
+import type { RetroPull } from './index.ts';
+import { handles, replay, retroFunction, scenario } from './test-handles.ts';
 import {
   FEATURE,
   GET_COMMIT,
@@ -22,44 +22,49 @@ import {
   sha,
   short,
 } from './churn.fixtures/delivery.ts';
+import type { Missing } from './churn.fixtures/delivery.ts';
+
+const { gather, detect, section } = handles(churn);
 
 const config = parseConfig('kit: 1\n');
 const prd = { number: 7, topic: 'widget' };
 const pr = { number: 12, url: FEATURE.html_url, headSha: FEATURE.head.sha, openedAt: FEATURE.created_at, mergedAt: FEATURE.merged_at };
 const BLOB = `https://github.com/${OWNER}/${REPO}/blob/${FEATURE.head.sha}`;
-const commitUrl = (tag) => `https://github.com/${OWNER}/${REPO}/commit/${sha(tag)}`;
+const commitUrl = (tag: string) => `https://github.com/${OWNER}/${REPO}/commit/${sha(tag)}`;
 
-function github({ missing, gitattributes = GITATTRIBUTES } = {}) {
+type Options = { missing?: Missing; gitattributes?: string | null };
+
+function github({ missing, gitattributes = GITATTRIBUTES }: Options = {}) {
   const files = gitattributes === null ? {} : { '.gitattributes': gitattributes };
-  return replayGitHub({
+  return replay({
     commits: { [MERGE_SHA]: files },
     pulls: [FEATURE, UNMERGED, ...SUB_PULLS],
     recording: churnRecording({ missing }),
   });
 }
 
-async function scopeOf(stub) {
-  const pulls = await listPullsInto(stub.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
+async function scopeOf(stub: ReturnType<typeof github>) {
+  const pulls: RetroPull[] = await listPullsInto(stub.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   return { owner: OWNER, repo: REPO, mergeSha: MERGE_SHA, pr, prd, config, pulls };
 }
 
-async function run(options) {
+async function run(options?: Options) {
   const stub = github(options);
   const scope = await scopeOf(stub);
-  const records = await churn.gather(stub.octokit, scope);
-  return { stub, records, ...churn.detect(records, { pr, prd, config, pulls: scope.pulls }) };
+  const records = await gather(stub.octokit, scope);
+  return { stub, records, ...detect(records, { pr, prd, config, pulls: scope.pulls }) };
 }
 
 describe('churn — gather', () => {
   it('reads every commit of each merged sub-PR, with its change blocks and never its patch text', async () => {
     const { records } = await run();
     expect(records.gitattributes).toBe(GITATTRIBUTES);
-    expect(records.pulls.map((pull) => [pull.number, pull.commits.map((commit) => commit.sha)])).toEqual([
+    expect(records.pulls.map((pull) => [pull.number, pull.commits!.map((commit) => commit.sha)])).toEqual([
       [13, [sha('c1'), sha('c2')]],
       [14, [sha('claim2'), sha('c3'), sha('c4'), sha('c5')]],
       [15, [sha('claim3'), sha('c6'), sha('c7'), sha('c8')]],
     ]);
-    const c2 = records.pulls[0].commits[1];
+    const c2 = records.pulls[0]!.commits![1];
     expect(c2).toEqual({
       sha: sha('c2'),
       url: commitUrl('c2'),
@@ -70,8 +75,8 @@ describe('churn — gather', () => {
 
   it('keeps a file GitHub sent without a patch, with its totals and no blocks', async () => {
     const { records } = await run();
-    const c7 = records.pulls[2].commits.find((commit) => commit.sha === sha('c7'));
-    expect(c7.files).toEqual([{ path: 'src/show/table.js', previous: null, status: 'added', additions: 120, deletions: 0, blocks: null }]);
+    const c7 = records.pulls[2]!.commits!.find((commit) => commit.sha === sha('c7'));
+    expect(c7!.files).toEqual([{ path: 'src/show/table.js', previous: null, status: 'added', additions: 120, deletions: 0, blocks: null }]);
   });
 
   it('reads the feature PR’s final diff: each file’s lines added', async () => {
@@ -89,14 +94,14 @@ describe('churn — gather', () => {
 
   it('gathers nothing, and asks GitHub nothing, when no pull request merged into the feature branch', async () => {
     const octokit = { request: () => Promise.reject(new Error('no GitHub')) };
-    expect(await churn.gather(octokit, {})).toBeNull();
-    expect(await churn.gather(octokit, { pulls: [{ ...UNMERGED, mergedAt: null }] })).toBeNull();
+    expect(await gather(octokit, {})).toBeNull();
+    expect(await gather(octokit, { pulls: [{ ...UNMERGED, mergedAt: null }] })).toBeNull();
   });
 
   it('marks what GitHub does not have — a sub-PR’s commits, a commit, the final diff — as not read', async () => {
     const { records } = await run({ missing: { pulls: { 14: 404 }, commits: { c8: 422 }, final: 404 } });
     expect(records.pulls[1]).toMatchObject({ number: 14, commits: null });
-    expect(records.pulls[2].commits.at(-1)).toEqual({ sha: sha('c8'), url: null, files: null });
+    expect(records.pulls[2]!.commits!.at(-1)).toEqual({ sha: sha('c8'), url: null, files: null });
     expect(records.final).toBeNull();
   });
 
@@ -108,8 +113,8 @@ describe('churn — gather', () => {
   it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
     const stub = github();
     const scope = await scopeOf(stub);
-    await expect(churn.gather(failing(stub.octokit, GET_COMMIT), scope)).rejects.toThrow('GitHub is down');
-    await expect(churn.gather(failing(stub.octokit, LIST_COMMITS, { status: 403 }), scope)).rejects.toThrow('GitHub is down');
+    await expect(gather(failing(stub.octokit, GET_COMMIT), scope)).rejects.toThrow('GitHub is down');
+    await expect(gather(failing(stub.octokit, LIST_COMMITS, { status: 403 }), scope)).rejects.toThrow('GitHub is down');
   });
 });
 
@@ -164,16 +169,16 @@ describe('churn — detect', () => {
     const { facts, findings } = await run();
     expect(facts.noPatch).toEqual([{ path: 'src/show/table.js', commit: short('c7'), slice: 's3', additions: 120, deletions: 0 }]);
     const table = findings.find((finding) => finding.id === 'churn:src/show/table.js');
-    expect(table.happened).toContain('had 180 lines added across 2 commits, 120 of them in the final diff: 60 lines of churn');
-    expect(table.happened).toContain(`GitHub sent no patch for it in ${short('c7')}, so that commit is counted by its totals.`);
+    expect(table!.happened).toContain('had 180 lines added across 2 commits, 120 of them in the final diff: 60 lines of churn');
+    expect(table!.happened).toContain(`GitHub sent no patch for it in ${short('c7')}, so that commit is counted by its totals.`);
     expect(facts.ranges.map((range) => range.path)).not.toContain('src/show/table.js');
   });
 
   it('leaves out a generated path and a lockfile, and names them', async () => {
     const { facts } = await run();
     expect(facts.leftOut).toEqual({ generated: ['dist/bundle.js'], lockfile: ['pnpm-lock.yaml'], delivery: [] });
-    expect(facts.files.map((file) => file.path)).not.toContain('dist/bundle.js');
-    expect(facts.files.map((file) => file.path)).not.toContain('pnpm-lock.yaml');
+    expect(facts.files!.map((file) => file.path)).not.toContain('dist/bundle.js');
+    expect(facts.files!.map((file) => file.path)).not.toContain('pnpm-lock.yaml');
   });
 
   it('adds up the delivery, and names the sub-PR it did not count', async () => {
@@ -189,9 +194,9 @@ describe('churn — detect', () => {
       pulls: [
         {
           number: 13,
-          url: SUB_PULLS[0].html_url,
+          url: SUB_PULLS[0]!.html_url,
           headRef: 'feat/widget--s1',
-          mergedAt: SUB_PULLS[0].merged_at,
+          mergedAt: SUB_PULLS[0]!.merged_at,
           commits: ['r1', 'r2', 'r3'].map((tag, i) => ({
             sha: sha(tag),
             url: commitUrl(tag),
@@ -206,7 +211,7 @@ describe('churn — detect', () => {
         },
       ],
     };
-    const { facts } = churn.detect(records, { pr, prd, config, pulls: [] });
+    const { facts } = detect(records, { pr, prd, config, pulls: [] });
     expect(facts.files).toEqual([{ path: 'b.js', commits: 3, added: 9, finalAdded: 3, churn: 6, percent: 200 }]);
     expect(facts.ranges).toEqual([{ path: 'b.js', from: 1, to: 3, commits: [short('r1'), short('r2'), short('r3')], slices: ['s1'] }]);
   });
@@ -219,9 +224,9 @@ describe('churn — detect', () => {
       pulls: [
         {
           number: 13,
-          url: SUB_PULLS[0].html_url,
+          url: SUB_PULLS[0]!.html_url,
           headRef: 'feat/widget--s1',
-          mergedAt: SUB_PULLS[0].merged_at,
+          mergedAt: SUB_PULLS[0]!.merged_at,
           commits: ['o1', 'o2', 'o3'].map((tag, i) => ({
             sha: sha(tag),
             url: commitUrl(tag),
@@ -236,11 +241,11 @@ describe('churn — detect', () => {
         },
       ],
     };
-    const { facts, findings } = churn.detect(records, { pr, prd, config, pulls: [] });
+    const { facts, findings } = detect(records, { pr, prd, config, pulls: [] });
     expect(findings).toEqual([]);
     expect(facts.leftOut.delivery).toEqual([note]);
     expect(facts.files).toEqual([]);
-    expect(churn.describe(facts)).toContain(`- Left out as the loop's own delivery record: \`${note}\`.`);
+    expect(section(facts)).toContain(`- Left out as the loop's own delivery record: \`${note}\`.`);
   });
 
   it('still follows line ranges, and counts no file, when the final diff could not be read', async () => {
@@ -258,20 +263,20 @@ describe('churn — detect', () => {
   });
 
   it('finds nothing and has no facts without records', () => {
-    expect(churn.detect(null, { pr, prd, config, pulls: [] })).toEqual({ facts: null, findings: [] });
+    expect(detect(null, { pr, prd, config, pulls: [] })).toEqual({ facts: null, findings: [] });
   });
 
   it('gives the same facts for the same records', async () => {
     const { records } = await run();
     const context = { pr, prd, config, pulls: [] };
-    expect(churn.detect(records, context)).toEqual(churn.detect(structuredClone(records), context));
+    expect(detect(records, context)).toEqual(detect(structuredClone(records), context));
   });
 });
 
 describe('churn — its section', () => {
   it('adds up the delivery and names what it left out, what it counted by totals and what it did not count', async () => {
     const { facts } = await run();
-    expect(churn.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- 10 commits read across 3 merged pull requests: 597 lines added, 401 in the final diff, 196 lines of churn.',
       '- Left out as generated, by `.gitattributes`: `dist/bundle.js`.',
       '- Left out as lockfiles: `pnpm-lock.yaml`.',
@@ -282,7 +287,7 @@ describe('churn — its section', () => {
 
   it('names what it could not read', async () => {
     const { facts } = await run({ missing: { pulls: { 13: 404 }, commits: { c8: 404 }, final: 404 } });
-    const lines = churn.describe(facts);
+    const lines = section(facts);
     expect(lines[0]).toBe(
       '- 7 commits read across 2 merged pull requests: 513 lines added; the final diff could not be read, so no file’s churn is counted.',
     );
@@ -293,20 +298,20 @@ describe('churn — its section', () => {
   it('is left out when no commit was read, or without facts', async () => {
     const { facts } = await run({ missing: { pulls: { 13: 404, 14: 404, 15: 404 } } });
     expect(facts.commits).toBe(0);
-    expect(churn.describe(facts)).toBeNull();
-    expect(churn.describe(null)).toBeNull();
+    expect(section(facts)).toBeNull();
+    expect(section(null)).toBeNull();
   });
 
   it('writes no refused word, in its section or its findings', async () => {
     const { facts, findings } = await run();
-    const words = [...churn.describe(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
+    const words = [...section(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
     expect(refusedWordsIn(words)).toEqual([]);
   });
 
   it('writes no number its facts and findings do not hold', async () => {
     const { facts, findings } = await run();
     const held = new Set(JSON.stringify({ facts, findings }).match(/\d+/g));
-    const written = [...churn.describe(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
+    const written = [...section(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
     expect((written.match(/\d+/g) ?? []).filter((n) => !held.has(n))).toEqual([]);
   });
 });
@@ -314,22 +319,22 @@ describe('churn — its section', () => {
 describe('churn — in the retro', () => {
   it('writes its section and findings into retro.md, every number held by retro.json', async () => {
     const recording = churnRecording();
-    const scenario = widgetScenario({
+    const widget = scenario({
       files: { ...mergeFiles(), '.gitattributes': GITATTRIBUTES },
       subPulls: [UNMERGED, ...SUB_PULLS],
       recording,
     });
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge() });
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [scenario.event] }).execute();
+    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, env: JUDGE_ENV, fetch: judge() });
+    const { result, error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
     expect(error).toBeUndefined();
-    expect(result.findings).toBe(4);
+    expect((result as { findings: number }).findings).toBe(4);
 
     const folder = '.omni-loop/delivery/shipped/0007-widget';
-    const files = scenario.github.filesAt('docs/retro-widget', [`${folder}/retro.md`, `${folder}/retro.json`]);
-    const markdown = files[`${folder}/retro.md`];
+    const files = widget.github.filesAt('docs/retro-widget', [`${folder}/retro.md`, `${folder}/retro.json`]);
+    const markdown = files[`${folder}/retro.md`]!;
     expect(markdown).toContain('\n## Churn\n\n- 10 commits read across 3 merged pull requests');
     expect(markdown).toContain('— `churn:src/store/colour.js:8-11`');
-    const held = new Set(files[`${folder}/retro.json`].match(/\d+/g));
-    expect((markdown.match(/\d+/g) ?? []).filter((n) => !held.has(n))).toEqual([]);
+    const held = new Set(files[`${folder}/retro.json`]!.match(/\d+/g));
+    expect((markdown.match(/\d+/g) ?? []).filter((n: string) => !held.has(n))).toEqual([]);
   });
 });

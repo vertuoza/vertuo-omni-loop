@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { CANON_ACTION, canonActions, canonComment, canonMarker, commentMarker, readCanonMarker } from './canon-actions.ts';
 
@@ -35,18 +34,18 @@ describe('canonActions — the buttons on a red canon check run', () => {
       expect(action.description.length).toBeLessThanOrEqual(40);
       expect(action.identifier.length).toBeLessThanOrEqual(20);
     }
-    expect(canonActions(long)[0].label).toBe('Rewrite for Maximili');
+    expect(canonActions(long)[0]!.label).toBe('Rewrite for Maximili');
   });
 
   it('without a persona, the first button reads Rewrite the spec', () => {
-    expect(canonActions({ ...RED, persona: null })[0].label).toBe('Rewrite the spec');
+    expect(canonActions({ ...RED, persona: null })[0]!.label).toBe('Rewrite the spec');
   });
 });
 
 describe('canonMarker / readCanonMarker — the facts a click needs, hidden in the summary', () => {
   it('a red canon writes the PRD, the persona and every cited claim once, in order', () => {
     const marker = canonMarker({ prd: 839, canon: RED });
-    expect(marker.startsWith('<!--')).toBe(true);
+    expect(marker!.startsWith('<!--')).toBe(true);
     expect(readCanonMarker(`PRD 839\n\n${marker}\n- ok`)).toEqual({ prd: 839, persona: 'Marc', claims: ['never#4', 'size#1'] });
   });
 

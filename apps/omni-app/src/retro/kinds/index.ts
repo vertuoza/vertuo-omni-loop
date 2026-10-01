@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The registry of the kinds of finding (PRD 72): every kind the retro runs, in the order their
 // sections appear in `retro.md`. Each kind is one module beside this one, owning its GitHub reads,
 // its detector and its section, so a kind is built or changed without touching this registry, the
@@ -18,29 +17,39 @@
 //   - `describe(facts)` is pure: the markdown lines of its section, or `null` to leave it out.
 //     `render` adds the kind's findings below them.
 //   - `runs` names the runs it takes part in: `merge`, `day-14`.
+import type { DetectContext, Finding, Octokit, Run, Scope } from '../retro.types.ts';
 import { afterMerge } from './after-merge.ts';
 import { churn } from './churn.ts';
 import { ci } from './ci.ts';
 import { delivery } from './delivery.ts';
 import { timeline } from './timeline.ts';
 
-/**
- * @typedef {{ label: string, url: string }} Evidence
- * @typedef {{ id: string, kind: string, title: string, happened: string, evidence: Evidence[] }} Finding
- * @typedef {{
- *   id: string,
- *   section: string,
- *   runs: readonly ('merge' | 'day-14')[],
- *   gather: (octokit: { request: Function }, scope: object) => Promise<unknown>,
- *   detect: (records: unknown, context: object) => { facts: object | null, findings: Finding[] },
- *   describe: (facts: object | null) => string[] | null,
- * }} Kind
- */
+// The shapes a kind reads are the retro's own (`../retro.types.ts`); the kinds know them by these names.
+export type { Evidence, Finding, Octokit, Run } from '../retro.types.ts';
+export type {
+  FeaturePull as RetroPr,
+  PullInto as RetroPull,
+  PrdFacts as RetroPrd,
+  DetectContext as KindContext,
+  Scope as KindScope,
+} from '../retro.types.ts';
 
-/** @type {readonly Kind[]} */
-export const KINDS = Object.freeze([timeline, delivery, ci, churn, afterMerge]);
+/**
+ * A kind of finding: `Records` is what its `gather` returns, `Facts` what its `detect` keeps. Its
+ * three functions are methods, so a kind with its own shapes is still a `Kind` of the registry.
+ */
+export type Kind<Records = unknown, Facts = unknown> = {
+  readonly id: string;
+  readonly section: string;
+  readonly runs: readonly Run[];
+  gather(octokit: Octokit, scope: Scope): Promise<Records>;
+  detect(records: Records | null, context: DetectContext): { facts: Facts | null; findings: Finding[] };
+  describe(facts: Facts | null): string[] | null;
+};
+
+export const KINDS: readonly Kind[] = Object.freeze([timeline, delivery, ci, churn, afterMerge]);
 
 /** The kinds that take part in one run, in registry order. */
-export function kindsFor(run, kinds = KINDS) {
+export function kindsFor(run: Run, kinds: readonly Kind[] = KINDS): Kind[] {
   return kinds.filter((kind) => kind.runs.includes(run));
 }

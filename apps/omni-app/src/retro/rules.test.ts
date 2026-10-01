@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +15,7 @@ import {
 } from './rules.ts';
 
 /** The quoted words of one `const NAME = [ … ];` list in the kit's banter test. */
-function kitList(name) {
+function kitList(name: string): string[] {
   const source = readFileSync(
     fileURLToPath(new URL('../../../../kit/lib/outbox/banter.test.ts', import.meta.url)),
     'utf8',
@@ -28,7 +27,7 @@ function kitList(name) {
     .split('\n')
     .map((line) => line.replace(/^\s*\/\/.*$/, ''))
     .join('\n');
-  return [...code.matchAll(/'([^']*)'|"([^"]*)"/g)].map((match) => match[1] ?? match[2]);
+  return [...code.matchAll(/'([^']*)'|"([^"]*)"/g)].map((match) => match[1] ?? match[2] ?? "");
 }
 
 describe('rules', () => {

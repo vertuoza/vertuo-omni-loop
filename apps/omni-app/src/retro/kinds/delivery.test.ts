@@ -1,12 +1,13 @@
-// @ts-nocheck
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { failing, httpError, replayGitHub } from '../../../test/github-replay.ts';
+import { failing, httpError } from '../../../test/github-replay.ts';
 import { FEATURE, MERGE_SHA, MERGED_AT } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';
 import { qualify } from '../qualify.ts';
 import { delivery } from './delivery.ts';
+import type { Finding, RetroPull } from './index.ts';
+import { handles, replay } from './test-handles.ts';
 import {
   COMMENTS,
   DELIVERY_PULLS,
@@ -18,13 +19,15 @@ import {
   threadsAnswer,
 } from './delivery.fixtures/github.ts';
 
-const fixture = (name) => readFileSync(new URL(`./delivery.fixtures/${name}`, import.meta.url), 'utf8');
+const { gather, detect, section } = handles(delivery);
+
+const fixture = (name: string) => readFileSync(new URL(`./delivery.fixtures/${name}`, import.meta.url), 'utf8');
 const PLAN = fixture('plan.md');
 const SETTLED = fixture('settled.md');
 
 const config = parseConfig('kit: 1\n');
 const FOLDER = '.omni-loop/delivery/shipped/0007-widget';
-const pull = (n) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
+const pull = (n: number) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
 
 const basePrd = { number: 7, topic: 'widget', title: 'Widgets', state: 'shipped', folder: FOLDER, plan: PLAN, settled: SETTLED, problem: '' };
 const basePr = {
@@ -42,36 +45,42 @@ const basePr = {
  * The stubbed GitHub for PRD 7: the recorded files and reviews, the label events and comments, and
  * GraphQL's review threads answered per pull request (a 404 for one it does not know).
  */
-function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMMENTS, pulls = DELIVERY_PULLS } = {}) {
-  const replay = replayGitHub({ recording: deliveryRecording(), pulls: [FEATURE, ...pulls], events });
-  replay.state.comments.push(...structuredClone(comments));
+type Request = (route: string, params?: Params) => Promise<{ data: unknown }>;
+type Params = { pull_number?: number; issue_number?: number; variables?: { number: number; after?: string | null } };
+type Recorded = Params & { route: string };
+type Stub = { octokit: { request: Request }; state: { requests: Recorded[] } };
+type StubOptions = { threads?: (number: number, after: string | null) => unknown; events?: object; comments?: object[]; pulls?: object[] };
+
+function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMMENTS, pulls = DELIVERY_PULLS }: StubOptions = {}) {
+  const stub = replay({ recording: deliveryRecording(), pulls: [FEATURE, ...pulls], events });
+  (stub.state.comments as object[]).push(...structuredClone(comments));
   const octokit = {
-    async request(route, params = {}) {
-      if (route !== 'POST /graphql') return replay.octokit.request(route, params);
-      replay.state.requests.push({ route, ...params });
-      const answer = threads(params.variables.number, params.variables.after ?? null);
-      if (!answer) throw httpError(404, `no threads for #${params.variables.number}`);
+    async request(route: string, params: Params = {}) {
+      if (route !== 'POST /graphql') return stub.octokit.request(route, params);
+      (stub.state.requests as Recorded[]).push({ route, ...params });
+      const answer = threads(params.variables!.number, params.variables!.after ?? null);
+      if (!answer) throw httpError(404, `no threads for #${params.variables!.number}`);
       return { data: answer };
     },
   };
-  return { ...replay, octokit };
+  return { ...stub, octokit } as Stub & Omit<typeof stub, 'octokit' | 'state'>;
 }
 
-async function run({ github = stubGitHub(), pr = basePr, prd = basePrd } = {}) {
-  const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
+async function run({ github = stubGitHub(), pr = basePr, prd = basePrd }: { github?: Stub; pr?: object; prd?: object } = {}) {
+  const pulls: RetroPull[] = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const scope = { owner: OWNER, repo: REPO, mergeSha: MERGE_SHA, mergedAt: MERGED_AT, pr, prd, config, pulls };
-  const records = await delivery.gather(github.octokit, scope);
-  const { facts, findings } = delivery.detect(records, { pr, prd, config, pulls });
+  const records = await gather(github.octokit, scope);
+  const { facts, findings } = detect(records, { pr, prd, config, pulls });
   return { github, records, facts, findings, pulls };
 }
 
-const requested = (github, route) =>
+const requested = (github: Stub, route: string) =>
   github.state.requests
     .filter((request) => request.route === route)
-    .map((request) => request.pull_number ?? request.issue_number ?? request.variables?.number)
+    .map((request) => (request.pull_number ?? request.issue_number ?? request.variables?.number) as number)
     .sort((a, b) => a - b);
 
-const byId = (findings, id) => findings.find((finding) => finding.id === id);
+const byId = (findings: Finding[], id: string) => findings.find((finding) => finding.id === id)!;
 
 describe('delivery — gather', () => {
   it('reads each merged sub-PR’s files, the reviews and threads of the feature PR and each merged sub-PR, and every sub-PR’s comments and label events', async () => {
@@ -85,12 +94,12 @@ describe('delivery — gather', () => {
 
   it('keeps plain records: changed paths, stuck comments, the times needs-fix was added, reviews and threads', async () => {
     const { records } = await run();
-    expect(records.pulls[15].files).toEqual(['src/show/colour.mjs', 'src/registry.mjs', 'src/store/colour.mjs', 'README.md']);
-    expect(records.pulls[16].files).toBeUndefined();
-    expect(records.pulls[14].stuck).toEqual([{ url: `${pull(14)}#issuecomment-9002`, at: '2026-09-20T09:59:00Z', attempts: 3, text: STUCK_BODY }]);
-    expect(records.pulls[14].needsFix).toEqual(['2026-09-20T09:58:00Z']);
-    expect(records.pulls[13].needsFix).toEqual([]);
-    expect(records.pulls[14].reviews).toEqual([
+    expect(records.pulls[15]!.files).toEqual(['src/show/colour.mjs', 'src/registry.mjs', 'src/store/colour.mjs', 'README.md']);
+    expect(records.pulls[16]!.files).toBeUndefined();
+    expect(records.pulls[14]!.stuck).toEqual([{ url: `${pull(14)}#issuecomment-9002`, at: '2026-09-20T09:59:00Z', attempts: 3, text: STUCK_BODY }]);
+    expect(records.pulls[14]!.needsFix).toEqual(['2026-09-20T09:58:00Z']);
+    expect(records.pulls[13]!.needsFix).toEqual([]);
+    expect(records.pulls[14]!.reviews).toEqual([
       {
         url: `${pull(14)}#pullrequestreview-1401`,
         author: 'claude[bot]',
@@ -100,10 +109,10 @@ describe('delivery — gather', () => {
         text: '🔴 **Bug:** the cache is never cleared, so a colour read once is read forever.',
       },
     ]);
-    expect(records.pulls[12].reviews).toEqual([
+    expect(records.pulls[12]!.reviews).toEqual([
       { url: `${pull(12)}#pullrequestreview-1201`, author: 'ada', bot: false, state: 'APPROVED', red: false, text: null },
     ]);
-    expect(records.pulls[13].threads).toEqual([
+    expect(records.pulls[13]!.threads).toEqual([
       {
         url: `${pull(13)}#discussion_r1`,
         author: 'claude',
@@ -121,27 +130,27 @@ describe('delivery — gather', () => {
     const github = stubGitHub();
     const renamed = [{ filename: 'src/read/colour.mjs', previous_filename: 'src/store/read.mjs', status: 'renamed' }];
     const octokit = {
-      request: (route, params) =>
+      request: (route: string, params: Params = {}) =>
         route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files' && params.pull_number === 14
           ? Promise.resolve({ data: renamed })
           : github.octokit.request(route, params),
     };
     const { records } = await run({ github: { ...github, octokit } });
-    expect(records.pulls[14].files).toEqual(['src/read/colour.mjs', 'src/store/read.mjs']);
+    expect(records.pulls[14]!.files).toEqual(['src/read/colour.mjs', 'src/store/read.mjs']);
   });
 
   it('pages through review threads', async () => {
-    const pages = {
+    const pages: Record<string, { nodes: object[]; next: string | null }> = {
       null: { nodes: [{ isResolved: true, isOutdated: false, path: 'a', comments: { nodes: [{ url: 'u1', body: 'x', author: { login: 'ada', __typename: 'User' } }] } }], next: 'c1' },
       c1: { nodes: [{ isResolved: false, isOutdated: true, path: 'b', comments: { nodes: [{ url: 'u2', body: 'y', author: null }] } }], next: null },
     };
-    const threads = (number, after) => {
+    const threads = (number: number, after: string | null) => {
       if (number !== 15) return threadsAnswer(number);
-      const page = pages[after];
+      const page = pages[String(after)]!;
       return { data: { repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: page.next !== null, endCursor: page.next }, nodes: page.nodes } } } } };
     };
     const { records } = await run({ github: stubGitHub({ threads }) });
-    expect(records.pulls[15].threads.map((thread) => [thread.url, thread.author, thread.bot, thread.resolved, thread.outdated])).toEqual([
+    expect(records.pulls[15]!.threads!.map((thread) => [thread.url, thread.author, thread.bot, thread.resolved, thread.outdated])).toEqual([
       ['u1', 'ada', false, true, false],
       ['u2', null, false, false, true],
     ]);
@@ -150,7 +159,7 @@ describe('delivery — gather', () => {
   it('reads what the installation cannot see as unknown, never as nothing', async () => {
     const github = stubGitHub({ threads: () => null, events: {} });
     const octokit = {
-      request(route, params) {
+      request(route: string, params: Params = {}) {
         if (route.endsWith('/files') && params.pull_number === 15) return Promise.reject(httpError(403, 'Resource not accessible by integration'));
         if (route.endsWith('/reviews') && params.pull_number === 14) return Promise.reject(httpError(404, 'Not Found'));
         if (route.endsWith('/comments') && params.issue_number === 16) return Promise.reject(httpError(403, 'Forbidden'));
@@ -158,17 +167,17 @@ describe('delivery — gather', () => {
       },
     };
     const { records } = await run({ github: { ...github, octokit } });
-    expect(records.pulls[15].files).toBeNull();
-    expect(records.pulls[14].reviews).toBeNull();
-    expect(records.pulls[16].stuck).toBeNull();
-    expect(records.pulls[13].needsFix).toBeNull();
-    expect(records.pulls[13].threads).toBeNull();
-    expect(records.pulls[13].files).toHaveLength(3);
+    expect(records.pulls[15]!.files).toBeNull();
+    expect(records.pulls[14]!.reviews).toBeNull();
+    expect(records.pulls[16]!.stuck).toBeNull();
+    expect(records.pulls[13]!.needsFix).toBeNull();
+    expect(records.pulls[13]!.threads).toBeNull();
+    expect(records.pulls[13]!.files).toHaveLength(3);
   });
 
   it('reads threads GraphQL refuses as unknown, and fails the step on any other GraphQL error', async () => {
     const refused = () => ({ data: null, errors: [{ type: 'FORBIDDEN', message: 'Resource not accessible by integration' }] });
-    expect((await run({ github: stubGitHub({ threads: refused }) })).records.pulls[12].threads).toBeNull();
+    expect((await run({ github: stubGitHub({ threads: refused }) })).records.pulls[12]!.threads).toBeNull();
     const limited = () => ({ data: null, errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }] });
     await expect(run({ github: stubGitHub({ threads: limited }) })).rejects.toThrow('API rate limit exceeded');
   });
@@ -207,10 +216,10 @@ describe('delivery — territory', () => {
 
   it('names a sub-PR whose files could not be read, and one whose slice the plan does not hold, without grading them', async () => {
     const github = stubGitHub({
-      pulls: [...DELIVERY_PULLS, { ...DELIVERY_PULLS[0], number: 19, html_url: pull(19), head: { ref: 'feat/widget--s9', sha: 'h19' } }],
+      pulls: [...DELIVERY_PULLS, { ...DELIVERY_PULLS[0]!, number: 19, html_url: pull(19), head: { ref: 'feat/widget--s9', sha: 'h19' } }],
     });
     const octokit = {
-      request: (route, params) =>
+      request: (route: string, params: Params = {}) =>
         route.endsWith('/files') && params.pull_number === 19
           ? Promise.resolve({ data: [{ filename: 'src/nine.mjs', status: 'added' }] })
           : route.endsWith('/files') && params.pull_number === 15
@@ -268,7 +277,7 @@ describe('delivery — friction', () => {
   });
 
   it('says a slice claimed twice in the finding of a slice that also went stuck', async () => {
-    const github = stubGitHub({ comments: [...COMMENTS, { ...COMMENTS[1], id: 9003, issue: 15, html_url: `${pull(15)}#issuecomment-9003` }] });
+    const github = stubGitHub({ comments: [...COMMENTS, { ...COMMENTS[1]!, id: 9003, issue: 15, html_url: `${pull(15)}#issuecomment-9003` }] });
     const { findings } = await run({ github });
     expect(byId(findings, 'friction:s3').happened).toBe('Slice s3 went stuck after 3 attempts and was claimed 2 times.');
   });
@@ -277,7 +286,7 @@ describe('delivery — friction', () => {
     const labelled = DELIVERY_PULLS.map((p) => (p.number === 13 ? { ...p, labels: [...p.labels, { name: 'omni:needs-fix' }] } : p));
     const { facts, findings } = await run({ github: stubGitHub({ events: {}, pulls: labelled }) });
     expect(facts.friction.counts).toMatchObject({ needsFix: 1, eventsUnread: 4 });
-    expect(facts.friction.slices[0].needsFix).toEqual([{ pr: 13, at: null }]);
+    expect(facts.friction.slices[0]!.needsFix).toEqual([{ pr: 13, at: null }]);
     expect(byId(findings, 'friction:s1').happened).toBe('Slice s1 was labelled `omni:needs-fix`.');
     expect(byId(findings, 'friction:s2').happened).toBe('Slice s2 went stuck after 3 attempts.');
   });
@@ -326,7 +335,7 @@ describe('delivery — decisions', () => {
     const prd = { ...basePrd, state: 'inbox', folder: '.omni-loop/delivery/inbox/0007-widget' };
     const { facts, findings } = await run({ prd });
     expect(facts.decisions.file).toBe('.omni-loop/delivery/outbox/0007-widget/settled.md');
-    expect(byId(findings, 'drift:s2-02-read-order').evidence[0].url).toBe(
+    expect(byId(findings, 'drift:s2-02-read-order').evidence[0]!.url).toBe(
       `https://github.com/${OWNER}/${REPO}/blob/${MERGE_SHA}/.omni-loop/delivery/outbox/0007-widget/settled.md`,
     );
   });
@@ -403,7 +412,7 @@ describe('delivery — review', () => {
   });
 
   it('names the feature PR when its review is where a finding was left', async () => {
-    const threads = (number) =>
+    const threads = (number: number) =>
       number === 12
         ? { data: { repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [
             { isResolved: false, isOutdated: false, path: 'README.md', comments: { nodes: [{ url: 'u12', body: '🔴 Wrong link.', author: { login: 'claude', __typename: 'Bot' } }] } },
@@ -439,7 +448,7 @@ describe('delivery — findings and section', () => {
 
   it('describes the decisions, the override, the territory, the friction and the review', async () => {
     const { facts } = await run();
-    expect(delivery.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- Decisions: 4 raised and settled — 1 adopted, 1 agreed, 2 drifted, 1 of them reworked; by rank: 2 high, 2 medium.',
       '- The feature PR merged without the override label `omni:outbox-go`.',
       '- Territory: 3 merged sub-PRs graded against the plan — 2 paths outside a slice’s territory, 1 more on shared ground.',
@@ -450,7 +459,7 @@ describe('delivery — findings and section', () => {
 
   it('says what it could not read or grade', async () => {
     const { facts } = await run({ github: stubGitHub({ threads: () => null, events: {} }), prd: { ...basePrd, settled: null, plan: null } });
-    expect(delivery.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- Decisions: no settled file at the merge, so no decision is counted.',
       '- The feature PR merged without the override label `omni:outbox-go`.',
       '- Territory: not graded — no plan at the merge.',
@@ -460,7 +469,7 @@ describe('delivery — findings and section', () => {
   });
 
   it('leaves its section out when it has no facts', () => {
-    expect(delivery.describe(null)).toBeNull();
+    expect(section(null)).toBeNull();
   });
 
   it('holds its own place in the registry: the Decisions section, in the merge run', () => {
@@ -472,14 +481,15 @@ describe('delivery — the PRD 50 recording', () => {
   const recording = JSON.parse(readFileSync(new URL('../../../test/fixtures/prd-50/recording.json', import.meta.url), 'utf8'));
 
   async function prd50() {
-    const github = replayGitHub({ recording: recording.requests });
+    const github = replay({ recording: recording.requests });
     const input = { owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: 51, mergeSha: recording.mergeSha };
     const qualified = await qualify(github.octokit, input);
+    if (qualified.skip !== null) throw new Error(qualified.skip);
     const { pr, prd, config: at } = qualified;
     const pulls = await listPullsInto(github.octokit, { owner: input.owner, repo: input.repo, base: pr.headRef });
     const scope = { owner: input.owner, repo: input.repo, mergeSha: input.mergeSha, mergedAt: pr.mergedAt, pr, prd, config: at, pulls };
-    const records = await delivery.gather(github.octokit, scope);
-    return delivery.detect(records, { pr, prd, config: at, pulls });
+    const records = await gather(github.octokit, scope);
+    return detect(records, { pr, prd, config: at, pulls });
   }
 
   it('yields 4 adopted decisions and no drift', async () => {

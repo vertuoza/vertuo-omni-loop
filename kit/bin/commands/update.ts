@@ -30,7 +30,7 @@ const USAGE = 'usage: omni update [--to <version>]';
 function handOver({ cwd, home, from, target, exec }: { cwd: string; home: string | null; from: string | null; target: string; exec: Exec }): number {
   const dir = mkdtempSync(join(tmpdir(), 'omni-update-'));
   try {
-    const bundle = downloadBundle({ home, version: target, dir, exec });
+    const bundle = downloadBundle({ home: home!, version: target, dir, exec }); // ts-allow: findTarget refused a kit with no home before any hand-over
     const fromFlag = from ? ['--from', from] : [];
     try {
       exec('node', [bundle, 'update', '--apply', ...fromFlag], { cwd, stdio: 'inherit' });
@@ -73,7 +73,7 @@ function updateRepository({
     out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ''}: there is no bin to update here.`);
     return { code: 0, target: null };
   }
-  const target = findTarget({ home: running.home, to: (flags.to ?? null) as null, exec }); // ts-allow: lib/update is untyped until s18, so its `to = null` default reads as null only
+  const target = findTarget({ home: running.home, to: flags.to ?? null, exec });
   const root = rootOf(cwd, exec);
   const from = root ? installedVersion({ root, running, bundle: file }) : running.version;
   if (from === target) {
@@ -106,7 +106,7 @@ export const update = {
         return applyUpdate({ root, bundle: file, version: running.version, from: flags.from ? parseVersion(flags.from) : null, home: running.home, exec, println: out });
       }
       const { code, target } = updateRepository({ cwd, flags, running, file, exec, out });
-      if (code === 0) updatePlugin({ version: target as null, exec, println: out }); // ts-allow: lib/update is untyped until s18, so its `version = null` default reads as null only
+      if (code === 0) updatePlugin({ version: target, exec, println: out });
       return code;
     } catch (error) {
       if (!(error instanceof UpdateError)) throw error;

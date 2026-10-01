@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `inbox-check`: the Inngest function posting **omni-loop · inbox** on a phase-0 PR (PRD 675).
 //
 //   step "in-progress"  read the base config; a head branch of the `branches.phase0` shape gets the
@@ -19,17 +18,17 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NonRetriableError } from 'inngest';
+import { NonRetriableError, type Inngest } from 'inngest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import { inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import { installationOctokit } from '../outbox-check/outbox-check.ts';
-import { readBaseConfig, readPull } from '../outbox-check/github.ts';
+import { CheckRequestDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { installationOctokit, notRetriedPastBound, onFailedRun, type OctokitFor } from '../outbox-check/outbox-check.ts';
+import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { publish } from '../publish/publish.ts';
-import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
+import { snapshot } from '../snapshot/snapshot.ts';
 import { canonFromEnv } from '../canon/live.ts';
-import { evaluateInbox, inboxPrd, phase0Topic } from './evaluate-inbox.ts';
+import { evaluateInbox, inboxPrd, phase0Topic, type CanonGrader, type InboxVerdict } from './evaluate-inbox.ts';
 import { canonActions } from './canon-actions.ts';
 import { addCheckActions, compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.ts';
 
@@ -47,14 +46,7 @@ export const INBOX_DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-/**
- * @param {{
- *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
- *   canon?: { grade: Function } | null,
- * }} deps
- */
-export function createInboxCheck({ client, octokitFor, canon = null }) {
+export function createInboxCheck({ client, octokitFor, canon = null }: { client: Inngest; octokitFor: OctokitFor; canon?: CanonGrader | null }) {
   return client.createFunction(
     {
       id: INBOX_FUNCTION_ID,
@@ -65,7 +57,7 @@ export function createInboxCheck({ client, octokitFor, canon = null }) {
       onFailure: createInboxFailureHandler({ octokitFor }),
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, headSha } = event.data;
+      const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
 
       const started = await step.run('in-progress', async () => {
         const octokit = await octokitFor(installationId);
@@ -76,15 +68,9 @@ export function createInboxCheck({ client, octokitFor, canon = null }) {
       });
       if (!started) return { ...SILENT };
 
-      const verdict = await step.run('evaluate', async () => {
-        const octokit = await octokitFor(installationId);
-        try {
-          return await evaluateAt(octokit, { owner, repo, prNumber, headSha, canon });
-        } catch (error) {
-          if (error instanceof SnapshotBoundError) throw new NonRetriableError(error.message, { cause: error });
-          throw error;
-        }
-      });
+      const verdict = await step.run('evaluate', () =>
+        notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha, canon })),
+      );
       if (!verdict) throw new NonRetriableError('the pull request is no longer a phase-0 PR of this repository');
 
       await step.run('publish', async () => {
@@ -117,7 +103,10 @@ export function createInboxCheck({ client, octokitFor, canon = null }) {
  * The inbox check's name when the pull request is a phase-0 PR of a repository with the loop, else
  * `null`: its head branch has the `branches.phase0` shape as the base branch's config spells it.
  */
-export async function phase0CheckName(octokit, { owner, repo, prNumber }) {
+export async function phase0CheckName(
+  octokit: GitHubClient,
+  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: number },
+): Promise<string | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-inbox-name-'));
   try {
@@ -130,14 +119,17 @@ export async function phase0CheckName(octokit, { owner, repo, prNumber }) {
 }
 
 /** The step "evaluate": the base config, the head's folders, the compare and the PRD issue, graded. */
-async function evaluateAt(octokit, { owner, repo, prNumber, headSha, canon }) {
+async function evaluateAt(
+  octokit: GitHubClient,
+  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: number; headSha: string; canon: CanonGrader | null },
+): Promise<InboxVerdict | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-inbox-base-'));
   const head = mkdtempSync(join(tmpdir(), 'omni-inbox-head-'));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     const topic = config ? phase0Topic(pr.headRef, config.branches.phase0) : null;
-    if (topic === null) return null;
+    if (!config || topic === null) return null;
 
     const ctx = createContext(head, config);
     const { dirs } = ctx.layout;
@@ -158,28 +150,21 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha, canon }) {
  * A PR that is not a phase-0 PR gets nothing. When GitHub itself fails the handler cannot tell, so it
  * completes an open inbox run of the default name if there is one, and creates none.
  */
-export function createInboxFailureHandler({ octokitFor }) {
-  return async ({ event, error, step }) => {
-    const original = event.data.event;
-    const { installationId, owner, repo, prNumber, headSha } = original.data;
-    const reason = error?.message ?? event.data.error?.message ?? 'unknown error';
-
-    const run = (id, fn) => (step?.run ? step.run(id, fn) : fn());
-    return run('complete-as-failure', async () => {
-      const octokit = await octokitFor(installationId);
-      let name = DEFAULT_INBOX_NAME;
-      let create = false;
-      try {
-        name = await phase0CheckName(octokit, { owner, repo, prNumber });
-        if (name === null) return { ...SILENT };
-        create = true;
-      } catch {
-        name = DEFAULT_INBOX_NAME;
-      }
-      const checkRunIds = await completeInboxAsFailure(octokit, { owner, repo, headSha, name, reason, create });
-      return { checkRunIds, name, reason };
-    });
-  };
+export function createInboxFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
+    let name = DEFAULT_INBOX_NAME;
+    let create = false;
+    try {
+      const phase0 = await phase0CheckName(octokit, { owner, repo, prNumber });
+      if (phase0 === null) return { ...SILENT };
+      name = phase0;
+      create = true;
+    } catch {
+      name = DEFAULT_INBOX_NAME;
+    }
+    const checkRunIds = await completeInboxAsFailure(octokit, { owner, repo, headSha, name, reason, create });
+    return { checkRunIds, name, reason };
+  });
 }
 
 export const inboxCheck = createInboxCheck({ client: inngest, octokitFor: installationOctokit, canon: canonFromEnv() });

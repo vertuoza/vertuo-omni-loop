@@ -1,10 +1,10 @@
-// @ts-nocheck
 // PRD #324, slices s1, s4, s5 and s6: what the status line reads besides its stdin — whether the loop
 // is installed in the session's folder, whether ask mode is on in the launch folder's checkout, and
 // the PRD the session's branch names (else the one its record names), with its stage read from git as
 // of the last fetch and the slices of its cached board, whose refresh it starts through the injected
 // spawn.
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptionsWithStringEncoding, SpawnOptions } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +13,7 @@ import { makeRepo } from '../../test/fixture.ts';
 import { writeMode } from '../ask/local-state.ts';
 import { BOARD_DIR, boardFile, lockFile } from './board-cache.ts';
 import { readFacts } from './facts.ts';
+import type { SessionInput } from './input.ts';
 import { writeRecord } from './sessions.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
@@ -20,15 +21,15 @@ const DELIVERY = '.omni-loop/delivery';
 
 /** `execFileSync`, with every call it runs recorded as `<file> <args…>`. */
 function recordingExec() {
-  const calls = [];
-  const exec = (file, args, options) => {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding) => {
     calls.push([file, ...args].join(' '));
     return execFileSync(file, args, options);
   };
   return { calls, exec };
 }
 
-const input = (fields = {}) => ({ model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null, sessionId: null, ...fields });
+const input = (fields: Partial<SessionInput> = {}): SessionInput => ({ model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null, sessionId: null, ...fields });
 
 describe('readFacts', () => {
   it('reads the loop installed in the session folder, and ask mode on in the launch folder', () => {
@@ -72,10 +73,10 @@ describe('readFacts', () => {
 });
 
 /** Runs git in `cwd` as a fixture author. */
-const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
+const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
 
 /** Writes `files` under `root` and commits them. */
-function commit(root, files, message = 'change') {
+function commit(root: string, files: Record<string, string>, message = 'change') {
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(join(root, path, '..'), { recursive: true });
     writeFileSync(join(root, path), text);
@@ -236,15 +237,15 @@ describe('readFacts: the board (slice s6)', () => {
   const IN_FLIGHT = [{ id: 's1', wave: 1, state: 'in-flight' }, { id: 's2', wave: 2, state: 'blocked' }];
 
   /** A board file in the checkout at `root`, written `age` milliseconds before `NOW`. */
-  function plantBoard(root, prd, age, body = { slices: IN_FLIGHT }) {
+  function plantBoard(root: string, prd: number, age: number, body: Record<string, unknown> = { slices: IN_FLIGHT }) {
     mkdirSync(join(root, BOARD_DIR), { recursive: true });
     writeFileSync(boardFile(root, prd), JSON.stringify({ at: new Date(NOW - age).toISOString(), ...body }));
   }
 
   /** A spawn that starts nothing and records each call. */
   function fakeSpawn() {
-    const calls = [];
-    const spawn = (command, args, options) => {
+    const calls: { command: string; args: readonly string[]; options: SpawnOptions }[] = [];
+    const spawn = (command: string, args: readonly string[], options: SpawnOptions) => {
       calls.push({ command, args, options });
       return { unref() {}, on() { return this; } };
     };
@@ -252,7 +253,7 @@ describe('readFacts: the board (slice s6)', () => {
   }
 
   /** `readFacts` on the session folder `folder` at `NOW`, with a recording exec and spawn. */
-  function read(folder, more = {}) {
+  function read(folder: string, more: Partial<SessionInput> = {}) {
     const { calls, exec } = recordingExec();
     const spawned = fakeSpawn();
     const facts = readFacts(input({ currentDir: folder, ...more }), { cwd: folder, exec, now: NOW, spawn: spawned.spawn });
@@ -275,8 +276,8 @@ describe('readFacts: the board (slice s6)', () => {
     const { prd, spawns } = read(root);
     expect(prd).toMatchObject({ number: 7, stage: 'inbox', slices: null });
     expect(spawns).toHaveLength(1);
-    expect(spawns[0].args.slice(1)).toEqual(['statusline', '--refresh', '7']);
-    expect(spawns[0].options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
+    expect(spawns[0]!.args.slice(1)).toEqual(['statusline', '--refresh', '7']);
+    expect(spawns[0]!.options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
   });
 
   it('starts one refresh without a board, none while a refresh holds the lock, and none without a spawn', () => {

@@ -140,7 +140,7 @@ describe('omni update: the running bin finds the release and hands over to it', 
       const { root } = installedRepo({ bin });
       const { calls } = await update(root, [], { kit: { ...KIT, version } });
       const [bundle, ...argv] = calls.find(({ file }) => file === 'node')!.args;
-      expect(planLaunch(argv, { cwd: root, self: bundle }), argv.join(' ')).toEqual({ kind: 'self' });
+      expect(planLaunch(argv, { cwd: root, self: bundle! }), argv.join(' ')).toEqual({ kind: 'self' });
     }
   });
 

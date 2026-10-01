@@ -1,11 +1,10 @@
-// @ts-nocheck
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { GET, POST } from '../../api/github.ts';
 
 const SECRET = 'route-secret';
-const sign = (body) => `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`;
+const sign = (body: any) => `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`;
 
 const body = JSON.stringify({
   action: 'synchronize',
@@ -14,7 +13,7 @@ const body = JSON.stringify({
   pull_request: { number: 3, head: { sha: 'def456' }, base: { ref: 'main' } },
 });
 
-const request = (headers) =>
+const request = (headers: any) =>
   new Request('https://omni-loop.example/api/github', {
     method: 'POST',
     body,
@@ -22,7 +21,7 @@ const request = (headers) =>
   });
 
 describe('/api/github', () => {
-  let send;
+  let send: any;
   beforeEach(() => {
     vi.stubEnv('GITHUB_WEBHOOK_SECRET', SECRET);
     send = vi.spyOn(inngest, 'send').mockResolvedValue({ ids: ['e1'] });
@@ -36,7 +35,7 @@ describe('/api/github', () => {
     const response = await POST(request({ 'x-hub-signature-256': sign(body) }));
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0][0]).toMatchObject([{ name: OUTBOX_CHECK_EVENT, data: { repository: 'o/r', prNumber: 3 } }]);
+    expect(send.mock.calls[0]?.[0]).toMatchObject([{ name: OUTBOX_CHECK_EVENT, data: { repository: 'o/r', prNumber: 3 } }]);
   });
 
   it('answers 401 to a bad signature and creates no event', async () => {
@@ -72,7 +71,7 @@ describe('/api/github', () => {
     }));
     expect(response.status).toBe(200);
     expect(post).toHaveBeenCalledTimes(1);
-    const [url, init] = post.mock.calls[0];
+    const [url, init]: any = post.mock.calls[0];
     expect(url).toBe('https://galaxy.example/api/stages/event');
     expect(JSON.parse(init.body)).toEqual({ repository: 'o/r', topic: 'x', prd: 9, stage: 'inbox', at: '2026-09-29T10:00:00Z' });
     expect(init.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(init.body).digest('hex')}`);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `render`: the runs `retro.json` keeps and the prose `guard` accepted in, `retro.md`, `retro.json`
 // and the retro PR's title and body out (PRD 72, "The retro PR"). Pure.
 //
@@ -16,52 +15,60 @@
 //
 // When the retro is not worth a pull request, or was not judged, nothing of that is written:
 // `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
+import { RetroDocSchema } from './github.schema.ts';
 import { KINDS } from './kinds/index.ts';
 import { JUDGE_VERSION } from './narrate.ts';
+import type { IssueLink, IssueLinks, Kind, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
 
-/**
- * @typedef {{ [findingId: string]: { number: number, url: string, state: 'open' | 'closed' } }} IssueLinks
- * @typedef {object} RunRecord  a fact sheet from `detect`, plus `narration: { model, reason, dropped }`
- *   and `issues: IssueLinks`
- * @typedef {{ prd: number, runs: RunRecord[] }} RetroDoc  what `retro.json` holds
- */
+export type { IssueLinks, RetroDoc, RunRecord };
+
+/** The timeline kind's facts, as far as the verdict comment reads them (`kinds/timeline.ts`). */
+type TimelineFacts = {
+  featurePr?: { minutes?: number | null } | null;
+  sliceCount?: number;
+  waves: { merged: number; planned: number | null };
+};
 
 /**
  * `retro.json`'s content with `record` in it: a replay replaces the record of the same feature PR and
- * run, anything else is added. A file that is not the retro's JSON is started again.
- * @param {string | null} existing  the file's text on the retro branch, or `null`
- * @param {RunRecord} record
- * @returns {RetroDoc}
+ * run, anything else is added. A file that is not the retro's JSON is started again. `existing` is
+ * the file's text on the retro branch, or `null`.
  */
-export function mergeRuns(existing, record) {
-  let doc = null;
+export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc {
+  let doc: unknown = null;
   try {
     doc = existing ? JSON.parse(existing) : null;
   } catch {
     doc = null;
   }
-  const runs = Array.isArray(doc?.runs) ? doc.runs : [];
-  const same = (run) => run.featurePr?.number === record.featurePr.number && run.run === record.run;
+  const runs = RetroDocSchema.parse(doc).runs as RunRecord[]; // ts-allow: the runs a retro.json keeps are the records the runs before wrote, kept as they were
+  const same = (run: RunRecord) => run.featurePr?.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => (i === index ? record : run));
   return { prd: record.prd.number, runs: next };
 }
 
 /** The retro PR's title: `docs(retro): PRD <n> — <PRD title>`. */
-export function retroTitle(prd) {
+export function retroTitle(prd: { number: number; title: string }): string {
   return `docs(retro): PRD ${prd.number} — ${prd.title}`;
 }
 
-/**
- * @param {{ doc: RetroDoc, featurePr: number, prose?: object | null, kinds?: readonly object[] }} input
- * @returns {{ markdown: string, json: string, title: string, prBody: string }}
- */
-export function render({ doc, featurePr, prose = null, kinds = KINDS }) {
+export function render({
+  doc,
+  featurePr,
+  prose = null,
+  kinds = KINDS,
+}: {
+  doc: RetroDoc;
+  featurePr: number;
+  prose?: Prose | null;
+  kinds?: readonly Kind[];
+}): { markdown: string; json: string; title: string; prBody: string } {
   const runs = doc.runs.filter((run) => run.featurePr.number === featurePr);
-  if (runs.length === 0) throw new Error(`render: retro.json holds no run of #${featurePr}.`);
   const latest = runs.at(-1);
+  if (!latest) throw new Error(`render: retro.json holds no run of #${featurePr}.`);
   const findings = uniqueFindings(runs);
-  const issues = Object.assign({}, ...runs.map((run) => run.issues ?? {}));
+  const issues: IssueLinks = Object.assign({}, ...runs.map((run) => run.issues ?? {}));
 
   const lines = [
     '---',
@@ -89,8 +96,8 @@ export function render({ doc, featurePr, prose = null, kinds = KINDS }) {
     '',
   ];
 
-  const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
-  const sectionOf = (kind) => kindSection(kind, runs, findings, prose, issues);
+  const byRun = (run: Run) => kinds.filter((kind) => kind.runs.includes(run));
+  const sectionOf = (kind: Kind) => kindSection(kind, runs, findings, prose, issues);
   lines.push(...byRun('merge').flatMap(sectionOf));
   lines.push(...rulesSection(latest.rules));
   lines.push(...kinds.filter((kind) => !kind.runs.includes('merge')).flatMap(sectionOf));
@@ -104,37 +111,37 @@ export function render({ doc, featurePr, prose = null, kinds = KINDS }) {
 }
 
 /** Every finding of the runs, in run order, each id once (its first run's). */
-function uniqueFindings(runs) {
-  const seen = new Set();
+function uniqueFindings(runs: readonly RunRecord[]): SheetFinding[] {
+  const seen = new Set<string>();
   return runs.flatMap((run) => run.findings).filter((finding) => !seen.has(finding.id) && seen.add(finding.id));
 }
 
 /** A prose field as written: its text, the line naming why it was dropped, or `null` when not given. */
-function field(value) {
+function field(value: ProseField | null | undefined): string | null {
   if (value === undefined || value === null) return null;
   if (typeof value === 'object' && 'dropped' in value) return `_Dropped: ${value.dropped}._`;
   return String(value);
 }
 
-function summary(prose, latest) {
+function summary(prose: Prose | null, latest: RunRecord): string {
   const text = field(prose?.summary);
   if (text) return text;
   return `Facts only: ${latest.narration?.reason ?? 'no prose'}`;
 }
 
 /** A finding's title: the model's when it gave one and it was kept, else the detector's own. */
-function titleOf(finding, prose) {
+function titleOf(finding: SheetFinding, prose: Prose | null): string {
   const given = prose?.findings?.[finding.id]?.title;
   return typeof given === 'string' && given ? given : finding.title;
 }
 
-function issueLink(issue) {
+function issueLink(issue: IssueLink | undefined): string | null {
   if (!issue) return null;
   return `[#${issue.number}](${issue.url})${issue.state === 'closed' ? ' (closed)' : ''}`;
 }
 
-function findingBlock(finding, prose, issues) {
-  const words = prose?.findings?.[finding.id] ?? {};
+function findingBlock(finding: SheetFinding, prose: Prose | null, issues: IssueLinks): string[] {
+  const words: ProseFinding = prose?.findings?.[finding.id] ?? {};
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === 'object' && words.title !== null ? field(words.title) : null;
   const heading = [`### ${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``, issue].filter(Boolean).join(' · ');
@@ -151,7 +158,7 @@ function findingBlock(finding, prose, issues) {
   return lines;
 }
 
-function lessons(prose, findings) {
+function lessons(prose: Prose | null, findings: readonly SheetFinding[]): string[] {
   const given = (prose?.lessons ?? []).filter((lesson) => typeof lesson?.text === 'string' && lesson.text);
   if (given.length === 0) return [prose ? 'None proposed.' : 'None proposed: facts only.'];
   const refOf = new Map(findings.map((finding) => [finding.id, finding.ref]));
@@ -162,12 +169,12 @@ function lessons(prose, findings) {
 }
 
 /** One kind's section: its own lines from the latest run that has its facts, then its findings. */
-function kindSection(kind, runs, findings, prose, issues) {
+function kindSection(kind: Kind, runs: readonly RunRecord[], findings: readonly SheetFinding[], prose: Prose | null, issues: IssueLinks): string[] {
   const facts = [...runs].reverse().map((run) => run.kinds?.[kind.id]).find((value) => value !== null && value !== undefined) ?? null;
   const own = findings.filter((finding) => finding.source === kind.id);
   const described = facts === null ? null : kind.describe(facts);
   if ((!described || described.length === 0) && own.length === 0) return [];
-  const lines = [`## ${kind.section}`, ''];
+  const lines: string[] = [`## ${kind.section}`, ''];
   if (described && described.length > 0) lines.push(...described, '');
   if (own.length > 0) {
     const refs = own.map((finding) => [`${finding.ref} · ${titleOf(finding, prose)}`, issueLink(issues[finding.id])].filter(Boolean).join(' · '));
@@ -176,7 +183,7 @@ function kindSection(kind, runs, findings, prose, issues) {
   return lines;
 }
 
-function rulesSection(rules) {
+function rulesSection(rules: RulesSheet): string[] {
   const t = rules.thresholds;
   const order = rules.findingOrder.map((rank) => rank.join(' or ')).join(', ');
   return [
@@ -194,7 +201,7 @@ function rulesSection(rules) {
   ];
 }
 
-function prBody(latest, findings, prose, issues) {
+function prBody(latest: RunRecord, findings: readonly SheetFinding[], prose: Prose | null, issues: IssueLinks): string {
   const lines = [
     `Refs #${latest.prd.number}`,
     '',
@@ -218,13 +225,21 @@ function prBody(latest, findings, prose, issues) {
  * The comment a retro not worth a pull request keeps on the merged feature PR, without its marker:
  * `Retro: no new lesson — <reason>` or `Retro: not judged — <reason>`, the timeline in two lines,
  * then one line per finding (its id, title and key). Pure.
- * @param {{ judged: boolean, reason: string, runs: RunRecord[], prose?: object | null }} input
- * @returns {string}
  */
-export function verdictComment({ judged, reason, runs, prose = null }) {
-  const first = runs[0];
+export function verdictComment({
+  judged,
+  reason,
+  runs,
+  prose = null,
+}: {
+  judged: boolean;
+  reason: string;
+  runs: readonly RunRecord[];
+  prose?: Prose | null;
+}): string {
+  const first = runs[0]!; // ts-allow: a retro comments on the runs it made, never on none
   const findings = uniqueFindings(runs);
-  const timeline = runs.map((run) => run.kinds?.timeline).find((facts) => facts) ?? null;
+  const timeline = (runs.map((run) => run.kinds?.timeline).find((facts) => facts) ?? null) as TimelineFacts | null; // ts-allow: the timeline kind's facts, as it writes them
   const minutes = timeline?.featurePr?.minutes ?? minutesBetween(first.featurePr.openedAt, first.featurePr.mergedAt);
   const lines = [
     `Retro: ${judged ? 'no new lesson' : 'not judged'} — ${oneLine(reason)}`,
@@ -243,11 +258,11 @@ export function verdictComment({ judged, reason, runs, prose = null }) {
   return `${lines.join('\n')}\n`;
 }
 
-function minutesBetween(from, to) {
-  const ms = Date.parse(to) - Date.parse(from);
+function minutesBetween(from: string | null, to: string | null): number | null {
+  const ms = Date.parse(to as string) - Date.parse(from as string); // ts-allow: a missing time parses as NaN, which reads as not known
   return Number.isFinite(ms) ? Math.round(ms / 60000) : null;
 }
 
-function oneLine(text) {
+function oneLine(text: unknown): string {
   return String(text ?? '').replace(/\s+/g, ' ').trim() || 'no reason given';
 }

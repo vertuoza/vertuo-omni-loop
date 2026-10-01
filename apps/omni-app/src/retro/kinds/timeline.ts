@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The timeline (PRD 72, "The facts, and what makes a finding"): when the feature PR opened, was
 // marked ready and merged; per slice, when its sub-PR opened (the claim) and merged; the waves as
 // planned and as merged. A finding when a slice took more than `THRESHOLDS.slowSliceFactor` times the
@@ -9,19 +8,43 @@
 import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
+import type { Kind, RetroPull } from './index.ts';
+import { IssueEventSchema } from './schema.ts';
 
 const MINUTE = 60 * 1000;
 
-/** @type {import('./index.ts').Kind} */
-export const timeline = Object.freeze({
+type Records = { readyAt: string | null };
+
+type SliceTime = {
+  slice: string;
+  pr: number;
+  url: string | null;
+  openedAt: string;
+  mergedAt: string | null;
+  closedAt: string | null;
+  minutes: number | null;
+  plannedWave: number | null;
+  mergedWave: number | undefined;
+};
+
+type Facts = {
+  featurePr: { number: number; url: string | null; openedAt: string | null; readyAt: string | null; mergedAt: string | null; minutes: number };
+  slices: SliceTime[];
+  sliceCount: number;
+  waves: { planned: number | null; merged: number };
+  medianMinutes: number | null;
+  slowFactor: number;
+};
+
+export const timeline: Kind<Records, Facts> = Object.freeze({
   id: 'timeline',
   section: 'Timeline',
-  runs: Object.freeze(['merge']),
+  runs: Object.freeze(['merge'] as const),
 
   async gather(octokit, { owner, repo, pr }) {
-    let events;
+    let events: unknown[];
     try {
-      events = await paginate((page) =>
+      events = await paginate((page: number) =>
         octokit
           .request('GET /repos/{owner}/{repo}/issues/{issue_number}/events', {
             owner,
@@ -30,15 +53,16 @@ export const timeline = Object.freeze({
             per_page: PER_PAGE,
             page,
           })
-          .then(({ data }) => data),
+          .then(({ data }) => data as readonly unknown[]), // ts-allow: a list route answers an array; each event is parsed just below, as before
       );
     } catch (error) {
       // Events this installation cannot read leave the ready time unknown; anything else is retried.
-      if (error?.status === 404 || error?.status === 403) return { readyAt: null };
+      const status = statusOf(error);
+      if (status === 404 || status === 403) return { readyAt: null };
       throw error;
     }
-    const ready = events.filter((event) => event.event === 'ready_for_review').map((event) => event.created_at);
-    return { readyAt: ready.length > 0 ? ready.sort().at(-1) : null };
+    const ready = events.map((event) => IssueEventSchema.parse(event)).filter((event) => event.event === 'ready_for_review').map((event) => event.created_at);
+    return { readyAt: ready.length > 0 ? (ready.sort().at(-1) ?? null) : null };
   },
 
   detect(records, { pr, prd, config, pulls }) {
@@ -46,10 +70,10 @@ export const timeline = Object.freeze({
     const sliceTemplate = config.branches.slice.replace('{topic}', prd.topic);
     const subs = pulls
       .map((pull) => ({ pull, slice: sliceOf(pull.headRef, sliceTemplate) }))
-      .filter(({ slice }) => slice !== null);
+      .filter((sub): sub is { pull: RetroPull; slice: string } => sub.slice !== null);
     const merged = wavesAsMerged(subs.map(({ pull }) => pull));
 
-    const slices = subs.map(({ pull, slice }, index) => ({
+    const slices: SliceTime[] = subs.map(({ pull, slice }, index) => ({
       slice,
       pr: pull.number,
       url: pull.url,
@@ -61,11 +85,11 @@ export const timeline = Object.freeze({
       mergedWave: merged[index],
     }));
 
-    const times = slices.filter((slice) => slice.minutes !== null).map((slice) => slice.minutes);
+    const times = slices.flatMap((slice) => (slice.minutes === null ? [] : [slice.minutes]));
     const medianMinutes = median(times);
     const slowFactor = THRESHOLDS.slowSliceFactor;
 
-    const facts = {
+    const facts: Facts = {
       featurePr: {
         number: pr.number,
         url: pr.url,
@@ -132,13 +156,11 @@ export const timeline = Object.freeze({
 /**
  * The wave each sub-PR merged in, in the order given (oldest claim first): a sub-PR starts a new wave
  * when it was claimed after every sub-PR of the current wave had closed; otherwise it joins it.
- * @param {{ openedAt: string, closedAt: string | null }[]} pulls
- * @returns {number[]}
  */
-export function wavesAsMerged(pulls) {
-  const waves = [];
+export function wavesAsMerged(pulls: readonly { openedAt: string; closedAt: string | null }[]): number[] {
+  const waves: number[] = [];
   let wave = 0;
-  let open = [];
+  let open: (string | null)[] = [];
   for (const pull of pulls) {
     const allClosed = open.every((closedAt) => closedAt !== null && closedAt <= pull.openedAt);
     if (wave === 0 || allClosed) {
@@ -152,30 +174,36 @@ export function wavesAsMerged(pulls) {
 }
 
 /** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-function sliceOf(headRef, template) {
-  const [prefix, suffix = ''] = template.split('{slice}');
+function sliceOf(headRef: string, template: string): string | null {
+  const [prefix = '', suffix = ''] = template.split('{slice}');
   if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
   const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
   return slice && !slice.includes('/') ? slice : null;
 }
 
 /** Each planned slice's wave, from the plan's slice table, or `null` when the plan has none. */
-function plannedWaves(plan) {
+function plannedWaves(plan: string | null | undefined): Map<string, number | null> | null {
   if (!plan) return null;
   try {
-    return new Map(parsePlanSlices(plan).map((slice) => [slice.id, Number.isFinite(slice.wave) ? slice.wave : null]));
+    return new Map(parsePlanSlices(plan).map((slice) => [slice.id, slice.wave !== null && Number.isFinite(slice.wave) ? slice.wave : null]));
   } catch {
     return null;
   }
 }
 
-function minutesBetween(from, to) {
-  return Math.round((Date.parse(to) - Date.parse(from)) / MINUTE);
+function minutesBetween(from: string | null, to: string | null): number {
+  return Math.round((Date.parse(to ?? '') - Date.parse(from ?? '')) / MINUTE);
 }
 
-function median(values) {
+function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+  const at = (index: number): number => sorted[index] ?? 0;
+  return sorted.length % 2 === 1 ? at(middle) : Math.round((at(middle - 1) + at(middle)) / 2);
+}
+
+/** The HTTP status a failed request carries, when it carries one. */
+function statusOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
 }

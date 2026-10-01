@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `prStats`: the Inngest function that feeds the Engineering board (PRD 612). Every 15 minutes it
 // collects every tracked repository of every workspace with an installation of the app (`collect.mjs`),
 // through that installation, into the database (`supabase-store.mjs`), one Inngest step per repository
@@ -9,25 +8,25 @@
 //
 // `createPrStats` takes the Inngest client, `octokitFor(installationId)` and `storeFor({ url, key })`,
 // so a test runs the real function against a stubbed GitHub and a fake store.
+import type { Inngest } from 'inngest';
 import { inngest } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
-import { collectAll } from './collect.ts';
-import { supabaseStore } from './supabase-store.ts';
+import { collectAll, type CollectStep, type OctokitFor } from './collect.ts';
+import { StoreEnvSchema } from './schema.ts';
+import { type PrStatsStore, supabaseStore } from './supabase-store.ts';
 
 export const PR_STATS_FUNCTION_ID = 'pr-stats';
 export const EVERY_15_MINUTES = '*/15 * * * *';
 
-/**
- * @param {{
- *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ graphql: Function }> | { graphql: Function },
- *   env?: Record<string, string | undefined>,
- *   storeFor?: (connection: { url: string, key: string }) => object,
- *   log?: (line: string) => void,
- *   clock?: () => number,
- * }} deps
- */
-export function createPrStats({ client, octokitFor, env = process.env, storeFor = supabaseStore, log = console.log, clock = Date.now }) {
+/** The function, bound to its client, GitHub, the environment, the store, a log and a clock. */
+export function createPrStats({ client, octokitFor, env = process.env, storeFor = supabaseStore, log = console.log, clock = Date.now }: {
+  client: Inngest.Any;
+  octokitFor: OctokitFor;
+  env?: Record<string, string | undefined>;
+  storeFor?: (connection: { url: string; key: string }) => PrStatsStore;
+  log?: (line: string) => void;
+  clock?: () => number;
+}) {
   return client.createFunction(
     {
       id: PR_STATS_FUNCTION_ID,
@@ -38,15 +37,14 @@ export function createPrStats({ client, octokitFor, env = process.env, storeFor 
       retries: 2,
     },
     async ({ step }) => {
-      const url = env.SUPABASE_URL;
-      const key = env.SUPABASE_SERVICE_ROLE_KEY;
+      const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key } = StoreEnvSchema.parse(env);
       if (!url || !key) {
         log('prStats: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set, so nothing is collected.');
         return { skipped: 'no store' };
       }
       const store = storeFor({ url, key });
       const now = await step.run('clock', () => clock());
-      return collectAll({ store, octokitFor, step, now });
+      return collectAll({ store, octokitFor, step: step as CollectStep, now }); // ts-allow: Inngest's step answers each output as JSON, and every output the collector steps is JSON already
     },
   );
 }

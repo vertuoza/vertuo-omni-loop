@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { functions, GET, POST, PUT } from '../../api/inngest.ts';
 import { FUNCTION_ID, outboxCheck } from './outbox-check.ts';
