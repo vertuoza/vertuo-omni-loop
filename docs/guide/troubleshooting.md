@@ -56,8 +56,8 @@ It prints the repository's settings when all is well. Otherwise, one of three th
   git pull
   ```
 
-  If the repository has no `.omni-loop/` folder at all, install the kit: see
-  [Install](/docs/install).
+  If the repository has no `.omni-loop/` folder at all, set the loop up on it: see
+  [Set up a repository](/docs/install#set-up-a-repository).
 - **`This repository is not installed: .omni-loop/config.yml is missing.`** The folder is there,
   but its config is not. Run `omni init` again, from the root of the repository, then merge
   the pull request it opens:
@@ -73,7 +73,7 @@ It prints the repository's settings when all is well. Otherwise, one of three th
 ## You ran `omni init` in a repository that had the kit
 
 `omni init` installs the loop, and the repository had it already: you joined a team that runs it,
-and only your laptop needed setting up ([Join a team](/docs/join)). Nothing is broken. `init` kept
+and only your laptop needed setting up ([Install](/docs/install)). Nothing is broken. `init` kept
 the repository's config and its `omni`, said `kept` beside each, and did the two things your laptop
 needed: it installed the plugin and signed you in, under **On this computer**.
 
@@ -168,7 +168,8 @@ Two ways out:
   the workspace's members are the organization's. Once you are in, run `omni signin` again, and it
   names the workspace.
 - **Work in a repository of your own.** Install the Omni App on your own account or organization,
-  as in step 3 of [Install](/docs/install), and run the loop in a repository it owns.
+  as [Install the GitHub App](/docs/install#install-the-github-app) shows, and run the loop in a
+  repository it owns.
 
 ## `no workspace owns <owner/repo> yet — install the Omni App: <link>`
 
@@ -178,8 +179,8 @@ installed the Omni App on your repository's owner yet, and your GitHub account b
 workspace, so dossiers and ask mode have nowhere to land.
 
 Open the link it prints, and install the App on the account or organization that owns the
-repository (step 3 of [Install](/docs/install)). Then run `omni signin` again: it names the
-workspace this repository goes to, and dossiers and ask mode start working.
+repository ([Install the GitHub App](/docs/install#install-the-github-app)). Then run `omni signin`
+again: it names the workspace this repository goes to, and dossiers and ask mode start working.
 
 ## "Deployment was blocked" on Vercel
 
@@ -218,8 +219,8 @@ git push
 - **`/omni:yolo` stops at once, naming uncommitted changes.** It needs a checkout with no
   uncommitted changes. Commit them, or move them elsewhere, then run it again.
 - **Claude Code does not know `/omni:brainstorm`.** The `omni` plugin is not installed in this
-  Claude Code. The plugin is installed once per laptop, not per repository: see step 4 of
-  [Join a team](/docs/join), then restart Claude Code.
+  Claude Code. The plugin is installed once per laptop, not per repository: see step 2 of
+  [Install](/docs/install#2-load-the-skills-in-claude-code), then restart Claude Code.
 - **`gh` asks you to run `gh auth login`.** The GitHub CLI is not signed in on this computer. Run
   `gh auth login`, then the command that failed.
 - **The feature pull request has the `omni:needs-fix` label.** A slice or a check stayed red after
