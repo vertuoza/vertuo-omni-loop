@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 790, slice s1: the hidden marker every PR care reply ends with.
 import { describe, expect, it } from 'vitest';
 import { CARE_VERDICTS, careMarker, careReplyBody, readCareVerdict } from './marker.ts';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // What a concept's page may hold (PRD 686): inline CSS, inline SVG and inline script, loading nothing
 // from the network. `omni concept`'s own checks run end to end in `kit/bin/concept.test.ts`; this
 // holds open the one rule that reads HTML, and the folder name a concept's number gives.
