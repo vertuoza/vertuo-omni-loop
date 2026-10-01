@@ -93,10 +93,10 @@ type Derived = Omit<Planet, 'sector' | 'earned'>;
 
 function derive(prd: number, home: string | null, events: readonly LedgerEvent[], { sectorOf, now }: { sectorOf: SectorOf; now: Date }): Derived {
   const p = {
-    prd, title: `PRD #${prd}`, captain: null as string | null, ownerTeam: null as string | null, chartedAt: null as string | null,
-    regions: [] as string[], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(),
+    prd, title: `PRD #${prd}`, captain: null as string | null, ownerTeam: null as string | null, chartedAt: null as string | null, // ts-allow: widens a null start to the field's type
+    regions: [] as string[], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(), // ts-allow: widens an empty list to the field's type
     distress: new Map<string, string>(), rescues: new Set<string>(),
-    ready: false, terraformedAt: null as string | null, lostAt: null as string | null, lostReason: null as string | null, decommissioned: false,
+    ready: false, terraformedAt: null as string | null, lostAt: null as string | null, lostReason: null as string | null, decommissioned: false, // ts-allow: widens a null start to the field's type
     expeditions: new Set<string>(), rescuers: new Map<string, string | null>(),
   };
   const zoneOf = (region: string, id: string): Zone => {

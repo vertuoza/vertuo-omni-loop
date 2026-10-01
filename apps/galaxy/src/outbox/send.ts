@@ -351,13 +351,13 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
     try {
       await deps.recount?.(send.dossier_id);
     } catch (error) {
-      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`);
+      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
     }
   }
   try {
     await store.done(send.id, outcome);
   } catch (error) {
-    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`);
+    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
   }
   return tab(send.dossier_id, send.id);
 }

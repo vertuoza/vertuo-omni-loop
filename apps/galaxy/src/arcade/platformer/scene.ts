@@ -255,7 +255,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
           b.enable = true;
         }
         if (blob.y > height + 2 * TILE) { blob.destroy(); continue; }
-        let dir = blob.getData('dir') as 1 | -1;
+        let dir = blob.getData('dir') as 1 | -1; // ts-allow: Phaser's data store returns any; the scene only ever sets 1 or -1
         if (b.blocked.down) {
           const ahead = this.layer.getTileAtWorldXY(blob.x + dir * (PHYSICS.enemyW / 2 + 1), b.bottom + 1);
           dir = enemyTurn(dir, { left: b.blocked.left, right: b.blocked.right, groundAhead: Boolean(ahead?.collides) });
