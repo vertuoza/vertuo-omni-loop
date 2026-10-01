@@ -24,7 +24,15 @@
     "apps/galaxy/artifact/build.ts",
     // The GitHub App's Vercel functions: Vercel routes `api/*` by file name.
     "apps/omni-app/api/*.ts",
+    // The database's types (PRD 725): `supabase gen types --local` writes them, and the clients
+    // that open Supabase import what they need, so not every export is named by an import.
+    "supabase/database.types.ts",
   ],
+  // The generated database types repeat one shape per table and function by design: not copy-paste
+  // anyone can extract (PRD 725).
+  "duplicates": {
+    "ignore": ["supabase/database.types.ts"],
+  },
   "ignoreUnresolvedImports": [
     // fumadocs-mdx writes `apps/galaxy/.source/` at build time and it is gitignored, so on a
     // fresh checkout (the one CI audits) `src/docs/source.ts`'s import of it never resolves.
