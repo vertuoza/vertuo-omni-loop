@@ -12,6 +12,7 @@ import { cardsShown } from './fleets.ts';
 import { RaiseOverlay } from './raise.tsx';
 import './common.css';
 import './fleets.css';
+import { cssVars } from '../css-vars';
 
 /** The fleets wall; with zero fleets, the "raise your own" screen instead (PRD 400), `owner` saying who reads it. */
 export function FleetsOverlay({ view, crew, index, onPick, owner = false }: {
@@ -34,7 +35,7 @@ export function FleetsOverlay({ view, crew, index, onPick, owner = false }: {
           const i = shown.from + k;
           const f = fleet(team.name);
           return (
-            <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={{ ['--fleet' as string]: f.color }} onClick={() => onPick(i)}>
+            <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={cssVars({ '--fleet': f.color })} onClick={() => onPick(i)}>
               <span className="card-rank">{ordinal(team.rank)}</span>
               <span className="card-art"><FleetSprite name={team.name} scale={f.sprite.startsWith('hero') ? (art * 2) / 3 : art} animate={i === index} /></span>
               <span className="card-name">{f.label}</span>
@@ -44,7 +45,7 @@ export function FleetsOverlay({ view, crew, index, onPick, owner = false }: {
         })}
       </div>
       {t && (
-        <section className="fleet-detail" style={{ ['--fleet' as string]: look.color }}>
+        <section className="fleet-detail" style={cssVars({ '--fleet': look.color })}>
           <p className="fleet-motto">{look.motto}</p>
           <dl>
             <dt>HOME</dt><dd>{t.home ? t.home.toUpperCase() : 'NONE YET'}</dd>

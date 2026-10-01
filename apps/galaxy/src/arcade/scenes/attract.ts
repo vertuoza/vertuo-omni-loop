@@ -129,7 +129,7 @@ export function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { w, h } = s.grid;
   space(ctx, s, 1);
   // Entropy marches across the bottom of the screen, 80 px apart, one more than the screen holds.
-  const kinds = Object.keys(WOUND_TINT) as (keyof typeof WOUND_TINT)[];
+  const kinds = Object.keys(WOUND_TINT) as (keyof typeof WOUND_TINT)[]; // ts-allow: Object.keys of a record lists its keys
   const lap = w + 80;
   for (let i = 0; i < lap / 80; i++) {
     const x = ((i * 80 - s.sceneT * 36) % lap + lap) % lap - 40;

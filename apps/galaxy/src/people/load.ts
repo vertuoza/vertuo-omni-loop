@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { faceOf } from './face';
 import { SOLO, type FleetTag, type Person } from './types';
 
@@ -11,17 +13,19 @@ import { SOLO, type FleetTag, type Person } from './types';
 // every lookup falls back so: a failed faces read never turns a screen into "could not load".
 
 /** A member, as workspace_roster returns them. */
-export interface RosterRow {
-  user_id: string;
-  name: string | null;
-  github_login: string | null;
-  avatar_url: string | null;
-  fleet: string | null;
-  hero?: unknown;
-}
+export const RosterRowSchema = z.object({
+  user_id: z.string(),
+  name: z.string().nullable(),
+  github_login: z.string().nullable(),
+  avatar_url: z.string().nullable(),
+  fleet: z.string().nullable(),
+  hero: z.unknown().optional(),
+});
+export type RosterRow = z.infer<typeof RosterRowSchema>;
 
 /** A fleet, as the directory reads it from `teams`. */
-export interface FleetLookRow { name: string; label: string; color: string | null; mascot: string | null }
+export const FleetLookRowSchema = z.object({ name: z.string(), label: z.string(), color: z.string().nullable(), mascot: z.string().nullable() });
+export type FleetLookRow = z.infer<typeof FleetLookRowSchema>;
 
 export interface People {
   /** The member with this account id; `name` is what the screen prints. */
@@ -52,22 +56,22 @@ export function peopleOf(roster: readonly RosterRow[], fleetRows: readonly Fleet
   };
 }
 
-async function settled<T>(what: string, read: () => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
+async function settled<T>(what: string, row: z.ZodType<T>, read: () => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
   try {
     const { data, error } = await read();
     if (error) throw new Error(error.message);
-    return (data ?? []) as T[];
+    return z.array(row).parse(data ?? []);
   } catch (err) {
-    console.error(`people: ${what} could not be read (${(err as Error).message})`);
+    console.error(`people: ${what} could not be read (${(err as Error).message})`); // ts-allow: whatever was thrown, its message is logged as it always was
     return [];
   }
 }
 
 /** The directory of one workspace: its roster and its fleets, read in parallel, each on its own. */
-export async function loadPeople(db: SupabaseClient, workspace: string): Promise<People> {
+export async function loadPeople(db: SupabaseClient<Database>, workspace: string): Promise<People> {
   const [roster, fleets] = await Promise.all([
-    settled<RosterRow>('the workspace\'s members', () => db.rpc('workspace_roster', { workspace })),
-    settled<FleetLookRow>('the fleets', () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace)),
+    settled('the workspace\'s members', RosterRowSchema, () => db.rpc('workspace_roster', { workspace })),
+    settled('the fleets', FleetLookRowSchema, () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace)),
   ]);
   return peopleOf(roster, fleets);
 }

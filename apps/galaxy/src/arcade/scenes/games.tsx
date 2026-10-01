@@ -14,6 +14,7 @@ import { badgeOf } from './menu.tsx';
 import { scoreDigits } from './invaders.tsx';
 import './common.css';
 import './games.css';
+import { cssVars } from '../css-vars';
 
 /** The player's level and XP bar, or the line that says why they have no level. */
 function XpHeader({ xp }: { xp: XpStatus }) {
@@ -111,8 +112,8 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
     <div className="games">
       <h2>GAME ROOM</h2>
       {me && me.github_login
-        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
-        : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
+        ? <span className="j-badge" style={cssVars({ '--fc': f.color })}>{badgeOf(me, xp)}</span>
+        : <span className="j-badge" style={cssVars({ '--fc': '#8a90d6' })}>VISITOR</span>}
       <XpHeader xp={xp} />
       {tall && <p className="games-page"><Hint k="◀ ▶">PAGE {at + 1}/{room.length}</Hint></p>}
       <div className="cabinets">

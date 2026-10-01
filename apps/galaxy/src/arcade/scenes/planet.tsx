@@ -15,6 +15,7 @@ import { Pips, StateChip } from './common.tsx';
 import { TALL_BAND } from './planet.ts';
 import './common.css';
 import './planet.css';
+import { cssVars } from '../css-vars';
 
 function Bar({ value, segments = 10, label }: { value: number; segments?: number; label: string }) {
   const on = Math.round(value * segments);
@@ -233,7 +234,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
 }) {
   const { grid } = useScreen();
   return (
-    <div className="planet" style={grid.name === 'tall' ? { ['--band' as string]: `${TALL_BAND}px` } : undefined}>
+    <div className="planet" style={grid.name === 'tall' ? cssVars({ '--band': `${TALL_BAND}px` }) : undefined}>
       <header className="planet-head">
         <span className="dialog-prd">#{p.prd}</span>
         <h2>{p.title.toUpperCase()}</h2>

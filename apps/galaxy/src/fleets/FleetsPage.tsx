@@ -1,6 +1,7 @@
 'use client';
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { FleetRow } from '../arcade/types';
 import { FleetsView, type FleetsHandlers } from './FleetsView';
 import { fleetsReducer, initialState } from './model';
@@ -14,8 +15,6 @@ export type FleetsSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string };
 
-type Rpc = Parameters<typeof databaseFleets>[0];
-
 export interface FleetsPageProps {
   source: FleetsSource;
   owner: boolean;
@@ -28,7 +27,7 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
   const port = useRef<FleetsPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoFleetsPort(fleets)
-    : databaseFleets(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseFleets(createBrowserClient<Database>(source.url, source.key), source.workspace));
 
   const run = async (call: (p: FleetsPort) => Promise<Saved>) => {
     dispatch({ type: 'busy' });

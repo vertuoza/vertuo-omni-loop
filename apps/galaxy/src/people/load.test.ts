@@ -62,6 +62,14 @@ describe('loadPeople', () => {
     log.mockRestore();
   });
 
+  it('with a roster row of the wrong shape, logs the field it names and falls back for everyone', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const people = await loadPeople(fakeDb({ roster: [{ ...ROSTER[0], user_id: 7 }] }).db, 'w-1');
+    expect(people.byId('u-ada', 'ADA').face).toEqual({ kind: 'initial', letter: 'A' });
+    expect(String(log.mock.calls[0]?.[0])).toMatch(/the workspace's members could not be read.*user_id/s);
+    log.mockRestore();
+  });
+
   it('with the fleets out of reach, the members keep their faces and their fleets by name', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const people = await loadPeople(fakeDb({ fleetsError: { message: 'boom' } }).db, 'w-1');

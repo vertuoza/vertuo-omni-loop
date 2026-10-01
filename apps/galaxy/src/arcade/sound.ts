@@ -41,7 +41,7 @@ export function unlock() {
   if (typeof window === 'undefined') return;
   if (ac) { if (ac.state === 'suspended') void ac.resume(); return; }
   try {
-    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext; // ts-allow: Safari names the constructor webkitAudioContext, which the DOM types do not carry
     ac = new Ctor();
   } catch {
     ac = null;
@@ -90,7 +90,7 @@ function note(dest: AudioNode, f: number, t: number, dur: number, wave: Wave, ga
   o.start(t); o.stop(t + dur + 0.08);
 }
 
-function hiss(dest: AudioNode, t: number, dur: number, { type = 'bandpass' as BiquadFilterType, freq = 2000, q = 1, gain = 0.2 } = {}) {
+function hiss(dest: AudioNode, t: number, dur: number, { type = 'bandpass' as BiquadFilterType, freq = 2000, q = 1, gain = 0.2 } = {}) { // ts-allow: the default names one of the filter types
   const ctx = ac!;
   const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
   src.buffer = noise;

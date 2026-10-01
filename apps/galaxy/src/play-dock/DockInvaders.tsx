@@ -65,7 +65,7 @@ function useCanvasLoop(canvasRef: RefObject<HTMLCanvasElement | null>, tick: (dt
  * lets go of every button and pauses. */
 function useGameState(values: Readonly<Record<WoundKind, number>>, held: ReturnType<typeof createHeld>) {
   const fresh = useCallback(() => newGame({ layout: 'tall', values, seed: Math.floor(Math.random() * 2 ** 31) }), [values]);
-  const gameRef = useRef<Game>(null as unknown as Game);
+  const gameRef = useRef<Game>(null as unknown as Game); // ts-allow: filled on the next line, before anything reads it
   if (!gameRef.current) gameRef.current = fresh();
   const [hud, setHud] = useState<GameHud>(() => hudOf(gameRef.current));
   const hudRef = useRef(hud);

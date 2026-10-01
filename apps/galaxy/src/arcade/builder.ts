@@ -9,7 +9,7 @@ const KEY = { SKIN: 'skin', HAIR: 'hair', SUIT: 'suit', CAPE: 'cape' } as const;
 export function cycleHero(hero: Hero, row: BuilderRow, dir: 1 | -1): Hero {
   if (row === 'BODY') return { ...hero, body: hero.body === 'girl' ? 'boy' : 'girl' };
   if (!(row in KEY)) return hero;
-  const key = KEY[row as keyof typeof KEY];
+  const key = KEY[row as keyof typeof KEY]; // ts-allow: the line above checked that the row is one of KEY's
   const n = HERO_PRESETS[key].length;
   return { ...hero, [key]: (hero[key] + dir + n) % n };
 }

@@ -22,7 +22,7 @@ export interface Landing { scene: SceneName; sel?: number }
 // repositories' PRD 88 are two planets); a planet with no home, or an older link, names the number alone.
 const PLANET = /^planet-(?:([^/#]+\/[^/#]+)\/)?(\d+)$/;
 
-const named = (h: string): h is SceneName => (DEEP_LINKS as readonly string[]).includes(h);
+const named = (h: string): h is SceneName => (DEEP_LINKS as readonly string[]).includes(h); // ts-allow: a read-only list of scene names is searched for any string
 
 /** The planet a link names: its home and number, or its number alone when one planet holds it. */
 function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
@@ -50,7 +50,7 @@ export function readHash(hash: string, view: GalaxyView | null): Landing | null 
 export function landing(hash: string, at: { view: GalaxyView | null; session: Session | null }): Landing | null {
   const link = readHash(hash, at.view);
   if (!link || (at.session && !at.view)) return null;
-  return { ...link, scene: allowed(link.scene, at.session) as SceneName };
+  return { ...link, scene: allowed(link.scene, at.session) as SceneName }; // ts-allow: allowed() answers the scene it was given or one of its own, every one a scene name
 }
 
 /** The hash of the screen the arcade is on: a deep link's own, or none. */

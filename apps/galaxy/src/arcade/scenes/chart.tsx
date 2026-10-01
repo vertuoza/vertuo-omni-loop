@@ -12,6 +12,7 @@ import { KIND_LOOK, kindCss } from './chart.ts';
 import type { GridName } from './common.ts';
 import './common.css';
 import './chart.css';
+import { cssVars } from '../css-vars';
 
 const plural = (n: number, one: string, many = `${one}S`) => `${n} ${n === 1 ? one : many}`;
 
@@ -72,7 +73,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
           <>
             <div className="dialog-row">
               <span className="chart-name">{s.name.toUpperCase()}</span>
-              <span className="chip" style={{ ['--chip' as string]: s.scope === 'product' ? '#ffd84a' : '#a88cff' }}>{s.scope === 'product' ? 'PRODUCT' : 'DOMAIN'}</span>
+              <span className="chip" style={cssVars({ '--chip': s.scope === 'product' ? '#ffd84a' : '#a88cff' })}>{s.scope === 'product' ? 'PRODUCT' : 'DOMAIN'}</span>
             </div>
             <div className="dialog-row small">
               {(['principle', 'rule', 'invariant'] as const).map((kind) => (
@@ -179,8 +180,8 @@ export function cardPages(graph: KnowledgeGraph, entry: KnowledgeEntry, grid: Gr
 
 function StatusChip({ entry }: { entry: KnowledgeEntry }) {
   return entry.status === 'law'
-    ? <span className="chip" style={{ ['--chip' as string]: '#4ee08a' }}>LAW</span>
-    : <span className="chip" style={{ ['--chip' as string]: '#8a90d6' }}>PROPOSED</span>;
+    ? <span className="chip" style={cssVars({ '--chip': '#4ee08a' })}>LAW</span>
+    : <span className="chip" style={cssVars({ '--chip': '#8a90d6' })}>PROPOSED</span>;
 }
 
 function KindTag({ entry }: { entry: KnowledgeEntry }) {

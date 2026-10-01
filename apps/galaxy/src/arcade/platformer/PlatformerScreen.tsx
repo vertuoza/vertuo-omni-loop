@@ -51,7 +51,7 @@ export interface Platformer {
 }
 
 /** The real Phaser, fetched only when a platformer screen mounts. */
-const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>;
+const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>; // ts-allow: Phaser's module, typed by the slice of it the screen uses
 
 /**
  * The world's scenes, one per stage in the order they are played, each told the next one's key:
@@ -65,7 +65,7 @@ export function worldScenes<T>(make: (so: SceneOptions) => T, o: Pick<Platformer
 }
 
 /** The real scenes: every stage, each drawn in its palette with the player's hero. */
-const realScene: ScreenDeps['scene'] = (P, o) => worldScenes((so) => makeScene(P as unknown as PhaserModule, so), o, (palette) => drawArt(o.hero, o.team, palette));
+const realScene: ScreenDeps['scene'] = (P, o) => worldScenes((so) => makeScene(P as unknown as PhaserModule, so), o, (palette) => drawArt(o.hero, o.team, palette)); // ts-allow: the module the screen loaded is Phaser's, which the scene is made from
 
 /** What a press does on the failed screen: A imports again, B goes back (to the room, or the dock's picker). */
 export function failedPress(action: Action): 'retry' | 'back' | null {

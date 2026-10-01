@@ -16,6 +16,7 @@ import { RaiseOverlay } from './raise.tsx';
 import { cardRow } from './recruit.ts';
 import './common.css';
 import './recruit.css';
+import { cssVars } from '../css-vars';
 
 // Ends a sentence on a fleet's label without doubling its own full stop (a label like S.W.A.T.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
@@ -81,7 +82,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
       <HintLine sep={[SPACED, SPACED]}>{[
         <Hint key="move" k="◀ ▶">MOVE</Hint>, <Hint key="a" k="A">LOCK IN</Hint>, <Hint key="b" k="B">BACK</Hint>,
       ]}</HintLine>
-      {locked && <div className="j-center j-zoom r-locked"><p className="j-big" style={{ ['--glow' as string]: f.color }}>{f.label}!</p></div>}
+      {locked && <div className="j-center j-zoom r-locked"><p className="j-big" style={cssVars({ '--glow': f.color })}>{f.label}!</p></div>}
       {confirm && (
         <div className="j-panel r-confirm" role="dialog" aria-label="Confirm the change of fleet">
           {solo
@@ -99,7 +100,7 @@ export function NameOverlay({ state, shake, team, error }: { state: NameState; s
   const tall = useScreen().grid.name === 'tall';
   const f = crewLook(team);
   const cur = state.cursor < NAME_MAX ? state.cursor : -1;
-  const badge = team && <span className="j-badge r-badge" style={{ ['--fc' as string]: f.color }}>{f.label}</span>;
+  const badge = team && <span className="j-badge r-badge" style={cssVars({ '--fc': f.color })}>{f.label}</span>;
   const alert = error && <p className="j-txt j-error" role="alert">{error}</p>;
   return (
     <>
