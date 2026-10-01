@@ -107,6 +107,9 @@ export function renameRepository(root) {
     // A pattern that starts with a wildcard (`*.test.mjs`, `${dir}/bin/omni.mjs`) names no folder of
     // its own: it may mean any repository's files, so it stays as written.
     if (wild && (token.startsWith('*') || token.startsWith('${'))) return null;
+    // A bare file name (`'omni.mjs'`, `settle.mjs`) names no folder either: `join(dir, 'omni.mjs')`
+    // is as likely the bundle as the module beside it.
+    if (!token.includes('/')) return null;
     for (const base of bases(from, token)) {
       if (base.startsWith('../')) continue;
       if (!wild && targets.has(base)) return base;
