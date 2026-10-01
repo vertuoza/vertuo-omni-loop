@@ -24805,21 +24805,30 @@ async function lookOf({ askUrl: askUrl2, store, repo, fetch, callMs }) {
     return { look: "arcade", why: error?.status ? `refused (${error.status})` : "unreachable" };
   }
 }
-async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now }) {
+function refusalHere(ctx, prd2, { exec, store }) {
+  return pitchRefusal({
+    prd: prd2,
+    shipped: whereIs(ctx, prd2)?.state === "shipped",
+    proofUrl: ctx.config.proof.url,
+    ffmpeg: () => hasFfmpeg(exec),
+    signedIn: () => store !== null
+  });
+}
+function openRun(ctx, { prd: prd2, audience, look, exec, now }) {
+  const commit = String(exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })).trim();
+  const dir = pitchRunDir(join56(ctx.root, ctx.config.worktrees), prd2, audience, now());
+  mkdirSync16(dir, { recursive: true });
+  writePitchJson(dir, { prd: prd2, audience, look, commit });
+  return { dir, look, url: ctx.config.proof.url, commit };
+}
+async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now = () => /* @__PURE__ */ new Date() }) {
   const { arg, flags } = oneArg("start", args, ["for"]);
   const prd2 = positiveInt("pitch start", "<n>", arg);
   const audience = audienceOf("start", flags.for);
   const ctx = loadContext(cwd, { exec });
-  const askUrl2 = ctx.config.ask?.url ?? null;
+  const askUrl2 = ctx.config.ask.url;
   const store = signedInStore(askUrl2, { tokens, home });
-  const proofUrl2 = ctx.config.proof?.url ?? null;
-  const refusal = pitchRefusal({
-    prd: prd2,
-    shipped: whereIs(ctx, prd2)?.state === "shipped",
-    proofUrl: proofUrl2,
-    ffmpeg: () => hasFfmpeg(exec),
-    signedIn: () => store !== null
-  });
+  const refusal = refusalHere(ctx, prd2, { exec, store });
   if (refusal) {
     println(stderr, refusal);
     return 1;
@@ -24828,11 +24837,7 @@ async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, cal
   if (!repo) throw usageError("omni pitch: no repository slug \u2014 set repo.slug in the config.");
   const { look, why: why2 } = await lookOf({ askUrl: askUrl2, store, repo, fetch, callMs });
   if (why2) println(stderr, `look: arcade (the product's look could not be read: ${why2})`);
-  const commit = String(exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })).trim();
-  const dir = pitchRunDir(join56(ctx.root, ctx.config.worktrees), prd2, audience, now ? now() : /* @__PURE__ */ new Date());
-  mkdirSync16(dir, { recursive: true });
-  writePitchJson(dir, { prd: prd2, audience, look, commit });
-  println(stdout, JSON.stringify({ dir, look, url: proofUrl2, commit }));
+  println(stdout, JSON.stringify(openRun(ctx, { prd: prd2, audience, look, exec, now })));
   return 0;
 }
 function slide(args, { cwd, stdout, stderr, exec, screenshot }) {
@@ -24947,21 +24952,20 @@ var pitch = {
     if (verb !== "push") throw usageError(VERBS);
     const { prd: prd2, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });
-    const toggle = dossierSwitch(ctx.config);
-    if (!toggle.on) {
-      println(stderr, "off");
+    const ready = pushable(ctx, cwd, dir, prd2);
+    if (ready.line) {
+      println(stderr, ready.line);
       return 1;
     }
-    const repo = ctx.config.repo.slug;
-    if (!repo) throw usageError("omni pitch: no repository slug \u2014 set repo.slug in the config.");
-    const local = localRun(cwd, dir, prd2);
-    if (local.line) {
-      println(stderr, local.line);
-      return 1;
-    }
-    return send({ toggle, repo, prd: prd2, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
+    const target2 = { toggle: dossierSwitch(ctx.config), repo: ctx.config.repo.slug, prd: prd2, run: ready.run };
+    return send(target2, { stdout, stderr, tokens, home, fetch, callMs });
   }
 };
+function pushable(ctx, cwd, dir, prd2) {
+  if (!dossierSwitch(ctx.config).on) return { line: "off" };
+  if (!ctx.config.repo.slug) throw usageError("omni pitch: no repository slug \u2014 set repo.slug in the config.");
+  return localRun(cwd, dir, prd2);
+}
 
 // kit/bin/commands/proof.mjs
 init_define_OMNI_BUNDLE();

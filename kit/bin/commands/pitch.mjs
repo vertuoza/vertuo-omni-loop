@@ -100,18 +100,19 @@ export const pitch = {
     if (verb !== 'push') throw usageError(VERBS);
     const { prd, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });
-    const toggle = dossierSwitch(ctx.config);
-    if (!toggle.on) {
-      println(stderr, 'off');
+    const ready = pushable(ctx, cwd, dir, prd);
+    if (ready.line) {
+      println(stderr, ready.line);
       return 1;
     }
-    const repo = ctx.config.repo.slug;
-    if (!repo) throw usageError('omni pitch: no repository slug — set repo.slug in the config.');
-    const local = localRun(cwd, dir, prd);
-    if (local.line) {
-      println(stderr, local.line);
-      return 1;
-    }
-    return send({ toggle, repo, prd, run: local.run }, { stdout, stderr, tokens, home, fetch, callMs });
+    const target = { toggle: dossierSwitch(ctx.config), repo: ctx.config.repo.slug, prd, run: ready.run };
+    return send(target, { stdout, stderr, tokens, home, fetch, callMs });
   },
 };
+
+/** The run to send, or the one line that stops the push before any call: `off`, or a local refusal. */
+function pushable(ctx, cwd, dir, prd) {
+  if (!dossierSwitch(ctx.config).on) return { line: 'off' };
+  if (!ctx.config.repo.slug) throw usageError('omni pitch: no repository slug — set repo.slug in the config.');
+  return localRun(cwd, dir, prd);
+}

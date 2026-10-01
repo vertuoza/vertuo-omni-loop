@@ -85,21 +85,34 @@ async function lookOf({ askUrl, store, repo, fetch, callMs }) {
   }
 }
 
-async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now }) {
+/** The four facts a pitch refuses on, read from this checkout and this computer. */
+function refusalHere(ctx, prd, { exec, store }) {
+  return pitchRefusal({
+    prd,
+    shipped: whereIs(ctx, prd)?.state === 'shipped',
+    proofUrl: ctx.config.proof.url,
+    ffmpeg: () => hasFfmpeg(exec),
+    signedIn: () => store !== null,
+  });
+}
+
+/** Makes the run folder with its first `pitch.json`; what `start` prints. */
+function openRun(ctx, { prd, audience, look, exec, now }) {
+  const commit = String(exec('git', ['rev-parse', 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).trim();
+  const dir = pitchRunDir(join(ctx.root, ctx.config.worktrees), prd, audience, now());
+  mkdirSync(dir, { recursive: true });
+  writePitchJson(dir, { prd, audience, look, commit });
+  return { dir, look, url: ctx.config.proof.url, commit };
+}
+
+async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now = () => new Date() }) {
   const { arg, flags } = oneArg('start', args, ['for']);
   const prd = positiveInt('pitch start', '<n>', arg);
   const audience = audienceOf('start', flags.for);
   const ctx = loadContext(cwd, { exec });
-  const askUrl = ctx.config.ask?.url ?? null;
+  const askUrl = ctx.config.ask.url;
   const store = signedInStore(askUrl, { tokens, home });
-  const proofUrl = ctx.config.proof?.url ?? null;
-  const refusal = pitchRefusal({
-    prd,
-    shipped: whereIs(ctx, prd)?.state === 'shipped',
-    proofUrl,
-    ffmpeg: () => hasFfmpeg(exec),
-    signedIn: () => store !== null,
-  });
+  const refusal = refusalHere(ctx, prd, { exec, store });
   if (refusal) {
     println(stderr, refusal);
     return 1;
@@ -108,11 +121,7 @@ async function start(args, { cwd, stdout, stderr, exec, tokens, home, fetch, cal
   if (!repo) throw usageError('omni pitch: no repository slug — set repo.slug in the config.');
   const { look, why } = await lookOf({ askUrl, store, repo, fetch, callMs });
   if (why) println(stderr, `look: arcade (the product's look could not be read: ${why})`);
-  const commit = String(exec('git', ['rev-parse', 'HEAD'], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).trim();
-  const dir = pitchRunDir(join(ctx.root, ctx.config.worktrees), prd, audience, now ? now() : new Date());
-  mkdirSync(dir, { recursive: true });
-  writePitchJson(dir, { prd, audience, look, commit });
-  println(stdout, JSON.stringify({ dir, look, url: proofUrl, commit }));
+  println(stdout, JSON.stringify(openRun(ctx, { prd, audience, look, exec, now })));
   return 0;
 }
 
