@@ -183,23 +183,29 @@ function liveConstituents(read) {
  * is nothing to judge by or a read failed.
  */
 async function canonOf({ readBusiness, readConstituents }, repo) {
-  let business;
+  const business = await attempt(() => readBusiness(repo), 'no business');
+  if (business.gate) return business;
+  if (!business.value) return { gate: neutral('no business: the App cannot read businesses here') };
+  const read = await attempt(() => readConstituents(repo), 'no constituents');
+  if (read.gate) return read;
+  return enough(repo, business.value, read.value);
+}
+
+/** One read's value, or `{ gate }`, neutral, naming what failed. */
+async function attempt(read, what) {
   try {
-    business = await readBusiness(repo);
+    return { value: await read() };
   } catch (error) {
-    return { gate: neutral(`no business: the read failed (${error?.message ?? error})`) };
+    return { gate: neutral(`${what}: the read failed (${error?.message ?? error})`) };
   }
-  if (!business) return { gate: neutral('no business: the App cannot read businesses here') };
-  let read;
-  try {
-    read = await readConstituents(repo);
-  } catch (error) {
-    return { gate: neutral(`no constituents: the read failed (${error?.message ?? error})`) };
-  }
+}
+
+/** What the gate judges by, or `{ gate }`, neutral, when there is neither a claim nor a constituent. */
+function enough(repo, business, read) {
   const constituents = liveConstituents(read);
-  if (!business.business && constituents.length === 0) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
   const claims = business.claims ?? [];
-  if (claims.length === 0 && constituents.length === 0) {
+  if (constituents.length === 0 && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
+  if (constituents.length === 0 && claims.length === 0) {
     return { gate: neutral("no confirmed claim or constituent for this repository's product") };
   }
   return { business, claims, personas: business.personas ?? [], constituents, version: read?.latestEventId ?? '' };
