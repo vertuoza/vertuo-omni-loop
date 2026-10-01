@@ -19,7 +19,7 @@ import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
   type DossierVersionRow,
 } from '../store';
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.mjs';
+import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;

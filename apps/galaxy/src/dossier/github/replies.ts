@@ -8,8 +8,8 @@
 // answers shows that answer; a number only the second answers shows it too, marked as not counted,
 // so the tab can say `/omni:yolo-fix` will not read it. Where an answer was given comes from the
 // reply's door line (`_answered in the terminal · …`, `_answered on the Omni page · …`), else GitHub.
-import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.mjs';
-import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.mjs';
+import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
+import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
 import type { AnswerDoor, OutboxReplies, PendingAnswer } from './summary';
 
 /** A comment of the feature PR, as GitHub lists it. */

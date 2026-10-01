@@ -1,4 +1,4 @@
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
+import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import type { FleetRow } from '../../arcade/types';
 
 // COLLECT ALL THE FLEETS! (PRD 261): the demo world's fleets as trading cards. The front is the fleet's mascot,

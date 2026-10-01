@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.mjs';
+import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
 import { fillGeneric, skillNames, skillPage, skillsOverview, type SkillEntry } from './skills';
 
 // The skills pages' model (PRD 580): built from the help table's skill entries, the one source, so a

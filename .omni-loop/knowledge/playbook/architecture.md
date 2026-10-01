@@ -8,9 +8,9 @@ evidence:
   - README.md@7eaaaa0
   - apps/omni-app/README.md@ed64d66
   - game/README.md@1654a62
-  - kit/build.mjs@3cd94b3
-  - kit/test/no-literals.test.mjs@2c26671
-  - kit/test/dist.test.mjs@e236e83
+  - kit/build.ts@3cd94b3
+  - kit/test/no-literals.test.ts@2c26671
+  - kit/test/dist.test.ts@e236e83
   - .omni-loop/bin/omni.mjs@f3aa720
 terraformed: 2026-09-25
 ---
@@ -38,8 +38,8 @@ workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox
   removes it without touching delivery (README.md). It writes to no repository; its only outputs
   are the ledger in Supabase, one weekly comment and a backup (game/README.md).
 - The kit holds no repository literal, and a kit default names no package manager:
-  `kit/test/no-literals.test.mjs` scans `kit/lib`, `kit/bin`, `kit/plugin` and `kit/templates`.
-- `kit/dist/omni.mjs` is only ever a build of the source: `kit/test/dist.test.mjs` fails when it
+  `kit/test/no-literals.test.ts` scans `kit/lib`, `kit/bin`, `kit/plugin` and `kit/templates`.
+- `kit/dist/omni.mjs` is only ever a build of the source: `kit/test/dist.test.ts` fails when it
   differs from a fresh build.
 - The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
   and Markdown, through the kit's schemas (apps/omni-app/README.md).

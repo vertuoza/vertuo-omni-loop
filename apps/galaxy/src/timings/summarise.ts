@@ -1,6 +1,6 @@
 // The numbers the timings script prints (PRD 657): over one page's loads, the median and p75 of the
 // time to first byte and to the full document, in milliseconds. Pure, so it is tested on a fixed
-// sample. It runs on plain Node (scripts/timings.mjs), so its imports name their extension.
+// sample. It runs on plain Node (scripts/timings.ts), so its imports name their extension.
 
 /** One load of one page: when the first byte arrived, and when the whole document had. */
 export type Sample = { ttfb: number; total: number };

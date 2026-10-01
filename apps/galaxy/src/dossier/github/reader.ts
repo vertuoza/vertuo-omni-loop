@@ -15,11 +15,11 @@
 // Concurrent reads of one dossier share one promise, and a repository's config is read once per
 // 60-second window whatever the number of its PRDs (PRD 657, s6).
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
-import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
-import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
+import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { z } from 'zod';
 import { CARE_QUERY, parseCare, type CareState } from './care';
 import { readFix, type FixSummary } from './fix';

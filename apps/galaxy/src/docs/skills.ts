@@ -1,9 +1,9 @@
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.mjs';
+import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
 import { DOCS_PATH } from './paths';
 
 // The skills pages of the docs (PRD 580): /docs/skills, every skill grouped by what you want to do,
 // and /docs/skills/<name>, one page per skill. Pure: built from the skill entries of the help table
-// (kit/lib/help/entries.mjs), the one source `omni help` prints too, so nothing is written twice.
+// (kit/lib/help/entries.ts), the one source `omni help` prints too, so nothing is written twice.
 // Words in braces are filled with generic ones, never a repository's: the docs are the same for every
 // reader. Who runs a skill and its related skills are derived from the /omni:<name> its words name.
 

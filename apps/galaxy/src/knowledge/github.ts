@@ -8,8 +8,8 @@
 // one more. An installation token is kept in server memory until a minute before it expires, and never
 // leaves this module. The listing is kept five minutes per installation, a graph one minute per
 // repository; a repository the installation's listing does not hold is never read.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { z } from 'zod';
 import type { KnowledgeGraph } from '../data/knowledge';
 import type { WorkspaceGithub } from '../data/workspace';

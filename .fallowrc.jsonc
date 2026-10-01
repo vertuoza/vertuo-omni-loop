@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
-  // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.mjs` (an entry below), and
+  // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.ts` (an entry below), and
   // fallow never walks a hidden directory, even when named as an entry: listed here so the run
   // says so once, in this file, instead of warning on every audit.
   "ignorePatterns": [".omni-loop/**"],
@@ -10,20 +10,20 @@
   "entry": [
     // The kit's CLI: `.omni-loop/bin/omni.mjs` (the shim every skill runs) and the bundle both
     // start here.
-    "kit/bin/omni.mjs",
+    "kit/bin/omni.ts",
     // `pnpm kit:build` runs it by path.
-    "kit/build.mjs",
-    // The `release` workflow runs it by path (`node kit/release/release.mjs`).
-    "kit/release/release.mjs",
+    "kit/build.ts",
+    // The `release` workflow runs it by path (`node kit/release/release.ts`).
+    "kit/release/release.ts",
     // The game's commands, each run by path from a `game:*` script of the root package.json.
-    "game/cli/*.mjs",
+    "game/cli/*.ts",
     // The arcade's scripts, run by path from `releases:sync` and the galaxy app's `seed` and
     // `shots` scripts.
-    "apps/galaxy/scripts/*.mjs",
+    "apps/galaxy/scripts/*.ts",
     // The arcade's artifact build, run by path from the galaxy app's `artifact` script.
-    "apps/galaxy/artifact/build.mjs",
+    "apps/galaxy/artifact/build.ts",
     // The GitHub App's Vercel functions: Vercel routes `api/*` by file name.
-    "apps/omni-app/api/*.mjs",
+    "apps/omni-app/api/*.ts",
   ],
   "ignoreUnresolvedImports": [
     // fumadocs-mdx writes `apps/galaxy/.source/` at build time and it is gitignored, so on a

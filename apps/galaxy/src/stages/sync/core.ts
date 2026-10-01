@@ -8,8 +8,8 @@
 // merge (shipped) and the retro PR's creation (retro). A folder's place is the repository's truth: a
 // folder in `inbox/` or `shipped/` whose PR is not found is recorded at the sync's time. No branch name,
 // path or label is written here: each comes from the repository's own config.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
 
 const CONFIG_PATH = '.omni-loop/config.yml';

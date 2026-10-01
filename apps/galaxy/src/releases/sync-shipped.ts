@@ -10,12 +10,12 @@
 // main later. A folder main does not hold yet (a checkout ahead of main) is only waiting.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-releases.mjs';
-import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.mjs';
+import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-releases.ts';
+import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
 import { firstAdded, type Git } from './git.ts';
 import type { ShippedPrd } from './sync.ts';
 

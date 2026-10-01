@@ -7,7 +7,7 @@ evidence:
   - .github/workflows/supabase.yml@eb1f7c4
   - .github/workflows/game.yml@8e69ab2
   - package.json@39e6355
-  - kit/test/dist.test.mjs@e236e83
+  - kit/test/dist.test.ts@e236e83
   - .claude-plugin/marketplace.json@5996f1b
   - apps/galaxy/README.md@0e2049f
   - apps/omni-app/README.md@ed64d66

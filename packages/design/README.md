@@ -8,7 +8,7 @@ screen follows.
 - **Plain files.** ES modules, CSS, SVG strings and woff2 files. No React, no Next: the package can
   leave the monorepo as a library without a rewrite. It stays `private` for now.
 - **One entry point.** `import { … } from '@omni/design'` gives every module below;
-  `src/index.mjs` re-exports each one, and each has its own declaration file (`src/<module>.d.mts`).
+  `src/index.ts` re-exports each one, and each has its own declaration file (`src/<module>.d.mts`).
 - **Two stylesheets.** `@omni/design/tokens.css` (the colours, as `:root` custom properties) and
   `@omni/design/fonts.css` (the `@font-face` rules, and the type scale as `:root` custom
   properties). The woff2 files are served as `@omni/design/fonts/<file>`.
@@ -33,13 +33,13 @@ own colour on `:root`, or if a galaxy page links Google Fonts.
 
 ### Colours
 
-Change a colour in `src/palette.mjs` or `src/tokens.mjs`, then regenerate the stylesheet:
+Change a colour in `src/palette.ts` or `src/tokens.ts`, then regenerate the stylesheet:
 
 ```bash
 pnpm --filter @omni/design tokens
 ```
 
-`src/tokens.test.mjs` fails while the committed `tokens.css` differs from what the generator writes,
+`src/tokens.test.ts` fails while the committed `tokens.css` differs from what the generator writes,
 and while any of Ask's text or edge pairs misses WCAG AA, in Omni, in light or in dark. A workspace's
 theme (the galaxy's `src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on
 the arcade's root element; it never writes on `:root`.
@@ -58,7 +58,7 @@ Every face ships the latin and latin-ext subsets.
 
 The type scale names each step as a role, a size, a line height and a slant: `display-xl` to
 `display-s`, `pixel-l` to `pixel-s`, `body-l` to `body-s`, and `mono` (`TYPE_SCALE` in JS, and
-custom properties in `fonts.css`). Change a face or a step in `src/fonts.mjs`, then:
+custom properties in `fonts.css`). Change a face or a step in `src/fonts.ts`, then:
 
 ```bash
 pnpm --filter @omni/design fonts
