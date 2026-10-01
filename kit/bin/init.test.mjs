@@ -1320,6 +1320,70 @@ describe('omni init — a repository already installed on its default branch (PR
     expect(fake.calls.some((args) => args[0] === 'pr' && args[1] === 'create')).toBe(true);
   });
 
+  const filledForm = (invaded) => formText({ frontMatter: { state: 'filled', invaded } });
+  // What an invaded repository prints after the computer's lines, its date line first.
+  const invadedTail = (said) => [
+    said,
+    'To update the loop: node .omni-loop/bin/omni.mjs update',
+    'To refresh the forms: /omni:invade --refresh',
+    '',
+  ];
+
+  it('invaded: says so with the latest invaded: date, then how to update and refresh, and opens nothing', async () => {
+    const { root, bare } = withOrigin({
+      '.omni-loop/config.yml': INSTALLED_CONFIG,
+      [`${KNOWLEDGE}/playbook/testing.md`]: filledForm('2026-09-25'),
+      [`${KNOWLEDGE}/playbook/setup.md`]: filledForm('2026-08-02'),
+    });
+    const before = snapshot(root);
+    const originBefore = git(bare, 'rev-parse', 'main');
+    const fake = fakeExec({ defaultBranch: 'main' });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(git(root, 'branch', '--show-current')).toBe('work');
+    expect(fake.install).toEqual([]);
+    expect(fake.calls.filter((args) => args[0] === 'pr' || args[0] === 'label')).toEqual([]);
+    expect(snapshot(root)).toEqual(before);
+    expect(git(bare, 'rev-parse', 'main')).toBe(originBefore);
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('Already installed on main — no install pull request.');
+    expect(lines.slice(-4)).toEqual(invadedTail('Already invaded (2026-09-25).'));
+    expect(out).toContain('On this computer:');
+    expect(out).not.toContain('Fill the forms');
+    expect(out).not.toContain('Then, by hand:');
+    expect(out).not.toContain('Merge the install pull request');
+    expect(out).not.toContain('Install pull request:');
+  });
+
+  it('invaded without a date: says "Already invaded."', async () => {
+    const { root } = withOrigin({ '.omni-loop/config.yml': INSTALLED_CONFIG, [`${KNOWLEDGE}/playbook/testing.md`]: filledForm(null) });
+    const { code, out } = await init(root, [], { fake: fakeExec({ defaultBranch: 'main' }) });
+    expect(code).toBe(0);
+    expect(out.split('\n').slice(-4)).toEqual(invadedTail('Already invaded.'));
+  });
+
+  it('reads the playbook a custom paths.playbook on origin/main names', async () => {
+    const config = `${INSTALLED_CONFIG}paths:\n  playbook: handbook/playbook\n`;
+    const invaded = withOrigin({ '.omni-loop/config.yml': config, 'handbook/playbook/testing.md': filledForm('2026-09-01') });
+    const run = await init(invaded.root, [], { fake: fakeExec({ defaultBranch: 'main' }) });
+    expect(run.out.split('\n').slice(-4)).toEqual(invadedTail('Already invaded (2026-09-01).'));
+
+    const elsewhere = withOrigin({ '.omni-loop/config.yml': config, [`${KNOWLEDGE}/playbook/testing.md`]: filledForm('2026-09-01') });
+    const { out } = await init(elsewhere.root, [], { fake: fakeExec({ defaultBranch: 'main' }) });
+    expect(out).not.toContain('Already invaded');
+    expect(out).toContain('  1. Fill the forms in handbook/ with what the repository can prove, in Claude Code:');
+  });
+
+  it('invaded, with --force: switches to the install branch and runs the full install', async () => {
+    const { root } = withOrigin({ '.omni-loop/config.yml': INSTALLED_CONFIG, [`${KNOWLEDGE}/playbook/testing.md`]: filledForm('2026-09-25') });
+    const fake = fakeExec({ defaultBranch: 'main' });
+    const { code, out } = await init(root, ['--force'], { fake });
+    expect(code).toBe(0);
+    expect(git(root, 'branch', '--show-current')).toBe('chore/install-omni-loop');
+    expect(out).not.toContain('Already');
+    expect(fake.calls.some((args) => args[0] === 'pr' && args[1] === 'create')).toBe(true);
+  });
+
   it('with a remote it cannot fetch it runs the full install', async () => {
     const { root } = installedRepo();
     git(root, 'remote', 'set-url', 'origin', join(tmpdir(), 'omni-no-such-origin.git'));

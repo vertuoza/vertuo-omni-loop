@@ -12,8 +12,9 @@
 // config exists, so `main()` hands it no context. It writes no file outside `.omni-loop/` but the
 // `statusLine` key of `.claude/settings.json` (N-PRODUCT-6).
 // A repository already installed on its default branch (PRD 893) skips all of that but this computer:
-// no branch switch, no write, no commit, push or pull request, and only the forms left as a step.
-// `--force` always runs the full install.
+// no branch switch, no write, no commit, push or pull request, and only the forms left as a step —
+// or, when a form is filled there, the `omni update` and `/omni:invade --refresh` lines. `--force`
+// always runs the full install.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join, posix } from 'node:path';
@@ -114,7 +115,7 @@ export const init = {
     if (installed) {
       stdout.write(`${installedHeadline(installed.defaultBranch)}\n`);
       const forms = { dir: createContext(root, installed.config).layout.frontDoor };
-      stdout.write(`${['', ...(await computer(installed.config)), ...installedSteps({ forms })].join('\n')}\n`);
+      stdout.write(`${['', ...(await computer(installed.config)), ...installedSteps({ forms, invaded: installed.invaded, configPath: CONFIG_FILE })].join('\n')}\n`);
       return 0;
     }
 

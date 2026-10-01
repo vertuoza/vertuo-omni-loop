@@ -12633,8 +12633,8 @@ function blankForm(id, { ctx }) {
 ${kit.errors.join("\n")}`);
   const { formVersion, title, opener, slots } = kit.form;
   const target3 = pointerTarget(id, ctx);
-  const frontMatter2 = { form: id, "form-version": formVersion, state: target3 ? "pointer" : "blank", "points-to": target3, evidence: [], invaded: null };
-  const lines = ["---", (0, import_yaml3.stringify)(frontMatter2).trimEnd(), "---", "", `# ${title}`, ""];
+  const frontMatter3 = { form: id, "form-version": formVersion, state: target3 ? "pointer" : "blank", "points-to": target3, evidence: [], invaded: null };
+  const lines = ["---", (0, import_yaml3.stringify)(frontMatter3).trimEnd(), "---", "", `# ${title}`, ""];
   if (opener) lines.push(opener, "");
   if (!target3) {
     for (const slot of slots) lines.push(`## ${slot.heading}`, `<!-- slot: ${slot.id} \xB7 ${slot.required ? "required" : "optional"} -->`, "");
@@ -18153,10 +18153,41 @@ import { join as join30 } from "node:path";
 
 // kit/lib/plan-repo/targets.mjs
 init_define_OMNI_BUNDLE();
-var import_yaml4 = __toESM(require_dist(), 1);
 import { execFileSync as execFileSync9 } from "node:child_process";
 import { existsSync as existsSync21, readdirSync as readdirSync12, readFileSync as readFileSync22 } from "node:fs";
 import { join as join27 } from "node:path";
+
+// kit/lib/playbook/filled.mjs
+init_define_OMNI_BUNDLE();
+var import_yaml4 = __toESM(require_dist(), 1);
+var DEFAULT_PLAYBOOK = ".omni-loop/knowledge/playbook";
+var FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
+var OLD_DATE_KEY2 = "terraformed";
+function frontMatter(text4) {
+  const block = FRONT_MATTER.exec(text4 ?? "");
+  if (!block) return null;
+  try {
+    const data = (0, import_yaml4.parse)(block[1]);
+    return data && typeof data === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
+function playbookOf(configText) {
+  try {
+    const playbook = (0, import_yaml4.parse)(configText)?.paths?.playbook;
+    return typeof playbook === "string" && playbook.trim() ? playbook.replace(/\/+$/, "") : DEFAULT_PLAYBOOK;
+  } catch {
+    return DEFAULT_PLAYBOOK;
+  }
+}
+var isFilled = (text4) => frontMatter(text4)?.state === "filled";
+function invadedOn(text4) {
+  const data = frontMatter(text4);
+  const date = data?.invaded ?? data?.[OLD_DATE_KEY2] ?? null;
+  if (date instanceof Date) return date.toISOString().slice(0, 10);
+  return typeof date === "string" && date.trim() ? date.trim() : null;
+}
 
 // kit/lib/update/installed.mjs
 init_define_OMNI_BUNDLE();
@@ -18178,8 +18209,6 @@ function installedVersion({ root, running, bundle }) {
 // kit/lib/plan-repo/targets.mjs
 var CONFIG_PATH = ".omni-loop/config.yml";
 var BIN_PATH = ".omni-loop/bin/omni.mjs";
-var DEFAULT_PLAYBOOK = ".omni-loop/knowledge/playbook";
-var FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
 function ghLine(error) {
   const text4 = `${error?.stderr ?? ""}
 ${error?.message ?? ""}`;
@@ -18222,23 +18251,6 @@ function ghReader({ exec, env }) {
       return out === null ? null : JSON.parse(out);
     }
   };
-}
-function playbookOf(configText) {
-  try {
-    const playbook = (0, import_yaml4.parse)(configText)?.paths?.playbook;
-    return typeof playbook === "string" && playbook.trim() ? playbook.replace(/\/+$/, "") : DEFAULT_PLAYBOOK;
-  } catch {
-    return DEFAULT_PLAYBOOK;
-  }
-}
-function isFilled(text4) {
-  const block = FRONT_MATTER.exec(text4 ?? "");
-  if (!block) return false;
-  try {
-    return (0, import_yaml4.parse)(block[1])?.state === "filled";
-  } catch {
-    return false;
-  }
 }
 function hasFilledForm(gh, repo, playbook, ref) {
   const listed2 = gh.dir(repo, playbook, ref) ?? [];
@@ -19223,7 +19235,7 @@ function fieldFault(field3, value) {
   const allowed = field3 === "kind" ? CONCEPT_KINDS : CONCEPT_SCALES;
   return `${field3} is "${value}", not one of ${allowed.join(", ")}.`;
 }
-function frontMatter(raw) {
+function frontMatter2(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
   const scale = CONCEPT_SCALES.includes(data.scale) ? data.scale : null;
@@ -19327,7 +19339,7 @@ function parseConcept(text4) {
   const block = FRONT_MATTER_BLOCK6.exec(text4);
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
   const [, raw, body] = block;
-  const front = frontMatter(raw);
+  const front = frontMatter2(raw);
   const sections = sectionsOf(body);
   const errors = [...front.errors, ...sectionFaults(sections)];
   const areasSection = sections.find((section4) => section4.name === "Areas");
@@ -22645,8 +22657,15 @@ function byHand(steps) {
   return lines;
 }
 var installedHeadline = (defaultBranch) => `Already installed on ${defaultBranch} \u2014 no install pull request.`;
-function installedSteps({ forms }) {
-  return byHand([fillStep(forms)]);
+var invadedLine = (invaded) => `Already invaded${invaded.date ? ` (${invaded.date})` : ""}.`;
+function installedSteps({ forms, invaded = null, configPath }) {
+  if (!invaded) return byHand([fillStep(forms)]);
+  return [
+    "",
+    invadedLine(invaded),
+    `To update the loop: node ${dirname13(configPath)}/bin/omni.mjs update`,
+    `To refresh the forms: /${PLUGIN}:invade --refresh`
+  ];
 }
 function setupLines({ slug, files, forms, settings, labels }) {
   const dir = dirname13(files[0].path);
@@ -22761,16 +22780,25 @@ function target2(root, exec) {
   const { remote } = ConfigSchema.parse({ kit: CONFIG_VERSION }).repo;
   return { remote, defaultBranch: readRepo(root, { exec, remote }).defaultBranch };
 }
+function invasion(run, ref, configText) {
+  const playbook = playbookOf(configText);
+  const listed2 = attempt5(() => run("ls-tree", ref, "--", `${playbook}/`)) ?? "";
+  const forms = listed2.split("\n").map((line) => /^\d+ blob \w+\t(.+)$/.exec(line)?.[1]).filter((path) => path?.endsWith(".md"));
+  const texts = forms.map((path) => attempt5(() => run("show", `${ref}:${path}`))).filter(isFilled);
+  if (!texts.length) return null;
+  const dates = texts.map(invadedOn).filter(Boolean).sort();
+  return { date: dates.at(-1) ?? null };
+}
 function detectInstall(root, { exec }) {
   const { remote, defaultBranch } = target2(root, exec);
   if (!remote || !defaultBranch) return null;
   const run = (...args) => exec("git", args, { cwd: root, ...QUIET8 });
   if (attempt5(() => run("fetch", "--quiet", remote, defaultBranch)) === null) return null;
-  const at = `refs/remotes/${remote}/${defaultBranch}:${CONFIG_FILE}`;
-  const text4 = attempt5(() => run("show", at));
+  const ref = `refs/remotes/${remote}/${defaultBranch}`;
+  const text4 = attempt5(() => run("show", `${ref}:${CONFIG_FILE}`));
   if (text4 === null) return null;
   const config2 = attempt5(() => parseConfig(text4, `${remote}/${defaultBranch}:${CONFIG_FILE}`));
-  return config2 ? { remote, defaultBranch, config: config2 } : null;
+  return config2 ? { remote, defaultBranch, config: config2, invaded: invasion(run, ref, text4) } : null;
 }
 
 // kit/lib/init/plugin.mjs
@@ -23026,7 +23054,7 @@ var init = {
       stdout.write(`${installedHeadline(installed.defaultBranch)}
 `);
       const forms2 = { dir: createContext(root, installed.config).layout.frontDoor };
-      stdout.write(`${["", ...await computer(installed.config), ...installedSteps({ forms: forms2 })].join("\n")}
+      stdout.write(`${["", ...await computer(installed.config), ...installedSteps({ forms: forms2, invaded: installed.invaded, configPath: CONFIG_FILE })].join("\n")}
 `);
       return 0;
     }
