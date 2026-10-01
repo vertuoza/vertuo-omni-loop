@@ -4,9 +4,13 @@
 // default branch come from the config on disk when it is there and valid, otherwise from the schema's
 // remote and the branch `readRepo` names. Nothing here throws: no remote, a failed fetch, a missing or
 // invalid config at that ref each mean "not detected", and init runs its first-install flow.
+// An installed repository is also **invaded** when a form under the playbook its config at that ref
+// names is filled (playbook/filled.mjs); its date is the latest `invaded:` among the filled forms. A
+// playbook git cannot list there is no invasion, never a failed detection.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.mjs';
+import { invadedOn, isFilled, playbookOf } from '../playbook/filled.mjs';
 import { readRepo } from './repo.mjs';
 
 // No prompt for credentials: a remote that wants them is a failed fetch, never a hung init.
@@ -30,21 +34,39 @@ function target(root, exec) {
 }
 
 /**
- * The install on the remote's default branch: `{ remote, defaultBranch, config }`, `config` being
- * the parsed config that branch holds — or `null` when nothing is detected.
+ * Whether the playbook at `ref` holds a filled form: `{ date }`, the latest `invaded:` date among the
+ * filled forms (`null` when none carries one), or `null` when no form there is filled.
+ */
+function invasion(run, ref, configText) {
+  const playbook = playbookOf(configText);
+  const listed = attempt(() => run('ls-tree', ref, '--', `${playbook}/`)) ?? '';
+  const forms = listed
+    .split('\n')
+    .map((line) => /^\d+ blob \w+\t(.+)$/.exec(line)?.[1])
+    .filter((path) => path?.endsWith('.md'));
+  const texts = forms.map((path) => attempt(() => run('show', `${ref}:${path}`))).filter(isFilled);
+  if (!texts.length) return null;
+  const dates = texts.map(invadedOn).filter(Boolean).sort();
+  return { date: dates.at(-1) ?? null };
+}
+
+/**
+ * The install on the remote's default branch: `{ remote, defaultBranch, config, invaded }`, `config`
+ * being the parsed config that branch holds and `invaded` its invasion (`{ date }`, or `null` when no
+ * form is filled) — or `null` when nothing is detected.
  *
  * @param {string} root
  * @param {{ exec: Function }} o
- * @returns {{ remote: string, defaultBranch: string, config: object } | null}
+ * @returns {{ remote: string, defaultBranch: string, config: object, invaded: { date: string|null } | null } | null}
  */
 export function detectInstall(root, { exec }) {
   const { remote, defaultBranch } = target(root, exec);
   if (!remote || !defaultBranch) return null;
   const run = (...args) => exec('git', args, { cwd: root, ...QUIET });
   if (attempt(() => run('fetch', '--quiet', remote, defaultBranch)) === null) return null;
-  const at = `refs/remotes/${remote}/${defaultBranch}:${CONFIG_FILE}`;
-  const text = attempt(() => run('show', at));
+  const ref = `refs/remotes/${remote}/${defaultBranch}`;
+  const text = attempt(() => run('show', `${ref}:${CONFIG_FILE}`));
   if (text === null) return null;
   const config = attempt(() => parseConfig(text, `${remote}/${defaultBranch}:${CONFIG_FILE}`));
-  return config ? { remote, defaultBranch, config } : null;
+  return config ? { remote, defaultBranch, config, invaded: invasion(run, ref, text) } : null;
 }

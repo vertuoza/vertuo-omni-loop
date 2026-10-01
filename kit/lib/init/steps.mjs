@@ -6,8 +6,9 @@
 // what it noticed and left alone, who sees the status line it switched on, how to update the loop later
 // (`omni update`), and how to remove it again (`closingSteps`). Only the repository's slug, its default
 // branch and the install pull request vary from one repository to the next. A repository already
-// installed on its default branch (installed.mjs, PRD 893) gets only `installedLines` around the
-// computer's lines: the steps already taken there are not repeated.
+// installed on its default branch (installed.mjs, PRD 893) gets only `installedHeadline` and
+// `installedSteps` around the computer's lines: the steps already taken there are not repeated, and
+// an invaded one is pointed at `omni update` and `/omni:invade --refresh` instead of the forms.
 import { dirname } from 'node:path';
 import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.mjs';
 
@@ -51,15 +52,28 @@ function byHand(steps) {
 /** The first line of a repository already installed on `defaultBranch`: nothing is written or opened. */
 export const installedHeadline = (defaultBranch) => `Already installed on ${defaultBranch} — no install pull request.`;
 
+/** The line that says a repository is invaded, with its date when one is known. */
+export const invadedLine = (invaded) => `Already invaded${invaded.date ? ` (${invaded.date})` : ''}.`;
+
 /**
  * The closing lines of a repository already installed: the App, the merge, the labels and the
- * required check are behind it, so only the forms are left.
+ * required check are behind it, so only the forms are left — or, once it is invaded, how to update
+ * the loop and refresh the forms.
  *
- * @param {{ forms: { dir: string } }} s   the forms' front door, as the default branch's config places it
+ * @param {object} s
+ * @param {{ dir: string }} s.forms   the forms' front door, as the default branch's config places it
+ * @param {{ date: string|null } | null} [s.invaded]   its invasion (installed.mjs), `null` when no form is filled
+ * @param {string} s.configPath       the config file: its folder is the loop's
  * @returns {string[]}
  */
-export function installedSteps({ forms }) {
-  return byHand([fillStep(forms)]);
+export function installedSteps({ forms, invaded = null, configPath }) {
+  if (!invaded) return byHand([fillStep(forms)]);
+  return [
+    '',
+    invadedLine(invaded),
+    `To update the loop: node ${dirname(configPath)}/bin/omni.mjs update`,
+    `To refresh the forms: /${PLUGIN}:invade --refresh`,
+  ];
 }
 
 /**
