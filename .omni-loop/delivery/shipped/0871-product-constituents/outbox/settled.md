@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Became: ADR-0028
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Removing the step is a one-line change; nothing else depends on it.
 - Raised: 2026-10-01
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-67, P-PRODUCT-59
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ Changing the length is one small database change; renumbering Never lines after 
 - Raised: 2026-10-01
 - Slice: s2
 - Wave: 2
+- Stays here: A local display filter on one page, cheap to reverse, with no stored data change; no lasting product guarantee or existing domain to place it in.
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ Showing them again is one filter removed in the page; no stored data changes eit
 - Raised: 2026-10-01
 - Slice: s2
 - Wave: 2
+- Stays here: A formatting choice in one function, adopted without approval and cheap to reverse; no existing principle needs it and it guarantees nothing lasting beyond this drawer.
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Switching to local time is a change to one formatting function and its test; not
 - Raised: 2026-10-01
 - Slice: s3
 - Wave: 2
+- Stays here: A local placement choice for one call, cheap to move and with nothing stored depending on it; no lasting rule or guarantee is set.
 
 ### The answer, as it was given
 
@@ -410,6 +415,7 @@ Moving the call later is a few lines in two files; nothing stored depends on it.
 - Raised: 2026-10-01
 - Slice: s4
 - Wave: 2
+- Stays here: A one-off scoping call about one test and one env example line; ADR-0053 covers shared test ground in plans, and nothing lasting remains to record.
 
 ### The answer, as it was given
 
@@ -489,6 +495,7 @@ Reverting the test change is one line; documenting the secret is two lines in th
 - Raised: 2026-10-01
 - Slice: s5
 - Wave: 3
+- Became: ADR-0062
 
 ### The answer, as it was given
 
@@ -567,6 +574,7 @@ Adding the judge's answer to the cache is a few lines in the canon gate; the pri
 - Raised: 2026-10-01
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-68, P-PRODUCT-60
 
 ### The answer, as it was given
 
