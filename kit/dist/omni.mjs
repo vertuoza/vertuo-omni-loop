@@ -38672,6 +38672,7 @@ function pluginLines({ outcome }, { kitHome: kitHome2 }) {
 
 // kit/lib/init/signin-step.ts
 init_define_OMNI_BUNDLE();
+var textOf2 = (value) => typeof value === "string" ? value : value === null ? null : void 0;
 async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!askUrl2) return { outcome: "unset" };
   const host = credentialsHost(askUrl2);
@@ -38691,7 +38692,7 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!entry) return { outcome: "later", host, why: "did not finish" };
   return { outcome: "signed-in", host, email: who(entry), ...line ? { line } : {} };
 }
-var who = (entry) => entry.email ?? entry.login;
+var who = (entry) => textOf2(entry.email) ?? textOf2(entry.login);
 function signInLines({ outcome, host, email: email3, line, why: why2 }) {
   if (outcome === "signed-in" && line) return { status: [`  signin  ${line}`], todo: [] };
   if (outcome === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
@@ -40422,7 +40423,7 @@ function isHttpUrl(value) {
 var KNOWN_VERDICTS2 = VERDICTS2;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
-function textOf2(item2, at) {
+function textOf3(item2, at) {
   const text6 = isRecord4(item2) ? item2.text : void 0;
   const valid = isRecord4(item2) && typeof text6 === "string" && text6.trim() && text6.length <= TEXT_MAX;
   if (!valid) return refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
@@ -40449,7 +40450,7 @@ function extrasOf(item2, at, criterion) {
 }
 function criterionOf(item2, index) {
   const at = `criterion ${index + 1}`;
-  const { text: text6, sent } = textOf2(item2, at);
+  const { text: text6, sent } = textOf3(item2, at);
   return extrasOf(sent, at, { text: text6, verdict: verdictOf(sent, at) });
 }
 function fileOf(dir, name) {
