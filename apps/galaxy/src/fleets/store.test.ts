@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SPRITE_DEFS } from '@omni/design';
 import { databaseFleets, demoFleetsPort, MASCOTS, type FleetsPort } from './store';
+import { COULD_NOT_SAVE } from './refusal';
 
 // /app/settings/fleets's four calls (PRD 400 s3): through the owner-only fleet functions of s1, each answering
 // the public.teams row it saved, or refusing. The demo keeps the same rules in memory.
@@ -27,13 +28,18 @@ describe('the database fleets', () => {
   it('sends no mascot as none', async () => {
     const { db, calls } = fakeRpc({ data: ROW });
     await databaseFleets(db, WS).create({ ...LOOK, mascot: null });
-    expect(calls[0][1].p_mascot).toBeNull();
+    expect(calls[0]![1].p_mascot).toBeNull();
   });
 
   it('updates a fleet by its name, which it never sends to change', async () => {
     const { db, calls } = fakeRpc({ data: ROW });
     await databaseFleets(db, WS).update('sharks', LOOK);
     expect(calls).toEqual([['update_fleet', { p_workspace: WS, p_name: 'sharks', p_label: 'SHARKS', p_color: '#2fc6a4', p_motto: 'Bite first.', p_mascot: 'octopod' }]]);
+  });
+
+  it('refuses a saved row of the wrong shape as a save that did not happen', async () => {
+    const { db } = fakeRpc({ data: { ...ROW, name: 42 } });
+    expect(await databaseFleets(db, WS).create(LOOK)).toEqual({ ok: false, refusal: { field: 'form', message: COULD_NOT_SAVE } });
   });
 
   it('retires and restores by name, and reads a retired row as retired', async () => {

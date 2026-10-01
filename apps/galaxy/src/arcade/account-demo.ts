@@ -2,6 +2,8 @@
 // and linking GitHub are simulated, and the guest player is kept in this browser's storage, so the
 // whole onboarding plays without a backend. So are the guest's high scores: their best at each game,
 // the only line of the demo's crew table.
+import { validHero, type Hero } from '@omni/design';
+import { z } from 'zod';
 import type { Account, Player, PlayerPatch, ScoreBoard, Session } from './types';
 
 const KEY = 'omni-loop:guest';
@@ -9,13 +11,31 @@ const GUEST: Session = { id: 'guest', email: 'guest@vertuoza.com', givenName: 'G
 /** The highest score a game takes, as submit_score() holds it. */
 const SCORE_CAP = 9_999_999;
 
+/** The player the demo keeps, as the database would hold their row. */
+const PlayerSchema = z.looseObject({
+  id: z.string(),
+  display_name: z.string(),
+  team: z.string().nullable(),
+  team_since: z.string().nullable(),
+  hero: z.custom<Hero>(validHero, { message: 'not a hero' }),
+  github_login: z.string().nullable(),
+}) satisfies z.ZodType<Player>;
+
 /** A guest may have linked GitHub before they have a player row: the login is kept apart. */
 interface Saved { signedIn: boolean; github?: string | null; me: Player | null; best?: Record<string, number> }
+
+/** What this browser kept, every field it was written with kept too. */
+const SavedSchema = z.looseObject({
+  signedIn: z.boolean(),
+  github: z.string().nullable().optional(),
+  me: PlayerSchema.nullable(),
+  best: z.record(z.string(), z.number()).optional(),
+});
 
 function read(): Saved {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as Saved;
+    if (raw) return SavedSchema.parse(JSON.parse(raw));
   } catch { /* storage refused: a fresh guest every visit */ }
   return { signedIn: false, github: null, me: null };
 }

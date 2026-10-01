@@ -1,5 +1,6 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cssVars } from './css-vars';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/design';
 import {
@@ -176,7 +177,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
   const { theme, mark, logo } = useMemo(() => brandLook(brand), [brand]);
-  const themeStyle = useMemo(() => themeVars(theme) as CSSProperties, [theme]);
+  const themeStyle = useMemo(() => cssVars(themeVars(theme)), [theme]);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
   // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
   // the body around the screen and the grid a scene is drawn on, never the game's state.
@@ -300,7 +301,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (step === 'name') extra.name = nameInit(m?.display_name ?? foldName(s?.givenName ?? ''));
     if (step === 'hero') { extra.hero = m?.hero ?? randomHero(); extra.heroRow = 0; }
     if (step === 'menu') extra.flow = 'onboard';
-    go({ ...extra, ...patch, scene: step as SceneName }, effect);
+    go({ ...extra, ...patch, scene: step as SceneName }, effect); // ts-allow: a step is a scene the scene table names
   }, [active, go]);
 
   /** A on the unlocked cabinet: a new game, laid out for the grid it is shown on, each alien paying the rules' close value. */
@@ -393,7 +394,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
     const door = allowed(ui.scene, session);
-    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null }));
+    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null })); // ts-allow: a door is a scene the scene table names
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
@@ -612,7 +613,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return u.name.chars.length ? nameAction({ type: 'erase' }) : leave('name');
         return;
       case 'hero': {
-        const row = BUILDER_ROWS[u.heroRow];
+        const row = BUILDER_ROWS[u.heroRow]!;
         if (action === 'up') return go({ heroRow: (u.heroRow + BUILDER_ROWS.length - 1) % BUILDER_ROWS.length }, 'move');
         if (action === 'down') return go({ heroRow: (u.heroRow + 1) % BUILDER_ROWS.length }, 'move');
         if ((action === 'left' || action === 'right') && row !== 'RANDOM' && row !== 'DONE') {
@@ -676,7 +677,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
         if (action === 'select') return go({ cabinet: turnPage(at, room.length, 'right') }, 'move');
         if (action === 'a' || action === 'start') {
-          const door = cabinetDoor(room[at], status);
+          const door = cabinetDoor(room[at]!, status);
           if (!('scene' in door)) return go({ toast: door.refused }, 'buzz');
           if (door.scene === 'platformer') return playPlatformer();
           return door.scene === 'invaders' ? playInvaders() : go({ scene: door.scene }, 'select');

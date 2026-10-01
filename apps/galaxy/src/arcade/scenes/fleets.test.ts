@@ -17,7 +17,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams).map(([name, t]) =
 /** The demo galaxy with `extra` more fleets on the wall, each with a crew of its own. */
 function withMoreFleets(extra: number): GalaxyView {
   const more: Fleet[] = Array.from({ length: extra }, (_, i) => ({
-    ...view.teams[i % view.teams.length], name: `extra-${i}`, rank: view.teams.length + i + 1, points: 40 - i,
+    ...view.teams[i % view.teams.length]!, name: `extra-${i}`, rank: view.teams.length + i + 1, points: 40 - i,
     streak: i + 7, planets: i + 1, terraformed: 0, members: [`crew-${i}-a`, `crew-${i}-b`],
   }));
   return { ...view, teams: [...view.teams, ...more] };

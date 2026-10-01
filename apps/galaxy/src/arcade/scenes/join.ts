@@ -84,7 +84,7 @@ function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {
     if (st.x >= w) continue;
     const v = (st.layer + 1) * 40 * k;
     const y = Math.floor((((st.y + (s.reduced ? 0 : s.t) * v) % h) + h) % h), len = Math.max(1, Math.round(v / 14));
-    ctx.fillStyle = ['#2e3270', '#6a70c0', '#c8d0ff'][st.layer];
+    ctx.fillStyle = ['#2e3270', '#6a70c0', '#c8d0ff'][st.layer]!;
     ctx.fillRect(Math.floor(st.x), y - len, 1, len);
   }
 }

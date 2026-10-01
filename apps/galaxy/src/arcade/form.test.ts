@@ -3,7 +3,7 @@ import { formFor } from './form';
 
 describe('formFor', () => {
   it('gives the screen alone to a mouse, at every size', () => {
-    for (const [width, height] of [[1440, 900], [393, 852], [852, 393], [800, 800], [320, 480]]) {
+    for (const [width, height] of [[1440, 900], [393, 852], [852, 393], [800, 800], [320, 480]] as [number, number][]) {
       expect(formFor({ finePointer: true, width, height }), `${width}×${height}`).toBe('full');
     }
   });

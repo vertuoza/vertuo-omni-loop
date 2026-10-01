@@ -9,14 +9,17 @@ import { savePlayer } from '../data/players';
 import { githubSignIn } from '../data/sign-in-github';
 import { loadScores, submitScore } from '../data/scores';
 import type { Account, Player, PlayerPatch } from './types';
+import type { Database } from '../../../../supabase/database.types.ts';
+
+type Browser = ReturnType<typeof createBrowserClient<Database>>;
 
 /** `workspace`: the id of the workspace the page plays, where joining a fleet writes the player row;
  * null for a person who belongs to none. */
 export function supabaseAccount({ url, key, workspace }: { url: string; key: string; workspace: string | null }): Account {
   // Created on first use, in the browser: the server's pre-render of the arcade never needs it.
-  let client: ReturnType<typeof createBrowserClient> | null = null;
-  const db = new Proxy({} as ReturnType<typeof createBrowserClient>, {
-    get: (_, prop) => Reflect.get((client ??= createBrowserClient(url, key)), prop),
+  let client: Browser | null = null;
+  const db = new Proxy({} as Browser, { // ts-allow: an empty target: every read goes to the client, made on first use
+    get: (_, prop) => Reflect.get((client ??= createBrowserClient<Database>(url, key)), prop),
   });
   const callback = (next?: string) => `${window.location.origin}/auth/callback${next ? `?next=${next}` : ''}`;
   const fail = (what: string, message: string) => new Error(`${what}: ${message}`);

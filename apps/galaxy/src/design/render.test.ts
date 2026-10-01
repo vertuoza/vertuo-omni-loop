@@ -93,7 +93,7 @@ describe('the /design page', () => {
     const icons = section('icons');
     expect(ICONS.length).toBeGreaterThan(0);
     expect(new Set(values(icons, 'data-sprite'))).toEqual(new Set(ICONS));
-    expect(values(section('sprites'), 'data-sprite').some((n) => ICONS.includes(n))).toBe(false);
+    expect(values(section('sprites'), 'data-sprite').some((n) => ICONS.includes(n!))).toBe(false);
   });
 
   it('dresses both heroes in every fleet’s colours', () => {
