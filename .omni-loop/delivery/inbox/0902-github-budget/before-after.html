@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub budget · PRD 902</title>
+<style>
+/* Layout: four stacked comparisons (the PRD page, what a change costs, a spent budget, what stays), today | after side by side, stacking on phones. */
+:root {
+  --bg: #f4f5f8; --surface: #ffffff; --ink: #1a1e2b; --muted: #5a6276; --line: #d8dce6;
+  --accent: #2f5bd3; --ok: #1d7a4c; --warn: #9a6200; --bad: #b3232f; --sunk: #eceff5;
+  --display: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11131a; --surface: #1a1d27; --ink: #e7e9f0; --muted: #9ba2b4; --line: #2c3140;
+  --accent: #7ea0ff; --ok: #4cc28a; --warn: #e2ab45; --bad: #ff6b74; --sunk: #151821; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11131a; --surface: #1a1d27; --ink: #e7e9f0; --muted: #9ba2b4; --line: #2c3140;
+  --accent: #7ea0ff; --ok: #4cc28a; --warn: #e2ab45; --bad: #ff6b74; --sunk: #151821; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+main { max-width: 1100px; margin: 0 auto; display: grid; gap: 36px }
+h1 { font: 700 28px/1.15 var(--display); margin: 0; text-wrap: balance }
+h2 { font: 700 17px/1.3 var(--display); margin: 0 0 10px; text-wrap: balance }
+.lede { color: var(--muted); max-width: 70ch; margin: 6px 0 0 }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr } }
+.col { min-width: 0; display: grid; gap: 6px; align-content: start }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--accent) }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0 }
+.note { color: var(--muted); margin: 6px 0 0; font-size: 13px }
+/* the PRD page mockup */
+.page-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px }
+.page-head b { font: 700 15px/1.2 var(--display) }
+.stamp { font: 12px/1.2 var(--mono); color: var(--muted) }
+.stamp.warn { color: var(--warn) }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px }
+.tabs span { font-size: 12px; padding: 3px 8px; border-radius: 4px; background: var(--sunk); color: var(--muted) }
+.tabs span.on { background: var(--accent); color: var(--surface) }
+.row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 13px }
+.row:first-of-type { border-top: 0 }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted) }
+.dot.ok { background: var(--ok) } .dot.warn { background: var(--warn) } .dot.bad { background: var(--bad) }
+.ghost { color: var(--muted); font-style: italic }
+.unread { color: var(--bad); font-weight: 600 }
+/* cost tables */
+.scroll { overflow-x: auto }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+td.n { text-align: right; white-space: nowrap; font-family: var(--mono) }
+td.n.bad { color: var(--bad) } td.n.ok { color: var(--ok) }
+/* timelines */
+.tl { display: grid; gap: 0; font-size: 13px }
+.tl div { display: grid; grid-template-columns: 56px 1fr; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line) }
+.tl div:first-child { border-top: 0 }
+.tl time { font-family: var(--mono); color: var(--muted) }
+.tl .bad { color: var(--bad) } .tl .ok { color: var(--ok) } .tl .warn { color: var(--warn) }
+ul.same { margin: 0; padding-left: 18px; display: grid; gap: 4px; max-width: 75ch }
+code { font-family: var(--mono); font-size: 12.5px }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Call GitHub only when needed</h1>
+  <p class="lede">PRD 902. Galaxy and omni-app share one GitHub budget per installation. Today they spend it blindly: no ETags, no idea of what is left, and full re-reads of PRDs that did not change. After: one shared client that knows the budget, pages that render from a Supabase snapshot, and webhooks that say what changed.</p>
+</header>
+
+<section>
+  <h2>1. Opening a PRD page</h2>
+  <div class="pair">
+    <div class="col">
+      <span class="tag">Today · 10:06 UTC, 2026-10-01</span>
+      <div class="card">
+        <div class="page-head"><b>PRD 725 · Agent harness</b><span class="stamp">Reading GitHub…</span></div>
+        <div class="tabs"><span>Spec</span><span>Plan</span><span class="on">Outbox</span><span>Retro</span></div>
+        <div class="row"><span class="dot bad"></span><span class="unread">Outbox could not be read</span></div>
+        <div class="row"><span class="dot"></span><span class="ghost">Feature PR: unread</span></div>
+        <div class="row"><span class="dot"></span><span class="ghost">Checks: unread</span></div>
+      </div>
+      <p class="note">The page waits on about 13 GitHub calls, plus one per outbox item. With the budget spent, GitHub answers 403, and the tabs turn to "unread" for 60 seconds, after which the next visitor asks again.</p>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="card">
+        <div class="page-head"><b>PRD 725 · Agent harness</b><span class="stamp">GitHub as of 10:05</span></div>
+        <div class="tabs"><span>Spec</span><span>Plan</span><span class="on">Outbox</span><span>Retro</span></div>
+        <div class="row"><span class="dot warn"></span><span>2 questions waiting: s3-01 cache key, s4-02 retry window</span></div>
+        <div class="row"><span class="dot ok"></span><span>Feature PR #861 · draft · 6 of 8 slices merged</span></div>
+        <div class="row"><span class="dot ok"></span><span>Checks: 14 passed</span></div>
+      </div>
+      <div class="card">
+        <div class="page-head"><b>Same page, budget spent</b><span class="stamp warn">GitHub as of 10:05 · resumes at 11:00</span></div>
+        <div class="row"><span class="dot warn"></span><span>Everything above, as last read. Nothing is sent to GitHub until 11:00.</span></div>
+      </div>
+      <p class="note">The page renders from the snapshot at once, without calling GitHub. Only a first visit, with no snapshot yet, waits for one read.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2. What a change on GitHub costs</h2>
+  <div class="pair">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Trigger</th><th>GitHub calls</th></tr></thead>
+          <tbody>
+            <tr><td>Stages sync, every 15 min, for <em>each</em> PRD in building or outbox, changed or not</td><td class="n bad">13 + N</td></tr>
+            <tr><td>Each forwarded stage event (a slice merges)</td><td class="n bad">13 + N</td></tr>
+            <tr><td>A PRD page on a cold server instance</td><td class="n bad">13 + N</td></tr>
+            <tr><td>An issue comment, a push, a review</td><td class="n">nothing hears it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">N is the number of outbox item files. Every answer counts against the limit, unchanged or not, and the three triggers never share a cache.</p>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="card scroll">
+        <table>
+          <thead><tr><th>Trigger</th><th>GitHub calls</th></tr></thead>
+          <tbody>
+            <tr><td>Stages sync with nothing changed</td><td class="n ok">listings only, mostly 304</td></tr>
+            <tr><td>A webhook touches a PRD (issue, comment, push to its folder, PR, checks, review)</td><td class="n">1 coalesced refresh, mostly 304</td></tr>
+            <tr><td>A PRD page with a snapshot</td><td class="n ok">0</td></tr>
+            <tr><td>A wave merging ten sub-PRs within a minute</td><td class="n">about 2 refreshes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">A 304 Not Modified does not count against GitHub's limit. ETags live in Supabase, so every server instance of both apps shares them.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3. When the budget runs out</h2>
+  <div class="pair">
+    <div class="col">
+      <span class="tag">Today · vertuoza installation, 2026-10-01</span>
+      <div class="card tl">
+        <div><time>07:00</time><span>A morning of waves. The sync, stage events and pages each re-read whole PRDs.</span></div>
+        <div><time>07:40</time><span class="bad">GitHub answers 403. Nobody reads <code>x-ratelimit-remaining</code>.</span></div>
+        <div><time>08:00</time><span class="bad">17 refusals in the hour. Each caller keeps asking.</span></div>
+        <div><time>09:00</time><span class="bad">19 refusals. Even <code>/installation/repositories</code> is refused.</span></div>
+        <div><time>12:00</time><span>Activity drops, and the hourly limit resets.</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="card tl">
+        <div><time>07:00</time><span>Each answer updates the installation's budget: limit, remaining, reset.</span></div>
+        <div><time>07:30</time><span class="warn">Below 20% left: the sync, recounts and omni-app's checks wait. People's pages are still served.</span></div>
+        <div><time>07:50</time><span class="warn">A 403 with <code>remaining: 0</code>: both apps pause until the reset. One log line.</span></div>
+        <div><time>08:00</time><span class="ok">The limit resets. Stale snapshots refresh, and touches that waited are read once.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4. What stays the same</h2>
+  <div class="card">
+    <ul class="same">
+      <li>What the PRD and fix pages show: the same tabs, the same outbox, pull requests and checks, now with "GitHub as of HH:MM".</li>
+      <li>The stage events and the 15-minute sync keep running. The sync becomes the safety net for a webhook that never arrived.</li>
+      <li>Calls made with a person's own token (sending outbox answers, sign-in) and the App's token minting are untouched.</li>
+      <li>omni-app's checks post what they post today. They now ask GitHub through the shared client.</li>
+      <li>The App asks for no new permission. An org admin ticks five more events in its settings once.</li>
+    </ul>
+  </div>
+</section>
+</main>
+</body>
+</html>
