@@ -28,7 +28,8 @@ const DEMO_PEOPLE = peopleOf(
 
 const openedAt = (i: number, now: Date) => new Date(now.getTime() - (i * 11 + 3) * HOUR);
 const isSigned = (i: number) => i % 3 === 0;
-const person = (i: number) => PEOPLE[i % PEOPLE.length];
+const person = (i: number) => PEOPLE[i % PEOPLE.length]!;
+const tracked = (i: number) => TRACKED[i % TRACKED.length]!;
 
 /** When the i-th pull request merges: never for every seventh, sooner when signed. */
 function mergedAt(i: number, opened: Date): Date | null {
@@ -42,7 +43,7 @@ function pullRequestOf(i: number, now: Date): PullRequestRow {
   const done = merged && merged < now ? merged.toISOString() : null;
   const author = isSigned(i) && i % 6 === 0 ? OMNI_MAN : person(i);
   return {
-    repo: TRACKED[i % 2], number: 100 + i, author, authorIsBot: author === OMNI_MAN, openedAt: opened.toISOString(),
+    repo: tracked(i), number: 100 + i, author, authorIsBot: author === OMNI_MAN, openedAt: opened.toISOString(),
     mergedAt: done, closedAt: done, mergedBy: merged ? person(i + 2) : null,
     commits: 1 + (i % 6), additions: 20 + ((i * 37) % 400), deletions: 5 + ((i * 13) % 120), omniSigned: isSigned(i),
     base: 'main', head: `feat/work-${i}`,
@@ -60,7 +61,7 @@ function subPrOf(i: number, now: Date): PullRequestRow {
   const needsFixAt = i % 5 === 0 ? new Date(opened.getTime() + 10 * 60_000).toISOString()
     : i % 7 === 0 ? new Date(Date.parse(merged) + 60_000).toISOString() : null;
   return {
-    repo: TRACKED[i % 2], number: 300 + i, author: person(i), authorIsBot: false, openedAt: opened.toISOString(),
+    repo: tracked(i), number: 300 + i, author: person(i), authorIsBot: false, openedAt: opened.toISOString(),
     mergedAt: merged, closedAt: merged, mergedBy: person(i), commits: 2, additions: 60, deletions: 10, omniSigned: true,
     base: topic, head: `${topic}--s${(i % 4) + 1}`, needsFixAt,
   };
@@ -71,7 +72,7 @@ function promotionOf(i: number, now: Date): PullRequestRow {
   const opened = new Date(now.getTime() - (i * 7 * 24 + 30) * HOUR);
   const merged = new Date(opened.getTime() + HOUR).toISOString();
   return {
-    repo: TRACKED[0], number: 400 + i, author: 'dora', authorIsBot: false, openedAt: opened.toISOString(), mergedAt: merged, closedAt: merged,
+    repo: tracked(0), number: 400 + i, author: 'dora', authorIsBot: false, openedAt: opened.toISOString(), mergedAt: merged, closedAt: merged,
     mergedBy: 'dora', commits: 30, additions: 2_000, deletions: 400, omniSigned: true, base: 'main', head: 'develop',
   };
 }
@@ -83,17 +84,17 @@ function stuckOf(now: Date): PullRequestRow[] {
   const at = (hours: number) => new Date(now.getTime() - hours * HOUR).toISOString();
   return [
     {
-      repo: TRACKED[0], number: 500, author: 'ada', authorIsBot: false, openedAt: at(48), mergedAt: null, closedAt: null, mergedBy: null,
+      repo: tracked(0), number: 500, author: 'ada', authorIsBot: false, openedAt: at(48), mergedAt: null, closedAt: null, mergedBy: null,
       commits: 9, additions: 400, deletions: 30, omniSigned: true, base: 'main', head: 'feat/demo-stuck', draft: false, labels: ['omni:feature', 'omni:needs-fix'],
       headCommittedAt: at(20),
     },
     {
-      repo: TRACKED[0], number: 502, author: 'carl', authorIsBot: false, openedAt: at(26), mergedAt: null, closedAt: null, mergedBy: null,
+      repo: tracked(0), number: 502, author: 'carl', authorIsBot: false, openedAt: at(26), mergedAt: null, closedAt: null, mergedBy: null,
       commits: 14, additions: 820, deletions: 95, omniSigned: true, base: 'main', head: 'feat/demo-held', draft: false, labels: ['omni:feature'],
       headCommittedAt: at(5), statusState: 'stuck',
     },
     {
-      repo: TRACKED[1], number: 501, author: 'bob', authorIsBot: false, openedAt: at(3), mergedAt: null, closedAt: null, mergedBy: null,
+      repo: tracked(1), number: 501, author: 'bob', authorIsBot: false, openedAt: at(3), mergedAt: null, closedAt: null, mergedBy: null,
       commits: 1, additions: 0, deletions: 0, omniSigned: true, base: 'feat/demo-cold', head: 'feat/demo-cold--s2', draft: true, labels: [],
       headCommittedAt: at(3),
     },
@@ -101,7 +102,7 @@ function stuckOf(now: Date): PullRequestRow[] {
 }
 
 function reviewOf(i: number, now: Date): ReviewRow {
-  return { repo: TRACKED[i % 2], number: 100 + i, reviewer: person(i + 1), firstAt: new Date(openedAt(i, now).getTime() + HOUR).toISOString() };
+  return { repo: tracked(i), number: 100 + i, reviewer: person(i + 1), firstAt: new Date(openedAt(i, now).getTime() + HOUR).toISOString() };
 }
 
 function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[] } {

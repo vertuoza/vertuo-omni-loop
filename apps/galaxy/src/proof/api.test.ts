@@ -127,13 +127,13 @@ describe('POST /api/proofs', () => {
     expect(await res.json()).toEqual({ url: `${ORIGIN}/prd/${DOSSIER}?tab=proof` });
     expect(world.runs).toHaveLength(1);
     expect(world.runs[0]).toMatchObject({ id: run, dossier_id: DOSSIER, commit_sha: 'abc1234', url: 'https://preview.test', gif: 'preview.gif' });
-    expect(world.runs[0].criteria[1]).toEqual({ text: 'The config key is read', verdict: 'unfilmable', note: 'a config key, not a screen' });
+    expect(world.runs[0]!.criteria[1]).toEqual({ text: 'The config key is read', verdict: 'unfilmable', note: 'a config key, not a screen' });
   });
 
   it('records no GIF when none was uploaded', async () => {
     const run = await uploadAll([CLIP]);
     expect((await register({ run, criteria: [{ text: 'x', verdict: 'fail', note: 'Expected 1', video: CLIP.name }] })).status).toBe(200);
-    expect(world.runs[0].gif).toBeNull();
+    expect(world.runs[0]!.gif).toBeNull();
   });
 
   it('refuses a verdict other than pass, fail or unfilmable (400)', async () => {

@@ -40,10 +40,10 @@ function world({ business = true, claims = CLAIMS, personas = [] as Persona[], d
     rpc: async (fn: string, args: { p_repo: string }) => {
       calls.push({ fn, args });
       if (answer !== undefined) return { data: answer, error: null };
-      if (!users[token].member && args.p_repo.toLowerCase().startsWith('acme/')) {
+      if (!users[token]!.member && args.p_repo.toLowerCase().startsWith('acme/')) {
         return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
       }
-      if (!users[token].member) {
+      if (!users[token]!.member) {
         return { data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } };
       }
       if (!business) return { data: { state: 'none', business: null, product: null, claims: [], personas: [] }, error: null };

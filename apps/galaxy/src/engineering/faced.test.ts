@@ -21,13 +21,13 @@ const board = (opened: string[], merged: string[] = [], reviews: string[] = []) 
 describe('withPeople', () => {
   it('a member, whatever the case of the login: their face from the directory', () => {
     const faced = withPeople(board(['ada']), PEOPLE);
-    expect(faced.kind === 'board' && faced.people.opened[0].face).toEqual(PEOPLE.byLogin('ada').face);
-    expect(faced.kind === 'board' && faced.people.opened[0].face?.kind).toBe('hero');
+    expect(faced.kind === 'board' && faced.people.opened[0]!.face).toEqual(PEOPLE.byLogin('ada').face);
+    expect(faced.kind === 'board' && faced.people.opened[0]!.face?.kind).toBe('hero');
   });
 
   it('a login outside the workspace: its GitHub photo', () => {
     const faced = withPeople(board([], ['bob']), PEOPLE);
-    expect(faced.kind === 'board' && faced.people.merged[0].face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
+    expect(faced.kind === 'board' && faced.people.merged[0]!.face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
   });
 
   it('leaves an empty board as it is', () => {

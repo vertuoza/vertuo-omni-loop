@@ -24,22 +24,22 @@ describe('the business recheck workflow', () => {
 
   it('is one job, off while GALAXY_URL is unset, one run at a time', () => {
     expect(jobs).toHaveLength(1);
-    expect(job.if).toBe("vars.GALAXY_URL != ''");
-    expect(job.concurrency).toEqual({ group: 'business-recheck', 'cancel-in-progress': false });
+    expect(job!.if).toBe("vars.GALAXY_URL != ''");
+    expect(job!.concurrency).toEqual({ group: 'business-recheck', 'cancel-in-progress': false });
   });
 
   it('calls POST /api/business/recheck with BUSINESS_RECHECK_SECRET as a bearer, and fails on a reply that is not 2xx', () => {
-    expect(job.steps).toHaveLength(1);
-    const [step] = job.steps;
-    expect(step.uses).toBeUndefined();
-    expect(step.env).toEqual({ GALAXY_URL: '${{ vars.GALAXY_URL }}', BUSINESS_RECHECK_SECRET: '${{ secrets.BUSINESS_RECHECK_SECRET }}' });
-    expect(step.run).toContain('-X POST "${GALAXY_URL%/}/api/business/recheck"');
-    expect(step.run).toContain('Authorization: Bearer ${BUSINESS_RECHECK_SECRET}');
-    expect(step.run).toContain('--fail-with-body');
+    expect(job!.steps).toHaveLength(1);
+    const [step] = job!.steps;
+    expect(step!.uses).toBeUndefined();
+    expect(step!.env).toEqual({ GALAXY_URL: '${{ vars.GALAXY_URL }}', BUSINESS_RECHECK_SECRET: '${{ secrets.BUSINESS_RECHECK_SECRET }}' });
+    expect(step!.run).toContain('-X POST "${GALAXY_URL%/}/api/business/recheck"');
+    expect(step!.run).toContain('Authorization: Bearer ${BUSINESS_RECHECK_SECRET}');
+    expect(step!.run).toContain('--fail-with-body');
   });
 
   it('reads nothing of the repository', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' });
-    expect(job.steps.some((s) => s.uses?.startsWith('actions/checkout'))).toBe(false);
+    expect(job!.steps.some((s) => s.uses?.startsWith('actions/checkout'))).toBe(false);
   });
 });

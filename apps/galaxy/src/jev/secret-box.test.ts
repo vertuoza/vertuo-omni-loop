@@ -12,7 +12,7 @@ const KEY = 'ts_live_0123456789abcdef1a2b';
 /** A base64 string with one byte changed. */
 function flip(b64: string): string {
   const bytes = Buffer.from(b64, 'base64');
-  bytes[0] ^= 0xff;
+  bytes[0]! ^= 0xff;
   return bytes.toString('base64');
 }
 

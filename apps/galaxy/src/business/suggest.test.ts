@@ -74,9 +74,9 @@ describe('suggestRivals()', () => {
     const s = stub(answer('Alpha\nBeta\nGone Co'));
     expect(await suggestRivals(INPUT, { apiKey: 'k', fetch: s.fetch })).toEqual(['Alpha', 'Beta']);
     expect(s.calls).toHaveLength(1);
-    expect(s.calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect((s.calls[0].init.headers as Record<string, string>).authorization).toBe('Bearer k');
-    const body = JSON.parse(String(s.calls[0].init.body));
+    expect(s.calls[0]!.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect((s.calls[0]!.init.headers as Record<string, string>).authorization).toBe('Bearer k');
+    const body = JSON.parse(String(s.calls[0]!.init.body));
     expect(body.model).toBe(SUGGEST_MODEL);
     const user = body.messages.at(-1).content as string;
     for (const said of ['ERP', 'construction', 'Belgium and France', 'Gone Co']) expect(user).toContain(said);

@@ -20,7 +20,7 @@ const claim = (seq: number, kind: Claim['kind'], value: string, over: Partial<Cl
 const render = (claims: Claim[], { demo = false, actions = [] as BusinessAction[] } = {}) =>
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims)), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]);
 const section = (html: string) => {
   const from = html.indexOf('class="ask-card business-never"');
@@ -57,7 +57,7 @@ describe('an empty Never lines list', () => {
 describe('adding a Never line', () => {
   it('opens one field of 200 characters on + Never line', () => {
     const html = render(BASE, { actions: [{ type: 'type', kind: 'never' }] });
-    const fields = inputs(section(html)).filter((i) => i.includes('type="text"'));
+    const fields = inputs(section(html)).filter((i) => i!.includes('type="text"'));
     expect(fields).toHaveLength(1);
     expect(fields[0]).toContain('maxLength="200"');
     expect(buttons(section(html)).map((b) => b.text)).not.toContain(ADD_NEVER);
@@ -68,7 +68,7 @@ describe('adding a Never line', () => {
     const line = lineOf(html, 7);
     expect(text(line)).toContain('Build for groups of companies never#7 you wrote cited 2× · last by canon #753');
     expect(line).toContain('data-state="confirmed"');
-    expect(inputs(section(html)).filter((i) => i.includes('type="text"'))).toHaveLength(0);
+    expect(inputs(section(html)).filter((i) => i!.includes('type="text"'))).toHaveLength(0);
     expect(text(section(html))).not.toContain(NEVER_EMPTY);
   });
 
@@ -96,9 +96,9 @@ describe('✓ / ✗ on a Never line', () => {
   it('offers ✓ and ✗ on a confirmed line, ✓ pressed', () => {
     const verdict = buttons(lineOf(render([...BASE, GROUPS]), 7));
     expect(verdict.map((b) => b.text)).toEqual(['✓', '✗']);
-    expect(verdict[0].attrs).toContain('aria-pressed="true"');
-    expect(verdict[1].attrs).toContain('aria-label="Wrong: Build for groups of companies"');
-    expect(verdict[1].attrs).not.toContain('disabled');
+    expect(verdict[0]!.attrs).toContain('aria-pressed="true"');
+    expect(verdict[1]!.attrs).toContain('aria-label="Wrong: Build for groups of companies"');
+    expect(verdict[1]!.attrs).not.toContain('disabled');
   });
 
   it('folds a line marked wrong under "Marked wrong", out of the list', () => {

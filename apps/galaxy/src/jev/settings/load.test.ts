@@ -79,7 +79,7 @@ describe('loadJevPage', () => {
     expect(calls).toEqual(expect.arrayContaining([['from', 'jev_calls', 'workspace_id', 'ws-1'], ['gte', 'called_at', '2026-08-31T12:00:00.000Z']]));
     expect(got).toMatchObject({ kind: 'jev', records: { 'question-category': { calls: 2, compared: 2, agreed: 1, agreement: 0.5 } } });
     if (got.kind !== 'jev') throw new Error('no page');
-    expect(got.records?.['question-category'].disagreements.map((d) => d.ref)).toEqual([{ text: 'the round', href: '/ask/q/r-2' }]);
+    expect(got.records?.['question-category']!.disagreements.map((d) => d.ref)).toEqual([{ text: 'the round', href: '/ask/q/r-2' }]);
     expect(got.records?.['outbox-risk']).toMatchObject({ calls: 0, agreement: null });
   });
 

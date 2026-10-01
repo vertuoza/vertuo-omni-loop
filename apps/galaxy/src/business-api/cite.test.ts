@@ -18,7 +18,7 @@ function world({ database = true } = {}) {
     },
     rpc: async (fn: string, args: { p_repo: string; p_ids: string[]; p_by: string; p_ref: string | null }) => {
       calls.push({ fn, args });
-      if (!users[token].member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (!users[token]!.member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
       for (const id of args.p_ids) {
         if (!/^(region|offering|size|trade|rival)#[1-9]\d*$/.test(id)) return { data: null, error: { code: '22023', message: `Ids: ${id} is not a claim id like rival#4.` } };
         if (!HELD.includes(id)) return { data: null, error: { code: 'P0002', message: `Ids: this business holds no ${id}.` } };

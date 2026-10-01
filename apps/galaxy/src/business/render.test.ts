@@ -29,7 +29,7 @@ const render = (claims: Claim[], { demo = false, actions = [] as BusinessAction[
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims)), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]);
 const rowOf = (html: string, id: string) => {
   const from = html.indexOf(`data-claim="${id}"`);
@@ -56,16 +56,16 @@ describe('an empty business', () => {
     expect(chips('trade')).toEqual(['Construction', 'Retail', 'Healthcare', 'Finance', 'Logistics', 'Manufacturing', 'Software', 'Other']);
     expect(chips('region')).toEqual(['Belgium', 'France', 'Netherlands', 'Germany', 'United Kingdom', 'Europe', 'North America', 'Worldwide', 'Other']);
     expect(chips('rival')).toEqual([ADD_RIVAL]);
-    const ranges = inputs(html).filter((i) => i.includes('type="range"'));
-    expect(ranges.map((r) => /aria-label="([^"]+)"/.exec(r)?.[1])).toEqual(['Smallest customer', 'Largest customer']);
+    const ranges = inputs(html).filter((i) => i!.includes('type="range"'));
+    expect(ranges.map((r) => /aria-label="([^"]+)"/.exec(r!)?.[1])).toEqual(['Smallest customer', 'Largest customer']);
     expect(text(groupOf(html, 'size'))).toContain('Customer size · not picked');
   });
 
   it('has no text field until Other or "+ add a rival" is pressed, and one then', () => {
-    expect(inputs(render([])).filter((i) => i.includes('type="text"'))).toHaveLength(0);
+    expect(inputs(render([])).filter((i) => i!.includes('type="text"'))).toHaveLength(0);
     for (const kind of ['offering', 'trade', 'region', 'rival'] as const) {
       const html = render([], { actions: [{ type: 'type', kind }] });
-      expect(inputs(html).filter((i) => i.includes('type="text"')), kind).toHaveLength(1);
+      expect(inputs(html).filter((i) => i!.includes('type="text"')), kind).toHaveLength(1);
       expect(groupOf(html, kind)).toContain('type="text"');
     }
   });
@@ -88,14 +88,14 @@ describe('a business being picked', () => {
   it('fills the title at once, and marks the picked chips', () => {
     const html = render([], { actions: [{ type: 'saved', claim: claim(1, 'offering', 'CRM') }, { type: 'saved', claim: claim(2, 'region', 'France') }] });
     expect(h1(html)).toBe('We sell a CRM to ___-person ___ in France, up against ___.');
-    const pressed = (kind: string) => buttons(groupOf(html, kind)).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text);
+    const pressed = (kind: string) => buttons(groupOf(html, kind)).filter((b) => b.attrs!.includes('aria-pressed="true"')).map((b) => b.text);
     expect(pressed('offering')).toEqual(['CRM']);
     expect(pressed('region')).toEqual(['France']);
   });
 
   it('shows a value typed under Other as a picked chip of its own', () => {
     const html = render([claim(1, 'trade', 'aerospace')]);
-    expect(buttons(groupOf(html, 'trade')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Aerospace']);
+    expect(buttons(groupOf(html, 'trade')).filter((b) => b.attrs!.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Aerospace']);
   });
 
   it('says the size the slider sits on while it moves', () => {
@@ -130,9 +130,9 @@ describe('a filled business', () => {
     expect(text(rowOf(html, 'size#2'))).toContain('2–50 people');
     const verdict = buttons(erp);
     expect(verdict.map((b) => b.text)).toEqual(['✓', '✗']);
-    expect(verdict[0].attrs).toContain('aria-pressed="true"');
-    expect(verdict[1].attrs).toContain('aria-label="Wrong: ERP"');
-    expect(verdict[1].attrs).not.toContain('disabled');
+    expect(verdict[0]!.attrs).toContain('aria-pressed="true"');
+    expect(verdict[1]!.attrs).toContain('aria-label="Wrong: ERP"');
+    expect(verdict[1]!.attrs).not.toContain('disabled');
   });
 
   it('folds a claim marked wrong under "Marked wrong", out of the sentence, ✓ still offered', () => {
@@ -140,7 +140,7 @@ describe('a filled business', () => {
     const folded = html.slice(html.indexOf('<details'));
     expect(text(folded)).toContain('Marked wrong · 1');
     expect(text(rowOf(folded, 'rival#6'))).toContain('Old Co');
-    expect(buttons(rowOf(folded, 'rival#6'))[0].attrs).not.toContain('disabled');
+    expect(buttons(rowOf(folded, 'rival#6'))[0]!.attrs).not.toContain('disabled');
     expect(h1(html)).not.toContain('Old Co');
   });
 
@@ -176,11 +176,11 @@ describe('products (PRD 748 s4)', () => {
     claim(5, 'rival', 'Acme Build', { product: 'p-1' }),
   ];
   const tabs = (html: string) => [...html.matchAll(/<button\b([^>]*role="tab"[^>]*)>([\s\S]*?)<\/button>/g)]
-    .map((m) => [text(m[2]), m[1].includes('aria-selected="true"')]);
+    .map((m) => [text(m[2]!), m[1]!.includes('aria-selected="true"')]);
 
   it('opens a name field on "+ Add a product", the only field then', () => {
     const html = renderProducts(FILLED, [VERTUOZA], [{ type: 'add-product' }]);
-    const fields = inputs(html).filter((i) => i.includes('type="text"'));
+    const fields = inputs(html).filter((i) => i!.includes('type="text"'));
     expect(fields).toHaveLength(1);
     expect(text(html)).toContain(PRODUCT_NAME);
     expect(buttons(html).map((b) => b.text)).not.toContain(ADD_PRODUCT);
@@ -202,7 +202,7 @@ describe('products (PRD 748 s4)', () => {
     expect(h1(second)).toBe('We sell a developer tool to ___-person ___ in Belgium, up against ___.');
     expect(rowOf(second, 'offering#1')).toBe('');
     expect(text(rowOf(second, 'offering#4'))).toContain('Developer tool');
-    expect(buttons(groupOf(second, 'offering')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Developer tool']);
+    expect(buttons(groupOf(second, 'offering')).filter((b) => b.attrs!.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Developer tool']);
   });
 
   it('keeps the region shared above the tabs, once', () => {
@@ -210,7 +210,7 @@ describe('products (PRD 748 s4)', () => {
     expect(html.match(/data-kind="region"/g)).toHaveLength(1);
     expect(html.indexOf('data-kind="region"')).toBeLessThan(html.indexOf('role="tablist"'));
     expect(html.indexOf('data-kind="offering"')).toBeGreaterThan(html.indexOf('role="tablist"'));
-    expect(buttons(groupOf(html, 'region')).filter((b) => b.attrs.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Belgium']);
+    expect(buttons(groupOf(html, 'region')).filter((b) => b.attrs!.includes('aria-pressed="true"')).map((b) => b.text)).toEqual(['Belgium']);
   });
 
   it('folds the shared region away on Skip, with the picks', () => {
@@ -241,7 +241,7 @@ describe('suggested rivals', () => {
     expect(guesses).toEqual(['rival#4', 'rival#5']);
     expect(text(group)).toContain('Alpha guess');
     expect(buttons(group).map((b) => b.text)).toEqual(['✓ Right', '✗ Wrong', '✓ Right', '✗ Wrong', ADD_RIVAL]);
-    expect(buttons(group)[0].attrs).toContain('aria-label="Right: Alpha"');
+    expect(buttons(group)[0]!.attrs).toContain('aria-label="Right: Alpha"');
   });
 
   it('keeps a guess out of the sentence until ✓, and shows no rejected one', () => {

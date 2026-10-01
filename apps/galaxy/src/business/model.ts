@@ -193,9 +193,9 @@ export function sentence(claims: readonly Claim[], lead = 'We sell '): SentenceP
   };
   return [
     { text: lead },
-    fill('offering', (vs) => `${article(vs[0])} ${listed(vs)}`),
+    fill('offering', (vs) => `${article(vs[0]!)} ${listed(vs)}`),
     { text: ' to ' },
-    fill('size', (vs) => sizeLabel(vs[0])),
+    fill('size', (vs) => sizeLabel(vs[0]!)),
     { text: '-person ' },
     fill('trade', (vs) => `${listed(vs)} firms`),
     { text: ' in ' },
@@ -269,6 +269,6 @@ export const hasProducts = (products: readonly Product[]) => products.length >= 
  * as the first product's. */
 export function viewClaims(claims: readonly Claim[], products: readonly Product[], current: string | null): Claim[] {
   if (!hasProducts(products)) return [...claims];
-  const first = products[0].id;
+  const first = products[0]!.id;
   return claims.filter((c) => c.kind === 'region' || (c.product ?? first) === current);
 }

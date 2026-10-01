@@ -37,7 +37,7 @@ describe('the cast of a tab', () => {
 describe('adding', () => {
   it('opens a blank drawer for the product, on the avatar its seed picks', () => {
     const s = after([{ type: 'new', product: 'p-1', seed: 'a' }]);
-    expect(s.drawer).toMatchObject({ editing: null, product: 'p-1', page: 0, fields: { name: '', stance: 'neutral', trade: PERSONA_TRADES[0].id } });
+    expect(s.drawer).toMatchObject({ editing: null, product: 'p-1', page: 0, fields: { name: '', stance: 'neutral', trade: PERSONA_TRADES[0]!.id } });
     expect(s.drawer!.fields.avatar).toEqual(randomAvatar('a'));
     expect(validPersonaAvatar(s.drawer!.fields.avatar)).toBe(true);
   });

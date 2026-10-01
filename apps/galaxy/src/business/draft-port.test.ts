@@ -52,8 +52,8 @@ describe('starting a draft', () => {
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).start()).toEqual({
       ok: true, draft: { id: 'd-1', kind: 'draft', state: 'running', counts: {}, scanned: [], reason: null },
     });
-    expect(f.sent[0].url).toBe(DRAFT_ROUTE);
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1' });
+    expect(f.sent[0]!.url).toBe(DRAFT_ROUTE);
+    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1' });
   });
 
   it('shows the route\'s refusal, and a plain one when the network fails', async () => {
@@ -90,7 +90,7 @@ describe('web pages', () => {
     const f = fetcher(201, { source: { id: 'p-1', url: 'https://example.com/pricing', added_at: '2026-09-30T10:00:00Z' } });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).addPage('https://example.com/pricing')).toEqual({ ok: true, page: { id: 'p-1', url: 'https://example.com/pricing' } });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'POST' } });
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
+    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
     expect(await databaseDraft(db({}), 'ws-1', fetcher(400, { error: 'Three web pages at most.' }).fetch).addPage('https://d.example'))
       .toEqual({ ok: false, message: 'Three web pages at most.' });
   });
@@ -99,7 +99,7 @@ describe('web pages', () => {
     const f = fetcher(200, { removed: 'p-1' });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).removePage('p-1')).toEqual({ ok: true });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'DELETE' } });
-    expect(JSON.parse(String(f.sent[0].init.body))).toEqual({ workspace: 'ws-1', source: 'p-1' });
+    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1', source: 'p-1' });
   });
 });
 

@@ -103,7 +103,7 @@ const MAX_RECEIPTS = 20;
 
 const zero = (): DraftCounts => ({ readmes: 0, docs: 0, prds: 0, pages: 0, skipped: 0, found: 0, kept: 0, added: 0, seen: 0, replacing: 0, rejected: 0 });
 
-const plainError = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0].slice(0, 300);
+const plainError = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0]!.slice(0, 300);
 
 /** A source's candidates grouped by claim: one value of one kind, with every quote that says it. */
 function grouped(candidates: readonly Candidate[]): Array<{ kind: ClaimKind; value: string; quotes: string[] }> {
