@@ -41,7 +41,11 @@ type Entry = NonNullable<ReturnType<typeof jevEntry>>;
 type Terminal = NonNullable<Entry['terminal']>;
 type Asked = { repo: string; input: Exclude<ReturnType<Terminal['input']>, null>; old: Exclude<ReturnType<Terminal['old']>, null>; ref: string | null };
 
-function parsed(text: string): Record<string, unknown> | null {
+/** How a decision reads a caller's state and old answer, each null when malformed (an entry's `terminal`). */
+export type StateReader<I, V> = { input(state: unknown): I | null; old(text: string): V | null };
+
+/** The body as a JSON object, or null. */
+export function parsed(text: string): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(text);
     return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -60,8 +64,11 @@ function refOf(value: unknown): string | null | false {
   return value.trim() ? value : null;
 }
 
-/** The body's fields as the decision reads them, or the refusal that says which one is wrong. */
-function askedFrom(body: Record<string, unknown>, decision: string, terminal: Terminal): Asked | Response {
+/** The body's fields as the decision reads them, or the refusal that says which one is wrong. Shared with
+ * the App's constituent judge (./judge-route.ts). */
+export function askedFrom<I, V>(
+  body: Record<string, unknown>, decision: string, terminal: StateReader<I, V>,
+): { repo: string; input: I; old: V; ref: string | null } | Response {
   const repo = repoOf(body.repo);
   if (repo === null) return refuse(400, '`repo` must be the repository as owner/name.');
   const input = terminal.input(body.state);

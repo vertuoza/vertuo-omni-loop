@@ -1,7 +1,8 @@
 import { refuse, reply } from '../../business-api/reply';
 import { STAGE_SIGNATURE_HEADER, verifySignature } from '../../stages/event/event';
 import { decide, type JevDecideDeps } from '../resolve';
-import { constituentBreak, constituentBreakInput, constituentBreakOld, type ConstituentBreakInput } from './constituent-break';
+import { constituentBreak, constituentBreakInput, constituentBreakOld } from './constituent-break';
+import { askedFrom, parsed } from './decide-route';
 
 // The App's constituent judge (PRD 871 s4), as a plain function of a Request, so it is tested with
 // injected dependencies and app/api/constituents/judge/route.ts stays one line:
@@ -39,30 +40,6 @@ export type JudgeRouteDeps = {
 
 /** The body's cap: a spec of CONSTITUENT_SPEC_LIMIT characters, its constituents and the findings. */
 const MAX_BODY_BYTES = 128 * 1024;
-const REPO = /^[\w.-]+\/[\w.-]+$/;
-
-type Judged = { repo: string; input: ConstituentBreakInput; old: boolean; ref: string | null };
-
-function parsed(text: string): Record<string, unknown> | null {
-  try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
-function judgedFrom(body: Record<string, unknown>): Judged | Response {
-  const repo = typeof body.repo === 'string' && body.repo.length <= 200 && REPO.test(body.repo) ? body.repo.toLowerCase() : null;
-  if (repo === null) return refuse(400, '`repo` must be the repository as owner/name.');
-  const input = constituentBreakInput(body.state);
-  if (input === null) return refuse(400, '`state` is not a state of constituent-break: a spec, and a Statement or a Never line.');
-  const old = constituentBreakOld(body.old);
-  if (old === null) return refuse(400, '`old` must be "true" (broken) or "false".');
-  const ref = body.ref;
-  if (ref !== undefined && ref !== null && (typeof ref !== 'string' || ref.length > 300)) return refuse(400, '`ref`, when given, must be text.');
-  return { repo, input, old, ref: typeof ref === 'string' && ref.trim() ? ref : null };
-}
 
 /** A workspace tracking the repository, read with its org and slug. */
 export type TrackingRow = { workspace_id: string; added_at: string; workspaces: { github_org: string | null; slug: string } | null };
@@ -90,8 +67,9 @@ export async function judgeRoute(request: Request, { secret, workspaceOf, jev, l
   if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return refuse(413, `A judge call carries ${MAX_BODY_BYTES / 1024} KiB at most.`);
   const body = parsed(text);
   if (!body) return refuse(400, 'The body must be a JSON object.');
-  const judged = judgedFrom(body);
-  if (judged instanceof Response) return judged;
+  const asked = askedFrom(body, constituentBreak.name, { input: constituentBreakInput, old: constituentBreakOld });
+  if (asked instanceof Response) return asked;
+  const judged = { ...asked, repo: asked.repo.toLowerCase() };
 
   if (!jev) return today(judged.old);
   let workspace: string | null;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { JevDecisionEntry } from './entry';
+import { noulAtThreshold } from './noul';
 
 // `constituent-break` (PRD 871 s4): whether a phase-0 spec breaks its product's Statement or one of its
 // Never lines, as a Noul. The App's canon gate asks it through `POST /api/constituents/judge`
@@ -17,7 +18,7 @@ export interface ConstituentBreakInput {
 }
 
 /** The most characters of the spec Jev reads: the canon gate's own cap (CANON_SPEC_LIMIT). */
-export const CONSTITUENT_SPEC_LIMIT = 40_000;
+const CONSTITUENT_SPEC_LIMIT = 40_000;
 
 const NEVER_ID = /^never#[1-9]\d*$/;
 const CITED = z.union([z.literal('statement'), z.string().regex(NEVER_ID)]);
@@ -74,7 +75,6 @@ export const constituentBreak: JevDecisionEntry<ConstituentBreakInput, boolean> 
       input.spec,
       '"""',
     ].join('\n'),
-  value: (answer, { threshold }) =>
-    typeof answer === 'number' && Number.isFinite(answer) && answer >= 0 && answer <= 1 ? answer >= threshold : null,
+  value: noulAtThreshold,
   show: (value) => String(value),
 };
