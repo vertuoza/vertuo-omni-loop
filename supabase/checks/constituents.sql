@@ -286,6 +286,10 @@ begin
 end $$;
 
 -- ── The App's read, with the service role, by repository ──
+-- What con-web's product holds, read before the role changes: the service role may not call
+-- constituents_of_product() itself, only the App's read.
+create temporary table app_expected as select public.constituents_of_product(pg_temp.made('product')) as v;
+grant select on app_expected to service_role;
 set local role service_role;
 do $$
 declare
@@ -293,7 +297,7 @@ declare
   repo text;
 begin
   got := public.constituents_for_repo_app('vertuoza/con-web');
-  if got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok' then
+  if got <> (select v from app_expected) or got->>'state' <> 'ok' then
     raise exception 'FAIL: the App''s read of con-web: %', got;
   end if;
   foreach repo in array array['vertuoza/nowhere', 'acme-con/web'] loop
