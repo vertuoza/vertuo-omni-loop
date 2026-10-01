@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, type ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import {
   planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
@@ -103,6 +103,26 @@ function useConstituents(source: BusinessSource, read: Constituents | undefined,
   return [state, handlers];
 }
 
+/** The Constituents panel of the tab shown, or nothing when the page read no constituents. */
+function useConstituentsPanel(source: BusinessSource, read: Constituents | undefined, product: string | null, products: readonly Product[]): ReactNode {
+  const [state, on] = useConstituents(source, read, product, products.map((p) => p.id));
+  if (!read) return null;
+  return <ConstituentsPanel state={state} product={product} owner={read.owner} people={read.people} unreadable={read.constituents === null} on={on} />;
+}
+
+/** What suggested rivals are asked for: the picks' key, naming the tab (PRD 748 s3–s4), or null. */
+const suggestKeyOf = (picked: Claim[], on: string | null) => {
+  const k = suggestKey(picked);
+  return k && `${on ?? ''}|${k}`;
+};
+
+/** The key the page opens as already asked: the first tab's, when guesses are left from an earlier visit. */
+function openingKey(claims: Claim[], products: readonly Product[]): string | null {
+  const first = products[0]?.id ?? null;
+  const opening = viewClaims(claims, products, first);
+  return opening.some((c) => c.kind === 'rival' && c.state === 'proposed') ? suggestKeyOf(opening, first) : null;
+}
+
 /** How often a running draft's row is read again. */
 const POLL_MS = 1500;
 
@@ -202,13 +222,8 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   // those picks, and again only when one changes. Guesses left from an earlier visit are not asked
   // for again. The answer never blocks a control, and no guess is never an error.
   // Each product asks for its own (PRD 748 s4): the key names the tab.
-  const keyOf = (picked: Claim[], on: string | null) => {
-    const k = suggestKey(picked);
-    return k && `${on ?? ''}|${k}`;
-  };
-  const key = keyOf(state.claims, whole.current);
-  const opening = viewClaims(claims, products, products[0]?.id ?? null);
-  const asked = useRef<string | null>(opening.some((c) => c.kind === 'rival' && c.state === 'proposed') ? keyOf(opening, products[0]?.id ?? null) : null);
+  const key = suggestKeyOf(state.claims, whole.current);
+  const asked = useRef<string | null>(openingKey(claims, products));
   useEffect(() => {
     if (!key || key === asked.current) return;
     asked.current = key;
@@ -353,8 +368,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   const [cast, persona] = usePersonas(source, personas, newPersonaProduct(source, whole.current, products));
 
   // The constituents (PRD 871 s2), of the tab shown.
-  const shown = newPersonaProduct(source, whole.current, whole.products);
-  const [canon, canonOn] = useConstituents(source, constituents, shown, whole.products.map((p) => p.id));
+  const panel = useConstituentsPanel(source, constituents, newPersonaProduct(source, whole.current, whole.products), whole.products);
 
   return (
     <BusinessView
@@ -362,16 +376,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
       demo={source.kind === 'demo'}
       on={on}
       personas={<PersonasSection state={cast} products={whole.products} current={whole.current} on={persona} />}
-      constituents={constituents && (
-        <ConstituentsPanel
-          state={canon}
-          product={shown}
-          owner={constituents.owner}
-          people={constituents.people}
-          unreadable={constituents.constituents === null}
-          on={canonOn}
-        />
-      )}
+      constituents={panel}
     />
   );
 }

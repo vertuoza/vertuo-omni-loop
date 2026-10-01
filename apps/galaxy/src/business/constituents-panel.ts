@@ -11,7 +11,7 @@ import type { ConstituentPort, SavedConstituent } from '../constituents/store';
 // spec can break shows a hint under the field. It never blocks; the Statement gets none.
 
 /** The words that name nothing a spec can break (spec, solution step 3). */
-export const VAGUE_WORDS: readonly string[] = ['world-class', 'best', 'nice', 'quality', 'great', 'beautiful', 'modern', 'seamless'];
+const VAGUE_WORDS: readonly string[] = ['world-class', 'best', 'nice', 'quality', 'great', 'beautiful', 'modern', 'seamless'];
 
 const escaped = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const VAGUE = VAGUE_WORDS.map((word) => ({ word, at: new RegExp(`(^|[^a-z0-9-])${escaped(word)}(?![a-z0-9-])`, 'i') }));
