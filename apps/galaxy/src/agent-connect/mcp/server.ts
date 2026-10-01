@@ -68,6 +68,18 @@ function refused(error: unknown) {
   return text(FAILED, true);
 }
 
+/** What agent_question_report() answers: the question's id and how many times it was asked. */
+const reportSchema = z.object({ id: z.string().optional(), asked: z.number().catch(0) }).catch({ asked: 0 });
+
+/** The report the database stored, or its refusal thrown as a BusinessStoreError. */
+function reportOf({ data, error }: { data: unknown; error: unknown }) {
+  if (error) {
+    const { code, message } = error as { code?: string; message?: string };
+    throw new BusinessStoreError(code, message ?? 'no answer');
+  }
+  return reportSchema.parse(data ?? {});
+}
+
 function server(hash: string | null, deps: McpDeps): McpServer {
   const mcp = new McpServer({ name: 'omni-business', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
@@ -134,16 +146,11 @@ function server(hash: string | null, deps: McpDeps): McpServer {
       file: z.string().max(300).optional().describe('The file you were working on, when it matters.'),
     },
   }, async ({ question, repo, file }) => answered(async () => {
-    const { data, error } = await linked().rpc('agent_question_report', {
+    const { id, asked } = reportOf(await linked().rpc('agent_question_report', {
       p_hash: hash, p_question: question, p_repo: repo ?? null, p_file: file ?? null,
-    });
-    if (error) {
-      const e = error as { code?: string; message?: string };
-      throw new BusinessStoreError(e.code, e.message ?? 'no answer');
-    }
-    const { id, asked } = (data ?? {}) as { id?: unknown; asked?: unknown };
-    if (asked === 1 && typeof id === 'string') judge(id);
-    return typeof asked === 'number' && asked > 1 ? `${REPORTED} It was asked ${asked}× so far.` : REPORTED;
+    }));
+    if (asked === 1 && id) judge(id);
+    return asked > 1 ? `${REPORTED} It was asked ${asked}× so far.` : REPORTED;
   }));
 
   return mcp;
