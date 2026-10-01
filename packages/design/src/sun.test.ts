@@ -1,25 +1,32 @@
-// @ts-nocheck
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { drawSun, SUN_FRAMES, sunPixels, sunSize } from './draw.ts';
 
 // A 2D context that keeps where each image lands, and the offscreen canvases the sun renders into.
-function recorder() {
-  const images = [];
-  const ctx = new Proxy({}, {
+interface Placed { x: number; y: number; w: number; h: number }
+
+function recorder(): { ctx: CanvasRenderingContext2D; images: Placed[] } {
+  const images: Placed[] = [];
+  const ctx = new Proxy<Record<PropertyKey, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
-      if (prop === 'createImageData') return (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
-      if (prop === 'drawImage') return (img, x, y, w, h) => { images.push({ x, y, w: w ?? img.width, h: h ?? img.height }); };
+      if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+      if (prop === 'drawImage') {
+        return (img: { width: number; height: number }, x: number, y: number, w?: number, h?: number) => {
+          images.push({ x, y, w: w ?? img.width, h: h ?? img.height });
+        };
+      }
       return () => {};
     },
     set(target, prop, value) { target[prop] = value; return true; },
   });
-  return { ctx, images };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, images };
 }
 
 class FakeOffscreenCanvas {
-  constructor(width, height) { this.width = width; this.height = height; }
-  getContext() { return recorder().ctx; }
+  width: number;
+  height: number;
+  constructor(width: number, height: number) { this.width = width; this.height = height; }
+  getContext(): CanvasRenderingContext2D { return recorder().ctx; }
 }
 
 describe('sunPixels', () => {
@@ -28,7 +35,7 @@ describe('sunPixels', () => {
     const { size, pixels } = sunPixels(r, 7, 0);
     expect(size).toBe(sunSize(r));
     expect(pixels).toHaveLength(size * size);
-    const at = (x, y) => pixels[y * size + x];
+    const at = (x: number, y: number): string | null | undefined => pixels[y * size + x];
     const c = size / 2;
     expect(at(Math.floor(c), Math.floor(c))).not.toBeNull(); // the core
     expect(at(0, 0)).toBeNull(); // the corners stay empty

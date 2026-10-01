@@ -1,17 +1,17 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import {
   PERSONA_TRADES, PERSONA_AVATAR_RANGES, PERSONA_PRESETS, PERSONA_VARIATIONS,
   personaGrid, randomAvatar, personaVariations, validPersonaAvatar,
 } from './personas.ts';
+import type { PersonaAvatar, PersonaTrade } from './personas.ts';
 
-const TRADES = [
+const TRADES: PersonaTrade[] = [
   'builder', 'plumber', 'heating', 'electrician', 'carpenter', 'roofer', 'painter', 'foreman',
   'office', 'accountant', 'doctor', 'nurse', 'shopkeeper', 'driver', 'developer',
 ];
 
-const every = () => {
-  const r = PERSONA_AVATAR_RANGES, out = [];
+const every = (): PersonaAvatar[] => {
+  const r = PERSONA_AVATAR_RANGES, out: PersonaAvatar[] = [];
   for (let skin = r.skin.min; skin <= r.skin.max; skin++) for (let hair = r.hair.min; hair <= r.hair.max; hair++)
     for (let hairColor = r.hairColor.min; hairColor <= r.hairColor.max; hairColor++)
       for (let outfit = r.outfit.min; outfit <= r.outfit.max; outfit++)
@@ -20,7 +20,7 @@ const every = () => {
   return out;
 };
 
-const key = (g) => g.pixels.map((p) => p ?? '-').join('');
+const key = (g: { pixels: (string | null)[] }): string => g.pixels.map((p) => p ?? '-').join('');
 
 describe('persona trades', () => {
   it('has the fifteen trades of the spec, each a short lower-case word with a label', () => {
@@ -29,9 +29,9 @@ describe('persona trades', () => {
       expect(id).toMatch(/^[a-z]{1,16}$/);
       expect(label.length).toBeGreaterThan(0);
     }
-    expect(PERSONA_TRADES.find((t) => t.id === 'heating').label).toBe('Heating engineer');
-    expect(PERSONA_TRADES.find((t) => t.id === 'foreman').label).toBe('Site foreman');
-    expect(PERSONA_TRADES.find((t) => t.id === 'office').label).toBe('Office manager');
+    expect(PERSONA_TRADES.find((t) => t.id === 'heating')!.label).toBe('Heating engineer');
+    expect(PERSONA_TRADES.find((t) => t.id === 'foreman')!.label).toBe('Site foreman');
+    expect(PERSONA_TRADES.find((t) => t.id === 'office')!.label).toBe('Office manager');
   });
 });
 
@@ -79,18 +79,18 @@ describe('personaGrid', () => {
   });
 
   it('gives each trade a body of its own', () => {
-    const a = { v: 1, skin: 1, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
+    const a: PersonaAvatar = { v: 1, skin: 1, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
     expect(new Set(TRADES.map((t) => key(personaGrid(t, a)))).size).toBe(TRADES.length);
   });
 
   it('always gives the same grid for the same trade and avatar', () => {
-    const a = { v: 1, skin: 4, hair: 3, hairColor: 2, outfit: 1, accessory: 2 };
+    const a: PersonaAvatar = { v: 1, skin: 4, hair: 3, hairColor: 2, outfit: 1, accessory: 2 };
     for (const t of TRADES) expect(key(personaGrid(t, { ...a }))).toBe(key(personaGrid(t, { ...a })));
   });
 
   it('gives two different avatars two different grids', () => {
     for (const trade of ['builder', 'doctor', 'developer']) {
-      const seen = new Map();
+      const seen = new Map<string, string>();
       for (const a of every()) {
         const k = key(personaGrid(trade, a));
         expect(seen.get(k), `${trade} ${JSON.stringify(a)} = ${seen.get(k)}`).toBeUndefined();
@@ -101,7 +101,7 @@ describe('personaGrid', () => {
   });
 
   it('refuses an unknown trade and an avatar out of range', () => {
-    const a = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
+    const a: PersonaAvatar = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
     expect(() => personaGrid('astronaut', a)).toThrow(/astronaut/);
     expect(() => personaGrid('builder', { ...a, skin: 9 })).toThrow(/avatar/);
   });

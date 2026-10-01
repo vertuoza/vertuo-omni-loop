@@ -8,7 +8,8 @@ screen follows.
 - **Plain files.** ES modules, CSS, SVG strings and woff2 files. No React, no Next: the package can
   leave the monorepo as a library without a rewrite. It stays `private` for now.
 - **One entry point.** `import { … } from '@omni/design'` gives every module below;
-  `src/index.ts` re-exports each one, and each has its own declaration file (`src/<module>.d.mts`).
+  `src/index.ts` re-exports each one. The modules are strict TypeScript, and their types are read
+  from the source itself: there is no declaration file beside them.
 - **Two stylesheets.** `@omni/design/tokens.css` (the colours, as `:root` custom properties) and
   `@omni/design/fonts.css` (the `@font-face` rules, and the type scale as `:root` custom
   properties). The woff2 files are served as `@omni/design/fonts/<file>`.
@@ -139,6 +140,7 @@ icons.
 
 ## Tests
 
-`pnpm test` from the repository root runs them all, beside their modules: `tokens.test.mjs`,
-`fonts.test.mjs`, `logo.test.mjs`, `brand.test.mjs`, `sprites.test.mjs`, `heroes.test.mjs`,
-`sun.test.mjs` and `index.test.mjs`.
+`pnpm test` from the repository root runs them all, beside their modules: `tokens.test.ts`,
+`fonts.test.ts`, `logo.test.ts`, `brand.test.ts`, `sprites.test.ts`, `heroes.test.ts`,
+`mascots.test.ts`, `personas.test.ts`, `sun.test.ts` and `index.test.ts`. `pnpm typecheck` checks
+them with the modules.

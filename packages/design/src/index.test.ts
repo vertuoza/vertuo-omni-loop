@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,6 +8,7 @@ const src = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(src, '..', 'package.json'), 'utf8'));
 const files = readdirSync(src);
 const modules = files.filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.d.ts') && f !== 'index.ts');
+const exported: Record<string, unknown> = index;
 
 describe('@omni/design', () => {
   it('is named @omni/design and depends on no React or Next', () => {
@@ -20,19 +20,16 @@ describe('@omni/design', () => {
   it('re-exports every module whole from the index', async () => {
     expect(modules.length).toBeGreaterThan(0);
     for (const file of modules) {
-      const mod = await import(`./${file}`);
-      for (const name of Object.keys(mod)) expect(index[name], `${file}: ${name}`).toBe(mod[name]);
+      const mod: Record<string, unknown> = await import(`./${file}`);
+      for (const name of Object.keys(mod)) expect(exported[name], `${file}: ${name}`).toBe(mod[name]);
     }
   });
 
-  it('re-exports each module with export *, and declares each module in a file of its own', () => {
+  it('re-exports each module with export *, its types read from the typed source, no declaration file beside it', () => {
     const js = readFileSync(join(src, 'index.ts'), 'utf8');
-    const dts = readFileSync(join(src, 'index.d.ts'), 'utf8');
-    for (const file of modules) {
-      expect(js).toContain(`export * from './${file}';`);
-      // The declarations are still the hand-written `.d.mts` beside each module (PRD 725 types them).
-      expect(dts).toContain(`export * from './${file.replace(/\.ts$/, '.mjs')}';`);
-      expect(files).toContain(file.replace(/\.ts$/, '.d.mts'));
-    }
+    for (const file of modules) expect(js).toContain(`export * from './${file}';`);
+    // PRD 725 typed the modules: the hand-written `.d.mts` files and index.d.ts are gone.
+    expect(files.filter((f) => f.endsWith('.d.ts') || f.endsWith('.d.mts'))).toEqual([]);
+    expect(pkg.exports['.']).toEqual({ types: './src/index.ts', default: './src/index.ts' });
   });
 });

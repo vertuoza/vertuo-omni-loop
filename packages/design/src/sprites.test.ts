@@ -1,21 +1,30 @@
-// @ts-nocheck
 import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { FLAT, RAMPS, forge } from './forge.ts';
+import { FLAT, RAMPS as FORGE_RAMPS, forge } from './forge.ts';
+import type { Painter } from './forge.ts';
 import { SPRITE_DEFS, MASCOTS, STAGE_PALETTES, TILES, WOUND_TINT, woundTint } from './sprites.ts';
+import type { WoundKind } from './sprites.ts';
 import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spritePixels } from './draw.ts';
+import type { SpriteLook } from './draw.ts';
 import { heroLook, heroPose, OMNI_POSES } from './heroes.ts';
-import { WOUND_KINDS } from '../../../game/events.ts';
+import type { Hero } from './heroes.ts';
+import { WOUND_KINDS as KINDS } from '../../../game/events.ts';
 
-const KNOWN = new Set([...Object.values(RAMPS).flat(), ...Object.values(FLAT), '#0b0a26']);
+// The forge's ramps, read loosely: a test looks any pixel, empty or not, up in the ramps it names.
+const RAMPS = FORGE_RAMPS as unknown as Readonly<Record<'W' | 'N' | 'Z' | 'P' | 'Y' | 'A' | 'O' | 'g', readonly (string | null)[]>>;
+const WOUND_KINDS = KINDS as readonly WoundKind[];
+const KNOWN = new Set<string | null>([...Object.values(RAMPS).flat(), ...Object.values(FLAT), '#0b0a26']);
+
+/** An image the fake canvases below hold: its size and the bytes put into it. */
+interface Held { width: number; height: number; data: Uint8ClampedArray }
 
 // Both frames of a sprite, forged, reduced to a short digest.
-const digest = (name, o = {}) => createHash('sha256')
+const digest = (name: string, o: SpriteLook = {}): string => createHash('sha256')
   .update(JSON.stringify([0, 1].map((frame) => spritePixels(name, { frame, ...o }))))
   .digest('hex').slice(0, 16);
 
 // What every sprite forged to before the stripes became tintable (PRD 100, s3).
-const FORGED = {
+const FORGED: Record<string, string> = {
   omni: 'e1bddb628d6f1e89', beaver: 'ae4e1b6a90480c40', octopod: '936bcdcd823ea72b', picsou: 'a80e31cbf635ce92',
   cia: '077ff18deb26a1d6', invincible: '0824c1604921ee22', pirate: '7915214f639b3720',
   'hero-girl': 'b1019ef3265b2a8e', 'hero-boy': 'd6379f01321630b1', 'hero-girl-nc': '177bfbb578ac7273', 'hero-boy-nc': 'eb56b682e5c3615d',
@@ -41,11 +50,11 @@ const FORGED = {
   'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
   'tile-stone': 'dd2d27c6129a5003',
 };
-const FORGED_WOUNDED = {
+const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
   'fault-line': 'f94fa7e9bab65b49', 'under-fire': '1ad3f05ce152d3ed', aftershock: 'f1ad2dca0de3a274',
 };
-const FORGED_HEROES = [
+const FORGED_HEROES: [Hero, string, string][] = [
   [{ v: 1, body: 'girl', skin: 3, hair: 6, suit: 2, cape: 8 }, '#ffd84a', '06f04d748c59abe8'],
   [{ v: 1, body: 'boy', skin: 0, hair: 3, suit: 0, cape: 0 }, '#2fc6a4', '6803a12fcfdf85a9'],
 ];
@@ -55,7 +64,7 @@ describe('forge', () => {
     const { w, pixels } = forge(20, 20, (d) => d.ellipse(10, 10, 8, 8, 'W'));
     const tones = new Set(pixels.filter((p) => RAMPS.W.includes(p)));
     expect(tones.size).toBeGreaterThanOrEqual(3);
-    expect(RAMPS.W.indexOf(pixels[5 * w + 6])).toBeLessThan(RAMPS.W.indexOf(pixels[14 * w + 14]));
+    expect(RAMPS.W.indexOf(pixels[5 * w + 6]!)).toBeLessThan(RAMPS.W.indexOf(pixels[14 * w + 14]!));
   });
 
   it('outlines the silhouette: its own dark tone on the lit side, near-black on the shadow side', () => {
@@ -67,7 +76,7 @@ describe('forge', () => {
 
   it('recolours a material through a tint, and keeps flat colours flat', () => {
     const { pixels } = forge(8, 8, (d) => d.rect(2, 2, 4, 4, 'Z').px(3, 3, 'Q'), { tint: { Z: WOUND_TINT.beacon.ramp } });
-    expect(pixels.some((p) => WOUND_TINT.beacon.ramp.includes(p))).toBe(true);
+    expect(pixels.some((p) => WOUND_TINT.beacon.ramp.includes(p!))).toBe(true);
     expect(pixels.some((p) => RAMPS.Z.includes(p))).toBe(false);
     expect(pixels[3 * 8 + 3]).toBe('#ffffff');
   });
@@ -117,16 +126,17 @@ describe('forging with no stripe override', () => {
 describe('stripe override', () => {
   // Colours no sprite draws today, so a pixel wearing one can only be a recoloured stripe.
   const STRIPES = { 1: '#010203', 2: '#040506', 3: '#070809', 4: '#0a0b0c' };
-  const WAS = Object.fromEntries(Object.entries(STRIPES).map(([k, hex]) => [hex, FLAT[k]]));
-  const shows = (image, hex) => {
+  const WAS: Record<string, string | undefined> = Object.fromEntries(Object.entries(STRIPES).map(([k, hex]) => [hex, FLAT[k]]));
+  const shows = (image: unknown, hex: string): boolean => {
+    const { data } = image as Held;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    for (let k = 0; k < image.data.length; k += 4) if (image.data[k] === r && image.data[k + 1] === g && image.data[k + 2] === b) return true;
+    for (let k = 0; k < data.length; k += 4) if (data[k] === r && data[k + 1] === g && data[k + 2] === b) return true;
     return false;
   };
 
   it('forge recolours a flat colour through `flat`, and nothing else', () => {
     for (const hex of Object.values(STRIPES)) expect(KNOWN.has(hex)).toBe(false);
-    const draw = (d) => d.rect(1, 1, 6, 6, 'W').px(2, 2, '1').px(4, 4, '1').px(3, 3, 'Q');
+    const draw = (d: Painter): Painter => d.rect(1, 1, 6, 6, 'W').px(2, 2, '1').px(4, 4, '1').px(3, 3, 'Q');
     const plain = forge(8, 8, draw).pixels;
     const striped = forge(8, 8, draw, { flat: { 1: STRIPES[1] } }).pixels;
     expect(striped[2 * 8 + 2]).toBe(STRIPES[1]);
@@ -135,8 +145,8 @@ describe('stripe override', () => {
   });
 
   it('forge keeps the default of an override that is not a #rrggbb colour, as fleetSprite does', () => {
-    const draw = (d) => d.px(1, 1, '1').px(2, 1, '2');
-    const { pixels } = forge(4, 4, draw, { flat: { 1: 'red', 2: '#abc', 3: null } });
+    const draw = (d: Painter): Painter => d.px(1, 1, '1').px(2, 1, '2');
+    const { pixels } = forge(4, 4, draw, { flat: { 1: 'red', 2: '#abc', 3: null } as unknown as Record<string, string> });
     expect(pixels).toEqual(forge(4, 4, draw).pixels);
     expect(pixels[1 * 4 + 1]).toBe(FLAT[1]);
   });
@@ -147,7 +157,7 @@ describe('stripe override', () => {
       const striped = spritePixels(name, { frame, flat: STRIPES }).pixels;
       expect(striped).toHaveLength(plain.length);
       striped.forEach((p, i) => {
-        if (p !== plain[i]) expect(WAS[p], `${name} pixel ${i}: ${plain[i]} → ${p}`).toBe(plain[i]);
+        if (p !== plain[i]) expect(WAS[p as string], `${name} pixel ${i}: ${plain[i]} → ${p}`).toBe(plain[i]);
       });
     }
   });
@@ -158,17 +168,20 @@ describe('stripe override', () => {
       const worn = new Set(spritePixels(name, { flat: STRIPES }).pixels);
       for (const hex of Object.values(STRIPES)) expect(worn.has(hex), `${name} ${hex}`).toBe(true);
     }
-    const { sprite, tint } = heroLook(FORGED_HEROES[0][0], FORGED_HEROES[0][1]);
+    const { sprite, tint } = heroLook(FORGED_HEROES[0]![0], FORGED_HEROES[0]![1]);
     expect(new Set(spritePixels(sprite, { tint, flat: STRIPES }).pixels).has(STRIPES[4])).toBe(true);
   });
 
   it('spriteImage and drawSprite draw the stripes in the override colours', () => {
     class FakeCanvas {
-      constructor(w, h) { this.width = w; this.height = h; this.data = null; }
+      width: number;
+      height: number;
+      data: Uint8ClampedArray | null;
+      constructor(w: number, h: number) { this.width = w; this.height = h; this.data = null; }
       getContext() {
         return {
-          createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-          putImageData: (img) => { this.data = img.data; },
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (img: { data: Uint8ClampedArray }) => { this.data = img.data; },
         };
       }
     }
@@ -176,8 +189,8 @@ describe('stripe override', () => {
     try {
       expect(shows(spriteImage('omni'), STRIPES[1])).toBe(false);
       expect(shows(spriteImage('omni', { flat: STRIPES }), STRIPES[1])).toBe(true);
-      const drawn = [];
-      const ctx = { globalAlpha: 1, drawImage: (img) => drawn.push(img) };
+      const drawn: unknown[] = [];
+      const ctx = { globalAlpha: 1, drawImage: (img: unknown) => drawn.push(img) } as unknown as CanvasRenderingContext2D;
       drawSprite(ctx, 'beaver', 0, 0, { flat: STRIPES, glow: '#a45cff' });
       expect(shows(drawn.at(-1), STRIPES[2])).toBe(true);
       drawSprite(ctx, 'beaver', 0, 0);
@@ -190,7 +203,7 @@ describe('stripe override', () => {
 
 describe('OmniMan poses', () => {
   const POSES = ['omni-point', 'omni-cheer', 'omni-run'];
-  const filled = (name, frame, test) => {
+  const filled = (name: string, frame: number, test: (x: number, y: number) => boolean): boolean => {
     const { w, pixels } = spritePixels(name, { frame });
     return pixels.some((p, i) => p && test(i % w, Math.floor(i / w)));
   };
@@ -211,7 +224,7 @@ describe('OmniMan poses', () => {
   });
 
   it('keeps the commander: the same head and the stripes as the idle body', () => {
-    const head = (name) => spritePixels(name).pixels.filter((_, i) => i < 32 * 16 && i % 32 >= 8 && i % 32 < 24).join();
+    const head = (name: string): string => spritePixels(name).pixels.filter((_, i) => i < 32 * 16 && i % 32 >= 8 && i % 32 < 24).join();
     for (const name of POSES) if (name !== 'omni-run') expect(head(name), name).toBe(head('omni'));
     const STRIPES = { 1: '#010203', 2: '#040506', 3: '#070809', 4: '#0a0b0c' };
     for (const name of POSES) {
@@ -221,21 +234,21 @@ describe('OmniMan poses', () => {
   });
 
   it('points: an arm out to his left, the hand at the edge of the frame', () => {
-    const out = (name) => filled(name, 0, (x, y) => x >= 30 && y >= 16 && y <= 24);
+    const out = (name: string): boolean => filled(name, 0, (x, y) => x >= 30 && y >= 16 && y <= 24);
     expect(out('omni-point')).toBe(true);
     expect(out('omni')).toBe(false);
   });
 
   it('cheers: a fist raised beside his head, thumb up', () => {
-    const raised = (name) => filled(name, 0, (x, y) => x >= 26 && y <= 15);
+    const raised = (name: string): boolean => filled(name, 0, (x, y) => x >= 26 && y <= 15);
     expect(raised('omni-cheer')).toBe(true);
     expect(raised('omni')).toBe(false);
   });
 
   it('runs: two strides, the legs apart, different from each other', () => {
-    const legs = (frame) => spritePixels('omni-run', { frame }).pixels.slice(32 * 32).join();
+    const legs = (frame: number): string => spritePixels('omni-run', { frame }).pixels.slice(32 * 32).join();
     expect(legs(0)).not.toBe(legs(1));
-    const wide = (name, frame) => filled(name, frame, (x, y) => y >= 40 && (x <= 6 || x >= 25));
+    const wide = (name: string, frame: number): boolean => filled(name, frame, (x, y) => y >= 40 && (x <= 6 || x >= 25));
     expect(wide('omni-run', 0)).toBe(true);
     expect(wide('omni', 0)).toBe(false);
   });
@@ -246,7 +259,7 @@ describe('OmniMan poses', () => {
   });
 
   it('wears the cape only in the caped build', () => {
-    const plasma = (name) => spritePixels(name).pixels.some((p) => p !== FLAT[3] && RAMPS.P.includes(p));
+    const plasma = (name: string): boolean => spritePixels(name).pixels.some((p) => p !== FLAT[3] && RAMPS.P.includes(p));
     for (const pose of POSES) {
       expect(plasma(pose), pose).toBe(false);
       expect(plasma(`${pose}-cape`), pose).toBe(true);
@@ -275,17 +288,20 @@ describe('poster scale', () => {
   });
 
   it('refuses a scale that is not a whole number from 1 to 16', () => {
-    for (const k of [0, 17, 1.5, -2, NaN, '4']) expect(() => posterPixels('omni', k), String(k)).toThrow(/1 to 16/);
+    for (const k of [0, 17, 1.5, -2, NaN, '4']) expect(() => posterPixels('omni', k as number), String(k)).toThrow(/1 to 16/);
     expect(() => posterPixels('nobody', 2)).toThrow(/unknown sprite/);
   });
 
   it('posterImage draws the blocks onto a canvas k times the sprite, flipped when asked', () => {
     class FakeCanvas {
-      constructor(w, h) { this.width = w; this.height = h; this.data = null; }
+      width: number;
+      height: number;
+      data: Uint8ClampedArray | null;
+      constructor(w: number, h: number) { this.width = w; this.height = h; this.data = null; }
       getContext() {
         return {
-          createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-          putImageData: (img) => { this.data = img.data; },
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (img: { data: Uint8ClampedArray }) => { this.data = img.data; },
         };
       }
     }
@@ -295,8 +311,11 @@ describe('poster scale', () => {
       const img = posterImage('omni-point', { scale: k });
       expect([img.width, img.height]).toEqual([32 * k, 48 * k]);
       const big = posterPixels('omni-point', k);
-      const at = (image, x, y) => Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4));
-      const hex = (rgba) => (rgba[3] ? '#' + rgba.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('') : null);
+      const at = (canvas: unknown, x: number, y: number): number[] => {
+        const image = canvas as Held;
+        return Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4));
+      };
+      const hex = (rgba: number[]): string | null => (rgba[3] ? '#' + rgba.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('') : null);
       for (let i = 0; i < big.pixels.length; i += 97) {
         const x = i % big.w, y = Math.floor(i / big.w);
         expect(hex(at(img, x, y))).toBe(big.pixels[i]);
@@ -357,7 +376,7 @@ describe('the platformer\'s tiles (PRD 817)', () => {
     for (const palette of ['underground', 'castle']) {
       for (const name of TILES) {
         if (palette === 'castle' && name === 'tile-stone') continue;
-        const own = spritePixels(name, { tint: STAGE_PALETTES[palette] }).pixels;
+        const own = spritePixels(name, { tint: STAGE_PALETTES[palette]! }).pixels;
         const grass = spritePixels(name, { tint: STAGE_PALETTES.grass }).pixels;
         if (name === 'tile-block') expect(own.filter((p) => RAMPS.Y.includes(p)).length, `${palette} ${name}`).toBe(grass.filter((p) => RAMPS.Y.includes(p)).length);
         else expect(own, `${palette} ${name}`).not.toEqual(grass);
@@ -378,7 +397,7 @@ describe('the platformer\'s tiles (PRD 817)', () => {
     expect(RAMPS.g).not.toContain(ground[15 * 16]);
     const block = new Set(spritePixels('tile-block').pixels);
     expect([...block].some((p) => RAMPS.Y.includes(p))).toBe(true);
-    expect(block.has(FLAT.Q)).toBe(true);
+    expect(block.has(FLAT.Q!)).toBe(true);
     expect([...new Set(spritePixels('tile-block-empty').pixels)].some((p) => RAMPS.Y.includes(p))).toBe(false);
   });
 });
