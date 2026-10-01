@@ -13,6 +13,7 @@
 // PRD 657 (s5): each PRD placed then has its open outbox questions recounted into prd_outbox, so /prd
 // sees a feature PR's change before the next sync. A recount that fails is logged; the reply stands.
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { z } from 'zod';
 import type { StoredStage } from '../stage';
 import type { StageStore } from '../store';
 
@@ -20,7 +21,7 @@ import type { StageStore } from '../store';
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
 /** The stages a pull request event can show: every stored stage but PRD, which only the sync sees. */
-const EVENT_STAGES: readonly StoredStage[] = ['inbox', 'building', 'outbox', 'shipped', 'retro'];
+const EVENT_STAGES = ['inbox', 'building', 'outbox', 'shipped', 'retro'] as const satisfies readonly StoredStage[];
 
 export type StageEvent = { repository: string; topic: string; prd: number | null; stage: StoredStage; at: string };
 
@@ -40,16 +41,21 @@ export type Reply = { status: number; body: { ok?: true; placed?: number; error?
 
 const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 
+/** A stage event as omni-app posts it: a repository `owner/name`, a topic, its PRD when known, a stage and a date. */
+const StageEventBody = z.object({
+  repository: z.string().regex(REPOSITORY),
+  topic: z.string().refine((topic) => topic.trim() !== ''),
+  prd: z.number().refine((prd) => Number.isInteger(prd) && prd > 0).nullable(),
+  stage: z.enum(EVENT_STAGES),
+  at: z.string().refine((at) => !Number.isNaN(Date.parse(at))),
+});
+
 /** A well-formed stage event, or null. */
 export function parseStageEvent(value: unknown): StageEvent | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const { repository, topic, prd, stage, at } = value as Record<string, unknown>;
-  if (typeof repository !== 'string' || !REPOSITORY.test(repository)) return null;
-  if (typeof topic !== 'string' || topic.trim() === '') return null;
-  if (prd !== null && !(Number.isInteger(prd) && (prd as number) > 0)) return null;
-  if (!EVENT_STAGES.includes(stage as StoredStage)) return null;
-  if (typeof at !== 'string' || Number.isNaN(Date.parse(at))) return null;
-  return { repository, topic, prd: prd as number | null, stage: stage as StoredStage, at };
+  const parsed = StageEventBody.safeParse(value);
+  if (!parsed.success) return null;
+  const { repository, topic, prd, stage, at } = parsed.data;
+  return { repository, topic, prd, stage, at };
 }
 
 /** True only for `sha256=<hex>` of the exact body under the secret, compared in constant time. */

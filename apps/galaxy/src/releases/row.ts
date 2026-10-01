@@ -33,7 +33,7 @@ export function parseReleaseRows(rows: unknown[]): ReleaseRow[] {
   return rows.map((raw, i) => {
     const parsed = ReleaseRow.safeParse(raw);
     if (!parsed.success) {
-      const issue = parsed.error.issues[0];
+      const issue = parsed.error.issues[0]!; // ts-allow: a failed parse has an issue
       throw new Error(`${RELEASES_TABLE}: row ${i + 1} is not a release (${issue.path.join('.') || 'row'}: ${issue.message})`);
     }
     return parsed.data;

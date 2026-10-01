@@ -83,7 +83,7 @@ describe('the page', () => {
     expect(text(initial)).toMatch(/^0\.0\.1 · Sun 27 Sep · Initial release/);
     expect(initial).toMatch(/<h3 class="rel-title">From idea to merged PR, on a loop\.<\/h3>/);
     expect(text(initial)).toContain(RELEASES.initial.intro);
-    const lines = [...initial.matchAll(/<li class="rel-line">([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
+    const lines = [...initial.matchAll(/<li class="rel-line">([\s\S]*?)<\/li>/g)].map((m) => text(m[1]!));
     const rows = DEMO_RELEASES.filter((r) => r.release === 1).sort((a, b) => a.prd - b.prd);
     expect(lines).toEqual(rows.map((r) => `${r.title} ${r.description} PRD ${r.prd}`));
     expect(lines).toHaveLength(21);
@@ -91,7 +91,7 @@ describe('the page', () => {
 
   it('keeps the four newest weeks open and folds the older ones into a closed <details>, its summary counting releases and PRDs', () => {
     const folds = [...html.matchAll(/<details class="rel-week rel-fold"( open="")?>\s*<summary[^>]*>([\s\S]*?)<\/summary>/g)];
-    expect(folds.map((m) => [Boolean(m[1]), text(m[2])])).toEqual([[false, 'Week of 21 Sep 2026 · 1 release · 21 PRDs']]);
+    expect(folds.map((m) => [Boolean(m[1]), text(m[2]!)])).toEqual([[false, 'Week of 21 Sep 2026 · 1 release · 21 PRDs']]);
     expect(between(html, '<details', '</details>')).toContain('<article id="0.0.1"');
     expect([...html.matchAll(/<section class="rel-week"/g)]).toHaveLength(4);
   });

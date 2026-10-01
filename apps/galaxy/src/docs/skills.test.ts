@@ -25,7 +25,7 @@ describe('the overview', () => {
     ]);
     expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'visual-fix', 'bug-fix']);
     expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'plan', 'wave', 'do-work', 'pr', 'pr-care']);
-    expect(groups[1].skills[0]).toEqual({
+    expect(groups[1]!.skills[0]).toEqual({
       name: 'yolo', command: '/omni:yolo', summary: 'build a whole PRD: plan, waves, the outbox gate, ship', url: '/docs/skills/yolo',
     });
   });

@@ -117,6 +117,28 @@ describe('what a page names', () => {
   });
 });
 
+describe('the order file', () => {
+  let dir = '';
+  afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
+
+  const guideWith = (meta: unknown) => {
+    dir = mkdtempSync(join(tmpdir(), 'omni-guide-'));
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+    writeFileSync(join(dir, 'index.md'), '---\ntitle: A\n---\n');
+    return () => readGuide(dir);
+  };
+
+  it('reads the pages it lists, and none when it lists none', () => {
+    expect(guideWith({ pages: ['index'] })().order).toEqual(['index']);
+    expect(guideWith({})().order).toEqual([]);
+  });
+
+  it('refuses pages that are not a list of slugs, naming the field', () => {
+    expect(guideWith({ pages: 'index' })).toThrow(/meta\.json: pages: /);
+    expect(guideWith({ pages: ['index', 7] })).toThrow(/meta\.json: pages\.1: /);
+  });
+});
+
 describe('the guard', () => {
   let dir = '';
   afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });

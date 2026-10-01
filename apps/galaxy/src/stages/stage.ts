@@ -18,8 +18,8 @@ export const STAGES: readonly StageId[] = ['idea', 'prd', 'inbox', 'building', '
 export type StoredStage = Exclude<StageId, 'idea'>;
 export const STORED_STAGES: readonly StoredStage[] = ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'];
 
-export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage);
-export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId);
+export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage); // ts-allow: includes() checks any value
+export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId); // ts-allow: includes() checks any value
 
 export const STAGE_LABELS: Readonly<Record<StageId, string>> = {
   idea: 'idea', prd: 'PRD', inbox: 'inbox', building: 'building', outbox: 'outbox', shipped: 'shipped', retro: 'retro',
@@ -55,7 +55,7 @@ const SYNCING = 'Syncing…';
 export function currentStage(rows: readonly Pick<StageRow, 'stage'>[]): StoredStage | null {
   let at = -1;
   for (const { stage } of rows) at = Math.max(at, STORED_STAGES.indexOf(stage));
-  return at === -1 ? null : STORED_STAGES[at];
+  return at === -1 ? null : STORED_STAGES[at]!; // ts-allow: at is an index indexOf found
 }
 
 function trackOf(current: StageId | null): TrackStop[] {

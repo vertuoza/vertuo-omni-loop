@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   const db = await supabaseServer();
   const { data, error } = await db.auth.exchangeCodeForSession(code);
-  const session = (data?.session as SignedIn | null | undefined) ?? null;
+  const session = (data?.session as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
   if (error || !session) {
     console.error(`sign-up: the sign-in could not be finished (${error?.message ?? 'no session'})`);
     return NextResponse.redirect(setupReturn({ kind: 'error', reason: 'github' }, origin));

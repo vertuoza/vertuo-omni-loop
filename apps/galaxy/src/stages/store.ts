@@ -6,6 +6,7 @@
 // dossier's home_repo is. A stage is recorded once: writing it again refreshes when it was last seen
 // (synced_at), and the database keeps its first date. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
 
 const STAGES_TABLE = 'prd_stages';
@@ -44,7 +45,7 @@ export type StageStore = {
 export const prdKey = ({ repository, prd }: PrdRef) => `${repository.toLowerCase()}#${prd}`;
 
 /** No PRD at any stage. */
-export const noCounts = (): StageCounts => Object.fromEntries(STORED_STAGES.map((s) => [s, 0])) as StageCounts;
+export const noCounts = (): StageCounts => Object.fromEntries(STORED_STAGES.map((s) => [s, 0])) as StageCounts; // ts-allow: fromEntries over STORED_STAGES keeps every stage
 
 /** Counts the current stages given. */
 export function countStages(current: Iterable<StoredStage>): StageCounts {
@@ -85,13 +86,13 @@ export function settle(what: string, error: Refusal): void {
 const lower = (repository: string) => repository.toLowerCase();
 
 function stageRows(data: unknown): StageRow[] {
-  return ((data ?? []) as Record<string, unknown>[])
+  return ((data ?? []) as Record<string, unknown>[]) // ts-allow: rows read as unknown; each field is checked below
     .filter((row) => isStoredStage(row.stage))
-    .map((row) => ({ stage: row.stage as StoredStage, reached_at: String(row.reached_at), synced_at: String(row.synced_at) }))
+    .map((row) => ({ stage: row.stage as StoredStage, reached_at: String(row.reached_at), synced_at: String(row.synced_at) })) // ts-allow: isStoredStage() kept only stored stages
     .sort(byTrack);
 }
 
-export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
+export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageStore {
   const store: StageStore = {
     async recordStages(rows, syncedAt = new Date().toISOString()) {
       if (rows.length === 0) return;
@@ -122,7 +123,7 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
         const { data, error } = await db.from(STAGES_TABLE).select('repository, prd, stage')
           .eq('workspace_id', workspace).order('repository').order('prd').order('stage').range(first, first + PAGE - 1);
         settle('read the stages', error);
-        const page = (data ?? []) as Record<string, unknown>[];
+        const page = data ?? [];
         for (const row of page) {
           if (isStoredStage(row.stage)) rows.push({ repository: String(row.repository), prd: Number(row.prd), stage: row.stage });
         }
@@ -139,7 +140,7 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
       const { data, error } = await db.from(TOPICS_TABLE).select('prd')
         .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('topic', topic).maybeSingle();
       settle(`find the PRD of topic ${topic}`, error);
-      const row = data as { prd?: unknown } | null;
+      const row = data;
       return row && row.prd !== undefined && row.prd !== null ? Number(row.prd) : null;
     },
 
@@ -148,7 +149,7 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
         .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('stage', 'prd')
         .order('synced_at', { ascending: false }).limit(1).maybeSingle();
       settle(`read when ${lower(repository)} was last synced`, error);
-      const row = data as { synced_at?: unknown } | null;
+      const row = data;
       return row && typeof row.synced_at === 'string' ? row.synced_at : null;
     },
   };

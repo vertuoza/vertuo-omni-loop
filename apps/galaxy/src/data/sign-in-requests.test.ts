@@ -29,8 +29,8 @@ describe('after a sign-in, a pending sign-up request', () => {
   it('completes before GitHub is linked, so the new owner is a player at once', async () => {
     const w = world();
     await afterSignIn(w.db, w.session(MIA), w.deps, null);
-    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
-    expect(w.linkGithub.mock.invocationCallOrder[0]).toBeGreaterThan(created);
+    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
+    expect(w.linkGithub.mock.invocationCallOrder[0]!).toBeGreaterThan(created);
   });
 
   it('whose org still has no App stays pending', async () => {

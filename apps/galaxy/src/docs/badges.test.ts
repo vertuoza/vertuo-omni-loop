@@ -64,12 +64,12 @@ describe('the compile step', () => {
     const block = tree.children[0] as HastElement;
     expect(block).toMatchObject({ tagName: 'div', properties: { className: ['docs-code'] } });
     const [badges, code] = block.children as HastElement[];
-    expect(badges.properties).toEqual({ className: ['docs-badges'] });
-    expect(badges.children).toEqual([
+    expect(badges!.properties).toEqual({ className: ['docs-badges'] });
+    expect(badges!.children).toEqual([
       { type: 'element', tagName: 'span', properties: { className: ['docs-badge'], dataKind: 'terminal' }, children: [text('TERMINAL')] },
       { type: 'element', tagName: 'span', properties: { className: ['docs-badge'], dataKind: 'agent' }, children: [text('CODING AGENT')] },
     ]);
-    expect(code.tagName).toBe('pre');
+    expect(code!.tagName).toBe('pre');
   });
 
   it('finds a block nested in a list, and leaves one with no meta alone', () => {

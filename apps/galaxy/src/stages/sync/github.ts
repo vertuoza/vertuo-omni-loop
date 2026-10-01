@@ -103,7 +103,7 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         (found) => found.some(before),
       )).filter((p) => !before(p));
       const features = new Set([...inbox, ...shipped]
-        .map((name) => (parseFolderName(name) as { topic: string } | null)?.topic)
+        .map((name) => parseFolderName(name)?.topic)
         .filter((t): t is string => Boolean(t))
         .map((topic) => config.branches.feature.replace('{topic}', topic)));
       const pulls: SnapshotPull[] = await Promise.all(listed.map(async (p) => {

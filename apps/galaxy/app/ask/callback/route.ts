@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requestOrigin, signInReturn } from '../../../src/ask/page/sign-in';
-import { settlingExchange, type SessionExchange } from '../../../src/data/sign-in';
+import { settlingExchange } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const exchange = supabaseEnv()
     ? async (code: string) => {
       const db = await supabaseServer();
-      return settlingExchange((c) => db.auth.exchangeCodeForSession(c) as ReturnType<SessionExchange>, db, signInDeps)(code);
+      return settlingExchange((c) => db.auth.exchangeCodeForSession(c), db, signInDeps)(code);
     }
     : null;
   return NextResponse.redirect(await signInReturn(request.nextUrl, requestOrigin(request), null, exchange));

@@ -28,7 +28,7 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
    * `failOn`: the dossiers table, one function, or every call about one dossier (its id), out of reach.
    * `gone`: dossiers deleted between the table's read and the functions', which then find nothing.
    */
-  const state = { failOn: null as null | 'dossiers' | 'dossier_list' | 'dossier_rounds' | string, gone: new Set<string>() };
+  const state = { failOn: null as null | 'dossiers' | 'dossier_list' | 'dossier_rounds' | string, gone: new Set<string>() }; // ts-allow: a test fake's state, set by each test
   const refused = (what: string): Result => ({ data: null, error: { message: `fake: ${what} is out of reach` } });
 
   function client(me: FakeUser | null) {
@@ -49,8 +49,8 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
         const names = this.columns.split(',').map((c) => c.trim());
         const rows = dossiers
           .filter(readable)
-          .filter((d) => Object.entries(this.eqs).every(([column, value]) => (d.row as Record<string, unknown>)[column] === value))
-          .map((d) => Object.fromEntries(names.map((n) => [n, clone((d.row as Record<string, unknown>)[n])])));
+          .filter((d) => Object.entries(this.eqs).every(([column, value]) => (d.row as Record<string, unknown>)[column] === value)) // ts-allow: a test fake reads its rows by column
+          .map((d) => Object.fromEntries(names.map((n) => [n, clone((d.row as Record<string, unknown>)[n])]))); // ts-allow: a test fake reads its rows by column
         return { data: rows, error: null };
       }
     }
@@ -68,7 +68,7 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
 
     return {
       ...base,
-      from: (table: string) => (table === 'dossiers' ? new DossierQuery() : base.from(table as Parameters<typeof base.from>[0])),
+      from: (table: string) => (table === 'dossiers' ? new DossierQuery() : base.from(table as Parameters<typeof base.from>[0])), // ts-allow: a test fake passes on any other table
       rpc,
     };
   }

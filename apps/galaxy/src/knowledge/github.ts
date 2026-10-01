@@ -40,6 +40,14 @@ const Knowledge = z.object({
     cross: Folder,
   }).nullable(),
 });
+/** A GraphQL answer: its data, and the errors GitHub names, each with its message when it has one. */
+const GraphqlReply = z.object({
+  data: z.unknown(),
+  errors: z.array(z.object({ message: z.string().optional() }).catch({})).optional().catch(undefined),
+});
+/** The config batch's answer, `r<i>` for `repos[i]`; one repository's config, when it has one as text. */
+const ConfigAnswers = z.record(z.string(), z.unknown());
+const ConfigBlob = z.object({ object: z.object({ text: z.string() }) });
 
 const KNOWLEDGE_QUERY = `query($owner: String!, $name: String!, $product: String!, $domains: String!, $cross: String!) {
   repository(owner: $owner, name: $name) {
@@ -63,7 +71,7 @@ export function configQuery(repos: readonly string[]): string {
 
 /** Where a config puts the knowledge folder, as a path from the repository's root. */
 function knowledgeRootOf(text: string, repo: string): string {
-  const config = parseConfig(text, `${repo}:${CONFIG_PATH}`) as unknown as { paths: { knowledge: string } };
+  const config = parseConfig(text, `${repo}:${CONFIG_PATH}`);
   return config.paths.knowledge.replace(/^\.\/+/, '').replace(/\/+$/, '');
 }
 
@@ -111,8 +119,10 @@ export function knowledgeReader(
       cache: 'no-store',
     });
     if (!res.ok) throw new Error(`GitHub answered ${res.status} to a GraphQL query`);
-    const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null;
-    if (!body?.data) throw new Error(`GitHub's GraphQL answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
+    const parsed = GraphqlReply.safeParse(await res.json());
+    const body = parsed.success ? parsed.data : null;
+    const message = body?.errors?.[0]?.message;
+    if (!body?.data) throw new Error(`GitHub's GraphQL answer holds no data${message ? `: ${message}` : ''}`);
     return body.data;
   }
 
@@ -125,10 +135,12 @@ export function knowledgeReader(
     const found = new Map<string, string>();
     for (let from = 0; from < all.length; from += CONFIG_BATCH) {
       const batch = all.slice(from, from + CONFIG_BATCH);
-      const data = (await graphql(token, configQuery(batch))) as Record<string, { object?: { text?: string | null } | null } | null>;
+      const answered = ConfigAnswers.safeParse(await graphql(token, configQuery(batch)));
+      const data = answered.success ? answered.data : {};
       batch.forEach((repo, i) => {
-        const text = data[`r${i}`]?.object?.text;
-        if (typeof text !== 'string') return;
+        const config = ConfigBlob.safeParse(data[`r${i}`]);
+        if (!config.success) return;
+        const text = config.data.object.text;
         try {
           found.set(repo, knowledgeRootOf(text, repo));
         } catch (error) {
@@ -143,7 +155,7 @@ export function knowledgeReader(
 
   /** The texts of `repo`'s knowledge folder at `root`, by path from the repository's root. */
   async function texts(id: number, repo: string, root: string): Promise<Record<string, string>> {
-    const [owner, name] = repo.split('/');
+    const [owner, name] = repo.split('/') as [string, string]; // ts-allow: a repository is named owner/name
     const data = Knowledge.parse(await graphql(await tokenFor(id), KNOWLEDGE_QUERY, {
       owner,
       name,
@@ -196,7 +208,7 @@ export function knowledgeReader(
           log(`knowledge map: ${repo} is not a repository of installation ${id} that carries ${CONFIG_PATH}`);
         } else {
           const [name, root] = listed;
-          value = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name }) as KnowledgeGraph;
+          value = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name }) as KnowledgeGraph; // ts-allow: the kit's one parser reads the texts; the map reads its graph's narrower view
         }
       } catch (error) {
         log(`knowledge map: ${repo} could not be read from GitHub — ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
