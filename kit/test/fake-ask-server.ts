@@ -120,6 +120,9 @@ const sha256 = (content: string): string => createHash('sha256').update(content,
  *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
  *                                how a well-formed heartbeat is answered, and after how long
  */
+/** A fake ask server a test started: its address, what it recorded, and the handles that steer it. */
+export type FakeAskServer = Awaited<ReturnType<typeof startFakeAskServer>>;
+
 export async function startFakeAskServer({
   port = 0,
   holdMs = 50,
