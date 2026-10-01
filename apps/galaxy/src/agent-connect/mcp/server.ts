@@ -16,7 +16,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
 import { businessReader, BusinessStoreError } from '../../business-api/read';
-import { SERVER_NAME } from '../tokens/model';
 import { hashToken, isTokenShaped } from '../tokens/token';
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
@@ -61,7 +60,7 @@ function refused(error: unknown) {
 }
 
 function server(hash: string | null, deps: McpDeps): McpServer {
-  const mcp = new McpServer({ name: SERVER_NAME, version: '1.0.0' }, { instructions: INSTRUCTIONS });
+  const mcp = new McpServer({ name: 'omni-business', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
   /** The read for `repo` (or the only product), as GET /api/business answers it. */
   const read = async (repo: string | undefined) => {
