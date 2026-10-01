@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { failing, replayGitHub } from '../../../test/github-replay.ts';
+import { failing } from '../../../test/github-replay.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { afterMerge, followUpAt } from './after-merge.ts';
+import { handles, replay } from './test-handles.ts';
 import {
   DAY_14,
   FEATURE,
@@ -15,26 +16,31 @@ import {
   REPO,
   afterMergeRecording,
 } from './after-merge.fixtures/day-14.ts';
+import type { Missing } from './after-merge.fixtures/day-14.ts';
+
+const { gather, detect, section } = handles(afterMerge);
 
 const config = parseConfig('kit: 1\n');
 const prd = { number: 7, topic: 'widget' };
 const pr = { number: 12, url: FEATURE.html_url, mergedAt: MERGED_AT, mergeSha: MERGE_SHA };
 const atMerge = { kinds: { churn: { ranges: RANGES } } };
-const issueUrl = (n) => `https://github.com/${OWNER}/${REPO}/issues/${n}`;
-const pullUrl = (n) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
+const issueUrl = (n: number) => `https://github.com/${OWNER}/${REPO}/issues/${n}`;
+const pullUrl = (n: number) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
 
-function github({ missing, issues = ISSUES, pulls = FIX_PULLS } = {}) {
-  const stub = replayGitHub({ pulls: [FEATURE, ...pulls], recording: afterMergeRecording({ missing }) });
-  stub.state.issues.push(...structuredClone(issues));
+type Options = { missing?: Missing; issues?: object[]; pulls?: object[]; scope?: object };
+
+function github({ missing, issues = ISSUES, pulls = FIX_PULLS }: Options = {}) {
+  const stub = replay({ pulls: [FEATURE, ...pulls], recording: afterMergeRecording({ missing }) });
+  (stub.state.issues as object[]).push(...structuredClone(issues));
   return stub;
 }
 
 const scope = (over = {}) => ({ owner: OWNER, repo: REPO, mergeSha: MERGE_SHA, mergedAt: MERGED_AT, pr, prd, config, pulls: [], atMerge, ...over });
 
-async function run(options = {}) {
+async function run(options: Options = {}) {
   const stub = github(options);
-  const records = await afterMerge.gather(stub.octokit, scope(options.scope));
-  return { stub, records, ...afterMerge.detect(records, { pr, prd, config, pulls: [] }) };
+  const records = await gather(stub.octokit, scope(options.scope));
+  return { stub, records, ...detect(records, { pr, prd, config, pulls: [] }) };
 }
 
 describe('after-merge — when it wakes', () => {
@@ -111,7 +117,7 @@ describe('after-merge — gather', () => {
   it('stops listing pull requests at the first page updated before the merge', async () => {
     const older = Array.from({ length: 100 }, (_, i) => ({ ...FIX_PULLS[3], number: 200 + i, updated_at: '2026-09-10T00:00:00Z', merged_at: '2026-09-10T00:00:00Z' }));
     const stub = github({ pulls: [...FIX_PULLS, ...older] });
-    await afterMerge.gather(stub.octokit, scope());
+    await gather(stub.octokit, scope());
     const pages = stub.state.requests.filter((r) => r.route === 'GET /repos/{owner}/{repo}/pulls').map((r) => r.page);
     expect(pages).toEqual([1]);
     expect(stub.state.requests.find((r) => r.route === 'GET /repos/{owner}/{repo}/pulls')).toMatchObject({
@@ -138,11 +144,11 @@ describe('after-merge — gather', () => {
   it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
     const stub = github();
     const broken = failing(stub.octokit, 'GET /repos/{owner}/{repo}/issues');
-    await expect(afterMerge.gather(broken, scope())).rejects.toThrow('GitHub is down');
+    await expect(gather(broken, scope())).rejects.toThrow('GitHub is down');
   });
 
   it('gathers nothing without a merge to count from', async () => {
-    expect(await afterMerge.gather({ request: () => { throw new Error('no GitHub'); } }, {})).toBeNull();
+    expect(await gather({ request: () => { throw new Error('no GitHub'); } }, {})).toBeNull();
   });
 });
 
@@ -191,10 +197,10 @@ describe('after-merge — detect', () => {
       ranges: [{ path: 'src/store/colour.js', from: 8, to: 11 }],
       unread: [],
     };
-    const { facts, findings } = afterMerge.detect(records, { pr, prd });
+    const { facts, findings } = detect(records, { pr, prd });
     expect(facts.bugs[0]).toMatchObject({ fixes: [45], linked: [] });
     expect(facts).toMatchObject({ fixed: 1, linked: 0 });
-    expect(findings[0].happened).not.toContain('linked');
+    expect(findings[0]!.happened).not.toContain('linked');
   });
 
   it('links a pure insertion inside a range, and a file renamed from a churned one', () => {
@@ -209,8 +215,8 @@ describe('after-merge — detect', () => {
       ranges: [{ path: 'src/store/colour.js', from: 8, to: 11 }],
       unread: [],
     };
-    const { facts } = afterMerge.detect(records, { pr, prd });
-    expect(facts.bugs[0].linked.map((link) => link.fix)).toEqual([45, 47]);
+    const { facts } = detect(records, { pr, prd });
+    expect(facts.bugs[0]!.linked.map((link) => link.fix)).toEqual([45, 47]);
   });
 
   it('counts only what falls within the window, whatever the records hold', () => {
@@ -226,7 +232,7 @@ describe('after-merge — detect', () => {
       ranges: [],
       unread: [],
     };
-    const { facts, findings } = afterMerge.detect(records, { pr, prd });
+    const { facts, findings } = detect(records, { pr, prd });
     expect(facts.bugs).toEqual([{ number: 40, url: issueUrl(40), daysAfterMerge: 2, closed: false, fixes: [], linked: [] }]);
     expect(findings.map((finding) => finding.id)).toEqual(['bug:40']);
   });
@@ -261,19 +267,19 @@ describe('after-merge — detect', () => {
     const { facts, findings } = await run({ issues: [] });
     expect(findings).toEqual([]);
     expect(facts).toMatchObject({ total: 0, fixed: 0, linked: 0, bugs: [] });
-    expect(afterMerge.describe(facts)[0]).toBe('- No `bug` issue naming #7 was opened within 14 days of the merge.');
+    expect(section(facts)[0]).toBe('- No `bug` issue naming #7 was opened within 14 days of the merge.');
   });
 
   it('is the same for the same records: nothing in it depends on the clock', async () => {
     const { records } = await run();
-    expect(afterMerge.detect(records, { pr, prd })).toEqual(afterMerge.detect(structuredClone(records), { pr, prd }));
+    expect(detect(records, { pr, prd })).toEqual(detect(structuredClone(records), { pr, prd }));
   });
 });
 
 describe('after-merge — its section', () => {
   it('lists the bugs, their fixes and links, and the merge commit’s jobs', async () => {
     const { facts } = await run();
-    expect(afterMerge.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- 2 `bug` issues naming #7 were opened within 14 days of the merge: 1 fixed within those days, 1 linked to churn.',
       `- [#40](${issueUrl(40)}): opened 2 days after the merge, closed; fixed by [#45](${pullUrl(45)}) and [#47](${pullUrl(47)}); linked to \`churn:src/store/colour.js:8-11\` (#45) and \`churn:src/show/table.js:61-90\` (#47, by its file).`,
       `- [#41](${issueUrl(41)}): opened 8 days after the merge, still open; no fix merged.`,
@@ -283,29 +289,29 @@ describe('after-merge — its section', () => {
 
   it('says what it could not read', async () => {
     const { facts } = await run({ missing: { runs: 403, files: { 45: 404 } } });
-    expect(afterMerge.describe(facts).slice(-2)).toEqual([
+    expect(section(facts).slice(-2)).toEqual([
       '- The jobs on the merge commit `merge1` were not read (GitHub answered 403). The app reads them with the `actions: read` permission.',
       '- The files of #45 were not read (GitHub answered 404), so it is not placed against the churn ranges.',
     ]);
   });
 
   it('says so when no job ran on the merge commit', () => {
-    const facts = afterMerge.detect(
+    const facts = detect(
       { window: { from: '2026-09-20T12:00:00.000Z', to: DAY_14 }, bugs: [], fixes: [], checks: { commit: MERGE_SHA, status: null, jobs: [] }, ranges: [], unread: [] },
       { pr, prd },
     ).facts;
-    expect(afterMerge.describe(facts).at(-1)).toBe('- No GitHub Actions job ran on the merge commit `merge1`.');
+    expect(section(facts).at(-1)).toBe('- No GitHub Actions job ran on the merge commit `merge1`.');
   });
 
   it('is left out before the day-14 run', () => {
-    expect(afterMerge.detect(null, { pr, prd })).toEqual({ facts: null, findings: [] });
-    expect(afterMerge.describe(null)).toBeNull();
+    expect(detect(null, { pr, prd })).toEqual({ facts: null, findings: [] });
+    expect(section(null)).toBeNull();
   });
 
   it('writes no number its facts and findings do not hold, and no word the rules refuse', async () => {
     const { facts, findings } = await run();
     const held = new Set(JSON.stringify({ facts, findings, days: 14 }).match(/\d+/g));
-    const written = [...afterMerge.describe(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
+    const written = [...section(facts), ...findings.flatMap((finding) => [finding.title, finding.happened])].join('\n');
     expect((written.match(/\d+/g) ?? []).filter((n) => !held.has(n))).toEqual([]);
     expect(refusedWordsIn(written)).toEqual([]);
   });

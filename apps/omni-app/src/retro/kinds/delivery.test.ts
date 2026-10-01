@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { failing, httpError, replayGitHub } from '../../../test/github-replay.ts';
+import { failing, httpError } from '../../../test/github-replay.ts';
 import { FEATURE, MERGE_SHA, MERGED_AT } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';
 import { qualify } from '../qualify.ts';
 import { delivery } from './delivery.ts';
+import { handles, replay } from './test-handles.ts';
 import {
   COMMENTS,
   DELIVERY_PULLS,
@@ -16,6 +17,8 @@ import {
   deliveryRecording,
   threadsAnswer,
 } from './delivery.fixtures/github.ts';
+
+const { gather, detect, section } = handles(delivery);
 
 const fixture = (name) => readFileSync(new URL(`./delivery.fixtures/${name}`, import.meta.url), 'utf8');
 const PLAN = fixture('plan.md');
@@ -42,7 +45,7 @@ const basePr = {
  * GraphQL's review threads answered per pull request (a 404 for one it does not know).
  */
 function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMMENTS, pulls = DELIVERY_PULLS } = {}) {
-  const replay = replayGitHub({ recording: deliveryRecording(), pulls: [FEATURE, ...pulls], events });
+  const replay = replay({ recording: deliveryRecording(), pulls: [FEATURE, ...pulls], events });
   replay.state.comments.push(...structuredClone(comments));
   const octokit = {
     async request(route, params = {}) {
@@ -59,8 +62,8 @@ function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMME
 async function run({ github = stubGitHub(), pr = basePr, prd = basePrd } = {}) {
   const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const scope = { owner: OWNER, repo: REPO, mergeSha: MERGE_SHA, mergedAt: MERGED_AT, pr, prd, config, pulls };
-  const records = await delivery.gather(github.octokit, scope);
-  const { facts, findings } = delivery.detect(records, { pr, prd, config, pulls });
+  const records = await gather(github.octokit, scope);
+  const { facts, findings } = detect(records, { pr, prd, config, pulls });
   return { github, records, facts, findings, pulls };
 }
 
@@ -438,7 +441,7 @@ describe('delivery — findings and section', () => {
 
   it('describes the decisions, the override, the territory, the friction and the review', async () => {
     const { facts } = await run();
-    expect(delivery.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- Decisions: 4 raised and settled — 1 adopted, 1 agreed, 2 drifted, 1 of them reworked; by rank: 2 high, 2 medium.',
       '- The feature PR merged without the override label `omni:outbox-go`.',
       '- Territory: 3 merged sub-PRs graded against the plan — 2 paths outside a slice’s territory, 1 more on shared ground.',
@@ -449,7 +452,7 @@ describe('delivery — findings and section', () => {
 
   it('says what it could not read or grade', async () => {
     const { facts } = await run({ github: stubGitHub({ threads: () => null, events: {} }), prd: { ...basePrd, settled: null, plan: null } });
-    expect(delivery.describe(facts)).toEqual([
+    expect(section(facts)).toEqual([
       '- Decisions: no settled file at the merge, so no decision is counted.',
       '- The feature PR merged without the override label `omni:outbox-go`.',
       '- Territory: not graded — no plan at the merge.',
@@ -459,7 +462,7 @@ describe('delivery — findings and section', () => {
   });
 
   it('leaves its section out when it has no facts', () => {
-    expect(delivery.describe(null)).toBeNull();
+    expect(section(null)).toBeNull();
   });
 
   it('holds its own place in the registry: the Decisions section, in the merge run', () => {
@@ -471,14 +474,14 @@ describe('delivery — the PRD 50 recording', () => {
   const recording = JSON.parse(readFileSync(new URL('../../../test/fixtures/prd-50/recording.json', import.meta.url), 'utf8'));
 
   async function prd50() {
-    const github = replayGitHub({ recording: recording.requests });
+    const github = replay({ recording: recording.requests });
     const input = { owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: 51, mergeSha: recording.mergeSha };
     const qualified = await qualify(github.octokit, input);
     const { pr, prd, config: at } = qualified;
     const pulls = await listPullsInto(github.octokit, { owner: input.owner, repo: input.repo, base: pr.headRef });
     const scope = { owner: input.owner, repo: input.repo, mergeSha: input.mergeSha, mergedAt: pr.mergedAt, pr, prd, config: at, pulls };
-    const records = await delivery.gather(github.octokit, scope);
-    return delivery.detect(records, { pr, prd, config: at, pulls });
+    const records = await gather(github.octokit, scope);
+    return detect(records, { pr, prd, config: at, pulls });
   }
 
   it('yields 4 adopted decisions and no drift', async () => {

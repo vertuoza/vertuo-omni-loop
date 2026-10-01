@@ -3,13 +3,15 @@ import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { inngest } from '../../inngest-client.ts';
-import { replayGitHub } from '../../../test/github-replay.ts';
 import { FEATURE, JUDGE_ENV, OWNER, PLAN, REPO, SUB_PULLS, judge, widgetScenario } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';
 import { createRetro } from '../retro.ts';
 import { LIMITS } from '../rules.ts';
 import { ci } from './ci.ts';
+import { handles, replay } from './test-handles.ts';
 import { cleanLog, tailOf } from './ci-logs.ts';
+
+const { gather, detect, section } = handles(ci);
 
 // The widget repository's three slices, as GitHub Actions ran them:
 //   s1 (#13) — run 101 on aaa1111: unit red (Vitest) and e2e red (Playwright), both re-run: unit red
@@ -96,10 +98,10 @@ const pr = { number: 12, url: FEATURE.html_url, headRef: 'feat/widget' };
 const prd = { number: 7, topic: 'widget', plan: PLAN };
 
 async function gathered(options) {
-  const github = replayGitHub({ pulls: [FEATURE, ...SUB_PULLS], recording: recording(options) });
+  const github = replay({ pulls: [FEATURE, ...SUB_PULLS], recording: recording(options) });
   const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const scope = { owner: OWNER, repo: REPO, pr, prd, config, pulls };
-  const records = await ci.gather(github.octokit, scope);
+  const records = await gather(github.octokit, scope);
   return { github, records, context: { pr, prd, config, pulls } };
 }
 
@@ -143,7 +145,7 @@ describe('ci — gather', () => {
 
   it(`cuts a long log to its last ${LIMITS.logTailLines} lines`, async () => {
     const long = Array.from({ length: 500 }, (_, index) => `2026-09-20T09:20:00.0000000Z line ${index + 1}`).join('\n');
-    const github = replayGitHub({
+    const github = replay({
       pulls: [FEATURE, SUB_PULLS[0]],
       recording: [
         runsOf('feat/widget--s1', [run(101, 'feat/widget--s1', SHA.a)]),
@@ -152,7 +154,7 @@ describe('ci — gather', () => {
       ],
     });
     const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
-    const records = await ci.gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls });
+    const records = await gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls });
     const lines = records.logs[1011].tail.split('\n');
     expect(lines).toHaveLength(LIMITS.logTailLines);
     expect(lines[0]).toBe(`line ${500 - LIMITS.logTailLines + 1}`);
@@ -178,10 +180,10 @@ describe('ci — gather', () => {
   });
 
   it('gathers nothing when no pull request into the feature branch is a slice', async () => {
-    const github = replayGitHub({ pulls: [FEATURE] });
+    const github = replay({ pulls: [FEATURE] });
     const pulls = [{ number: 17, url: 'u17', headRef: 'fix/settle-widget', openedAt: at(10, 30), closedAt: null, mergedAt: null, labels: [] }];
-    expect(await ci.gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls })).toBeNull();
-    expect(await ci.gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls: [] })).toBeNull();
+    expect(await gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls })).toBeNull();
+    expect(await gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls: [] })).toBeNull();
     expect(github.state.requests).toEqual([]);
   });
 });
@@ -189,7 +191,7 @@ describe('ci — gather', () => {
 describe('ci — detect', () => {
   it('counts, per check, its runs, its red runs, the commits and slices it was red in, and red then green on one commit', async () => {
     const { records, context } = await gathered();
-    const { facts } = ci.detect(records, context);
+    const { facts } = detect(records, context);
     expect(facts.slices).toEqual(['s1', 's2', 's3']);
     expect(facts.totals).toEqual({ runs: 13, red: 7, checks: 4, commits: 4, slices: 3 });
     expect(facts.checks).toEqual([
@@ -202,7 +204,7 @@ describe('ci — detect', () => {
 
   it('names the failing tests of each red run from its log, with the reporter and its counts', async () => {
     const { records, context } = await gathered();
-    const { facts } = ci.detect(records, context);
+    const { facts } = detect(records, context);
     const brief = facts.redRuns.map(({ id, check, slice, commit, attempt, reporter, tests, counts, log }) => ({
       id, check, slice, commit, attempt, reporter, tests: tests.length, counts, log,
     }));
@@ -220,7 +222,7 @@ describe('ci — detect', () => {
 
   it('keeps a log in no known format as an excerpt with no count, and no excerpt for the others', async () => {
     const { records, context } = await gathered();
-    const { facts } = ci.detect(records, context);
+    const { facts } = detect(records, context);
     const lint = facts.redRuns.find((redRun) => redRun.id === 2013);
     expect(lint.excerpt).toBe(records.logs[2013].tail);
     expect(lint.excerpt).toContain('test colour::reads_it_back ... FAILED');
@@ -229,7 +231,7 @@ describe('ci — detect', () => {
 
   it('counts each failing test by the red runs that name it, most runs first', async () => {
     const { records, context } = await gathered();
-    const { facts } = ci.detect(records, context);
+    const { facts } = detect(records, context);
     expect(facts.tests[0]).toEqual({ test: 'src/cart/cart.test.ts > cart > adds an item', runs: 2, checks: ['unit'], slices: ['s1'] });
     expect(facts.tests.slice(1).every((test) => test.runs === 1)).toBe(true);
     expect(facts.tests.map((test) => test.test)).toContain('tests/test_cart.py::TestCheckout::test_pays[card]');
@@ -237,7 +239,7 @@ describe('ci — detect', () => {
 
   it('finds a check red on two commits or in two slices, a check red then green on one commit, and a test failing in two runs', async () => {
     const { records, context } = await gathered();
-    const { findings } = ci.detect(records, context);
+    const { findings } = detect(records, context);
     expect(findings.map((finding) => [finding.id, finding.kind])).toEqual([
       ['repeated-red:unit', 'repeated-red'],
       ['repeated-red:py', 'repeated-red'],
@@ -248,7 +250,7 @@ describe('ci — detect', () => {
 
   it('says what happened with the counts, and links every red run as evidence, its last lines kept for the model', async () => {
     const { records, context } = await gathered();
-    const [unit, py, e2e, test] = ci.detect(records, context).findings;
+    const [unit, py, e2e, test] = detect(records, context).findings;
     expect(unit.title).toBe('Check unit was red again and again');
     expect(unit.happened).toBe(
       'The check `unit` was red on 2 commits in 2 slices (s1, s2): 3 of its 4 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.',
@@ -286,7 +288,7 @@ describe('ci — detect', () => {
   it('finds nothing below the thresholds', async () => {
     const { records, context } = await gathered();
     const oneRed = { ...records, jobs: records.jobs.filter((j) => ![1015, 2011, 2014, 3011, 1016].includes(j.id)) };
-    expect(ci.detect(oneRed, context).findings).toEqual([]);
+    expect(detect(oneRed, context).findings).toEqual([]);
   });
 
   it('ignores jobs still running, and counts a cancelled or skipped job as no run', async () => {
@@ -295,19 +297,19 @@ describe('ci — detect', () => {
       { ...records.jobs[0], id: 9001, status: 'in_progress', conclusion: null },
       { ...records.jobs[0], id: 9002, conclusion: 'cancelled' },
     ];
-    const { facts } = ci.detect({ ...records, jobs: [...records.jobs, ...extra] }, context);
+    const { facts } = detect({ ...records, jobs: [...records.jobs, ...extra] }, context);
     expect(facts.totals.runs).toBe(13);
   });
 
   it('has no facts without records', () => {
-    expect(ci.detect(null, {})).toEqual({ facts: null, findings: [] });
+    expect(detect(null, {})).toEqual({ facts: null, findings: [] });
   });
 });
 
 describe('ci — its section', () => {
   it('describes the totals, one row per check, the failing tests and one row per red run', async () => {
     const { records, context } = await gathered();
-    const lines = ci.describe(ci.detect(records, context).facts);
+    const lines = section(detect(records, context).facts);
     expect(lines[0]).toBe('- 13 runs of 4 checks on 4 commits in 3 slices, read from GitHub Actions: 7 red.');
     expect(lines).toContain('| check | runs | red | commits red | slices red | red then green |');
     expect(lines).toContain('| unit | 4 | 3 | 2 | s1, s2 | 0 |');
@@ -323,29 +325,29 @@ describe('ci — its section', () => {
 
   it('writes no number its facts do not hold', async () => {
     const { records, context } = await gathered();
-    const { facts } = ci.detect(records, context);
+    const { facts } = detect(records, context);
     const held = new Set(JSON.stringify(facts).match(/\d+/g));
-    const written = ci.describe(facts).join('\n').match(/\d+/g) ?? [];
+    const written = section(facts).join('\n').match(/\d+/g) ?? [];
     expect(written.filter((n) => !held.has(n))).toEqual([]);
   });
 
   it('says which slices’ runs GitHub refused, and why', async () => {
     const { records, context } = await gathered({ s3Runs: runsOf('feat/widget--s3', [], 403) });
-    const lines = ci.describe(ci.detect(records, context).facts);
+    const lines = section(detect(records, context).facts);
     expect(lines).toContain('- Not read: the runs of s3 (GitHub answered 403). The app reads them with the `actions: read` permission.');
   });
 
   it('says only that when no run could be read', () => {
-    const facts = ci.detect({ slices: [], unread: [{ slice: 's1', status: 403 }], jobs: [], logs: {} }, {}).facts;
-    expect(ci.describe(facts)).toEqual([
+    const facts = detect({ slices: [], unread: [{ slice: 's1', status: 403 }], jobs: [], logs: {} }, {}).facts;
+    expect(section(facts)).toEqual([
       '- Not read: the runs of s1 (GitHub answered 403). The app reads them with the `actions: read` permission.',
     ]);
   });
 
   it('is left out when no check ran on any slice', () => {
-    const facts = ci.detect({ slices: ['s1'], unread: [], jobs: [], logs: {} }, {}).facts;
-    expect(ci.describe(facts)).toBeNull();
-    expect(ci.describe(null)).toBeNull();
+    const facts = detect({ slices: ['s1'], unread: [], jobs: [], logs: {} }, {}).facts;
+    expect(section(facts)).toBeNull();
+    expect(section(null)).toBeNull();
   });
 });
 
