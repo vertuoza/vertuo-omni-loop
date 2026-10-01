@@ -28,7 +28,7 @@ function repo() {
 }
 
 const NOW = new Date().toISOString();
-const subPr = (slice: string | any[], over = {}) => ({
+const subPr = (slice: string, over = {}) => ({
   number: 20 + Number(slice.slice(1)),
   title: slice,
   headRefName: `feat/widgets--${slice}`,

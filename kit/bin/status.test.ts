@@ -484,7 +484,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   }
 
   /** The lines between the one under the bar and the pointer to help. */
-  const yoursIn = (out: string[]) => out.slice(out.findIndex((line: string | string[]) => line.includes('in progress')) + 2, -3);
+  const yoursIn = (out: string[]) => out.slice(out.findIndex((line: string) => line.includes('in progress')) + 2, -3);
 
   it('lists the PRDs whose folder you touched, or whose feature branch carries a commit of yours, each with where it stands', async () => {
     const { root } = cloneOf(seeded());

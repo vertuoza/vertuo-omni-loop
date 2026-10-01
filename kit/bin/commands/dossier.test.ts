@@ -12,12 +12,13 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../../test/fixture.ts';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import type { FetchInit } from '../../test/fixture.ts';
+import type { FakeExec } from '../../test/fixture.ts';
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
 const LINK = `${BASE}/prd/0b7c-dossier-7`;
 
-const config = ({ url = BASE, enabled = true } = {}) =>
+const config = ({ url = BASE, enabled = true }: { url?: string | null; enabled?: boolean } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
 function memoryTokens(entries: Record<string, Tokens> = {}) {
@@ -27,8 +28,8 @@ function memoryTokens(entries: Record<string, Tokens> = {}) {
 const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
 
 /** A fetch that answers every call with `reply(url, init)` and keeps each call. */
-function stubFetch(reply) {
-  const calls = [];
+function stubFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
+  const calls: { url: string; method?: string; authorization?: string }[] = [];
   const fetch = async (url: string, init: FetchInit) => {
     calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization });
     return reply(String(url), init);
@@ -44,7 +45,7 @@ const RECORD = [
   { id: 'local-7', url: `${BASE}/prd/local-7`, claudeSessionId: 's', prd: 7, openedAt: '2026-09-02T00:00:00.000Z' },
 ];
 
-function checkout({ enabled, url, record } = {}) {
+function checkout({ enabled, url, record }: { enabled?: boolean; url?: string | null; record?: unknown } = {}) {
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config({ url, enabled }) } });
   if (record) repo.write(DOSSIERS_FILE, `${JSON.stringify(record, null, 2)}\n`);
   return repo;
@@ -57,7 +58,7 @@ function localFiles(root: string) {
   return Object.fromEntries(readdirSync(dir).map((name) => [name, readFileSync(join(dir, name), 'utf8')]));
 }
 
-async function link(args: string[], { root, tokens = signedIn(), fetch }) {
+async function link(args: string[], { root, tokens = signedIn(), fetch }: { root: string; tokens?: ReturnType<typeof memoryTokens>; fetch: unknown }) {
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(['dossier', 'link', ...args], {
@@ -187,7 +188,7 @@ describe('omni dossier link refuses what it cannot run', () => {
 describe('omni dossier open and push print the server\'s reason (PRD 459)', () => {
   const REASON = 'no workspace owns acme/widgets yet — install the Omni App: https://github.com/apps/omni-loop-invader/installations/new';
 
-  async function run(args: string[], { root, fetch }) {
+  async function run(args: string[], { root, fetch }: { root: string; fetch: unknown }) {
     const out: string[] = [];
     const err: string[] = [];
     const code = await main(['dossier', ...args], {
@@ -219,8 +220,8 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   const PAGE = '<!doctype html>\n<title>Links</title>\n';
 
   /** A fetch that keeps each call with its body, and answers with `reply`. */
-  function recordingFetch(reply) {
-    const calls = [];
+  function recordingFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
+    const calls: { url: string; method?: string; body: Record<string, unknown> | undefined }[] = [];
     const fetch = async (url: string, init: FetchInit) => {
       calls.push({ url: String(url), method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) });
       return reply(String(url), init);
@@ -229,14 +230,14 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   }
 
   /** git as it is; gh answers the issue's title with `title`, or fails when it is null. */
-  const withIssue = (title: string | null, seen = []) => (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+  const withIssue = (title: string | null, seen: (readonly string[])[] = []) => (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (command !== 'gh') return realExec(command, args, options);
     seen.push(args);
     if (title === null) throw new Error('gh: not found');
     return `${title}\n`;
   };
 
-  async function run(args: string[], { root, fetch, exec }) {
+  async function run(args: string[], { root, fetch, exec }: { root: string; fetch: unknown; exec?: FakeExec }) {
     const out: string[] = [];
     const err: string[] = [];
     const code = await main(['dossier', ...args], {
@@ -256,7 +257,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: LINK, added: [{ kind: 'voice', version: 2 }], unchanged: ['spec'] }));
     const result = await run(['push', '7'], { root, fetch });
     expect(result).toEqual({ code: 0, out: `${LINK}\nadded: voice v2 · unchanged: spec\n`, err: '' });
-    expect(calls[0].body.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
+    expect(calls[0]!.body!.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
   });
 
   it('push <n> with no --kind sends exactly what it sent before: no kind, the PRD folder, and asks GitHub nothing', async () => {
@@ -294,7 +295,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write(`${BUGS}/bug.md`, '# Bug 571\n');
     const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
     expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, exec: withIssue(null) })).code).toBe(0);
-    expect(calls[0].body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
+    expect(calls[0]!.body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
   });
 
   it('push <n> --kind prd is the PRD push', async () => {
@@ -302,7 +303,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
     expect((await run(['push', '7', '--kind', 'prd'], { root, fetch })).code).toBe(0);
-    expect(calls[0].body).not.toHaveProperty('kind');
+    expect(calls[0]!.body).not.toHaveProperty('kind');
   });
 
   it('exits 2 for a fix with no folder, an unknown kind, or a kind on open or status, and calls nothing', async () => {

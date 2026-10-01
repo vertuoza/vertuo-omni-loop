@@ -88,7 +88,7 @@ describe('omni business show', () => {
   });
 
   it('asks for this repository by its slug', async () => {
-    const asked: any[] = [];
+    const asked: unknown[] = [];
     const c = await checkout({ business: (repo: any) => { asked.push(repo); return { body: FILLED }; } });
     await show(['show'], c);
     expect(asked).toEqual(['acme/widgets']);
@@ -311,7 +311,7 @@ describe('omni business cited', () => {
   }
 
   it('appends one citation through POST /api/business/citations, and says so', async () => {
-    const sent: any[] = [];
+    const sent: unknown[] = [];
     const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'rival#4', '--by', 'think-big', '--ref', 'concept #9'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited rival#4 (think-big, concept #9)\n' });
@@ -322,7 +322,7 @@ describe('omni business cited', () => {
   });
 
   it('cites several ids in one call, and --ref may be left out', async () => {
-    const sent: any[] = [];
+    const sent: unknown[] = [];
     const c = await citing({ cite: (body) => { sent.push(body); return { body: { cited: body.ids.length } }; } });
     const run = await show(['cited', 'region#1', 'rival#4', '--by', 'think-big'], c);
     expect(run).toEqual({ code: 0, err: '', out: 'cited region#1, rival#4 (think-big)\n' });
@@ -399,7 +399,7 @@ describe('omni business claim add (PRD 822)', () => {
     return { root, tokens };
   }
   const ADD = ['claim', 'add', '--kind', 'size', '--value', '20-50', '--ref', 'brainstorm · PRD 822'];
-  const stored = (sent: any[]) => (body) => {
+  const stored = (sent: unknown[]) => (body) => {
     sent.push(body);
     return { body: { id: 'size#12', state: body.state, added: true } };
   };

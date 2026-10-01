@@ -27,7 +27,7 @@ import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 type KbFlags = { json?: true };
 
 /** The map `omni kb status` prints. */
-type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus> };
+export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus> };
 
 const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]';
 

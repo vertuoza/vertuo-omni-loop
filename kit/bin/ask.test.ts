@@ -143,7 +143,7 @@ describe('omni ask on', () => {
   });
 
   it('asks for the checkout\'s repository, repo.slug', async () => {
-    const asked: any[] = [];
+    const asked: unknown[] = [];
     const { root, tokens } = await signedIn({ place: (repo: any) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
     await ask('on', { root, tokens });
     expect(asked).toEqual(['acme/widgets']);

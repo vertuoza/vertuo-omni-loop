@@ -110,7 +110,7 @@ const INSTALL_BLOCK = '\nInstall pull request:\n';
 const COMPUTER_BLOCK = '\nOn this computer:\n';
 const CLOSING_BLOCK = /\n(Heads-up|Then, by hand):\n/;
 /** The lines of the block that starts at `heading`, up to the next one, one line per entry. */
-const block = (out: string | any[], heading: string | any[], next: RegExp) => {
+const block = (out: string, heading: string, next: RegExp) => {
   const from = out.slice(out.indexOf(heading) + heading.length);
   return from.slice(0, from.search(next)).split('\n').filter(Boolean);
 };
@@ -333,7 +333,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
 
   it('on a terminal it asks once per unknown command, and an empty answer means none', async () => {
     const { root, read } = makeRepo({ git: true });
-    const questions: any[] = [];
+    const questions: unknown[] = [];
     const answers = ['make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };

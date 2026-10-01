@@ -30,7 +30,7 @@ function frontmatter(text: string) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   if (!match) return null;
   try {
-    const data = parseYaml(match[1]);
+    const data = parseYaml(String(match[1]));
     return data && typeof data === 'object' ? data : null;
   } catch {
     return null;
@@ -58,13 +58,13 @@ function skillFrontmatterViolations(root: string) {
 }
 
 /** Skill names the plugin retired, and the skill that replaced each (PRD #68). */
-const RETIRED_SKILLS = { terraform: 'invade' };
+const RETIRED_SKILLS: Record<string, string> = { terraform: 'invade' };
 
 /** No skill folder, and no SKILL.md `name`, uses a retired skill name. */
 function retiredSkillViolations(root: string) {
-  const out = [];
+  const out: string[] = [];
   for (const file of skillFiles(root)) {
-    const folder = file.split('/').at(-2);
+    const folder = String(file.split('/').at(-2));
     if (Object.hasOwn(RETIRED_SKILLS, folder)) out.push(`${file}: the ${folder} skill was renamed ${RETIRED_SKILLS[folder]}`);
     const data = existsSync(join(root, file)) ? frontmatter(readFileSync(join(root, file), 'utf8')) : null;
     if (data && Object.hasOwn(RETIRED_SKILLS, data.name) && data.name !== folder) {
@@ -75,12 +75,12 @@ function retiredSkillViolations(root: string) {
 }
 
 /** Every `omni <command>` a text names, in both mention forms, in the order they appear per form. */
-function commandMentions(text: string) {
-  return COMMAND_MENTIONS.flatMap((pattern) => [...text.matchAll(pattern)].map(([, name]) => name));
+function commandMentions(text: string): string[] {
+  return COMMAND_MENTIONS.flatMap((pattern) => [...text.matchAll(pattern)].map(([, name]) => String(name)));
 }
 
 /** Every `omni <command>` a SKILL.md names is a key of the command table. */
-function unknownCommandViolations(root: string, commands) {
+function unknownCommandViolations(root: string, commands: object) {
   const out: string[] = [];
   for (const file of skillFiles(root)) {
     if (!existsSync(join(root, file))) continue;
@@ -152,7 +152,8 @@ function signingViolations(root: string) {
 function readJson(root: string, file: string, out: string[]) {
   try {
     return JSON.parse(readFileSync(join(root, file), 'utf8'));
-  } catch (error) {
+  } catch (caught) {
+    const error = caught as NodeJS.ErrnoException;
     out.push(`${file}: ${error.code === 'ENOENT' ? 'missing' : `does not parse (${error.message})`}`);
     return null;
   }
@@ -166,7 +167,7 @@ function manifestViolations(root: string) {
   const marketplace = readJson(root, MARKETPLACE, out);
   if (!manifest || !marketplace) return out;
   const entry = (marketplace.plugins ?? []).find(
-    (plugin) => typeof plugin.source === 'string' && resolve(root, plugin.source) === resolve(root, PLUGIN_DIR),
+    (plugin: { source?: unknown }) => typeof plugin.source === 'string' && resolve(root, plugin.source) === resolve(root, PLUGIN_DIR),
   );
   if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${PLUGIN_DIR}`];
   if (entry.name !== manifest.name) {
@@ -185,11 +186,11 @@ function claudeValidate(path: string) {
   return run.status === 0 ? null : `${run.stdout}${run.stderr}`;
 }
 
-function fixture(files) {
+function fixture(files: Record<string, string | undefined>) {
   const root = mkdtempSync(join(tmpdir(), 'omni-plugin-'));
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
-    writeFileSync(join(root, path), text);
+    writeFileSync(join(root, path), text as string);
   }
   return root;
 }
@@ -255,7 +256,7 @@ describe('the omni plugin in this repository', () => {
 // follow them at the steps the spec names, each after what it must come after.
 describe('the dossier skills in this repository', () => {
   const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
-  const expectAfter = (text: string | any[], anchor: string, mention: string) => {
+  const expectAfter = (text: string, anchor: string, mention: string) => {
     expect(text, `names ${anchor}`).toContain(anchor);
     expect(text.indexOf(mention, text.indexOf(anchor)), `${mention} after ${anchor}`).toBeGreaterThan(-1);
   };
@@ -584,9 +585,9 @@ describe('the plugin guard catches what it is for', () => {
 describe('the release note in the skills that ship', () => {
   const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
   const NOTE = ['releaseNotes.enabled', 'kb show releasing', 'check releases', 'docs(release): PRD <prd> release note'];
-  const expectInOrder = (text: string | any[], mentions: any[]) => {
+  const expectInOrder = (text: string, mentions: string[]) => {
     let from = 0;
-    mentions.forEach((mention: string | any[], index: number) => {
+    mentions.forEach((mention: string, index: number) => {
       const at = text.indexOf(mention, from);
       expect(at, `${mention}, after ${mentions[index - 1] ?? 'the start'}`).toBeGreaterThan(-1);
       from = at + mention.length;
@@ -644,10 +645,10 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
   const HANDOFF = 'Next command: `/omni:yolo <n>`, once the phase-0 PR is merged';
 
   /** Each phrase the section lacks after the one before it, and a last fenced line that is not the command. */
-  const handOffViolations = (section: string | any[], phrases: any[]) => {
+  const handOffViolations = (section: string, phrases: string[]) => {
     const out = [];
     let from = 0;
-    phrases.forEach((phrase: string | any[], index: number) => {
+    phrases.forEach((phrase: string, index: number) => {
       const at = section.indexOf(phrase, from);
       if (at < 0) out.push(`names ${phrase} after ${phrases[index - 1] ?? 'the heading'}`);
       else from = at + phrase.length;
@@ -715,8 +716,8 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
 
   /** The last non-blank line of each fenced block whose first non-blank line is What is next?. */
   const endings = (section: string) => {
-    const out = [];
-    let block = null;
+    const out: (string | undefined)[] = [];
+    let block: string[] | null = null;
     for (const line of section.split('\n')) {
       if (line.trim().startsWith('```')) {
         if (block) {
@@ -730,7 +731,7 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
   };
 
   /** Each phrase the section lacks after the one before it, a missing ending, and an ending's wrong last line. */
-  const handOffViolations = (section: string | string[]) => {
+  const handOffViolations = (section: string) => {
     const out = [];
     let from = 0;
     YOLO.forEach((phrase, index) => {
@@ -768,7 +769,7 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
 
   it('fails when a phrase is removed, an ending ends on another line, or an ending is missing', () => {
     const fenced = (...lines: string[]) => ['```markdown', ...lines, '```'].join('\n');
-    const ending = (last: string | undefined) => fenced(WHAT_IS_NEXT, '', '1. …', '', last, '');
+    const ending = (last: string | undefined) => fenced(WHAT_IS_NEXT, '', '1. …', '', String(last), '');
     const good = ['## 7. Hand off', ...YOLO, ['```text', '  <dir>/', '```'].join('\n'), ...ENDINGS.map(ending)].join('\n');
     expect(handOffViolations(good)).toEqual([]);
     for (const [index, phrase] of YOLO.entries()) {
@@ -776,7 +777,7 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
         `names ${phrase} after ${YOLO[index - 1] ?? 'the heading'}`,
       );
     }
-    expect(handOffViolations(good.replace(ENDINGS[0], 'A person merges the feature PR.'))).toEqual([
+    expect(handOffViolations(good.replace(String(ENDINGS[0]), 'A person merges the feature PR.'))).toEqual([
       `What is next? 1 ends on A person merges the feature PR., not ${ENDINGS[0]}`,
     ]);
     expect(handOffViolations(good.replace(ending(ENDINGS[2]), ending('/omni:yolo-fix <n>')))).toEqual([
@@ -799,8 +800,8 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
 
   /** The fenced blocks of `text` that start with `Where it is`, or hold the track, as their lines. */
   const blocks = (text: string) => {
-    const out = [];
-    let block = null;
+    const out: string[][] = [];
+    let block: string[] | null = null;
     for (const line of text.split('\n')) {
       if (line.trim().startsWith('```')) {
         if (block && block.some((l) => l.trim() === TRACK)) out.push(block);
@@ -811,13 +812,13 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
   };
 
   /** The stage words each line under the track starts with, in order. */
-  const stageLines = (block: any[] | undefined) => block!.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
+  const stageLines = (block: string[] | undefined) => block!.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
 
   /** The track word above the marker of "you are here". */
-  const here = (block: any[] | undefined) => {
+  const here = (block: string[] | undefined) => {
     const track = block!.find((line: string) => line.trim() === TRACK);
-    const at = block!.find((line: string | string[]) => line.includes('└─ you are here')).indexOf('└─ you are here');
-    for (const word of track.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
+    const at = block!.find((line: string) => line.includes('└─ you are here'))!.indexOf('└─ you are here');
+    for (const word of track!.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
     return null;
   };
 
@@ -846,10 +847,10 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
 // line in the exact form the page parses.
 describe('the pr-care skill in this repository', () => {
   const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/pr-care/SKILL.md'), 'utf8');
-  const orderGaps = (text: string | any[], mentions: any[]) => {
+  const orderGaps = (text: string, mentions: string[]) => {
     const out: string[] = [];
     let from = 0;
-    mentions.forEach((mention: string | any[], index: number) => {
+    mentions.forEach((mention: string, index: number) => {
       const at = text.indexOf(mention, from);
       if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
       else from = at + mention.length;
@@ -983,10 +984,10 @@ describe('the think-big skill in this repository', () => {
     '## 5. Crown', '## 6. Record', '## 7. Hand off',
   ];
   /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
-  const orderGaps = (text: string | any[], mentions: any[]) => {
+  const orderGaps = (text: string, mentions: string[]) => {
     const out: string[] = [];
     let from = 0;
-    mentions.forEach((mention: string | any[], index: number) => {
+    mentions.forEach((mention: string, index: number) => {
       const at = text.indexOf(mention, from);
       if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
       else from = at + mention.length;
@@ -1095,10 +1096,10 @@ describe('the customer voice in the skills (PRD 822)', () => {
   /** A `## ` section of a skill, its line breaks and indents folded into single spaces. */
   const section = (skill: string, start: string) => skillSection(read(skill), start).replace(/\s+/g, ' ');
   /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
-  const orderGaps = (text: string | any[], mentions: any[]) => {
+  const orderGaps = (text: string, mentions: string[]) => {
     const out: string[] = [];
     let from = 0;
-    mentions.forEach((mention: string | any[], index: number) => {
+    mentions.forEach((mention: string, index: number) => {
       const at = text.indexOf(mention, from);
       if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
       else from = at + mention.length;
@@ -1212,10 +1213,10 @@ describe('the customer voice in the skills (PRD 822)', () => {
 // brainstorm asks for it, the yolo follows it after ready, and /omni:invade proposes its config.
 describe('the prove skill and the skills that lead to it (PRD 798)', () => {
   const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
-  const inOrder = (text: string | any[], mentions: any[]) => {
+  const inOrder = (text: string, mentions: string[]) => {
     const out: string[] = [];
     let from = 0;
-    mentions.forEach((mention: string | any[], index: number) => {
+    mentions.forEach((mention: string, index: number) => {
       const at = text.indexOf(mention, from);
       if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
       else from = at + mention.length;

@@ -69,7 +69,7 @@ const PR_COMMENT = {
 
 /** A fake `gh`: lists `comments`, records every comment posted, and fails to post when told to. */
 function fakeGh({ comments = [PR_COMMENT], failPost = false } = {}) {
-  const posted: any[] = [];
+  const posted: unknown[] = [];
   const calls: any[] = [];
   const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd !== 'gh') return realExec(cmd, args, options);

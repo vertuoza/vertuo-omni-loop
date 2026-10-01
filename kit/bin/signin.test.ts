@@ -35,7 +35,7 @@ const repoWith = (url: string | null) => makeRepo({ git: true, files: { '.omni-l
  * loopback with the state it was given and a code — or with whatever `callbacks` says instead.
  */
 function fakeBrowser({ code = 'code-1', callbacks } = {}) {
-  const opened: any[] = [];
+  const opened: unknown[] = [];
   const visits = [];
   const open = (url) => {
     opened.push(url);
@@ -105,7 +105,7 @@ describe('omni signin', () => {
         // The fake page, with the token reply the real one gives: the login, where the repository
         // goes, and no email (a GitHub account that keeps it private).
         server = await startFakeAskServer({ codes: ['code-1'] });
-        const sent: any[] = [];
+        const sent: unknown[] = [];
         const fetch = async (url, init) => {
           const response = await globalThis.fetch(url, init);
           if (!String(url).endsWith('/api/ask/token')) return response;
