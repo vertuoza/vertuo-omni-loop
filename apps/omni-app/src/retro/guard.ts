@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `guard`: the model's JSON and the fact sheet in, the prose `render` may write out (PRD 72, decision
 // 5, "The model, and the guard"). Pure: the same reply and sheet always give the same prose.
 //
@@ -34,6 +33,18 @@
 //          line naming the reason. A lesson of the list has no such form, so a refused one keeps its
 //          place as that same line (`_Dropped: <reason>._`), citing only the findings the retro found.
 import { FIELD_CAPS, FINDING_ORDER, refusedWordsIn } from './rules.ts';
+import type { Dropped, Prose, ProseField, ProseFinding, Verdict } from './retro.types.ts';
+
+/** A field dropped, and why. */
+export type DroppedField = { field: string; reason: string };
+
+/** What `guard` reads of the fact sheet: each finding's id and its evidence. */
+export type GuardSheet = {
+  findings?: readonly { id: string; evidence?: readonly { label?: unknown; url?: unknown; excerpt?: unknown }[] | null }[];
+} | null;
+
+type Evidence = { ids: Set<string>; urls: Set<string>; holds: (span: string) => boolean };
+type Reply = Record<string, unknown>;
 
 /** Why a field was dropped, as `render` writes it after "Dropped: ". */
 export const DROPPED = Object.freeze({
@@ -50,7 +61,7 @@ export const DROPPED = Object.freeze({
   keptNoLesson: 'it keeps a finding with no lesson',
 });
 
-const FINDING_FIELDS = Object.freeze(['title', 'whyItMatters', 'lesson']);
+const FINDING_FIELDS = Object.freeze(['title', 'whyItMatters', 'lesson'] as const);
 
 /** A finding id as `detect` builds them: a kind `rules` ranks, a colon, then what was found. */
 const FINDING_ID = new RegExp(`(?<![\\w-])(?:${FINDING_ORDER.flat().map(escape).join('|')}):[^\\s\`'"()<>\\[\\],;]+`, 'g');
@@ -58,32 +69,31 @@ const LINK = /\bhttps?:\/\/[^\s<>()[\]`'"]+/gi;
 const BACKTICK_SPAN = /`([^`\n]+)`/g;
 const TRAILING = /[.,;:!?]+$/;
 
-/**
- * @param {{ reply: object | null, sheet: { findings?: object[] } }} input
- * @returns {{ prose: object | null, dropped: { field: string, reason: string }[] }}
- */
-export function guard({ reply, sheet }) {
+/** `reply` is the model's JSON, whatever it holds; a non-object reply is read as one with no field. */
+export function guard({ reply, sheet }: { reply: unknown; sheet: GuardSheet }): { prose: Prose | null; dropped: DroppedField[] } {
   if (!reply) return { prose: null, dropped: [] };
+  const given: Reply = isObject(reply) ? reply : {};
   const evidence = evidenceOf(sheet);
-  const dropped = [];
-  const check = (field, value, cap) => {
+  const dropped: DroppedField[] = [];
+  const check = (field: string, value: unknown, cap: number): ProseField => {
     const reason = refusal(value, cap, evidence);
-    if (!reason) return value;
-    dropped.push({ field, reason });
-    return { dropped: reason };
+    if (reason === null && typeof value === 'string') return value;
+    const why = reason ?? DROPPED.notText;
+    dropped.push({ field, reason: why });
+    return { dropped: why };
   };
 
-  const prose = { findings: {}, lessons: [] };
-  if (reply.summary !== undefined) prose.summary = check('summary', reply.summary, FIELD_CAPS.summary);
+  const prose: Prose = { findings: {}, lessons: [] };
+  if (given.summary !== undefined) prose.summary = check('summary', given.summary, FIELD_CAPS.summary);
 
-  const given = isObject(reply.findings) ? reply.findings : {};
+  const findings = isObject(given.findings) ? given.findings : {};
   let unknown = false;
-  for (const [id, words] of Object.entries(given)) {
+  for (const [id, words] of Object.entries(findings)) {
     if (!evidence.ids.has(id)) {
       unknown = true;
       continue;
     }
-    const kept = {};
+    const kept: ProseFinding = {};
     for (const name of FINDING_FIELDS) {
       const value = isObject(words) ? words[name] : undefined;
       if (value !== undefined) kept[name] = check(`findings.${id}.${name}`, value, FIELD_CAPS[name]);
@@ -92,22 +102,24 @@ export function guard({ reply, sheet }) {
   }
   if (unknown) dropped.push({ field: 'findings', reason: DROPPED.unknownFinding });
 
-  const lessons = Array.isArray(reply.lessons) ? reply.lessons : [];
+  const lessons: unknown[] = Array.isArray(given.lessons) ? given.lessons : [];
   lessons.forEach((lesson, index) => {
-    const cited = Array.isArray(lesson?.findings) ? lesson.findings : [];
-    const known = cited.filter((id) => evidence.ids.has(id));
+    const entry: Reply = isObject(lesson) ? lesson : {};
+    const cited: unknown[] = Array.isArray(entry.findings) ? entry.findings : [];
+    const known = cited.filter((id): id is string => typeof id === 'string' && evidence.ids.has(id));
     const reason =
-      refusal(lesson?.text, FIELD_CAPS.lesson, evidence) ??
+      refusal(entry.text, FIELD_CAPS.lesson, evidence) ??
       (cited.length === 0 ? DROPPED.noFinding : known.length < cited.length ? DROPPED.unknownFinding : null);
-    if (!reason) {
-      prose.lessons.push({ text: lesson.text, findings: [...cited] });
+    if (reason === null && typeof entry.text === 'string') {
+      prose.lessons.push({ text: entry.text, findings: [...known] });
       return;
     }
-    dropped.push({ field: `lessons.${index}`, reason });
-    prose.lessons.push({ text: `_Dropped: ${reason}._`, findings: known });
+    const why = reason ?? DROPPED.notText;
+    dropped.push({ field: `lessons.${index}`, reason: why });
+    prose.lessons.push({ text: `_Dropped: ${why}._`, findings: known });
   });
 
-  prose.verdict = judge(reply, prose, evidence, dropped);
+  prose.verdict = judge(given, findings, prose, evidence, dropped);
   return { prose, dropped };
 }
 
@@ -115,8 +127,8 @@ export function guard({ reply, sheet }) {
  * The verdict `guard` keeps, with each finding's `keep` and `why` written into `prose.findings`; or
  * `{ dropped }` for the first check it fails, the failure pushed onto `dropped`.
  */
-function judge(reply, prose, evidence, dropped) {
-  const failed = (field, reason) => {
+function judge(reply: Reply, findings: Reply, prose: Prose, evidence: Evidence, dropped: DroppedField[]): Verdict {
+  const failed = (field: string, reason: string): Dropped => {
     dropped.push({ field, reason });
     return { dropped: reason };
   };
@@ -124,21 +136,22 @@ function judge(reply, prose, evidence, dropped) {
   if (!isObject(verdict)) return failed('verdict', DROPPED.noVerdict);
   if (typeof verdict.worthIt !== 'boolean') return failed('verdict.worthIt', DROPPED.notYesOrNo);
   const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
-  if (reasonRefused) return failed('verdict.reason', reasonRefused);
+  if (reasonRefused !== null || typeof verdict.reason !== 'string') return failed('verdict.reason', reasonRefused ?? DROPPED.notText);
+  const reason = verdict.reason;
 
-  const judged = {};
+  const judged: Record<string, Pick<ProseFinding, 'keep' | 'why'>> = {};
   let keptOne = false;
   for (const [id, kept] of Object.entries(prose.findings)) {
-    const words = reply.findings[id];
+    const words = findings[id] as Reply; // ts-allow: only an id `guard` kept is here; a null one throws, as it always has
     const field = `findings.${id}`;
-    const marks = {};
+    const marks: Pick<ProseFinding, 'keep' | 'why'> = {};
     if (words.keep !== undefined) {
       if (typeof words.keep !== 'boolean') return failed(`${field}.keep`, DROPPED.notYesOrNo);
       marks.keep = words.keep;
     }
     if (words.why !== undefined) {
       const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
-      if (whyRefused) return failed(`${field}.why`, whyRefused);
+      if (whyRefused !== null || typeof words.why !== 'string') return failed(`${field}.why`, whyRefused ?? DROPPED.notText);
       marks.why = words.why;
     }
     if (marks.keep) {
@@ -149,15 +162,15 @@ function judge(reply, prose, evidence, dropped) {
   }
   if (verdict.worthIt && !keptOne) return failed('verdict', DROPPED.nothingKept);
 
-  for (const [id, marks] of Object.entries(judged)) Object.assign(prose.findings[id], marks);
-  return { worthIt: verdict.worthIt, reason: verdict.reason };
+  for (const [id, marks] of Object.entries(judged)) Object.assign(prose.findings[id] ?? {}, marks);
+  return { worthIt: verdict.worthIt, reason };
 }
 
 /** The verdict's own words, its `reason` and each `why`, may hold digits. */
 const VERDICT_WORDS = Object.freeze({ digits: true });
 
 /** Why a field is refused, or `null` when it is kept. */
-function refusal(value, cap, evidence, { digits = false } = {}) {
+function refusal(value: unknown, cap: number, evidence: Evidence, { digits = false } = {}): string | null {
   if (typeof value !== 'string') return DROPPED.notText;
   if (value.length > cap) return DROPPED.tooLong;
   if (refusedWordsIn(value).length > 0) return DROPPED.refusedWord;
@@ -169,24 +182,24 @@ function refusal(value, cap, evidence, { digits = false } = {}) {
 }
 
 /** The text with the verbatim evidence spans and the evidence links taken out. */
-function setAside(text, evidence) {
-  const spans = text.replace(BACKTICK_SPAN, (span, inner) => (/\p{L}/u.test(inner) && evidence.holds(inner) ? ' ' : span));
+function setAside(text: string, evidence: Evidence): string {
+  const spans = text.replace(BACKTICK_SPAN, (span, inner: string) => (/\p{L}/u.test(inner) && evidence.holds(inner) ? ' ' : span));
   return spans.replace(LINK, (link) => (evidence.urls.has(link.replace(TRAILING, '')) ? ' ' : link));
 }
 
-function linksIn(text) {
+function linksIn(text: string): string[] {
   return (text.match(LINK) ?? []).map((link) => link.replace(TRAILING, ''));
 }
 
-function findingIdsIn(text) {
+function findingIdsIn(text: string): string[] {
   return (text.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ''));
 }
 
 /** What the model was given as evidence: the finding ids, the evidence URLs, and every text it may copy. */
-function evidenceOf(sheet) {
+function evidenceOf(sheet: GuardSheet): Evidence {
   const findings = Array.isArray(sheet?.findings) ? sheet.findings : [];
-  const ids = new Set(findings.map((finding) => finding.id));
-  const urls = new Set();
+  const ids = new Set<string>(findings.map((finding) => finding.id));
+  const urls = new Set<string>();
   const texts = [...ids];
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
@@ -194,13 +207,13 @@ function evidenceOf(sheet) {
       for (const text of [item?.label, item?.url, item?.excerpt]) if (typeof text === 'string') texts.push(text);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text) => text.includes(span)) };
+  return { ids, urls, holds: (span: string) => texts.some((text) => text.includes(span)) };
 }
 
-function isObject(value) {
+function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function escape(text) {
+function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

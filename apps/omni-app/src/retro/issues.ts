@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The retro issues (PRD 72, decision 4): one issue per finding the judge kept (PRD 487), worst
 // first, at most `ISSUES_PER_RUN` per run; a finding not kept, or a retro not judged, opens none.
 // Each is labelled `labels.retro` and never `labels.prd`, its body ending with the YAML block
@@ -16,18 +15,23 @@
 //   `retro.md` can link each issue. On the first run the retro PR is not open yet, so the header
 //   names it only once one is open from the retro branch (a replay, or a later run).
 import { PER_PAGE, paginate } from './github.ts';
+import { CreatedIssueSchema, IssuesSchema, RetroPullsSchema, parseGitHub } from './github.schema.ts';
 import { ISSUES_PER_RUN } from './rules.ts';
+import type { Config, FactSheet, IssueLink, IssueLinks, Octokit, Prose, ProseField, ProseFinding, SheetFinding } from './retro.types.ts';
 
-/**
- * @typedef {{ number: number, url: string, state: 'open' | 'closed' }} IssueLink
- */
+export type { IssueLink };
 
-/**
- * @param {{ request: Function }} octokit
- * @param {{ owner: string, repo: string, config: object, sheet: object, prose: object | null, retroPath: string }} input
- * @returns {Promise<Record<string, IssueLink>>}
- */
-export async function publishIssues(octokit, { owner, repo, config, sheet, prose, retroPath }) {
+type Repo = { owner: string; repo: string };
+type Issue = ReturnType<typeof IssuesSchema.parse>[number];
+
+const ISSUES = 'GET /repos/{owner}/{repo}/issues';
+const NEW_ISSUE = 'POST /repos/{owner}/{repo}/issues';
+const PULLS = 'GET /repos/{owner}/{repo}/pulls';
+
+export async function publishIssues(
+  octokit: Octokit,
+  { owner, repo, config, sheet, prose, retroPath }: Repo & { config: Config; sheet: FactSheet; prose: Prose | null; retroPath: string },
+): Promise<IssueLinks> {
   const chosen = sheet.findings.filter((finding) => isKept(prose, finding.id)).slice(0, ISSUES_PER_RUN);
   if (chosen.length === 0) return {};
 
@@ -39,7 +43,7 @@ export async function publishIssues(octokit, { owner, repo, config, sheet, prose
   const existing = await listLabelled(octokit, { owner, repo, label });
   const retroPr = await findRetroPull(octokit, { owner, repo, branch: config.branches.retro.replaceAll('{topic}', sheet.prd.topic) });
 
-  const links = {};
+  const links: IssueLinks = {};
   for (const finding of chosen) {
     const { title, body } = renderIssue({ sheet, finding, prose, retroPath, retroPr, prefix });
     const marker = issueMarker(prefix, sheet.prd.number, finding.id);
@@ -62,14 +66,15 @@ export async function publishIssues(octokit, { owner, repo, config, sheet, prose
       links[finding.id] = { number: found.number, url: found.html_url, state: 'open' };
       continue;
     }
-    const { data } = await octokit.request('POST /repos/{owner}/{repo}/issues', { owner, repo, title, body, labels: [label] });
+    const { data: answer } = await octokit.request(NEW_ISSUE, { owner, repo, title, body, labels: [label] });
+    const data = parseGitHub(CreatedIssueSchema, answer, NEW_ISSUE);
     links[finding.id] = { number: data.number, url: data.html_url, state: 'open' };
   }
   return links;
 }
 
 /** Whether the judge kept the finding `id`: only a verdict `guard` accepted carries a `keep`. */
-export function isKept(prose, id) {
+export function isKept(prose: Prose | null | undefined, id: string): boolean {
   return prose?.findings?.[id]?.keep === true;
 }
 
@@ -77,7 +82,7 @@ export function isKept(prose, id) {
  * The marker a retro issue's body starts with, which finds it again: one HTML comment, whatever the
  * finding id holds.
  */
-export function issueMarker(prefix, prd, findingId) {
+export function issueMarker(prefix: string, prd: number, findingId: unknown): string {
   const id = String(findingId).replace(/\s+/g, ' ').replaceAll('-->', '--&gt;');
   return `<!-- ${prefix}-retro: prd=${prd} finding=${id} -->`;
 }
@@ -85,13 +90,24 @@ export function issueMarker(prefix, prd, findingId) {
 /**
  * One finding's issue: its title and its body. Pure. The words around the facts are the prose `guard`
  * accepted; with none, each says so.
- * @param {{ sheet: object, finding: object, prose: object | null, retroPath: string,
- *   retroPr: { number: number } | null, prefix: string }} input
- * @returns {{ title: string, body: string }}
  */
-export function renderIssue({ sheet, finding, prose, retroPath, retroPr, prefix }) {
+export function renderIssue({
+  sheet,
+  finding,
+  prose,
+  retroPath,
+  retroPr,
+  prefix,
+}: {
+  sheet: Pick<FactSheet, 'prd' | 'featurePr'>;
+  finding: SheetFinding;
+  prose: Prose | null;
+  retroPath: string;
+  retroPr: { number: number } | null;
+  prefix: string;
+}): { title: string; body: string } {
   const prd = sheet.prd.number;
-  const words = prose?.findings?.[finding.id] ?? {};
+  const words: ProseFinding = prose?.findings?.[finding.id] ?? {};
   const refs = [`#${prd}`, `feature PR #${sheet.featurePr.number}`, retroPr ? `retro PR #${retroPr.number}` : null].filter(Boolean);
   const evidence = finding.evidence ?? [];
 
@@ -128,7 +144,7 @@ export function renderIssue({ sheet, finding, prose, retroPath, retroPr, prefix 
 }
 
 /** The finding's own lesson, then the lessons citing it; or a line saying there is none. */
-function lessonOf(finding, words, prose) {
+function lessonOf(finding: SheetFinding, words: ProseFinding, prose: Prose | null): string {
   const own = field(words.lesson);
   const cited = (prose?.lessons ?? [])
     .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && (lesson.findings ?? []).includes(finding.id))
@@ -139,12 +155,12 @@ function lessonOf(finding, words, prose) {
 }
 
 /** A finding's title: the model's when it gave one and it was kept, else the detector's own. */
-function titleOf(finding, words) {
+function titleOf(finding: SheetFinding, words: ProseFinding): string {
   return typeof words.title === 'string' && words.title ? words.title : finding.title;
 }
 
 /** A prose field as written: its text, the line naming why it was dropped, or `null` when not given. */
-function field(value) {
+function field(value: ProseField | null | undefined): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value === 'object' && 'dropped' in value) return `_Dropped: ${value.dropped}._`;
   return String(value);
@@ -154,29 +170,29 @@ const PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/
 const RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 
 /** A YAML scalar: plain when it reads back as the same string in a block or a flow list, else quoted. */
-function scalar(value) {
+function scalar(value: unknown): string {
   const text = String(value);
   return PLAIN.test(text) && !RESERVED.test(text) ? text : JSON.stringify(text);
 }
 
 /** Every issue carrying `label`, open or closed; pull requests left out. */
-async function listLabelled(octokit, { owner, repo, label }) {
+async function listLabelled(octokit: Octokit, { owner, repo, label }: Repo & { label: string }): Promise<Issue[]> {
   const items = await paginate((page) =>
     octokit
-      .request('GET /repos/{owner}/{repo}/issues', { owner, repo, labels: label, state: 'all', per_page: PER_PAGE, page })
-      .then(({ data }) => data),
+      .request(ISSUES, { owner, repo, labels: label, state: 'all', per_page: PER_PAGE, page })
+      .then(({ data }) => parseGitHub(IssuesSchema, data, ISSUES)),
   );
   return items.filter((item) => !item.pull_request);
 }
 
 /** Of the issues carrying one marker, the open one first, then the oldest. */
-function pick(issues) {
+function pick(issues: readonly Issue[]): Issue | null {
   return [...issues].sort((a, b) => (a.state === 'open' ? 0 : 1) - (b.state === 'open' ? 0 : 1) || a.number - b.number)[0] ?? null;
 }
 
 /** The retro PR from the retro branch: the open one, else the latest; `null` before the first is opened. */
-async function findRetroPull(octokit, { owner, repo, branch }) {
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
+async function findRetroPull(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<{ number: number; url: string } | null> {
+  const { data: answer } = await octokit.request(PULLS, {
     owner,
     repo,
     head: `${owner}:${branch}`,
@@ -184,6 +200,7 @@ async function findRetroPull(octokit, { owner, repo, branch }) {
     per_page: 10,
     page: 1,
   });
+  const data = parseGitHub(RetroPullsSchema, answer, PULLS);
   const pulls = [...data].sort((a, b) => b.number - a.number);
   const pull = pulls.find((candidate) => candidate.state === 'open') ?? pulls[0];
   return pull ? { number: pull.number, url: pull.html_url } : null;

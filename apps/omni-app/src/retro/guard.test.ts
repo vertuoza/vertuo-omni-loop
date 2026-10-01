@@ -1,7 +1,14 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
-import { DROPPED, guard } from './guard.ts';
+import { DROPPED, guard as guardProse } from './guard.ts';
+import type { DroppedField, GuardSheet } from './guard.ts';
 import { FIELD_CAPS } from './rules.ts';
+
+/** A reply as the tests bend it: any field, of any type. */
+type Reply = Record<string, any>;
+
+/** `guard`, its prose read as the tests read it: every field open to look at. */
+const guard = ({ reply, sheet }: { reply: unknown; sheet: unknown }) =>
+  guardProse({ reply, sheet: sheet as GuardSheet }) as { prose: Reply; dropped: DroppedField[] };
 
 const RUN_7001 = 'https://github.com/acme/widgets/actions/runs/7001';
 const RUN_7002 = 'https://github.com/acme/widgets/actions/runs/7002';
@@ -37,7 +44,7 @@ const sheet = {
 };
 
 /** A reply the model could give, every field clean. */
-const clean = () => ({
+const clean = (): Reply => ({
   summary: 'The widgets shipped, but one check kept failing and one slice dragged on.',
   findings: {
     'repeated-red:e2e': {
@@ -54,17 +61,17 @@ const clean = () => ({
 });
 
 /** The clean reply with its verdict and its findings' keep and why changed by `edit`. */
-function judged(edit) {
+function judged(edit: (reply: Reply) => unknown): Reply {
   const reply = clean();
   edit(reply);
   return reply;
 }
 
 /** The prose `guard` gives for a verdict it drops: the verdict replaced by its reason, no keep and no why. */
-function withoutJudgement(reply, reason) {
+function withoutJudgement(reply: Reply, reason: string): Reply {
   const prose = structuredClone(reply);
   prose.verdict = { dropped: reason };
-  for (const words of Object.values(prose.findings)) {
+  for (const words of Object.values<Reply>(prose.findings)) {
     delete words.keep;
     delete words.why;
   }
@@ -72,7 +79,7 @@ function withoutJudgement(reply, reason) {
 }
 
 /** The clean reply with one prose field replaced. */
-function withTitle(text, id = 'repeated-red:e2e') {
+function withTitle(text: unknown, id = 'repeated-red:e2e'): Reply {
   const reply = clean();
   reply.findings[id].title = text;
   return reply;
@@ -224,7 +231,7 @@ describe('guard — the lessons', () => {
 
 describe('guard — the verdict', () => {
   it('keeps a verdict not worth it with no finding kept', () => {
-    const reply = judged((r) => {
+    const reply = judged((r: Reply) => {
       r.verdict = { worthIt: false, reason: 'Both lessons are in the knowledge already.' };
       r.findings['repeated-red:e2e'].keep = false;
     });
@@ -235,28 +242,28 @@ describe('guard — the verdict', () => {
   });
 
   it('drops a missing verdict: the retro is not judged', () => {
-    const reply = judged((r) => delete r.verdict);
+    const reply = judged((r: Reply) => delete r.verdict);
     const { prose, dropped } = guard({ reply, sheet });
     expect(prose).toEqual(withoutJudgement(reply, DROPPED.noVerdict));
     expect(dropped).toEqual([{ field: 'verdict', reason: DROPPED.noVerdict }]);
   });
 
   it('drops a verdict whose worthIt is not true or false', () => {
-    const reply = judged((r) => (r.verdict.worthIt = 'yes'));
+    const reply = judged((r: Reply) => (r.verdict.worthIt = 'yes'));
     const { prose, dropped } = guard({ reply, sheet });
     expect(prose.verdict).toEqual({ dropped: DROPPED.notYesOrNo });
     expect(dropped).toEqual([{ field: 'verdict.worthIt', reason: DROPPED.notYesOrNo }]);
   });
 
   it('drops a verdict worth it that keeps no finding', () => {
-    const reply = judged((r) => (r.findings['repeated-red:e2e'].keep = false));
+    const reply = judged((r: Reply) => (r.findings['repeated-red:e2e'].keep = false));
     const { prose, dropped } = guard({ reply, sheet });
     expect(prose).toEqual(withoutJudgement(reply, DROPPED.nothingKept));
     expect(dropped).toEqual([{ field: 'verdict', reason: DROPPED.nothingKept }]);
   });
 
   it('drops a verdict worth it whose only kept finding keeps an unknown finding', () => {
-    const reply = judged((r) => {
+    const reply = judged((r: Reply) => {
       r.findings['repeated-red:e2e'].keep = false;
       r.findings['flaky:lint'] = { title: 'Lint wobbled', lesson: 'Watch lint.', keep: true };
     });
@@ -264,11 +271,11 @@ describe('guard — the verdict', () => {
   });
 
   it('drops a verdict that keeps a finding with no lesson, or a lesson it dropped', () => {
-    const none = judged((r) => (r.findings['slow-slice:s3'].keep = true));
+    const none = judged((r: Reply) => (r.findings['slow-slice:s3'].keep = true));
     expect(guard({ reply: none, sheet }).dropped).toEqual([{ field: 'findings.slow-slice:s3.keep', reason: DROPPED.keptNoLesson }]);
     expect(guard({ reply: none, sheet }).prose.verdict).toEqual({ dropped: DROPPED.keptNoLesson });
 
-    const refused = judged((r) => (r.findings['repeated-red:e2e'].lesson = 'Fix it within 2 days.'));
+    const refused = judged((r: Reply) => (r.findings['repeated-red:e2e'].lesson = 'Fix it within 2 days.'));
     const { prose, dropped } = guard({ reply: refused, sheet });
     expect(prose.verdict).toEqual({ dropped: DROPPED.keptNoLesson });
     expect(dropped).toEqual([
@@ -278,32 +285,32 @@ describe('guard — the verdict', () => {
   });
 
   it('drops a verdict whose reason passes its cap, or breaks a rule of the prose', () => {
-    const long = judged((r) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason + 1)));
+    const long = judged((r: Reply) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason + 1)));
     expect(guard({ reply: long, sheet }).dropped).toEqual([{ field: 'verdict.reason', reason: DROPPED.tooLong }]);
     expect(guard({ reply: long, sheet }).prose.verdict).toEqual({ dropped: DROPPED.tooLong });
-    const atCap = judged((r) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason)));
+    const atCap = judged((r: Reply) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason)));
     expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
 
-    const link = judged((r) => (r.verdict.reason = 'See https://example.com for why.'));
+    const link = judged((r: Reply) => (r.verdict.reason = 'See https://example.com for why.'));
     expect(guard({ reply: link, sheet }).prose.verdict).toEqual({ dropped: DROPPED.foreignLink });
-    const notText = judged((r) => (r.verdict.reason = 4));
+    const notText = judged((r: Reply) => (r.verdict.reason = 4));
     expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
   });
 
   it('drops the verdict when a why passes its cap, or is not text', () => {
-    const long = judged((r) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why + 1)));
+    const long = judged((r: Reply) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why + 1)));
     const { prose, dropped } = guard({ reply: long, sheet });
     expect(prose).toEqual(withoutJudgement(long, DROPPED.tooLong));
     expect(dropped).toEqual([{ field: 'findings.repeated-red:e2e.why', reason: DROPPED.tooLong }]);
 
-    const atCap = judged((r) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why)));
+    const atCap = judged((r: Reply) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why)));
     expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
-    const notText = judged((r) => (r.findings['slow-slice:s3'].why = ['new']));
+    const notText = judged((r: Reply) => (r.findings['slow-slice:s3'].why = ['new']));
     expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
   });
 
   it('keeps a verdict whose reason and whys hold digits, as #500 wrote them', () => {
-    const reply = judged((r) => {
+    const reply = judged((r: Reply) => {
       r.verdict.reason = 'Slices s1 and s2 left their territory, a pattern PRD 400 already showed; nothing new.';
       r.findings['repeated-red:e2e'].why = 'The e2e check went red on 3 commits for a cause no entry names.';
     });
@@ -314,7 +321,7 @@ describe('guard — the verdict', () => {
   });
 
   it('keeps the other prose when it drops the verdict', () => {
-    const reply = judged((r) => delete r.verdict);
+    const reply = judged((r: Reply) => delete r.verdict);
     const { prose } = guard({ reply, sheet });
     expect(prose.summary).toBe(clean().summary);
     expect(prose.lessons).toEqual(clean().lessons);
