@@ -30796,10 +30796,10 @@ function omniPageLink(prd2, ctx) {
 }
 function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ new Date()).toISOString() }, client) {
   const items = openItemsForPrd(prd2, { ctx });
-  const settledEntries = readSettledEntries(prd2, { ctx });
+  const settledEntries2 = readSettledEntries(prd2, { ctx });
   const comments = client.listComments();
   const existing = findPrMarkerComment(comments, ctx.markers);
-  const adopted = settledEntries.filter((entry) => entry.verdict === ADOPTED_VERDICT);
+  const adopted = settledEntries2.filter((entry) => entry.verdict === ADOPTED_VERDICT);
   const previous = existing ? parseNumbersMarker(existing.body, ctx.markers) : [];
   const numbering = assignNumbers({
     items: [...items, ...adopted.map((entry) => ({ id: entry.id, rank: "medium" }))],
@@ -30807,7 +30807,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     now
   });
   const numberedIds = new Set(numbering.map((entry) => entry.id));
-  const answered = settledEntries.filter(
+  const answered = settledEntries2.filter(
     (entry) => entry.verdict !== ADOPTED_VERDICT && numberedIds.has(entry.id)
   );
   const hasSomethingToList = items.length > 0 || adopted.length > 0 || answered.length > 0;
@@ -34650,12 +34650,12 @@ function readFields2(raw) {
     if (line.trim() === "") continue;
     const match = /^\s/.test(line) ? null : line.match(FIELD_LINE2);
     if (match) {
-      const [, key, value = ""] = match;
+      const [, key = "", value = ""] = match;
       if (Object.hasOwn(fields, key)) errors.push(`front matter holds ${key} twice`);
       fields[key] = value;
       last = key;
     } else if (last !== null && /^\s/.test(line)) {
-      fields[last] = `${fields[last]}
+      fields[last] = `${fields[last] ?? ""}
 ${line.trim()}`;
     } else {
       errors.push(`front matter line is not "key: value": "${line}"`);
@@ -34665,7 +34665,7 @@ ${line.trim()}`;
 }
 function splitNote(text4) {
   const match = text4.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
-  return match ? { front: match[1], body: match[2] } : null;
+  return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
   const lines = body.split("\n").map((line) => line.trim());
@@ -34683,15 +34683,15 @@ function parseReleaseNote(text4) {
   for (const key of REQUIRED) {
     if (!Object.hasOwn(fields, key)) errors.push(`front matter lacks ${key}`);
   }
-  const prd2 = Object.hasOwn(fields, "prd") ? unquote(fields.prd) : null;
+  const prd2 = Object.hasOwn(fields, "prd") ? unquote(fields.prd ?? "") : null;
   if (prd2 !== null && !PRD_NUMBER.test(prd2)) errors.push(`prd "${prd2}" is not a PRD number`);
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
     note: {
       prd: Number(prd2),
-      title: fields.title.split("\n").map(unquote).join("\n"),
-      version: Object.hasOwn(fields, "version") ? unquote(fields.version) : null,
+      title: (fields.title ?? "").split("\n").map(unquote).join("\n"),
+      version: Object.hasOwn(fields, "version") ? unquote(fields.version ?? "") : null,
       description: bodyLines(parts.body).join(" ")
     }
   };
@@ -34733,7 +34733,7 @@ function gradeReleaseNote(text4, { prd: prd2 }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text4).body), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text4)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -34750,7 +34750,7 @@ function prdFolders(ctx, dir) {
 function releaseNoteFiles({ ctx }) {
   const { inbox, shipped } = ctx.layout.dirs;
   return [inbox, shipped].flatMap(
-    (dir) => prdFolders(ctx, dir).map((name) => ({ file: releaseNotePath(`${dir}/${name}`), prd: parseFolderName(name).prd })).filter(({ file: file2 }) => existsSync27(join33(ctx.root, file2)))
+    (dir) => prdFolders(ctx, dir).map((name) => ({ file: releaseNotePath(`${dir}/${name}`), prd: parseFolderName(name)?.prd ?? Number.NaN })).filter(({ file: file2 }) => existsSync27(join33(ctx.root, file2)))
   );
 }
 function findReleaseViolations({ ctx }) {
@@ -38968,7 +38968,7 @@ init_define_OMNI_BUNDLE();
 var STATUS_FOR_OUTCOME = { record: "done", stop: "stopped", blocked: "blocked" };
 var AUTHOR_MARK = "(author)";
 var ADR_ID2 = /^ADR-\d{4}$/;
-function proposeRank({ bearsOn = "none", hardToRevert = false, laws } = {}) {
+function proposeRank({ bearsOn = "none", hardToRevert = false, laws }) {
   const proposed = ADR_ID2.test(bearsOn) || hardToRevert ? "high" : "medium";
   return floorRank(bearsOn, proposed, laws);
 }
@@ -38979,7 +38979,7 @@ function decideRecording({
   hardToRevert = false,
   principlesConflict = [],
   laws
-} = {}) {
+}) {
   const principles = conflictingPrinciples(principlesConflict, laws);
   if (needsHumanAction) {
     return recordingDecision({
@@ -39103,7 +39103,7 @@ function renderOutboxItem({
 }) {
   const couldNotKnow = unknowable(gaps);
   const settledRank = floorRank(bearsOn, rank, laws);
-  if (!RANK_VALUES.includes(settledRank)) {
+  if (!RANK_VALUES.some((value) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(", ")} \u2014 got "${rank}"`);
   }
   if (!(questionPlain ?? "").trim()) {
@@ -39745,10 +39745,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/policy/phase-0.ts
 init_define_OMNI_BUNDLE();
-var PHASE_0_REQUIRED_KINDS = (
-  /** @type {const} */
-  ["spec", "plan", "before-after"]
-);
+var PHASE_0_REQUIRED_KINDS = ["spec", "plan", "before-after"];
 function normalize2(path) {
   return String(path ?? "").trim().replace(/^\.\//, "").replace(/^\/+/, "");
 }
@@ -39787,7 +39784,7 @@ function classifyPhase0Path(path, { ctx, prd: prd2 }) {
   if (isDocsPath(file2, ctx)) return "docs";
   return "source";
 }
-function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits } = {}) {
+function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits }) {
   const files = (paths ?? []).map(normalize2).filter(Boolean);
   const kinds = files.map((file2) => classifyPhase0Path(file2, { ctx, prd: prd2 }));
   const carries = {
@@ -39823,7 +39820,7 @@ function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits
 function gradeSignature(commits, signature) {
   const trailer = trailerLine(signature);
   if (trailer === null || commits === void 0) return { signed: null, trailer, unsigned: [] };
-  const unsigned = commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => ({ sha: commit.sha, subject: String(commit.message ?? "").split("\n")[0].trim() }));
+  const unsigned = commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => ({ sha: commit.sha, subject: (String(commit.message ?? "").split("\n")[0] ?? "").trim() }));
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
 function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
@@ -40920,14 +40917,17 @@ import { join as join56 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
+function settledEntries(settledText, markers) {
+  return parseSettledEntries(settledText, markers);
+}
 var REWORKED_BY2 = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
 function driftedEntries(settledText, markers) {
-  return parseSettledEntries(settledText ?? "", markers).filter(
+  return settledEntries(settledText ?? "", markers).filter(
     (entry) => entry.verdict === "drifted" && !entry.closed
   );
 }
 function namedPaths(text4) {
-  const tokens = [...(text4 ?? "").matchAll(/`([^`\n]+)`/g)].map((match) => match[1].trim());
+  const tokens = [...(text4 ?? "").matchAll(/`([^`\n]+)`/g)].map((match) => (match[1] ?? "").trim());
   return tokens.filter(
     (token) => !/^[a-z]+:\/\//.test(token) && !/\s/.test(token) && (token.includes("/") || /\.[A-Za-z0-9]+$/.test(token))
   );
@@ -40936,7 +40936,7 @@ var CHOSEN_OPTION_ANSWER = /^([A-D])\. ([\s\S]*?)(?: — because ([\s\S]*))?$/;
 function chosenOptionOf(answerText, options) {
   const match = (answerText ?? "").trim().match(CHOSEN_OPTION_ANSWER);
   const option = match && (options ?? []).find((candidate) => candidate.letter === match[1]);
-  if (!option || option.text !== match[2].trim()) return { chosenOption: null, reason: null };
+  if (!match || !option || option.text !== (match[2] ?? "").trim()) return { chosenOption: null, reason: null };
   return {
     chosenOption: { letter: option.letter, text: option.text },
     reason: match[3]?.trim() || null
@@ -40947,7 +40947,7 @@ function fill(template, values) {
   return template.replace(/\{(topic|slice|item)\}/g, (whole, key) => values[key] ?? whole);
 }
 function topicOf2(featureBranch, featureTemplate) {
-  const [head, tail = ""] = featureTemplate.split("{topic}");
+  const [head = "", tail = ""] = featureTemplate.split("{topic}");
   if (!featureTemplate.includes("{topic}") || !featureBranch.startsWith(head) || !featureBranch.endsWith(tail)) return null;
   const topic = featureBranch.slice(head.length, featureBranch.length - tail.length);
   return topic || null;
@@ -40962,12 +40962,17 @@ function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
   }
   return fill(branches.slice, { topic, slice: sliceId });
 }
-function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES, planRepository = false } = {}) {
+function deriveRework(entry, {
+  planSlices = [],
+  featureBranch = null,
+  branches = DEFAULT_BRANCHES,
+  planRepository = false
+} = {}) {
   const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
-  if (!parsed.ok) {
+  if (!parsed.ok || !parsed.item) {
     throw new Error(
       `the settled entry for ${entry.id} does not hold a well-formed item, so no rework can be derived from it:
-  - ${parsed.errors.join("\n  - ")}`
+  - ${(parsed.errors ?? []).join("\n  - ")}`
     );
   }
   const { item: item2 } = parsed;
@@ -41005,12 +41010,20 @@ function assignWaves(reworks) {
       (wave) => !wave.some((sibling) => sharedGround(sibling, rework2).length > 0)
     );
     if (index === -1) index = waves.push([]) - 1;
-    waves[index].push(rework2);
+    waves[index]?.push(rework2);
     return { ...rework2, wave: index + 1 };
   });
 }
-function planRework({ settledText = "", planMarkdown = null, prd: prd2, featureBranch, markers, branches = DEFAULT_BRANCHES, planRepository = false }) {
-  const settledCount = parseSettledEntries(settledText, markers).length;
+function planRework({
+  settledText = "",
+  planMarkdown = null,
+  prd: prd2,
+  featureBranch,
+  markers,
+  branches = DEFAULT_BRANCHES,
+  planRepository = false
+}) {
+  const settledCount = settledEntries(settledText, markers).length;
   const drifted = driftedEntries(settledText, markers);
   const planSlices = planMarkdown ? parsePlanSlices(planMarkdown) : [];
   const reworks = assignWaves(
@@ -41055,7 +41068,7 @@ function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers
       `${id}: name the rework sub-pull request that closed it \u2014 a closure nobody can follow is not a closure.`
     );
   }
-  const entry = parseSettledEntries(settledText, markers).find((candidate) => candidate.id === id);
+  const entry = settledEntries(settledText, markers).find((candidate) => candidate.id === id);
   if (!entry) {
     throw new Error(`${id}: this ledger holds no settled entry with that id.`);
   }
@@ -41276,6 +41289,9 @@ init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync14 } from "node:child_process";
 import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync10, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
+function fieldOf(error62, key) {
+  return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key) : void 0;
+}
 function git4(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -41304,13 +41320,13 @@ function foldersAt(ctx, exec, ref, dir) {
     const name = path.slice(path.lastIndexOf("/") + 1);
     const folder = parseFolderName(name);
     return folder && { ...folder, name };
-  }).filter(Boolean);
+  }).filter((folder) => Boolean(folder));
 }
 function retroAt(ctx, exec, ref, dir) {
   const out = /* @__PURE__ */ new Set();
   for (const path of entries(git4(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`]))) {
     const parts = path.slice(dir.length + 1).split("/");
-    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0]) : null;
+    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0] ?? "") : null;
     if (folder) out.add(folder.prd);
   }
   return [...out];
@@ -41365,8 +41381,8 @@ function fetchRemote({ ctx, exec = execFileSync14 }) {
     return null;
   } catch (error62) {
     putBack(saved);
-    const said = `${error62?.stderr ?? ""}`.split("\n").map((line) => line.trim()).find(Boolean);
-    return said ?? `${error62?.message ?? error62}`.split("\n")[0];
+    const said = `${fieldOf(error62, "stderr") ?? ""}`.split("\n").map((line) => line.trim()).find(Boolean);
+    return said ?? `${fieldOf(error62, "message") ?? error62}`.split("\n")[0] ?? "";
   }
 }
 function remoteBranches(ctx, exec) {
@@ -41376,7 +41392,7 @@ function remoteBranches(ctx, exec) {
 }
 function topicOf3(branch, template) {
   if (!template.includes("{topic}")) return null;
-  const [head, tail] = template.split("{topic}");
+  const [head = "", tail = ""] = template.split("{topic}");
   if (branch.length <= head.length + tail.length || !branch.startsWith(head) || !branch.endsWith(tail)) return null;
   return branch.slice(head.length, branch.length - tail.length);
 }
@@ -41405,7 +41421,7 @@ var COMMIT_MARK = "";
 function commitsIn(ctx, exec, range, paths = []) {
   const log = git4(ctx, exec, ["log", "-z", "--name-only", "--no-renames", "--full-history", "--format=%x01%ae", range, "--", ...paths]);
   return log.split(COMMIT_MARK).filter(Boolean).map((commit) => {
-    const [email3, ...changed] = commit.split("\0");
+    const [email3 = "", ...changed] = commit.split("\0");
     return { email: email3, paths: changed.map((path) => path.replace(/^\n/, "")).filter(Boolean) };
   });
 }
@@ -41417,7 +41433,7 @@ function touchedBy(ctx, commits) {
     for (const path of paths) {
       if (!path.startsWith(delivery)) continue;
       const parts = path.slice(delivery.length).split("/");
-      const folder = parts.length > 2 ? parseFolderName(parts[1]) : null;
+      const folder = parts.length > 2 ? parseFolderName(parts[1] ?? "") : null;
       if (folder) seen.set(`${folder.prd}\0${email3}`, { prd: folder.prd, email: email3 });
     }
   }
@@ -41516,7 +41532,7 @@ function barFor(delivered, total) {
 }
 function isOpenItem(path) {
   const parts = path.split("/");
-  const file2 = parts.pop();
+  const file2 = parts.pop() ?? "";
   return file2.endsWith(".md") && file2 !== SETTLED_FILE && !parts.includes(ACCOUNTS_DIR);
 }
 function isBuilt({ forked, differs }) {
@@ -41552,7 +41568,8 @@ function yoursOf(facts, stages, onBase) {
   if (facts.shallow) return { state: "shallow", ...none };
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
   const yours2 = (entries3) => entries3.filter(({ prd: prd2 }) => mine.has(prd2));
-  const rows2 = ["outbox", "building", "inbox", "prd"].flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
+  const order = ["outbox", "building", "inbox", "prd"];
+  const rows2 = order.flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
   const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
   return { state: "known", email: facts.email, rows: rows2, shipped: yours2(delivered) };
 }
@@ -41640,7 +41657,8 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   const cells3 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
   const top = `${LABEL2}${cells3}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
-  const parts = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
+  const counted3 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
+  const parts = counted3.filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
@@ -41657,7 +41675,7 @@ var TOPIC_GAP = "    ";
 var SEPARATOR = " \xB7 ";
 var cut2 = (text4, width) => text4.length <= width ? text4 : `${text4.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
-function standing({ stage: stage2, prd: prd2, openItems: openItems2 }) {
+function standing({ stage: stage2, prd: prd2, openItems: openItems2 = 0 }) {
   const waiting = openItems2 > 0 ? `${plural4(openItems2, "open item")} wait${openItems2 === 1 ? "s" : ""} for an answer` : null;
   if (stage2 === "outbox") return waiting ?? "its feature PR waits for your review";
   if (stage2 === "building") return waiting ?? "being built";

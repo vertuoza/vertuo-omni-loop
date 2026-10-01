@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The repository's overview, from the facts `facts.mjs` read: which stage each PRD is in, the
 // counts, and the bar's numbers. Pure: no git, no clock, no config.
 //
@@ -24,10 +23,83 @@ import { SETTLED_FILE } from '../outbox/outbox.ts';
 /** The bar's width, in cells. */
 export const BAR_CELLS = 30;
 
+/** A PRD in a stage: its number and its folder's topic. */
+export type StagedPrd = { prd: number; topic: string };
+
+/** A PRD past the inbox: building or in the outbox, with its feature branches' open items. */
+export type BuildingPrd = StagedPrd & { openItems: number };
+
+/** A PRD folder an author's commits touched. */
+type Touched = { prd: number; email: string };
+
+/** A feature branch, as the facts read it. */
+type FeatureBranch = {
+  branch: string;
+  topic: string;
+  forked: string[];
+  differs: string[];
+  outbox: string[];
+  ships: boolean;
+  authors: string[];
+  touched: Touched[];
+};
+
+/** A phase-0 branch, as the facts read it. */
+type Phase0Branch = { branch: string; topic: string; inbox: StagedPrd[]; touched: Touched[] };
+
+/** What {@link overviewFor} reads: the facts `readFacts` returns (`kit/lib/status/facts.ts`). */
+export type OverviewFacts = {
+  slug: string | null;
+  base: string;
+  fetchedAt: number | null;
+  email: string | null;
+  shallow: boolean;
+  shipped: StagedPrd[];
+  retro: number[];
+  inbox: StagedPrd[];
+  touched: Touched[];
+  features: FeatureBranch[];
+  phase0: Phase0Branch[];
+};
+
+/** Every stage the repository can show, each PRD once and newest first. */
+export type Stages = {
+  prd: StagedPrd[];
+  inbox: StagedPrd[];
+  building: BuildingPrd[];
+  outbox: BuildingPrd[];
+  shipped: StagedPrd[];
+  retro: StagedPrd[];
+};
+
+/** How many PRDs each stage holds, and the open items of those building. */
+export type Counts = Record<keyof Stages, number> & { openItems: number };
+
+/** The bar's numbers: `percent` is `null` with no PRD at all. */
+export type Bar = { delivered: number; total: number; percent: number | null; filled: number };
+
+/** One row of yours: a PRD in progress or at PRD, with its stage. */
+export type YourRow = StagedPrd & { stage: 'outbox' | 'building' | 'inbox' | 'prd'; openItems?: number };
+
+/** Your PRDs, or why the overview cannot tell which they are. */
+export type Yours = { state: 'no-email' | 'shallow' | 'known'; email: string | null; rows: YourRow[]; shipped: StagedPrd[] };
+
+/** The overview {@link overviewFor} returns. */
+export type Overview = {
+  slug: string | null;
+  base: string;
+  fetchedAt: number | null;
+  stages: Stages;
+  counts: Counts;
+  bar: Bar;
+  inProgress: { total: number; inbox: number; building: number; outbox: number };
+  yours: Yours;
+};
+
 /** Each PRD number once, newest first, leaving out the numbers in `taken`. */
-function stage(folders, taken = new Set()) {
+function stage(folders: readonly StagedPrd[], taken: ReadonlySet<number> = new Set()): StagedPrd[] {
   const seen = new Set(taken);
-  const out = [];
+  const out: StagedPrd[] = [];
   for (const folder of [...folders].sort((a, b) => b.prd - a.prd)) {
     if (seen.has(folder.prd)) continue;
     seen.add(folder.prd);
@@ -38,7 +110,7 @@ function stage(folders, taken = new Set()) {
 
 /** Delivered against the total, the percentage and the filled cells both rounded down, so the bar
  * never reads 100% while anything is in progress. No PRD at all has no percentage. */
-function barFor(delivered, total) {
+function barFor(delivered: number, total: number): Bar {
   if (total === 0) return { delivered, total, percent: null, filled: 0 };
   return {
     delivered,
@@ -51,15 +123,16 @@ function barFor(delivered, total) {
 /** Whether a file under a PRD's outbox folder, named relative to it, is an open item: the rule
  * `outboxItemFiles` applies — a `.md` file, not the settled ledger, and nothing under an accounts
  * folder, at any depth. */
-export function isOpenItem(path) {
+export function isOpenItem(path: string): boolean {
   const parts = path.split('/');
-  const file = parts.pop();
+  // A split always holds at least one part.
+  const file = parts.pop() ?? '';
   return file.endsWith('.md') && file !== SETTLED_FILE && !parts.includes(ACCOUNTS_DIR);
 }
 
 /** Built: some path outside the delivery folder the branch changed since it forked from the base
  * still differs from the base. A phase-0 copy, byte-identical to the base once merged, never is. */
-function isBuilt({ forked, differs }) {
+function isBuilt({ forked, differs }: Pick<FeatureBranch, 'forked' | 'differs'>): boolean {
   const now = new Set(differs);
   return forked.some((path) => now.has(path));
 }
@@ -67,8 +140,8 @@ function isBuilt({ forked, differs }) {
 /** The inbox PRDs past the inbox, as `{ building, outbox }`, each `{ prd, topic, openItems }` and
  * newest first: in the outbox when a feature branch ships its folder, else building when one is
  * built or holds an open item. A feature branch counts only for a PRD in the base's inbox. */
-function buildingAndOutboxOf(inbox, features) {
-  const out = { building: [], outbox: [] };
+function buildingAndOutboxOf(inbox: readonly StagedPrd[], features: readonly FeatureBranch[]): { building: BuildingPrd[]; outbox: BuildingPrd[] } {
+  const out: { building: BuildingPrd[]; outbox: BuildingPrd[] } = { building: [], outbox: [] };
   for (const { prd, topic } of inbox) {
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
@@ -81,15 +154,15 @@ function buildingAndOutboxOf(inbox, features) {
 
 /** The inbox folders phase-0 branches hold, each of its branch's own topic, whose PRD number is
  * not in `taken`: each PRD once, newest first. */
-function prdOf(phase0, taken) {
+function prdOf(phase0: readonly Phase0Branch[], taken: ReadonlySet<number>): StagedPrd[] {
   const held = phase0.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
   return stage(held, taken);
 }
 
 /** The PRD numbers that are yours: those whose folder a commit of `me` touched, on the base or on a
  * feature or phase-0 branch, and the inbox PRD of each feature branch carrying a commit of `me`. */
-function yourNumbers(facts, onBase, me) {
-  const isMe = (email) => email.toLowerCase() === me;
+function yourNumbers(facts: OverviewFacts, onBase: readonly StagedPrd[], me: string): Set<number> {
+  const isMe = (email: string): boolean => email.toLowerCase() === me;
   const touched = [facts.touched, ...facts.features.map(({ touched }) => touched), ...facts.phase0.map(({ touched }) => touched)].flat();
   const mine = new Set(touched.filter(({ email }) => isMe(email)).map(({ prd }) => prd));
   const helped = new Set(facts.features.filter(({ authors }) => authors.some(isMe)).map(({ topic }) => topic));
@@ -101,28 +174,20 @@ function yourNumbers(facts, onBase, me) {
  * `shallow` in a shallow clone, whose history cannot tell, and `known` otherwise. `rows` are your
  * PRDs in the outbox, then building, then the inbox, then PRD, each newest first and each with its
  * `stage`; `shipped` your delivered PRDs (shipped or retro), newest first. */
-function yoursOf(facts, stages, onBase) {
-  const none = { email: facts.email ?? null, rows: [], shipped: [] };
+function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPrd[]): Yours {
+  const none: Omit<Yours, 'state'> = { email: facts.email ?? null, rows: [], shipped: [] };
   if (!facts.email) return { state: 'no-email', ...none };
   if (facts.shallow) return { state: 'shallow', ...none };
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
-  const yours = (entries) => entries.filter(({ prd }) => mine.has(prd));
-  const rows = ['outbox', 'building', 'inbox', 'prd'].flatMap((stage) => yours(stages[stage]).map((entry) => ({ stage, ...entry })));
+  const yours = <T extends StagedPrd>(entries: readonly T[]): T[] => entries.filter(({ prd }) => mine.has(prd));
+  const order: YourRow['stage'][] = ['outbox', 'building', 'inbox', 'prd'];
+  const rows = order.flatMap((stage): YourRow[] => yours<StagedPrd & { openItems?: number }>(stages[stage]).map((entry) => ({ stage, ...entry })));
   const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
   return { state: 'known', email: facts.email, rows, shipped: yours(delivered) };
 }
 
-/**
- * @param {{ slug: string | null, base: string, fetchedAt: number | null,
- *   email: string | null, shallow: boolean,
- *   shipped: { prd: number, topic: string }[], retro: number[], inbox: { prd: number, topic: string }[],
- *   touched: { prd: number, email: string }[],
- *   features: { branch: string, topic: string, forked: string[], differs: string[], outbox: string[],
- *     ships: boolean, authors: string[], touched: { prd: number, email: string }[] }[],
- *   phase0: { branch: string, topic: string, inbox: { prd: number, topic: string }[],
- *     touched: { prd: number, email: string }[] }[] }} facts
- */
-export function overviewFor(facts) {
+/** The overview of the repository `facts` describe: its stages, counts, bar and your PRDs. */
+export function overviewFor(facts: OverviewFacts): Overview {
   const delivered = stage(facts.shipped);
   const withRetro = new Set(facts.retro ?? []);
   const retro = delivered.filter(({ prd }) => withRetro.has(prd));
@@ -133,7 +198,7 @@ export function overviewFor(facts) {
   const inbox = onBase.filter(({ prd }) => !past.has(prd));
   const prd = prdOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
   const inProgress = inbox.length + building.length + outbox.length;
-  const stages = { prd, inbox, building, outbox, shipped, retro };
+  const stages: Stages = { prd, inbox, building, outbox, shipped, retro };
   return {
     slug: facts.slug,
     base: facts.base,

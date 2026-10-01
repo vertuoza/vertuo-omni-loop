@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,6 +28,13 @@ import {
 
 const COMMAND_NAMES = Object.keys(CONSULTATION_POLICIES);
 
+/** The outbox's own modules, read loosely here: their slices type them, and this file only checks
+ * that what the policy renders round-trips through them. */
+const parseItem = parseOutboxItem as (...args: unknown[]) => any;
+const adopt = adoptItem as (...args: unknown[]) => any;
+const parseAccountText = parseAccount as (...args: unknown[]) => any;
+const gate = gateResult as (...args: unknown[]) => any;
+
 /**
  * The laws every test in this file injects — same shape and same regex as the stub
  * `kit/lib/outbox/outbox.test.ts` uses (Task 5): `floorsHigh` reproduces upstream's own
@@ -38,7 +44,7 @@ const COMMAND_NAMES = Object.keys(CONSULTATION_POLICIES);
  */
 const laws = {
   source: 'knowledge',
-  floorsHigh: (b) => /^(N\d+|(?:P|BR|N)-[A-Z0-9]+-\d+|X-[A-Z0-9]+-[A-Z0-9]+-\d+)$/.test(b),
+  floorsHigh: (b: string) => /^(N\d+|(?:P|BR|N)-[A-Z0-9]+-\d+|X-[A-Z0-9]+-[A-Z0-9]+-\d+)$/.test(b),
 };
 
 /** A ctx whose `root` is never touched by disk — `planAccount`/`accountFile` only build a path
@@ -98,11 +104,11 @@ describe('An agent records instead of stopping', () => {
     const root = mkdtempSync(join(tmpdir(), 'outbox-policy-adopt-'));
     try {
       const tctx = flatCtx(root);
-      const adopted = adoptItem({ ctx: tctx, itemText: text });
+      const adopted = adopt({ ctx: tctx, itemText: text });
       expect(adopted.ok).toBe(true);
 
       expect(existsSync(join(root, 'docs/outbox/985/s7-01-default-country.md'))).toBe(false);
-      expect(gateResult('985', { ctx: tctx })).toEqual({
+      expect(gate('985', { ctx: tctx })).toEqual({
         ok: true,
         items: [],
         overridden: false,
@@ -125,7 +131,7 @@ describe('An agent records instead of stopping', () => {
     const decision = decideRecording({ bearsOn: 'none', laws });
     const text = renderOutboxItem(itemFields({ rank: decision.rank }));
 
-    const parsed = parseOutboxItem(text, { file: 'docs/outbox/985/s7-01-default-country.md' });
+    const parsed = parseItem(text, { file: 'docs/outbox/985/s7-01-default-country.md' });
     expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
     expect(parsed.item.rank).toBe('medium');
     expect(parsed.item.bearsOn).toBe('none');
@@ -239,8 +245,8 @@ describe('An agent records instead of stopping', () => {
     });
 
     it('the consultation policies are unchanged', () => {
-      expect(CONSULTATION_POLICIES[COMMANDS.deliver].asksAbout).toEqual(['high', 'human-action']);
-      expect(CONSULTATION_POLICIES[COMMANDS.yolo].asksAbout).toEqual([]);
+      expect(CONSULTATION_POLICIES[COMMANDS.deliver]!.asksAbout).toEqual(['high', 'human-action']);
+      expect(CONSULTATION_POLICIES[COMMANDS.yolo]!.asksAbout).toEqual([]);
     });
 
     // This task's own clarification: a `principlesConflict` only ever stops the slice where a
@@ -295,7 +301,7 @@ describe('An agent records instead of stopping', () => {
     });
 
     it('the rendered item carries the attribution in its own section', () => {
-      const parsed = parseOutboxItem(renderOutboxItem(itemFields()));
+      const parsed = parseItem(renderOutboxItem(itemFields()));
       expect(parsed.ok).toBe(true);
       expect(parsed.item.sections.whatICouldNotKnow.startsWith(AUTHOR_MARK)).toBe(true);
     });
@@ -303,7 +309,7 @@ describe('An agent records instead of stopping', () => {
 
   describe('Every item carries its plain words (PRD #1071)', () => {
     it('renders the two plain-words sections first, before the four existing ones', () => {
-      const parsed = parseOutboxItem(renderOutboxItem(itemFields()));
+      const parsed = parseItem(renderOutboxItem(itemFields()));
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
       expect(parsed.item.sections.questionPlain).toBe(
         'Which country should we save for a contact that has none of its own?',
@@ -321,7 +327,7 @@ describe('An agent records instead of stopping', () => {
 
   describe('Every question carries its options (PRD #1166, slice s4)', () => {
     it('letters the options A, B… itself, right after the plain decision', () => {
-      const parsed = parseOutboxItem(renderOutboxItem(itemFields()));
+      const parsed = parseItem(renderOutboxItem(itemFields()));
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
       expect(parsed.item.sections.options).toEqual([
         { letter: 'A', text: "Use the tenant's own country as the default, the option built." },
@@ -345,7 +351,7 @@ describe('An agent records instead of stopping', () => {
           personSteps: 'Add the missing secret to the console, then re-run the job.',
         }),
       );
-      const parsed = parseOutboxItem(text);
+      const parsed = parseItem(text);
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
       expect(parsed.item.rank).toBe('human-action');
       expect(parsed.item.sections.personSteps).toBe(
@@ -369,18 +375,18 @@ describe('An agent records instead of stopping', () => {
 
     it('renders both right after the plain decision, before the options', () => {
       const text = renderOutboxItem(itemFields(fun));
-      const parsed = parseOutboxItem(text);
+      const parsed = parseItem(text);
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
       expect(parsed.item.sections.introFun).toBe(fun.introFun);
       expect(parsed.item.sections.punchlineFun).toBe(fun.punchlineFun);
-      const at = (heading) => text.indexOf(`## ${heading}`);
+      const at = (heading: string) => text.indexOf(`## ${heading}`);
       expect(at('The decision, in plain words')).toBeLessThan(at('The intro, for fun'));
       expect(at('The intro, for fun')).toBeLessThan(at('The punchline, for fun'));
       expect(at('The punchline, for fun')).toBeLessThan(at('The options, in plain words'));
     });
 
     it('renders both before the person steps of a human-action item', () => {
-      const parsed = parseOutboxItem(
+      const parsed = parseItem(
         renderOutboxItem(
           itemFields({
             ...fun,
@@ -413,7 +419,7 @@ describe('An agent records instead of stopping', () => {
     it('an adopted item embeds both in its settled entry', () => {
       const root = mkdtempSync(join(tmpdir(), 'outbox-policy-fun-'));
       try {
-        const adopted = adoptItem({
+        const adopted = adopt({
           ctx: flatCtx(root),
           itemText: renderOutboxItem(itemFields(fun)),
         });
@@ -438,8 +444,8 @@ describe('An agent records instead of stopping', () => {
 
 describe('Two commands ask at two different moments', () => {
   it('the policy is data — each command declares the ranks it asks about', () => {
-    expect(CONSULTATION_POLICIES[COMMANDS.deliver].asksAbout).toEqual(['high', 'human-action']);
-    expect(CONSULTATION_POLICIES[COMMANDS.yolo].asksAbout).toEqual([]);
+    expect(CONSULTATION_POLICIES[COMMANDS.deliver]!.asksAbout).toEqual(['high', 'human-action']);
+    expect(CONSULTATION_POLICIES[COMMANDS.yolo]!.asksAbout).toEqual([]);
   });
 
   it('an unknown command has no policy to guess at', () => {
@@ -464,9 +470,9 @@ describe('Two commands ask at two different moments', () => {
 
       expect(outcome.asked).toBe(true);
       expect(outcome.settled).toBe(true);
-      expect(outcome.answer.approvedBy).toContain('claude-opus-5 session 3f92cf00');
-      expect(outcome.answer.text).toBe('Yes — the tenant’s country is right.');
-      expect(outcome.answer.channel).toEqual({ kind: 'prd-issue', number: 985 });
+      expect(outcome.answer!.approvedBy).toContain('claude-opus-5 session 3f92cf00');
+      expect(outcome.answer!.text).toBe('Yes — the tenant’s country is right.');
+      expect(outcome.answer!.channel).toEqual({ kind: 'prd-issue', number: 985 });
 
       const parsed = AnswerSchema.safeParse(outcome.answer);
       expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error.issues)).toBe(true);
@@ -546,7 +552,7 @@ describe('Two commands ask at two different moments', () => {
 
 describe('The guard runs on the agent and on the branch', () => {
   /** A risky change in the shape `riskyChanges` hands over: the diff's status letter, and the rule. */
-  function risky(path, rule, status = 'M') {
+  function risky(path: string, rule: string, status = 'M') {
     return { path, status, rule };
   }
 
@@ -606,7 +612,7 @@ describe('The guard runs on the agent and on the branch', () => {
       expect(plan.writesFile).toBe(true);
       expect(plan.file).toBe('docs/outbox/1044/accounts/s6.md');
 
-      const parsed = parseAccount(plan.text, { file: plan.file });
+      const parsed = parseAccountText(plan.text, { file: plan.file });
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
       expect(parsed.account.slice).toBe('s6');
 
@@ -635,10 +641,10 @@ describe('The guard runs on the agent and on the branch', () => {
   });
 
   describe('A skipped account is caught by the branch', () => {
-    const dirs = [];
+    const dirs: string[] = [];
 
     afterEach(() => {
-      while (dirs.length > 0) rmSync(dirs.pop(), { recursive: true, force: true });
+      while (dirs.length > 0) rmSync(dirs.pop()!, { recursive: true, force: true });
     });
 
     /** A fixture repo whose `risk.storedShape` reproduces the upstream literal `riskyChanges`
@@ -660,7 +666,7 @@ describe('The guard runs on the agent and on the branch', () => {
       const tctx = fixtureCtx();
       const changes = [{ path: STORED_SHAPE.path, status: 'M' }];
 
-      const result = gateResult(1044, { ctx: tctx, changes });
+      const result = gate(1044, { ctx: tctx, changes });
 
       expect(result.ok).toBe(false);
       expect(result.items).toEqual([]);

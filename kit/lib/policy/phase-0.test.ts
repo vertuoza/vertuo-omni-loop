@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { padPrd } from '../layout.ts';
@@ -243,8 +242,8 @@ describe('The before/after is a file in the repository', () => {
 // trailer `omni sign trailer` prints. The commits are given; this module never reads git.
 describe('Every commit of a phase-0 pull request is signed', () => {
   const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
-  const signed = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${TRAILER}\n` });
-  const unsigned = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n` });
+  const signed = (sha: string, subject: string) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${TRAILER}\n` });
+  const unsigned = (sha: string, subject: string) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n` });
 
   function threeFiles(options = {}) {
     const { ctx } = docsOnlyRepo(options);

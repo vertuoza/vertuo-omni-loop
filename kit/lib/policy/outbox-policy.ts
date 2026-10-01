@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Two commands ask at two different moments** (PRD #985, slice s7).
  *
@@ -32,17 +31,118 @@ import { COMMANDS } from '../commands.ts';
 import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
+import type { Laws } from '../laws.ts';
+import type { Layout, PrdNumber } from '../layout.ts';
+import type { Rank } from '../types.ts';
 
 /** The three places a slice built under the recording policy can end. */
-export const SLICE_STATUSES = /** @type {const} */ (['done', 'stopped', 'blocked']);
+export const SLICE_STATUSES = ['done', 'stopped', 'blocked'] as const;
+
+/** One of {@link SLICE_STATUSES}. */
+export type SliceStatus = (typeof SLICE_STATUSES)[number];
 
 /**
  * What the recording policy decided to do. One outcome per slice status, same order:
  * `record` → the slice is `done`, `stop` → `stopped`, `blocked` → `blocked`.
  */
-export const RECORDING_OUTCOMES = /** @type {const} */ (['record', 'stop', 'blocked']);
+export const RECORDING_OUTCOMES = ['record', 'stop', 'blocked'] as const;
 
-const STATUS_FOR_OUTCOME = { record: 'done', stop: 'stopped', blocked: 'blocked' };
+/** One of {@link RECORDING_OUTCOMES}. */
+export type RecordingOutcome = (typeof RECORDING_OUTCOMES)[number];
+
+const STATUS_FOR_OUTCOME: Record<RecordingOutcome, SliceStatus> = { record: 'done', stop: 'stopped', blocked: 'blocked' };
+
+/** What a policy reads of a repository's laws: whether a `bearsOn` id floors an item high. */
+export type FloorLaws = Pick<Laws, 'floorsHigh'>;
+
+/** The laws the recording policy reads: where they come from, and the floor. */
+export type RecordingLaws = Pick<Laws, 'floorsHigh'> & { source: string };
+
+/** What {@link decideRecording} decided, as data. */
+export type RecordingDecision = {
+  outcome: RecordingOutcome;
+  sliceStatus: SliceStatus;
+  rank: Rank | null;
+  writesItem: boolean;
+  settleAsAdopted: boolean;
+  rule: string | null;
+  principles: string[];
+  stopsTheWave: false;
+  reason: string;
+};
+
+/** A command's consultation policy: the ranks it asks a human about while the run is happening. */
+export type ConsultationPolicy = Readonly<{ command: string; asksAbout: readonly string[]; why: string }>;
+
+/** The answer a consultation settled, in the shape `settle.ts`'s `AnswerSchema` accepts. */
+export type ConsultedAnswer = {
+  text: string;
+  approvedBy: string;
+  approvedAt: string;
+  channel: { kind: 'prd-issue'; number: number };
+};
+
+/** What one item's consultation came to: never a stop. */
+export type Consultation = {
+  command: string;
+  rank: string;
+  asked: boolean;
+  recorded: true;
+  stopped: false;
+  settled: boolean;
+  fellBackToRecording: boolean;
+  answer: ConsultedAnswer | null;
+};
+
+/** The fields {@link renderOutboxItem} renders an item from. */
+export type OutboxItemFields = {
+  id: string;
+  prd: PrdNumber;
+  slice: string;
+  wave: number | string;
+  raised: string;
+  bearsOn: string;
+  rank: string;
+  questionPlain: string;
+  decisionPlain: string;
+  introFun?: string | null;
+  punchlineFun?: string | null;
+  decide: string;
+  meanwhile: string;
+  cost: string;
+  gaps: readonly string[];
+  options?: readonly (string | null | undefined)[] | null;
+  personSteps?: string | null;
+  laws: FloorLaws;
+};
+
+/** An account a slice gives for one risky change: an outbox item, or the spec's own words. */
+export type Account = { kind: 'item'; id: string } | { kind: 'spec'; where: string };
+
+/** A risky change, identified by its path and the rule it fires. */
+export type RiskyChange = { path: string; rule: string };
+
+/** A risky change and the account it was given. */
+export type AccountEntry = RiskyChange & { account: Account };
+
+/** What a policy reads of the context to name an account file: the layout's outbox folder. */
+export type AccountCtx = { layout: Pick<Layout, 'outboxDir'> };
+
+/** One account form: its kind, the field its value is read from, and its line. */
+type AccountForm = Readonly<{ kind: Account['kind']; field: string; line: (value: string) => string; why: string }>;
+
+/** What {@link planAccount} owes, writes and leaves unaccounted. */
+export type AccountPlan = {
+  owed: RiskyChange[];
+  entries: AccountEntry[];
+  unaccounted: RiskyChange[];
+  writesFile: boolean;
+  file: string | null;
+  text: string | null;
+  opensSubPr: true;
+  stopsTheWave: false;
+  sliceStatus: 'done';
+};
 
 /** The mark every stated gap carries, so a reader can tell a gap from a rationale. */
 export const AUTHOR_MARK = '(author)';
@@ -60,12 +160,9 @@ const ADR_ID = /^ADR-\d{4}$/;
  *
  * The result is then passed through `floorRank`, which raises it to `high` when the decision bears
  * on a law `laws` recognizes. The floor is never restated here.
- *
- * @param {{ bearsOn?: string, hardToRevert?: boolean, laws: { floorsHigh(bearsOn: string): boolean } }} input
- * @returns {'human-action' | 'high' | 'medium'}
  */
-export function proposeRank({ bearsOn = 'none', hardToRevert = false, laws } = {}) {
-  const proposed = ADR_ID.test(bearsOn) || hardToRevert ? 'high' : 'medium';
+export function proposeRank({ bearsOn = 'none', hardToRevert = false, laws }: { bearsOn?: string; hardToRevert?: boolean; laws: FloorLaws }): Rank {
+  const proposed: Rank = ADR_ID.test(bearsOn) || hardToRevert ? 'high' : 'medium';
   return floorRank(bearsOn, proposed, laws);
 }
 
@@ -97,10 +194,6 @@ export function proposeRank({ bearsOn = 'none', hardToRevert = false, laws } = {
  * `renderOutboxItem` renders the same item text regardless; `settleAsAdopted` only says where it
  * ends up: appended straight to the item's own outbox directory's `settled.md` through
  * `settle.mjs`'s `adoptItem`, never written as an open item file at all.
- *
- * @param {{ bearsOn?: string, breaksNamedLaw?: boolean, needsHumanAction?: boolean,
- *   hardToRevert?: boolean, principlesConflict?: string[],
- *   laws: { source: string, floorsHigh(bearsOn: string): boolean } }} input
  */
 export function decideRecording({
   bearsOn = 'none',
@@ -109,7 +202,14 @@ export function decideRecording({
   hardToRevert = false,
   principlesConflict = [],
   laws,
-} = {}) {
+}: {
+  bearsOn?: string;
+  breaksNamedLaw?: boolean;
+  needsHumanAction?: boolean;
+  hardToRevert?: boolean;
+  principlesConflict?: readonly unknown[] | null;
+  laws: RecordingLaws;
+}): RecordingDecision {
   const principles = conflictingPrinciples(principlesConflict, laws);
 
   if (needsHumanAction) {
@@ -165,7 +265,7 @@ export function decideRecording({
  * a `principlesConflict` list names nothing this repository can check and is read as no conflict at
  * all, rather than validated or thrown on.
  */
-function conflictingPrinciples(ids, laws) {
+function conflictingPrinciples(ids: readonly unknown[] | null | undefined, laws: RecordingLaws): string[] {
   const named = [...new Set((ids ?? []).map((id) => String(id).trim()).filter(Boolean))];
   if (named.length === 0 || laws.source !== 'knowledge') return [];
   const notPrinciples = named.filter((id) => idParts(id)?.type !== 'P');
@@ -190,7 +290,15 @@ function recordingDecision({
   rule,
   principles = [],
   reason,
-}) {
+}: {
+  outcome: RecordingOutcome;
+  rank: Rank | null;
+  writesItem: boolean;
+  settleAsAdopted?: boolean;
+  rule: string | null;
+  principles?: string[];
+  reason: string;
+}): RecordingDecision {
   return {
     outcome,
     sliceStatus: STATUS_FOR_OUTCOME[outcome],
@@ -209,7 +317,7 @@ function recordingDecision({
  * prompt, while the run is happening**; every rank it does not name is recorded without a
  * question. `COMMANDS.yolo`'s empty list is a declaration, not an omission.
  */
-export const CONSULTATION_POLICIES = Object.freeze({
+export const CONSULTATION_POLICIES: Readonly<Record<string, ConsultationPolicy>> = Object.freeze({
   [COMMANDS.deliver]: Object.freeze({
     command: COMMANDS.deliver,
     asksAbout: Object.freeze(['high', 'human-action']),
@@ -223,7 +331,7 @@ export const CONSULTATION_POLICIES = Object.freeze({
 });
 
 /** The policy a command declares, or a throw naming the command — never a guessed default. */
-export function consultationPolicy(command) {
+export function consultationPolicy(command: string): ConsultationPolicy {
   const policy = CONSULTATION_POLICIES[command];
   if (!policy) {
     throw new Error(
@@ -234,7 +342,7 @@ export function consultationPolicy(command) {
 }
 
 /** Whether `command` asks a human about an item of this `rank` while the run is happening. */
-export function asksAbout(command, rank) {
+export function asksAbout(command: string, rank: string): boolean {
   return consultationPolicy(command).asksAbout.includes(rank);
 }
 
@@ -251,14 +359,26 @@ export function asksAbout(command, rank) {
  *
  * The `rank` is returned untouched in every case: consultation decides when a human is asked, and
  * nothing else.
- *
- * @param {{ command: string, rank: string, prd: number, answer?: string | null, session?: string | null, at?: string }} input
  */
-export function consult({ command, rank, prd, answer = null, session = null, at = null }) {
+export function consult({
+  command,
+  rank,
+  prd,
+  answer = null,
+  session = null,
+  at = null,
+}: {
+  command: string;
+  rank: string;
+  prd: number;
+  answer?: unknown;
+  session?: string | null;
+  at?: string | null;
+}): Consultation {
   const asked = asksAbout(command, rank);
   const text = typeof answer === 'string' ? answer.trim() : '';
 
-  const base = { command, rank, asked, recorded: true, stopped: false };
+  const base: Pick<Consultation, 'command' | 'rank' | 'asked' | 'recorded' | 'stopped'> = { command, rank, asked, recorded: true, stopped: false };
 
   if (!asked || text.length === 0) {
     return { ...base, settled: false, fellBackToRecording: asked, answer: null };
@@ -287,10 +407,8 @@ export function consult({ command, rank, prd, answer = null, session = null, at 
  * The body of an item's *What I could not know* section: every gap, stated, and attributed to the
  * author. **The agent may never invent a rationale.** With nothing to state, this throws rather
  * than draft a "because" nobody said.
- *
- * @param {string[]} gaps
  */
-export function unknowable(gaps) {
+export function unknowable(gaps: readonly string[] | null | undefined): string {
   const stated = (gaps ?? []).map((gap) => gap.trim()).filter((gap) => gap.length > 0);
   if (stated.length === 0) {
     throw new Error(
@@ -332,11 +450,6 @@ export function unknowable(gaps) {
  * the other is refused, since the parser refuses the file it would make. Neither given renders the
  * item exactly as before. Their wording and their length are `check-outbox.mjs`'s call, like the
  * plain words'.
- *
- * @param {{ id: string, prd: number, slice: string, wave: number, raised: string, bearsOn: string,
- *   rank: string, questionPlain: string, decisionPlain: string, introFun?: string,
- *   punchlineFun?: string, decide: string, meanwhile: string, cost: string, gaps: string[],
- *   options?: string[], personSteps?: string, laws: { floorsHigh(bearsOn: string): boolean } }} fields
  */
 export function renderOutboxItem({
   id,
@@ -357,10 +470,10 @@ export function renderOutboxItem({
   options = null,
   personSteps = null,
   laws,
-}) {
+}: OutboxItemFields): string {
   const couldNotKnow = unknowable(gaps);
-  const settledRank = floorRank(bearsOn, rank, laws);
-  if (!RANK_VALUES.includes(settledRank)) {
+  const settledRank: string = floorRank(bearsOn, rank as Rank, laws); // ts-allow: an unknown rank is refused just below, after the floor, as it always was
+  if (!RANK_VALUES.some((value: string) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(', ')} — got "${rank}"`);
   }
   if (!(questionPlain ?? '').trim()) {
@@ -423,7 +536,7 @@ export function renderOutboxItem({
  * lines at all when neither is given. Refuses one without the other rather than write an item the
  * parser is guaranteed to refuse.
  */
-function renderFun(introFun, punchlineFun) {
+function renderFun(introFun: string | null | undefined, punchlineFun: string | null | undefined): string[] {
   const intro = (introFun ?? '').trim();
   const punchline = (punchlineFun ?? '').trim();
   if (!intro && !punchline) return [];
@@ -440,7 +553,7 @@ function renderFun(introFun, punchlineFun) {
  * A the one built. Refuses rather than writes an item `check-outbox.mjs` is guaranteed to refuse
  * for carrying too few or too many.
  */
-function renderOptions(options) {
+function renderOptions(options: readonly (string | null | undefined)[] | null | undefined): string[] {
   const list = (Array.isArray(options) ? options : [])
     .map((text) => (text ?? '').trim())
     .filter((text) => text.length > 0);
@@ -457,7 +570,7 @@ function renderOptions(options) {
 }
 
 /** `## What a person must do`, for a `human-action` item — there is nothing to choose between. */
-function renderPersonSteps(personSteps) {
+function renderPersonSteps(personSteps: string | null | undefined): string[] {
   const text = (personSteps ?? '').trim();
   if (!text) {
     throw new Error(
@@ -499,10 +612,8 @@ export const SLICE_TIME_GUARD = Object.freeze({
 /**
  * The exact command a slice runs on its own diff. Both arguments are required — a base this
  * function guessed, or a PRD it defaulted, would grade the wrong range in silence.
- *
- * @param {{ base?: string, prd?: string | number }} [input]
  */
-export function sliceTimeGuardCommand({ base = null, prd = null } = {}) {
+export function sliceTimeGuardCommand({ base = null, prd = null }: { base?: string | null; prd?: PrdNumber | null } = {}): string {
   if (!base) {
     throw new Error(
       'the slice-time run needs its base spelled out — the feature branch the sub-pull-request targets, e.g. origin/feat/<topic>',
@@ -521,17 +632,17 @@ export function sliceTimeGuardCommand({ base = null, prd = null } = {}) {
  * at something a reader can open and disagree with (the outbox directory's own README holds the
  * format itself — it is not restated here).
  */
-export const ACCOUNT_FORMS = Object.freeze({
+export const ACCOUNT_FORMS: Readonly<Record<Account['kind'], AccountForm>> = Object.freeze({
   item: Object.freeze({
     kind: 'item',
     field: 'id',
-    line: (value) => `item ${value}`,
+    line: (value: string) => `item ${value}`,
     why: 'an outbox item carries the decision; the id must resolve to a real file under the PRD\'s own outbox directory',
   }),
   spec: Object.freeze({
     kind: 'spec',
     field: 'where',
-    line: (value) => `spec ${value}`,
+    line: (value: string) => `spec ${value}`,
     why: 'the spec already asked for this change, and the account points at the place that says so',
   }),
 });
@@ -540,25 +651,25 @@ export const ACCOUNT_FORMS = Object.freeze({
  * The PRD's own outbox directory's `accounts/<slice>.md` — composed from `ctx.layout.outboxDir`
  * and `ACCOUNTS_DIR` (`account.mjs`). Throws when the PRD names no inbox or shipped folder at all,
  * the same guard `settle.mjs`'s own outbox-directory lookups use.
- *
- * @param {number | string} prd
- * @param {string} slice
- * @param {{ ctx: object }} options
  */
-export function accountFile(prd, slice, { ctx }) {
+export function accountFile(prd: PrdNumber, slice: string, { ctx }: { ctx: AccountCtx }): string {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   return `${outboxDir}/${ACCOUNTS_DIR}/${slice}.md`;
 }
 
-function accountLine(account) {
-  const form = ACCOUNT_FORMS[account?.kind];
+/** An account as a caller hands it over: checked here, since a third form is refused by name. */
+type GivenAccount = { kind?: unknown; [field: string]: unknown } | null | undefined;
+
+function accountLine(account: GivenAccount): string {
+  const kind = account?.kind;
+  const form = kind === 'item' || kind === 'spec' ? ACCOUNT_FORMS[kind] : undefined;
   if (!form) {
     throw new Error(
       `an account is "item <id>" or "spec <where>", and no third form — got "${account?.kind}"`,
     );
   }
-  const value = String(account[form.field] ?? '').trim();
+  const value = String(account?.[form.field] ?? '').trim();
   if (value.length === 0) {
     throw new Error(`an "${form.kind}" account needs its ${form.field} — ${form.why}`);
   }
@@ -572,11 +683,18 @@ function accountLine(account) {
  * With no entry at all this throws rather than write the empty file the spec calls ceremony —
  * "a ceremony file is exactly what gets written without being read". Whether a file is owed is
  * {@link planAccount}'s decision, not this renderer's.
- *
- * @param {{ prd: number | string, slice: string, graded: string,
- *   entries: { path: string, rule: string, account: object }[] }} fields
  */
-export function renderAccount({ prd, slice, graded, entries }) {
+export function renderAccount({
+  prd,
+  slice,
+  graded,
+  entries,
+}: {
+  prd: PrdNumber;
+  slice: string;
+  graded: string;
+  entries: readonly (RiskyChange & { account: GivenAccount })[] | null | undefined;
+}): string {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error(
       'an account file with no risky change is not written at all — a slice that touched nothing risky owes nothing',
@@ -604,7 +722,7 @@ export function renderAccount({ prd, slice, graded, entries }) {
 }
 
 /** A risky change is identified by its path AND its rule — one path may fire more than one rule. */
-function changeKey({ path, rule }) {
+function changeKey({ path, rule }: RiskyChange): string {
   return `${path}\u0000${rule}`;
 }
 
@@ -620,14 +738,24 @@ function changeKey({ path, rule }) {
  *
  * With no risky change, `writesFile` is `false` and there is no file, no path and no text — the
  * spec's "a slice that made no risky change writes no file at all".
- *
- * @param {{ prd: number | string, slice: string, graded: string,
- *   risky: { path: string, status: string, rule: string }[],
- *   accountFor: (change: object) => object | null, ctx: object }} input
  */
-export function planAccount({ prd, slice, graded, risky = [], accountFor, ctx }) {
-  const seen = new Set();
-  const owed = [];
+export function planAccount({
+  prd,
+  slice,
+  graded,
+  risky = [],
+  accountFor,
+  ctx,
+}: {
+  prd: PrdNumber;
+  slice: string;
+  graded: string;
+  risky?: readonly (RiskyChange & { status?: string })[];
+  accountFor: (change: RiskyChange) => Account | null | undefined;
+  ctx: AccountCtx;
+}): AccountPlan {
+  const seen = new Set<string>();
+  const owed: RiskyChange[] = [];
   for (const change of risky) {
     const key = changeKey(change);
     if (seen.has(key)) continue;
@@ -635,8 +763,8 @@ export function planAccount({ prd, slice, graded, risky = [], accountFor, ctx })
     owed.push({ path: change.path, rule: change.rule });
   }
 
-  const entries = [];
-  const unaccounted = [];
+  const entries: AccountEntry[] = [];
+  const unaccounted: RiskyChange[] = [];
   for (const change of owed) {
     const account = accountFor(change) ?? null;
     if (account) entries.push({ ...change, account });

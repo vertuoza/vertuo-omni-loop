@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 262, slice s1: the release note's parser and its six rules, on valid and invalid texts.
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTION_MAX, gradeReleaseNote, INITIAL_VERSION, parseReleaseNote, RELEASE_NOTE_FILE, TITLE_MAX } from './note.ts';
@@ -9,7 +8,7 @@ const DESCRIPTION =
   'reading pages and the game, with a confirmation before each switch. The app gets its own home page.';
 
 /** A note's text: front matter in the order given (a key set to `undefined` is left out), then the body. */
-function note({ fields = {}, body = DESCRIPTION } = {}) {
+function note({ fields = {}, body = DESCRIPTION }: { fields?: Record<string, string | number | undefined>; body?: string } = {}) {
   const front = { prd: 238, title: TITLE, ...fields };
   const lines = Object.entries(front)
     .filter(([, value]) => value !== undefined)
@@ -17,7 +16,7 @@ function note({ fields = {}, body = DESCRIPTION } = {}) {
   return ['---', ...lines, '---', body, ''].join('\n');
 }
 
-const grade = (text, prd = 238) => gradeReleaseNote(text, { prd });
+const grade = (text: string, prd: number | string = 238) => gradeReleaseNote(text, { prd });
 
 describe('the note file', () => {
   it('is release.md, beside spec.md, and the initial release is 0.0.1', () => {
@@ -49,7 +48,7 @@ describe('parseReleaseNote', () => {
   });
 
   it('keeps a colon inside the title', () => {
-    expect(parseReleaseNote(note({ fields: { title: 'Ask mode: answer on a page' } })).note.title).toBe('Ask mode: answer on a page');
+    expect(parseReleaseNote(note({ fields: { title: 'Ask mode: answer on a page' } })).note?.title).toBe('Ask mode: answer on a page');
   });
 
   it('reads a blank line before the body as nothing, and CRLF line ends as LF', () => {
@@ -59,7 +58,7 @@ describe('parseReleaseNote', () => {
 
   it('keeps a title continued on a second line, so the check can refuse it', () => {
     const text = ['---', 'prd: 238', 'title: Jump between work', '  and play in one tap', '---', 'One line.', ''].join('\n');
-    expect(parseReleaseNote(text).note.title).toBe('Jump between work\nand play in one tap');
+    expect(parseReleaseNote(text).note?.title).toBe('Jump between work\nand play in one tap');
   });
 
   it('refuses a text with no front matter', () => {
@@ -101,7 +100,7 @@ describe('gradeReleaseNote — the six rules', () => {
   });
 
   it('passes the initial release’s longest lines as written in the spec', () => {
-    const lines = [
+    const lines: [number, string, string][] = [
       [7, 'Brainstorm, build and ship with three commands', 'The omni plugin for Claude Code gives the loop its commands: /omni:brainstorm turns an idea into a reviewed PRD, /omni:yolo builds it in parallel slices, and /omni:yolo-fix reworks what a reviewer disagreed with.'],
       [144, 'No answer is ever lost again', 'Every question Claude asks is kept for good, with its repository, branch, PRD, cost, category and who answered. The whole workspace can browse the history, and a live question can be shared with a teammate.'],
       [215, 'A signature that links back home', 'Pull requests and issues made by the loop end with "Omni-man by Omni Loop ©", linking to the Omni Loop home page. The hero\'s name and the link are set once in the configuration.'],
