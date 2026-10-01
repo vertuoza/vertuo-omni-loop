@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **An outbox item is a typed thing** (PRD #985, slice s2) — the guard. **A settled item's
  * `Became:` ids must resolve, and no open item may sit inside a shipped PRD** (Task 7).
@@ -45,7 +44,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
+import type { Context } from '../context.ts';
 import { lawsFor } from '../laws.ts';
+import type { Laws } from '../laws.ts';
+import type { OutboxOption, OutboxSections } from '../types.ts';
 import { isPlaybookId, resolvePlaybookId } from '../playbook/forms.ts';
 import {
   SETTLED_FILE,
@@ -53,29 +55,28 @@ import {
   isBelowFloor,
   optionLettersInOrder,
   outboxItemFiles,
-  parseOutboxItem,
   plainWordsProblems,
   resolveBearsOn,
 } from './outbox.ts';
-import { parseSettledEntries } from './settle.ts';
+import { parseItem, parseSettledEntries } from './settle.ts';
 
 /** Ranks that need two to four lettered options — a `human-action` item needs none. */
-const RANKS_NEEDING_OPTIONS = ['high', 'medium'];
+const RANKS_NEEDING_OPTIONS: readonly string[] = ['high', 'medium'];
 
 /** The plain-words section, and the field `parseOutboxItem` reports it under. */
-const PLAIN_SECTION_FIELDS = [
+const PLAIN_SECTION_FIELDS: { heading: string; field: keyof OutboxSections & ('questionPlain' | 'decisionPlain') }[] = [
   { heading: 'The question, in plain words', field: 'questionPlain' },
   { heading: 'The decision, in plain words', field: 'decisionPlain' },
 ];
 
 /** The intro and the punchline, and the field `parseOutboxItem` reports each under. */
-const FUN_SECTION_FIELDS = [
+const FUN_SECTION_FIELDS: { heading: string; field: keyof OutboxSections & ('introFun' | 'punchlineFun') }[] = [
   { heading: 'The intro, for fun', field: 'introFun' },
   { heading: 'The punchline, for fun', field: 'punchlineFun' },
 ];
 
 /** One `file: detail` line — the one format every violation in this module is printed as. */
-function describe(file, detail) {
+function describe(file: string, detail: string): string {
   return `${file}: ${detail}`;
 }
 
@@ -87,12 +88,16 @@ function describe(file, detail) {
  * every call, but is not itself read here: everything this function needs from the repository
  * (whether `bears-on` resolves, whether it floors the rank) already lives in `laws`.
  */
-export function checkItemText(file, text, { ctx, laws } = {}) {
-  const parsed = parseOutboxItem(text, { file });
+export function checkItemText(
+  file: string,
+  text: string,
+  { laws }: { ctx?: Context; laws?: Laws } = {},
+): string[] {
+  const parsed = parseItem(text, file);
   if (!parsed.ok) return parsed.errors;
 
   const { item } = parsed;
-  const violations = [];
+  const violations: string[] = [];
 
   const resolved = resolveBearsOn(item.bearsOn, laws);
   if (!resolved.ok) {
@@ -144,7 +149,7 @@ export function checkItemText(file, text, { ctx, laws } = {}) {
 }
 
 /** The options-section violations for one `high` or `medium` item — `[]` when it holds up. */
-function optionsViolations(file, options) {
+function optionsViolations(file: string, options: readonly OutboxOption[] | undefined): string[] {
   const list = options ?? [];
 
   if (list.length < 2 || list.length > 4) {
@@ -179,9 +184,9 @@ function optionsViolations(file, options) {
  * PRD's outbox. Builds `laws` once (`lawsFor(ctx)`, Task 4) and threads it through every per-item
  * and per-ledger check.
  */
-export function findOutboxViolations({ ctx }) {
+export function findOutboxViolations({ ctx }: { ctx: Context }): string[] {
   const laws = lawsFor(ctx);
-  const violations = [];
+  const violations: string[] = [];
   const shippedDirs = ctx.layout
     .outboxDirs()
     .filter(({ shipped }) => shipped)

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A settled item keeps its question, and says whether the build drifted** (PRD #985, slice s5).
  *
@@ -42,8 +41,30 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { z } from 'zod';
 import { COMMANDS } from '../commands.ts';
+import type { Layout } from '../layout.ts';
+import type { makeMarkers } from '../markers.ts';
+import type { OutboxItem } from '../types.ts';
 import { SETTLED_FILE, parseOutboxItem } from './outbox.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+
+/** The markers the ledger is written and read with. */
+export type Markers = ReturnType<typeof makeMarkers>;
+
+/** What settling reads off a context: its root, its layout, its markers and its delivery folder. */
+export type SettleContext = {
+  root: string;
+  layout: Pick<Layout, 'outboxDir'>;
+  markers: Markers;
+  config: { paths: { delivery: string } };
+};
+
+/** An outbox item parsed, or the errors that kept it from parsing. */
+export type ParsedOutboxItem = { ok: true; item: OutboxItem } | { ok: false; errors: string[] };
+
+/** {@link parseOutboxItem}, with the result shape its callers here narrow on. */
+export function parseItem(text: string, file: string | null): ParsedOutboxItem {
+  return parseOutboxItem(text, { file }) as ParsedOutboxItem; // ts-allow: outbox.ts is typed by its own slice; its result is this union
+}
 
 /**
  * The two verdicts a HUMAN's answer produces, through {@link judgeAnswer}. Named by the plan; no
@@ -51,13 +72,19 @@ import { KIT_MESSAGES } from '../schema/messages.ts';
  * item, so `AnswerSchema`'s `statedVerdict` — and `--verdict` on the CLI — still only ever accepts
  * one of these two.
  */
-export const VERDICTS = /** @type {const} */ (['agreed', 'drifted']);
+export const VERDICTS = ['agreed', 'drifted'] as const;
+
+/** A verdict a human's answer produces. */
+export type Verdict = (typeof VERDICTS)[number];
 
 /**
  * The verdict a `medium` item gets the moment it is raised (PRD #1166, slice s5) — settled, kept,
  * and never asked about, unless an objection later appends a `drifted` entry for the same id.
  */
 export const ADOPTED_VERDICT = 'adopted';
+
+/** A verdict a settled entry carries. */
+export type SettledVerdict = Verdict | typeof ADOPTED_VERDICT;
 
 /** The answer text an adopted entry carries — nobody actually answered anything. */
 const ADOPTED_ANSWER_TEXT =
@@ -68,9 +95,11 @@ const ADOPTED_ANSWER_TEXT =
  * feature pull request, and the settled entry names the one that was used — the gate is red on the
  * pull request, and that is where you are when you notice.
  */
-export const CHANNEL_KINDS = /** @type {const} */ (['prd-issue', 'feature-pull-request']);
+export const CHANNEL_KINDS = ['prd-issue', 'feature-pull-request'] as const;
 
-const CHANNEL_LABEL = {
+export type ChannelKind = (typeof CHANNEL_KINDS)[number];
+
+const CHANNEL_LABEL: Record<ChannelKind, string> = {
   'prd-issue': 'PRD issue',
   'feature-pull-request': 'feature pull request',
 };
@@ -84,6 +113,8 @@ const AnswerChannelSchema = z
     url: z.string().trim().min(1).optional(),
   })
   .strict();
+
+export type AnswerChannel = z.infer<typeof AnswerChannelSchema>;
 
 /** A human's answer, as the settler needs it. Zod-first per invariant N1. */
 export const AnswerSchema = z
@@ -101,8 +132,41 @@ export const AnswerSchema = z
   })
   .strict();
 
+/** The answer an entry records: a parsed human answer, or an adoption's, which names no channel. */
+export type EntryAnswer = {
+  text: string;
+  approvedBy: string;
+  approvedAt: string;
+  channel: AnswerChannel | null;
+};
+
+/** What {@link judgeAnswer} decides: `verdict` is `null` when the comparison cannot tell. */
+export type Judgement = { verdict: SettledVerdict | null; basis: string; reason: string };
+
+/** The facts an entry's header lines print about its item; a drifted entry's are read back as text. */
+export type SettledItemFacts = {
+  id: string;
+  rank: string | undefined;
+  bearsOn: string | null | undefined;
+  raised: string | undefined;
+  slice: string | undefined;
+  wave: number | string | undefined;
+};
+
+/** One entry of `settled.md`, read back (`parseSettledEntries`). */
+export type SettledEntry = {
+  id: string;
+  verdict: string | undefined;
+  closed: boolean;
+  /** Every `- <Name>: <value>` line, by name. */
+  fields: Record<string, string>;
+  answerText: string;
+  itemText: string;
+  became: string[];
+};
+
 /** `PRD issue #985` · `feature pull request #986` — how a human would name where they answered. */
-export function channelLabel(channel) {
+export function channelLabel(channel: { kind: ChannelKind; number: number }): string {
   return `${CHANNEL_LABEL[channel.kind] ?? channel.kind} #${channel.number}`;
 }
 
@@ -163,17 +227,17 @@ const AFFIRMATIONS = new Set([
 
 const STATED_VERDICT_LINE = /^[ \t]*verdict:[ \t]*(agreed|drifted)[ \t]*$/im;
 
-function normalizeApostrophes(text) {
+function normalizeApostrophes(text: string): string {
   return text.replace(/[‘’ʼ]/g, "'");
 }
 
 /** Lowercased, apostrophes normalized, whitespace collapsed — for the verbatim-restatement test. */
-function normalizeWhole(text) {
+function normalizeWhole(text: string): string {
   return normalizeApostrophes(text).toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 /** The answer's opening clause, reduced to bare words — for the affirmation test. */
-function openingClause(text) {
+function openingClause(text: string): string {
   const [first] = normalizeApostrophes(text).split(/[,.;:!?\n]|—|–|--/);
   return (first ?? '')
     .toLowerCase()
@@ -182,7 +246,7 @@ function openingClause(text) {
     .trim();
 }
 
-function markerFound(haystack, marker) {
+function markerFound(haystack: string, marker: string): boolean {
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(^|[^a-z0-9'])${escaped}([^a-z0-9']|$)`).test(haystack);
 }
@@ -214,8 +278,17 @@ function markerFound(haystack, marker) {
  * inventing a reading. A `Verdict:` line in the answer overrides it in one move, and that is the
  * lever a human has when it reads their sentence the wrong way.
  */
-export function judgeAnswer({ choice, answer, statedVerdict = null }) {
-  const stated = statedVerdict ?? answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase() ?? null;
+export function judgeAnswer({
+  choice,
+  answer,
+  statedVerdict = null,
+}: {
+  choice?: string | null | undefined;
+  answer: string;
+  statedVerdict?: Verdict | null | undefined;
+}): Judgement {
+  const statedWord = answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase();
+  const stated = statedVerdict ?? VERDICTS.find((verdict) => verdict === statedWord) ?? null;
   if (stated) {
     return {
       verdict: stated,
@@ -260,7 +333,7 @@ export function judgeAnswer({ choice, answer, statedVerdict = null }) {
 }
 
 /** A backtick fence longer than any run of backticks inside `content`, so the fence always closes. */
-function fenceFor(content) {
+function fenceFor(content: string): string {
   const longest = Math.max(0, ...[...content.matchAll(/`+/g)].map((match) => match[0].length));
   return '`'.repeat(Math.max(3, longest + 1));
 }
@@ -270,12 +343,12 @@ function fenceFor(content) {
  * {@link parseSettledEntries} strips exactly that one newline back off — so content that ends with
  * a newline and content that does not both round-trip byte for byte.
  */
-function verbatimBlock(content) {
+function verbatimBlock(content: string): string {
   const fence = fenceFor(content);
   return `${fence}text\n${content}\n${fence}`;
 }
 
-function closedLine(verdict) {
+function closedLine(verdict: SettledVerdict | null): string {
   if (verdict === 'agreed') {
     return 'yes — the answer matches what was built, so there is nothing to rework';
   }
@@ -286,7 +359,7 @@ function closedLine(verdict) {
 }
 
 /** The header a fresh `settled.md` starts with. Written once; every settling after this appends. */
-export function settledHeader(prd, { ctx }) {
+export function settledHeader(prd: number | string, { ctx }: { ctx: Pick<SettleContext, 'config'> }): string {
   return [
     `# Settled outbox items — PRD ${prd}`,
     '',
@@ -307,7 +380,21 @@ export function settledHeader(prd, { ctx }) {
  * `closed`, when given, is the `Closed:` line's text as written (PRD #82, slice s2: a merge over a
  * red outbox closes an entry its own way). Omitted, the line follows the verdict, as it always has.
  */
-export function renderSettledEntry({ item, itemText, answer, judgement, markers, closed = null }) {
+export function renderSettledEntry({
+  item,
+  itemText,
+  answer,
+  judgement,
+  markers,
+  closed = null,
+}: {
+  item: SettledItemFacts;
+  itemText: string;
+  answer: EntryAnswer;
+  judgement: Judgement;
+  markers: Pick<Markers, 'settledOpen' | 'settledClose'>;
+  closed?: string | null;
+}): string {
   const lines = [
     markers.settledOpen(item.id),
     '',
@@ -354,35 +441,36 @@ export function renderSettledEntry({ item, itemText, answer, judgement, markers,
  * nothing to change in any of them. Pure. A later slice reads the drifted entries through this;
  * the tests prove the item text it returns is byte-identical to the file that was settled.
  */
-export function parseSettledEntries(text, markers) {
+export function parseSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' | 'settledClose'>): SettledEntry[] {
   return latestPerId(rawSettledEntries(text, markers));
 }
 
 /** Keeps, for each id, only the entry that appears LAST in `entries` — the append-only ledger's
  * "latest wins" rule. A repeated id keeps its first position (so unrelated ids keep reading in
  * raised order) with the later entry's own facts. */
-function latestPerId(entries) {
-  const byId = new Map();
+function latestPerId(entries: SettledEntry[]): SettledEntry[] {
+  const byId = new Map<string, SettledEntry>();
   for (const entry of entries) byId.set(entry.id, entry);
   return [...byId.values()];
 }
 
 /** Every entry `settled.md` carries, in file order, with no dedup — {@link parseSettledEntries}'s
  * one caller. */
-function rawSettledEntries(text, markers) {
+function rawSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' | 'settledClose'>): SettledEntry[] {
   const lines = text.split('\n');
-  const entries = [];
-  let current = null;
+  const entries: SettledEntry[] = [];
+  let current: { id: string; fields: Record<string, string>; blocks: string[] } | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
-    const openMatch = lines[index].match(markers.settledOpenRe);
+    const line = lines[index] ?? '';
+    const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1], fields: {}, blocks: [] };
+      current = { id: openMatch[1] ?? '', fields: {}, blocks: [] };
       continue;
     }
     if (!current) continue;
 
-    if (lines[index] === markers.settledClose(current.id)) {
+    if (line === markers.settledClose(current.id)) {
       const [answerText = '', itemText = ''] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? '');
       const became = (current.fields.Became ?? '')
@@ -402,7 +490,7 @@ function rawSettledEntries(text, markers) {
       continue;
     }
 
-    const fenceMatch = lines[index].match(/^(`{3,})text$/);
+    const fenceMatch = line.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
       const start = index + 1;
@@ -416,15 +504,15 @@ function rawSettledEntries(text, markers) {
       continue;
     }
 
-    const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
-    if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
+    const fieldMatch = line.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
+    if (fieldMatch) current.fields[fieldMatch[1] ?? ''] = fieldMatch[2] ?? '';
   }
 
   return entries;
 }
 
 /** Accepts either a repo-relative path (what a skill passes) or an absolute one (what a human types). */
-function locate(root, file) {
+function locate(root: string, file: string): { absoluteFile: string; relativeFile: string } {
   const absoluteFile = isAbsolute(file) ? file : join(root, file);
   return { absoluteFile, relativeFile: relative(root, absoluteFile) };
 }
@@ -439,7 +527,17 @@ function locate(root, file) {
  * @returns {{ ok: true, verdict, basis, entry, settledFile, removedFile }
  *   | { ok: false, errors: string[] }}
  */
-export function settleItem({ ctx, file, answer }) {
+export function settleItem({
+  ctx,
+  file,
+  answer,
+}: {
+  ctx: SettleContext;
+  file: string;
+  answer: unknown;
+}):
+  | { ok: true; verdict: SettledVerdict; basis: string; entry: string; settledFile: string; removedFile: string }
+  | { ok: false; errors: string[] } {
   const { absoluteFile, relativeFile } = locate(ctx.root, file);
 
   const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
@@ -457,7 +555,7 @@ export function settleItem({ ctx, file, answer }) {
   }
 
   const itemText = readFileSync(absoluteFile, 'utf8');
-  const parsedItem = parseOutboxItem(itemText, { file: relativeFile });
+  const parsedItem = parseItem(itemText, relativeFile);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
 
   const { item } = parsedItem;
@@ -511,7 +609,7 @@ export function settleItem({ ctx, file, answer }) {
  * The judgement an adopted entry carries — never through {@link judgeAnswer}, since nobody answered
  * anything; a medium item is adopted the moment it is raised.
  */
-function adoptedJudgement() {
+function adoptedJudgement(): Judgement {
   return {
     verdict: ADOPTED_VERDICT,
     basis: 'adopted-when-raised',
@@ -528,7 +626,15 @@ function adoptedJudgement() {
  *
  * @param {{ item: object, itemText: string, markers: object }} input
  */
-export function renderAdoptedEntry({ item, itemText, markers }) {
+export function renderAdoptedEntry({
+  item,
+  itemText,
+  markers,
+}: {
+  item: SettledItemFacts & { raised: string };
+  itemText: string;
+  markers: Pick<Markers, 'settledOpen' | 'settledClose'>;
+}): string {
   return renderSettledEntry({
     item,
     itemText,
@@ -558,8 +664,14 @@ export function renderAdoptedEntry({ item, itemText, markers }) {
  * @returns {{ ok: true, entry: string, settledFile: string, item: object }
  *   | { ok: false, errors: string[] }}
  */
-export function adoptItem({ ctx, itemText }) {
-  const parsedItem = parseOutboxItem(itemText, { file: null });
+export function adoptItem({
+  ctx,
+  itemText,
+}: {
+  ctx: SettleContext;
+  itemText: string;
+}): { ok: true; entry: string; settledFile: string; item: OutboxItem } | { ok: false; errors: string[] } {
+  const parsedItem = parseItem(itemText, null);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
 
   const { item } = parsedItem;

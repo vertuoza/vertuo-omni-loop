@@ -29487,16 +29487,13 @@ var COMMANDS = Object.freeze({
 });
 
 // kit/lib/outbox/settle.ts
-var VERDICTS = (
-  /** @type {const} */
-  ["agreed", "drifted"]
-);
+function parseItem(text4, file2) {
+  return parseOutboxItem(text4, { file: file2 });
+}
+var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
 var ADOPTED_ANSWER_TEXT = "Adopted the moment it was raised \u2014 nobody approved it, and it stands unless someone objects.";
-var CHANNEL_KINDS = (
-  /** @type {const} */
-  ["prd-issue", "feature-pull-request"]
-);
+var CHANNEL_KINDS = ["prd-issue", "feature-pull-request"];
 var CHANNEL_LABEL = {
   "prd-issue": "PRD issue",
   "feature-pull-request": "feature pull request"
@@ -29583,8 +29580,13 @@ function markerFound(haystack, marker) {
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9'])${escaped}([^a-z0-9']|$)`).test(haystack);
 }
-function judgeAnswer({ choice, answer, statedVerdict = null }) {
-  const stated = statedVerdict ?? answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase() ?? null;
+function judgeAnswer({
+  choice,
+  answer,
+  statedVerdict = null
+}) {
+  const statedWord = answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase();
+  const stated = statedVerdict ?? VERDICTS.find((verdict) => verdict === statedWord) ?? null;
   if (stated) {
     return {
       verdict: stated,
@@ -29651,7 +29653,14 @@ function settledHeader(prd2, { ctx }) {
     ""
   ].join("\n");
 }
-function renderSettledEntry({ item: item2, itemText, answer, judgement, markers, closed = null }) {
+function renderSettledEntry({
+  item: item2,
+  itemText,
+  answer,
+  judgement,
+  markers,
+  closed = null
+}) {
   const lines = [
     markers.settledOpen(item2.id),
     "",
@@ -29700,13 +29709,14 @@ function rawSettledEntries(text4, markers) {
   const entries3 = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
-    const openMatch = lines[index].match(markers.settledOpenRe);
+    const line = lines[index] ?? "";
+    const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1], fields: {}, blocks: [] };
+      current = { id: openMatch[1] ?? "", fields: {}, blocks: [] };
       continue;
     }
     if (!current) continue;
-    if (lines[index] === markers.settledClose(current.id)) {
+    if (line === markers.settledClose(current.id)) {
       const [answerText = "", itemText = ""] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? "");
       const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
@@ -29722,7 +29732,7 @@ function rawSettledEntries(text4, markers) {
       current = null;
       continue;
     }
-    const fenceMatch = lines[index].match(/^(`{3,})text$/);
+    const fenceMatch = line.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
       const start = index + 1;
@@ -29732,8 +29742,8 @@ function rawSettledEntries(text4, markers) {
       index = end;
       continue;
     }
-    const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
-    if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
+    const fieldMatch = line.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
+    if (fieldMatch) current.fields[fieldMatch[1] ?? ""] = fieldMatch[2] ?? "";
   }
   return entries3;
 }
@@ -29741,7 +29751,11 @@ function locate(root, file2) {
   const absoluteFile = isAbsolute2(file2) ? file2 : join16(root, file2);
   return { absoluteFile, relativeFile: relative(root, absoluteFile) };
 }
-function settleItem({ ctx, file: file2, answer }) {
+function settleItem({
+  ctx,
+  file: file2,
+  answer
+}) {
   const { absoluteFile, relativeFile } = locate(ctx.root, file2);
   const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
   if (!parsedAnswer.success) {
@@ -29756,7 +29770,7 @@ function settleItem({ ctx, file: file2, answer }) {
     return { ok: false, errors: [`${relativeFile}: no such open item.`] };
   }
   const itemText = readFileSync11(absoluteFile, "utf8");
-  const parsedItem = parseOutboxItem(itemText, { file: relativeFile });
+  const parsedItem = parseItem(itemText, relativeFile);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   const outboxDir = ctx.layout.outboxDir(item2.prd);
@@ -29803,7 +29817,11 @@ function adoptedJudgement() {
     reason: "a medium item is adopted the moment it is raised \u2014 nobody approves it, and it stands unless someone later objects"
   };
 }
-function renderAdoptedEntry({ item: item2, itemText, markers }) {
+function renderAdoptedEntry({
+  item: item2,
+  itemText,
+  markers
+}) {
   return renderSettledEntry({
     item: item2,
     itemText,
@@ -29817,8 +29835,11 @@ function renderAdoptedEntry({ item: item2, itemText, markers }) {
     markers
   });
 }
-function adoptItem({ ctx, itemText }) {
-  const parsedItem = parseOutboxItem(itemText, { file: null });
+function adoptItem({
+  ctx,
+  itemText
+}) {
+  const parsedItem = parseItem(itemText, null);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   if (item2.rank !== "medium") {
@@ -30971,6 +30992,7 @@ function cleanLine(text4) {
   return line.replace(/\s+/g, " ").trim().slice(0, REASON_MAX_LENGTH).trim();
 }
 function describeIssue2(issue2) {
+  if (issue2 === void 0) return "picks: invalid";
   const path = issue2.path.length ? `pick ${issue2.path.map(String).join(".")}` : "picks";
   return `${path}: ${issue2.message}`;
 }
@@ -31001,7 +31023,12 @@ function lineFor(question, pick2) {
   }
   return { reason: `question ${number4}: "${kind}" is not a pick \u2014 a letter, done, not-done or prose` };
 }
-function writeReply({ prd: prd2, door, questions, picks }) {
+function writeReply({
+  prd: prd2,
+  door,
+  questions,
+  picks
+}) {
   if (!Object.hasOwn(DOORS, door)) return { ok: false, reason: `unknown door "${door}": terminal or page` };
   const parsed = PicksSchema.safeParse(picks, { error: KIT_MESSAGES });
   if (!parsed.success) return { ok: false, reason: describeIssue2(parsed.error.issues[0]) };
@@ -31016,15 +31043,19 @@ function writeReply({ prd: prd2, door, questions, picks }) {
     if (!question) return { ok: false, reason: `question ${pick2.number} is not open on this pull request` };
     const result = lineFor(question, pick2);
     if (result.reason) return { ok: false, reason: result.reason };
-    lines.push(result.line);
+    lines.push(result.line ?? "");
   }
   return { ok: true, reply: [...lines, "", `_${DOORS[door]} \xB7 PRD ${prd2}_`].join("\n") };
 }
-function answerableQuestions({ numbering, items, adopted = [] }) {
+function answerableQuestions({
+  numbering,
+  items,
+  adopted = []
+}) {
   const open3 = new Map(items.map((item2) => [item2.id, item2]));
   const kept = /* @__PURE__ */ new Map();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) kept.set(entry.id, parsed.item);
   }
   const questions = [];
@@ -31044,7 +31075,7 @@ function answerableQuestions({ numbering, items, adopted = [] }) {
 }
 function askedText(item2) {
   const sections = item2.sections ?? {};
-  return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain].filter(Boolean).map((part) => part.replace(/\s+/g, " ").trim()).join(" ");
+  return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain].filter((part) => Boolean(part)).map((part) => part.replace(/\s+/g, " ").trim()).join(" ");
 }
 function askBatches({ numbering, items }) {
   const asked = answerableQuestions({ numbering, items }).filter((question) => !question.adopted && (question.rank === HUMAN_ACTION || question.rank === "high")).sort((a, b) => Number(b.rank === HUMAN_ACTION) - Number(a.rank === HUMAN_ACTION) || a.number - b.number).map(({ number: number4, id, rank, options, item: item2 }) => {
@@ -34354,8 +34385,8 @@ var FUN_SECTION_FIELDS = [
 function describe3(file2, detail) {
   return `${file2}: ${detail}`;
 }
-function checkItemText(file2, text4, { ctx, laws } = {}) {
-  const parsed = parseOutboxItem(text4, { file: file2 });
+function checkItemText(file2, text4, { laws } = {}) {
+  const parsed = parseItem(text4, file2);
   if (!parsed.ok) return parsed.errors;
   const { item: item2 } = parsed;
   const violations = [];
@@ -34460,13 +34491,13 @@ function discoveredPrds({ ctx }) {
 }
 function findFormatViolations({ ctx }) {
   return discoveredPrds({ ctx }).flatMap(
-    (prd2) => readAccounts(prd2, { ctx }).filter((result) => !result.ok).flatMap((result) => result.errors)
+    (prd2) => readAccounts(prd2, { ctx }).flatMap((result) => result.ok ? [] : result.errors ?? [])
   );
 }
 function gradePrd(prd2, risky, { ctx }) {
   const results = readAccounts(prd2, { ctx });
-  const malformed = results.filter((result) => !result.ok).flatMap((result) => result.errors);
-  const accounts = results.filter((result) => result.ok).map((result) => result.account);
+  const malformed = results.flatMap((result) => result.ok ? [] : result.errors ?? []);
+  const accounts = results.flatMap((result) => result.ok && result.account ? [result.account] : []);
   const { accounted, unaccounted, stale } = compare(risky, accounts);
   return { prd: prd2, malformed, accounted, unaccounted, stale };
 }
@@ -36173,7 +36204,11 @@ function itemFromEntry(entry) {
     wave: fields.Wave
   };
 }
-function settleAtMerge({ ctx, prd: prd2, merge: merge2 }) {
+function settleAtMerge({
+  ctx,
+  prd: prd2,
+  merge: merge2
+}) {
   const parsedMerge = MergeSchema.safeParse(merge2, { error: KIT_MESSAGES });
   if (!parsedMerge.success) {
     return { ok: false, errors: parsedMerge.error.issues.map((issue2) => issue2.message) };
@@ -36191,7 +36226,7 @@ function settleAtMerge({ ctx, prd: prd2, merge: merge2 }) {
   const deletes = [];
   for (const file2 of openItemFiles(prd2, { ctx })) {
     const itemText = readRepoFile(ctx, file2);
-    const parsed = parseOutboxItem(itemText, { file: file2 });
+    const parsed = parseItem(itemText, file2);
     if (!parsed.ok) {
       errors.push(...parsed.errors);
       continue;
@@ -40372,18 +40407,21 @@ function parseReplyLines(body) {
       continue;
     }
     const match = line.match(NUMBERED_LINE);
-    if (match) lines.push({ kind: "numbered", number: Number(match[1]), text: match[2].trim() });
+    if (match) lines.push({ kind: "numbered", number: Number(match[1]), text: (match[2] ?? "").trim() });
   }
   return lines;
 }
-function interpretAnswer({ text: text4, options }) {
+function interpretAnswer({
+  text: text4,
+  options
+}) {
   const trimmed = String(text4 ?? "").trim();
   if (RECOMMENDATION_RE.test(trimmed)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
   const match = trimmed.match(LETTER_ANSWER);
   if (!match) return { statedVerdict: null, recorded: trimmed };
-  const letter = match[1].toUpperCase();
+  const letter = (match[1] ?? "").toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
   if (!option) return { undetermined: true, recorded: trimmed };
   const reason2 = (match[2] ?? "").trim();
@@ -40393,10 +40431,10 @@ function interpretAnswer({ text: text4, options }) {
   };
 }
 function isCountedReply(comment2, markers) {
-  return typeof comment2?.body === "string" && !comment2.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment2.author_association);
+  return typeof comment2?.body === "string" && !comment2.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment2.author_association ?? "");
 }
 function time4(iso) {
-  const value = Date.parse(iso);
+  const value = Date.parse(String(iso));
   return Number.isNaN(value) ? 0 : value;
 }
 function chronological(comments) {
@@ -40410,7 +40448,8 @@ function lastReaskedAt(comments, markers) {
     for (const [number4, round] of rounds) {
       highestRound = Math.max(highestRound, round);
       const when = time4(comment2.created_at);
-      if (!at.has(number4) || when > at.get(number4)) at.set(number4, when);
+      const previous = at.get(number4);
+      if (previous === void 0 || when > previous) at.set(number4, when);
     }
   }
   return { at, highestRound };
@@ -40419,21 +40458,24 @@ function answerableQuestions2(numbering, items, adopted) {
   const itemsById = new Map(items.map((item2) => [item2.id, item2]));
   const adoptedById = /* @__PURE__ */ new Map();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
   const questions = [];
   for (const entry of numbering) {
-    if (itemsById.has(entry.id)) {
-      questions.push({ ...entry, item: itemsById.get(entry.id), adoptedEntry: null });
-    } else if (adoptedById.has(entry.id)) {
-      const { entry: adoptedEntry, item: item2 } = adoptedById.get(entry.id);
+    const open3 = itemsById.get(entry.id);
+    const kept = adoptedById.get(entry.id);
+    if (open3 !== void 0) {
+      questions.push({ ...entry, item: open3, adoptedEntry: null });
+    } else if (kept !== void 0) {
+      const { entry: adoptedEntry, item: item2 } = kept;
       questions.push({ ...entry, item: item2, adoptedEntry });
     }
   }
   return questions.sort((a, b) => a.number - b.number);
 }
-function planReplies({ comments, items, adopted = [], markers }) {
+function planReplies(args) {
+  const { comments, items, adopted = [], markers } = args;
   const all = Array.isArray(comments) ? comments : [];
   const prComment = findPrMarkerComment(all, markers);
   const numbering = prComment ? parseNumbersMarker(prComment.body, markers) : [];
@@ -40503,7 +40545,11 @@ function planReplies({ comments, items, adopted = [], markers }) {
   };
   return { settle: settle3, held, round };
 }
-function formatRoundComment({ round, questions, markers }) {
+function formatRoundComment({
+  round,
+  questions,
+  markers
+}) {
   const ordered = [...questions].sort((a, b) => a.number - b.number);
   const lines = [
     markers.round(round, ordered.map((question) => question.number)),
@@ -40527,7 +40573,14 @@ function formatRoundComment({ round, questions, markers }) {
   }
   return lines.join("\n");
 }
-function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, judgement }) {
+function appendObjection({
+  ctx,
+  prd: prd2,
+  adoptedEntry,
+  item: item2,
+  answer,
+  judgement
+}) {
   const parsedAnswer = AnswerSchema.safeParse(answer);
   if (!parsedAnswer.success) {
     return {
