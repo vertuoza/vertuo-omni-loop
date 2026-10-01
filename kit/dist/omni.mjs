@@ -29208,7 +29208,7 @@ function parseHeadingSections(body) {
     const match = line.match(HEADING_LINE);
     if (match) {
       if (current) sections.push(current);
-      current = { heading: match[1], lines: [] };
+      current = { heading: match[1] ?? "", lines: [] };
     } else if (current) {
       current.lines.push(line);
     }
@@ -29290,38 +29290,31 @@ function validateSections(body) {
       errors.push(`section "## ${section4.heading}" has no content`);
     }
   }
-  const sections = Object.fromEntries(found.map((section4) => [section4.heading, section4.content]));
+  const sections = Object.fromEntries(
+    found.map((section4) => [section4.heading, section4.content])
+  );
   return { errors, sections };
 }
 function parseOutboxItem(text4, { file: file2 = null } = {}) {
-  const blockMatch = text4.match(FRONT_MATTER_BLOCK2);
-  if (!blockMatch) {
-    return {
-      ok: false,
-      errors: [withFile2(file2, 'missing a front-matter block (a "---" fenced header)')]
-    };
-  }
-  const [, rawFrontMatter, body] = blockMatch;
-  const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile2(file2, message)));
-  const parsedFrontMatter = OutboxItemFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (!parsedFrontMatter.success) {
-    for (const issue2 of parsedFrontMatter.error.issues) {
-      const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
-      errors.push(withFile2(file2, `${field3}: ${issue2.message}`));
-    }
-  }
-  const { errors: sectionErrors, sections } = validateSections(body);
+  const read2 = readFrontMatterBlock(text4, file2, OutboxItemFrontMatterSchema);
+  if (read2.body === null) return { ok: false, errors: read2.errors };
+  const errors = [...read2.errors];
+  const { errors: sectionErrors, sections } = validateSections(read2.body);
   errors.push(...sectionErrors.map((message) => withFile2(file2, message)));
   let parsedOptions;
   if (OPTIONS_HEADING in sections) {
-    const { options, errors: optionErrors } = parseOutboxOptions(sections[OPTIONS_HEADING]);
+    const { options, errors: optionErrors } = parseOutboxOptions(sections[OPTIONS_HEADING] ?? "");
     parsedOptions = options;
     errors.push(...optionErrors.map((message) => withFile2(file2, message)));
   }
-  if (errors.length > 0) return { ok: false, errors };
-  const fm = parsedFrontMatter.data;
+  if (errors.length > 0 || read2.data === null) return { ok: false, errors };
+  const fm = read2.data;
+  const itemSections2 = {};
+  for (const [heading, field3] of Object.entries(SECTION_FIELD)) {
+    const content = sections[heading];
+    if (content !== void 0) itemSections2[field3] = content;
+  }
+  if (parsedOptions !== void 0) itemSections2.options = parsedOptions;
   const item2 = {
     id: fm.id,
     prd: fm.prd,
@@ -29330,13 +29323,27 @@ function parseOutboxItem(text4, { file: file2 = null } = {}) {
     bearsOn: fm["bears-on"],
     raised: fm.raised,
     wave: fm.wave,
-    sections: Object.fromEntries([
-      ...Object.entries(SECTION_FIELD).filter(([heading]) => heading in sections).map(([heading, field3]) => [field3, sections[heading]]),
-      ...parsedOptions !== void 0 ? [["options", parsedOptions]] : []
-    ]),
+    sections: itemSections2,
     file: file2
   };
   return { ok: true, item: item2 };
+}
+function readFrontMatterBlock(text4, file2, schema) {
+  const blockMatch = text4.match(FRONT_MATTER_BLOCK2);
+  if (!blockMatch) {
+    return { body: null, errors: [withFile2(file2, 'missing a front-matter block (a "---" fenced header)')], data: null };
+  }
+  const [, rawFrontMatter = "", body = ""] = blockMatch;
+  const lines = parseFrontMatterLines(rawFrontMatter);
+  const checked = schema.safeParse(lines.data, { error: KIT_MESSAGES });
+  const refusals = checked.success ? [] : checked.error.issues.map(
+    (issue2) => `${issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)"}: ${issue2.message}`
+  );
+  return {
+    body,
+    errors: [...lines.errors, ...refusals].map((message) => withFile2(file2, message)),
+    data: checked.success ? checked.data : null
+  };
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
 function parseOutboxOptions(content) {
@@ -29349,7 +29356,7 @@ function parseOutboxOptions(content) {
       errors.push(`option line is not "<letter>. <sentence>": "${line}"`);
       continue;
     }
-    options.push({ letter: match[1].toUpperCase(), text: match[2].trim() });
+    options.push({ letter: (match[1] ?? "").toUpperCase(), text: (match[2] ?? "").trim() });
   }
   return { options, errors };
 }
@@ -30002,28 +30009,18 @@ import { existsSync as existsSync14, readdirSync as readdirSync8 } from "node:fs
 import { basename as basename3 } from "node:path";
 var ACCOUNTS_DIR = "accounts";
 var RISKY_CHANGES_HEADING = "Risky changes";
-var FRONT_MATTER_BLOCK3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-var HEADING_LINE2 = /^##\s+(.+?)\s*$/;
 var ENTRY_PATH_LINE = /^-\s+`([^`]+)`$/;
 var ENTRY_RULE_LINE = /^([a-z][a-z0-9-]*)$/;
 var ENTRY_ACCOUNT_LINE = /^(item|spec)\s+(.+)$/;
-function parseHeadingSections2(body) {
-  const sections = [];
-  let current = null;
-  for (const line of body.split("\n")) {
-    const match = line.match(HEADING_LINE2);
-    if (match) {
-      if (current) sections.push(current);
-      current = { heading: match[1], lines: [] };
-    } else if (current) {
-      current.lines.push(line);
-    }
+function captured(match, index) {
+  return match[index] ?? "";
+}
+function groupsOfThree(lines) {
+  const groups = [];
+  for (let i = 0; i + 2 < lines.length; i += 3) {
+    groups.push([lines[i] ?? "", lines[i + 1] ?? "", lines[i + 2] ?? ""]);
   }
-  if (current) sections.push(current);
-  return sections.map((section4) => ({
-    heading: section4.heading,
-    content: section4.lines.join("\n").trim()
-  }));
+  return groups;
 }
 function parseEntries(content) {
   const lines = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
@@ -30038,8 +30035,7 @@ function parseEntries(content) {
   }
   const errors = [];
   const entries3 = [];
-  for (let i = 0; i < lines.length; i += 3) {
-    const [pathLine, ruleLine, accountLine] = lines.slice(i, i + 3);
+  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines)) {
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
     if (!pathMatch) {
       errors.push(`risky change entry must start with a backticked path: "${pathLine}"`);
@@ -30057,18 +30053,18 @@ function parseEntries(content) {
       );
       continue;
     }
-    const [, kind, rawValue] = accountMatch;
-    const value = rawValue.trim();
+    const kind = captured(accountMatch, 1);
+    const value = captured(accountMatch, 2).trim();
     entries3.push({
-      path: pathMatch[1],
-      rule: ruleMatch[1],
+      path: captured(pathMatch, 1),
+      rule: captured(ruleMatch, 1),
       account: kind === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
     });
   }
   return { errors, entries: entries3 };
 }
 function validateBody(body) {
-  const found = parseHeadingSections2(body);
+  const found = parseHeadingSections(body);
   if (found.length === 0) {
     return { errors: [`missing section: "## ${RISKY_CHANGES_HEADING}"`], entries: [] };
   }
@@ -30089,28 +30085,12 @@ function validateBody(body) {
   return { errors, entries: entries3 };
 }
 function parseAccount(text4, { file: file2 = null } = {}) {
-  const blockMatch = text4.match(FRONT_MATTER_BLOCK3);
-  if (!blockMatch) {
-    return {
-      ok: false,
-      errors: [withFile2(file2, 'missing a front-matter block (a "---" fenced header)')]
-    };
-  }
-  const [, rawFrontMatter, body] = blockMatch;
-  const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile2(file2, message)));
-  const parsedFrontMatter = AccountFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (!parsedFrontMatter.success) {
-    for (const issue2 of parsedFrontMatter.error.issues) {
-      const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
-      errors.push(withFile2(file2, `${field3}: ${issue2.message}`));
-    }
-  }
-  const { errors: bodyErrors, entries: entries3 } = validateBody(body);
-  errors.push(...bodyErrors.map((message) => withFile2(file2, message)));
-  if (errors.length > 0) return { ok: false, errors };
-  const fm = parsedFrontMatter.data;
+  const read2 = readFrontMatterBlock(text4, file2, AccountFrontMatterSchema);
+  if (read2.body === null) return { ok: false, errors: read2.errors };
+  const { errors: bodyErrors, entries: entries3 } = validateBody(read2.body);
+  const errors = [...read2.errors, ...bodyErrors.map((message) => withFile2(file2, message))];
+  if (errors.length > 0 || read2.data === null) return { ok: false, errors };
+  const fm = read2.data;
   const account = {
     prd: fm.prd,
     slice: fm.slice,
@@ -30141,16 +30121,16 @@ function readAccounts(prd2, { ctx }) {
     const text4 = readRepoFile(ctx, file2);
     const parsed = parseAccount(text4, { file: file2 });
     if (!parsed.ok) return parsed;
-    const unresolved = parsed.account.entries.filter(
-      (entry) => entry.account.kind === "item" && !itemIds.has(entry.account.id)
+    const unresolved = parsed.account.entries.flatMap(
+      (entry) => entry.account.kind === "item" && !itemIds.has(entry.account.id) ? [entry.account.id] : []
     );
     if (unresolved.length > 0) {
       return {
         ok: false,
         errors: unresolved.map(
-          (entry) => withFile2(
+          (id) => withFile2(
             file2,
-            `item account names an id no outbox file carries: "${entry.account.id}"`
+            `item account names an id no outbox file carries: "${id}"`
           )
         )
       };
@@ -30249,7 +30229,7 @@ function openItems(prd2, { ctx }) {
 }
 function unaccountedChanges(prd2, changes, { ctx }) {
   const risky = riskyChanges(changes, { ctx });
-  const accounts = readAccounts(prd2, { ctx }).filter((result) => result.ok).map((result) => result.account);
+  const accounts = readAccounts(prd2, { ctx }).flatMap((result) => result.ok ? [result.account] : []);
   return compare(risky, accounts).unaccounted;
 }
 function unreworkedDrift(prd2, { ctx }) {
@@ -30260,7 +30240,7 @@ function unreworkedDrift(prd2, { ctx }) {
   const entries3 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
   return entries3.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
-function gateResult(prd2, { ctx, labels = [], changes = null } = {}) {
+function gateResult(prd2, { ctx, labels = [], changes = null }) {
   const items = openItems(prd2, { ctx });
   const unreworked = unreworkedDrift(prd2, { ctx });
   const overrideLabel = ctx.config.labels.outboxGo;
@@ -30290,12 +30270,13 @@ function formatReport(prd2, result) {
     lines.push(`outbox-status \u2014 PRD #${prd2}: ${result.items.length} open item(s):`);
     lines.push(...result.items.map(formatItem));
   }
-  if ((result.unreworked ?? []).length > 0) {
-    const n = result.unreworked.length;
+  const unreworked = result.unreworked ?? [];
+  if (unreworked.length > 0) {
+    const n = unreworked.length;
     lines.push(
       `${n} drifted decision${n === 1 ? "" : "s"} not yet reworked \u2014 run ${COMMANDS.yoloFix} #${prd2}`
     );
-    lines.push(...result.unreworked.map(formatUnreworked));
+    lines.push(...unreworked.map(formatUnreworked));
   }
   if (result.unaccounted !== void 0) {
     if (result.unaccounted.length === 0) {
@@ -30364,7 +30345,10 @@ function sortUnaccountedChanges(changes) {
     return byPath !== 0 ? byPath : a.rule.localeCompare(b.rule);
   });
 }
-function announcedKeys({ items, unaccounted }) {
+function announcedKeys({
+  items,
+  unaccounted
+}) {
   const keys = [
     ...items.map((item2) => item2.id),
     ...unaccounted.map((change) => `${change.rule}:${change.path}`)
@@ -30378,7 +30362,7 @@ function parseAnnouncedMarker(body, markers) {
   if (typeof body !== "string") return [];
   const match = body.match(markers.announcedRe);
   if (!match) return [];
-  const value = match[1].trim();
+  const value = (match[1] ?? "").trim();
   return value === "" ? [] : value.split(",");
 }
 function formatOutboxComment({
@@ -30457,15 +30441,19 @@ function parseNumbersMarker(body, markers) {
   if (typeof body !== "string") return [];
   const match = body.match(markers.numbersRe);
   if (!match) return [];
-  const value = match[1].trim();
+  const value = (match[1] ?? "").trim();
   if (value === "") return [];
   return value.split(",").map((entry) => {
-    const [numberPart, rest] = entry.split(/=(.*)/s);
+    const [numberPart, rest = ""] = entry.split(/=(.*)/s);
     const at = rest.lastIndexOf("@");
     return { number: Number(numberPart), id: rest.slice(0, at), since: rest.slice(at + 1) };
   });
 }
-function assignNumbers({ items, previous = [], now = () => (/* @__PURE__ */ new Date()).toISOString() }) {
+function assignNumbers({
+  items,
+  previous = [],
+  now = () => (/* @__PURE__ */ new Date()).toISOString()
+}) {
   const known = new Set(previous.map((entry) => entry.id));
   const maxNumber = previous.reduce((max, entry) => Math.max(max, entry.number), 0);
   const fresh = sortItems(items.filter((item2) => !known.has(item2.id)));
@@ -30481,15 +30469,17 @@ function parseRoundMarkers(comments, markers) {
     if (typeof comment2.body !== "string") continue;
     const match = comment2.body.match(markers.roundRe);
     if (!match) continue;
-    const round = Number(match[1]);
-    for (const numberText of match[2].split(",")) {
-      if (!numberText) continue;
-      const number4 = Number(numberText);
-      const current = rounds.get(number4);
-      if (current === void 0 || round > current) rounds.set(number4, round);
-    }
+    recordRound(rounds, Number(match[1]), match[2] ?? "");
   }
   return rounds;
+}
+function recordRound(rounds, round, numbersText) {
+  for (const numberText of numbersText.split(",")) {
+    if (!numberText) continue;
+    const number4 = Number(numberText);
+    const current = rounds.get(number4);
+    if (current === void 0 || round > current) rounds.set(number4, round);
+  }
 }
 function readSettledEntries(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
@@ -30564,10 +30554,28 @@ function formatOptionsTable(options, mark) {
 function otherLetter(options) {
   return options.find((option) => option.letter !== "A")?.letter ?? "B";
 }
-function hasOptions(item2) {
-  return Array.isArray(item2.sections?.options) && item2.sections.options.length > 0;
+function offeredOptions(item2) {
+  const options = item2.sections?.options;
+  return Array.isArray(options) && options.length > 0 ? options : [];
 }
-function questionBanter({ items, adopted, numberById }) {
+var NO_BANTER = { intro: void 0, punchline: void 0 };
+function questionFacts(id, { numberById, roundMarkers, banter }) {
+  const number4 = numberById.get(id);
+  return {
+    number: number4,
+    round: number4 === void 0 ? void 0 : roundMarkers.get(number4),
+    banter: banter.get(id) ?? NO_BANTER
+  };
+}
+function exampleNumber(sorted, numberById) {
+  const last = sorted.at(-1);
+  return (last === void 0 ? void 0 : numberById.get(last.id)) ?? 1;
+}
+function questionBanter({
+  items,
+  adopted,
+  numberById
+}) {
   const numberOf2 = (question) => numberById.get(question.id) ?? Infinity;
   const questions = [
     ...items.map((item2) => ({ id: item2.id, sections: item2.sections })),
@@ -30585,8 +30593,9 @@ function questionBanter({ items, adopted, numberById }) {
   for (const [id, lines] of assignBanter(fromPool)) banter.set(id, lines);
   return banter;
 }
-function openQuestionLines(item2, number4, round, banter) {
+function openQuestionLines(item2, { number: number4, round, banter }) {
   const humanAction = item2.rank === "human-action";
+  const options = offeredOptions(item2);
   const lines = [
     "---",
     "",
@@ -30607,8 +30616,7 @@ function openQuestionLines(item2, number4, round, banter) {
       "",
       `Reply \`${number4}: ok\` once it is done, or \`${number4}: no, because \u2026\``
     );
-  } else if (hasOptions(item2)) {
-    const { options } = item2.sections;
+  } else if (options.length > 0) {
     lines.push(
       ...formatOptionsTable(options, "recommended \xB7 built"),
       "",
@@ -30629,10 +30637,10 @@ function adoptedItem(entry) {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   return parsed.ok ? parsed.item : null;
 }
-function adoptedQuestionLines(entry, number4, round, banter) {
+function adoptedQuestionLines(entry, { number: number4, round, banter }) {
   const item2 = adoptedItem(entry);
   const question = item2?.sections.questionPlain ?? answeredQuestionText(entry);
-  const options = item2 && hasOptions(item2) ? item2.sections.options : [];
+  const options = item2 ? offeredOptions(item2) : [];
   const lines = [
     `### Question ${number4} \xB7 medium \u2014 adopted`,
     "",
@@ -30672,10 +30680,11 @@ function formatOutboxPrComment({
   const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
   const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
+  const facts = { numberById, roundMarkers, banter };
   const lines = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
     const count3 = sorted.length;
-    const example = numberById.get(sorted.at(-1).id) ?? 1;
+    const example = exampleNumber(sorted, numberById);
     lines.push(
       `**${count3} question${count3 === 1 ? "" : "s"} need${count3 === 1 ? "s" : ""} your decision**`,
       "",
@@ -30684,10 +30693,7 @@ function formatOutboxPrComment({
       `_A reply settles nothing on its own \u2014 \`${COMMANDS.yoloFix}\` reads the replies and settles them._`,
       ""
     );
-    for (const item2 of sorted) {
-      const number4 = numberById.get(item2.id);
-      lines.push(...openQuestionLines(item2, number4, roundMarkers.get(number4), banter.get(item2.id)));
-    }
+    for (const item2 of sorted) lines.push(...openQuestionLines(item2, questionFacts(item2.id, facts)));
   } else if (adopted.length > 0) {
     lines.push("**Nothing needs your decision**", "");
   } else if (answered.length > 0) {
@@ -30705,10 +30711,7 @@ function formatOutboxPrComment({
       ""
     );
     for (const entry of [...adopted].sort(byNumber)) {
-      const number4 = numberById.get(entry.id);
-      lines.push(
-        ...adoptedQuestionLines(entry, number4, roundMarkers.get(number4), banter.get(entry.id))
-      );
+      lines.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
     }
     lines.push("</details>", "");
   }
@@ -30730,7 +30733,7 @@ function formatOutboxPrComment({
 }
 function omniPageLink(prd2, ctx) {
   const { answers: answers2, ask: ask5, repo } = ctx.config;
-  if (!answers2?.enabled || !ask5?.url || !repo?.slug || !Number.isInteger(prd2) || prd2 < 1) return null;
+  if (!answers2?.enabled || !ask5?.url || !repo?.slug || !Number.isInteger(prd2) || Number(prd2) < 1) return null;
   return `${ask5.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd2}`;
 }
 function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ new Date()).toISOString() }, client) {
@@ -30815,7 +30818,10 @@ function plural2(count3, singular, pluralForm = `${singular}s`) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
-function slackOwner({ slackId, login } = {}) {
+function slackOwner({
+  slackId,
+  login
+} = {}) {
   if (typeof slackId === "string" && SLACK_USER_ID.test(slackId)) return { slackId };
   if (typeof login === "string" && login.trim() !== "") return { login: login.trim() };
   return null;
@@ -30854,11 +30860,15 @@ function slackLine({
   if (url2) lines.push(`<${url2}|${linkLabel(url2)}>`);
   return lines.join("\n");
 }
+var PrCommentResultSchema = external_exports.object({
+  htmlUrl: external_exports.string().nullish(),
+  newAdoptedCount: external_exports.number().optional()
+}).loose();
 function readPrCommentResult(path, { read: read2 = (file2) => readFileSync13(file2, "utf8") } = {}) {
   if (!path) return null;
   try {
-    const parsed = JSON.parse(read2(path));
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = PrCommentResultSchema.safeParse(JSON.parse(read2(path)));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -30889,7 +30899,16 @@ function maybeWriteSlackNote({
   write(path, `${line}
 `);
 }
-function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx, changes = [], labels = [] }, client) {
+function upsertOutboxComment({
+  prd: prd2,
+  owner,
+  repo,
+  branch,
+  ref = branch,
+  ctx,
+  changes = [],
+  labels = []
+}, client) {
   const items = openItemsForPrd(prd2, { ctx });
   const unaccounted = unaccountedChanges(prd2, changes, { ctx });
   const unreworked = unreworkedDrift(prd2, { ctx });
@@ -33480,7 +33499,7 @@ function parseVoice(text4) {
 
 // kit/lib/inbox/inbox.ts
 init_define_OMNI_BUNDLE();
-var FRONT_MATTER_BLOCK4 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+var FRONT_MATTER_BLOCK3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var FORBIDDEN_STATUS_LIKE_FIELDS = ["status", "branch", "value", "priority"];
 function unrecognizedKeyMessage(key) {
   if (key === "plan") {
@@ -33490,7 +33509,7 @@ function unrecognizedKeyMessage(key) {
   return `unexpected field "${key}"${named2}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
 function parseSpec(text4, { file: file2 = null } = {}) {
-  const blockMatch = text4.match(FRONT_MATTER_BLOCK4);
+  const blockMatch = text4.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -34489,7 +34508,7 @@ var DESCRIPTION_MAX = 280;
 var FIELDS = ["prd", "title", "version"];
 var REQUIRED = ["prd", "title"];
 var KIT_FOLDER = `${dirname8(CONFIG_FILE)}/`;
-var FRONT_MATTER_BLOCK5 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
+var FRONT_MATTER_BLOCK4 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 var FIELD_LINE2 = /^([A-Za-z][\w-]*):(?:[ \t]+(.*))?$/;
 var PRD_NUMBER = /^[1-9]\d*$/;
 var HEADING2 = /^#{1,6}(?:\s|$)/;
@@ -34530,7 +34549,7 @@ ${line.trim()}`;
   return { fields, errors };
 }
 function splitNote(text4) {
-  const match = text4.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+  const match = text4.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK4);
   return match ? { front: match[1], body: match[2] } : null;
 }
 function bodyLines(body) {
@@ -34857,7 +34876,7 @@ var AREA_COLUMNS = (
 );
 var AREA_ROWS = { vast: { min: 2, max: 6, words: "two to six" }, lite: { min: 1, max: 1, words: "exactly one" } };
 var FRONT_FIELDS = ["concept", "title", "kind", "scale"];
-var FRONT_MATTER_BLOCK6 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+var FRONT_MATTER_BLOCK5 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var PRD_CELL = /^#([1-9]\d*)$/;
 var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
@@ -34975,7 +34994,7 @@ function areasOf(lines, scale) {
   return { areas, faults };
 }
 function parseConcept(text4) {
-  const block = FRONT_MATTER_BLOCK6.exec(text4);
+  const block = FRONT_MATTER_BLOCK5.exec(text4);
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
   const [, raw, body] = block;
   const front = frontMatter(raw);
@@ -38703,30 +38722,51 @@ function move(from, to) {
   try {
     renameSync2(from, to);
   } catch (error62) {
-    if (error62?.code !== "EXDEV") throw error62;
+    if (!(error62 instanceof Error) || !("code" in error62) || error62.code !== "EXDEV") throw error62;
     writeFileSync16(to, readFileSync39(from));
     unlinkSync(from);
   }
 }
-function itemRefusal({ ctx, laws, prd: prd2, outboxDir, name, text: text4, taken }) {
+function itemRefusal({
+  ctx,
+  laws,
+  prd: prd2,
+  outboxDir,
+  name,
+  text: text4,
+  taken
+}) {
   const renderedFile = `${outboxDir}/${name}`;
   const violations = checkItemText(renderedFile, text4, { ctx, laws });
   if (violations.length > 0) return violations.join("; ");
-  const { item: item2 } = parseOutboxItem(text4, { file: renderedFile });
+  const parsed = parseOutboxItem(text4, { file: renderedFile });
+  if (!parsed.ok) return parsed.errors.join("; ");
+  const { item: item2 } = parsed;
   if (Number(item2.prd) !== prd2) return `it belongs to PRD ${item2.prd}, not PRD ${prd2}`;
   if (`${item2.id}.md` !== name) return `its file name is not its id ${item2.id}`;
   if (taken.has(item2.id)) return `${item2.id} is already in the outbox of PRD ${prd2}`;
   return null;
 }
-function accountRefusal({ prd: prd2, destination, name, text: text4 }) {
+function accountRefusal({
+  prd: prd2,
+  destination,
+  name,
+  text: text4
+}) {
   const parsed = parseAccount(text4, { file: name });
   if (!parsed.ok) return parsed.errors.join("; ");
   if (parsed.account.prd !== prd2) return `it belongs to PRD ${parsed.account.prd}, not PRD ${prd2}`;
   if (existsSync42(destination)) return `an account of that name is already in the outbox of PRD ${prd2}`;
   return null;
 }
-function relayFolder({ ctx, laws, prd: prd2, dir }) {
+function relayFolder({
+  ctx,
+  laws,
+  prd: prd2,
+  dir
+}) {
   const outboxDir = ctx.layout.outboxDir(prd2);
+  if (outboxDir === null) throw new Error(`PRD ${prd2} has no inbox or shipped folder`);
   const moved2 = [];
   const refused = [];
   const taken = settledIds(ctx, outboxDir);
