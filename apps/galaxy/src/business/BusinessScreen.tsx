@@ -5,18 +5,23 @@ import { APP_HOME } from '../switch/switch';
 import type { Claim, Product } from './model';
 import { BusinessPage, type BusinessPageProps } from './BusinessPage';
 import type { Persona } from './personas';
+import { ConnectAgent, type ConnectAgentProps } from '../agent-connect/tokens/ConnectAgent';
+import type { AgentToken } from '../agent-connect/tokens/model';
 
 // Settings → Business in each situation (PRD 748 s2), decided once by the page: no database here;
 // signed out (sign in on /app, then come back); an account in no workspace; the business that could
 // not be read; or the business itself, any member's to pick and confirm. Every situation starts with
 // the Settings tabs, Fleets · Repositories · Business.
+//
+// Below the business, Connect an agent (PRD 855 s1, ../agent-connect/tokens/): a member's read-only
+// links for their editors' agents, shown once made, and the workspace's list, when the page has it.
 
 export type BusinessScreenView =
   | { kind: 'closed' }
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | ({ kind: 'business' } & BusinessPageProps);
+  | ({ kind: 'business'; agents?: ConnectAgentProps } & BusinessPageProps);
 
 /** The demo's sample claims: a filled business, some of it cited. No real company is named. */
 export const DEMO_CLAIMS: Claim[] = [
@@ -51,6 +56,14 @@ export const DEMO_PERSONAS: Persona[] = [
     avatar: { v: 1, skin: 0, hair: 0, hairColor: 3, outfit: 1, accessory: 3 },
     who: 'Two-person electrical company, works mostly for other builders.',
     usage: 'Quotes and time on site.',
+  },
+];
+
+/** The demo's sample link (PRD 855 s1): one of the viewer's own, made in the demo, never used. */
+export const DEMO_TOKENS: AgentToken[] = [
+  {
+    id: 'demo-token-1', name: 'My editor', lastFour: 'x7Qe', createdAt: '2026-09-28T09:00:00.000Z', lastUsedAt: null,
+    maker: { id: 'demo-me', login: 'you', name: 'You' }, mine: true, canRevoke: true, working: true,
   },
 ];
 
@@ -90,8 +103,17 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
         </Notice>
       );
     case 'business': {
-      const { kind: _, ...props } = view;
-      return <BusinessPage {...props} />;
+      const { kind: _, agents, ...props } = view;
+      return (
+        <>
+          <BusinessPage {...props} />
+          {agents && (
+            <div className="ask-col business-agents">
+              <ConnectAgent {...agents} />
+            </div>
+          )}
+        </>
+      );
     }
   }
 }
