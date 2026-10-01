@@ -1,25 +1,33 @@
-// @ts-nocheck
 // A snapshot planet → derived state. Nothing here is stored; it is recomputed every time (spec §5).
 import { RULEBOOK } from './rulebook.ts';
 import { addWorkingMinutes, tranchesBetween } from './calendar.ts';
 import { planetKey } from './events.ts';
+import type { GameConfig } from './config.ts';
+import type { DerivedPlanet, DerivedZone, Planet, PlanetState, Wound, Zone, ZoneState } from './types.ts';
 
-export const WOUND_KIND_BY_RANK = Object.freeze({ medium: 'transmission', high: 'unconfirmed-ground', 'human-action': 'beacon' });
+/** One idle stretch of a planet in distress, and the claim that answered it. */
+export type DistressEpisode = {
+  start: string;
+  distressAt: string;
+  rescue: { at: string | null; zone: string; repo: string; author: string | null } | null;
+};
 
-const iso = (d) => d.toISOString().replace('.000Z', 'Z');
-const maxIso = (...xs) => xs.filter(Boolean).sort().at(-1) ?? null;
+export const WOUND_KIND_BY_RANK: Readonly<Record<string, string>> = Object.freeze({ medium: 'transmission', high: 'unconfirmed-ground', 'human-action': 'beacon' });
 
-export function deriveZones(planet) {
+const iso = (d: Date): string => d.toISOString().replace('.000Z', 'Z');
+const maxIso = (...xs: Array<string | null | undefined>): string | null => xs.filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
+
+export function deriveZones(planet: Planet): DerivedZone[] {
   const byId = new Map(planet.zones.map((z) => [z.id, z]));
   return planet.zones.map((z) => {
-    const blockers = z.blockedBy.map((id) => byId.get(id)).filter(Boolean);
+    const blockers = z.blockedBy.map((id) => byId.get(id)).filter((b): b is Zone => Boolean(b));
     const allMerged = blockers.every((b) => b.pr?.mergedAt);
     // F3: a zone opens against its own region's feature PR (falling back to the planet's aggregate).
     const regionFp = planet.regions.find((r) => r.repo === z.repo)?.featurePr ?? planet.featurePr;
     const openedAt = allMerged && planet.featurePr
-      ? maxIso(regionFp?.createdAt ?? planet.featurePr.createdAt, ...blockers.map((b) => b.pr.mergedAt))
+      ? maxIso(regionFp?.createdAt ?? planet.featurePr.createdAt, ...blockers.map((b) => b.pr?.mergedAt))
       : null;
-    let state = 'sealed';
+    let state: ZoneState = 'sealed';
     if (z.pr?.mergedAt && !z.pr.revertedAt) state = 'secured';
     else if (z.pr?.labels.includes('omni:needs-fix')) state = 'under-fire';
     else if (z.pr && !z.pr.mergedAt) state = 'claimed';
@@ -32,16 +40,16 @@ export function deriveZones(planet) {
   });
 }
 
-export function deriveWounds(planet, now) {
+export function deriveWounds(planet: Planet, now: Date): Wound[] {
   const key = planetKey(planet.home, planet.prd); // PRD 728: a wound names its PRD by its home
-  const wounds = [];
+  const wounds: Wound[] = [];
   for (const z of planet.zones) {
     // F1: the label history (`pr.needsFix`) comes off the sub-PR's timeline. A snapshot without it
     // (a failed timeline read) falls back to "labelled since the sub-PR was opened, still labelled".
     const fire = z.pr?.needsFix ?? (z.pr?.labels.includes('omni:needs-fix') ? { labeledAt: z.pr.createdAt, unlabeledAt: null } : null);
     if (fire) {
-      const closedAt = fire.unlabeledAt ?? z.pr.mergedAt ?? null;
-      wounds.push({ id: `fire:${z.repo}:${key}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr.author : null });
+      const closedAt = fire.unlabeledAt ?? z.pr?.mergedAt ?? null;
+      wounds.push({ id: `fire:${z.repo}:${key}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr?.author ?? null : null });
     }
   }
   for (const item of planet.outbox) {
@@ -74,12 +82,13 @@ export function deriveWounds(planet, now) {
 // `{ start, distressAt, rescue }`, where `rescue` is the first claim after distressAt (null while
 // nobody has answered). A zone is open from its openedAt until its claim. Zones are derived zones
 // (`openedAt`, `claimedAt`, `id`, `repo`, `author`).
-export function distressEpisodes(zones, now) {
-  const ms = (t) => new Date(t).getTime();
+export function distressEpisodes(zones: readonly DerivedZone[], now: Date): DistressEpisode[] {
+  // Read only on a zone's times that are set (each list below keeps those).
+  const ms = (t: string | null): number => new Date(t ?? Number.NaN).getTime();
   const openable = zones.filter((z) => z.openedAt && (!z.claimedAt || ms(z.claimedAt) > ms(z.openedAt)));
   const claims = zones.filter((z) => z.claimedAt).sort((a, b) => ms(a.claimedAt) - ms(b.claimedAt) || a.id.localeCompare(b.id));
-  const openAt = (t) => openable.filter((z) => ms(z.openedAt) <= t && (!z.claimedAt || ms(z.claimedAt) > t));
-  const episodes = [];
+  const openAt = (t: number) => openable.filter((z) => ms(z.openedAt) <= t && (!z.claimedAt || ms(z.claimedAt) > t));
+  const episodes: DistressEpisode[] = [];
   let t = Math.min(...openable.map((z) => ms(z.openedAt)));
   while (Number.isFinite(t)) {
     const open = openAt(t);
@@ -103,12 +112,12 @@ export function distressEpisodes(zones, now) {
   return episodes;
 }
 
-function distressSince(zones, now) {
+function distressSince(zones: readonly DerivedZone[], now: Date): string | null {
   const current = distressEpisodes(zones, now).at(-1);
   return current && !current.rescue ? current.distressAt : null;
 }
 
-function lastActivity(planet) {
+function lastActivity(planet: Planet): string | null {
   return maxIso(
     planet.issue.createdAt, planet.featurePr?.createdAt, planet.featurePr?.lastActivityAt, planet.featurePr?.mergedAt,
     ...planet.zones.flatMap((z) => [z.pr?.createdAt, z.pr?.mergedAt, z.pr?.needsFix?.labeledAt, z.pr?.needsFix?.unlabeledAt]),
@@ -117,18 +126,22 @@ function lastActivity(planet) {
   );
 }
 
-function threatOf(wounds, inDistress, now) {
+function threatOf(wounds: readonly Wound[], inDistress: boolean, now: Date): number {
   let score = inDistress ? RULEBOOK.threatWeights.distress : 0;
   for (const w of wounds.filter((w) => !w.closedAt)) {
-    const age = tranchesBetween(new Date(w.openedAt), now, RULEBOOK.trancheMinutes);
-    score += RULEBOOK.threatWeights[w.kind] * (1 + age / 6);
+    const age = tranchesBetween(new Date(w.openedAt ?? 0), now, RULEBOOK.trancheMinutes);
+    const weights: Readonly<Record<string, number>> = RULEBOOK.threatWeights;
+    score += (weights[w.kind ?? ''] ?? Number.NaN) * (1 + age / 6);
   }
   let level = 1;
   RULEBOOK.threatBands.forEach((band, i) => { if (score >= band) level = i + 1; });
   return level;
 }
 
-export function derivePlanet(planet, { config, terraformedPlanets, now }) {
+export function derivePlanet(
+  planet: Planet,
+  { config, terraformedPlanets, now }: { config: Pick<GameConfig, 'sectorOf'>; terraformedPlanets: ReadonlySet<string | number>; now: Date },
+): DerivedPlanet {
   const zones = deriveZones(planet);
   const wounds = deriveWounds(planet, now);
   const regions = planet.regions.map((r) => r.repo);
@@ -137,13 +150,13 @@ export function derivePlanet(planet, { config, terraformedPlanets, now }) {
   const anyClaimed = planet.zones.some((z) => z.pr);
   const merged = Boolean(planet.featurePr?.mergedAt);
   const last = lastActivity(planet);
-  const silentLost = !merged && anyClaimed && addWorkingMinutes(new Date(last), RULEBOOK.lostAfterWorkingMinutes) <= now;
+  const silentLost = !merged && anyClaimed && addWorkingMinutes(new Date(last ?? 0), RULEBOOK.lostAfterWorkingMinutes) <= now;
   const distress = distressSince(zones, now);
   // `terraformedPlanets` holds planet keys (`<home>#<n>`, PRD 728): a blocker is the PRD of that number
   // in the same home. A set of bare numbers (game:banner) still reads.
   const blocked = planet.regions.some((r) => r.blockedBy.some((prd) => !terraformedPlanets.has(planetKey(planet.home, prd)) && !terraformedPlanets.has(prd)));
 
-  let state;
+  let state: PlanetState;
   if (planet.issue.closedAt && !merged) state = anyClaimed ? 'lost' : 'decommissioned';
   else if (silentLost) state = 'lost';
   else if (merged) state = wounds.some((w) => w.kind === 'aftershock' && !w.closedAt) ? 'aftershock' : 'terraformed';

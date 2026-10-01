@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The look rule** (PRD #487, point 6): what keeps the knowledge base about what the product does,
  * never how it looks. Held once here and quoted word for word by the harvest's classifier prompt

@@ -1,10 +1,10 @@
-// @ts-nocheck
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
+import type { Context } from '../context.ts';
 import { lawsFor } from '../laws.ts';
 import { makeMarkers } from '../markers.ts';
 import { parseFrontMatterLines } from '../front-matter.ts';
@@ -29,7 +29,13 @@ import {
   plainWordsProblems,
   resolveBearsOn,
 } from './outbox.ts';
+import type { ParsedOutboxItem } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+import type { OutboxItem, Rank } from '../types.ts';
+
+/** A parse result read either way: a test checks `ok` first, then reads the side it expects. */
+type EitherSide = { ok: boolean; item: OutboxItem; errors: string[] };
+const view = (result: ParsedOutboxItem) => result as EitherSide;
 
 /**
  * The laws every non-fixture test in this file injects. `floorsHigh` reproduces upstream's own
@@ -38,15 +44,15 @@ import { parseSettledEntries } from './settle.ts';
  * against `root`, which the resolveBearsOn fixture tests set before calling it — see
  * `kit/porting/outbox--outbox.md`.
  */
-let root;
+let root: string | undefined;
 afterEach(() => {
   if (root) rmSync(root, { recursive: true, force: true });
   root = undefined;
 });
 const laws = {
   source: 'knowledge',
-  floorsHigh: (b) => /^(N\d+|(?:P|BR|N)-[A-Z0-9]+-\d+|X-[A-Z0-9]+-[A-Z0-9]+-\d+)$/.test(b),
-  resolve: (b) => lawsFor(flatCtx(root)).resolve(b),
+  floorsHigh: (b: string) => /^(N\d+|(?:P|BR|N)-[A-Z0-9]+-\d+|X-[A-Z0-9]+-[A-Z0-9]+-\d+)$/.test(b),
+  resolve: (b: string) => lawsFor(flatCtx(root) as unknown as Context).resolve(b),
 };
 
 const VALID_ITEM = [
@@ -120,8 +126,8 @@ const OLD_FORMAT_ITEM_TEXT = [
   '',
 ].join('\n');
 
-function withSections(overrides) {
-  const sections = {
+function withSections(overrides: Record<string, string | undefined> = {}) {
+  const sections: Record<string, string | undefined> = {
     'The question, in plain words': 'A plain question the guard should accept.',
     'The decision, in plain words': 'A plain decision the guard should accept.',
     'What I had to decide': 'Something to decide.',
@@ -142,7 +148,7 @@ function withSections(overrides) {
     .join('\n');
 }
 
-function itemText({ frontMatter = {}, body } = {}) {
+function itemText({ frontMatter = {}, body }: { frontMatter?: Record<string, string | undefined>; body?: string } = {}) {
   const fm = {
     id: 's2-01-example-item',
     prd: '985',
@@ -181,7 +187,7 @@ describe('parseOutboxItem — the happy path', () => {
   it('parses a well-formed item into a typed object', () => {
     const result = parseOutboxItem(VALID_ITEM, { file: 'docs/outbox/985/s2-01-example-item.md' });
     expect(result.ok).toBe(true);
-    expect(result.item).toEqual({
+    expect(view(result).item).toEqual({
       id: 's2-01-example-item',
       prd: 985,
       slice: 's2',
@@ -208,8 +214,8 @@ describe('parseOutboxItem — the happy path', () => {
   it('coerces prd and wave to numbers', () => {
     const result = parseOutboxItem(itemText());
     expect(result.ok).toBe(true);
-    expect(result.item.prd).toBe(985);
-    expect(result.item.wave).toBe(2);
+    expect(view(result).item.prd).toBe(985);
+    expect(view(result).item.wave).toBe(2);
   });
 });
 
@@ -217,19 +223,19 @@ describe('parseOutboxItem — malformed front matter', () => {
   it('fails when there is no front-matter block at all', () => {
     const result = parseOutboxItem('## What I had to decide\n\nno front matter here\n');
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('front-matter block'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('front-matter block'))).toBe(true);
   });
 
   it('fails on an unknown rank value', () => {
     const result = parseOutboxItem(itemText({ frontMatter: { rank: 'urgent' } }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('rank'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('rank'))).toBe(true);
   });
 
   it('fails when a required field is missing', () => {
     const result = parseOutboxItem(itemText({ frontMatter: { wave: undefined } }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('wave'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('wave'))).toBe(true);
   });
 
   it('fails on an unknown front-matter key', () => {
@@ -240,7 +246,7 @@ describe('parseOutboxItem — malformed front matter', () => {
   it('fails on a non-date "raised" value', () => {
     const result = parseOutboxItem(itemText({ frontMatter: { raised: 'yesterday' } }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('raised'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('raised'))).toBe(true);
   });
 
   it('prefixes every error with the file when one is given', () => {
@@ -248,7 +254,7 @@ describe('parseOutboxItem — malformed front matter', () => {
       file: 'docs/outbox/985/s2-01-bad.md',
     });
     expect(result.ok).toBe(false);
-    expect(result.errors.every((e) => e.startsWith('docs/outbox/985/s2-01-bad.md:'))).toBe(true);
+    expect(view(result).errors.every((e: string) => e.startsWith('docs/outbox/985/s2-01-bad.md:'))).toBe(true);
   });
 });
 
@@ -258,7 +264,7 @@ describe('parseOutboxItem — the four sections', () => {
       itemText({ body: withSections({ 'What I could not know': undefined }) }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('What I could not know'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('What I could not know'))).toBe(true);
   });
 
   it('fails and names every missing section when several are missing', () => {
@@ -271,7 +277,7 @@ describe('parseOutboxItem — the four sections', () => {
       }),
     );
     expect(result.ok).toBe(false);
-    const missingMessage = result.errors.find((e) => e.includes('missing section'));
+    const missingMessage = view(result).errors.find((e: string) => e.includes('missing section'));
     expect(missingMessage).toContain('What it costs to change later');
     expect(missingMessage).toContain('What I could not know');
   });
@@ -297,7 +303,7 @@ describe('parseOutboxItem — the four sections', () => {
     ].join('\n');
     const result = parseOutboxItem(itemText({ body }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('out of order'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('out of order'))).toBe(true);
   });
 
   it('fails when an unexpected heading appears', () => {
@@ -305,7 +311,7 @@ describe('parseOutboxItem — the four sections', () => {
       itemText({ body: `${withSections()}\n## Something else\n\ntext\n` }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('unexpected heading'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('unexpected heading'))).toBe(true);
   });
 
   it('fails when a required section has no content', () => {
@@ -313,24 +319,24 @@ describe('parseOutboxItem — the four sections', () => {
       itemText({ body: withSections({ 'What I could not know': '' }) }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('no content'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('no content'))).toBe(true);
   });
 });
 
 describe('parseOutboxItem — the two plain-words sections (PRD #1071)', () => {
   it('exposes them as sections.questionPlain and sections.decisionPlain, first, before the four', () => {
     const result = parseOutboxItem(itemText());
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.questionPlain).toBe('A plain question the guard should accept.');
-    expect(result.item.sections.decisionPlain).toBe('A plain decision the guard should accept.');
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.questionPlain).toBe('A plain question the guard should accept.');
+    expect(view(result).item.sections.decisionPlain).toBe('A plain decision the guard should accept.');
   });
 
   it('reads a settled entry’s embedded item written before this slice — neither section, and it still parses', () => {
     const result = parseOutboxItem(OLD_FORMAT_ITEM_TEXT);
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.questionPlain).toBeUndefined();
-    expect(result.item.sections.decisionPlain).toBeUndefined();
-    expect(result.item.sections.whatIHadToDecide).toBe(
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.questionPlain).toBeUndefined();
+    expect(view(result).item.sections.decisionPlain).toBeUndefined();
+    expect(view(result).item.sections.whatIHadToDecide).toBe(
       'Whether the front matter uses YAML or a plain key: value block.',
     );
   });
@@ -340,7 +346,7 @@ describe('parseOutboxItem — the two plain-words sections (PRD #1071)', () => {
       itemText({ body: withSections({ 'The decision, in plain words': undefined }) }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('without'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('without'))).toBe(true);
   });
 });
 
@@ -353,12 +359,12 @@ describe('parseOutboxItem — the options section (PRD #1166, slice s4)', () => 
         }),
       }),
     );
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.options).toEqual([
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.options).toEqual([
       { letter: 'A', text: 'Ship it now, the option built.' },
       { letter: 'B', text: 'Wait for the next release.' },
     ]);
-    expect(result.item.sections.personSteps).toBeUndefined();
+    expect(view(result).item.sections.personSteps).toBeUndefined();
   });
 
   it('exposes "## What a person must do" as sections.personSteps, and no options', () => {
@@ -370,18 +376,18 @@ describe('parseOutboxItem — the options section (PRD #1166, slice s4)', () => 
         }),
       }),
     );
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.personSteps).toBe(
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.personSteps).toBe(
       'Add the missing secret to the console, then re-run the job.',
     );
-    expect(result.item.sections.options).toBeUndefined();
+    expect(view(result).item.sections.options).toBeUndefined();
   });
 
   it('tolerates absence — neither heading — exactly like a settled entry written before this slice', () => {
     const result = parseOutboxItem(itemText());
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.options).toBeUndefined();
-    expect(result.item.sections.personSteps).toBeUndefined();
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.options).toBeUndefined();
+    expect(view(result).item.sections.personSteps).toBeUndefined();
   });
 
   it('refuses an item carrying both the options and the person-steps heading', () => {
@@ -394,7 +400,7 @@ describe('parseOutboxItem — the options section (PRD #1166, slice s4)', () => 
       }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('at most one'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('at most one'))).toBe(true);
   });
 
   it('refuses a malformed option line, naming it', () => {
@@ -407,7 +413,7 @@ describe('parseOutboxItem — the options section (PRD #1166, slice s4)', () => 
     );
     expect(result.ok).toBe(false);
     expect(
-      result.errors.some((e) => e.includes('not a lettered option') || e.includes('option line')),
+      view(result).errors.some((e: string) => e.includes('not a lettered option') || e.includes('option line')),
     ).toBe(true);
   });
 
@@ -445,7 +451,7 @@ describe('parseOutboxItem — the options section (PRD #1166, slice s4)', () => 
     ].join('\n');
     const result = parseOutboxItem(itemText({ body }));
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('out of order'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('out of order'))).toBe(true);
   });
 });
 
@@ -465,11 +471,11 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
       }),
       { file: FILE },
     );
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.introFun).toBe(INTRO);
-    expect(result.item.sections.punchlineFun).toBe(PUNCHLINE);
-    expect(result.item.sections.questionPlain).toBe('A plain question the guard should accept.');
-    expect(result.item.sections.options).toHaveLength(2);
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.introFun).toBe(INTRO);
+    expect(view(result).item.sections.punchlineFun).toBe(PUNCHLINE);
+    expect(view(result).item.sections.questionPlain).toBe('A plain question the guard should accept.');
+    expect(view(result).item.sections.options).toHaveLength(2);
   });
 
   it('accepts the pair before the person steps of a human-action item', () => {
@@ -483,17 +489,17 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
         }),
       }),
     );
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.introFun).toBe(INTRO);
-    expect(result.item.sections.personSteps).toMatch(/missing secret/);
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.introFun).toBe(INTRO);
+    expect(view(result).item.sections.personSteps).toMatch(/missing secret/);
   });
 
   it('parses an item carrying neither exactly as before', () => {
     const result = parseOutboxItem(VALID_ITEM);
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-    expect(result.item.sections.introFun).toBeUndefined();
-    expect(result.item.sections.punchlineFun).toBeUndefined();
-    expect(Object.keys(result.item.sections)).not.toContain('introFun');
+    expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+    expect(view(result).item.sections.introFun).toBeUndefined();
+    expect(view(result).item.sections.punchlineFun).toBeUndefined();
+    expect(Object.keys(view(result).item.sections)).not.toContain('introFun');
   });
 
   it('refuses the intro without the punchline, naming the file', () => {
@@ -502,8 +508,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     });
     expect(result.ok).toBe(false);
     expect(
-      result.errors.some(
-        (e) =>
+      view(result).errors.some((e: string) =>
           e.startsWith(`${FILE}:`) &&
           e.includes('The intro, for fun') &&
           e.includes('without') &&
@@ -519,8 +524,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     );
     expect(result.ok).toBe(false);
     expect(
-      result.errors.some(
-        (e) => e.startsWith(`${FILE}:`) && e.includes('without "## The intro, for fun"'),
+      view(result).errors.some((e: string) => e.startsWith(`${FILE}:`) && e.includes('without "## The intro, for fun"'),
       ),
     ).toBe(true);
   });
@@ -555,7 +559,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     ].join('\n');
     const result = parseOutboxItem(itemText({ body }), { file: FILE });
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.startsWith(`${FILE}:`) && e.includes('out of order'))).toBe(
+    expect(view(result).errors.some((e: string) => e.startsWith(`${FILE}:`) && e.includes('out of order'))).toBe(
       true,
     );
   });
@@ -585,7 +589,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     ].join('\n');
     const result = parseOutboxItem(itemText({ body }), { file: FILE });
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('out of order'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('out of order'))).toBe(true);
   });
 
   it('refuses the punchline before the intro', () => {
@@ -613,7 +617,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     ].join('\n');
     const result = parseOutboxItem(itemText({ body }), { file: FILE });
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('out of order'))).toBe(true);
+    expect(view(result).errors.some((e: string) => e.includes('out of order'))).toBe(true);
   });
 
   it('refuses the pair in an item with no plain-words sections to sit after, naming the file', () => {
@@ -630,8 +634,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
     );
     expect(result.ok).toBe(false);
     expect(
-      result.errors.some(
-        (e) => e.startsWith(`${FILE}:`) && e.includes('right after the two plain-words sections'),
+      view(result).errors.some((e: string) => e.startsWith(`${FILE}:`) && e.includes('right after the two plain-words sections'),
       ),
     ).toBe(true);
   });
@@ -641,7 +644,7 @@ describe('parseOutboxItem — the intro and the punchline (PRD #50, slice s1)', 
       itemText({ body: withSections({ [FUN_SECTIONS[0]]: '', [FUN_SECTIONS[1]]: PUNCHLINE }) }),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes('"## The intro, for fun" has no content'))).toBe(
+    expect(view(result).errors.some((e: string) => e.includes('"## The intro, for fun" has no content'))).toBe(
       true,
     );
   });
@@ -651,7 +654,7 @@ describe('a settled ledger written before PRD #50 still parses', () => {
   const markers = makeMarkers('omni-outbox');
 
   /** One settled entry, in the shape `settle.mjs` has always written, embedding `embedded`. */
-  function settledEntry(id, verdict, embedded) {
+  function settledEntry(id: string, verdict: string, embedded: string) {
     return [
       markers.settledOpen(id),
       '',
@@ -710,10 +713,10 @@ describe('a settled ledger written before PRD #50 still parses', () => {
     ]);
     for (const entry of entries) {
       const result = parseOutboxItem(entry.itemText, { file: null });
-      expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
-      expect(result.item.id).toBe(entry.id);
-      expect(result.item.sections.introFun).toBeUndefined();
-      expect(result.item.sections.punchlineFun).toBeUndefined();
+      expect(result.ok, result.ok ? '' : view(result).errors.join('\n')).toBe(true);
+      expect(view(result).item.id).toBe(entry.id);
+      expect(view(result).item.sections.introFun).toBeUndefined();
+      expect(view(result).item.sections.punchlineFun).toBeUndefined();
     }
   });
 });
@@ -917,7 +920,7 @@ describe('floorRank — the register sets the floor, judgement may only raise', 
     ];
 
     it.each(
-      bearsOnSamples.flatMap((bearsOn) => RANK_VALUES.map((proposed) => [bearsOn, proposed])),
+      bearsOnSamples.flatMap((bearsOn) => RANK_VALUES.map((proposed): [string, Rank] => [bearsOn, proposed])),
     )(
       'floorRank(%s, %s) never returns a rank less severe than proposed, and is idempotent',
       (bearsOn, proposed) => {
@@ -1005,7 +1008,7 @@ describe('resolveBearsOn', () => {
 });
 
 describe('outboxItemFiles', () => {
-  let root;
+  let root: string | undefined;
 
   afterEach(() => {
     if (root) rmSync(root, { recursive: true, force: true });

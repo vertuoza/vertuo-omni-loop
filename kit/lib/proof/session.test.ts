@@ -1,15 +1,15 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { SessionRefused, storageState } from './session.ts';
+import type { StateCookie } from './session.ts';
 
 const REF = 'fzskrlcmmzvvxaeebezc';
 const NOW = Date.UTC(2026, 8, 30, 12, 0, 0);
 const EXP = NOW / 1000 + 3600;
-const jwt = (claims) => ['h', Buffer.from(JSON.stringify(claims)).toString('base64url'), 's'].join('.');
+const jwt = (claims: Record<string, unknown>) => ['h', Buffer.from(JSON.stringify(claims)).toString('base64url'), 's'].join('.');
 const TOKEN = jwt({ iss: `https://${REF}.supabase.co/auth/v1`, sub: 'u-1', aud: 'authenticated', role: 'authenticated', email: 'pat@acme.test', exp: EXP, app_metadata: {}, user_metadata: { user_name: 'pat' } });
 
 /** The session a cookie carries, read back the way @supabase/ssr reads it. */
-const sessionOf = (cookies) => JSON.parse(Buffer.from(cookies.map((c) => c.value).join('').replace(/^base64-/, ''), 'base64url').toString());
+const sessionOf = (cookies: StateCookie[]) => JSON.parse(Buffer.from(cookies.map((c) => c.value).join('').replace(/^base64-/, ''), 'base64url').toString());
 
 describe('storageState', () => {
   it('turns the omni sign-in into the app\'s own auth cookie, on the app\'s host, until the token expires', () => {
@@ -17,7 +17,7 @@ describe('storageState', () => {
     expect(state.origins).toEqual([]);
     expect(state.cookies).toHaveLength(1);
     expect(state.cookies[0]).toMatchObject({ name: `sb-${REF}-auth-token`, domain: 'omni.example', path: '/', expires: EXP, secure: true, sameSite: 'Lax' });
-    expect(state.cookies[0].value.startsWith('base64-')).toBe(true);
+    expect(state.cookies[0]!.value.startsWith('base64-')).toBe(true);
     expect(email).toBe('pat@acme.test');
     expect(expiresAt).toBe(EXP);
   });

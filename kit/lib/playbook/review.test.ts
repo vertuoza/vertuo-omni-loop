@@ -1,29 +1,38 @@
-// @ts-nocheck
 // PRD 790, slice s3: the `review` form — the rubric `/omni:pr-care` judges each review thread
 // against. Three slots, `fix`, `push-back` and `ask`, whose kit defaults are the spec's; `omni kb
 // show review` prints them wherever a repository has no review form, and a repository's own
 // section wins over its default.
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { FORMS, parseForm } from './forms.ts';
 import { formTemplate } from './templates.ts';
+
+/** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
+type FormTextOptions = {
+  frontMatter?: Record<string, unknown>;
+  title?: string;
+  opener?: string | null;
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+};
+const formText = fixtureFormText as (options?: FormTextOptions) => string;
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 const REVIEW = '.omni-loop/knowledge/playbook/review.md';
 
-async function omni(root, argv) {
-  const out = [];
-  const err = [];
-  const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+async function omni(root: string, argv: string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
+  const code = await main(argv, io as never);
   return { code, out: out.join(''), err: err.join('') };
 }
 
-const slotText = (id) => parseForm(formTemplate('review')).form.slots.find((slot) => slot.id === id).body.text;
+const slotText = (id: string) => parseForm(formTemplate('review')).form!.slots.find((slot) => slot.id === id)!.body.text;
 
 describe('the review form', () => {
   it('is an extended form with its three slots, fix, push-back and ask, each required', () => {
-    const review = FORMS.find((form) => form.id === 'review');
+    const review = FORMS.find((form) => form.id === 'review')!;
     expect(review).toMatchObject({ kind: 'extended', pointerOnly: false });
     expect(review.slots).toEqual([
       { id: 'fix', required: true },

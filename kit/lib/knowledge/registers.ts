@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * The ONE parser for the knowledge folder — where what is true about the product is written
  * down, rooted at `ctx.layout.knowledgeRoot`:
@@ -40,14 +39,67 @@
  * partial `Enforced by:` claim — is prose the guard does not need to understand.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/registers.mjs — changes in kit/porting/knowledge--registers.md.
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
+
+/** An entry's kind: a person's decision, a provable statement, or what must hold in the code. */
+export type EntryKind = 'principle' | 'rule' | 'invariant';
+
+/** Where an entry file sits: its scope, its domain, the code(s) its ids carry, and its layer. */
+export type EntryScope = 'product' | 'domain' | 'cross-domain';
+export type Place = { scope: EntryScope; domain: string; codes: string[]; kind: EntryKind | null };
+
+/** An entry's `Proposed:` line read: who and when, both `null` when the line is malformed. */
+export type Proposal = { by: string | null; on: string | null };
+
+/** One entry of the knowledge folder, as {@link parseEntryFile} reads it. */
+export type KnowledgeEntry = {
+  id: string;
+  kind: EntryKind | null;
+  scope: EntryScope;
+  domain: string;
+  codes: string[];
+  file: string;
+  statement: string;
+  why: string | null;
+  decided: string | null;
+  merged: string | null;
+  source: string | null;
+  serves: string | null;
+  enforcedBy: string | null;
+  enforced: boolean;
+  stated: string | null;
+  proposed: Proposal | null;
+  kindLine: string | null;
+  keptId: string | null;
+  fieldCounts: Partial<Record<FieldKey, number>>;
+  problems: string[];
+};
+
+/** Where the knowledge folder is read from (see {@link diskSource}). */
+export type KnowledgeSource = {
+  files: (dir: string) => string[];
+  dirs: (dir: string) => string[];
+  read: (file: string) => string;
+};
+
+/** What reading the knowledge folder needs of the context: the checkout and where the folder sits. */
+export type KnowledgeCtx = { root: string; layout: { knowledgeRoot: string } };
+
+export type KnowledgeDomain = { name: string; code: string; files: string[]; glossaryTerm: string | null };
+export type CrossDomainFile = { file: string; name: string; pair: string[] | null };
+export type Knowledge = {
+  entries: KnowledgeEntry[];
+  domains: KnowledgeDomain[];
+  crossDomainFiles: CrossDomainFile[];
+  productFiles: string[];
+};
 
 /** The product-wide code, the one "domain" that is not a folder under `domains/`. */
 export const PRODUCT_CODE = 'PRODUCT';
 
 /** The three layer files every product and domain folder carries, and the kind each one holds. */
-export const LAYER_FILES = {
+export const LAYER_FILES: Record<string, EntryKind> = {
   'principles.md': 'principle',
   'rules.md': 'rule',
   'invariants.md': 'invariant',
@@ -81,14 +133,17 @@ const FIELD_KEY = {
   Kind: 'kindLine',
   'Kept id': 'keptId',
   'Glossary term': 'glossaryTerm',
-};
+} as const;
 
-export function idsCitedIn(text) {
+type FieldName = keyof typeof FIELD_KEY;
+export type FieldKey = (typeof FIELD_KEY)[FieldName];
+
+export function idsCitedIn(text: string): string[] {
   return [...new Set(text.match(ID_TOKEN) ?? [])];
 }
 
 /** A domain folder name (`agent-session`) → its code (`AGENTSESSION`). */
-export function codeOf(name) {
+export function codeOf(name: string): string {
   return name.replace(/-/g, '').toUpperCase();
 }
 
@@ -97,12 +152,12 @@ export function codeOf(name) {
  * `CORE` is one of the eight Core Invariants, `N1`…`N8`, which carry no code. `null` when the
  * string is no id at all.
  */
-export function idParts(id) {
+export function idParts(id: string): { type: string; codes: string[]; n: string } | null {
   if (!ID_SHAPE.test(id)) return null;
   const core = id.match(/^N(\d+)$/);
-  if (core) return { type: 'CORE', codes: [], n: core[1] };
+  if (core) return { type: 'CORE', codes: [], n: core[1] ?? '' };
   const parts = id.split('-');
-  return { type: parts[0], codes: parts.slice(1, -1), n: parts.at(-1) };
+  return { type: parts[0] ?? '', codes: parts.slice(1, -1), n: parts.at(-1) ?? '' };
 }
 
 /**
@@ -110,19 +165,23 @@ export function idParts(id) {
  * A value continues on the following non-blank, non-field lines; `fieldAt` is the index of the
  * first field line, where the statement ends.
  */
-function readFields(lines) {
-  const fields = {};
-  const counts = {};
+function readFields(lines: string[]): {
+  fields: Partial<Record<FieldKey, string>>;
+  counts: Partial<Record<FieldKey, number>>;
+  fieldAt: number;
+} {
+  const fields: Partial<Record<FieldKey, string>> = {};
+  const counts: Partial<Record<FieldKey, number>> = {};
   let fieldAt = -1;
-  let open = null;
+  let open: FieldKey | null = null;
   lines.forEach((line, index) => {
     const match = line.match(FIELD_LINE);
     if (match) {
       if (fieldAt === -1) fieldAt = index;
-      const key = FIELD_KEY[match[1]];
+      const key = FIELD_KEY[match[1] as FieldName]; // ts-allow: FIELD_LINE matches only FIELD_KEY's names
       counts[key] = (counts[key] ?? 0) + 1;
       if (counts[key] === 1) {
-        fields[key] = match[2].trim();
+        fields[key] = (match[2] ?? '').trim();
         open = key;
       } else {
         open = null;
@@ -147,11 +206,12 @@ const PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
  * `null`): the line says a person has not confirmed the entry, whatever its shape; the problem
  * names the file so the checker refuses it.
  */
-function readProposed(file, id, value) {
+function readProposed(file: string, id: string, value: string | undefined): { proposed: Proposal | null; problems: string[] } {
   if (value === undefined) return { proposed: null, problems: [] };
   const match = value.match(PROPOSED_VALUE);
-  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
-    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  const [, by = '', on = ''] = match ?? [];
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(by)) {
+    return { proposed: { by, on }, problems: [] };
   }
   return {
     proposed: { by: null, on: null },
@@ -160,14 +220,14 @@ function readProposed(file, id, value) {
 }
 
 /** Splits `text` into `{ id, lines }` entries; any `##` heading that is not an id closes one. */
-function splitEntries(text) {
-  const entries = [];
-  let current = null;
+function splitEntries(text: string): { id: string; lines: string[] }[] {
+  const entries: { id: string; lines: string[] }[] = [];
+  let current: { id: string; lines: string[] } | null = null;
   for (const line of text.split('\n')) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
-      current = { id: match[1], lines: [] };
+      current = { id: match[1] ?? '', lines: [] };
     } else if (ANY_H2.test(line)) {
       if (current) entries.push(current);
       current = null;
@@ -184,7 +244,7 @@ function splitEntries(text) {
  * — `scope` is `product`, `domain` or `cross-domain`; `codes` the code(s) an id there must carry;
  * `kind` the file's layer (`null` for a cross-domain file, whose entries say it with `Kind:`).
  */
-export function parseEntryFile(file, text, place) {
+export function parseEntryFile(file: string, text: string, place: Place): KnowledgeEntry[] {
   return splitEntries(text).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement = (fieldAt === -1 ? lines : lines.slice(0, fieldAt))
@@ -221,7 +281,7 @@ export function parseEntryFile(file, text, place) {
   });
 }
 
-function listDir(root, dir, predicate) {
+function listDir(root: string, dir: string, predicate: (entry: Dirent) => boolean): string[] {
   const abs = join(root, dir);
   if (!existsSync(abs)) return [];
   return readdirSync(abs, { withFileTypes: true })
@@ -235,7 +295,7 @@ function listDir(root, dir, predicate) {
  * right under `dir` (a path from the repository's root), sorted, `[]` when `dir` is absent;
  * `read(file)` returns a file's text. This one reads the checkout under `root`.
  */
-export function diskSource(root) {
+export function diskSource(root: string): KnowledgeSource {
   return {
     files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
     dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
@@ -248,9 +308,9 @@ export function diskSource(root) {
  * knowledge folder read from somewhere other than a checkout, such as a repository's files fetched
  * from GitHub. A folder exists when a file sits somewhere under it.
  */
-export function memorySource(texts) {
+export function memorySource(texts: Record<string, string>): KnowledgeSource {
   const paths = Object.keys(texts);
-  const under = (dir) => {
+  const under = (dir: string): string[] => {
     const prefix = `${dir}/`;
     return paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
   };
@@ -258,30 +318,30 @@ export function memorySource(texts) {
     files: (dir) => under(dir).filter((rest) => !rest.includes('/')).sort(),
     dirs: (dir) => {
       const nested = under(dir).filter((rest) => rest.includes('/'));
-      return [...new Set(nested.map((rest) => rest.split('/')[0]))].sort();
+      return [...new Set(nested.map((rest) => rest.split('/')[0] ?? ''))].sort();
     },
     read: (file) => {
       if (!Object.hasOwn(texts, file)) throw new Error(`${file} is not among the files read`);
-      return texts[file];
+      return texts[file] ?? '';
     },
   };
 }
 
 /** A domain README's `Glossary term:` line, or `null`. */
-export function glossaryTermOf(text) {
+export function glossaryTermOf(text: string): string | null {
   return readFields(text.split('\n')).fields.glossaryTerm ?? null;
 }
 
 /** The three folders the knowledge root carries, resolved from `ctx.layout.knowledgeRoot`. */
-export function productDir(ctx) {
+export function productDir(ctx: { layout: { knowledgeRoot: string } }): string {
   return `${ctx.layout.knowledgeRoot}/product`;
 }
 
-export function domainsDir(ctx) {
+export function domainsDir(ctx: { layout: { knowledgeRoot: string } }): string {
   return `${ctx.layout.knowledgeRoot}/domains`;
 }
 
-export function crossDomainDir(ctx) {
+export function crossDomainDir(ctx: { layout: { knowledgeRoot: string } }): string {
   return `${ctx.layout.knowledgeRoot}/cross-domain`;
 }
 
@@ -294,8 +354,8 @@ export function crossDomainDir(ctx) {
  * glossaryTerm }]`, `files` the names present in the folder; `crossDomainFiles` is `[{ file, name,
  * pair }]`, `pair` `null` when the name is not `<a>--<b>`.
  */
-export function readKnowledge({ ctx, source = diskSource(ctx.root) }) {
-  const entries = [];
+export function readKnowledge({ ctx, source = diskSource(ctx.root) }: { ctx: KnowledgeCtx; source?: KnowledgeSource }): Knowledge {
+  const entries: KnowledgeEntry[] = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
@@ -360,7 +420,12 @@ export function readKnowledge({ ctx, source = diskSource(ctx.root) }) {
  * The knowledge folder as the older callers read it: `{ principles, rules, invariants, entries }`.
  * `rules` and `invariants` include cross-domain entries of that kind.
  */
-export function readRegisters({ ctx }) {
+export function readRegisters({ ctx }: { ctx: KnowledgeCtx }): {
+  entries: KnowledgeEntry[];
+  principles: KnowledgeEntry[];
+  rules: KnowledgeEntry[];
+  invariants: KnowledgeEntry[];
+} {
   const { entries } = readKnowledge({ ctx });
   return {
     entries,
@@ -375,7 +440,7 @@ export function readRegisters({ ctx }) {
  * entries are laws and how many are proposed (PRD #68): `[{ folder, laws, proposals }]`, in that
  * order, a folder listed only when it exists and holds a file. An absent knowledge folder is `[]`.
  */
-export function registerCounts({ ctx }) {
+export function registerCounts({ ctx }: { ctx: KnowledgeCtx }): { folder: string; laws: number; proposals: number }[] {
   const knowledge = readKnowledge({ ctx });
   const folders = [
     ...(knowledge.productFiles.length > 0 ? [productDir(ctx)] : []),
@@ -390,7 +455,7 @@ export function registerCounts({ ctx }) {
 }
 
 /** `id` → its entry, or `null` when nothing claims it. */
-export function resolveId(id, { ctx }) {
+export function resolveId(id: string, { ctx }: { ctx: KnowledgeCtx }): KnowledgeEntry | null {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
 }
 
@@ -398,6 +463,6 @@ export function resolveId(id, { ctx }) {
  * Every entry whose `Serves:` line names `id` — "the rules a principle produced", derived and never
  * written by hand, because two copies of a link drift.
  */
-export function servedBy(entries, id) {
+export function servedBy(entries: readonly KnowledgeEntry[], id: string): KnowledgeEntry[] {
   return entries.filter((entry) => entry.serves === id);
 }

@@ -18,7 +18,7 @@ export type PrComment = {
 };
 
 /** The kit's markers, as `makeMarkers` builds them. */
-type Markers = object;
+type Markers = Parameters<typeof findPrMarkerComment>[1];
 
 /** An item as the kit's parser reads it; an adopted entry as the kit's ledger reader reads it. */
 export type KitItem = { id: string; rank: string; sections: Record<string, unknown> };

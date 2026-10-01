@@ -1,7 +1,7 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
+import type { DerivedZone, Planet } from './types.ts';
 
 const config = configFrom({
   sectors: [{ name: 'ai', repos: ['ai-repo'] }, { name: 'core', repos: ['core-repo'] }],
@@ -10,9 +10,9 @@ const config = configFrom({
 
 // Wed 2026-09-23. Brussels = UTC+2.
 const NOW = new Date('2026-09-23T14:00:00Z');
-const ctx = (terraformed = []) => ({ config, terraformedPlanets: new Set(terraformed), now: NOW });
+const ctx = (terraformed: Array<string | number> = []) => ({ config, terraformedPlanets: new Set(terraformed), now: NOW });
 
-function planet(over = {}) {
+function planet(over: Record<string, unknown> = {}): Planet {
   return {
     prd: 2332, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver',
     issue: { createdAt: '2026-09-01T08:00:00Z', closedAt: null },
@@ -24,7 +24,7 @@ function planet(over = {}) {
     ],
     outbox: [], bugs: [],
     ...over,
-  };
+  } as unknown as Planet;
 }
 
 describe('derivePlanet', () => {
@@ -46,13 +46,13 @@ describe('derivePlanet', () => {
   it('derives zone states from blockers and labels', () => {
     const p = derivePlanet(planet(), ctx());
     expect(p.zones.map((z) => [z.id, z.state])).toEqual([['s1', 'secured'], ['s2', 'open']]);
-    expect(p.zones[1].openedAt).toBe('2026-09-21T12:00:00Z'); // when s1 merged
+    expect(p.zones[1]!.openedAt).toBe('2026-09-21T12:00:00Z'); // when s1 merged
     const sealed = derivePlanet(planet({ zones: [
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: null },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ] }), ctx());
     expect(sealed.zones.map((z) => z.state)).toEqual(['open', 'sealed']);
-    expect(sealed.zones[0].openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
+    expect(sealed.zones[0]!.openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
   });
 
   it('opens a zone at its own region\'s feature PR creation (F3)', () => {
@@ -81,7 +81,7 @@ describe('derivePlanet', () => {
   });
 
   it('opens an under-fire wound when omni:needs-fix is labelled and closes it when the label goes or the sub-PR merges (F1)', () => {
-    const sub = (number, over) => ({ number, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['omni:sub'], mergedAt: null, revertedAt: null, ...over });
+    const sub = (number: number, over: Record<string, unknown>) => ({ number, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['omni:sub'], mergedAt: null, revertedAt: null, ...over });
     const p = derivePlanet(planet({ zones: [
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(501, { labels: ['omni:sub', 'omni:needs-fix'], needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
       { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(502, { needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: '2026-09-22T15:00:00Z' } }) },
@@ -141,7 +141,7 @@ describe('derivePlanet', () => {
     const zones = [
       { id: 's2', repo: 'core-repo', openedAt: '2026-09-21T12:00:00Z', claimedAt: '2026-09-23T09:00:00Z', author: 'bob' },
       { id: 's3', repo: 'core-repo', openedAt: '2026-09-21T12:00:00Z', claimedAt: null, author: null },
-    ];
+    ] as DerivedZone[];
     expect(distressEpisodes(zones, NOW)).toEqual([
       { start: '2026-09-21T12:00:00Z', distressAt: '2026-09-22T11:00:00Z', rescue: { at: '2026-09-23T09:00:00Z', zone: 's2', repo: 'core-repo', author: 'bob' } },
     ]);
@@ -231,7 +231,7 @@ describe('a PRD named by its home (PRD 728)', () => {
   });
 
   it('counts a repository that no sector names as a sector of its own', () => {
-    const regions = (...repos) => repos.map((repo) => ({ repo, blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }));
+    const regions = (...repos: string[]) => repos.map((repo) => ({ repo, blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }));
     expect(derivePlanet(homed({ regions: regions('acme/plan') }), ctx()).crossSector).toBe(false);
     expect(derivePlanet(homed({ regions: regions('acme/plan', 'acme/tools') }), ctx()).crossSector).toBe(true);
     expect(derivePlanet(homed({ regions: regions('acme/core-repo', 'acme/plan') }), ctx()).crossSector).toBe(true);

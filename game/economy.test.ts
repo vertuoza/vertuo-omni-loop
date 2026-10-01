@@ -1,9 +1,9 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { score, seasonsToScore } from './economy.ts';
+import type { EventType, GameEvent } from './events.ts';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
-const E = (id, at, type, over = {}) => ({ id, at, type, planet: 2332, data: {}, ...over });
+const E = (id: string, at: string, type: EventType, over: Partial<GameEvent> = {}): GameEvent => ({ id, at, type, planet: 2332, data: {}, ...over });
 const charted = E('planet:2332:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } });
 
 describe('score', () => {
@@ -40,7 +40,7 @@ describe('score', () => {
     expect(s.individuals).toEqual({ pm: 40, eve: 22.5 });
     expect(s.teams).toEqual({ beaver: 40, octopod: 22.5 });
     expect(s.credits.find((c) => c.to === 'eve')).toMatchObject({ crossTeam: true });
-    expect(s.credits.find((c) => c.to === 'pm').crossTeam).toBeUndefined();
+    expect(s.credits.find((c) => c.to === 'pm')!.crossTeam).toBeUndefined();
   });
 
   it('pays nothing for a settle verdict other than agreed or drifted (F5a)', () => {
@@ -99,8 +99,8 @@ describe('score', () => {
   });
 
   it('raises the streak by 10% per consecutive terraform and resets it on a loss', () => {
-    const t = (prd, at) => E(`planet:${prd}:terraformed`, at, 'PLANET_TERRAFORMED', { planet: prd, data: { ownerTeam: 'beaver', class: 1, crossSector: false } });
-    const c = (prd) => E(`planet:${prd}:charted`, '2026-08-01T08:00:00Z', 'PLANET_CHARTED', { planet: prd, data: { ownerTeam: 'beaver' } });
+    const t = (prd: number, at: string) => E(`planet:${prd}:terraformed`, at, 'PLANET_TERRAFORMED', { planet: prd, data: { ownerTeam: 'beaver', class: 1, crossSector: false } });
+    const c = (prd: number) => E(`planet:${prd}:charted`, '2026-08-01T08:00:00Z', 'PLANET_CHARTED', { planet: prd, data: { ownerTeam: 'beaver' } });
     const s = score([
       c(1), c(2), c(3), c(4),
       t(1, '2026-08-20T10:00:00Z'), // previous season: the streak resets at season start, so it no longer counts
@@ -122,7 +122,7 @@ describe('score', () => {
     expect(s.individuals).toEqual({ alice: 0, bob: 0 });
     expect(s.teams).toEqual({ octopod: 0, cia: 0 });
     expect(s.credits.filter((c) => c.clawed)).toHaveLength(2);
-    expect(s.planets[2332].lost).toBe(true);
+    expect(s.planets[2332]!.lost).toBe(true);
   });
 
   it('a lost planet keeps the decay it accrued', () => {

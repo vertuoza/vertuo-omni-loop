@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm game:xp: its run, with the REST client injected, against the fake PostgREST; then the script
 // itself, as a process, against the same fake behind a local server. Nothing here reaches Supabase.
 import { describe, it, expect, afterEach } from 'vitest';
@@ -8,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runXp } from './xp.ts';
 import { supabaseRest } from '../sources/supabase.ts';
-import { fakeSupabase, serveFake } from '../test/fake-supabase.ts';
+import { fakeSupabase, serveFake, type Call, type Init, type Reply, type Row, type Served } from '../test/fake-supabase.ts';
 import { RULEBOOK } from '../rulebook.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -16,7 +15,7 @@ const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const NOW = new Date('2026-09-30T16:00:00Z');
 
-const row = (workspace_id, id, at, type, over = {}) => ({ workspace_id, id, at, type, planet: 2332, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
+const row = (workspace_id: string, id: string, at: string, type: string, over: Row = {}): Row => ({ workspace_id, id, at, type, planet: 2332, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
 // Alice (as GitHub spells her) secured two zones in working hours; Bob one at night; Carol only claimed one.
 const ledger = () => [
   row(VERTUOZA, 'planet:2332:charted', '2026-09-01T08:00:00+00:00', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver' } }),
@@ -27,8 +26,8 @@ const ledger = () => [
   // Acme's ledger names Alice too, and never counts for Vertuoza.
   row(ACME, 'zone:r:2332:s1:secured', '2026-09-21T12:00:00+00:00', 'ZONE_SECURED', { contributor: 'alice', team: 'roadrunners' }),
 ];
-const restOn = (fake) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
-const posts = (fake) => fake.calls.filter((c) => c.method === 'POST');
+const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
+const posts = (fake: { calls: Call[] }) => fake.calls.filter((c) => c.method === 'POST');
 
 describe('runXp', () => {
   it('upserts every login of the workspace\'s ledger in one request, lower-cased, with its XP, level, unlocked games and time', async () => {
@@ -44,10 +43,10 @@ describe('runXp', () => {
     expect(rows).toEqual(expected);
     expect(posts(fake)).toHaveLength(1);
     const [write] = posts(fake);
-    expect(write.table).toBe('player_xp');
-    expect(write.url.searchParams.get('on_conflict')).toBe('workspace_id,github_login');
-    expect(write.headers.Prefer).toMatch(/resolution=merge-duplicates/);
-    expect(write.body).toEqual(expected);
+    expect(write!.table).toBe('player_xp');
+    expect(write!.url.searchParams.get('on_conflict')).toBe('workspace_id,github_login');
+    expect(write!.headers!.Prefer).toMatch(/resolution=merge-duplicates/);
+    expect(write!.body).toEqual(expected);
     expect(fake.tables.player_xp).toEqual(expected);
   });
 
@@ -58,8 +57,8 @@ describe('runXp', () => {
     for (const read of fake.calls.filter((c) => c.method === 'GET')) {
       expect(read.url.searchParams.get('workspace_id'), read.table).toBe(`eq.${VERTUOZA}`);
     }
-    expect(posts(fake)[0].body.map((r) => r.workspace_id)).toEqual([VERTUOZA, VERTUOZA, VERTUOZA]);
-    expect(fake.tables.player_xp.find((r) => r.workspace_id === ACME)).toEqual(acmeRow);
+    expect((posts(fake)[0]!.body as Row[]).map((r) => r.workspace_id)).toEqual([VERTUOZA, VERTUOZA, VERTUOZA]);
+    expect(fake.tables.player_xp!.find((r) => r.workspace_id === ACME)).toEqual(acmeRow);
   });
 
   it('rewrites a login\'s row at every run, and keeps its stored unlocks when a lowered weight drops its level', async () => {
@@ -70,10 +69,10 @@ describe('runXp', () => {
     await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: later, rules: nothingCounts });
 
     expect(fake.tables.player_xp).toHaveLength(3);
-    expect(fake.tables.player_xp.find((r) => r.github_login === 'alice')).toEqual({
+    expect(fake.tables.player_xp!.find((r) => r.github_login === 'alice')).toEqual({
       workspace_id: VERTUOZA, github_login: 'alice', xp: 0, level: 0, unlocked: ['invaders'], computed_at: later.toISOString(),
     });
-    expect(fake.tables.player_xp.find((r) => r.github_login === 'carol').unlocked).toEqual([]);
+    expect(fake.tables.player_xp!.find((r) => r.github_login === 'carol')!.unlocked).toEqual([]);
   });
 
   it('restarts XP at the fresh start: rows with no home add nothing, and a game already unlocked stays (PRD 728)', async () => {
@@ -99,31 +98,32 @@ describe('runXp', () => {
   });
 
   it('writes nothing for a ledger that names no login yet', async () => {
-    const fake = fakeSupabase({ ledger_events: [ledger()[0]], player_xp: [] });
+    const fake = fakeSupabase({ ledger_events: [ledger()[0]!], player_xp: [] });
     expect(await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: NOW })).toEqual([]);
     expect(posts(fake)).toEqual([]);
   });
 
   it('refuses to run without a workspace, before any call', async () => {
     const fake = fakeSupabase({ ledger_events: ledger() });
-    await expect(runXp({ rest: restOn(fake), now: NOW })).rejects.toThrow(/workspace/);
+    await expect(runXp({ rest: restOn(fake), now: NOW } as Parameters<typeof runXp>[0])).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
   });
 });
 
 describe('pnpm game:xp, as a process', () => {
-  let server;
+  let server: Served<Call> | null = null;
   afterEach(async () => { await server?.close(); server = null; });
 
   const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
-  async function xp(args, env = {}) {
+  async function xp(args: string[], env: Record<string, string> = {}) {
     try {
       const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, 'xp.ts'), ...args], {
-        env: { PATH: process.env.PATH, SUPABASE_URL: server.url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
+        env: { PATH: process.env.PATH, SUPABASE_URL: server!.url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
       });
       return { code: 0, stdout, stderr };
     } catch (err) {
-      return { code: err.code, stdout: err.stdout, stderr: err.stderr };
+      const failed = err as { code: number; stdout: string; stderr: string };
+      return { code: failed.code, stdout: failed.stdout, stderr: failed.stderr };
     }
   }
 
@@ -132,7 +132,7 @@ describe('pnpm game:xp, as a process', () => {
     const run = await xp([], { OMNI_LOOP_WORKSPACE: 'vertuoza' });
     expect(run.code, run.stderr).toBe(0);
     expect(run.stdout).toMatch(/vertuoza: 3 logins · 2 with a level · written to player_xp/);
-    expect(server.tables.player_xp.map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
+    expect(server!.tables.player_xp!.map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
   });
 
   it('exits non-zero and writes nothing when the ledger cannot be read', async () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Two PRDs that would fight over the same files are found before the second one starts** (PRD
  * #1015).
@@ -23,21 +22,24 @@
  * second way of reading a slice table.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox-collisions.mjs — changes in kit/porting/inbox--collisions.md.
+import type { Slice } from '../types.ts';
 import { parsePlanSlices, sharedGround } from './territory.ts';
 
-/**
- * @typedef {{ id: string, territory: string[] }} PlanSlice
- * @typedef {{ prd: number|string, slices: PlanSlice[] }} Plan
- */
+/** What a plan's slice must carry to be compared: its id and its declared ground. */
+export type PlanSlice = { id: string; territory?: string[] };
+/** One PRD's plan, as already-parsed slices. */
+export type Plan = { prd: number | string; slices?: PlanSlice[] };
+/** Two PRDs whose plans claim the same ground. */
+export type PlanCollision = { left: number | string; right: number | string; shared: string[] };
 
 /** A plan built from its markdown, by reusing the one parser that reads a slice table. */
-export function planFromMarkdown(prd, markdown) {
+export function planFromMarkdown<P extends number | string>(prd: P, markdown: string): { prd: P; slices: Slice[] } {
   return { prd, slices: parsePlanSlices(markdown) };
 }
 
 /** The ground a whole plan claims: the union of every one of its slices' declared prefixes. */
-function planTerritory(plan) {
-  const territory = new Set();
+function planTerritory(plan: Plan): { territory: string[] } {
+  const territory = new Set<string>();
   for (const slice of plan.slices ?? []) {
     for (const prefix of slice.territory ?? []) territory.add(prefix);
   }
@@ -52,13 +54,13 @@ function planTerritory(plan) {
  * or a slice that declares nothing, cannot appear here: `sharedGround` only ever names ground both
  * sides actually claim.
  */
-export function planCollisions(plans) {
-  const found = [];
-  for (let i = 0; i < plans.length; i += 1) {
-    for (let j = i + 1; j < plans.length; j += 1) {
-      const shared = sharedGround(planTerritory(plans[i]), planTerritory(plans[j]));
+export function planCollisions(plans: readonly Plan[]): PlanCollision[] {
+  const found: PlanCollision[] = [];
+  for (const [i, a] of plans.entries()) {
+    for (const b of plans.slice(i + 1)) {
+      const shared = sharedGround(planTerritory(a), planTerritory(b));
       if (shared.length > 0) {
-        found.push({ left: plans[i].prd, right: plans[j].prd, shared });
+        found.push({ left: a.prd, right: b.prd, shared });
       }
     }
   }

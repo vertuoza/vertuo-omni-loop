@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A concept can be proven** (PRD 686, slice s1): the one parser for a concept's `concept.md`.
  *
@@ -19,21 +18,48 @@ import { parseFrontMatterLines } from '../front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
-export const CONCEPT_KINDS = /** @type {const} */ (['product', 'identity', 'platform']);
+export const CONCEPT_KINDS = ['product', 'identity', 'platform'] as const;
 
 /** A vast idea holds several PRDs; a lite run ends in a concept of one area. */
-export const CONCEPT_SCALES = /** @type {const} */ (['vast', 'lite']);
+export const CONCEPT_SCALES = ['vast', 'lite'] as const;
 
 /** The sections of a concept.md, in order. */
-export const CONCEPT_SECTIONS = /** @type {const} */ (['The brief', 'The vision', 'Why this one', 'Killed and why', 'Fuel', 'Areas']);
+export const CONCEPT_SECTIONS = ['The brief', 'The vision', 'Why this one', 'Killed and why', 'Fuel', 'Areas'] as const;
 
 /** The Areas table's columns: `PRD` stays empty until the area's brainstorm fills it. */
-export const AREA_COLUMNS = /** @type {const} */ (['id', 'area', 'brief', 'PRD']);
+export const AREA_COLUMNS = ['id', 'area', 'brief', 'PRD'] as const;
+
+export type ConceptKind = (typeof CONCEPT_KINDS)[number];
+export type ConceptScale = (typeof CONCEPT_SCALES)[number];
+type AreaColumn = (typeof AREA_COLUMNS)[number];
+
+/** One row of the Areas table, in build order. */
+export type ConceptArea = { id: string; area: string; brief: string; prd: number | null };
+
+/** A concept.md, parsed. */
+export type ConceptRecord = {
+  concept: number;
+  title: string;
+  kind: ConceptKind;
+  scale: ConceptScale;
+  sections: Record<string, string>;
+  areas: ConceptArea[];
+};
+
+export type ConceptParse = { ok: true; record: ConceptRecord } | { ok: false; errors: string[] };
+
+/** An area as read from its row: a cell is `undefined` while the table lacks its column. */
+type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: number | null };
+
+type Section = { name: string; lines: string[] };
+
+const KNOWN_SCALES: readonly unknown[] = CONCEPT_SCALES;
+const isScale = (value: unknown): value is ConceptScale => KNOWN_SCALES.includes(value);
 
 /** How many areas each scale allows. */
-const AREA_ROWS = { vast: { min: 2, max: 6, words: 'two to six' }, lite: { min: 1, max: 1, words: 'exactly one' } };
+const AREA_ROWS: Record<ConceptScale, { min: number; max: number; words: string }> = { vast: { min: 2, max: 6, words: 'two to six' }, lite: { min: 1, max: 1, words: 'exactly one' } };
 
-const FRONT_FIELDS = ['concept', 'title', 'kind', 'scale'];
+const FRONT_FIELDS = ['concept', 'title', 'kind', 'scale'] as const;
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PRD_CELL = /^#([1-9]\d*)$/;
@@ -49,19 +75,19 @@ const FrontMatterSchema = z
   .strict();
 
 /** The fault a field's value has, in words. */
-function fieldFault(field, value) {
+function fieldFault(field: (typeof FRONT_FIELDS)[number], value: string | undefined): string {
   if (value === undefined) return `no "${field}" field.`;
   if (field === 'concept') return `concept is "${value}", not a positive whole number (the concept's issue).`;
   if (field === 'title') return 'title is empty.';
-  const allowed = field === 'kind' ? CONCEPT_KINDS : CONCEPT_SCALES;
+  const allowed: readonly string[] = field === 'kind' ? CONCEPT_KINDS : CONCEPT_SCALES;
   return `${field} is "${value}", not one of ${allowed.join(', ')}.`;
 }
 
 /** The front matter, typed (`null` when it fails), its faults, and the scale it names when known. */
-function frontMatter(raw) {
+function frontMatter(raw: string): { data: z.infer<typeof FrontMatterSchema> | null; errors: string[]; scale: ConceptScale | null } {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const scale = CONCEPT_SCALES.includes(data.scale) ? data.scale : null;
+  const scale = isScale(data.scale) ? data.scale : null;
   const parsed = FrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (parsed.success) return { data: parsed.data, errors, scale };
   for (const issue of parsed.error.issues) {
@@ -75,13 +101,13 @@ function frontMatter(raw) {
 }
 
 /** The body's `## ` sections, in the order written, as `{ name, lines }`; the first of a name wins. */
-function sectionsOf(body) {
-  const sections = [];
-  let current = null;
+function sectionsOf(body: string): Section[] {
+  const sections: Section[] = [];
+  let current: Section | null = null;
   for (const line of body.split(/\r?\n/)) {
     const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading && !line.startsWith('###')) {
-      current = { name: heading[1], lines: [] };
+      current = { name: heading[1]!, lines: [] }; // group 1 always matches
       sections.push(current);
     } else if (/^#\s/.test(line)) {
       current = null;
@@ -92,16 +118,16 @@ function sectionsOf(body) {
   return sections;
 }
 
-function sectionFaults(sections) {
-  const at = new Map();
+function sectionFaults(sections: readonly Section[]): string[] {
+  const at = new Map<string, number>();
   sections.forEach((section, index) => {
     if (!at.has(section.name)) at.set(section.name, index);
   });
   const faults = CONCEPT_SECTIONS.filter((name) => !at.has(name)).map((name) => `sections: no "## ${name}" section.`);
   const present = CONCEPT_SECTIONS.filter((name) => at.has(name));
   for (let index = 1; index < present.length; index += 1) {
-    const [before, after] = [present[index - 1], present[index]];
-    if (at.get(after) < at.get(before)) {
+    const [before, after] = [present[index - 1]!, present[index]!]; // both indexes are inside `present`
+    if (at.get(after)! < at.get(before)!) { // `present` holds only names `at` has
       faults.push(`sections: "## ${before}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(', ')}.`);
     }
   }
@@ -109,7 +135,7 @@ function sectionFaults(sections) {
 }
 
 /** A table row's cells, trimmed; a `\|` is a pipe inside a cell. */
-function cells(line) {
+function cells(line: string): string[] {
   let inner = line.trim();
   if (inner.startsWith('|')) inner = inner.slice(1);
   if (inner.endsWith('|') && !inner.endsWith('\\|')) inner = inner.slice(0, -1);
@@ -117,23 +143,23 @@ function cells(line) {
 }
 
 /** The first table among `lines`: its header's cells and its rows' cells, or `null` with none. */
-function firstTable(lines) {
+function firstTable(lines: readonly string[]): { header: string[]; rows: string[][] } | null {
   const start = lines.findIndex((line) => line.trim().startsWith('|'));
   if (start === -1) return null;
-  const block = [];
+  const block: string[] = [];
   for (const line of lines.slice(start)) {
     if (!line.trim().startsWith('|')) break;
     block.push(line.trim());
   }
-  const [header, ...rest] = block;
+  const [header = '', ...rest] = block; // the line at `start` opens the block
   return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
 }
 
 /** An id listed twice, once; else an id that is not kebab-case. A missing id column reads `undefined`. */
-function idFaults(ids) {
-  const seen = new Set();
-  const twice = new Set();
-  const faults = [];
+function idFaults(ids: readonly (string | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const twice = new Set<string>();
+  const faults: string[] = [];
   for (const id of ids) {
     if (id === undefined) continue;
     if (seen.has(id)) {
@@ -147,14 +173,14 @@ function idFaults(ids) {
   return faults;
 }
 
-function areasOf(lines, scale) {
+function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas: AreaRow[]; faults: string[] } {
   const table = firstTable(lines);
   if (!table) return { areas: [], faults: [`Areas: no table; it holds one with the columns ${AREA_COLUMNS.slice(0, -1).join(', ')} and ${AREA_COLUMNS.at(-1)}.`] };
-  const column = Object.fromEntries(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())]));
+  const column: Record<AreaColumn, number> = Object.fromEntries(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())])) as Record<AreaColumn, number>; // ts-allow: `fromEntries` keys every column of AREA_COLUMNS
   const faults = AREA_COLUMNS.filter((name) => column[name] === -1).map((name) => `Areas: the table has no "${name}" column.`);
-  const cell = (row, name) => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
+  const cell = (row: readonly string[], name: AreaColumn): string | undefined => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
 
-  const areas = table.rows.map((row, index) => {
+  const areas = table.rows.map((row, index): AreaRow => {
     const id = cell(row, 'id');
     const prd = cell(row, 'PRD');
     const filled = PRD_CELL.exec(prd ?? '');
@@ -163,7 +189,7 @@ function areasOf(lines, scale) {
   });
   faults.push(...idFaults(areas.map((area) => area.id)));
 
-  const allowed = AREA_ROWS[scale];
+  const allowed = scale ? AREA_ROWS[scale] : undefined;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
     const count = areas.length === 0 ? 'no area' : `${areas.length} area${areas.length === 1 ? '' : 's'}`;
     faults.push(`Areas: ${count}; a ${scale} concept has ${allowed.words}.`);
@@ -171,18 +197,11 @@ function areasOf(lines, scale) {
   return { areas, faults };
 }
 
-/**
- * Parses one concept.md into a typed record, or every fault it has.
- *
- * @param {string} text the file's text
- * @returns {{ ok: true, record: { concept: number, title: string, kind: string, scale: string,
- *   sections: Record<string, string>, areas: { id: string, area: string, brief: string, prd: number | null }[] } }
- *   | { ok: false, errors: string[] }}
- */
-export function parseConcept(text) {
+/** Parses one concept.md (`text`, the file's text) into a typed record, or every fault it has. */
+export function parseConcept(text: string): ConceptParse {
   const block = FRONT_MATTER_BLOCK.exec(text);
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
-  const [, raw, body] = block;
+  const [, raw = '', body = ''] = block; // both groups always match
   const front = frontMatter(raw);
   const sections = sectionsOf(body);
   const errors = [...front.errors, ...sectionFaults(sections)];
@@ -192,10 +211,12 @@ export function parseConcept(text) {
   errors.push(...faults);
   if (errors.length) return { ok: false, errors };
 
-  const named = new Map();
+  const named = new Map<string, string>();
   for (const section of sections) if (!named.has(section.name)) named.set(section.name, section.lines.join('\n').trim());
+  // With no fault, the front matter parsed, every section is present and the table has every column.
+  const data = front.data!;
   return {
     ok: true,
-    record: { ...front.data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name)])), areas },
+    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas as ConceptArea[] }, // ts-allow: with every column present, each cell is a string
   };
 }

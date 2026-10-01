@@ -1,13 +1,17 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { flatCtx } from '../../test/flat-layout.ts';
+import type { Context } from '../context.ts';
+import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
+
+/** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
+const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
+  untypedFlatCtx(root, overrides) as unknown as Context;
 import { riskyChanges } from './decision-coverage.ts';
 
-function change(path, status = 'M') {
+function change(path: string, status = 'M') {
   return { path, status };
 }
 
@@ -20,8 +24,8 @@ const RISK = {
   sharedContract: ['libs/system-api-contract/'],
 };
 
-let root;
-let ctx;
+let root: string;
+let ctx: Context;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'decision-coverage-'));
   ctx = flatCtx(root, { risk: RISK });
@@ -31,13 +35,13 @@ afterEach(() => {
 });
 
 /** Writes `text` at `path` under `root`, creating its directory. */
-function seed(path, text) {
+function seed(path: string, text: string) {
   mkdirSync(join(root, path, '..'), { recursive: true });
   writeFileSync(join(root, path), text);
 }
 
 /** A minimal product invariants file naming `enforcedByPath` as the proof of `N9`. */
-function seedInvariants(enforcedByPath) {
+function seedInvariants(enforcedByPath: string) {
   seed(
     INVARIANTS,
     ['## N9', '', 'A fixture invariant.', '', `Enforced by: ${enforcedByPath}`, ''].join('\n'),
@@ -45,7 +49,7 @@ function seedInvariants(enforcedByPath) {
 }
 
 /** `riskyChanges` for one change, as the list of rule ids that fired on it. */
-function rulesFiredOn(path, status = 'M') {
+function rulesFiredOn(path: string, status = 'M') {
   return riskyChanges([change(path, status)], { ctx }).map((entry) => entry.rule);
 }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import {
   breaches,
@@ -145,8 +144,8 @@ describe('parsePlanSlices — blockedBy', () => {
 | s4  | D     | \`d/\`           | s1 s3      | 2    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices.find((slice) => slice.id === 's2').blockedBy).toEqual(['s1', 's3']);
-    expect(slices.find((slice) => slice.id === 's4').blockedBy).toEqual(['s1', 's3']);
+    expect(slices.find((slice) => slice.id === 's2')!.blockedBy).toEqual(['s1', 's3']);
+    expect(slices.find((slice) => slice.id === 's4')!.blockedBy).toEqual(['s1', 's3']);
   });
 
   it('reads a bare hyphen or an empty cell as no blockers', () => {
@@ -169,7 +168,7 @@ describe('parsePlanSlices — blockedBy', () => {
 | s1  | A     | \`a/\`      | 1    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices[0].blockedBy).toEqual([]);
+    expect(slices[0]!.blockedBy).toEqual([]);
   });
 
   it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
@@ -189,7 +188,7 @@ describe('parsePlanSlices — blockedBy', () => {
 | s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
 `;
     const slices = parsePlanSlices(plan);
-    const byId = (id) => slices.find((slice) => slice.id === id);
+    const byId = (id: string) => slices.find((slice) => slice.id === id)!;
     expect(byId('s1').blockedBy).toEqual([]);
     expect(byId('s3').blockedBy).toEqual(['s2']);
     expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);

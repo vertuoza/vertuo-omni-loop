@@ -1020,3 +1020,631 @@ A constant: delete the two reference lines and give packages/design its own tsco
 ```
 
 <!-- /omni-outbox-settled: s6-01-design-reads-browser-types -->
+
+<!-- omni-outbox-settled: s8-01-reply-comments-typed-not-parsed -->
+
+## s8-01-reply-comments-typed-not-parsed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-reply-comments-typed-not-parsed
+prd: 725
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The reader of pull request replies takes the comments GitHub sends as they come. Should it check every comment against a strict shape before reading it?
+
+## The decision, in plain words
+
+The reader keeps reading comments as it does today, with their shape only described for the compiler, so no reply that counts now is ever dropped.
+
+## The intro, for fun
+
+Every comment from GitHub walks in without showing its papers.
+
+## The punchline, for fun
+
+The doorman got a guest list, not a metal detector.
+
+## The options, in plain words
+
+A. Keep reading comments as today, typed for the compiler but not checked at runtime
+B. Check each comment against a lenient shape and skip any that fails, saying which field was wrong
+C. Check each comment against a strict shape and stop the run on the first one that fails
+
+## What I had to decide
+
+Whether the GitHub comments readReplies and planReplies read (body, user, author_association, created_at, html_url) must pass a Zod schema, as the plan's done-when asks of every value read from the network.
+
+## What I did meanwhile
+
+kit/lib/outbox/replies.ts describes the comment as a ReplyComment type and narrows it at runtime exactly as before (a comment whose body is not a string is skipped by isCountedReply). No schema parses it, because a strict one would refuse comments the reader tolerates today, which changes output; the arcade also calls planReplies with its own rows.
+
+## What it costs to change later
+
+One schema in kit/lib/outbox (all fields optional, unknown keys kept) parsed at the top of planReplies, plus deciding what a comment that fails it becomes: skipped, or an error naming its field. No stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a malformed comment from GitHub should be skipped silently, as today, or fail the run with its field named
+- (author) Whether the arcade's own GitHub reader should parse the same comments first, so the kit's reader receives parsed rows only
+
+```
+
+<!-- /omni-outbox-settled: s8-01-reply-comments-typed-not-parsed -->
+
+<!-- omni-outbox-settled: s8-02-bridges-to-neighbouring-slices -->
+
+## s8-02-bridges-to-neighbouring-slices — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-bridges-to-neighbouring-slices
+prd: 725
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The outbox files typed here lean on files other slices are typing at the same time. Should this slice wait for them, or bridge the gap with marked shortcuts?
+
+## The decision, in plain words
+
+This slice bridges the gap with three marked shortcuts that state the shapes it expects, so it can finish now. Once the neighbouring files are typed, each shortcut becomes a no-op that the final tightening slice can remove.
+
+## The intro, for fun
+
+Two crews are building the same bridge from opposite banks.
+
+## The punchline, for fun
+
+This crew left a rope ladder and a note saying where the bolts go.
+
+## The options, in plain words
+
+A. Keep the marked bridges now and remove them in the final tightening slice
+B. Rebase this slice on s7 once it merges and drop the bridges here
+C. Move the narrowing reader and the shared outbox types into the kit-wide types file
+
+## What I had to decide
+
+How the settle, replies and check modules read results from outbox.ts and comment.ts, which slice s7 types in the same wave, and how planReplies keeps compiling for the arcade, which passes it loosely typed rows.
+
+## What I did meanwhile
+
+settle.ts exports parseItem, a wrapper over parseOutboxItem that returns { ok: true, item: OutboxItem } or { ok: false, errors } through one cast marked ts-allow; replies.ts casts openItemsForPrd's result to OutboxItem[] and keeps planReplies' wide object parameters, narrowing them once inside with a marked cast. settle.ts also exports the folder-local types the outbox shares (Markers, SettleContext, Judgement, SettledEntry, Verdict).
+
+## What it costs to change later
+
+Three casts to delete once s7 and the arcade slices land, and parseItem either kept as the one narrowing reader or replaced by parseOutboxItem at its four call sites. No output changes either way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The exact return type s7 gives parseOutboxItem and openItemsForPrd was not known while this slice ran in parallel
+- (author) Whether the arcade slices will type the rows they pass to planReplies with the kit's own types
+
+```
+
+<!-- /omni-outbox-settled: s8-02-bridges-to-neighbouring-slices -->
+
+<!-- omni-outbox-settled: s9-01-harvest-binds-untyped-units -->
+
+## s9-01-harvest-binds-untyped-units — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s9
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-harvest-binds-untyped-units
+prd: 725
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The part that writes decisions back into the knowledge base calls four helpers that nobody has converted yet. Until they are, how should it describe what those helpers give back?
+
+## The decision, in plain words
+
+It writes down, once, the shape each helper already gives back, and relies on it. When a helper is converted later and disagrees, the check that reads the shapes fails right there, so nothing drifts silently.
+
+## The intro, for fun
+
+Four helpers still speak the old language, and the knowledge base wanted a word with them.
+
+## The punchline, for fun
+
+So it wrote down what they usually say, and asked them to sign it later.
+
+## The options, in plain words
+
+A. A: bind each untyped helper once to the shape it returns today, on marked lines, and drop the bindings when the helpers are typed
+B. B: leave the harvest pipeline file unconverted until the outbox and delivery slices land, and convert it in a later wave
+C. C: type the four helpers' signatures in this slice, outside its own folder
+
+## What I had to decide
+
+kit/lib/knowledge/pipeline.ts calls settleAtMerge (kit/lib/outbox/settle-merge.ts, s8), findOutboxViolations (kit/lib/outbox/check-outbox.ts, s8), planShip and movedPath (kit/lib/delivery/ship.ts, s11) and askModel (kit/lib/openrouter.ts, left untyped by s3). Under @ts-nocheck their inferred types are widened (an ok flag typed boolean, so a result never narrows) or wrong (askModel's parameter loses every key without a default), so typed code cannot call them as they are.
+
+## What I did meanwhile
+
+pipeline.ts binds each of the five functions once, near its imports, to a local type naming the shape it returns today (SettleAtMerge, PlanShip, MovedPath, FindOutboxViolations, AskModel), on lines marked `// ts-allow:`. The model's reply is typed ClassificationReply where askModel returns it, because askModel only returns a reply its `check` (classificationSchema) accepted. Nothing else changed: the bundle differs only by the five rebinding lines.
+
+## What it costs to change later
+
+Five lines and five local types in pipeline.ts: once s8 and s11 type their modules (and the ratchet types openrouter), each cast is deleted and the import used directly; a mismatch then shows as a compile error on that line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the ratchet (s29) or s17 owns typing kit/lib/openrouter.ts, which s3 left untyped, is not planned
+- (author) finishHarvest's classified replies come from the app between steps and are typed, not re-parsed; whether the App slice (s20) parses them through classificationSchema is not settled
+
+```
+
+<!-- /omni-outbox-settled: s9-01-harvest-binds-untyped-units -->
+
+<!-- omni-outbox-settled: s10-01-plan-repo-without-slug-still-crashes -->
+
+## s10-01-plan-repo-without-slug-still-crashes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s10
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-plan-repo-without-slug-still-crashes
+prd: 725
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+Grading the plan of a planning repository that never wrote down its own name stops with a crash instead of a clear message. Should this slice fix that?
+
+## The decision, in plain words
+
+Left as it is: this slice only adds types and must not change what the tool does. The crash is kept, marked, and left for its own fix later.
+
+## The intro, for fun
+
+A planning repository forgot to write its own name on the door.
+
+## The punchline, for fun
+
+The grader still faints at the door, but now there is a note pinned to it.
+
+## The options, in plain words
+
+A. Keep the crash for now, marked, and fix it in its own pull request
+B. Have the plan grader report a missing repository name as a plain violation
+C. Have the settings reader refuse a planning repository that does not name itself
+
+## What I had to decide
+
+kit/lib/inbox/plan-grade.ts passes config.repo.slug to the plan-repository checks, which read it as text. The config allows repo.slug to be null, and a plan section with a null slug makes shortName(null) throw a TypeError. Typing it means either keeping that throw or changing the output.
+
+## What I did meanwhile
+
+Kept the throw: the line reads config.repo.slug! with a ts-allow comment naming this item. No output changes.
+
+## What it costs to change later
+
+Small: one later pull request adds a violation such as 'repo.slug: a plan repository names its own slug' in gradePlan, or a config refinement requiring repo.slug when plan is set, plus a test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the config should refuse a plan section without repo.slug, or the grader should report it as a violation (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-01-plan-repo-without-slug-still-crashes -->
+
+<!-- omni-outbox-settled: s10-02-malformed-github-answer-reads-unreachable -->
+
+## s10-02-malformed-github-answer-reads-unreachable — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s10
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-malformed-github-answer-reads-unreachable
+prd: 725
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+When GitHub answers about a target repository in a shape the tool does not expect, what should the targets report say?
+
+## The decision, in plain words
+
+The answer is now checked, and one missing the expected parts shows that repository as unreachable, naming the missing part. Well-formed answers read exactly as before.
+
+## The intro, for fun
+
+GitHub usually answers in full sentences, but the tool now checks the grammar.
+
+## The punchline, for fun
+
+A garbled reply gets a polite 'could not reach you' instead of a shrug three steps later.
+
+## The options, in plain words
+
+A. Show that repository as unreachable, naming the missing part, and carry on with the others
+B. Stop the whole command with an error naming the missing part
+C. Do not check GitHub's answers in this slice at all
+
+## What I had to decide
+
+The spec asks every value read from the network to pass a schema, failing with an error naming its field. kit/lib/plan-repo/targets.ts read gh api JSON (the repository, a contents listing, a compare) as it came. A schema refusal has to go somewhere: throw out of readTarget, or become a row.
+
+## What I did meanwhile
+
+Added kit/lib/plan-repo/gh-schema.ts: loose schemas naming only the fields the readers use (default_branch; type, name, path; ahead_by, files[].filename, previous_filename) plus the two YAML reads (paths.playbook, a form's state). A refused gh answer throws Unreachable naming the field, so omni targets and omni plan moved show that target as unreachable. A JSON syntax error still throws as before. A non-array contents answer still reads as no folder.
+
+## What it costs to change later
+
+Cheap: answerOf in targets.ts can throw the ZodError instead, one line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a malformed GitHub answer should stop the command or stay one row among the others (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-02-malformed-github-answer-reads-unreachable -->
+
+<!-- omni-outbox-settled: s10-03-playbook-tests-type-the-form-fixture-locally -->
+
+## s10-03-playbook-tests-type-the-form-fixture-locally — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s10
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-03-playbook-tests-type-the-form-fixture-locally
+prd: 725
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+A shared test helper this slice relies on is typed by a later slice. How should this slice's tests use it meanwhile?
+
+## The decision, in plain words
+
+Each of this slice's test files that builds a form gives that helper its expected shape locally, in a few lines, until the later slice types the helper itself.
+
+## The intro, for fun
+
+The test helper still speaks untyped, and this slice could not wait for its lessons.
+
+## The punchline, for fun
+
+So five test files carry a small phrasebook until the helper graduates.
+
+## The options, in plain words
+
+A. Give the helper its shape locally in each test file until the later slice types it
+B. Type the shared helper in this slice, outside its own ground
+C. Put one typed wrapper of the helper inside this slice's folders and import it from each test
+
+## What I had to decide
+
+kit/test/fixture.ts belongs to s17 and still opens with @ts-nocheck, so formText's slots default is inferred as never[]: every call passing slots fails to compile. The territory forbids editing the fixture.
+
+## What I did meanwhile
+
+forms, check-playbook, releasing, resolve and review tests import formText as fixtureFormText and cast it to a local FormTextOptions signature (tests may cast fixtures freely). The same tests call main through an 'io as never' cast, since kit/bin/omni.ts is untyped until s17.
+
+## What it costs to change later
+
+Cheap: once s17 types formText and main, delete the five aliases and the casts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s17 will type formText with the same option shape (author)
+
+```
+
+<!-- /omni-outbox-settled: s10-03-playbook-tests-type-the-form-fixture-locally -->
+
+<!-- omni-outbox-settled: s13-01-init-reads-malformed-json-as-missing -->
+
+## s13-01-init-reads-malformed-json-as-missing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s13
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s13-01-init-reads-malformed-json-as-missing
+prd: 725
+slice: s13
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+When the setup command reads a project file or a tool's answer that has the wrong shape, should it treat it as missing, or stop as it sometimes did before?
+
+## The decision, in plain words
+
+A file or an answer of the wrong shape is now treated exactly like a missing one, so setup carries on with its usual fallback instead of crashing in one rare case.
+
+## The intro, for fun
+
+The setup command opened a box labelled package and found only the word null inside.
+
+## The punchline, for fun
+
+It now shrugs, writes no scripts down, and keeps unpacking.
+
+## The options, in plain words
+
+A. Treat a malformed file or answer as missing, the same fallback as an absent one (built)
+B. Bring back the old crash for a project file holding nothing at all, and keep the rest as built
+C. Stop init with an error naming the field whenever an outside value has the wrong shape
+
+## What I had to decide
+
+Whether init should keep treating a malformed package.json, composer.json or gh/claude JSON answer as missing (what the slice built), or restore the old crash for the one case that crashed.
+
+## What I did meanwhile
+
+kit/lib/init/schema.ts parses every outside read of init through Zod; a value the schema refuses falls back exactly as an absent file or a failed command does. The one output that changed: a package.json or composer.json whose whole content is JSON `null` used to throw a TypeError out of detectCommands (`null.scripts`); it now reads as no scripts, so every command is null. A gh or claude answer whose fields have the wrong type (never seen from the real tools) now takes the same fallback as gh being unavailable, where before the wrong-typed value was used as is.
+
+## What it costs to change later
+
+A constant: the fallback lives in readScripts in kit/lib/init/detect.ts and in each safeParse/parse call inside an existing try. Restoring the crash is one throw when the parsed file is null.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a bug the types reveal is recorded, not fixed; it does not say whether init's never-throw contract should cover a package.json holding only null, which no real repository is likely to have.
+
+```
+
+<!-- /omni-outbox-settled: s13-01-init-reads-malformed-json-as-missing -->
+
+<!-- omni-outbox-settled: s16-01-hand-checks-stand-in-for-schemas -->
+
+## s16-01-hand-checks-stand-in-for-schemas — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s16
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s16-01-hand-checks-stand-in-for-schemas
+prd: 725
+slice: s16
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+Four readers in this part already check what they read by hand, and each refusal already names the field that is wrong. Should they move to the shared validation library now, as the rest of the work asks?
+
+## The decision, in plain words
+
+Not in this slice: they keep their own checks, which already refuse bad input with a message naming the field, so nobody sees a different message. The pull request answer used by the review helper is left to be checked where it is fetched, as an earlier decision said.
+
+## The intro, for fun
+
+Four careful readers were asked to swap their own checklists for the house one.
+
+## The punchline, for fun
+
+They pointed out their lists already say which box is wrong, and kept their pens.
+
+## The options, in plain words
+
+A. A: keep the hand-written checks, now typed, and check the review answer where it is fetched, in the command line slice
+B. B: move the proof run and persona files to the shared library now, rewording nothing people see
+C. C: move every reader here to the shared library, and accept new wording in its refusals
+
+## What I had to decide
+
+Whether the done-when rule 'every value read from a file, a process, the network or the environment passes a Zod schema' requires replacing the hand-written validation in kit/lib/proof/run.ts (run.json), kit/lib/voice/voice.ts (voice.json), kit/lib/proof/push.ts (the Omni page's replies) and kit/lib/proof/session.ts (the JWT claims), and adding a schema for the GraphQL answer kit/lib/care/state.ts parses.
+
+## What I did meanwhile
+
+No Zod schema added. run.ts, voice.ts and push.ts read their input as `unknown` and narrow it through the checks already there, whose refusals name the field (`run.json: commit is ...`, `round spec: personas[0].score must be ...`). session.ts reads the JWT payload with one marked cast (`// ts-allow:`), checked as before: `iss` through `new URL`, `exp` by comparison. care/state.ts types the GraphQL answer as `CareResponse` with every field optional; the gh JSON is parsed in kit/bin/commands/care.ts (s17's territory), as item s4-03 settled for the board.
+
+## What it costs to change later
+
+A folder-local schema file per reader (kit/lib/proof/schema.ts, kit/lib/voice/schema.ts) with an error map that rebuilds today's refusal wording, plus a `CareResponse` schema in s17 where the gh answer is read. No stored data or interface changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec does not say whether a hand-written check that names the field counts as the schema the done-when asks for (author)
+- session.ts's JWT claims are not fully checked today (email, sub and role are copied as given); a schema would refuse a token the browser now accepts (author)
+
+```
+
+<!-- /omni-outbox-settled: s16-01-hand-checks-stand-in-for-schemas -->

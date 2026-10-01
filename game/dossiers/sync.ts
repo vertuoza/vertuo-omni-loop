@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `pnpm game:dossiers`'s run (PRD 216, spec › The fallback): for each repository of the workspace, read
 // its default branch's delivery folders and bring each PRD's dossier up to them.
 //
@@ -19,15 +18,47 @@
 //
 // A folder whose name does not parse, a file over 512 KiB, a repository or a blob that cannot be read,
 // and a PRD or a fix that cannot be stored are skipped and logged: nothing fails the run.
-import { ARTIFACT_MAX_BYTES, CONFIG_FILE, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf } from './folders.ts';
+import { ARTIFACT_MAX_BYTES, CONFIG_FILE, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf, type FixFile, type FixFolder, type PrdFolder, type TreeEntry, type TreeFile } from './folders.ts';
 import { ghWhy, readBlob, readConfig, readHead, readIssueTitle, readTree } from './github.ts';
+import type { Dossier, DossierVersion } from '../../kit/lib/types.ts';
+import type { Exec } from '../sources/github.ts';
+import type { DossierStore } from './store.ts';
 
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const FIX_KINDS = ['visual', 'bug'];
-const FIX_NAMES = { visual: 'visual fix', bug: 'bug fix' };
+type Log = Pick<Console, 'log' | 'warn'>;
+type Head = { branch: string; commit: string; tree: string };
+type File = TreeFile | FixFile;
+type ByKind = (kind: string) => string | null;
+type FixKind = FixFolder['kind'];
+
+/** What one run of a repository's fixes did. */
+export type FixesReport = {
+  folders: number;
+  created: Array<{ kind: FixKind; prd: number }>;
+  added: Array<{ fix: FixKind; prd: number; kind: string; version: number }>;
+};
+/** What one run did to a repository it read. */
+export type RepositoryReport = {
+  slug: string;
+  commit: string;
+  folders: number;
+  created: number[];
+  added: Array<{ prd: number; kind: string; version: number }>;
+  fetched: number;
+  fixes?: FixesReport;
+  skipped?: undefined;
+};
+/** A repository the run did not read, and why. */
+export type SkippedReport = { slug: string; skipped: string };
+
+// What a thrown value says.
+const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
+const FIX_KINDS: FixKind[] = ['visual', 'bug'];
+const FIX_NAMES: Record<FixKind, string> = { visual: 'visual fix', bug: 'bug fix' };
 
 /** Whether a stored version holds the tree's file: by its blob hash, else by hashing what the kit stored. */
-async function holds(store, stored, file) {
+async function holds(store: DossierStore, stored: DossierVersion, file: File): Promise<boolean> {
   if (stored.gitBlob) return stored.gitBlob === file.sha;
   if (stored.bytes !== file.size) return false;
   const content = await store.content(stored.id); // the kit pushed it: hash what it stored
@@ -35,7 +66,7 @@ async function holds(store, stored, file) {
 }
 
 /** Whether a tree's file differs from what the dossier holds: the latest of its kind, or any round. */
-async function changed(store, dossier, file) {
+async function changed(store: DossierStore, dossier: Dossier | null | undefined, file: File): Promise<boolean> {
   if (file.kind === 'variations') {
     for (const round of dossier?.rounds ?? []) if (await holds(store, round, file)) return false;
     return true;
@@ -50,14 +81,19 @@ async function changed(store, dossier, file) {
  * `retitle(contents)` gives a title to set on a found dossier, or null. Reports through `created()` and
  * `added(kind, version)`.
  */
-async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, folder, kind, dossier, now, log, report, name, retitle, created, added }) {
-  const wanted = [];
+async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, folder, kind, dossier, now, log, report, name, retitle, created, added }: {
+  exec: Exec; store: DossierStore; slug: string; homeRepo: string; workspaceId: string; head: Head;
+  folder: { prd: number; files: readonly File[] }; kind: string; dossier: Dossier | null | undefined; now: Date; log: Log;
+  report: { fetched: number }; name: (byKind: ByKind) => string | Promise<string>; retitle: (byKind: ByKind) => string | null;
+  created: () => void; added: (kind: string, version: number) => void;
+}): Promise<void> {
+  const wanted: File[] = [];
   for (const file of folder.files) if (await changed(store, dossier, file)) wanted.push(file);
   if (dossier && !wanted.length) return;
 
-  const contents = new Map(); // path → content
+  const contents = new Map<string, string>(); // path → content
   for (const file of wanted) {
-    let content;
+    let content: string;
     try {
       content = await readBlob(exec, slug, file.sha);
     } catch (err) {
@@ -69,9 +105,9 @@ async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, fold
     if (bytes > ARTIFACT_MAX_BYTES) log.warn(`  ! skipped ${file.path} in ${slug}: ${bytes} bytes, over 512 KiB`);
     else contents.set(file.path, content);
   }
-  const byKind = (k) => {
+  const byKind: ByKind = (k) => {
     const file = wanted.find((f) => f.kind === k && contents.has(f.path));
-    return file ? contents.get(file.path) : null;
+    return file ? contents.get(file.path) ?? null : null;
   };
 
   if (!dossier) {
@@ -85,20 +121,22 @@ async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, fold
     if (title !== null && title !== dossier.title) await store.retitle(dossier.id, title);
   }
 
+  const found: Dossier = dossier;
   for (const file of wanted) {
-    if (!contents.has(file.path)) continue;
+    const content = contents.get(file.path);
+    if (content === undefined) continue;
     try {
-      const version = await store.addVersion({ dossierId: dossier.id, kind: file.kind, content: contents.get(file.path), commitSha: head.commit, gitBlob: file.sha });
+      const version = await store.addVersion({ dossierId: found.id, kind: file.kind, content, commitSha: head.commit, gitBlob: file.sha });
       if (version !== null) added(file.kind, version);
     } catch (err) {
-      log.warn(`  ! skipped ${file.path} in ${slug}: ${err.message}`);
+      log.warn(`  ! skipped ${file.path} in ${slug}: ${messageOf(err)}`);
     }
   }
 }
 
 /** A fix's title: its issue's, without its prefix, else its folder's topic (logged when the issue cannot be read). */
-async function fixName({ exec, slug, folder, log }) {
-  let issueTitle = null;
+async function fixName({ exec, slug, folder, log }: { exec: Exec; slug: string; folder: FixFolder; log: Log }): Promise<string> {
+  let issueTitle: string | null = null;
   try {
     issueTitle = await readIssueTitle(exec, slug, folder.prd);
   } catch (err) {
@@ -107,16 +145,18 @@ async function fixName({ exec, slug, folder, log }) {
   return fixTitle(issueTitle, folder.topic);
 }
 
-async function syncFixes({ exec, store, slug, homeRepo, workspaceId, head, folders, now, log, report }) {
-  const fixes = { folders: folders.length, created: [], added: [] };
+async function syncFixes({ exec, store, slug, homeRepo, workspaceId, head, folders, now, log, report }: {
+  exec: Exec; store: DossierStore; slug: string; homeRepo: string; workspaceId: string; head: Head; folders: FixFolder[]; now: Date; log: Log; report: { fetched: number };
+}): Promise<FixesReport> {
+  const fixes: FixesReport = { folders: folders.length, created: [], added: [] };
   for (const kind of FIX_KINDS) {
     const ofKind = folders.filter((f) => f.kind === kind);
     if (!ofKind.length) continue;
-    let known;
+    let known: Map<number, Dossier>;
     try {
       known = await store.dossiersOf(workspaceId, homeRepo, null, { kind });
     } catch (err) {
-      log.warn(`  ! skipped the ${FIX_NAMES[kind]}es of ${slug}: their dossiers cannot be read: ${err.message}`);
+      log.warn(`  ! skipped the ${FIX_NAMES[kind]}es of ${slug}: their dossiers cannot be read: ${messageOf(err)}`);
       continue;
     }
     for (const folder of ofKind) {
@@ -129,21 +169,21 @@ async function syncFixes({ exec, store, slug, homeRepo, workspaceId, head, folde
           added: (artifact, version) => fixes.added.push({ fix: kind, prd: folder.prd, kind: artifact, version }),
         });
       } catch (err) {
-        log.warn(`  ! skipped ${FIX_NAMES[kind]} ${folder.prd} of ${slug}: ${err.message}`);
+        log.warn(`  ! skipped ${FIX_NAMES[kind]} ${folder.prd} of ${slug}: ${messageOf(err)}`);
       }
     }
   }
   return fixes;
 }
 
-async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
+async function syncRepository({ exec, store, workspaceId, slug, now, log }: { exec: Exec; store: DossierStore; workspaceId: string; slug: string; now: Date; log: Log }): Promise<RepositoryReport | SkippedReport> {
   // A repository that has not switched dossiers on is expected; one that cannot be read is logged as a problem.
-  const skip = (reason, problem = false) => {
+  const skip = (reason: string, problem = false): SkippedReport => {
     if (problem) log.warn(`  ! skipped ${slug}: ${reason}`);
     else log.log(`  - skipped ${slug}: ${reason}`);
     return { slug, skipped: reason };
   };
-  let head, listing;
+  let head: Head, listing: { entries: TreeEntry[]; truncated: boolean; delivery: string };
   try {
     head = await readHead(exec, slug);
     const config = await readConfig(exec, slug, head.commit);
@@ -161,13 +201,13 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
   for (const { path, reason } of [...skipped, ...fixed.skipped]) log.warn(`  ! skipped ${path} in ${slug}: ${reason}`);
 
   const homeRepo = slug.toLowerCase(); // GitHub's owner/name is not case-sensitive: the migration keeps it in lower case
-  const report = { slug, commit: head.commit, folders: folders.length, created: [], added: [], fetched: 0 };
-  let known = new Map();
+  const report: RepositoryReport = { slug, commit: head.commit, folders: folders.length, created: [], added: [], fetched: 0 };
+  let known = new Map<number, Dossier>();
   if (folders.length) {
     try {
       known = await store.dossiersOf(workspaceId, homeRepo);
     } catch (err) {
-      return skip(`its dossiers cannot be read: ${err.message}`, true);
+      return skip(`its dossiers cannot be read: ${messageOf(err)}`, true);
     }
   }
   await syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folders, known, now, log, report });
@@ -178,7 +218,9 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
   return report;
 }
 
-async function syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folders, known, now, log, report }) {
+async function syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folders, known, now, log, report }: {
+  exec: Exec; store: DossierStore; slug: string; homeRepo: string; workspaceId: string; head: Head; folders: PrdFolder[]; known: Map<number, Dossier>; now: Date; log: Log; report: RepositoryReport;
+}): Promise<void> {
   for (const folder of folders) {
     try {
       await syncFolder({
@@ -189,14 +231,14 @@ async function syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folder
         added: (kind, version) => report.added.push({ prd: folder.prd, kind, version }),
       });
     } catch (err) {
-      log.warn(`  ! skipped PRD ${folder.prd} of ${slug}: ${err.message}`);
+      log.warn(`  ! skipped PRD ${folder.prd} of ${slug}: ${messageOf(err)}`);
     }
   }
 }
 
 /** One line per repository: its folders, the dossiers created, the files fetched and the versions added. */
-function logReport({ slug, head, folders, report, log }) {
-  const fixes = report.fixes ?? { folders: 0, created: [], added: [] };
+function logReport({ slug, head, folders, report, log }: { slug: string; head: Head; folders: PrdFolder[]; report: RepositoryReport; log: Log }): void {
+  const fixes: FixesReport = report.fixes ?? { folders: 0, created: [], added: [] };
   const parts = [plural(folders.length, 'PRD folder')];
   if (fixes.folders) parts.push(plural(fixes.folders, 'fix folder'));
   const createdCount = report.created.length + fixes.created.length;
@@ -211,17 +253,13 @@ function logReport({ slug, head, folders, report, log }) {
 }
 
 /**
- * Brings the workspace's dossiers up to each repository's default branch.
- * @param {{ exec: (args: string[]) => Promise<string>, store: ReturnType<import('./store.ts').dossierStore>,
- *   workspaceId: string, org: string, repos: string[], now?: Date, log?: Pick<Console, 'log' | 'warn'> }} run
- * @returns {Promise<Array<{ slug: string, skipped: string } | { slug: string, commit: string, folders: number,
- *   created: number[], added: Array<{ prd: number, kind: string, version: number }>, fetched: number,
- *   fixes?: { folders: number, created: Array<{ kind: 'visual' | 'bug', prd: number }>,
- *     added: Array<{ fix: 'visual' | 'bug', prd: number, kind: string, version: number }> } }>>}
- *   one report per repository, in order, each read once; `fixes` only when it holds a fix folder
+ * Brings the workspace's dossiers up to each repository's default branch: one report per repository,
+ * in order, each read once; `fixes` only when it holds a fix folder.
  */
-export async function syncDossiers({ exec, store, workspaceId, org, repos, now = new Date(), log = console }) {
-  const reports = [];
+export async function syncDossiers(
+  { exec, store, workspaceId, org, repos, now = new Date(), log = console }: { exec: Exec; store: DossierStore; workspaceId: string; org: string; repos: readonly string[]; now?: Date; log?: Log },
+): Promise<Array<RepositoryReport | SkippedReport>> {
+  const reports: Array<RepositoryReport | SkippedReport> = [];
   for (const repo of [...new Set(repos)]) {
     reports.push(await syncRepository({ exec, store, workspaceId, slug: `${org}/${repo}`, now, log }));
   }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 790: the pure decision a PR care round acts on. It turns a feature PR's care state (`state.mjs`,
 // plus the command's `wave`) into the round's next actions, in the order the spec fixes: a conflict,
 // then red CI, then each review thread, and always the status comment last. `/omni:pr-care` only
@@ -14,17 +13,31 @@
 // (`thread`: no care reply yet), `mark-asked` (`thread`: a person had the last word after a care
 // reply), `status`.
 
-/**
- * @param {{ pr: { state: string, base: string }, checks: { state: string, failed: object[], stuck: boolean, fixable: boolean },
- *   mergeable: string, threads: Array<{ id: string, needs: 'judge' | 'mark-asked' | null }>,
- *   wave: { holdsClaims: boolean | null } }} state
- * @returns {{ mode: 'stop' | 'report-only' | 'act', actions: object[] }}
- */
-export function decideRound(state) {
+import type { CareChecks, CareState, ThreadNeed } from './state.ts';
+
+/** What a round reads: the care state, as far as it decides on it, and whether a wave holds claims. */
+export type RoundState = {
+  pr: Pick<CareState['pr'], 'state' | 'base'>;
+  checks: CareChecks;
+  mergeable: string;
+  threads: ReadonlyArray<{ id: string; needs: ThreadNeed }>;
+  wave?: { holdsClaims: boolean | null } | null;
+};
+
+export type RoundAction =
+  | { kind: 'merge-base'; base: string }
+  | { kind: 'fix-ci'; failed: CareChecks['failed'] }
+  | { kind: 'judge'; thread: string }
+  | { kind: 'mark-asked'; thread: string }
+  | { kind: 'status' };
+
+export type Round = { mode: 'stop' | 'report-only' | 'act'; actions: RoundAction[] };
+
+export function decideRound(state: RoundState): Round {
   if (state.pr.state !== 'OPEN') return { mode: 'stop', actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: 'report-only', actions: [{ kind: 'status' }] };
 
-  const actions = [];
+  const actions: RoundAction[] = [];
   if (state.mergeable === 'CONFLICTING') actions.push({ kind: 'merge-base', base: state.pr.base });
   const { checks } = state;
   if (checks.state === 'red' && checks.fixable && !checks.stuck) actions.push({ kind: 'fix-ci', failed: checks.failed });
