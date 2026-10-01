@@ -197,6 +197,20 @@ export const ENTRIES = deepFreeze([
       'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
   },
   {
+    name: 'pitch',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni pitch push <n> <dir>'],
+    summary: "sends a shipped PRD's pitch to its Pitch tab",
+    detail:
+      "Sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +
+      "Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the " +
+      'folder and refuses, before sending anything, a run missing one of its five files ' +
+      '(slide.png, slide-square.png, pitch.mp4, pitch-square.mp4, pitch.gif) or one over 50 MB. A PRD ' +
+      'that is not shipped prints not shipped. It never retries, and never holds up the skill that runs ' +
+      'it: anything that stops it exits 1 with one line, as omni proof push does, and keeps every file.',
+  },
+  {
     name: 'business',
     kind: 'command',
     who: 'you',
