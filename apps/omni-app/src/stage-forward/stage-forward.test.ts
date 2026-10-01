@@ -1,11 +1,12 @@
-// @ts-nocheck
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { forwardStageEvent, signStageEvent, STAGE_SIGNATURE_HEADER, stageEventUrl, toStageEvent } from './stage-forward.ts';
+import { forwardStageEvent, signStageEvent, STAGE_SIGNATURE_HEADER, stageEventUrl, toStageEvent, type StageEvent } from './stage-forward.ts';
 
-const REPOSITORY = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' }, default_branch: 'main' };
+const REPOSITORY: Record<string, unknown> = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' }, default_branch: 'main' };
 
-const pull = (action, { head, base = 'main', merged = false, body = null, ...over } = {}) => ({
+type PullOver = { head?: string; base?: string; merged?: boolean; body?: string | null; [field: string]: unknown };
+
+const pull = (action: string, { head, base = 'main', merged = false, body = null, ...over }: PullOver = {}): any => ({
   action,
   installation: { id: 7 },
   repository: REPOSITORY,
@@ -105,14 +106,14 @@ describe('stageEventUrl', () => {
 });
 
 describe('forwardStageEvent', () => {
-  const event = { repository: 'acme/widgets', topic: 'x', prd: 3, stage: 'inbox', at: '2026-09-29T10:00:00Z' };
+  const event: StageEvent = { repository: 'acme/widgets', topic: 'x', prd: 3, stage: 'inbox', at: '2026-09-29T10:00:00Z' };
 
   it('POSTs the event signed with the secret', async () => {
-    const fetch = vi.fn(async () => new Response('ok', { status: 200 }));
+    const fetch = vi.fn(async (_url: string, _init: any) => new Response('ok', { status: 200 }));
     const log = vi.fn();
     await forwardStageEvent(event, { url: 'https://galaxy.example/api/stages/event', secret: 'k', fetch, log });
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [url, init] = fetch.mock.calls[0];
+    const [url, init] = fetch.mock.calls[0] ?? [];
     expect(url).toBe('https://galaxy.example/api/stages/event');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(event);
@@ -133,7 +134,7 @@ describe('forwardStageEvent', () => {
     await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: async () => new Response('no', { status: 401 }), log })).resolves.toBeUndefined();
     await expect(forwardStageEvent(event, { url: 'u', secret: 'k', fetch: async () => { throw new Error('down'); }, log })).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledTimes(2);
-    expect(log.mock.calls[0][0]).toContain('401');
-    expect(log.mock.calls[1][0]).toContain('down');
+    expect(log.mock.calls[0]?.[0]).toContain('401');
+    expect(log.mock.calls[1]?.[0]).toContain('down');
   });
 });

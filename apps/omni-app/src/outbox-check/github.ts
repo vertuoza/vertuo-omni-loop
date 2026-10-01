@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The GitHub reads the `outbox-check` function needs beyond `snapshot` and `publish`: the pull
 // request's facts, its comments, its changed files, the check's name from the base branch's config,
 // and the fail-closed completion its failure handler performs. Every call goes through the one
@@ -10,15 +9,28 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
+import {
+  CheckRunsSchema,
+  CommentsPageSchema,
+  ComparePageSchema,
+  CreatedSchema,
+  labelName,
+  PullSchema,
+  type GitHubClient,
+  type Repo,
+} from './github-schema.ts';
+
+export type { GitHubClient, Repo } from './github-schema.ts';
 
 const PER_PAGE = 100;
 /** Pages read at most from a paginated list: 3,000 entries, GitHub's own cap on a compare's files. */
 const MAX_PAGES = 30;
 
 /** The compare endpoint's file statuses, in the one-letter `git diff --name-status` shape the kit reads. */
-const STATUS = Object.freeze({
+const STATUS: Readonly<Record<string, string>> = Object.freeze({
   added: 'A',
   removed: 'D',
   modified: 'M',
@@ -27,32 +39,44 @@ const STATUS = Object.freeze({
   copied: 'C',
 });
 
-/**
- * The pull request's facts, read fresh: a debounced run sees the latest labels and refs.
- * @returns {Promise<{ baseRef: string, baseSha: string, headRef: string, headSha: string, labels: string[] }>}
- */
-export async function readPull(octokit, { owner, repo, prNumber }) {
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+/** A pull request's facts, as the checks read them. */
+export type PullFacts = { baseRef: string; baseSha: string; headRef: string; headSha: string; labels: string[] };
+
+/** A changed path, in the shape the kit reads from `git diff --name-status`. */
+export type Change = { path: string; status: string };
+
+/** A comment on a pull request. */
+export type Comment = { id: number; body: string };
+
+/** The pull request's facts, read fresh: a debounced run sees the latest labels and refs. */
+export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<PullFacts> {
+  const { data: answer } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
     owner,
     repo,
     pull_number: prNumber,
   });
+  const data = PullSchema.parse(answer);
   return {
     baseRef: data.base.ref,
     baseSha: data.base.sha,
     headRef: data.head.ref,
     headSha: data.head.sha,
-    labels: (data.labels ?? []).map((label) => (typeof label === 'string' ? label : label.name)),
+    labels: (data.labels ?? []).map(labelName).filter((name) => name !== undefined),
   };
 }
 
+/** The base branch's config as `readBaseConfig` read it. */
+export type BaseConfig = { folder: string; config: Config | null; error: ConfigError | null };
+
 /**
  * Snapshots the base branch's `.omni-loop/config.yml` into `dest` (a fresh temporary folder when
- * omitted) and parses it through the kit's schema.
- * @returns {Promise<{ folder: string, config: object | null, error: ConfigError | null }>}
- *   `config` null and `error` null: the base branch has no config (omni-loop is not active).
+ * omitted) and parses it through the kit's schema. `config` null and `error` null: the base branch has
+ * no config (omni-loop is not active).
  */
-export async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
+export async function readBaseConfig(
+  octokit: GitHubClient,
+  { owner, repo, baseSha, dest }: Repo & { baseSha: string; dest?: string },
+): Promise<BaseConfig> {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
   let text;
   try {
@@ -73,9 +97,11 @@ export async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
  * from its config, or the kit's default when that config is broken (the check still has to appear,
  * to say so). A base branch with no config at all is not active: the app posts nothing there
  * (PRD 359), since a public app is installed on repositories that never asked for the loop.
- * @returns {Promise<{ active: boolean, name: string }>}
  */
-export async function checkTarget(octokit, { owner, repo, baseSha }) {
+export async function checkTarget(
+  octokit: GitHubClient,
+  { owner, repo, baseSha }: Repo & { baseSha: string },
+): Promise<{ active: boolean; name: string }> {
   const folder = mkdtempSync(join(tmpdir(), 'omni-name-'));
   try {
     const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha, dest: folder });
@@ -86,7 +112,7 @@ export async function checkTarget(octokit, { owner, repo, baseSha }) {
 }
 
 /** Every comment on the pull request, as `{ id, body }`. */
-export async function listComments(octokit, { owner, repo, prNumber }) {
+export async function listComments(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Comment[]> {
   const comments = await paginate((page) =>
     octokit
       .request('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
@@ -96,7 +122,7 @@ export async function listComments(octokit, { owner, repo, prNumber }) {
         per_page: PER_PAGE,
         page,
       })
-      .then(({ data }) => data),
+      .then(({ data }) => CommentsPageSchema.parse(data)),
   );
   return comments.map(({ id, body }) => ({ id, body: body ?? '' }));
 }
@@ -105,7 +131,10 @@ export async function listComments(octokit, { owner, repo, prNumber }) {
  * The branch's changed files, `base...head`, from GitHub's compare endpoint, in the shape the kit
  * reads from `git diff --name-status` locally (`{ path, status }`).
  */
-export async function changedFiles(octokit, { owner, repo, baseSha, headSha }) {
+export async function changedFiles(
+  octokit: GitHubClient,
+  { owner, repo, baseSha, headSha }: Repo & { baseSha: string; headSha: string },
+): Promise<Change[]> {
   const files = await paginate((page) =>
     octokit
       .request('GET /repos/{owner}/{repo}/compare/{basehead}', {
@@ -115,21 +144,34 @@ export async function changedFiles(octokit, { owner, repo, baseSha, headSha }) {
         per_page: PER_PAGE,
         page,
       })
-      .then(({ data }) => data.files ?? []),
+      .then(({ data }) => ComparePageSchema.parse(data).files ?? []),
   );
-  return files
-    .filter((file) => STATUS[file.status])
-    .map((file) => ({ path: file.filename, status: STATUS[file.status] }));
+  return files.flatMap((file) => {
+    const status = STATUS[file.status];
+    return status ? [{ path: file.filename, status }] : [];
+  });
 }
 
 /**
  * Fail closed (PRD 28, decision 6): completes every check run of this name on the head SHA that is
  * not completed yet as `failure`, with the reason as its title. When there is none — the run failed
  * before it could create one — it creates the check already completed, so the failure is never
- * silent. A check run this app cannot write (another app's, of the same name) is left alone.
- * @returns {Promise<number[]>} the check run ids completed or created
+ * silent, unless `create` is false. A check run this app cannot write (another app's, of the same
+ * name) is left alone. `externalId`: the one a created check run carries (the inbox check's).
+ * @returns the check run ids completed or created
  */
-export async function completeAsFailure(octokit, { owner, repo, headSha, name, reason }) {
+export async function completeAsFailure(
+  octokit: GitHubClient,
+  {
+    owner,
+    repo,
+    headSha,
+    name,
+    reason,
+    externalId,
+    create = true,
+  }: Repo & { headSha: string; name: string; reason: unknown; externalId?: string; create?: boolean },
+): Promise<number[]> {
   const title = `omni-loop could not evaluate: ${firstLine(reason)}`;
   const output = { title, summary: title };
   const completed_at = new Date().toISOString();
@@ -141,9 +183,9 @@ export async function completeAsFailure(octokit, { owner, repo, headSha, name, r
     check_name: name,
     per_page: PER_PAGE,
   });
-  const open = (data.check_runs ?? []).filter((run) => run.status !== 'completed');
+  const open = (CheckRunsSchema.parse(data).check_runs ?? []).filter((run) => run.status !== 'completed');
 
-  const ids = [];
+  const ids: number[] = [];
   for (const run of open) {
     try {
       await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
@@ -160,23 +202,24 @@ export async function completeAsFailure(octokit, { owner, repo, headSha, name, r
       // Not this app's check run; GitHub refuses the write. Nothing to complete here.
     }
   }
-  if (ids.length > 0) return ids;
+  if (ids.length > 0 || !create) return ids;
 
   const { data: created } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
     owner,
     repo,
     name,
     head_sha: headSha,
+    ...(externalId === undefined ? {} : { external_id: externalId }),
     status: 'completed',
     conclusion: 'failure',
     completed_at,
     output,
   });
-  return [created.id];
+  return [CreatedSchema.parse(created).id];
 }
 
-async function paginate(fetchPage) {
-  const all = [];
+async function paginate<T>(fetchPage: (page: number) => Promise<T[]>): Promise<T[]> {
+  const all: T[] = [];
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const items = await fetchPage(page);
     all.push(...items);
@@ -185,7 +228,7 @@ async function paginate(fetchPage) {
   return all;
 }
 
-function firstLine(reason) {
+function firstLine(reason: unknown): string {
   const text = String(reason ?? 'unknown error').trim();
   return text.split('\n')[0] || 'unknown error';
 }

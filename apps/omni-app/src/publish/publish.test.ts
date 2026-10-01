@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { DEFAULT_CHECK_NAME, MAX_SUMMARY, publish, startCheck } from './publish.ts';
@@ -8,9 +7,9 @@ const HEAD = 'abc123';
 
 // A stubbed Octokit: records every request and answers the four routes publish uses.
 function stubGitHub({ prHeadSha = HEAD, checkRunId = 77 } = {}) {
-  const requests = [];
+  const requests: any[] = [];
   const octokit = {
-    async request(route, params) {
+    async request(route: any, params: any) {
       requests.push({ route, ...params });
       switch (route) {
         case 'POST /repos/{owner}/{repo}/check-runs':
@@ -31,7 +30,7 @@ function stubGitHub({ prHeadSha = HEAD, checkRunId = 77 } = {}) {
   return { octokit, requests };
 }
 
-const routes = (requests) => requests.map((r) => r.route);
+const routes = (requests: any) => requests.map((r: any) => r.route);
 
 const verdict = (over = {}) => ({
   conclusion: 'failure',

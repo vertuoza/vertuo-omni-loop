@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `canon-action`: the Inngest function answering a click of a canon button (PRD 839).
 //
 //   step "comment"  on a phase-0 PR of a repository with the loop only, post the button's one comment
@@ -8,8 +7,10 @@
 //
 // It runs on the event the webhook sends for a click, one click at a time per pull request, so a
 // double click cannot post twice. Galaxy's host is `GALAXY_URL` when set, as for the stage events.
-import { inngest } from '../inngest-client.ts';
-import { installationOctokit } from '../outbox-check/outbox-check.ts';
+import type { Inngest } from 'inngest';
+import { CanonActionRequestDataSchema, inngest } from '../inngest-client.ts';
+import { installationOctokit, type OctokitFor } from '../outbox-check/outbox-check.ts';
+import { CreatedSchema } from '../outbox-check/github-schema.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { CANON_ACTION_EVENT, canonComment, commentMarker } from './canon-actions.ts';
@@ -20,14 +21,7 @@ export const CANON_ACTION_FUNCTION_ID = 'canon-action';
 /** Galaxy's host: `GALAXY_URL` when set, else its production domain. */
 const galaxyHost = () => new URL(stageEventUrl()).origin;
 
-/**
- * @param {{
- *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
- *   galaxyUrl?: string,
- * }} deps
- */
-export function createCanonAction({ client, octokitFor, galaxyUrl }) {
+export function createCanonAction({ client, octokitFor, galaxyUrl }: { client: Inngest; octokitFor: OctokitFor; galaxyUrl?: string }) {
   return client.createFunction(
     {
       id: CANON_ACTION_FUNCTION_ID,
@@ -37,7 +31,7 @@ export function createCanonAction({ client, octokitFor, galaxyUrl }) {
       retries: 3,
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, action, facts } = event.data;
+      const { installationId, owner, repo, prNumber, action, facts } = CanonActionRequestDataSchema.parse(event.data);
       return step.run('comment', async () => {
         const body = canonComment(action, facts, { galaxyUrl: galaxyUrl ?? galaxyHost() });
         if (body === null) return { posted: false, reason: `not a canon button: ${action}` };
@@ -58,7 +52,7 @@ export function createCanonAction({ client, octokitFor, galaxyUrl }) {
           issue_number: prNumber,
           body,
         });
-        return { posted: true, comment: 'created', id: data.id };
+        return { posted: true, comment: 'created', id: CreatedSchema.parse(data).id };
       });
     },
   );

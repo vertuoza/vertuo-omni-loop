@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A synthetic repository for the retro's tests (PRD 72): `acme/widgets`, whose PRD 7 (`widget`) was
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
@@ -40,7 +39,7 @@ export const PLAN = `# Widgets — plan
 | s3 | The colour is shown | \`src/show/\` | s1 | 2 |
 `;
 
-const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, title = `slice ${head}`, labels = [] }) => ({
+const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, title = `slice ${head}`, labels = [] }: any) => ({
   number,
   title,
   state: closedAt ? 'closed' : 'open',
@@ -49,7 +48,7 @@ const pull = ({ number, head, base, createdAt, mergedAt, closedAt = mergedAt, ti
   html_url: `https://github.com/${OWNER}/${REPO}/pull/${number}`,
   head: { ref: head, sha: `head${number}` },
   base: { ref: base, sha: `base${number}` },
-  labels: labels.map((name) => ({ name })),
+  labels: labels.map((name: string) => ({ name })),
   created_at: createdAt,
   closed_at: closedAt,
   merged_at: mergedAt,
@@ -82,8 +81,8 @@ export const FEATURE_EVENTS = [
 ];
 
 /** The files of the merge commit: the config, and PRD 7's folder, shipped (or in the inbox). */
-export function mergeFiles({ config = CONFIG, state = 'shipped', settled = null } = {}) {
-  const files = {};
+export function mergeFiles({ config = CONFIG, state = 'shipped', settled = null }: { config?: string | null; state?: string; settled?: string | null } = {}) {
+  const files: Record<string, string> = {};
   if (config !== null) files['.omni-loop/config.yml'] = config;
   const folder = `.omni-loop/delivery/${state}/0007-widget`;
   files[`${folder}/spec.md`] = SPEC;
@@ -141,17 +140,22 @@ export const NOT_KEPT_WHY = 'The knowledge already says this.';
  * Each request's user message is kept in `fetch.asked`, parsed. Nothing reaches OpenRouter.
  * @param {{ worthIt?: boolean, keep?: (id: string) => boolean, reason?: string, summary?: string }} [options]
  */
-export function judge({ worthIt = true, keep = () => worthIt, reason, summary = 'The delivery went as planned, and one slice ran long.' } = {}) {
-  const asked = [];
-  const fetch = async (_url, init) => {
+export function judge({
+  worthIt = true,
+  keep = () => worthIt,
+  reason,
+  summary = 'The delivery went as planned, and one slice ran long.',
+}: { worthIt?: boolean; keep?: (id: string) => boolean; reason?: string; summary?: string } = {}) {
+  const asked: any[] = [];
+  const fetch = async (_url: any, init: any) => {
     const input = JSON.parse(JSON.parse(init.body).messages[1].content);
     asked.push(input);
-    const ids = input.findings.map((finding) => finding.id);
-    const kept = ids.filter((id) => keep(id));
+    const ids = input.findings.map((finding: any) => finding.id);
+    const kept = ids.filter((id: any) => keep(id));
     const reply = {
       summary,
       findings: Object.fromEntries(
-        ids.map((id) => [id, kept.includes(id) ? { lesson: KEPT_LESSON, keep: true, why: KEPT_WHY } : { keep: false, why: NOT_KEPT_WHY }]),
+        ids.map((id: any) => [id, kept.includes(id) ? { lesson: KEPT_LESSON, keep: true, why: KEPT_WHY } : { keep: false, why: NOT_KEPT_WHY }]),
       ),
       lessons: kept.length > 0 ? [{ text: KEPT_LESSON, findings: kept }] : [],
       verdict: {

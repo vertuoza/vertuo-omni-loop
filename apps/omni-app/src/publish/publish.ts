@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `publish`: the outbox check's two writes to GitHub.
 //
 // `startCheck` creates the check run, `in_progress`, on the pull request's head SHA — the first step of
@@ -15,6 +14,7 @@
 // config (an inactive repository) the kit's default applies (decision 10), so the name is the same
 // everywhere. The Octokit seam is `octokit.request(route, params)` alone.
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { CreatedSchema, PullHeadSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
 
 /** `ci.outboxContext` when a repository sets none, taken from the kit's own schema. */
 export const DEFAULT_CHECK_NAME = ConfigSchema.parse({ kit: 1 }).ci.outboxContext;
@@ -24,12 +24,22 @@ export const MAX_SUMMARY = 65535;
 
 const TRUNCATED = '\n\n… (truncated)';
 
-/**
- * @param {{ request: (route: string, params: object) => Promise<{ data: any }> }} octokit
- * @param {{ owner: string, repo: string, headSha: string, name?: string }} input
- * @returns {Promise<number>} the check run's id
- */
-export async function startCheck(octokit, { owner, repo, headSha, name = DEFAULT_CHECK_NAME }) {
+/** A verdict to post: the check run's conclusion and output, and the outbox comment to write, if any. */
+export type PublishVerdict = {
+  conclusion: string;
+  title: string;
+  summary: string;
+  comment: { id: number | null; body: string } | null;
+};
+
+/** How the outbox comment was left. */
+export type Published = { checkRunId: number; comment: 'created' | 'updated' | 'head-moved' | 'none' };
+
+/** @returns the check run's id */
+export async function startCheck(
+  octokit: GitHubClient,
+  { owner, repo, headSha, name = DEFAULT_CHECK_NAME }: { owner: string; repo: string; headSha: string; name?: string },
+): Promise<number> {
   const { data } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
     owner,
     repo,
@@ -38,18 +48,20 @@ export async function startCheck(octokit, { owner, repo, headSha, name = DEFAULT
     status: 'in_progress',
     started_at: new Date().toISOString(),
   });
-  return data.id;
+  return CreatedSchema.parse(data).id;
 }
 
-/**
- * @param {{ request: (route: string, params: object) => Promise<{ data: any }> }} octokit
- * @param {{
- *   owner: string, repo: string, checkRunId: number, pullNumber: number, headSha: string,
- *   verdict: { conclusion: string, title: string, summary: string, comment: { id: number | null, body: string } | null },
- * }} input
- * @returns {Promise<{ checkRunId: number, comment: 'created' | 'updated' | 'head-moved' | 'none' }>}
- */
-export async function publish(octokit, { owner, repo, checkRunId, pullNumber, headSha, verdict }) {
+export async function publish(
+  octokit: GitHubClient,
+  { owner, repo, checkRunId, pullNumber, headSha, verdict }: {
+    owner: string;
+    repo: string;
+    checkRunId: number;
+    pullNumber: number;
+    headSha: string;
+    verdict: PublishVerdict;
+  },
+): Promise<Published> {
   await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
     owner,
     repo,
@@ -62,11 +74,12 @@ export async function publish(octokit, { owner, repo, checkRunId, pullNumber, he
 
   if (!verdict.comment) return { checkRunId, comment: 'none' };
 
-  const { data: pr } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
     owner,
     repo,
     pull_number: pullNumber,
   });
+  const pr = PullHeadSchema.parse(data);
   if (pr.head.sha !== headSha) return { checkRunId, comment: 'head-moved' };
 
   const { id, body } = verdict.comment;
@@ -88,7 +101,7 @@ export async function publish(octokit, { owner, repo, checkRunId, pullNumber, he
   return { checkRunId, comment: 'updated' };
 }
 
-const oneLine = (title) => title.split('\n')[0];
+const oneLine = (title: string): string => title.split('\n')[0] ?? '';
 
-const bounded = (summary) =>
+const bounded = (summary: string): string =>
   summary.length <= MAX_SUMMARY ? summary : summary.slice(0, MAX_SUMMARY - TRUNCATED.length) + TRUNCATED;
