@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A merge over a red outbox adopts what is still open** (PRD #82, slice s2).
  *
@@ -18,13 +17,16 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readRepoFile } from '../check-report.ts';
-import { SETTLED_FILE, parseOutboxItem } from './outbox.ts';
+import { SETTLED_FILE } from './outbox.ts';
 import {
   ADOPTED_VERDICT,
+  parseItem,
   parseSettledEntries,
   renderSettledEntry,
   settledHeader,
 } from './settle.ts';
+import type { Context } from '../context.ts';
+import type { EntryAnswer, Judgement, SettledEntry, SettledItemFacts } from './settle.ts';
 import { openItemFiles } from './status.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
@@ -53,7 +55,9 @@ export const MergeSchema = z
   })
   .strict();
 
-function mergeAnswer(merge) {
+type Merge = z.infer<typeof MergeSchema>;
+
+function mergeAnswer(merge: Merge): EntryAnswer {
   return {
     approvedBy: `@${merge.by}`,
     approvedAt: merge.at,
@@ -66,14 +70,14 @@ function mergeAnswer(merge) {
   };
 }
 
-const JUDGEMENT = {
+const JUDGEMENT: Judgement = {
   verdict: ADOPTED_VERDICT,
   basis: MERGED_OVER_RED_BASIS,
   reason: MERGED_OVER_RED_REASON,
 };
 
 /** The item a drifted entry carries, from its own recorded fields — the item text is kept whole. */
-function itemFromEntry(entry) {
+function itemFromEntry(entry: SettledEntry): SettledItemFacts {
   const { fields } = entry;
   return {
     id: entry.id,
@@ -90,7 +94,24 @@ function itemFromEntry(entry) {
  * @returns {{ ok: true, settledFile: string, entries: { id: string, from: 'open' | 'drift', entry: string }[],
  *   append: string, text: string | null, deletes: string[] } | { ok: false, errors: string[] }}
  */
-export function settleAtMerge({ ctx, prd, merge }) {
+export function settleAtMerge({
+  ctx,
+  prd,
+  merge,
+}: {
+  ctx: Context;
+  prd: string | number;
+  merge: unknown;
+}):
+  | {
+      ok: true;
+      settledFile: string;
+      entries: { id: string; from: 'open' | 'drift'; entry: string }[];
+      append: string;
+      text: string | null;
+      deletes: string[];
+    }
+  | { ok: false; errors: string[] } {
   const parsedMerge = MergeSchema.safeParse(merge, { error: KIT_MESSAGES });
   if (!parsedMerge.success) {
     return { ok: false, errors: parsedMerge.error.issues.map((issue) => issue.message) };
@@ -105,13 +126,13 @@ export function settleAtMerge({ ctx, prd, merge }) {
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   const existing = existsSync(join(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
-  const errors = [];
-  const entries = [];
-  const deletes = [];
+  const errors: string[] = [];
+  const entries: { id: string; from: 'open' | 'drift'; entry: string }[] = [];
+  const deletes: string[] = [];
 
   for (const file of openItemFiles(prd, { ctx })) {
     const itemText = readRepoFile(ctx, file);
-    const parsed = parseOutboxItem(itemText, { file });
+    const parsed = parseItem(itemText, file);
     if (!parsed.ok) {
       errors.push(...parsed.errors);
       continue;

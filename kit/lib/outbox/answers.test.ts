@@ -1,16 +1,19 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeMarkers } from '../markers.ts';
 import { formatNumbersMarker } from './comment.ts';
 import { parseOutboxItem } from './outbox.ts';
 import { planReplies } from './replies.ts';
 import { answerableQuestions, askBatches, cleanLine, REASON_MAX_LENGTH, writeReply } from './answers.ts';
+import type { Door } from './answers.ts';
+import type { OutboxItem } from '../types.ts';
 
 const PRD = 251;
 const markers = makeMarkers('omni-outbox');
 
 /** An item's text, as `omni item new` writes it: options for a decision, steps for a human action. */
-function itemText(id, { rank = 'high', letters = ['A', 'B', 'C'] } = {}) {
+type ItemOptions = { rank?: string; letters?: string[] };
+
+function itemText(id: string, { rank = 'high', letters = ['A', 'B', 'C'] }: ItemOptions = {}) {
   const body = rank === 'human-action'
     ? ['## What a person must do', '', '1. Add the secret to the project.', '']
     : ['## The options, in plain words', '', ...letters.map((letter) => `${letter}. Option ${letter} for ${id}.`), ''];
@@ -53,10 +56,10 @@ function itemText(id, { rank = 'high', letters = ['A', 'B', 'C'] } = {}) {
   ].join('\n');
 }
 
-function item(id, options) {
+function item(id: string, options?: ItemOptions): OutboxItem {
   const parsed = parseOutboxItem(itemText(id, options), { file: `.omni-loop/delivery/outbox/x/${id}.md` });
-  if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
-  return parsed.item;
+  if (!parsed.ok) throw new Error(parsed.errors!.join('\n'));
+  return parsed.item as OutboxItem;
 }
 
 const ITEMS = [
@@ -73,7 +76,8 @@ const NUMBERING = [
 ];
 const QUESTIONS = answerableQuestions({ numbering: NUMBERING, items: ITEMS });
 
-const write = (picks, door = 'terminal') => writeReply({ prd: PRD, door, questions: QUESTIONS, picks });
+const write = (picks: unknown, door: string = 'terminal') =>
+  writeReply({ prd: PRD, door: door as Door, questions: QUESTIONS, picks }) as { ok: boolean; reply?: string; reason?: string };
 
 describe('writeReply (PRD 251)', () => {
   it('writes each pick on its own line, in the order of the numbers, then the door', () => {
@@ -140,7 +144,7 @@ describe('writeReply (PRD 251)', () => {
     expect(cleanLine('<!<!---->- x')).not.toMatch(/<!--|-->/);
 
     const { reply } = write([{ number: 2, pick: 'B', reason }]);
-    const answerLines = reply.split('\n').filter((line) => /^\s*\d+\s*:/.test(line));
+    const answerLines = reply!.split('\n').filter((line) => /^\s*\d+\s*:/.test(line));
     expect(answerLines).toHaveLength(1);
     expect(reply).not.toContain('<!--');
   });
@@ -155,10 +159,10 @@ describe('the reply writer and planReplies agree (PRD 251)', () => {
     created_at: '2026-09-27T08:00:00Z',
     html_url: 'https://github.com/o/r/pull/9#issuecomment-1',
   };
-  const read = (reply) => {
+  const read = (reply: string | undefined) => {
     const comment = {
       id: 2,
-      body: reply,
+      body: reply as string,
       user: { login: 'pierre' },
       author_association: 'MEMBER',
       created_at: '2026-09-27T09:00:00Z',
@@ -193,7 +197,7 @@ describe('the reply writer and planReplies agree (PRD 251)', () => {
     ], 'page');
     const settled = read(reply);
     expect([...settled.keys()].sort((a, b) => a - b)).toEqual([1, 2, 5, 19]);
-    expect(settled.get(2).verdict).toBe('drifted');
+    expect(settled.get(2)!.verdict).toBe('drifted');
     expect(settled.get(19)).toEqual({ verdict: 'agreed', text: 'ok' });
   });
 });
@@ -217,7 +221,7 @@ describe('askBatches (PRD 251)', () => {
     ];
     const batches = askBatches({ numbering, items });
     expect(batches.map((batch) => batch.map((question) => question.number))).toEqual([[7, 1, 2, 3], [4, 6]]);
-    const [action, high] = batches[0];
+    const [action, high] = batches[0]!;
     expect(action).toMatchObject({
       number: 7,
       id: 's4-01',
