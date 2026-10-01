@@ -11,8 +11,9 @@
 //
 // Not renamed: `kit/dist/` (the bundle other repositories carry is still `kit/dist/omni.mjs`),
 // `.omni-loop/bin/` (where a repository carries it; here, the shim onto the source) and this file.
-// Not rewritten: the delivery records and the knowledge under `.omni-loop/` and the migrations, which
-// say what was true when they were written, and the bundle, which only a build writes.
+// Not rewritten: the records that say what was true when they were written (the delivery records and
+// the knowledge under `.omni-loop/`, the kit's porting notes, the design specs and plans under
+// `docs/superpowers/`, the migrations, the recorded fixtures under a `fixtures/` folder) and the bundle, which only a build writes.
 //
 // A path is rewritten only when it names a file this run renames (or renamed before): read from the
 // folder of the file that names it, from the repository root, from the folder of the package.json it
@@ -26,8 +27,10 @@ import { join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const KEEP = [/^kit\/dist\//, /^\.omni-loop\/bin\//, /^scripts\/ts-rename\.mjs$/];
-const FROZEN = [/^kit\/dist\//, /^\.omni-loop\/delivery\//, /^\.omni-loop\/knowledge\//, /^supabase\/migrations\//];
+const FROZEN = [/^kit\/dist\//, /^kit\/porting\//, /^docs\/superpowers\//, /^\.omni-loop\/delivery\//, /^\.omni-loop\/knowledge\//, /^supabase\/migrations\//, /(^|\/)fixtures\//];
 const SKIP = [/(^|\/)node_modules\//, /^\.claude\/worktrees\//];
+// This script and its test, whose fixture names `.mjs` paths on purpose.
+const SELF = /^scripts\/ts-rename\.(mjs|test\.ts)$/;
 const BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|eot|pdf|zip|gz|mp3|mp4|wav|ogg|webm|wasm)$/i;
 const NOCHECK = '// @ts-nocheck';
 // A run of path characters ending in `.mjs`, templates and globs included: `${…}` and `*` stand for
@@ -125,7 +128,7 @@ export function renameRepository(root) {
 
   let changed = 0;
   for (const path of files) {
-    if (FROZEN.some((re) => re.test(path)) || BINARY.test(path) || path === 'scripts/ts-rename.mjs') continue;
+    if ((!renames.has(path) && FROZEN.some((re) => re.test(path))) || BINARY.test(path) || SELF.test(path)) continue;
     const target = renames.get(path) ?? path;
     const abs = join(root, path);
     const text = readFileSync(abs, 'utf8');
