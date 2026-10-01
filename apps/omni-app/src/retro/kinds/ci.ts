@@ -14,6 +14,60 @@
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
+import type { Counts, Reporter } from './ci-logs.ts';
+import type { Evidence, Kind, RetroPrd, RetroPull } from './index.ts';
+import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import type { Job, WorkflowRun } from './schema.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+
+/** One job of one run, as the kind keeps it. */
+type JobRecord = {
+  id: number;
+  run: number;
+  workflow: string | null;
+  check: string;
+  slice: string;
+  sha: string | null | undefined;
+  attempt: number;
+  status: string | null | undefined;
+  conclusion: string | null;
+  url: string | null;
+  completedAt: string | null;
+};
+
+type Unread = { slice: string; run?: number; status: number };
+type Log = { tail: string | null; status?: number };
+type Records = { slices: string[]; unread: Unread[]; jobs: JobRecord[]; logs: Record<string, Log | undefined> };
+
+type RedRun = {
+  id: number;
+  check: string;
+  slice: string;
+  commit: string;
+  attempt: number;
+  url: string | null;
+  reporter: Reporter | null;
+  tests: string[];
+  counts: Counts | null;
+  log: string;
+  excerpt?: string;
+};
+
+type Flip = { commit: string; slice: string; red: JobRecord; green: JobRecord };
+type Check = { check: string; runs: number; red: number; redCommits: string[]; redSlices: string[]; flips: Flip[] };
+type Test = { test: string; runs: number; checks: string[]; slices: string[] };
+
+type Facts = {
+  slices: string[];
+  unread: Unread[];
+  totals: { runs: number; red: number; checks: number; commits: number; slices: number };
+  checks: (Omit<Check, 'flips'> & { redThenGreen: { commit: string; slice: string }[] })[];
+  redRuns: RedRun[];
+  tests: Test[];
+};
+
+/** What `readOrRefused` gives: the value read, or the status GitHub refused it with. */
+type Read<T> = { value: T; status: null } | { value: null; status: number };
 
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
 const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
@@ -22,39 +76,38 @@ const LOGS = 'GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs';
 /** How many runs' jobs, or logs, are read at once. */
 const PARALLEL_READS = 4;
 /** What GitHub answers for what it will not let the app read, or no longer has. */
-const UNREADABLE = new Set([403, 404, 410]);
+const UNREADABLE: ReadonlySet<unknown> = new Set([403, 404, 410]);
 
 /** A job that ended red. A cancelled or skipped job is no run at all. */
-const RED = new Set(['failure', 'timed_out', 'startup_failure']);
-const GREEN = new Set(['success']);
-const REPORTERS = Object.freeze({ vitest: 'Vitest', jest: 'Jest', playwright: 'Playwright', pytest: 'pytest' });
-const COUNT_ORDER = Object.freeze(['failed', 'errors', 'flaky', 'passed', 'skipped', 'total']);
+const RED: ReadonlySet<string | null> = new Set(['failure', 'timed_out', 'startup_failure']);
+const GREEN: ReadonlySet<string | null> = new Set(['success']);
+const REPORTERS: Readonly<Record<Reporter, string>> = Object.freeze({ vitest: 'Vitest', jest: 'Jest', playwright: 'Playwright', pytest: 'pytest' });
+const COUNT_ORDER: readonly string[] = Object.freeze(['failed', 'errors', 'flaky', 'passed', 'skipped', 'total']);
 
-/** @type {import('./index.ts').Kind} */
-export const ci = Object.freeze({
+export const ci: Kind<Records | null, Facts> = Object.freeze({
   id: 'ci',
   section: 'Checks',
-  runs: Object.freeze(['merge']),
+  runs: Object.freeze(['merge'] as const),
 
   async gather(octokit, { owner, repo, prd, config, pulls }) {
     const branches = sliceBranches(pulls ?? [], prd, config);
     if (branches.length === 0) return null;
 
-    const slices = [];
-    const unread = [];
-    const runs = [];
+    const slices: string[] = [];
+    const unread: Unread[] = [];
+    const runs: { run: WorkflowRun; slice: string }[] = [];
     for (const { slice, branch } of branches) {
       const read = await readOrRefused(() =>
         paginate((page: number) =>
           octokit
             .request(RUNS, { owner, repo, branch, exclude_pull_requests: true, per_page: PER_PAGE, page })
-            .then(({ data }) => data.workflow_runs ?? []),
+            .then(({ data }) => WorkflowRunsPageSchema.parse(data).workflow_runs ?? []),
         ),
       );
       // A branch GitHub does not know had no run; a refusal is said in the section.
       if (read.status === 403) unread.push({ slice, status: 403 });
       else slices.push(slice);
-      runs.push(...(read.value ?? []).map((run) => ({ run, slice })));
+      runs.push(...(read.value ?? []).map((run: WorkflowRun) => ({ run, slice })));
     }
 
     const jobsOfRuns = await inParallel(runs, async ({ run, slice }) => {
@@ -62,20 +115,20 @@ export const ci = Object.freeze({
         paginate((page: number) =>
           octokit
             .request(JOBS, { owner, repo, run_id: run.id, filter: 'all', per_page: PER_PAGE, page })
-            .then(({ data }) => data.jobs ?? []),
+            .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
         ),
       );
       if (read.status) unread.push({ slice, run: run.id, status: read.status });
-      return (read.value ?? []).map((job) => jobRecord(job, run, slice));
+      return (read.value ?? []).map((job: Job) => jobRecord(job, run, slice));
     });
     const jobs = jobsOfRuns.flat();
 
     const red = jobs.filter((job) => job.status === 'completed' && RED.has(job.conclusion));
-    const tails = await inParallel(red, async (job) => {
+    const tails = await inParallel(red, async (job): Promise<Log> => {
       const read = await readOrRefused(() => octokit.request(LOGS, { owner, repo, job_id: job.id }).then(({ data }) => data));
       return read.status ? { tail: null, status: read.status } : { tail: tailOf(cleanLog(asText(read.value)), LIMITS.logTailLines) };
     });
-    const logs = Object.fromEntries(red.map((job, index) => [job.id, tails[index]]));
+    const logs: Record<string, Log | undefined> = Object.fromEntries(red.map((job, index) => [job.id, tails[index]]));
 
     return { slices, unread, jobs, logs };
   },
@@ -91,7 +144,7 @@ export const ci = Object.freeze({
     const checks = checksOf(jobs);
     const tests = testsOf(redRuns);
 
-    const facts = {
+    const facts: Facts = {
       slices: records.slices ?? [],
       unread: records.unread ?? [],
       totals: {
@@ -106,11 +159,11 @@ export const ci = Object.freeze({
       tests,
     };
 
-    const evidence = (job, label = runLabel(job)) => {
+    const evidence = (job: RunLike & { id: number; url: string | null }, label = runLabel(job)): Evidence => {
       const tail = logs[job.id]?.tail;
       return { label, url: job.url, ...(tail ? { excerpt: tail } : {}) };
     };
-    const redOf = (predicate) => redRuns.filter(predicate).map((run) => evidence(run));
+    const redOf = (predicate: (run: RedRun) => boolean) => redRuns.filter(predicate).map((run) => evidence(run));
 
     const findings = [
       ...checks
@@ -156,7 +209,7 @@ export const ci = Object.freeze({
   describe(facts) {
     if (!facts) return null;
     const { totals } = facts;
-    const lines = [];
+    const lines: string[] = [];
     if (totals.runs > 0) {
       lines.push(
         `- ${count(totals.runs, 'run')} of ${count(totals.checks, 'check')} on ${count(totals.commits, 'commit')} in ${count(totals.slices, 'slice')}, read from GitHub Actions: ${totals.red} red.`,
@@ -206,7 +259,7 @@ export const ci = Object.freeze({
 });
 
 /** A red job as the facts keep it: where it ran, and what its log names; the log itself only when no reporter was read. */
-function redRun(job, log) {
+function redRun(job: JobRecord, log: Log | undefined): RedRun {
   const base = { id: job.id, check: job.check, slice: job.slice, commit: short(job.sha), attempt: job.attempt, url: job.url };
   if (!log) return { ...base, reporter: null, tests: [], counts: null, log: 'not read' };
   if (log.tail === null) return { ...base, reporter: null, tests: [], counts: null, log: `not read (${log.status})` };
@@ -215,14 +268,14 @@ function redRun(job, log) {
 }
 
 /** Per check, in name order: its runs, its red runs, the commits and slices it was red in, and each commit it turned green on. */
-function checksOf(jobs) {
-  const jobsByName = new Map();
+function checksOf(jobs: readonly JobRecord[]): Check[] {
+  const jobsByName = new Map<string, JobRecord[]>();
   for (const job of jobs) jobsByName.set(job.check, [...(jobsByName.get(job.check) ?? []), job]);
 
   return [...jobsByName.entries()]
     .map(([name, ofCheck]) => {
       const reds = ofCheck.filter((job) => RED.has(job.conclusion));
-      const flips = [];
+      const flips: Flip[] = [];
       ofCheck.forEach((red, index) => {
         if (!RED.has(red.conclusion) || flips.some((flip) => flip.red.sha === red.sha)) return;
         const green = ofCheck.slice(index + 1).find((job) => job.sha === red.sha && GREEN.has(job.conclusion));
@@ -241,8 +294,8 @@ function checksOf(jobs) {
 }
 
 /** Each test a red run's log names, with how many red runs named it, most first. */
-function testsOf(redRuns) {
-  const byName = new Map();
+function testsOf(redRuns: readonly RedRun[]): Test[] {
+  const byName = new Map<string, Test>();
   for (const run of redRuns) {
     for (const name of run.tests) {
       const test = byName.get(name) ?? { test: name, runs: 0, checks: [], slices: [] };
@@ -255,7 +308,7 @@ function testsOf(redRuns) {
   return [...byName.values()].sort((a, b) => b.runs - a.runs);
 }
 
-function jobRecord(job, run, slice) {
+function jobRecord(job: Job, run: WorkflowRun, slice: string): JobRecord {
   return {
     id: job.id,
     run: job.run_id ?? run.id,
@@ -271,25 +324,29 @@ function jobRecord(job, run, slice) {
   };
 }
 
+/** A job, or a red run, as a label names it. */
+type RunLike = { check: string; slice: string; attempt: number; commit?: string; sha?: string | null | undefined };
+
 /** `fn()`'s value, or the status GitHub answered when it will not let the app read it; anything else is thrown, so Inngest retries the step. */
-async function readOrRefused(fn) {
+async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
   try {
     return { value: await fn(), status: null };
   } catch (error) {
-    if (UNREADABLE.has(error?.status)) return { value: null, status: error.status };
+    const status = statusOf(error);
+    if (typeof status === 'number' && UNREADABLE.has(status)) return { value: null, status };
     throw error;
   }
 }
 
 /** `fn` over `items`, at most `PARALLEL_READS` at a time, the results in the items' order. */
-async function inParallel(items, fn) {
-  const results = new Array(items.length);
+async function inParallel<T, R>(items: readonly T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
   let next = 0;
   const worker = async () => {
     while (next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await fn(items[index]);
+      results[index] = await fn(items[index] as T); // ts-allow: `index` is below `items.length`
     }
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL_READS, items.length) }, worker));
@@ -297,7 +354,7 @@ async function inParallel(items, fn) {
 }
 
 /** A log as text, whether the request gave a string or bytes. */
-function asText(data) {
+function asText(data: unknown): string {
   if (typeof data === 'string') return data;
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8');
   if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('utf8');
@@ -305,10 +362,10 @@ function asText(data) {
 }
 
 /** Each slice branch the pull requests into the feature branch came from, once, with its slice id. */
-function sliceBranches(pulls, prd, config) {
+function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Config): { slice: string; branch: string }[] {
   if (pulls.length === 0) return [];
   const template = config.branches.slice.replace('{topic}', prd.topic);
-  const branches = [];
+  const branches: { slice: string; branch: string }[] = [];
   for (const pull of pulls) {
     const slice = sliceOf(pull.headRef, template);
     if (slice !== null && !branches.some((known) => known.branch === pull.headRef)) branches.push({ slice, branch: pull.headRef });
@@ -317,50 +374,56 @@ function sliceBranches(pulls, prd, config) {
 }
 
 /** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-function sliceOf(headRef, template) {
-  const [prefix, suffix = ''] = template.split('{slice}');
+function sliceOf(headRef: string, template: string): string | null {
+  const [prefix = '', suffix = ''] = template.split('{slice}');
   if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
   const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
   return slice && !slice.includes('/') ? slice : null;
 }
 
-function runName(run) {
+function runName(run: RedRun): string {
   return run.attempt > 1 ? `${run.check}, attempt ${run.attempt}` : run.check;
 }
 
-function runLabel(job, colour = null) {
+function runLabel(job: RunLike, colour: string | null = null): string {
   const attempt = job.attempt > 1 ? `, attempt ${job.attempt}` : '';
   return `${job.check}${colour ? ` ${colour}` : ''} on ${short(job.sha ?? job.commit)} in ${job.slice}${attempt}`;
 }
 
-function fromLog(run) {
+function fromLog(run: RedRun): string {
   if (run.log !== 'read') return run.log;
   if (run.reporter === null) return 'no test named: its last lines are kept as an excerpt';
   const name = REPORTERS[run.reporter];
   if (!run.counts) return `${name}, no count`;
-  return `${name}: ${COUNT_ORDER.filter((key) => key in run.counts)
-    .map((key) => `${run.counts[key]} ${key}`)
+  const counts = run.counts;
+  return `${name}: ${COUNT_ORDER.filter((key) => key in counts)
+    .map((key) => `${counts[key]} ${key}`)
     .join(', ')}`;
 }
 
 /** The last part of a test's name: its title. */
-function leafOf(test) {
+function leafOf(test: string): string | undefined {
   return test.split(/ > |::/).at(-1);
 }
 
-function short(sha) {
+function short(sha: string | null | undefined): string {
   return String(sha ?? '').slice(0, 7);
 }
 
-function count(n, noun) {
+function count(n: number, noun: string): string {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
 
-function cell(text) {
+function cell(text: string): string {
   return String(text).replaceAll('|', '\\|');
 }
 
-function uniqueBy(items, key) {
-  const seen = new Set();
+function uniqueBy<T, K>(items: readonly T[], key: (item: T) => K): T[] {
+  const seen = new Set<K>();
   return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)));
+}
+
+/** The HTTP status a failed request carries, when it carries one. */
+function statusOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
 }

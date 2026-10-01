@@ -31,26 +31,28 @@ export const LOCKFILES = Object.freeze([
   'gradle.lockfile',
 ]);
 
-const LOCKFILE_NAMES = new Set(LOCKFILES);
+const LOCKFILE_NAMES: ReadonlySet<string> = new Set(LOCKFILES);
+
+/** Why churn leaves a path out. */
+export type LeftOut = 'generated' | 'lockfile' | 'delivery';
 
 /** Whether `path` names a lockfile. */
-export function isLockfile(path) {
+export function isLockfile(path: string): boolean {
   return LOCKFILE_NAMES.has(path.slice(path.lastIndexOf('/') + 1));
 }
 
 /**
  * Whether a path is `linguist-generated` by the root `.gitattributes`: its last line whose pattern
  * matches the path and which sets or unsets the attribute decides, as git reads it.
- * @param {string | null} gitattributes  the file's text, or `null` when the repository has none
- * @returns {(path: string) => boolean}
+ * `gitattributes` is the file's text, or `null` when the repository has none.
  */
-export function linguistGenerated(gitattributes) {
-  const rules = [];
+export function linguistGenerated(gitattributes: string | null): (path: string) => boolean {
+  const rules: { matches: RegExp; generated: boolean }[] = [];
   for (const raw of (gitattributes ?? '').split('\n')) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
-    const [pattern, ...attributes] = line.split(/\s+/);
-    let generated;
+    const [pattern = '', ...attributes] = line.split(/\s+/);
+    let generated: boolean | undefined;
     for (const attribute of attributes) {
       if (attribute === 'linguist-generated' || attribute === 'linguist-generated=true') generated = true;
       else if (['-linguist-generated', '!linguist-generated', 'linguist-generated=false'].includes(attribute)) generated = false;
@@ -64,13 +66,11 @@ export function linguistGenerated(gitattributes) {
 
 /**
  * Why churn leaves a path out: `generated`, `lockfile`, `delivery`, or `null` when it counts.
- * @param {string | null} gitattributes
- * @param {{ delivery?: string | null }} [paths]  the config's `paths.delivery`, when there is one
- * @returns {(path: string) => 'generated' | 'lockfile' | 'delivery' | null}
+ * `paths` holds the config's `paths.delivery`, when there is one.
  */
-export function leftOutAs(gitattributes, { delivery = null } = {}) {
+export function leftOutAs(gitattributes: string | null, { delivery = null }: { delivery?: string | null } = {}): (path: string) => LeftOut | null {
   const generated = linguistGenerated(gitattributes);
-  const inDelivery = delivery ? (path) => path.startsWith(`${delivery.replace(/\/+$/, '')}/`) : () => false;
+  const inDelivery = delivery ? (path: string) => path.startsWith(`${delivery.replace(/\/+$/, '')}/`) : () => false;
   return (path) => (generated(path) ? 'generated' : isLockfile(path) ? 'lockfile' : inDelivery(path) ? 'delivery' : null);
 }
 
@@ -78,7 +78,7 @@ export function leftOutAs(gitattributes, { delivery = null } = {}) {
  * A gitattributes pattern as a regular expression over a repository-relative path. A pattern with a
  * slash at its start or in its middle is read from the root; one without, at any depth.
  */
-function globToRegExp(glob) {
+function globToRegExp(glob: string): RegExp {
   const anchored = glob.includes('/');
   const pattern = glob.startsWith('/') ? glob.slice(1) : glob;
   let source = '';
@@ -108,17 +108,17 @@ function globToRegExp(glob) {
       const body = rest.slice(1, end).replace(/^[!^]/, '^').replace(/\\/g, '\\\\');
       source += `[${body}]`;
       i += end + 1;
-    } else if (rest[0] === '\\' && rest.length > 1) {
+    } else if (rest[0] === '\\' && rest[1] !== undefined) {
       source += escape(rest[1]);
       i += 2;
     } else {
-      source += escape(rest[0]);
+      source += escape(rest[0] ?? '');
       i += 1;
     }
   }
   return new RegExp(`${anchored ? '^' : '(?:^|/)'}${source}$`);
 }
 
-function escape(character) {
+function escape(character: string): string {
   return character.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 }

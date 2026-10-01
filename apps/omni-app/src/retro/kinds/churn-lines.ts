@@ -10,24 +10,21 @@
 // below a block moves by what the block added minus what it removed. A range rewritten again and
 // again is then a run of consecutive lines each written in enough commits.
 
-/**
- * @typedef {[oldStart: number, oldCount: number, newStart: number, newCount: number]} Block
- * @typedef {[line: number, commits: string[]]} Line
- */
+export type Block = [oldStart: number, oldCount: number, newStart: number, newCount: number];
+export type Line = [line: number, commits: string[]];
+export type Range = { from: number; to: number; commits: string[] };
 
 const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
 /**
  * The change blocks of one unified diff patch, in order.
- * @param {string} patch
- * @returns {Block[]}
  */
-export function changeBlocks(patch) {
-  const blocks = [];
+export function changeBlocks(patch: string): Block[] {
+  const blocks: Block[] = [];
   let inHunk = false;
   let oldLine = 0;
   let newLine = 0;
-  let open = null;
+  let open: { oldStart: number; oldCount: number; newStart: number; newCount: number } | null = null;
   const close = () => {
     if (open) blocks.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
     open = null;
@@ -38,7 +35,7 @@ export function changeBlocks(patch) {
     if (header) {
       close();
       // A count left out is one line.
-      const [oldStart, oldCount, newStart, newCount] = header.slice(1).map((n) => (n === undefined ? 1 : Number(n)));
+      const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header.slice(1).map((n) => (n === undefined ? 1 : Number(n)));
       // A side of zero lines names the line before the hunk; its first line is the next one.
       oldLine = oldCount === 0 ? oldStart + 1 : oldStart;
       newLine = newCount === 0 ? newStart + 1 : newStart;
@@ -68,26 +65,25 @@ export function changeBlocks(patch) {
 
 /**
  * The lines written so far, after one more commit's blocks on the same file.
- * @param {Line[]} lines  in line order
- * @param {Block[]} blocks  in order, as `changeBlocks` reads them
- * @param {string} commit
- * @returns {Line[]} in line order
+ * `lines` in line order, `blocks` in order as `changeBlocks` reads them; the lines come back in line order.
  */
-export function followLines(lines, blocks, commit) {
-  const next = new Map();
-  const replaced = blocks.map(() => []);
+export function followLines(lines: readonly Line[], blocks: readonly Block[], commit: string): Line[] {
+  const next = new Map<number, string[]>();
+  const replaced: string[][] = blocks.map(() => []);
   let index = 0;
   let shift = 0;
   for (const [line, commits] of lines) {
-    while (index < blocks.length && blocks[index][0] + blocks[index][1] <= line) {
-      shift += blocks[index][3] - blocks[index][1];
+    let block = blocks[index];
+    while (block !== undefined && block[0] + block[1] <= line) {
+      shift += block[3] - block[1];
       index += 1;
+      block = blocks[index];
     }
-    if (index < blocks.length && blocks[index][0] <= line) replaced[index].push(...commits);
+    if (block !== undefined && block[0] <= line) replaced[index]?.push(...commits);
     else put(next, line + shift, commits);
   }
   blocks.forEach(([, , newStart, newCount], i) => {
-    const commits = unique([...replaced[i], commit]);
+    const commits = unique([...(replaced[i] ?? []), commit]);
     for (let line = newStart; line < newStart + newCount; line += 1) put(next, line, commits);
   });
   return [...next.entries()].sort((a, b) => a[0] - b[0]);
@@ -96,12 +92,11 @@ export function followLines(lines, blocks, commit) {
 /**
  * The runs of consecutive lines each written in at least `minCommits` commits: `{ from, to, commits }`,
  * `commits` every commit that wrote a line of the run, in the order first met.
- * @param {Line[]} lines  in line order
- * @param {number} minCommits
+ * `lines` in line order.
  */
-export function rewrittenRanges(lines, minCommits) {
-  const ranges = [];
-  let current = null;
+export function rewrittenRanges(lines: readonly Line[], minCommits: number): Range[] {
+  const ranges: Range[] = [];
+  let current: Range | null = null;
   for (const [line, commits] of lines) {
     if (commits.length < minCommits) {
       current = null;
@@ -119,10 +114,11 @@ export function rewrittenRanges(lines, minCommits) {
 }
 
 /** Two blocks that disagree with the lines followed so far can land on one line: it keeps both histories. */
-function put(map, line, commits) {
-  map.set(line, map.has(line) ? unique([...map.get(line), ...commits]) : commits);
+function put(map: Map<number, string[]>, line: number, commits: string[]): void {
+  const known = map.get(line);
+  map.set(line, known !== undefined ? unique([...known, ...commits]) : commits);
 }
 
-function unique(values) {
+function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
