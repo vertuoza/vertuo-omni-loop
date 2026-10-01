@@ -7,17 +7,6 @@
 .agent-make { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .agent-make label { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
 .agent-make-label { font-size: 14px; color: var(--ask-muted); }
-.agent-make input {
-  font: 16px/1.3 var(--ask-body);
-  color: var(--ask-ink);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 8px;
-  padding: 10px 12px;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
 .agent-shown { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1.5px dashed var(--ask-line-strong); border-radius: 8px; }
 .agent-shown-lead { margin: 0; overflow-wrap: anywhere; }
 .agent-token { display: block; padding: 8px 10px; border-radius: 6px; background: var(--ask-surface); overflow-wrap: anywhere; word-break: break-all; user-select: all; }

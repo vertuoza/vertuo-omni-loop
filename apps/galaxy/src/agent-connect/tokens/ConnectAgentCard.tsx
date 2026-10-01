@@ -20,17 +20,17 @@ export interface TokensHandlers {
 const IDLE: TokensHandlers = { name() {}, make() {}, revoke() {}, copy() {}, done() {} };
 
 export const CONNECT_TITLE = 'Connect an agent';
-export const CONNECT_HINT = 'A read-only link for an editor’s agent, in Cursor, Claude Code or any MCP client: it reads the business’s confirmed claims, so the agent knows who you sell to before it writes a line.';
+const CONNECT_HINT = 'A read-only link for an editor’s agent, in Cursor, Claude Code or any MCP client: it reads the business’s confirmed claims, so the agent knows who you sell to before it writes a line.';
 export const MAKE_LINK = 'Make link';
-export const NAME_LABEL = 'The link’s name';
-export const NAME_PLACEHOLDER = 'Tom’s editor';
+const NAME_LABEL = 'The link’s name';
+const NAME_PLACEHOLDER = 'Tom’s editor';
 export const SHOWN_ONCE = 'Copy it now: this token is shown once, and never again.';
 export const DONE = 'Done — I copied it';
 export const NO_LINKS = 'No link yet. Make one for each editor, and revoke it when the editor goes.';
 export const REVOKE = 'Revoke';
 export const NOT_WORKING = 'Not working: its maker left the workspace.';
-export const COPY = 'Copy';
-export const COPIED = 'Copied';
+const COPY = 'Copy';
+const COPIED = 'Copied';
 
 export interface ConnectAgentCardProps {
   state: TokensState;
@@ -92,7 +92,7 @@ export function ConnectAgentCard({ state, demo = false, on = IDLE }: ConnectAgen
         {demo && <span className="ask-chip">Demo</span>}
       </div>
       <p className="ask-muted">{CONNECT_HINT}</p>
-      <form className="agent-make" onSubmit={submit}>
+      <form className="agent-make business-type" onSubmit={submit}>
         <label>
           <span className="agent-make-label">{NAME_LABEL}</span>
           <input
