@@ -5,10 +5,10 @@
 // leaves (GET /api/constituents) or is used.
 import { z } from 'zod';
 
-export const CONSTITUENT_KINDS = ['statement', 'never'] as const;
+const CONSTITUENT_KINDS = ['statement', 'never'] as const;
 export type ConstituentKind = (typeof CONSTITUENT_KINDS)[number];
 
-export const EVENT_ACTIONS = ['added', 'edited', 'removed', 'moved'] as const;
+const EVENT_ACTIONS = ['added', 'edited', 'removed', 'moved'] as const;
 export type EventAction = (typeof EVENT_ACTIONS)[number];
 
 /** The longest Statement and Never line the database takes, on one line. */
@@ -16,7 +16,7 @@ export const STATEMENT_MAX = 400;
 export const NEVER_MAX = 200;
 
 /** A Never line's display id: `never#<seq>`, kept for life. */
-export const NEVER_ID = /^never#[1-9]\d*$/;
+const NEVER_ID = /^never#[1-9]\d*$/;
 
 // ── The read: GET /api/constituents, constituents_for_repo() and constituents_for_repo_app() ──
 
