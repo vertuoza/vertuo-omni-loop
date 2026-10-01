@@ -124,6 +124,13 @@ jobs:
         # same repository, the only product without one, never another workspace's repository; a revoked
         # or unknown link, or one whose maker left, is refused (28000). Last used moves once a minute.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/agent_tokens.sql
+      - name: What a link reports, and how a member answers it
+        # A working link reports a question with its asker, repository and file; the same question (case
+        # and spaces aside) bumps one row; over 300 characters, or the 31st report in 24 hours, is refused.
+        # Any member answers an open question once as a confirmed claim (source answer) of the picked kind,
+        # on the question's product, which the next read through the link carries, or dismisses it with no
+        # claim; open questions are counted for the bell. Another workspace's member is refused (42501).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/agent_questions.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
