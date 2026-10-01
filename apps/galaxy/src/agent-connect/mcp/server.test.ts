@@ -1,0 +1,235 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { describe, expect, it } from 'vitest';
+import { readBusiness, type BusinessDeps } from '../../business-api/api';
+import { hashToken } from '../tokens/token';
+import { handleMcp, LINK_REFUSED, type McpDeps } from './server';
+
+// The MCP link (PRD 855 s2) driven by the SDK's own client, against a fake store that plays
+// business_for_token() as supabase/migrations/20261028090000_agent_tokens.sql writes it: a live token's
+// workspace's business, 28000 for a token that does not work (unknown, revoked, or its maker left),
+// 22023 naming the tracked repositories when several products and no repository, 42501 another
+// workspace's repository.
+
+const LIVE = 'omb_' + 'A'.repeat(43);
+const REVOKED = 'omb_' + 'R'.repeat(43);
+const UNKNOWN = 'omb_' + 'U'.repeat(43);
+
+const READ = {
+  state: 'ok',
+  business: { name: 'Acme' },
+  product: null,
+  claims: [
+    { id: 'region#1', kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+    { id: 'region#2', kind: 'region', value: 'France', source: 'evidence', state: 'contradicted',
+      receipt: 'acme/widgets:README.md — "offices in France"', lastSeen: '2026-09-28T22:00:00+00:00' },
+    { id: 'size#3', kind: 'size', value: '2-50', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+    { id: 'never#4', kind: 'never', value: 'Build for groups of companies', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
+  ],
+  personas: [{ name: 'Marc', stance: 'skeptical', trade: 'plumber', who: 'Runs five plumbers', usage: 'Quotes' }],
+};
+const NONE = { state: 'none', business: null, product: null, claims: [], personas: [] };
+
+type Call = { fn: string; args: Record<string, unknown> };
+
+async function world({ read = READ as unknown, products = 1, database = true } = {}) {
+  const live = await hashToken(LIVE);
+  const revoked = await hashToken(REVOKED);
+  const calls: Call[] = [];
+  const rpc = async (fn: string, args: Record<string, unknown>) => {
+    calls.push({ fn, args });
+    if (args.p_hash !== live || args.p_hash === revoked) {
+      return { data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } };
+    }
+    const repo = args.p_repo as string | null;
+    if (repo && !repo.toLowerCase().startsWith('acme/')) {
+      return { data: null, error: { code: '42501', message: `Repository: ${repo} is not one of this workspace's repositories.`, hint: 'repo' } };
+    }
+    if (!repo && products > 1) {
+      return { data: null, error: { code: '22023', message: 'Repository: this workspace sells several products, so name the repository you work in: acme/app, acme/site.', hint: 'repo' } };
+    }
+    return { data: read, error: null };
+  };
+  const deps: McpDeps = { connect: database ? () => ({ rpc }) : null };
+
+  const connect = async (token: string | null) => {
+    const client = new Client({ name: 'test-editor', version: '1.0.0' });
+    const transport = new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
+      requestInit: token === null ? {} : { headers: { authorization: `Bearer ${token}` } },
+      fetch: (url, init) => handleMcp(new Request(url, init), deps),
+    });
+    await client.connect(transport);
+    return client;
+  };
+
+  const call = async (token: string | null, name: string, args: Record<string, unknown> = {}) => {
+    const client = await connect(token);
+    try {
+      const result = await client.callTool({ name, arguments: args });
+      const content = result.content as Array<{ type: string; text: string }>;
+      return { isError: result.isError === true, text: content.map((c) => c.text).join('\n') };
+    } finally {
+      await client.close();
+    }
+  };
+
+  return { calls, connect, call, rpc };
+}
+
+describe('/api/mcp, the MCP link', () => {
+  it('lists three tools, whose descriptions say to cite claim ids and to report rather than guess', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    const { tools } = await client.listTools();
+    await client.close();
+    expect(tools.map((t) => t.name).sort()).toEqual(['get_business', 'get_claims', 'report_unknown']);
+    const business = tools.find((t) => t.name === 'get_business')!;
+    expect(business.description).toMatch(/region#1/);
+    expect(business.description).toMatch(/report_unknown/);
+    expect(business.annotations?.readOnlyHint).toBe(true);
+    expect(Object.keys(business.inputSchema.properties ?? {})).toEqual(['repo']);
+    const claims = tools.find((t) => t.name === 'get_claims')!;
+    expect(Object.keys(claims.inputSchema.properties ?? {}).sort()).toEqual(['kind', 'repo']);
+    const report = tools.find((t) => t.name === 'report_unknown')!;
+    expect(Object.keys(report.inputSchema.properties ?? {}).sort()).toEqual(['file', 'question', 'repo']);
+  });
+
+  it('get_business with a repository is byte-equal to GET /api/business on the same store answer', async () => {
+    const w = await world();
+    const { isError, text } = await w.call(LIVE, 'get_business', { repo: 'acme/widgets' });
+    expect(isError).toBe(false);
+    expect(w.calls).toEqual([{ fn: 'business_for_token', args: { p_hash: await hashToken(LIVE), p_repo: 'acme/widgets' } }]);
+
+    const deps: BusinessDeps = {
+      connect: (() => ({
+        auth: { getUser: async () => ({ data: { user: { id: 'ada', email: 'ada@acme.test' } }, error: null }) },
+        rpc: async () => ({ data: READ, error: null }),
+      })) as unknown as NonNullable<BusinessDeps['connect']>,
+    };
+    const http = await readBusiness(new Request('https://omni.example/api/business?repo=acme/widgets', {
+      headers: { authorization: 'Bearer ada-token' },
+    }), deps);
+    expect(text).toBe(await http.text());
+  });
+
+  it('get_business without a repository reads the only product', async () => {
+    const w = await world();
+    const { isError, text } = await w.call(LIVE, 'get_business');
+    expect(isError).toBe(false);
+    expect(JSON.parse(text)).toEqual(READ);
+    expect(w.calls[0].args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
+  });
+
+  it('several products and no repository: an error naming the tracked repositories', async () => {
+    const w = await world({ products: 2 });
+    const { isError, text } = await w.call(LIVE, 'get_business');
+    expect(isError).toBe(true);
+    expect(text).toContain('acme/app, acme/site');
+    expect(text).not.toMatch(/\n/);
+  });
+
+  it('an empty business answers state none, not an error', async () => {
+    const w = await world({ read: NONE });
+    const { isError, text } = await w.call(LIVE, 'get_business', { repo: 'acme/widgets' });
+    expect(isError).toBe(false);
+    expect(JSON.parse(text)).toEqual(NONE);
+  });
+
+  it('another workspace\'s repository is refused with the database\'s reason', async () => {
+    const w = await world();
+    const { isError, text } = await w.call(LIVE, 'get_business', { repo: 'other/thing' });
+    expect(isError).toBe(true);
+    expect(text).toBe('Repository: other/thing is not one of this workspace\'s repositories.');
+  });
+
+  it('a malformed repository is refused before the database is asked', async () => {
+    const w = await world();
+    const { isError } = await w.call(LIVE, 'get_business', { repo: 'widgets' });
+    expect(isError).toBe(true);
+    expect(w.calls).toEqual([]);
+  });
+
+  it('get_claims with a kind answers only that kind\'s claims; without, every claim', async () => {
+    const w = await world();
+    const region = await w.call(LIVE, 'get_claims', { kind: 'region', repo: 'acme/widgets' });
+    expect(region.isError).toBe(false);
+    expect(JSON.parse(region.text)).toEqual(READ.claims.filter((c) => c.kind === 'region'));
+    const all = await w.call(LIVE, 'get_claims', { repo: 'acme/widgets' });
+    expect(JSON.parse(all.text)).toEqual(READ.claims);
+    const never = await w.call(LIVE, 'get_claims', { kind: 'never' });
+    expect(JSON.parse(never.text)).toEqual([READ.claims[3]]);
+  });
+
+  it('no token, a malformed one, an unknown one and a revoked one each get the one line', async () => {
+    for (const token of [null, 'not-a-token', 'omb_short', UNKNOWN, REVOKED]) {
+      const w = await world();
+      for (const tool of ['get_business', 'get_claims']) {
+        const { isError, text } = await w.call(token, tool, { repo: 'acme/widgets' });
+        expect(isError).toBe(true);
+        expect(text).toBe(LINK_REFUSED);
+      }
+    }
+    expect(LINK_REFUSED).toMatch(/Settings › Business/);
+    expect(LINK_REFUSED).not.toMatch(/\n/);
+  });
+
+  it('a missing or malformed token never reaches the database', async () => {
+    const w = await world();
+    await w.call(null, 'get_business', { repo: 'acme/widgets' });
+    await w.call('Basic xyz', 'get_business', { repo: 'acme/widgets' });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('report_unknown is listed but takes no question yet, and says not to guess', async () => {
+    const w = await world();
+    const { isError, text } = await w.call(LIVE, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
+    expect(isError).toBe(false);
+    expect(text).toMatch(/not yet/i);
+    expect(w.calls).toEqual([]);
+  });
+
+  it('without a database, every tool says the business is not available here', async () => {
+    const w = await world({ database: false });
+    const { isError, text } = await w.call(LIVE, 'get_business');
+    expect(isError).toBe(true);
+    expect(text).toMatch(/not available here/);
+  });
+
+  it('a database failure answers one line, never the database\'s message', async () => {
+    const deps: McpDeps = { connect: () => ({ rpc: async () => ({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
+    const client = new Client({ name: 't', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
+      requestInit: { headers: { authorization: `Bearer ${LIVE}` } },
+      fetch: (url, init) => handleMcp(new Request(url, init), deps),
+    }));
+    const errors: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { errors.push(args); };
+    try {
+      const result = await client.callTool({ name: 'get_business', arguments: {} });
+      const text = (result.content as Array<{ text: string }>)[0].text;
+      expect(result.isError).toBe(true);
+      expect(text).toBe('The business database could not answer. Try again.');
+    } finally {
+      console.error = original;
+      await client.close();
+    }
+    expect(errors.length).toBe(1);
+  });
+
+  it('answers in JSON, never a session id (stateless)', async () => {
+    const w = await world();
+    const response = await handleMcp(new Request('https://omni.example/api/mcp', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${LIVE}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+        protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'curl', version: '1' } } }),
+    }), { connect: () => ({ rpc: w.rpc }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('mcp-session-id')).toBeNull();
+    expect(response.headers.get('content-type')).toMatch(/application\/json/);
+    const body = await response.json();
+    expect(body.result.serverInfo.name).toBe('omni-business');
+    expect(body.result.instructions).toMatch(/report_unknown/);
+  });
+});
