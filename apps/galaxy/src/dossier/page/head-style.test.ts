@@ -10,12 +10,12 @@ const CSS = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').repl
 function declarations(selector: string): string[] {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rules = [...CSS.matchAll(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
-  return rules.flatMap(([, body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+  return rules.flatMap(([, body]) => body!.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
 }
 
-const props = (selector: string) => declarations(selector).map((d) => d.split(':')[0].trim());
+const props = (selector: string) => declarations(selector).map((d) => d.split(':')[0]!.trim());
 const value = (selector: string, prop: string) =>
-  declarations(selector).filter((d) => d.split(':')[0].trim() === prop).map((d) => d.slice(d.indexOf(':') + 1).trim());
+  declarations(selector).filter((d) => d.split(':')[0]!.trim() === prop).map((d) => d.slice(d.indexOf(':') + 1).trim());
 
 describe('the PRD header frame', () => {
   it('has no rounded corners and no side or top border', () => {

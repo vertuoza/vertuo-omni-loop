@@ -206,7 +206,7 @@ describe('what to announce', () => {
 
   it('names every kind of a group that carries no time per kind', () => {
     const bare: DocumentGroup = { dossierId: 'd-1', prd: 1, title: 't', kinds: ['spec', 'plan'], newestId: 'v1', newestAt: NOW };
-    expect(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0].kinds).toEqual(['spec', 'plan']);
+    expect(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0]!.kinds).toEqual(['spec', 'plan']);
   });
 
   it('keeps the announced list at most 200 long', () => {
@@ -260,7 +260,7 @@ describe('announcing settled documents', () => {
       ['PRD 572: new spec', 'docs-d-572-v2'],
       ['PRD 579: new plan', 'docs-d-579-v4'],
     ]);
-    raised[1].onclick?.();
+    raised[1]!.onclick?.();
     expect(opened).toEqual(['/prd/d-579']);
     expect(play).not.toHaveBeenCalled();
   });

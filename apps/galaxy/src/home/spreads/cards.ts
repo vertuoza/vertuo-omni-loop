@@ -43,6 +43,6 @@ export function cardsOf(fleets: readonly FleetRow[]): Card[] {
     .filter((f) => !f.retired)
     .map((f, i) => {
       const own = f.mascot && Object.hasOwn(RULE_BY_MASCOT, f.mascot) ? RULES.find((r) => r.key === RULE_BY_MASCOT[f.mascot!]) : undefined;
-      return { name: f.name, label: f.label, motto: f.motto, color: f.color, mascot: f.mascot, rule: (own ?? RULES[i % RULES.length]).text };
+      return { name: f.name, label: f.label, motto: f.motto, color: f.color, mascot: f.mascot, rule: (own ?? RULES[i % RULES.length]!).text };
     });
 }

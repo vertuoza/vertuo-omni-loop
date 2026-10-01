@@ -39,7 +39,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     if (!state.open) return;
     const onKey = (event: KeyboardEvent) => {
       const items = focusable(panel.current);
-      const move = drawerKey(event.key, event.shiftKey, items.indexOf(document.activeElement as HTMLElement), items.length);
+      const move = drawerKey(event.key, event.shiftKey, items.indexOf(document.activeElement as HTMLElement), items.length); // ts-allow: indexOf only compares the element
       if (move.kind === 'none') return;
       event.preventDefault();
       if (move.kind === 'close') send('escape');

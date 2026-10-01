@@ -49,7 +49,7 @@ export async function readBusinessCount(fetch: Fetch): Promise<BusinessRead> {
   const response = await answerOf(fetch);
   if (!response) return { ok: false, kind: 'network' };
   if (response.status !== 200) return { ok: false, kind: `status ${response.status}` };
-  const count = ((await jsonOf(response)) as { count?: unknown } | null)?.count;
+  const count = ((await jsonOf(response)) as { count?: unknown } | null)?.count; // ts-allow: the count is checked on the next line
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return { ok: false, kind: 'shape' };
   return { ok: true, count };
 }

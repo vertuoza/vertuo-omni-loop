@@ -5,7 +5,7 @@ import { crestSvg, FLYBY_POSE, flybySvg, omniSvg, PLANET_PROGRESS, planetPixels,
 // The poster's pictures, drawn on the server from @omni/design and the game's own renderers.
 
 /** Every colour the game paints secured ground with: grass and forest. */
-const SECURED = new Set([...SURFACES.grass, ...SURFACES.forest]);
+const SECURED = new Set([...SURFACES.grass!, ...SURFACES.forest!]);
 const secured = (progress: number) => planetPixels(progress).pixels.filter((c) => c && SECURED.has(c)).length;
 
 describe('the invaded planet', () => {
@@ -20,8 +20,8 @@ describe('the invaded planet', () => {
   it('shows green patches of secured ground, spreading as the invasion goes on', () => {
     const [a, b, c] = PLANET_PROGRESS.map(secured);
     expect(a).toBeGreaterThan(0);
-    expect(b).toBeGreaterThan(a);
-    expect(c).toBeGreaterThan(b);
+    expect(b).toBeGreaterThan(a!);
+    expect(c).toBeGreaterThan(b!);
   });
 
   it('leaves no stand-in canvas behind it', () => {

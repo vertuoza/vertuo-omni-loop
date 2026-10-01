@@ -44,7 +44,7 @@ export function recommend(questions: Pickable[], picks: Picks): Picks {
   const next: Picks = { ...picks };
   for (const q of questions) {
     if (q.kind !== 'decision' || q.adopted || !q.letters.includes('A')) continue;
-    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number] : { pick: 'A', reason: '' };
+    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number]! : { pick: 'A', reason: '' };
   }
   return next;
 }
@@ -65,9 +65,9 @@ export function readPicks(stored: string | null): Picks {
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
   const picks: Picks = {};
-  for (const [number, value] of Object.entries(data as Record<string, unknown>)) {
+  for (const [number, value] of Object.entries(data as Record<string, unknown>)) { // ts-allow: the line above refused anything but a plain object
     const n = Number(number);
-    const v = value as Partial<Pick> | null;
+    const v = value as Partial<Pick> | null; // ts-allow: each field of a stored pick is checked on the next line
     if (!Number.isInteger(n) || n < 1 || !v || typeof v !== 'object' || typeof v.pick !== 'string') continue;
     picks[n] = { pick: v.pick, reason: typeof v.reason === 'string' ? v.reason : '' };
   }
@@ -80,7 +80,7 @@ export function answers(questions: Pickable[], picks: Picks): Array<{ number: nu
     .filter((q) => isAnswer(q, picks[q.number]))
     .sort((a, b) => a.number - b.number)
     .map(({ number }) => {
-      const { pick, reason } = picks[number];
+      const { pick, reason } = picks[number]!;
       return reason.trim() ? { number, pick, reason } : { number, pick };
     });
 }

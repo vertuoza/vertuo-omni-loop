@@ -51,7 +51,7 @@ function shownNumber(count: number, version: number | null): number {
 
 /** The run the picker names, else the newest; null with none. `runs` is newest first. */
 export function runOf(runs: readonly ProofRunRow[], version: number | null): ProofRunRow | null {
-  return runs.length ? runs[runs.length - shownNumber(runs.length, version)] : null;
+  return runs.length ? runs[runs.length - shownNumber(runs.length, version)]! : null;
 }
 
 const short = (sha: string) => sha.slice(0, 7);

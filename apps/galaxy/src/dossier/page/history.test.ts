@@ -98,7 +98,7 @@ describe('the rows', () => {
   it('lists every dossier newest activity first, each opening its page', () => {
     const items = historyItems(ROWS, ALL, 'u-pierre');
     expect(items.map((i) => i.title)).toEqual(['Offline quotes on the site app', 'PRD dossiers', 'Ask mode — questions on a page']);
-    expect(items[1].href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
+    expect(items[1]!.href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
   });
 
   it('shows #n or DRAFT, the repository chips, which artifacts it has with how many versions, and answered out of asked', () => {

@@ -36,7 +36,7 @@ export function announce(seen: ReadonlySet<string> | null, items: readonly Waiti
 
 export function readSwitches(store: () => Store): AlertSwitches {
   try {
-    const raw = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null') as Partial<AlertSwitches> | null;
+    const raw = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null') as Partial<AlertSwitches> | null; // ts-allow: a switch reads on only when it is exactly true
     return { desktop: raw?.desktop === true, chime: raw?.chime === true };
   } catch {
     return ALERTS_OFF;

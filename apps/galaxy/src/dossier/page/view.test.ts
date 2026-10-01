@@ -161,7 +161,7 @@ describe('the tabs', () => {
   });
 
   it('opens on Questions when at least one round was asked, its link naming no tab', () => {
-    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [rounds[3]]);
+    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [rounds[3]!]);
     expect(one.tab).toBe('questions');
     expect(one.tabs.find((t) => t.current)).toMatchObject({ kind: 'questions', href: `/prd/${ID}` });
   });
@@ -184,9 +184,9 @@ describe('the tabs', () => {
   });
 
   it('counts no question when none was asked, or when they could not be read', () => {
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0].badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].alert).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0]!.badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0]!.badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0]!.alert).toBeNull();
   });
 
   it('counts questions, not rounds (PRD 498): 3 + 1 answered, 2 open and 1 moved read 4/7 · 2 to answer', () => {
@@ -350,7 +350,7 @@ describe('the Questions tab', () => {
 
   it('shows an answered question with only its chosen option, and the answer as given', () => {
     const [first] = questions().questions.rounds ?? [];
-    expect(first.questions).toEqual([{
+    expect(first!.questions).toEqual([{
       header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, shape: 'answered', answer: 'Square (Recommended)', written: null,
       options: [{ label: 'Square', recommended: true, description: 'cheaper', chosen: true }],
     }]);
@@ -358,8 +358,8 @@ describe('the Questions tab', () => {
 
   it('shows each chosen option of a multi-select answer, and none it did not choose', () => {
     const [, second] = questions().questions.rounds ?? [];
-    expect(second.questions[0].options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
-    expect(second.questions[0]).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
+    expect(second!.questions[0]!.options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
+    expect(second!.questions[0]).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
   });
 
   it('shows an answer that matches no option as the text given, with no option', () => {
@@ -368,7 +368,7 @@ describe('the Questions tab', () => {
       answered_at: '2026-09-27T10:01:00Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [other]).questions.rounds ?? [];
-    expect(only.questions[0]).toMatchObject({ shape: 'answered', options: [], written: 'Triangles, obviously' });
+    expect(only!.questions[0]).toMatchObject({ shape: 'answered', options: [], written: 'Triangles, obviously' });
   });
 
   it('shows the chosen options of a multi-select answer, and the rest as the text given', () => {
@@ -377,20 +377,20 @@ describe('the Questions tab', () => {
       answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:01:00Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [mixed]).questions.rounds ?? [];
-    expect(only.questions[0].options.map((o) => o.label)).toEqual(['Access']);
-    expect(only.questions[0].written).toBe('Load test');
+    expect(only!.questions[0]!.options.map((o) => o.label)).toEqual(['Access']);
+    expect(only!.questions[0]!.written).toBe('Load test');
   });
 
   it('shows every option of an open question, none chosen', () => {
     const [, , , fourth] = questions().questions.rounds ?? [];
-    expect(fourth.questions[0]).toMatchObject({ shape: 'open', answer: null, written: null });
-    expect(fourth.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
+    expect(fourth!.questions[0]).toMatchObject({ shape: 'open', answer: null, written: null });
+    expect(fourth!.questions[0]!.options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
   });
 
   it('shows no option for a question moved to the terminal', () => {
     const [, , third] = questions().questions.rounds ?? [];
-    expect(third.questions[0]).toMatchObject({ shape: 'moved', question: 'Square or hexagonal tiles?', options: [], answer: null, written: null });
-    expect(third.outcome).toBe('moved to the terminal, no answer recorded');
+    expect(third!.questions[0]).toMatchObject({ shape: 'moved', question: 'Square or hexagonal tiles?', options: [], answer: null, written: null });
+    expect(third!.outcome).toBe('moved to the terminal, no answer recorded');
   });
 
   it('says who answered, after how long and where, or that nobody did', () => {
@@ -407,8 +407,8 @@ describe('the Questions tab', () => {
     expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: `/ask/q/r1?from=${ID}` });
     expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
     expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
-    expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
-    expect(fourth.context).toEqual(['vertuoza/vertuo-omni-loop', 'PRD #216']);
+    expect(third!.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
+    expect(fourth!.context).toEqual(['vertuoza/vertuo-omni-loop', 'PRD #216']);
   });
 
   it('keeps an answer to a question the round does not name, and reads a round with no question it can show', () => {
@@ -417,8 +417,8 @@ describe('the Questions tab', () => {
       answered_by: 'u-gone', answered_at: '2026-09-28T10:00:42Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [odd]).questions.rounds ?? [];
-    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, shape: 'answered', options: [], answer: 'Yes', written: 'Yes' }]);
-    expect(only.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
+    expect(only!.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, shape: 'answered', options: [], answer: 'Yes', written: 'Yes' }]);
+    expect(only!.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
   });
 
   it('has no rounds to list when they could not be read', () => {
@@ -566,9 +566,9 @@ describe('a quick round, answered on the list (PRD 384)', () => {
 
   it('gives a viewer who may answer a button per option, the answer exactly as offered, and the next open round', () => {
     const [answered, first, second] = quickView(PIERRE.user_id, ['q1', 'q2']);
-    expect(answered.quick).toBeNull();
-    expect(second.quick).toBeNull();
-    expect(first.quick).toEqual({
+    expect(answered!.quick).toBeNull();
+    expect(second!.quick).toBeNull();
+    expect(first!.quick).toEqual({
       question: SHAPE.question,
       choices: [
         { label: 'Square', recommended: true, description: 'cheaper', value: 'Square (Recommended)' },
@@ -585,8 +585,8 @@ describe('a quick round, answered on the list (PRD 384)', () => {
 
   it('decides who may answer from what the server read, never from the viewer alone', () => {
     const [, first] = quickView(PIERRE.user_id, []);
-    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {}, faces: {} });
-    expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
+    expect(first!.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {}, faces: {} });
+    expect(quickView(MARIE.user_id, ['q1'])[1]!.quick).toMatchObject({ canAnswer: true });
   });
 
   it('keeps each round id as the id the way back lands on', () => {
@@ -698,7 +698,7 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
   it('while the rail shows the spec, its latest version is the one shown, so the route renders it', () => {
     const v = outboxOf(summary(), { query: { context: 'spec' } });
     expect(v.outbox.context?.current).toBe('spec');
-    expect(v.shown).toMatchObject({ id: versions[3].id, number: 3, frame: null });
+    expect(v.shown).toMatchObject({ id: versions[3]!.id, number: 3, frame: null });
     expect(v.versions).toEqual([]);
     expect(readPick({ tab: 'outbox', context: 'elsewhere' })).toEqual({ tab: 'outbox', version: null });
   });
@@ -751,14 +751,14 @@ describe('the faces of the people it names (PRD 652)', () => {
 
   it('names who asked each round and who answered it, by account id, the rest of the outcome after the name', () => {
     const [first, , third] = dossierView(read(), PIERRE.user_id, readPick({})).questions.rounds!;
-    expect(first.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
-    expect(first.askedAt).toBe('27 Sep 2026, 09:15 UTC');
-    expect(first.answeredBy).toEqual({
+    expect(first!.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
+    expect(first!.askedAt).toBe('27 Sep 2026, 09:15 UTC');
+    expect(first!.answeredBy).toEqual({
       person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
       rest: ' after 1 min 35 s, on the page',
     });
-    expect(`answered by ${first.answeredBy!.person.name}${first.answeredBy!.rest}`).toBe(first.outcome);
-    expect(third.answeredBy).toBeNull();
+    expect(`answered by ${first!.answeredBy!.person.name}${first!.answeredBy!.rest}`).toBe(first!.outcome);
+    expect(third!.answeredBy).toBeNull();
   });
 
   it('with no people directory, falls back to each name\'s initial', () => {
@@ -768,8 +768,8 @@ describe('the faces of the people it names (PRD 652)', () => {
 
   it('gives each @login the Outbox tab names its face, by login, ignoring case, and the viewer\'s face for a send', () => {
     const { outbox } = dossierView(read({ github }), MARIE.user_id, readPick({ tab: 'outbox' }));
-    expect(outbox.open[0].pending?.face).toEqual({ kind: 'photo', url: 'https://github.com/stranger.png?size=48' });
-    expect(outbox.settled[0].face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
+    expect(outbox.open[0]!.pending?.face).toEqual({ kind: 'photo', url: 'https://github.com/stranger.png?size=48' });
+    expect(outbox.settled[0]!.face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(outbox.sender).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(dossierView(read({ github }), null, readPick({ tab: 'outbox' })).outbox.sender).toBeNull();
   });
@@ -832,9 +832,9 @@ describe('the PR care tab (PRD 790, s4)', () => {
       ['rev3', 'Comment 3', 'fixed', 'Reason 3'],
       ['rev4', 'Comment 4', 'pushed back', 'Reason 4'],
     ]);
-    expect(care!.threads[0].person).toMatchObject({ name: 'rev1', face: { kind: 'photo', url: 'https://github.com/rev1.png?size=48' } });
+    expect(care!.threads[0]!.person).toMatchObject({ name: 'rev1', face: { kind: 'photo', url: 'https://github.com/rev1.png?size=48' } });
     const avatar = careOf(github({ care: { ...CARE, threads: [thread('open', 5, { avatar: 'https://a.test/5.png' })] } })).care!;
-    expect(avatar.threads[0].person.face).toEqual({ kind: 'photo', url: 'https://a.test/5.png' });
+    expect(avatar.threads[0]!.person.face).toEqual({ kind: 'photo', url: 'https://a.test/5.png' });
   });
 
   it('reads CI green or running with no link, and no conflict, or GitHub still checking', () => {

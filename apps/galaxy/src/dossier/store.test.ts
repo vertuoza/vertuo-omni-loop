@@ -21,7 +21,7 @@ const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase
 function parameters(name: string, migration = MIGRATION): string[] {
   const match = new RegExp(`create function public\\.${name}\\(([^)]*)\\)`).exec(migration);
   if (!match) throw new Error(`the migration declares no ${name}()`);
-  return match[1].split(',').map((part) => part.trim().split(/\s+/)[0]);
+  return match[1]!.split(',').map((part) => part.trim().split(/\s+/)[0]!);
 }
 
 /** A client that records each rpc call and answers `answer`. */
@@ -39,7 +39,7 @@ describe('the dossier store', () => {
     const { calls, db } = recording({ data: '00000000-0000-4000-8000-000000000001', error: null });
     expect(await dossierStore(db).open({ title: 'An idea', repo: 'acme/widgets', claudeSessionId: null })).toEqual({ id: '00000000-0000-4000-8000-000000000001' });
     expect(calls).toEqual([{ name: 'dossier_open', args: { p_title: 'An idea', p_repo: 'acme/widgets', p_claude_session_id: null } }]);
-    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_open'));
+    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_open'));
   });
 
   it('pushes through dossier_push(), with the migration\'s parameters, and hands back what it did', async () => {
@@ -48,7 +48,7 @@ describe('the dossier store', () => {
     const push = { repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
     expect(await dossierStore(db).push(push)).toEqual(pushed);
     // A PRD's push names no kind: the function's last parameter defaults to prd.
-    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
+    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
     expect(calls[0]).toEqual({
       name: 'dossier_push',
       args: { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: 'x' }] },
@@ -59,8 +59,8 @@ describe('the dossier store', () => {
   it('pushes a fix with its kind, as the last of the migration\'s parameters', async () => {
     const { calls, db } = recording({ data: { id: 'd9', added: [], unchanged: [] }, error: null });
     await dossierStore(db).push({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
-    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_push', FIX_MIGRATION));
-    expect(calls[0].args.p_kind).toBe('visual');
+    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_push', FIX_MIGRATION));
+    expect(calls[0]!.args.p_kind).toBe('visual');
   });
 
   it('turns a refusal into a DossierStoreError carrying Postgres\'s code and reason', async () => {
@@ -86,7 +86,7 @@ describe('the dossier store', () => {
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
   const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
-  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => m[1].split(',').map((c) => c.trim())));
+  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => m[1]!.split(',').map((c) => c.trim())));
   if (!columns.length) throw new Error(`the migrations grant no columns of ${table}`);
   return columns;
 }
@@ -179,8 +179,8 @@ describe('reading a dossier\'s rounds', () => {
     const { calls, db } = recording({ data: [row], error: null });
     expect(await dossierRounds(db, 'd1')).toEqual([row]);
     expect(calls).toEqual([{ name: 'dossier_rounds', args: { p_dossier: 'd1' } }]);
-    const declared = /create function public\.dossier_rounds\(([^)]*)\)/.exec(ROUNDS_MIGRATION)?.[1].split(',').map((p) => p.trim().split(/\s+/)[0]);
-    expect(Object.keys(calls[0].args)).toEqual(declared);
+    const declared = /create function public\.dossier_rounds\(([^)]*)\)/.exec(ROUNDS_MIGRATION)?.[1]!.split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(calls[0]!.args)).toEqual(declared);
   });
 
   it('expects exactly the columns the function returns', () => {
@@ -213,8 +213,8 @@ describe('reading the history', () => {
       { name: 'dossier_list', args: { p_dossier: null } },
       { name: 'dossier_list', args: { p_dossier: 'd1' } },
     ]);
-    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1].split(',').map((p) => p.trim().split(/\s+/)[0]);
-    expect(Object.keys(calls[0].args)).toEqual(declared);
+    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1]!.split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(calls[0]!.args)).toEqual(declared);
   });
 
   it('expects exactly the columns the function returns, and it runs as its caller on dossier_rounds()', () => {

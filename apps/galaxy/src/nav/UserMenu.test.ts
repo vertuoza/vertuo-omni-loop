@@ -32,7 +32,7 @@ describe('the user menu', () => {
   });
 
   it('makes My profile and Sign out the only items that can be chosen: the name is a heading', () => {
-    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/(?:a|button)>/g)].map((m) => text(m[1]));
+    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/(?:a|button)>/g)].map((m) => text(m[1]!));
     expect(items).toEqual(['My profile', 'Sign out']);
     expect(html).toMatch(/role="presentation"[^>]*>[\s\S]*Ada Lovelace/);
   });
@@ -81,7 +81,7 @@ describe('the user menu', () => {
   it('signs out through signOutAndLeave, with the browser client', () => {
     const source = readFileSync(new URL('./UserMenu.tsx', import.meta.url), 'utf8');
     expect(source).toContain('signOutAndLeave(');
-    expect(source).toContain('createBrowserClient(');
+    expect(source).toContain('createBrowserClient<Database>(');
   });
 });
 

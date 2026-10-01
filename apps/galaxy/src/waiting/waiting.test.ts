@@ -32,7 +32,7 @@ describe('the Questions part', () => {
 
   it('keeps who shared a round that is both one of mine and shared with me', () => {
     const [only] = mergeQuestions([q('b', MIN)], [q('b', MIN, 'Bob')]);
-    expect(only.sharedBy).toBe('Bob');
+    expect(only!.sharedBy).toBe('Bob');
   });
 
   it('breaks a tie of age by id', () => {
@@ -93,7 +93,7 @@ describe('shared rounds', () => {
     const [only] = sharedQuestions([row], members, NOW, people);
     expect(only).toMatchObject({ sharedBy: 'Bob', sharedByFace: { kind: 'photo', url: 'https://a.test/bob.png' } });
     const [elsewhere] = sharedQuestions([{ ...row, session: session('s-x', { workspace_id: 'w-2' }) }], members, NOW, people);
-    expect(elsewhere.sharedByFace).toEqual({ kind: 'initial', letter: 'B' });
+    expect(elsewhere!.sharedByFace).toEqual({ kind: 'initial', letter: 'B' });
   });
 });
 

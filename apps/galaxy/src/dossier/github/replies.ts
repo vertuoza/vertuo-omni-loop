@@ -37,15 +37,15 @@ function doorOf(body: string | null | undefined): AnswerDoor {
 
 /** What the kit's reply reader decides: the answers it would settle and those it holds, by number. */
 function answersOf(plan: unknown): Map<number, Planned> {
-  const { settle, held } = plan as { settle: Planned[]; held: Planned[] };
+  const { settle, held } = plan as { settle: Planned[]; held: Planned[] }; // ts-allow: the kit planReplies answers these two lists
   return new Map([...settle, ...held].map((p) => [p.number, p]));
 }
 
 export function outboxReplies({ comments, items, adopted, markers }: {
   comments: PrComment[]; items: KitItem[]; adopted: KitAdopted[]; markers: Markers;
 }): OutboxReplies {
-  const prComment = findPrMarkerComment(comments as { id: number; body?: string }[], markers) as PrComment | null;
-  const numbering = (parseNumbersMarker(prComment?.body, markers) as { number: number; id: string }[])
+  const prComment = findPrMarkerComment(comments as { id: number; body?: string }[], markers) as PrComment | null; // ts-allow: GitHub's issue comments carry an id and a body; the marker comment is one of them
+  const numbering = (parseNumbersMarker(prComment?.body, markers) as { number: number; id: string }[]) // ts-allow: the numbers marker answers number and id pairs
     .map(({ number, id }) => ({ number, id }));
   const counted = answersOf(planReplies({ comments, items, adopted, markers }));
   // Every author counts here; a comment carrying an outbox marker is still never an answer.

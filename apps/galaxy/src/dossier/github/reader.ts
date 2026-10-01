@@ -94,7 +94,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 function repoConfig(text: string): RepoConfig {
-  const config = parseConfig(text, CONFIG_PATH) as unknown as {
+  const config = parseConfig(text, CONFIG_PATH) as unknown as { // ts-allow: the kit parseConfig answers the full config; these are the keys read here
     repo: { defaultBranch: string };
     branches: { feature: string; phase0: string; retro: string; fix: string };
     paths: { delivery: string };
@@ -120,7 +120,7 @@ type ParsedItem = KitItem & { rank: OutboxItem['rank']; bearsOn: string };
 
 /** An item as the kit's parser reads it; null, said on the server's log, when it is not well formed. */
 function parsedItem(text: string, file: string | null): ParsedItem | null {
-  const parsed = parseOutboxItem(text, { file }) as { ok: true; item: ParsedItem } | { ok: false; errors: string[] };
+  const parsed = parseOutboxItem(text, { file }) as { ok: true; item: ParsedItem } | { ok: false; errors: string[] }; // ts-allow: parseOutboxItem answers one of these two shapes
   if (parsed.ok) return parsed.item;
   console.error(`PRD page: an outbox item could not be read: ${parsed.errors.join('; ')}`);
   return null;
@@ -132,7 +132,7 @@ const DETAIL_FIELDS = [
 
 /** An item as the Outbox tab shows it. */
 function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
-  const text_ = (key: string) => (typeof sections[key] === 'string' ? (sections[key] as string) : null);
+  const text_ = (key: string) => (typeof sections[key] === 'string' ? (sections[key] as string) : null); // ts-allow: typeof just proved it a string
   const details: OutboxDetails = {};
   for (const [key, field] of DETAIL_FIELDS) {
     const text = text_(field);
@@ -143,7 +143,7 @@ function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
     rank,
     question: text_('questionPlain') ?? text_('whatIHadToDecide') ?? id,
     decision: text_('decisionPlain') ?? text_('whatIDidMeanwhile'),
-    options: Array.isArray(sections.options) ? (sections.options as OutboxItem['options']) : [],
+    options: Array.isArray(sections.options) ? (sections.options as OutboxItem['options']) : [], // ts-allow: Array.isArray just proved it a list, the parser's options
     personSteps: text_('personSteps'),
     bearsOn,
     intro: text_('introFun'),
@@ -158,7 +158,7 @@ type LedgerEntry = { id: string; verdict?: string; answerText: string; itemText:
 /** The settled entries, in the order settled.md holds them (the latest per id). */
 function settledItems(entries: LedgerEntry[]): SettledItem[] {
   return entries.map((entry) => {
-    const parsed = parseOutboxItem(entry.itemText) as { ok: boolean; item?: { sections: Record<string, unknown> } };
+    const parsed = parseOutboxItem(entry.itemText) as { ok: boolean; item?: { sections: Record<string, unknown> } }; // ts-allow: parseOutboxItem answers this shape
     const question = parsed.ok ? parsed.item?.sections.questionPlain : undefined;
     const field = (name: string) => entry.fields[name]?.trim() || null;
     return {
@@ -229,7 +229,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
           cache: 'no-store',
         });
         if (!res.ok) throw new Error(`GitHub answered ${res.status} to the care query`);
-        const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null;
+        const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null; // ts-allow: a GraphQL answer carries data or errors; each is checked below
         if (!body?.data) throw new Error(`GitHub's care answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
         return parseCare(body.data, statusMarker);
       },
@@ -256,7 +256,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         for (const pull of await pulls({ sort: 'created', direction: 'desc' })) {
           for (const { head, link } of kinds) {
             const match = head.exec(pull.head.ref);
-            if (match && link.test(pull.body ?? '')) return match[1];
+            if (match && link.test(pull.body ?? '')) return match[1]!;
           }
         }
         return null;
@@ -283,7 +283,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         const parsed = await Promise.all(files.filter((f) => f.name !== SETTLED_FILE).map(async (f) => parsedItem(await raw(f.name), f.name)));
         const items = parsed.filter((i): i is ParsedItem => i !== null);
         const ledger = files.some((f) => f.name === SETTLED_FILE)
-          ? (parseSettledEntries(await raw(SETTLED_FILE), markers) as LedgerEntry[]) : [];
+          ? (parseSettledEntries(await raw(SETTLED_FILE), markers) as LedgerEntry[]) : []; // ts-allow: parseSettledEntries answers ledger entries
         const adopted = ledger.filter((entry) => entry.verdict === ADOPTED_VERDICT);
         const adoptedItems = adopted.map((entry) => parsedItem(entry.itemText, null)).filter((i): i is ParsedItem => i !== null);
         return {

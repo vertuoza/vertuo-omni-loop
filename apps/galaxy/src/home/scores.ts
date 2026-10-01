@@ -29,7 +29,7 @@ export type HighScores = {
 
 const UNREAD: HighScores = { prdsShipped: NO_SCORE, slicesMerged: NO_SCORE, decisionsAdopted: NO_SCORE };
 
-const firstLine = (err: unknown) => (err instanceof Error ? err.message.split('\n')[0] : String(err));
+const firstLine = (err: unknown) => (err instanceof Error ? err.message.split('\n')[0]! : String(err));
 
 /** The high scores of the checkout at or above `cwd`; one line logged per counter it cannot read. */
 export function countHighScores({ cwd = process.cwd(), log = console.error }: { cwd?: string; log?: (line: string) => void } = {}): HighScores {
