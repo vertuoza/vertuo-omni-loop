@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-01",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A page that renders what it last read, with when, beats a page that silently turns tabs into 'unread'. Fewer things fail in production.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "ETags, a shared budget and a real backoff are what a serious tool does. This is plumbing, not fluff.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 3, "reaction": "I need the board to work across all the repositories today. A long two-app rework is a delay unless the 403s stop first.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One client for both apps instead of seven fetch sites is the cohesion I look for on the board.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing my customers see changes, but a board I can trust while I push quick wins is worth it.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "Paul - Product Manager", "text": "I want PRD pages I can trust today. A two-app plumbing rework that leaves the 403s in place until it all lands is exactly the delay I can't sell.", "citations": ["persona:Paul - Product Manager"], "settled": "accepted" },
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-01",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Four page states tested, and a failed refresh never overwrites a good snapshot. That covers what I feared.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "A 304 that costs nothing and one pause shared by both apps. I would have built it this way.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "The client and the guard ship first, so the 403s end before the rest lands. I can live with that.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "A test that lists every call site keeps the next module from going around the client.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "The 'as of' stamp tells me whether what I see is current. Still nothing for my customers directly.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · offering#36 ✓"
+    }
+  ]
+}
