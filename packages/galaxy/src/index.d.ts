@@ -68,7 +68,7 @@ export function lookOf(name: string, fleet?: FleetConfig): FleetLook;
 export const WOUND_LABEL: Record<WoundKind, string>;
 export const STATE_LABEL: Record<PlanetState, string>;
 
-/** The rulebook's `xp` block (game/rulebook.mjs): every XP number, in one place. */
+/** The rulebook's `xp` block (game/rulebook.ts): every XP number, in one place. */
 export interface XpRules {
   weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer', number>>;
   curve: Readonly<{ first: number; step: number }>;

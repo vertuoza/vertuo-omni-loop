@@ -128,7 +128,7 @@ describe('the guard', () => {
     const kit = { skills: join(dir, 'skills'), commands: join(dir, 'commands') };
     mkdirSync(join(kit.skills, 'plan'), { recursive: true });
     mkdirSync(kit.commands);
-    writeFileSync(join(kit.commands, 'config.mjs'), '');
+    writeFileSync(join(kit.commands, 'config.ts'), '');
     mkdirSync(join(dir, 'guide'));
     writeFileSync(join(dir, 'guide/meta.json'), JSON.stringify({ pages: order }));
     for (const [slug, text] of Object.entries(pages)) writeFileSync(join(dir, 'guide', `${slug}.md`), text);

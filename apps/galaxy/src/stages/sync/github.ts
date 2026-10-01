@@ -8,7 +8,7 @@
 // failure throws, and the route skips the repository. An installation token is kept in server memory
 // until a minute before it expires, and never leaves this module.
 import { z } from 'zod';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';

@@ -31,8 +31,8 @@
 // OWNER, MEMBER or COLLABORATOR; otherwise the send is recorded as uncounted and the tab says so.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.mjs';
-import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.mjs';
+import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';
+import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
 import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';

@@ -1,11 +1,11 @@
 import 'server-only';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { checkoutRoot } from '../data/load-knowledge';
 
 // HOME's high scores (PRD 261): what the loop has shipped building itself, counted from the shipped

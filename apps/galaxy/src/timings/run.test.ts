@@ -1,4 +1,4 @@
-// One run of `node apps/galaxy/scripts/timings.mjs` (PRD 657), on a fake fetch and a fake clock: what
+// One run of `node apps/galaxy/scripts/timings.ts` (PRD 657), on a fake fetch and a fake clock: what
 // it asks for, what it prints, and when it stops. No test reaches the network.
 import { describe, expect, it } from 'vitest';
 import { PAGES, parseArgs, timings, type Deps } from './run';

@@ -202,27 +202,27 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
 
 | Unit | Where |
 |---|---|
-| `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.mjs` |
+| `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.ts` |
 | `stage-forward` — the stage a pull request shows, signed and POSTed to galaxy | `src/stage-forward/` |
 | `snapshot` — only the listed paths, at most 2,000 files and 20 MB | `src/snapshot/` |
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
 | `publish` — the check run and the comment | `src/publish/` |
-| `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
-| `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.mjs` |
+| `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.ts` |
+| `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.ts` |
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
-| `retro` — the Inngest function wiring the retro's units | `src/retro/retro.mjs`, served at `api/inngest.mjs` |
-| `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.mjs` |
+| `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.ts` |
+| `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
 | the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
-| `detect` — pure: plain records → the fact sheet | `src/retro/detect.mjs` |
-| `narrate` and `guard` — the model's prose, and what of it is kept | `src/retro/narrate.mjs`, `src/retro/guard.mjs` |
-| `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.mjs` |
-| the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.mjs`, `src/retro/publish.mjs` |
-| `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.mjs` |
+| `detect` — pure: plain records → the fact sheet | `src/retro/detect.ts` |
+| `narrate` and `guard` — the model's prose, and what of it is kept | `src/retro/narrate.ts`, `src/retro/guard.ts` |
+| `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.ts` |
+| the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.ts`, `src/retro/publish.ts` |
+| `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.ts` |
 | `git-write` — the shared writer: a branch, one commit (moves reuse blobs), a PR | `src/git-write/` |
-| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.mjs`, served at `api/inngest.mjs` |
-| the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.mjs` |
-| `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.mjs` |
-| `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
+| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.ts`, served at `api/inngest.ts` |
+| the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
+| `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
+| `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.ts` |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
 retro writes only its own `branches.retro` branches, their pull requests, its retro issues and one

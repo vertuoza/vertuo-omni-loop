@@ -1,0 +1,246 @@
+// @ts-nocheck
+// `omni board <prd> [--json] [--repo owner/name]` — the loop's view of a PRD's slices, rebuilt from
+// GitHub on every run. Reads the plan's own slice table (`parsePlanSlices`, which carries each
+// slice's own `blocked by` ids), fetches only this feature's own pull requests (`gh pr list`,
+// narrowed by `board.matchBy` — never the whole repository), and hands the result to `boardFor`
+// (`kit/lib/board.ts`) — the one place the state and the runnable frontier are decided. `commits`
+// is never asked of `gh pr list`: on a repository with any real history that field alone can blow
+// the GraphQL node-limit even at a small page size, so a head commit date is fetched with a second,
+// per-pull-request `gh pr view --json commits` call, and only for the pull requests that could
+// possibly be `claimed-stale` in the first place.
+//
+// In a plan repository (PRD 563), a plan whose slices name their `repo` is read one `gh pr list`
+// per repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository),
+// and a repository `gh` cannot read makes its own slices `unreadable` instead of failing the board.
+//
+// `buildBoard` is that whole building part, exported so that the status line's background refresh
+// (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
+// command itself only prints what it returns.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { boardFor, fillBranch } from '../../lib/board.ts';
+import { parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { parseFolderName } from '../../lib/layout.ts';
+import { githubEnv } from '../github.ts';
+import { parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+
+const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
+
+function readPlan(prd, { ctx }) {
+  const planPath = ctx.layout.planPath(prd);
+  if (planPath === null) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
+  try {
+    return { planPath, markdown: readFileSync(join(ctx.root, planPath), 'utf8') };
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw usageError(`omni board: no plan at ${planPath}.`);
+    throw error;
+  }
+}
+
+/** The PRD folder's own topic, which fills `{topic}` in `branches.feature` and `branches.slice`. */
+function topicFor(prd, { ctx }) {
+  const where = ctx.layout.whereIs(prd);
+  if (!where) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
+  const parsed = parseFolderName(where.name);
+  if (!parsed) throw usageError(`omni board: cannot read a topic from folder "${where.name}".`);
+  return parsed.topic;
+}
+
+// Deliberately no `commits`: asked for every pull request of any repository with real history, it
+// can alone push a `gh pr list` call over the GraphQL API's per-query node limit — the failure this
+// fix round exists to close. Fetched per pull request instead, and only where the staleness rule
+// could possibly need it (see `fetchHeadCommitDates` below).
+const PR_FIELDS = ['number', 'title', 'headRefName', 'baseRefName', 'state', 'isDraft', 'mergedAt', 'body', 'labels', 'updatedAt', 'createdAt'];
+
+/** `--base <featureBranch>` for `board.matchBy: base`, `--label <subLabel>` for `board.matchBy:
+ * label` — narrows `gh pr list` to this feature's own pull requests, server-side. Without this an
+ * old sub-PR (say, already merged) can fall off a page of the whole repository's pull requests and
+ * read as if it never existed — exactly what `--state all` was supposed to prevent. */
+function narrowingArgs({ matchBy, featureBranch, subLabel }) {
+  return matchBy === 'label' ? ['--label', subLabel] : ['--base', featureBranch];
+}
+
+/** Every pull request of this feature — never the whole repository's. */
+function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
+  const options = { encoding: 'utf8', ...(env ? { env } : {}) };
+  const raw = exec(
+    'gh',
+    [
+      'pr',
+      'list',
+      '--repo',
+      repo,
+      '--json',
+      PR_FIELDS.join(','),
+      '--state',
+      'all',
+      '--limit',
+      '200',
+      ...narrowingArgs({ matchBy, featureBranch, subLabel }),
+    ],
+    options,
+  );
+  return JSON.parse(raw).map((pr) => ({ ...pr, headCommitDate: null }));
+}
+
+/** Whether `pr` could possibly read as `claimed-stale` at all: only an open draft whose claim
+ * (`createdAt`) is already older than the limit is worth a second `gh` call for — a merged, closed
+ * or non-draft pull request, or a draft claimed only moments ago, can never be `claimed-stale`
+ * regardless of what its head commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
+function couldBeStale(pr, now, staleMinutes) {
+  if (!pr.isDraft || pr.state !== 'OPEN' || !pr.createdAt) return false;
+  return now - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1000;
+}
+
+/** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
+ * `null` when the payload carries no commit at all. */
+function fetchHeadCommitDate({ repo, number, exec, env }) {
+  const options = { encoding: 'utf8', ...(env ? { env } : {}) };
+  const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
+  const commits = JSON.parse(raw).commits ?? [];
+  const last = commits.at(-1);
+  return last?.committedDate ?? last?.authoredDate ?? null;
+}
+
+/** Widens every pull request that could possibly be `claimed-stale` with its own head commit date —
+ * one extra `gh pr view` call each, never for a pull request the staleness rule could not apply to
+ * anyway. */
+function fetchHeadCommitDates(prs, { repo, exec, env, now, staleMinutes }) {
+  return prs.map((pr) =>
+    couldBeStale(pr, now, staleMinutes)
+      ? { ...pr, headCommitDate: fetchHeadCommitDate({ repo, number: pr.number, exec, env }) }
+      : pr,
+  );
+}
+
+const STATE_WIDTH = 'claimed-stale'.length;
+
+function tableLine(row, repoWidth) {
+  const prCol = row.pr ? `#${row.pr.number}` : '—';
+  const repoCol = row.repo === undefined ? '' : `${row.repo.padEnd(repoWidth)}  `;
+  return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
+}
+
+/**
+ * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own pull
+ * requests from `gh pr list` (with a head commit date for each that could be `claimed-stale`), and
+ * `boardFor`. Throws a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read,
+ * and whatever `gh` throws.
+ *
+ * @param {number} prd
+ * @param {{ ctx: object, exec: Function, env?: object, repo?: string, now?: number }} options `repo`
+ *   is `--repo`'s value, when given
+ * In a plan repository whose plan has a `repo` column (PRD 563), it reads one pull-request list per
+ * repository a slice names instead, and a repository `gh` cannot read makes only its own slices
+ * `unreadable` rather than throwing.
+ *
+ * @returns {{ slices: object[], result: ReturnType<typeof boardFor>, unreadable: Array<{ repo: string, slug: string | null, reason: string }> }}
+ *   the plan's slices, the board, and each repository that could not be read (in a plan repository)
+ */
+export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
+  const { markdown } = readPlan(prd, { ctx });
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch (error) {
+    throw usageError(`omni board: ${error.message}`);
+  }
+  const topic = topicFor(prd, { ctx });
+  const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
+  const repo = repoSlug('board', ctx, repoFlag);
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const matchBy = ctx.config.board.matchBy;
+  const subLabel = ctx.config.labels.sub;
+  const staleMinutes = ctx.config.limits.claimStaleMinutes;
+  const read = (slug) => {
+    const listed = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+    return fetchHeadCommitDates(listed, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  };
+
+  if (slices.every((slice) => slice.repo === null)) {
+    const prs = read(repo);
+    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
+    return { slices, result, unreadable: [] };
+  }
+
+  // A plan repository (PRD 563): one pull-request list per repository a slice names, each pull
+  // request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
+  const known = knownRepositories(ctx, repo);
+  const repos = {};
+  const prs = [];
+  const unreadable = [];
+  for (const name of new Set(slices.map((slice) => slice.repo))) {
+    const slug = known.get(name) ?? null;
+    if (slug === null) {
+      repos[name] = { slug: null, readable: false };
+      unreadable.push({ repo: name, slug: null, reason: 'neither a target nor this plan repository' });
+      continue;
+    }
+    try {
+      prs.push(...read(slug).map((pr) => ({ ...pr, slug })));
+      repos[name] = { slug, readable: true };
+    } catch (error) {
+      repos[name] = { slug, readable: false };
+      unreadable.push({ repo: name, slug, reason: ghReason(error) });
+    }
+  }
+  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
+  return { slices, result, unreadable };
+}
+
+/** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
+function shortName(slug) {
+  return slug.slice(slug.indexOf('/') + 1);
+}
+
+/** Every repository a plan repository's slices may name, short name to slug: its `plan.targets`,
+ * then the plan repository itself (`repo.slug`, or `--repo`). */
+function knownRepositories(ctx, planSlug) {
+  const known = new Map();
+  for (const target of ctx.config.plan?.targets ?? []) known.set(shortName(target.repo), target.repo);
+  known.set(shortName(planSlug), planSlug);
+  return known;
+}
+
+/** What gh said when it could not read a repository, as one line. */
+function ghReason(error) {
+  const lines = `${error?.stderr ?? ''}\n${error?.message ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+  return lines[0] ?? 'gh could not read it';
+}
+
+export const board = {
+  async run(args, { ctx, stdout, exec, env }) {
+    const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
+    if (positional.length !== 1) throw usageError(USAGE);
+    const prd = positiveInt('board', '<prd>', positional[0]);
+
+    const { slices, result, unreadable } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
+
+    if (flags.json) {
+      println(stdout, JSON.stringify(result, null, 2));
+      return 0;
+    }
+
+    println(stdout, `omni board — PRD ${prd}: ${slices.length} slice(s).`);
+    const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
+    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    for (const { repo, slug, reason } of unreadable) {
+      println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
+    }
+
+    if (result.frontier.wave === null) {
+      println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
+    } else {
+      const takeable = result.frontier.takeable.join(', ') || '(none — every candidate collides with another)';
+      println(stdout, `omni board — runnable frontier: wave ${result.frontier.wave} — takeable: ${takeable}`);
+      println(stdout, `omni board — of which runnable (unclaimed): ${result.frontier.runnable.join(', ') || '(none)'}`);
+      if (result.frontier.excluded.length > 0) {
+        println(
+          stdout,
+          `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${result.frontier.excluded.join(', ')}`,
+        );
+      }
+    }
+    return 0;
+  },
+};

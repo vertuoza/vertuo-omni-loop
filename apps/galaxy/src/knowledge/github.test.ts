@@ -1,5 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
-import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { CONFIG_BATCH, configQuery, GRAPH_TTL_MS, knowledgeReader, LISTING_TTL_MS } from './github';
 

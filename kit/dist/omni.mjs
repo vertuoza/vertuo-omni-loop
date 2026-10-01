@@ -7461,13 +7461,13 @@ var require_dist = __commonJS({
 // kit/build.mjs
 init_define_OMNI_BUNDLE();
 
-// kit/bin/omni.mjs
+// kit/bin/omni.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync15 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
-// kit/lib/config.mjs
+// kit/lib/config.ts
 init_define_OMNI_BUNDLE();
 var import_yaml = __toESM(require_dist(), 1);
 import { existsSync, readFileSync } from "node:fs";
@@ -11533,7 +11533,7 @@ var coerce = {
 };
 var NEVER = INVALID;
 
-// kit/lib/config.mjs
+// kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
 var ConfigError = class extends Error {
@@ -11732,7 +11732,7 @@ var ConfigSchema = external_exports.object({
     maxSeconds: external_exports.number().int().positive().default(60)
   }),
   markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
-  // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
+  // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
   // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
   // as written. `home` defaults to the Omni Loop home page (ADR-0047).
@@ -11799,17 +11799,17 @@ function loadConfig(root) {
   return parseConfig(readFileSync(file, "utf8"), CONFIG_FILE);
 }
 
-// kit/lib/context.mjs
+// kit/lib/context.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
-// kit/lib/layout.mjs
+// kit/lib/layout.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync3, readdirSync } from "node:fs";
 import { join as join3, posix } from "node:path";
 
-// kit/lib/playbook/forms.mjs
+// kit/lib/playbook/forms.ts
 init_define_OMNI_BUNDLE();
 var import_yaml2 = __toESM(require_dist(), 1);
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
@@ -12017,7 +12017,7 @@ function resolvePlaybookId(id, { ctx }) {
   return { ok: true };
 }
 
-// kit/lib/layout.mjs
+// kit/lib/layout.ts
 var FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 function padPrd(prd2) {
   return String(Number(prd2)).padStart(4, "0");
@@ -12094,7 +12094,7 @@ function foldersLayout(root, paths) {
   });
 }
 
-// kit/lib/markers.mjs
+// kit/lib/markers.ts
 init_define_OMNI_BUNDLE();
 var escape = (text4) => text4.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
@@ -12120,7 +12120,7 @@ function makeMarkers(prefix) {
   });
 }
 
-// kit/lib/context.mjs
+// kit/lib/context.ts
 function createContext(root, config2) {
   return Object.freeze({
     root,
@@ -12154,18 +12154,18 @@ function loadContext(cwd = process.cwd(), { exec = execFileSync } = {}) {
   return createContext(root, config2);
 }
 
-// kit/lib/launch/launch.mjs
+// kit/lib/launch/launch.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync2, spawnSync } from "node:child_process";
 import { existsSync as existsSync8, realpathSync as realpathSync3 } from "node:fs";
 import { join as join10 } from "node:path";
 
-// kit/lib/update/apply.mjs
+// kit/lib/update/apply.ts
 init_define_OMNI_BUNDLE();
 import { chmodSync, copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync2, readFileSync as readFileSync6 } from "node:fs";
 import { dirname as dirname2, join as join9, posix as posix4 } from "node:path";
 
-// kit/lib/init/labels.mjs
+// kit/lib/init/labels.ts
 init_define_OMNI_BUNDLE();
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var LIST_LIMIT = 1e3;
@@ -12224,7 +12224,7 @@ function reconcileLabels(root, { exec, labels }) {
   return result;
 }
 
-// kit/lib/init/repo.mjs
+// kit/lib/init/repo.ts
 init_define_OMNI_BUNDLE();
 import { realpathSync as realpathSync2 } from "node:fs";
 var QUIET2 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
@@ -12249,13 +12249,13 @@ function readRepo(root, { exec, remote }) {
   return { slug: slug || null, defaultBranch: defaultBranch || null };
 }
 
-// kit/lib/playbook/write-forms.mjs
+// kit/lib/playbook/write-forms.ts
 init_define_OMNI_BUNDLE();
 var import_yaml3 = __toESM(require_dist(), 1);
 import { existsSync as existsSync6, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join as join7, posix as posix3 } from "node:path";
 
-// kit/lib/knowledge/registers.mjs
+// kit/lib/knowledge/registers.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync4, readFileSync as readFileSync3, readdirSync as readdirSync2 } from "node:fs";
 import { basename, join as join4 } from "node:path";
@@ -12493,7 +12493,7 @@ function servedBy(entries3, id) {
   return entries3.filter((entry) => entry.serves === id);
 }
 
-// kit/lib/playbook/resolve.mjs
+// kit/lib/playbook/resolve.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync5, readdirSync as readdirSync3, readFileSync as readFileSync4, statSync } from "node:fs";
 import { join as join5 } from "node:path";
@@ -12587,7 +12587,7 @@ ${kit.errors.join("\n")}`);
   return { form: formId, file, state, title, sections, problems };
 }
 
-// kit/lib/playbook/templates.mjs
+// kit/lib/playbook/templates.ts
 init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync4, readFileSync as readFileSync5 } from "node:fs";
 import { join as join6, posix as posix2 } from "node:path";
@@ -12615,7 +12615,7 @@ function frontDoorTemplate() {
   return templateText(FRONT_DOOR_TEMPLATE);
 }
 
-// kit/lib/playbook/write-forms.mjs
+// kit/lib/playbook/write-forms.ts
 var PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
 var REGISTER_TITLES = { "principles.md": "Product principles", "rules.md": "Product rules", "invariants.md": "Product invariants" };
 function samePath(a, b) {
@@ -12668,7 +12668,7 @@ None yet.
   });
 }
 
-// kit/lib/signature.mjs
+// kit/lib/signature.ts
 init_define_OMNI_BUNDLE();
 var SIGNED_MARKER = "<!-- omni-loop:signed -->";
 var NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
@@ -12697,11 +12697,11 @@ function botLogin(email) {
   return match ? match[1] : null;
 }
 
-// kit/lib/update/release.mjs
+// kit/lib/update/release.ts
 init_define_OMNI_BUNDLE();
 import { join as join8 } from "node:path";
 
-// kit/lib/version/version.mjs
+// kit/lib/version/version.ts
 init_define_OMNI_BUNDLE();
 var VERSION = /^v?(\d+)\.(\d+)\.(\d+)$/;
 function parseVersion(text4) {
@@ -12735,7 +12735,7 @@ function versionLines({ version: version2, source, latest }) {
   return [first];
 }
 
-// kit/lib/update/release.mjs
+// kit/lib/update/release.ts
 var BUNDLE_ASSET = "omni.mjs";
 var QUIET3 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var UpdateError = class extends Error {
@@ -12767,7 +12767,7 @@ function downloadBundle({ home, version: version2, dir, exec }) {
   return join8(dir, BUNDLE_ASSET);
 }
 
-// kit/lib/update/report.mjs
+// kit/lib/update/report.ts
 init_define_OMNI_BUNDLE();
 var tagOf = (version2) => version2 ? `v${version2}` : "unversioned";
 function updateBranch(template, version2) {
@@ -12811,7 +12811,7 @@ function updateBody({ lines, home, from, to, footer }) {
 `;
 }
 
-// kit/lib/update/apply.mjs
+// kit/lib/update/apply.ts
 var LOOP_DIR = dirname2(CONFIG_FILE);
 var BIN_FILE = join9(LOOP_DIR, "bin", "omni.mjs");
 function insideLoop(path) {
@@ -12903,7 +12903,7 @@ ${trailer}` : updateTitle(version2)], worktree);
   }
 }
 
-// kit/lib/launch/launch.mjs
+// kit/lib/launch/launch.ts
 var NO_KIT = "omni: no Omni Loop kit here \u2014 run omni init in your repository";
 var WITHOUT_KIT = /* @__PURE__ */ new Set([void 0, "init", "help", "--help", "-h", "version", "--version"]);
 function runsWithoutKit(argv) {
@@ -12944,12 +12944,12 @@ function handOver(bin, argv, { spawn: spawn2 = spawnSync } = {}) {
   return run.status ?? 1;
 }
 
-// kit/lib/statusline/sessions.mjs
+// kit/lib/statusline/sessions.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync11, mkdirSync as mkdirSync5, readdirSync as readdirSync6, readFileSync as readFileSync9, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { join as join13 } from "node:path";
 
-// kit/lib/ask/local-state.mjs
+// kit/lib/ask/local-state.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync9, mkdirSync as mkdirSync3, readdirSync as readdirSync5, readFileSync as readFileSync7, rmSync, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname3, join as join11, resolve } from "node:path";
@@ -13083,7 +13083,7 @@ function clearOldShots(root, now, maxAgeMs = SHOTS_MAX_AGE_MS) {
   return removed;
 }
 
-// kit/lib/dossier/local.mjs
+// kit/lib/dossier/local.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync3 } from "node:child_process";
 import { existsSync as existsSync10, mkdirSync as mkdirSync4, readFileSync as readFileSync8, realpathSync as realpathSync4, writeFileSync as writeFileSync3 } from "node:fs";
@@ -13141,7 +13141,7 @@ function forgetDraft(root, draftId) {
   writeDossiers(root, readDossiers(root).filter((entry) => entry.id !== draftId));
 }
 
-// kit/lib/statusline/sessions.mjs
+// kit/lib/statusline/sessions.ts
 var SESSIONS_DIR = join13(LOCAL_DIR, "sessions");
 var RECORD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var RECORD_EXT = ".json";
@@ -13200,7 +13200,7 @@ function recordedPrd({ cwd, exec, sessionId }) {
   }
 }
 
-// kit/bin/args.mjs
+// kit/bin/args.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync10 } from "node:fs";
 import { isAbsolute, join as join14 } from "node:path";
@@ -13275,20 +13275,20 @@ function withPrdFolder(command, fn) {
   }
 }
 
-// kit/bin/commands/index.mjs
+// kit/bin/commands/index.ts
 init_define_OMNI_BUNDLE();
 
-// kit/bin/commands/adopt.mjs
+// kit/bin/commands/adopt.ts
 init_define_OMNI_BUNDLE();
 import { rmSync as rmSync4 } from "node:fs";
 import { isAbsolute as isAbsolute3, relative as relative2 } from "node:path";
 
-// kit/lib/outbox/outbox.mjs
+// kit/lib/outbox/outbox.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync12, readdirSync as readdirSync7 } from "node:fs";
 import { join as join15 } from "node:path";
 
-// kit/lib/front-matter.mjs
+// kit/lib/front-matter.ts
 init_define_OMNI_BUNDLE();
 var FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 function withFile2(file, message) {
@@ -13322,7 +13322,7 @@ function parseFrontMatterLines(rawFrontMatter) {
   return { data, errors };
 }
 
-// kit/lib/outbox/outbox.mjs
+// kit/lib/outbox/outbox.ts
 var SETTLED_FILE = "settled.md";
 var RANK_VALUES = (
   /** @type {const} */
@@ -13636,12 +13636,12 @@ function outboxItemFiles({ ctx }) {
   return files;
 }
 
-// kit/lib/outbox/settle.mjs
+// kit/lib/outbox/settle.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync13, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync3, writeFileSync as writeFileSync5 } from "node:fs";
 import { dirname as dirname5, isAbsolute as isAbsolute2, join as join16, relative } from "node:path";
 
-// kit/lib/commands.mjs
+// kit/lib/commands.ts
 init_define_OMNI_BUNDLE();
 var COMMANDS = Object.freeze({
   brainstorm: "/omni:brainstorm",
@@ -13650,7 +13650,7 @@ var COMMANDS = Object.freeze({
   deliver: "/omni:deliver"
 });
 
-// kit/lib/outbox/settle.mjs
+// kit/lib/outbox/settle.ts
 var VERDICTS = (
   /** @type {const} */
   ["agreed", "drifted"]
@@ -14005,7 +14005,7 @@ function adoptItem({ ctx, itemText }) {
   return { ok: true, entry, settledFile, item: item2 };
 }
 
-// kit/bin/commands/adopt.mjs
+// kit/bin/commands/adopt.ts
 function isUnder(dir, file) {
   const rel = relative2(dir, file);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute3(rel);
@@ -14038,14 +14038,14 @@ var adopt = {
   }
 };
 
-// kit/bin/commands/answers.mjs
+// kit/bin/commands/answers.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/outbox/comment.mjs
+// kit/lib/outbox/comment.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync16, readFileSync as readFileSync13, writeFileSync as writeFileSync6 } from "node:fs";
 
-// kit/lib/check-report.mjs
+// kit/lib/check-report.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync4 } from "node:child_process";
 import { readFileSync as readFileSync12 } from "node:fs";
@@ -14067,7 +14067,7 @@ function formatPass(message) {
   return message;
 }
 
-// kit/lib/outbox/banter.mjs
+// kit/lib/outbox/banter.ts
 init_define_OMNI_BUNDLE();
 var INTROS = Object.freeze([
   "Here is a small question with surprisingly strong opinions.",
@@ -14156,11 +14156,11 @@ function assignBanter(ids, { pool = BANTER_POOL } = {}) {
   return new Map(ids.map((id) => [id, { intro: intros.get(id), punchline: punchlines.get(id) }]));
 }
 
-// kit/lib/outbox/status.mjs
+// kit/lib/outbox/status.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync15 } from "node:fs";
 
-// kit/lib/outbox/account.mjs
+// kit/lib/outbox/account.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync14, readdirSync as readdirSync8 } from "node:fs";
 import { basename as basename3 } from "node:path";
@@ -14342,7 +14342,7 @@ function compare(risky, accounts) {
   return { accounted, unaccounted, stale };
 }
 
-// kit/lib/outbox/decision-coverage.mjs
+// kit/lib/outbox/decision-coverage.ts
 init_define_OMNI_BUNDLE();
 var TEST_OR_FEATURE_PATH = /\.test\.[^/]+$|\.feature$/;
 function escapeRegExp(source) {
@@ -14401,7 +14401,7 @@ function riskyChanges(changes, { ctx }) {
   return risky;
 }
 
-// kit/lib/outbox/status.mjs
+// kit/lib/outbox/status.ts
 function openItemFiles(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
@@ -14480,7 +14480,7 @@ function formatReport(prd2, result) {
   return lines.join("\n");
 }
 
-// kit/lib/git.mjs
+// kit/lib/git.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync5 } from "node:child_process";
 function git(args, cwd, exec) {
@@ -14504,7 +14504,7 @@ ${error.message}`
   return parseNameStatus(git(["diff", "--name-status", "--no-renames", `${base}...HEAD`], ctx.root, exec));
 }
 
-// kit/lib/outbox/comment.mjs
+// kit/lib/outbox/comment.ts
 function openItemsForPrd(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
@@ -15113,7 +15113,7 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
   };
 }
 
-// kit/lib/outbox/answers.mjs
+// kit/lib/outbox/answers.ts
 init_define_OMNI_BUNDLE();
 var REASON_MAX_LENGTH = 500;
 var ASK_BATCH_SIZE = 4;
@@ -15241,7 +15241,7 @@ function askBatches({ numbering, items }) {
   return batches;
 }
 
-// kit/bin/github.mjs
+// kit/bin/github.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync6 } from "node:child_process";
 function ghClient({ owner, repo, issue, exec = execFileSync6, env }) {
@@ -15308,7 +15308,7 @@ function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number, exec = execF
   };
 }
 
-// kit/bin/commands/answers.mjs
+// kit/bin/commands/answers.ts
 var USAGE = "usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | omni answers post --prd <n> --pr <n> --answers <file> [--repo <owner/name>] [--print]";
 function fail(stderr, message) {
   stderr.write(`omni answers: ${message}
@@ -15418,10 +15418,10 @@ var answers = {
   }
 };
 
-// kit/bin/commands/ask.mjs
+// kit/bin/commands/ask.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/ask/client.mjs
+// kit/lib/ask/client.ts
 init_define_OMNI_BUNDLE();
 var CALL_TIMEOUT_MS = 5e3;
 var UPLOAD_TIMEOUT_MS = 12e4;
@@ -15555,8 +15555,8 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     openSession: (title, context) => call("POST", "/api/ask/sessions", { body: withContext({ title }, context) }),
     closeSession: (sessionId) => call("POST", `/api/ask/sessions/${segment(sessionId)}/close`),
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
-     * from and what it cost (`./context.mjs`); `lead`, when given, is the text Claude wrote before
-     * asking (`./lead.mjs`, PRD 752). @returns {Promise<{ roundId: string }>} */
+     * from and what it cost (`./context.ts`); `lead`, when given, is the text Claude wrote before
+     * asking (`./lead.ts`, PRD 752). @returns {Promise<{ roundId: string }>} */
     openRound: (sessionId, questions, context, lead) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
@@ -15608,7 +15608,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
   };
 }
 
-// kit/lib/ask/client-tokens.mjs
+// kit/lib/ask/client-tokens.ts
 init_define_OMNI_BUNDLE();
 import { chmodSync as chmodSync2, mkdirSync as mkdirSync7, readFileSync as readFileSync14, writeFileSync as writeFileSync7 } from "node:fs";
 import { homedir } from "node:os";
@@ -15639,7 +15639,7 @@ function homeTokens({ home = homedir() } = {}) {
   };
 }
 
-// kit/lib/ask/hook-input.mjs
+// kit/lib/ask/hook-input.ts
 init_define_OMNI_BUNDLE();
 async function readText(stdin) {
   if (typeof stdin === "string") return stdin;
@@ -15660,10 +15660,10 @@ async function readInput(stdin) {
   }
 }
 
-// kit/lib/ask/hook.mjs
+// kit/lib/ask/hook.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/ask/context.mjs
+// kit/lib/ask/context.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { readdirSync as readdirSync9, readFileSync as readFileSync15 } from "node:fs";
@@ -15750,7 +15750,7 @@ function askContext({ root, input, exec = execFileSync7 }) {
   };
 }
 
-// kit/lib/ask/lead.mjs
+// kit/lib/ask/lead.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync16 } from "node:fs";
 var LEAD_MAX_BYTES = 16 * 1024;
@@ -15812,7 +15812,7 @@ function roundLead({ input } = {}) {
   }
 }
 
-// kit/lib/ask/hook.mjs
+// kit/lib/ask/hook.ts
 var TOOL2 = "AskUserQuestion";
 var PROMPT_CONTEXT = "Ask mode is on: ask every question to the person through the AskUserQuestion tool, never as plain text.";
 var WAIT_LIMITS = Object.freeze({ totalMs: 54e4, callMs: 6e4 });
@@ -16004,7 +16004,7 @@ async function endHook({ root, host, client, input }) {
   }
 }
 
-// kit/lib/ask/mode.mjs
+// kit/lib/ask/mode.ts
 init_define_OMNI_BUNDLE();
 import { basename as basename4 } from "node:path";
 var TITLE_MAX = 200;
@@ -16066,12 +16066,12 @@ function modeStatus(root) {
   return mode ? pageUrl(mode.baseUrl) : null;
 }
 
-// kit/bin/commands/signin.mjs
+// kit/bin/commands/signin.ts
 init_define_OMNI_BUNDLE();
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
-// kit/lib/ask/credentials.mjs
+// kit/lib/ask/credentials.ts
 init_define_OMNI_BUNDLE();
 import { chmodSync as chmodSync3, readFileSync as readFileSync17, rmSync as rmSync5, writeFileSync as writeFileSync8 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
@@ -16180,7 +16180,7 @@ async function exchangeCode({ askUrl: askUrl2, code, repo = null, fetch = global
   };
 }
 
-// kit/lib/ask/loopback.mjs
+// kit/lib/ask/loopback.ts
 init_define_OMNI_BUNDLE();
 import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
@@ -16265,7 +16265,7 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   };
 }
 
-// kit/bin/commands/signin.mjs
+// kit/bin/commands/signin.ts
 var ASK_URL_UNSET = "ask mode is not set up for this repository (ask.url)";
 function openInBrowser(url, { platform = process.platform } = {}) {
   const [command, args] = platform === "darwin" ? ["open", [url]] : platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
@@ -16371,7 +16371,7 @@ function expired({ expires_at: at }, now = Date.now()) {
   return (at < 1e12 ? at * 1e3 : at) <= now;
 }
 
-// kit/bin/commands/ask.mjs
+// kit/bin/commands/ask.ts
 var KINDS = ["pre", "post", "prompt", "end"];
 var MODES = ["on", "off", "status"];
 var USAGE2 = "usage: omni ask hook <pre|post|prompt|end> | omni ask <on|off|status>";
@@ -16457,15 +16457,15 @@ var ask2 = {
   }
 };
 
-// kit/bin/commands/board.mjs
+// kit/bin/commands/board.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync18 } from "node:fs";
 import { join as join21 } from "node:path";
 
-// kit/lib/board.mjs
+// kit/lib/board.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/inbox/territory.mjs
+// kit/lib/inbox/territory.ts
 init_define_OMNI_BUNDLE();
 var NOTHING = /^[—–-]?$/;
 function blockedByCell(cell2) {
@@ -16605,7 +16605,7 @@ function collisionRows(slices) {
   }));
 }
 
-// kit/lib/board.mjs
+// kit/lib/board.ts
 function fillBranch(template, values) {
   return template.replace(/\{(topic|slice)\}/g, (whole, key) => values[key] ?? whole);
 }
@@ -16708,7 +16708,7 @@ function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2,
   return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
 }
 
-// kit/bin/commands/board.mjs
+// kit/bin/commands/board.ts
 var USAGE3 = "usage: omni board <prd> [--json] [--repo <owner/name>]";
 function readPlan(prd2, { ctx }) {
   const planPath = ctx.layout.planPath(prd2);
@@ -16867,11 +16867,11 @@ var board = {
   }
 };
 
-// kit/bin/commands/care.mjs
+// kit/bin/commands/care.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync8 } from "node:child_process";
 
-// kit/lib/care/decide.mjs
+// kit/lib/care/decide.ts
 init_define_OMNI_BUNDLE();
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
@@ -16888,7 +16888,7 @@ function decideRound(state) {
   return { mode: "act", actions };
 }
 
-// kit/lib/care/marker.mjs
+// kit/lib/care/marker.ts
 init_define_OMNI_BUNDLE();
 var CARE_VERDICTS = Object.freeze(["fixed", "pushed-back", "asked"]);
 var MARKER_RE = /<!-- omni-care: ([\w-]+) -->/g;
@@ -16913,7 +16913,7 @@ function readCareVerdict(body) {
   return CARE_VERDICTS.includes(last) ? last : null;
 }
 
-// kit/lib/care/state.mjs
+// kit/lib/care/state.ts
 init_define_OMNI_BUNDLE();
 var CARE_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
@@ -17020,7 +17020,7 @@ function careState(response, { statusMarker, needsFixLabel, gateContexts = [] })
   };
 }
 
-// kit/bin/commands/care.mjs
+// kit/bin/commands/care.ts
 var USAGE4 = "usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n       omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>]";
 var CLAIM_STATES = /* @__PURE__ */ new Set(["in-flight", "claimed-stale"]);
 var REPLY_MUTATION = `mutation($thread: ID!, $body: String!) {
@@ -17135,7 +17135,7 @@ var care = {
   }
 };
 
-// kit/bin/commands/business.mjs
+// kit/bin/commands/business.ts
 init_define_OMNI_BUNDLE();
 var CLAIM_USAGE = "usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>";
 var USAGE5 = `usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice("usage: ".length)}`;
@@ -17314,15 +17314,15 @@ var business = {
   }
 };
 
-// kit/bin/commands/bug.mjs
+// kit/bin/commands/bug.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/bug/verdict.mjs
+// kit/lib/bug/verdict.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync19, statSync as statSync4 } from "node:fs";
 import { isAbsolute as isAbsolute4, join as join23, normalize } from "node:path";
 
-// kit/lib/fix-verdict.mjs
+// kit/lib/fix-verdict.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync17, readdirSync as readdirSync10 } from "node:fs";
 import { join as join22 } from "node:path";
@@ -17356,7 +17356,7 @@ function fixVerdict({ ctx, issue, root, prefix, folders, grade, commits }) {
   return { ok: failures.length === 0, folder, failures };
 }
 
-// kit/lib/bug/verdict.mjs
+// kit/lib/bug/verdict.ts
 var RECORD = "bug.md";
 var SECTIONS = ["Triage", "Reproduction", "Fix", "Guard", "Mutation"];
 var RISK_LEVELS = ["critical", "high", "medium", "low"];
@@ -17445,7 +17445,7 @@ function bugVerdict({ ctx, issue, changed, commits }) {
   });
 }
 
-// kit/bin/branch-range.mjs
+// kit/bin/branch-range.ts
 init_define_OMNI_BUNDLE();
 function git2(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -17496,24 +17496,24 @@ function branchVerdictCommand({ verb, paths, grade }) {
   };
 }
 
-// kit/bin/commands/bug.mjs
+// kit/bin/commands/bug.ts
 var bug = branchVerdictCommand({
   verb: "bug",
   paths: loggedPaths,
   grade: ({ ctx, number, changed, commits }) => bugVerdict({ ctx, issue: number, changed, commits })
 });
 
-// kit/bin/commands/check.mjs
+// kit/bin/commands/check.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync28 } from "node:fs";
 import { join as join34 } from "node:path";
 
-// kit/lib/inbox/check-inbox.mjs
+// kit/lib/inbox/check-inbox.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync18, readdirSync as readdirSync11, statSync as statSync5 } from "node:fs";
 import { basename as basename5, dirname as dirname7, join as join24 } from "node:path";
 
-// kit/lib/voice/voice.mjs
+// kit/lib/voice/voice.ts
 init_define_OMNI_BUNDLE();
 var VOICE_FILE = "voice.json";
 var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
@@ -17608,7 +17608,7 @@ function parseVoice(text4) {
   return errors.length ? { ok: false, voice: null, errors } : { ok: true, voice, errors: [] };
 }
 
-// kit/lib/inbox/inbox.mjs
+// kit/lib/inbox/inbox.ts
 init_define_OMNI_BUNDLE();
 var SPEC_VALUES = (
   /** @type {const} */
@@ -17702,7 +17702,7 @@ function parseSpec(text4, { file = null } = {}) {
   return { ok: true, record };
 }
 
-// kit/lib/inbox/check-inbox.mjs
+// kit/lib/inbox/check-inbox.ts
 function knownAreas(ctx) {
   const dir = join24(ctx.root, domainsDir(ctx));
   if (!existsSync18(dir)) return /* @__PURE__ */ new Set();
@@ -17787,7 +17787,7 @@ function findInboxViolations({ ctx }) {
   return violations;
 }
 
-// kit/lib/knowledge/check-knowledge.mjs
+// kit/lib/knowledge/check-knowledge.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync19, readFileSync as readFileSync20 } from "node:fs";
 import { join as join25 } from "node:path";
@@ -18142,19 +18142,19 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   };
 }
 
-// kit/lib/knowledge/copies.mjs
+// kit/lib/knowledge/copies.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync24 } from "node:fs";
 import { join as join30 } from "node:path";
 
-// kit/lib/plan-repo/targets.mjs
+// kit/lib/plan-repo/targets.ts
 init_define_OMNI_BUNDLE();
 var import_yaml4 = __toESM(require_dist(), 1);
 import { execFileSync as execFileSync9 } from "node:child_process";
 import { existsSync as existsSync21, readdirSync as readdirSync12, readFileSync as readFileSync22 } from "node:fs";
 import { join as join27 } from "node:path";
 
-// kit/lib/update/installed.mjs
+// kit/lib/update/installed.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync20, readFileSync as readFileSync21 } from "node:fs";
 import { join as join26 } from "node:path";
@@ -18171,7 +18171,7 @@ function installedVersion({ root, running, bundle }) {
   return bundleVersion(text4.toString("utf8"));
 }
 
-// kit/lib/plan-repo/targets.mjs
+// kit/lib/plan-repo/targets.ts
 var CONFIG_PATH = ".omni-loop/config.yml";
 var BIN_PATH = ".omni-loop/bin/omni.mjs";
 var DEFAULT_PLAYBOOK = ".omni-loop/knowledge/playbook";
@@ -18304,12 +18304,12 @@ function targetsTable(rows2) {
   return cells3.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i])).join("  "));
 }
 
-// kit/lib/playbook/check-playbook.mjs
+// kit/lib/playbook/check-playbook.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync23 } from "node:fs";
 import { join as join29 } from "node:path";
 
-// kit/lib/playbook/status.mjs
+// kit/lib/playbook/status.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync22 } from "node:fs";
 import { join as join28 } from "node:path";
@@ -18356,7 +18356,7 @@ function playbookStatus({ ctx, exec }) {
   return { frontDoor: ctx.layout.frontDoor, forms, registers: registerCounts({ ctx }) };
 }
 
-// kit/lib/playbook/check-playbook.mjs
+// kit/lib/playbook/check-playbook.ts
 function gradeForm({ id, kind }, { ctx, exec }) {
   const read2 = readForm(id, { ctx });
   const { file } = read2;
@@ -18410,7 +18410,7 @@ function gradePlaybook({ ctx, exec }) {
   return { violations, warnings, forms };
 }
 
-// kit/lib/knowledge/copies.mjs
+// kit/lib/knowledge/copies.ts
 var COPIES_DIR = "repos";
 function importedTargets({ ctx }) {
   return (ctx.config.plan?.targets ?? []).filter((target2) => target2.knowledge === "imported");
@@ -18450,12 +18450,12 @@ function copiesStatus({ ctx, exec }) {
   });
 }
 
-// kit/lib/outbox/check-outbox.mjs
+// kit/lib/outbox/check-outbox.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync26 } from "node:fs";
 import { join as join32 } from "node:path";
 
-// kit/lib/laws.mjs
+// kit/lib/laws.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync25, readdirSync as readdirSync13, readFileSync as readFileSync23 } from "node:fs";
 import { join as join31 } from "node:path";
@@ -18513,7 +18513,7 @@ function lawsFor(ctx) {
   return Object.freeze({ source, resolve: resolve5, floorsHigh });
 }
 
-// kit/lib/outbox/check-outbox.mjs
+// kit/lib/outbox/check-outbox.ts
 var RANKS_NEEDING_OPTIONS = ["high", "medium"];
 var PLAIN_SECTION_FIELDS = [
   { heading: "The question, in plain words", field: "questionPlain" },
@@ -18625,7 +18625,7 @@ function findOutboxViolations({ ctx }) {
   return violations;
 }
 
-// kit/lib/outbox/check-decision-coverage.mjs
+// kit/lib/outbox/check-decision-coverage.ts
 init_define_OMNI_BUNDLE();
 function discoveredPrds({ ctx }) {
   return ctx.layout.outboxDirs().map(({ prd: prd2 }) => prd2).sort((a, b) => a - b);
@@ -18646,12 +18646,12 @@ function describeUnaccounted(prd2, change) {
   return `PRD #${prd2}: \`${change.path}\` is risky (${change.rule}) and no account names it.`;
 }
 
-// kit/lib/releases/check-releases.mjs
+// kit/lib/releases/check-releases.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync27, readdirSync as readdirSync14, readFileSync as readFileSync24 } from "node:fs";
 import { join as join33 } from "node:path";
 
-// kit/lib/releases/note.mjs
+// kit/lib/releases/note.ts
 init_define_OMNI_BUNDLE();
 import { dirname as dirname8 } from "node:path";
 var RELEASE_NOTE_FILE = "release.md";
@@ -18776,7 +18776,7 @@ function gradeReleaseNote(text4, { prd: prd2 }) {
   return out;
 }
 
-// kit/lib/releases/check-releases.mjs
+// kit/lib/releases/check-releases.ts
 function releaseNotePath(dir) {
   return `${dir}/${RELEASE_NOTE_FILE}`;
 }
@@ -18797,7 +18797,7 @@ function findReleaseViolations({ ctx }) {
   );
 }
 
-// kit/bin/commands/check.mjs
+// kit/bin/commands/check.ts
 var USAGE6 = "usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]";
 function report(stdout, title, violations, passLine) {
   if (violations.length > 0) {
@@ -18942,7 +18942,7 @@ var check = {
   }
 };
 
-// kit/bin/commands/comment.mjs
+// kit/bin/commands/comment.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync9 } from "node:fs";
 var USAGE7 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
@@ -19001,15 +19001,15 @@ var comment = {
   }
 };
 
-// kit/bin/commands/concept.mjs
+// kit/bin/commands/concept.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/concept/verdict.mjs
+// kit/lib/concept/verdict.ts
 init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync15, readFileSync as readFileSync25 } from "node:fs";
 import { join as join35 } from "node:path";
 
-// kit/lib/concept/parse.mjs
+// kit/lib/concept/parse.ts
 init_define_OMNI_BUNDLE();
 var CONCEPT_KINDS = (
   /** @type {const} */
@@ -19165,7 +19165,7 @@ function parseConcept(text4) {
   };
 }
 
-// kit/lib/concept/verdict.mjs
+// kit/lib/concept/verdict.ts
 var RECORD2 = "concept.md";
 var VISION = "vision.html";
 var DEBATE = "debate.md";
@@ -19286,14 +19286,14 @@ function conceptVerdict({ ctx, concept: concept2, changed, commits }) {
   });
 }
 
-// kit/bin/commands/concept.mjs
+// kit/bin/commands/concept.ts
 var concept = branchVerdictCommand({
   verb: "concept",
   paths: branchPaths,
   grade: ({ ctx, number, changed, commits }) => conceptVerdict({ ctx, concept: number, changed, commits })
 });
 
-// kit/bin/commands/config.mjs
+// kit/bin/commands/config.ts
 init_define_OMNI_BUNDLE();
 var config = {
   async run(args, { ctx, stdout }) {
@@ -19314,10 +19314,10 @@ var config = {
   }
 };
 
-// kit/bin/commands/credits.mjs
+// kit/bin/commands/credits.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/credits/classify.mjs
+// kit/lib/credits/classify.ts
 init_define_OMNI_BUNDLE();
 var KINDS3 = Object.freeze(["phase-0", "feature", "slice", "other"]);
 var SIGNATURES = Object.freeze(["signed", "before signing", "missed"]);
@@ -19456,7 +19456,7 @@ function summarize(items, { commits = null, app = false } = {}) {
   };
 }
 
-// kit/lib/credits/reader.mjs
+// kit/lib/credits/reader.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync10 } from "node:child_process";
 var SEARCH_CAP = 1e3;
@@ -19571,7 +19571,7 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
   return result(commits);
 }
 
-// kit/lib/credits/report.mjs
+// kit/lib/credits/report.ts
 init_define_OMNI_BUNDLE();
 var LABEL = 11;
 var COUNT = 5;
@@ -19619,7 +19619,7 @@ function creditsList(items) {
   return rows2.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
 }
 
-// kit/bin/commands/credits.mjs
+// kit/bin/commands/credits.ts
 var USAGE8 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
@@ -19665,7 +19665,7 @@ var credits = {
   }
 };
 
-// kit/bin/commands/decide.mjs
+// kit/bin/commands/decide.ts
 init_define_OMNI_BUNDLE();
 var USAGE9 = "usage: omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]";
 var DECIDE_MS = 1e4;
@@ -19737,10 +19737,10 @@ var decide = {
   }
 };
 
-// kit/bin/commands/dossier.mjs
+// kit/bin/commands/dossier.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/dossier/draft.mjs
+// kit/lib/dossier/draft.ts
 init_define_OMNI_BUNDLE();
 function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
   const unnumbered = entries3.filter((entry) => entry.prd === null);
@@ -19753,7 +19753,7 @@ function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
   return free.length === 1 ? free[0] : null;
 }
 
-// kit/lib/dossier/folder.mjs
+// kit/lib/dossier/folder.ts
 init_define_OMNI_BUNDLE();
 import { createHash } from "node:crypto";
 import { existsSync as existsSync29, readdirSync as readdirSync16, readFileSync as readFileSync26 } from "node:fs";
@@ -19840,7 +19840,7 @@ function readFixFolder(ctx, kind, issue, { issueTitle: issueTitle2 = null } = {}
   return { issue: Number(issue), kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
 }
 
-// kit/bin/commands/dossier.mjs
+// kit/bin/commands/dossier.ts
 var USAGE10 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
 var KINDS4 = ["prd", "visual", "bug"];
 var ISSUE_TITLE_MS = 5e3;
@@ -20013,10 +20013,10 @@ var dossier = {
   }
 };
 
-// kit/bin/commands/harvest.mjs
+// kit/bin/commands/harvest.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/openrouter.mjs
+// kit/lib/openrouter.ts
 init_define_OMNI_BUNDLE();
 var DEFAULT_MODEL = "anthropic/claude-opus-5.5";
 var OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -20217,7 +20217,7 @@ function wait(ms) {
   return new Promise((resolve5) => setTimeout(resolve5, ms));
 }
 
-// kit/lib/knowledge/pipeline.mjs
+// kit/lib/knowledge/pipeline.ts
 init_define_OMNI_BUNDLE();
 import {
   cpSync,
@@ -20235,7 +20235,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname as dirname11, join as join43 } from "node:path";
 
-// kit/lib/delivery/ship.mjs
+// kit/lib/delivery/ship.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
 import { existsSync as existsSync30, readFileSync as readFileSync27, writeFileSync as writeFileSync10, mkdirSync as mkdirSync8 } from "node:fs";
@@ -20302,7 +20302,7 @@ function movedPath(moves, file) {
   return moves.reduce((path, { from, to }) => path.startsWith(`${from}/`) ? to + path.slice(from.length) : path, file);
 }
 
-// kit/lib/outbox/settle-merge.mjs
+// kit/lib/outbox/settle-merge.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync31 } from "node:fs";
 import { join as join38 } from "node:path";
@@ -20402,12 +20402,12 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
   return { ok: true, settledFile, entries: entries3, append, text: `${base}${append}`, deletes };
 }
 
-// kit/lib/knowledge/classify.mjs
+// kit/lib/knowledge/classify.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync33, readFileSync as readFileSync29 } from "node:fs";
 import { join as join40 } from "node:path";
 
-// kit/lib/playbook/decisions.mjs
+// kit/lib/playbook/decisions.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync32, readdirSync as readdirSync17, readFileSync as readFileSync28 } from "node:fs";
 import { join as join39 } from "node:path";
@@ -20429,11 +20429,11 @@ function readDecisions({ ctx }) {
   return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
 }
 
-// kit/lib/knowledge/look-rule.mjs
+// kit/lib/knowledge/look-rule.ts
 init_define_OMNI_BUNDLE();
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
-// kit/lib/knowledge/classify.mjs
+// kit/lib/knowledge/classify.ts
 var CLASSIFICATION_KINDS = (
   /** @type {const} */
   ["adr", "invariant", "rule", "covered", "stays-here"]
@@ -20637,7 +20637,7 @@ function classificationPrompt({ candidate, summary }) {
   ].join("\n");
 }
 
-// kit/lib/knowledge/harvest.mjs
+// kit/lib/knowledge/harvest.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync34, readFileSync as readFileSync30 } from "node:fs";
 import { join as join41 } from "node:path";
@@ -20675,7 +20675,7 @@ function harvestCandidates({ ctx, prd: prd2 }) {
   return candidatesFromLedger(readFileSync30(absolute, "utf8"), { markers: ctx.markers, ledgerFile });
 }
 
-// kit/lib/knowledge/write.mjs
+// kit/lib/knowledge/write.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync35, mkdirSync as mkdirSync9, readFileSync as readFileSync31, writeFileSync as writeFileSync11 } from "node:fs";
 import { dirname as dirname10, join as join42 } from "node:path";
@@ -20935,7 +20935,7 @@ function writeKnowledge({ ctx, classified, merge, taken = {}, date }) {
   return { writes: files.writes(), placed, notPlaced };
 }
 
-// kit/lib/knowledge/pipeline.mjs
+// kit/lib/knowledge/pipeline.ts
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -21110,7 +21110,7 @@ function noEdits(edits) {
   return edits.deletes.length === 0 && edits.moves.length === 0 && edits.writes.length === 0;
 }
 
-// kit/bin/commands/harvest.mjs
+// kit/bin/commands/harvest.ts
 var USAGE11 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
@@ -21178,10 +21178,10 @@ var harvest = {
   }
 };
 
-// kit/bin/commands/heartbeat.mjs
+// kit/bin/commands/heartbeat.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/ask/heartbeat.mjs
+// kit/lib/ask/heartbeat.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
 import { existsSync as existsSync37, mkdirSync as mkdirSync11, readdirSync as readdirSync19, readFileSync as readFileSync33, rmSync as rmSync7, writeFileSync as writeFileSync13 } from "node:fs";
@@ -21266,7 +21266,7 @@ function forgetWindow(root, claudeSessionId) {
   if (isSafeId(claudeSessionId)) rmSync7(windowFile(root, claudeSessionId), { force: true });
 }
 
-// kit/bin/commands/heartbeat.mjs
+// kit/bin/commands/heartbeat.ts
 function withDeadline(fetch, ms) {
   const deadline = AbortSignal.timeout(ms);
   return (url, init3 = {}) => fetch(url, { ...init3, signal: init3.signal ? AbortSignal.any([init3.signal, deadline]) : deadline });
@@ -21312,13 +21312,13 @@ var heartbeat = {
   }
 };
 
-// kit/bin/commands/help.mjs
+// kit/bin/commands/help.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/help/render.mjs
+// kit/lib/help/render.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/help/entries.mjs
+// kit/lib/help/entries.ts
 init_define_OMNI_BUNDLE();
 var deepFreeze = (value) => {
   if (value && typeof value === "object") {
@@ -22051,7 +22051,7 @@ var ENTRIES = deepFreeze([
   }
 ]);
 
-// kit/lib/help/render.mjs
+// kit/lib/help/render.ts
 var HELP_WIDTH = 78;
 var HELP_INDENT = "  ";
 var LABEL_COLUMN = 24;
@@ -22154,7 +22154,7 @@ function renderEntry(name, config2, { entries: entries3 = ENTRIES } = {}) {
   return found.map((entry) => entryLines(entry, fill2).join("\n")).join("\n\n");
 }
 
-// kit/bin/commands/help.mjs
+// kit/bin/commands/help.ts
 function configAt(cwd, exec) {
   try {
     return loadContext(cwd, { exec }).config;
@@ -22181,13 +22181,13 @@ var help = {
   }
 };
 
-// kit/bin/commands/init.mjs
+// kit/bin/commands/init.ts
 init_define_OMNI_BUNDLE();
 import { chmodSync as chmodSync4, copyFileSync as copyFileSync2, existsSync as existsSync41, mkdirSync as mkdirSync13, readFileSync as readFileSync38, writeFileSync as writeFileSync15 } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { dirname as dirname14, join as join49, posix as posix6 } from "node:path";
 
-// kit/lib/init/bundle.mjs
+// kit/lib/init/bundle.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync34 } from "node:fs";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
@@ -22219,7 +22219,7 @@ function installCommand(home) {
   return `npx ${home ? `github:${home}` : "github:<owner>/<kit repository>"} init`;
 }
 
-// kit/lib/init/config-text.mjs
+// kit/lib/init/config-text.ts
 init_define_OMNI_BUNDLE();
 var import_yaml5 = __toESM(require_dist(), 1);
 var section3 = (key, value) => (0, import_yaml5.stringify)({ [key]: value }).trimEnd();
@@ -22259,7 +22259,7 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
   return { text: text4, config: parseConfig(text4, CONFIG_FILE) };
 }
 
-// kit/lib/init/detect.mjs
+// kit/lib/init/detect.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync38, readFileSync as readFileSync35 } from "node:fs";
 import { join as join45 } from "node:path";
@@ -22321,7 +22321,7 @@ function detectLawsSource({ ctx }) {
   return "none";
 }
 
-// kit/lib/init/notices.mjs
+// kit/lib/init/notices.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync39, readdirSync as readdirSync20, readFileSync as readFileSync36 } from "node:fs";
 import { join as join46 } from "node:path";
@@ -22379,11 +22379,11 @@ function formatterToExclude(root, dir) {
   return null;
 }
 
-// kit/lib/init/steps.mjs
+// kit/lib/init/steps.ts
 init_define_OMNI_BUNDLE();
 import { dirname as dirname13 } from "node:path";
 
-// kit/lib/init/settings.mjs
+// kit/lib/init/settings.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync12, readFileSync as readFileSync37, writeFileSync as writeFileSync14 } from "node:fs";
 import { dirname as dirname12, join as join47, posix as posix5, sep } from "node:path";
@@ -22433,7 +22433,7 @@ function writeStatusLine(root, { bin, force = false }) {
   return { path: SETTINGS_FILE, outcome: "wrote" };
 }
 
-// kit/lib/init/steps.mjs
+// kit/lib/init/steps.ts
 var APP = { name: "omni-loop", slug: "omni-loop-invader" };
 var MARKETPLACE = "omni-loop";
 var PLUGIN = "omni";
@@ -22548,7 +22548,7 @@ function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms,
   return lines;
 }
 
-// kit/lib/init/plugin.mjs
+// kit/lib/init/plugin.ts
 init_define_OMNI_BUNDLE();
 var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 var ID = `${PLUGIN}@${MARKETPLACE}`;
@@ -22584,7 +22584,7 @@ function pluginLines({ outcome }, { kitHome: kitHome2 }) {
   };
 }
 
-// kit/lib/init/signin-step.mjs
+// kit/lib/init/signin-step.ts
 init_define_OMNI_BUNDLE();
 async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!askUrl2) return { outcome: "unset" };
@@ -22614,7 +22614,7 @@ function signInLines({ outcome, host, email, line, why: why2 }) {
   return { status: ["  signin  skipped: ask.url is not set"], todo: [] };
 }
 
-// kit/lib/init/install-pr.mjs
+// kit/lib/init/install-pr.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync40 } from "node:fs";
 import { join as join48 } from "node:path";
@@ -22731,7 +22731,7 @@ function installLines({ branch, commit, push: push2, pr }, { paths, remote, base
   return lines;
 }
 
-// kit/bin/commands/init.mjs
+// kit/bin/commands/init.ts
 var LOOP_DIR2 = dirname14(CONFIG_FILE);
 var BIN_FILE2 = join49(LOOP_DIR2, "bin", "omni.mjs");
 function insideLoop2(path) {
@@ -22853,12 +22853,12 @@ var init = {
   }
 };
 
-// kit/bin/commands/item.mjs
+// kit/bin/commands/item.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync43, mkdirSync as mkdirSync15, readdirSync as readdirSync22, readFileSync as readFileSync40, statSync as statSync8, writeFileSync as writeFileSync17 } from "node:fs";
 import { basename as basename8, join as join51 } from "node:path";
 
-// kit/lib/outbox/relay.mjs
+// kit/lib/outbox/relay.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync42, mkdirSync as mkdirSync14, readdirSync as readdirSync21, readFileSync as readFileSync39, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync16 } from "node:fs";
 import { basename as basename7, join as join50 } from "node:path";
@@ -22932,7 +22932,7 @@ function relayFolder({ ctx, laws, prd: prd2, dir }) {
   return { moved: moved2, refused };
 }
 
-// kit/lib/policy/outbox-policy.mjs
+// kit/lib/policy/outbox-policy.ts
 init_define_OMNI_BUNDLE();
 var STATUS_FOR_OUTCOME = { record: "done", stop: "stopped", blocked: "blocked" };
 var AUTHOR_MARK = "(author)";
@@ -23189,7 +23189,7 @@ var ACCOUNT_FORMS = Object.freeze({
   })
 });
 
-// kit/bin/commands/item.mjs
+// kit/bin/commands/item.ts
 var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
 var USAGE12 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
@@ -23447,10 +23447,10 @@ var item = {
   }
 };
 
-// kit/bin/commands/kb.mjs
+// kit/bin/commands/kb.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/knowledge/graph.mjs
+// kit/lib/knowledge/graph.ts
 init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
 var KINDS5 = ["principle", "rule", "invariant"];
@@ -23512,7 +23512,7 @@ function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
 }
 
-// kit/bin/commands/kb.mjs
+// kit/bin/commands/kb.ts
 var USAGE13 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
@@ -23640,10 +23640,10 @@ var kb = {
   }
 };
 
-// kit/bin/commands/knowledge.mjs
+// kit/bin/commands/knowledge.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/knowledge/describe.mjs
+// kit/lib/knowledge/describe.ts
 init_define_OMNI_BUNDLE();
 var LINES = [
   ["why", "Why"],
@@ -23689,7 +23689,7 @@ function describeEntry(knowledge2, id) {
   return out.join("\n");
 }
 
-// kit/bin/commands/knowledge.mjs
+// kit/bin/commands/knowledge.ts
 var knowledge = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional } = parseArgs("knowledge", args);
@@ -23705,10 +23705,10 @@ var knowledge = {
   }
 };
 
-// kit/bin/commands/phase0.mjs
+// kit/bin/commands/phase0.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/policy/phase-0.mjs
+// kit/lib/policy/phase-0.ts
 init_define_OMNI_BUNDLE();
 var PHASE_0_REQUIRED_KINDS = (
   /** @type {const} */
@@ -23811,7 +23811,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
   return faults.join("; ");
 }
 
-// kit/bin/commands/phase0.mjs
+// kit/bin/commands/phase0.ts
 var USAGE14 = "usage: omni phase0 <prd> [--base <ref>]";
 function git3(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -23863,12 +23863,12 @@ var phase0 = {
   }
 };
 
-// kit/bin/commands/plan.mjs
+// kit/bin/commands/plan.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync41 } from "node:fs";
 import { join as join52 } from "node:path";
 
-// kit/lib/inbox/plan-grade.mjs
+// kit/lib/inbox/plan-grade.ts
 init_define_OMNI_BUNDLE();
 var COMMIT = /^[0-9a-f]{40}$/;
 var NO_COMMIT = /^[—–-]$/;
@@ -23997,7 +23997,7 @@ function gradePlan(markdown, { config: config2 }) {
   return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
-// kit/lib/plan-repo/moved.mjs
+// kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
 var shortName4 = (slug) => slug.slice(slug.indexOf("/") + 1);
@@ -24053,7 +24053,7 @@ function movedTable(rows2) {
   );
 }
 
-// kit/bin/commands/plan.mjs
+// kit/bin/commands/plan.ts
 var USAGE15 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
@@ -24144,10 +24144,10 @@ var plan = {
   }
 };
 
-// kit/bin/commands/prd.mjs
+// kit/bin/commands/prd.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/delivery/prd.mjs
+// kit/lib/delivery/prd.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync44, readFileSync as readFileSync42, readdirSync as readdirSync23 } from "node:fs";
 import { join as join53 } from "node:path";
@@ -24185,7 +24185,7 @@ function planRepos(planPath) {
   return names;
 }
 
-// kit/bin/commands/prd.mjs
+// kit/bin/commands/prd.ts
 var prd = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional } = parseArgs("prd", args);
@@ -24212,12 +24212,12 @@ var prd = {
   }
 };
 
-// kit/bin/commands/proof.mjs
+// kit/bin/commands/proof.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync18 } from "node:fs";
 import { isAbsolute as isAbsolute5, resolve as resolve3 } from "node:path";
 
-// kit/lib/proof/push.mjs
+// kit/lib/proof/push.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
 import { readFileSync as readFileSync43 } from "node:fs";
@@ -24256,7 +24256,7 @@ async function pushProof({ client, repo, prd: prd2, run, read: read2 = readFileS
   return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
 }
 
-// kit/lib/proof/run.mjs
+// kit/lib/proof/run.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync45, readFileSync as readFileSync44, statSync as statSync9 } from "node:fs";
 import { join as join54 } from "node:path";
@@ -24351,7 +24351,7 @@ function readRun(dir) {
   return { commit: sent.commit, url: sent.url, criteria, files };
 }
 
-// kit/lib/proof/session.mjs
+// kit/lib/proof/session.ts
 init_define_OMNI_BUNDLE();
 var CHUNK = 3180;
 var SessionRefused = class extends Error {
@@ -24401,7 +24401,7 @@ function storageState(accessToken, { host, now = Date.now() }) {
   return { state: { cookies: cookiesOf(`sb-${ref}-auth-token`, value, host, claims.exp), origins: [] }, email: claims.email, expiresAt: claims.exp };
 }
 
-// kit/bin/commands/proof.mjs
+// kit/bin/commands/proof.ts
 var USAGE16 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN2 = "no sign-in (omni signin)";
 function skipLine2(error) {
@@ -24517,10 +24517,10 @@ var proof = {
   }
 };
 
-// kit/bin/commands/replies.mjs
+// kit/bin/commands/replies.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/outbox/replies.mjs
+// kit/lib/outbox/replies.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync46, readFileSync as readFileSync45, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join55 } from "node:path";
@@ -24809,7 +24809,7 @@ function summarize2(result) {
   return lines.join("\n");
 }
 
-// kit/bin/commands/replies.mjs
+// kit/bin/commands/replies.ts
 var replies = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("replies", args, { values: ["prd", "pr", "repo"], booleans: ["post"] });
@@ -24834,12 +24834,12 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
   }
 };
 
-// kit/bin/commands/rework.mjs
+// kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync46, writeFileSync as writeFileSync20 } from "node:fs";
 import { join as join56 } from "node:path";
 
-// kit/lib/policy/rework.mjs
+// kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
 var REWORKED_BY2 = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
 function driftedEntries(settledText, markers) {
@@ -25008,7 +25008,7 @@ function reworkPullRequest(entry) {
   return (entry?.fields?.Closed ?? "").match(REWORKED_BY2)?.[1] ?? null;
 }
 
-// kit/bin/commands/rework.mjs
+// kit/bin/commands/rework.ts
 var USAGE17 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
@@ -25107,7 +25107,7 @@ var rework = {
   }
 };
 
-// kit/bin/commands/settle.mjs
+// kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
 var USAGE18 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
@@ -25150,7 +25150,7 @@ var settle = {
   }
 };
 
-// kit/bin/commands/ship.mjs
+// kit/bin/commands/ship.ts
 init_define_OMNI_BUNDLE();
 var ship = {
   async run(args, { ctx, stdout, stderr, exec }) {
@@ -25174,7 +25174,7 @@ var ship = {
   }
 };
 
-// kit/bin/commands/sign.mjs
+// kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
 var USAGE19 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
@@ -25188,11 +25188,11 @@ var sign = {
   }
 };
 
-// kit/bin/commands/status.mjs
+// kit/bin/commands/status.ts
 init_define_OMNI_BUNDLE();
 import { appendFileSync } from "node:fs";
 
-// kit/lib/status/facts.mjs
+// kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync14 } from "node:child_process";
 import { readFileSync as readFileSync47, rmSync as rmSync8, statSync as statSync10, utimesSync, writeFileSync as writeFileSync21 } from "node:fs";
@@ -25410,10 +25410,10 @@ function readFacts({ ctx, exec = execFileSync14 }) {
   };
 }
 
-// kit/lib/status/format.mjs
+// kit/lib/status/format.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/status/overview.mjs
+// kit/lib/status/overview.ts
 init_define_OMNI_BUNDLE();
 var BAR_CELLS = 30;
 function stage(folders, taken = /* @__PURE__ */ new Set()) {
@@ -25509,7 +25509,7 @@ function overviewFor(facts) {
   };
 }
 
-// kit/lib/status/format.mjs
+// kit/lib/status/format.ts
 var MINUTE = 60 * 1e3;
 var HOUR = 60 * MINUTE;
 var DAY = 24 * HOUR;
@@ -25638,7 +25638,7 @@ function formatOverview(overview2, { now }) {
   ].join("\n");
 }
 
-// kit/bin/commands/status.mjs
+// kit/bin/commands/status.ts
 var USAGE20 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 function overview({ ctx, stdout, exec, fetch }) {
   if (fetch) {
@@ -25688,7 +25688,7 @@ var status2 = {
   }
 };
 
-// kit/bin/commands/targets.mjs
+// kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
 var USAGE21 = "usage: omni targets [--json]";
 var targets = {
@@ -25707,11 +25707,11 @@ var targets = {
   }
 };
 
-// kit/bin/commands/statusline.mjs
+// kit/bin/commands/statusline.ts
 init_define_OMNI_BUNDLE();
 import { spawn as spawnProcess } from "node:child_process";
 
-// kit/lib/statusline/board-cache.mjs
+// kit/lib/statusline/board-cache.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { closeSync, existsSync as existsSync47, mkdirSync as mkdirSync16, openSync, readFileSync as readFileSync48, renameSync as renameSync3, rmSync as rmSync9, statSync as statSync11, writeFileSync as writeFileSync22 } from "node:fs";
@@ -25734,7 +25734,7 @@ function attempt6(fn, fallback) {
   }
 }
 function omniScript() {
-  return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
+  return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.ts", import.meta.url));
 }
 function readBoard(root, prd2) {
   const value = attempt6(() => JSON.parse(readFileSync48(boardFile(root, prd2), "utf8")), null);
@@ -25856,12 +25856,12 @@ function refreshBoard({ root, prd: prd2, now, build }) {
   return "written";
 }
 
-// kit/lib/statusline/facts.mjs
+// kit/lib/statusline/facts.ts
 init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync24 } from "node:fs";
 import { join as join58 } from "node:path";
 
-// kit/lib/statusline/stage.mjs
+// kit/lib/statusline/stage.ts
 init_define_OMNI_BUNDLE();
 var SHIPPED = "shipped";
 var OUTBOX = "outbox";
@@ -25898,7 +25898,7 @@ function stageOf({ folder, base, feature, slices = null }) {
   return inOutbox(feature, slices) ? OUTBOX : INBOX;
 }
 
-// kit/lib/statusline/which-prd.mjs
+// kit/lib/statusline/which-prd.ts
 init_define_OMNI_BUNDLE();
 var TEMPLATE_ORDER = ["slice", "feature", "phase0"];
 var PLACEHOLDER2 = /\{(topic|slice)\}/g;
@@ -25952,7 +25952,7 @@ function whichPrd({ branch, branches, folders, recorded = null }) {
   return fromRecord ? { ...fromRecord, slice: null } : null;
 }
 
-// kit/lib/statusline/facts.mjs
+// kit/lib/statusline/facts.ts
 var QUIET10 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function attempt7(fn, fallback) {
   try {
@@ -26059,7 +26059,7 @@ function readFacts2(input, { cwd, exec, now = Date.now(), spawn: spawn2 = null, 
   };
 }
 
-// kit/lib/statusline/input.mjs
+// kit/lib/statusline/input.ts
 init_define_OMNI_BUNDLE();
 var isObject2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 var text3 = (value) => typeof value === "string" && value.length > 0 ? value : null;
@@ -26097,7 +26097,7 @@ function parseInput(source) {
   };
 }
 
-// kit/lib/statusline/render.mjs
+// kit/lib/statusline/render.ts
 init_define_OMNI_BUNDLE();
 var NO_PRD_LINE = "no PRD \xB7 /omni:brainstorm to start";
 var UNREADABLE_LINE = "omni";
@@ -26210,7 +26210,7 @@ function renderLines({ input, facts, env, now }) {
   return lines.map((line) => fit(line, width));
 }
 
-// kit/bin/commands/statusline.mjs
+// kit/bin/commands/statusline.ts
 var REFRESH_FLAG = "--refresh";
 var CALL_TIMEOUT_MS2 = 60 * 1e3;
 async function readText2(stdin) {
@@ -26275,13 +26275,13 @@ var statusline = {
   }
 };
 
-// kit/bin/commands/update.mjs
+// kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync10 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join59 } from "node:path";
 
-// kit/lib/update/plugin.mjs
+// kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
 var QUIET11 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 function updatePlugin({ version: version2 = null, exec, println: println2 }) {
@@ -26298,7 +26298,7 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
   return true;
 }
 
-// kit/bin/commands/update.mjs
+// kit/bin/commands/update.ts
 var USAGE22 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target2, exec }) {
   const dir = mkdtempSync2(join59(tmpdir2(), "omni-update-"));
@@ -26369,7 +26369,7 @@ var update = {
   }
 };
 
-// kit/bin/commands/version.mjs
+// kit/bin/commands/version.ts
 init_define_OMNI_BUNDLE();
 var version = {
   withoutContext: true,
@@ -26383,10 +26383,10 @@ var version = {
   }
 };
 
-// kit/bin/commands/visual.mjs
+// kit/bin/commands/visual.ts
 init_define_OMNI_BUNDLE();
 
-// kit/lib/visual/verdict.mjs
+// kit/lib/visual/verdict.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync48, readdirSync as readdirSync25, readFileSync as readFileSync49 } from "node:fs";
 import { join as join60 } from "node:path";
@@ -26438,16 +26438,16 @@ function visualVerdict({ ctx, issue, commits }) {
   });
 }
 
-// kit/bin/commands/visual.mjs
+// kit/bin/commands/visual.ts
 var visual = branchVerdictCommand({
   verb: "visual",
   grade: ({ ctx, number, commits }) => visualVerdict({ ctx, issue: number, commits })
 });
 
-// kit/bin/commands/index.mjs
+// kit/bin/commands/index.ts
 var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, care, rework, phase0, visual, bug, concept, init, ask: ask2, heartbeat, signin, signout, whoami, sign, credits, dossier, proof, business, decide, version, update, help, statusline, targets });
 
-// kit/bin/omni.mjs
+// kit/bin/omni.ts
 var USAGE23 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does

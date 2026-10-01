@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { KINDS, type EntryKind, type KnowledgeEntry, type KnowledgeGraph } from '../../data/knowledge';
 import { TALL, WIDE, type Grid } from './common.ts';
 import {

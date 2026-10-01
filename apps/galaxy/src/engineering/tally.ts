@@ -1,5 +1,5 @@
-import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.mjs';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 

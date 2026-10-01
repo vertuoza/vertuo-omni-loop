@@ -148,11 +148,11 @@ describe('pnpm releases:sync', () => {
   it('is the root script that runs the sync, with the settings the game scripts read', async () => {
     const { readFileSync } = await import('node:fs');
     const scripts = JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')).scripts;
-    expect(scripts['releases:sync']).toBe('node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.mjs');
+    expect(scripts['releases:sync']).toBe('node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.ts');
   });
 
   it('loads on plain Node and names the missing credential, exiting non-zero', () => {
-    const run = spawnSync(process.execPath, ['apps/galaxy/scripts/releases-sync.mjs'], {
+    const run = spawnSync(process.execPath, ['apps/galaxy/scripts/releases-sync.ts'], {
       cwd: repository, encoding: 'utf8', env: { PATH: process.env.PATH, NODE_ENV: 'test', SUPABASE_SERVICE_ROLE_KEY: 'key' },
     });
     expect(run.stderr).toContain('releases:sync needs SUPABASE_URL');

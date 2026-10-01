@@ -9,9 +9,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "fumadocs-mdx && tsc --noEmit",
-    "artifact": "node artifact/build.mjs",
-    "seed": "node scripts/seed.mjs",
-    "shots": "node scripts/shots.mjs"
+    "artifact": "node artifact/build.ts",
+    "seed": "node scripts/seed.ts",
+    "shots": "node scripts/shots.ts"
   },
   "dependencies": {
     "@omni/design": "workspace:*",
