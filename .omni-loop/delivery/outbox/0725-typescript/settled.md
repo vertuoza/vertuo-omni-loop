@@ -1648,3 +1648,629 @@ A folder-local schema file per reader (kit/lib/proof/schema.ts, kit/lib/voice/sc
 ```
 
 <!-- /omni-outbox-settled: s16-01-hand-checks-stand-in-for-schemas -->
+
+<!-- omni-outbox-settled: s7-01-pr-comment-result-checked -->
+
+## s7-01-pr-comment-result-checked — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-pr-comment-result-checked
+prd: 725
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The note sent to the team chat reads a small file left by the step before it. Should a file whose values have the wrong kind be ignored, or passed along as it is?
+
+## The decision, in plain words
+
+A file whose values have the wrong kind is now ignored, so the note links to the issue instead, exactly as when the file is missing.
+
+## The intro, for fun
+
+A tiny file walks into the chat step carrying a number that is secretly a word.
+
+## The punchline, for fun
+
+It now gets politely turned away at the door, like a missing file would be.
+
+## The options, in plain words
+
+A. Check the file's values and ignore a file whose values have the wrong kind, like a missing one
+B. Pass the file along as it is, whatever its values hold, as before
+C. Refuse the run with an error naming the wrong value
+
+## What I had to decide
+
+readPrCommentResult (kit/lib/outbox/comment.ts) read the --result JSON file and returned it whenever it was any object, arrays included, trusting htmlUrl and newAdoptedCount as written. The plan's done-when asks every value read from a file to pass a Zod schema first.
+
+## What I did meanwhile
+
+Added PrCommentResultSchema in comment.ts (htmlUrl a string or null or absent, newAdoptedCount a number or absent, any other key kept as written); a file that fails it reads as null, the same answer an unreadable or missing file already gave. The only writer of that file, omni comment --pr, always writes the right kinds, so its own runs read exactly as before.
+
+## What it costs to change later
+
+A constant: drop the schema and return the parsed object again, one function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether anyone hands-writes that result file with other kinds of values (author)
+- Whether a wrong-kind file should fail loudly instead of falling back quietly (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-01-pr-comment-result-checked -->
+
+<!-- omni-outbox-settled: s7-02-relay-without-a-folder-names-it -->
+
+## s7-02-relay-without-a-folder-names-it — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-relay-without-a-folder-names-it
+prd: 725
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+Moving a target's decisions into a feature that has no folder yet used to crash with an unclear error. Should it now stop with a message naming the feature instead?
+
+## The decision, in plain words
+
+It now stops with a message naming the feature. The command that moves the decisions already refuses this case first, so nobody sees the new message in practice.
+
+## The intro, for fun
+
+A box of decisions arrives at an address that does not exist yet.
+
+## The punchline, for fun
+
+The courier now says which address was missing, instead of just dropping the box.
+
+## The options, in plain words
+
+A. Stop with a message naming the feature that has no folder
+B. Keep the unclear crash it had before
+C. Create the missing folder and carry on
+
+## What I had to decide
+
+relayFolder (kit/lib/outbox/relay.ts) called join(ctx.root, outboxDir) with outboxDir null when the PRD had no inbox or shipped folder, which throws Node's own ERR_INVALID_ARG_TYPE. The types refuse a null there.
+
+## What I did meanwhile
+
+relayFolder now throws Error('PRD <n> has no inbox or shipped folder') when ctx.layout.outboxDir(prd) is null. omni item relay checks the same condition and refuses with its own usage error before ever calling relayFolder, so no output of the command changes.
+
+## What it costs to change later
+
+A constant: one line in one function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether any caller other than omni item relay calls relayFolder (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-02-relay-without-a-folder-names-it -->
+
+<!-- omni-outbox-settled: s7-03-arcade-reads-the-kit-markers-type -->
+
+## s7-03-arcade-reads-the-kit-markers-type — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-arcade-reads-the-kit-markers-type
+prd: 725
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+Once the outbox comment code said exactly which markers it takes, one page of the web app stopped checking, because it described those markers as anything at all. Should this slice touch that page, which belongs to a later slice?
+
+## The decision, in plain words
+
+This slice changed that one line on the page to name the markers the tool really takes. Nothing the page shows changes.
+
+## The intro, for fun
+
+One page described its luggage as simply some kind of bag.
+
+## The punchline, for fun
+
+The airline now wants to know which bag, so the label got one more word.
+
+## The options, in plain words
+
+A. Change that one line here, so the whole repository keeps checking
+B. Loosen the outbox comment code to accept any markers, and leave the page to its later slice
+C. Leave the page failing its check until its later slice clears it
+
+## What I had to decide
+
+apps/galaxy/src/dossier/github/replies.ts declared `type Markers = object` and passed it to findPrMarkerComment and parseNumbersMarker, which s7 now types with the markers makeMarkers builds; tsc -p apps/galaxy failed on both calls. That folder is s26's territory (wave 5), outside s7's.
+
+## What I did meanwhile
+
+Changed that one alias to `Parameters<typeof findPrMarkerComment>[1]`, the kit's own markers type; its one caller (reader.ts) already passes config.markers, and pnpm typecheck passes with no other change. No runtime code changed.
+
+## What it costs to change later
+
+A constant: one type alias in one file; s26 may rewrite it when it clears the folder.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s26 would rather import the kit's markers type by name (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-03-arcade-reads-the-kit-markers-type -->
+
+<!-- omni-outbox-settled: s11-01-status-and-release-text-stay-unschemaed -->
+
+## s11-01-status-and-release-text-stay-unschemaed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s11
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-status-and-release-text-stay-unschemaed
+prd: 725
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The status overview reads plain text from version control, and the release note check reads a short header written by hand. Should each of those pass a validation schema here?
+
+## The decision, in plain words
+
+No new schema in this part: the text stays plain text handled by the readers already there, as the core modules already decided, and the release note keeps its own reader so its messages stay word for word the same.
+
+## The intro, for fun
+
+The release note header asked to be checked by the new schema desk like everyone else.
+
+## The punchline, for fun
+
+It was told it already had a personal reader who knows every one of its lines by heart.
+
+## The options, in plain words
+
+A. Plain text stays typed text and the release note keeps its own reader, as built
+B. Add a schema for the release note header now, with its messages mapped to today's words
+C. Wrap every text read in this part in a schema as well
+
+## What I had to decide
+
+Whether the done-when rule that every value read from a file, a process, the network or the environment passes a Zod schema asks for a schema on the git output kit/lib/status/facts.ts reads (rev-parse, ls-tree, log, for-each-ref, diff), on the plan text kit/lib/delivery/prd.ts hands to parsePlanSlices, on the files kit/lib/delivery/ship.ts rewrites, and on a release note's front matter, which kit/lib/releases/note.ts reads line by line.
+
+## What I did meanwhile
+
+No Zod import was added in this slice's files, following the adopted s4-03 decision for the core modules. Process output is typed string through ExecText and parsed by the readers already there. The release note keeps its hand-written line reader: it reads values as written rather than as YAML, and its refusals (a field it never carries named, a field given twice, prd not a number) are the exact messages omni check releases and omni ship print, which a Zod schema would reword.
+
+## What it costs to change later
+
+A ReleaseNoteFrontMatterSchema beside note.ts parsing the fields readFields returns, with its messages mapped to today's wording; and a z.string() wrap around each git call in facts.ts, one line each. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec does not say whether unstructured text output, or a front matter the kit deliberately reads without YAML, counts as a value that needs a schema
+
+```
+
+<!-- /omni-outbox-settled: s11-01-status-and-release-text-stay-unschemaed -->
+
+<!-- omni-outbox-settled: s12-01-ask-replies-handed-on-unparsed -->
+
+## s12-01-ask-replies-handed-on-unparsed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s12
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-ask-replies-handed-on-unparsed
+prd: 725
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The tool that talks to the Omni page gets answers back from the server. Should it check every answer's shape itself, or hand each one on to the command that asked?
+
+## The decision, in plain words
+
+It hands each answer on as it came, and checks only the few parts it reads itself: the renewed sign-in and the server's error text. Each command checks the rest.
+
+## The intro, for fun
+
+The postman was asked to read every letter before delivering it.
+
+## The punchline, for fun
+
+He reads the address and the stamp, and leaves the rest to whoever opens it.
+
+## The options, in plain words
+
+A. Hand each reply on as it came, and check only the sign-in and the error text inside the client
+B. Check every reply's shape inside the client, and fail a call whose answer is not of the shape
+C. Check every reply's shape inside the client, and drop the fields that are not of the shape instead of failing
+
+## What I had to decide
+
+Whether kit/lib/ask/client.ts should parse every reply of the contract through a schema, or hand replies on as `unknown` for the calling command to parse.
+
+## What I did meanwhile
+
+Every client method now returns `Promise<unknown>`: the client reads only the renewed tokens (through TokenReplySchema) and the `{error}` text itself, both in kit/lib/ask/schema.ts. The hooks in kit/lib/ask/hook.ts read the fields they need from a reply (`id`, `roundId`, `status`, `answers`, `attachments`) field by field, as they did. The commands under kit/bin that read replies are s17's to type; they will need a schema for each reply they read.
+
+## What it costs to change later
+
+A constant per call: add a schema per reply in kit/lib/ask/schema.ts and parse it in the method; the callers' code only loses its own checks. No stored shape and no output change today.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a reply that misses a field should become an error (it passes through today, and a parsing client would refuse it), which would change what a command prints against an older server
+
+```
+
+<!-- /omni-outbox-settled: s12-01-ask-replies-handed-on-unparsed -->
+
+<!-- omni-outbox-settled: s12-02-ask-local-reads-stay-silent -->
+
+## s12-02-ask-local-reads-stay-silent — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s12
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-ask-local-reads-stay-silent
+prd: 725
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The plan asks that a file the tool cannot read fails with a message naming what is wrong, but question mode always read its own small files and the sign-in quietly, a broken one counting as missing. Which wins?
+
+## The decision, in plain words
+
+They are still read quietly: a broken file counts as missing and nothing is printed, so a question is never blocked. The check behind it now uses a proper shape description.
+
+## The intro, for fun
+
+The plan wanted every smudged note read aloud with its typo.
+
+## The punchline, for fun
+
+Question mode shrugs, bins the note, and lets the question through.
+
+## The options, in plain words
+
+A. Keep the reads quiet: a value not of the shape reads as absent, through a schema
+B. Fail each read with an error naming the field, and let the hooks catch and swallow it
+C. Keep the reads quiet but write the field's error to a local log a person can read
+
+## What I had to decide
+
+Whether the reads of ask mode's local state, the sign-in store, the dossier drafts file, a hook's input and a transcript should fail with an error naming the field (the plan's done-when), or stay lenient as they were.
+
+## What I did meanwhile
+
+Each read goes through a Zod schema with safeParse (ModeFileSchema, TerminalFileSchema, RoundFileSchema, HeartbeatWindowSchema, TokensSchema, TokenReplySchema in kit/lib/ask/schema.ts; DossierEntrySchema in kit/lib/dossier/local.ts), and a value that fails reads as absent, exactly as before. Transcript lines and hook inputs, which are any JSON, are read field by field with the `field` helper rather than one schema. No output changed.
+
+## What it costs to change later
+
+A constant: where an error is wanted, swap a safeParse for parse with the kit's messages; the schemas are already there. Each such swap changes what a hook prints, which the spec rules out for this PRD.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan's rule that an invalid value fails naming its field was meant to cover reads that were designed never to fail (the hooks must never block a question)
+
+```
+
+<!-- /omni-outbox-settled: s12-02-ask-local-reads-stay-silent -->
+
+<!-- omni-outbox-settled: s14-01-malformed-answers-now-fail-by-name -->
+
+## s14-01-malformed-answers-now-fail-by-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s14
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-01-malformed-answers-now-fail-by-name
+prd: 725
+slice: s14
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+When GitHub or the database answers the credits report or the personas import in a shape it should never have, should the tool stop and say which part was wrong, or carry on as it used to?
+
+## The decision, in plain words
+
+It stops and names the part that was wrong. A well-formed answer, which is every answer seen so far, gives exactly the same result as before.
+
+## The intro, for fun
+
+GitHub once answered with a pull request that had no number. Nobody believes it either.
+
+## The punchline, for fun
+
+Now the tool says so out loud, instead of tripping three steps later.
+
+## The options, in plain words
+
+A. A malformed answer stops the run with an error naming the field; well-formed answers behave exactly as before
+B. Keep passing malformed answers through as before, and parse only for the types
+C. Stop on malformed answers, but turn the error into the command's usual one-line refusal
+
+## What I had to decide
+
+PRD 725 asks every value read from a process or the network to pass a schema, failing with an error naming its field. In omni credits the rows of gh search and gh pr view were read field by field with fallbacks; a row with no number or repository was passed through and could crash later in the classifier. In scripts/personas-import.ts the Supabase rows were trusted as they came, and a refusal body that was not an object would have thrown a TypeError while reading its fields.
+
+## What I did meanwhile
+
+kit/lib/credits/schema.ts parses each gh row before use: a row's number and repository (a commit's sha and repository) are required, every other field may be missing and keeps its old fallback. scripts/personas-import.ts parses the workspace, product and persona rows Supabase answers, and reads a refusal's code, message and hint through a loose schema, so a body that is not an object reads as empty instead of throwing. Each failure names its path, e.g. 'gh search prs printed an unexpected shape: 0.labels.0.name: Required'.
+
+## What it costs to change later
+
+Cheap: loosen a field in the folder's schema file to nullish, or drop the parse; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether gh ever prints a search row without its repository; its JSON output always has so far (author)
+- Whether a refusal from PostgREST ever carries a body that is not an object (author)
+
+```
+
+<!-- /omni-outbox-settled: s14-01-malformed-answers-now-fail-by-name -->
+
+<!-- omni-outbox-settled: s14-02-hooks-folder-unseen-by-typecheck -->
+
+## s14-02-hooks-folder-unseen-by-typecheck — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s14
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-02-hooks-folder-unseen-by-typecheck
+prd: 725
+slice: s14
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+The test beside the assistant's commit guard is now typed, but the repository's type check never looks inside that hidden folder. Should the check be widened to see it?
+
+## The decision, in plain words
+
+The test is typed and was checked by hand with the shared settings. Widening the repository's check is left to the last slice, which owns that setting.
+
+## The intro, for fun
+
+The type checker skips hidden folders, the way a tidy guest skips the closet.
+
+## The punchline, for fun
+
+The guard's own test was hiding in there, typed and spotless, with nobody to admire it.
+
+## The options, in plain words
+
+A. Leave the root include as it is for now; s29 adds the hooks folder when it tightens the configs
+B. Add the hooks folder to the root include now, outside this slice's ground
+C. Leave the hooks folder out of the type check for good: it holds one test
+
+## What I had to decide
+
+The root tsconfig.json includes **/*.ts, but TypeScript's wildcards do not enter folders whose name starts with a dot, so .claude/hooks/fallow-gate.test.ts is not checked by pnpm typecheck. tsconfig.json is s29's territory, not s14's.
+
+## What I did meanwhile
+
+Removed the file's nocheck marker, typed its helpers, and checked it with a scratch config that extends tsconfig.base.json and includes .claude/hooks/*.ts: no error. pnpm test still runs it.
+
+## What it costs to change later
+
+Cheap: add ".claude/hooks/**/*.ts" to the root include in s29, or leave it unchecked.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s29's guard test, which reads files itself, also covers dot folders (author)
+
+```
+
+<!-- /omni-outbox-settled: s14-02-hooks-folder-unseen-by-typecheck -->
