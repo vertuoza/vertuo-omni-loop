@@ -390,3 +390,82 @@ Option B is a one-line change in the web app and dropping one condition in a dat
 ```
 
 <!-- /omni-outbox-settled: s4-02-jev-judges-first-report-bring-back-final -->
+
+<!-- omni-outbox-settled: s4-01-jev-after-report-uses-full-access-key -->
+
+## s4-01-jev-after-report-uses-full-access-key — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-01T09:28:57Z
+- Channel: feature pull request #856
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/856#issuecomment-5928641311
+- Basis: contradiction-marker — the answer says "not", which reads as a change to the recorded choice
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: ADR-0051
+- Raised: 2026-10-01
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+It should use the Jev key we set up (Settings › Jev). Yes, we have a Jev key; if that is not set up, the Jev step is not run.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-jev-after-report-uses-full-access-key
+prd: 855
+slice: s4
+rank: high
+bears-on: ADR-0051
+raised: 2026-10-01
+wave: 4
+---
+
+## The question, in plain words
+
+Jev judges a new question from an agent after the agent got its answer. Which key may the web app use to read that question and to set it aside?
+
+## The decision, in plain words
+
+The web app uses its full-access database key for this, the same way every other Jev decision already reads its settings and its key. Checking the agent's link still never uses it.
+
+## The intro, for fun
+
+Jev needs a key to tidy the questions pile.
+
+## The punchline, for fun
+
+It borrowed the one every Jev decision already carries.
+
+## The options, in plain words
+
+A. The full-access key reads the question and sets it aside, as for every Jev decision (built).
+B. The agent's link carries Jev's verdict through a database function that checks the link, and the full-access key reads only Jev's settings and key.
+
+## What I had to decide
+
+The spec says the link is checked by the database and that the web app gains no power for it. Jev's settings and its key can only be read with the full-access key (PRD 812), and Jev runs after the agent's call, so the link alone cannot carry the verdict. Reading the question and setting it aside therefore run with that key, through two database functions only it may call (agent_question_for_jev, agent_question_set_aside).
+
+## What I did meanwhile
+
+Built option A: apps/galaxy/src/agent-connect/mcp/live.ts hands a first report to Jev through Next's after(), with jevDecideDeps() and serviceDb(); without SUPABASE_SERVICE_ROLE_KEY Jev never runs and every question waits for a person. The token check is untouched.
+
+## What it costs to change later
+
+A constant-sized change: option B is one more link-checked database function and about twenty lines in the web app; no stored data changes shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether ADR-0051's list of service-role uses should name Jev's decisions, which PRD 812 already added (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-jev-after-report-uses-full-access-key -->
