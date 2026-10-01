@@ -6,6 +6,7 @@
 // The script (apps/galaxy/scripts/releases-sync.ts) calls releasesSync() with the environment. It runs
 // on plain Node, so this module and those it imports name their files with their extension.
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Git } from './git.ts';
 import { releaseVersion } from './row.ts';
 import { applySync, planSync } from './sync.ts';
@@ -54,7 +55,7 @@ export async function syncReleases({ root, table, git, out = console.log, err = 
 
 /** The table as the service role, keeping no session. */
 function serviceRole(env: Env): ReleasesTable {
-  return releasesTable(createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return releasesTable(createClient<Database>(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   }));
 }

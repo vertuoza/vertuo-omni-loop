@@ -1,12 +1,12 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serviceDb } from '../data/sign-in-live';
 import { dossierGithub } from '../dossier/github/server';
 import { recountLive } from '../stages/outbox/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore } from './send';
-import type { SendRow } from './sent';
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/send-live.ts (PRD 251, s11); the outbox
 // is read through PRD 426's GitHub reader, not a stored copy.
@@ -21,7 +21,7 @@ import type { SendRow } from './sent';
 
 const SEND_COLUMNS = 'id, dossier_id, pr_number, reply, nonce_hash, created_at, posted_at, comment_url, login, counted, error';
 
-type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
+type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** A store call that failed: which, and the database's code. Never the row. */
 export class SendStoreError extends Error {
@@ -36,19 +36,19 @@ export function sendStore(db: Db): SendStore {
       const { data, error } = await db.from('dossiers').select('id, home_repo, prd').eq('id', dossierId).maybeSingle();
       if (error) throw new SendStoreError('read the dossier', error.code, error.message);
       if (!data) return null;
-      const row = data as { id: string; home_repo: string; prd: number | null };
+      const row = data;
       return { dossierId: row.id, homeRepo: row.home_repo, prd: row.prd };
     },
     async create({ dossierId, prNumber, reply, nonceHash }) {
       const { data, error } = await db.from('outbox_sends')
         .insert({ dossier_id: dossierId, pr_number: prNumber, reply, nonce_hash: nonceHash }).select('id').single();
       if (error) throw new SendStoreError('record the send', error.code, error.message);
-      return (data as { id: string }).id;
+      return data.id;
     },
     async read(sendId) {
       const { data, error } = await db.from('outbox_sends').select(SEND_COLUMNS).eq('id', sendId).maybeSingle();
       if (error) throw new SendStoreError('read the send', error.code, error.message);
-      return (data as SendRow | null) ?? null;
+      return data ?? null;
     },
     async done(sendId, outcome) {
       const { error } = await db.rpc('outbox_send_done', 'error' in outcome
@@ -78,7 +78,7 @@ function outboxSource(): OutboxSource {
 async function recountDossier(dossierId: string): Promise<void> {
   const { data, error } = await serviceDb().from('dossiers').select('workspace_id, home_repo, prd').eq('id', dossierId).maybeSingle();
   if (error) throw new SendStoreError('read the dossier to recount', error.code, error.message);
-  const row = data as { workspace_id: string; home_repo: string; prd: number | null } | null;
+  const row = data;
   if (!row || row.prd === null) return;
   await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: row.prd, id: dossierId }]);
 }

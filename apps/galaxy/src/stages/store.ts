@@ -6,6 +6,7 @@
 // dossier's home_repo is. A stage is recorded once: writing it again refreshes when it was last seen
 // (synced_at), and the database keeps its first date. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
 
 const STAGES_TABLE = 'prd_stages';
@@ -91,7 +92,7 @@ function stageRows(data: unknown): StageRow[] {
     .sort(byTrack);
 }
 
-export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
+export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageStore {
   const store: StageStore = {
     async recordStages(rows, syncedAt = new Date().toISOString()) {
       if (rows.length === 0) return;
@@ -139,7 +140,7 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
       const { data, error } = await db.from(TOPICS_TABLE).select('prd')
         .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('topic', topic).maybeSingle();
       settle(`find the PRD of topic ${topic}`, error);
-      const row = data as { prd?: unknown } | null;
+      const row = data;
       return row && row.prd !== undefined && row.prd !== null ? Number(row.prd) : null;
     },
 
@@ -148,7 +149,7 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
         .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('stage', 'prd')
         .order('synced_at', { ascending: false }).limit(1).maybeSingle();
       settle(`read when ${lower(repository)} was last synced`, error);
-      const row = data as { synced_at?: unknown } | null;
+      const row = data;
       return row && typeof row.synced_at === 'string' ? row.synced_at : null;
     },
   };

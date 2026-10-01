@@ -3,6 +3,7 @@
 // refresh a row's title and description. It never renumbers, redates or deletes a row. A refusal
 // throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { parseReleaseRows, RELEASE_COLUMNS, RELEASES_TABLE, type ReleaseRow } from './row.ts';
 import type { ReleaseText } from './sync.ts';
 
@@ -24,7 +25,7 @@ function settle(what: string, error: Refusal): void {
   if (error) throw new Error(`Supabase refused to ${what}: ${error.message}${error.code ? ` (${error.code})` : ''}`);
 }
 
-export function releasesTable(db: Pick<SupabaseClient, 'from'>): ReleasesTable {
+export function releasesTable(db: Pick<SupabaseClient<Database>, 'from'>): ReleasesTable {
   return {
     async rows() {
       const rows: ReleaseRow[] = [];

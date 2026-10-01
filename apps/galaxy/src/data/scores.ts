@@ -5,6 +5,7 @@
 // the higher of the stored best and the score). The page reads each game's table with the galaxy;
 // the Supabase account sends a finished game's score. The demo keeps its own in browser storage.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Hero } from '@omni/design';
 import { GAMES } from '../arcade/games';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
@@ -22,7 +23,7 @@ const lineOf = (row: ScoreRow): ScoreLine => ({
  * A game's crew table in the workspace: its top five, best first (the earlier of two equal scores
  * first), each under the player's arcade name and hero; and `userId`'s own best, wherever it ranks.
  */
-export async function loadScores(db: Pick<SupabaseClient, 'from'>, workspace: string, game: string, userId: string | null): Promise<ScoreBoard> {
+export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, game: string, userId: string | null): Promise<ScoreBoard> {
   const table = () => db.from('arcade_scores');
   const [top, mine] = await Promise.all([
     table()
@@ -36,7 +37,7 @@ export async function loadScores(db: Pick<SupabaseClient, 'from'>, workspace: st
   ]);
   const error = top.error ?? mine?.error;
   if (error) throw new Error(`Supabase: could not read the high scores (${error.message})`);
-  const own = mine?.data as { best: number } | null | undefined;
+  const own = mine?.data;
   return { top: ((top.data ?? []) as unknown as ScoreRow[]).map(lineOf), mine: own ? Number(own.best) : null };
 }
 
@@ -45,7 +46,7 @@ export async function loadScores(db: Pick<SupabaseClient, 'from'>, workspace: st
  * arcade. Each is read on its own: a table out of reach is 'unreadable', and never takes the galaxy
  * or the other tables with it.
  */
-export async function readScores(db: Pick<SupabaseClient, 'from'>, workspace: string, userId: string | null): Promise<Record<string, ScoresRead>> {
+export async function readScores(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, userId: string | null): Promise<Record<string, ScoresRead>> {
   const read = async (game: string): Promise<ScoresRead> => {
     try {
       return await loadScores(db, workspace, game, userId);
@@ -58,7 +59,7 @@ export async function readScores(db: Pick<SupabaseClient, 'from'>, workspace: st
 }
 
 /** Sends a finished game's score through submit_score(); resolves with the player's best at the game as stored. */
-export async function submitScore(db: Pick<SupabaseClient, 'rpc'>, workspace: string | null, game: string, score: number): Promise<number> {
+export async function submitScore(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string | null, game: string, score: number): Promise<number> {
   if (!workspace) throw new Error('This account belongs to no workspace yet.');
   const { data, error } = await db.rpc('submit_score', { workspace, game, score });
   if (error) throw new Error(`Saving your score: ${error.message}`);

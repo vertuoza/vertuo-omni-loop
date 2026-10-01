@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requestOrigin } from '../../../../../../../src/ask/page/sign-in';
-import { settlingExchange, type SessionExchange } from '../../../../../../../src/data/sign-in';
+import { settlingExchange } from '../../../../../../../src/data/sign-in';
 import { signInDeps } from '../../../../../../../src/data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../../../../../../src/data/supabase-server';
 import { atSignInReturn, readAt } from '../../../../../../../src/dossier/page/history-at';
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const key = readAt(await params);
   if (!supabaseEnv()) return NextResponse.redirect(await atSignInReturn(request.nextUrl, requestOrigin(request), key, null, null));
   const db = await supabaseServer();
-  const exchange = (code: string) => db.auth.exchangeCodeForSession(code) as ReturnType<SessionExchange>;
+  const exchange = (code: string) => db.auth.exchangeCodeForSession(code);
   return NextResponse.redirect(await atSignInReturn(
     request.nextUrl, requestOrigin(request), key, settlingExchange(exchange, db, signInDeps), null,
   ));

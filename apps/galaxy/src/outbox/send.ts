@@ -107,6 +107,16 @@ export type SendDeps = {
 
 // ── GitHub, over fetch ─────────────────────────────────────────────────────────
 
+/** GitHub's answer to the code: a user token, never empty. */
+const TokenReply = z.object({ access_token: z.string().min(1) });
+
+/** GitHub's answer to the comment: its address, and who posted it as GitHub says, blank when it does not. */
+const CommentReply = z.object({
+  html_url: z.string(),
+  user: z.object({ login: z.string().catch('') }).catch({ login: '' }),
+  author_association: z.string().catch(''),
+});
+
 /** GitHub's side of a send: the code traded for a user token, then the comment. Errors carry a kind and
  * a status, never the token. */
 export function githubUser({ clientId, clientSecret, fetch }: { clientId: string; clientSecret: string; fetch: typeof globalThis.fetch }): GitHubUser {
@@ -125,9 +135,9 @@ export function githubUser({ clientId, clientSecret, fetch }: { clientId: string
         body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
       });
       if (response.status >= 500) throw new GitHubError('down', response.status);
-      const body = (await response.json().catch(() => null)) as { access_token?: unknown } | null;
-      if (!response.ok || typeof body?.access_token !== 'string' || !body.access_token) throw new GitHubError('refused', response.status);
-      return body.access_token;
+      const body = TokenReply.safeParse(await response.json().catch(() => null));
+      if (!response.ok || !body.success) throw new GitHubError('refused', response.status);
+      return body.data.access_token;
     },
     async comment(token, repo, number, text) {
       const response = await call(`${API}/repos/${repo}/issues/${number}/comments`, {
@@ -141,13 +151,9 @@ export function githubUser({ clientId, clientSecret, fetch }: { clientId: string
       if (response.status === 404 || response.status === 410) throw new GitHubError('gone', response.status);
       if (response.status === 401 || response.status === 403 || response.status === 422) throw new GitHubError('no-access', response.status);
       if (!response.ok) throw new GitHubError('down', response.status);
-      const body = (await response.json().catch(() => null)) as { html_url?: unknown; user?: { login?: unknown }; author_association?: unknown } | null;
-      if (typeof body?.html_url !== 'string') throw new GitHubError('down', response.status);
-      return {
-        url: body.html_url,
-        login: typeof body.user?.login === 'string' ? body.user.login : '',
-        association: typeof body.author_association === 'string' ? body.author_association : '',
-      };
+      const body = CommentReply.safeParse(await response.json().catch(() => null));
+      if (!body.success) throw new GitHubError('down', response.status);
+      return { url: body.data.html_url, login: body.data.user.login, association: body.data.author_association };
     },
   };
 }
@@ -206,7 +212,7 @@ export function buildReply(questions: Question[], prd: number, picks: SendBody['
   if (kept.length === 0) {
     return { ok: false, reason: 'Every question you answered was settled meanwhile: nothing is left to send.', dropped };
   }
-  const written = writeReply({ prd, door: 'page', questions, picks: kept }) as { ok: true; reply: string } | { ok: false; reason: string };
+  const written = writeReply({ prd, door: 'page', questions, picks: kept }) as { ok: true; reply: string } | { ok: false; reason: string }; // ts-allow: the kit's reply writer answers one of these two shapes
   return written.ok ? { ok: true, reply: written.reply, dropped } : { ok: false, reason: written.reason, dropped };
 }
 

@@ -5,6 +5,7 @@
 // GitHub could not read it. A write replaces the fix's facts. A row whose facts are not a FixSummary is
 // read as none. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { z } from 'zod';
 import type { FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
@@ -43,7 +44,7 @@ export function factsOf(value: unknown): FixSummary | null {
   return parsed.success ? (parsed.data as FixSummary) : null;
 }
 
-export function fixFactsStore(db: Pick<SupabaseClient, 'from'>): FixFactsStore {
+export function fixFactsStore(db: Pick<SupabaseClient<Database>, 'from'>): FixFactsStore {
   return {
     async readFacts(workspace, ids) {
       const facts = new Map<string, FixSummary>();

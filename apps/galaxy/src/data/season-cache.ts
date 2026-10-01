@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { unstable_cache } from 'next/cache';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, Projects } from '@omni/galaxy';
 
 // The season, cached per workspace (PRD 657, s8). Folding the whole ledger through buildGalaxy on every
@@ -19,7 +20,7 @@ import type { GalaxyView, Projects } from '@omni/galaxy';
 export type SeasonCache = (key: string[], compute: () => Promise<GalaxyView>) => Promise<GalaxyView>;
 
 /** What the cached read needs: the cache and the service role's client. Null: the season is not cached. */
-export type SeasonDeps = { cache: SeasonCache; service: SupabaseClient } | null;
+export type SeasonDeps = { cache: SeasonCache; service: SupabaseClient<Database> } | null;
 
 /** The workspace's newest ledger event, as the viewer read it, and how many events its ledger holds. */
 export interface Newest { id: string; at: string; count: number }
@@ -42,6 +43,6 @@ export function liveSeason(): SeasonDeps {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return (live = null);
-  const service = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  const service = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
   return (live = { cache: nextCache, service });
 }

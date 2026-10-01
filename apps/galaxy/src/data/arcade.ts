@@ -1,6 +1,7 @@
 import 'server-only';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Brand } from '../arcade/brand';
 import type { DossiersRead, FleetRow, Player, ScoresRead, Session, XpRead } from '../arcade/types';
 import { readDossiers } from './dossiers';
@@ -66,11 +67,11 @@ const githubLogin = (user: User) => {
  * Whether the person owns the workspace (workspace_members.role), read as themselves. Out of reach,
  * they read as a member: the role only changes a pointer on the fleet screens, never the galaxy.
  */
-async function ownsWorkspace(db: SupabaseClient, workspace: string, userId: string): Promise<boolean> {
+async function ownsWorkspace(db: SupabaseClient<Database>, workspace: string, userId: string): Promise<boolean> {
   try {
     const { data, error } = await db.from('workspace_members').select('role').eq('workspace_id', workspace).eq('user_id', userId).maybeSingle();
     if (error) throw new Error(error.message);
-    return (data as { role?: string } | null)?.role === 'owner';
+    return data?.role === 'owner';
   } catch (err) {
     console.error(`Supabase: could not read your role (${err instanceof Error ? err.message : String(err)})`);
     return false;
@@ -81,7 +82,7 @@ async function ownsWorkspace(db: SupabaseClient, workspace: string, userId: stri
 const sessionOf = (user: User, crew: boolean): Session =>
   ({ id: user.id, email: user.email ?? '', givenName: givenName(user), crew, github: githubLogin(user) });
 
-export async function arcadeFor(db: SupabaseClient, user: User | null, now = new Date()): Promise<ArcadeData> {
+export async function arcadeFor(db: SupabaseClient<Database>, user: User | null, now = new Date()): Promise<ArcadeData> {
   if (!user) return { view: null, fleets: [], session: null, workspace: null };
   let workspace: Workspace | null = null;
   try {
