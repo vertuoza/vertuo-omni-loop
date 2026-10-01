@@ -56,7 +56,7 @@ describe('qualify — a merged feature PR', () => {
     await run(scenario);
     const shas = scenario.github.state.requests
       .filter((request: { route: string }) => request.route.includes('/git/'))
-      .map((request: { tree_sha?: string; file_sha?: string }) => request.tree_sha ?? request.file_sha ?? '');
+      .map((request) => (request.tree_sha ?? request.file_sha ?? '') as string);
     expect(shas.length).toBeGreaterThan(0);
     for (const sha of shas) expect(sha.startsWith(MERGE_SHA)).toBe(true);
   });

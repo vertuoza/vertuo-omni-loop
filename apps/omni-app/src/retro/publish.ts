@@ -26,13 +26,6 @@ type Repo = { owner: string; repo: string };
 
 const REF = 'GET /repos/{owner}/{repo}/git/ref/{ref}';
 
-/** The shared writer's `addCommit`, as its own documentation types it: the new commit's sha. */
-type AddCommit = (
-  octokit: Octokit,
-  input: Repo & { branch: string; parent: string; message: string; defaultBranch: string; files: { path: string; content: string }[] },
-) => Promise<string>;
-const commitFiles = addCommit as unknown as AddCommit; // ts-allow: git-write.ts is typed by its own slice; until then its `files` default reads as never[]
-
 /** The run that comes fourteen days after the merge, and the suffix of its own branch. */
 const FOLLOW_UP_RUN = 'day-14';
 const FOLLOW_UP_SUFFIX = '-day-14';
@@ -77,7 +70,7 @@ export async function publishRetro(octokit: Octokit, { owner, repo, config, prd,
 
   let commit: string = head;
   if (!unchanged) {
-    commit = await commitFiles(octokit, {
+    commit = await addCommit(octokit, {
       owner,
       repo,
       branch,

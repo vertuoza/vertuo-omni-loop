@@ -155,7 +155,7 @@ export const REPLIES = {
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 export function fakeFetch(replies = REPLIES) {
-  return vi.fn(async (_url: string, init: any) => {
+  return vi.fn(async (_url: string | URL | Request, init: any) => {
     const body = JSON.parse(init.body);
     const user = body.messages.find((m: any) => m.role === 'user').content;
     const id = /^## The decision: (\S+)$/m.exec(user)?.[1] ?? '';

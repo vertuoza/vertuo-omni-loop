@@ -86,8 +86,8 @@ describe('timeline — detect', () => {
     const ctx = await context();
     ctx.pulls = [
       ...ctx.pulls,
-      { number: 16, url: 'u16', headRef: 'feat/widget--s2', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
-      { number: 17, url: 'u17', headRef: 'fix/settle-widget', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
+      { number: 16, title: 'S2 again', url: 'u16', state: 'closed', draft: false, headRef: 'feat/widget--s2', headSha: 'sha16', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
+      { number: 17, title: 'Settle', url: 'u17', state: 'open', draft: false, headRef: 'fix/settle-widget', headSha: 'sha17', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
     ];
     const { facts } = detect({ readyAt: null }, ctx);
     expect(facts.slices.map((slice) => [slice.slice, slice.pr, slice.minutes])).toEqual([

@@ -74,9 +74,12 @@ const RED: ReadonlySet<string | null> = new Set(['failure', 'timed_out', 'startu
 /** GitHub's closing words, then the issue: `#40`, `owner/repo#40` or its URL. */
 const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)#(\d+)|#(\d+))(?!\d)/gi;
 
+/** What the day-14 run reads back of the merge run's churn facts: the ranges it found. */
+type ChurnAtMerge = { ranges?: { path: string; from: number; to: number }[] };
+
 /** When the day-14 run wakes, and its window closes: the merge plus `THRESHOLDS.afterMergeDays` days. */
-export function followUpAt(mergedAt: string): string {
-  return new Date(Date.parse(mergedAt) + THRESHOLDS.afterMergeDays * DAY_MS).toISOString();
+export function followUpAt(mergedAt: string | null): string {
+  return new Date(Date.parse(mergedAt ?? '') + THRESHOLDS.afterMergeDays * DAY_MS).toISOString();
 }
 
 export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
@@ -121,7 +124,8 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
     }
 
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha: mergeSha as string, unread }); // ts-allow: a merged feature PR always has its merge commit
-    const ranges = (atMerge?.kinds?.churn?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
+    const churnAtMerge = atMerge?.kinds?.churn as ChurnAtMerge | null | undefined; // ts-allow: the merge run's sheet keeps the churn kind's facts as it wrote them
+    const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
     return { window, bugs, fixes, checks, ranges, unread };
   },
 

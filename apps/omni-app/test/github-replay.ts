@@ -19,6 +19,9 @@ type Params = Record<string, unknown>;
 /** One recorded read: the route, its parameters, and GitHub's answer (or its failing status). */
 export type Recorded = { route: string; params: Params; data?: unknown; status?: number };
 
+/** One request the double received: its route beside its parameters. */
+type Request = Params & { route: string };
+
 type Label = { name: string };
 
 /** A pull request in the REST shape, as far as this double reads it. */
@@ -69,7 +72,7 @@ export function replayGitHub({
   pulls?: readonly object[];
   events?: Record<number, object[]>;
 } = {}) {
-  const requests: Params[] = [];
+  const requests: Request[] = [];
   const comments: ReplayComment[] = [];
   const issues: ReplayIssue[] = [];
   const state = {

@@ -484,6 +484,7 @@ describe('delivery — the PRD 50 recording', () => {
     const github = replay({ recording: recording.requests });
     const input = { owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: 51, mergeSha: recording.mergeSha };
     const qualified = await qualify(github.octokit, input);
+    if (qualified.skip !== null) throw new Error(qualified.skip);
     const { pr, prd, config: at } = qualified;
     const pulls = await listPullsInto(github.octokit, { owner: input.owner, repo: input.repo, base: pr.headRef });
     const scope = { owner: input.owner, repo: input.repo, mergeSha: input.mergeSha, mergedAt: pr.mergedAt, pr, prd, config: at, pulls };

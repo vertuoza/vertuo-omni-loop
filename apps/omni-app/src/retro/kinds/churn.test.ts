@@ -331,10 +331,10 @@ describe('churn — in the retro', () => {
 
     const folder = '.omni-loop/delivery/shipped/0007-widget';
     const files = widget.github.filesAt('docs/retro-widget', [`${folder}/retro.md`, `${folder}/retro.json`]);
-    const markdown = files[`${folder}/retro.md`];
+    const markdown = files[`${folder}/retro.md`]!;
     expect(markdown).toContain('\n## Churn\n\n- 10 commits read across 3 merged pull requests');
     expect(markdown).toContain('— `churn:src/store/colour.js:8-11`');
-    const held = new Set(files[`${folder}/retro.json`].match(/\d+/g));
+    const held = new Set(files[`${folder}/retro.json`]!.match(/\d+/g));
     expect((markdown.match(/\d+/g) ?? []).filter((n: string) => !held.has(n))).toEqual([]);
   });
 });

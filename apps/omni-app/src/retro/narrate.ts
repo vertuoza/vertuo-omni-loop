@@ -52,7 +52,7 @@ type NarratedFinding = {
   title: string;
   happened: string;
   source?: string;
-  evidence?: readonly { label: string; url: string; excerpt?: unknown }[] | null;
+  evidence?: readonly { label: string; url: string | null; excerpt?: unknown }[] | null;
 };
 
 /** What the model is given of the fact sheet: its findings. */

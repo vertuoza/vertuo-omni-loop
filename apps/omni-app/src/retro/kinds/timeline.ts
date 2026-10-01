@@ -28,7 +28,7 @@ type SliceTime = {
 };
 
 type Facts = {
-  featurePr: { number: number; url: string | null; openedAt: string; readyAt: string | null; mergedAt: string | null; minutes: number };
+  featurePr: { number: number; url: string | null; openedAt: string | null; readyAt: string | null; mergedAt: string | null; minutes: number };
   slices: SliceTime[];
   sliceCount: number;
   waves: { planned: number | null; merged: number };
@@ -53,7 +53,7 @@ export const timeline: Kind<Records, Facts> = Object.freeze({
             per_page: PER_PAGE,
             page,
           })
-          .then(({ data }) => data),
+          .then(({ data }) => data as readonly unknown[]), // ts-allow: a list route answers an array; each event is parsed just below, as before
       );
     } catch (error) {
       // Events this installation cannot read leave the ready time unknown; anything else is retried.
@@ -191,8 +191,8 @@ function plannedWaves(plan: string | null | undefined): Map<string, number | nul
   }
 }
 
-function minutesBetween(from: string, to: string | null): number {
-  return Math.round((Date.parse(to ?? '') - Date.parse(from)) / MINUTE);
+function minutesBetween(from: string | null, to: string | null): number {
+  return Math.round((Date.parse(to ?? '') - Date.parse(from ?? '')) / MINUTE);
 }
 
 function median(values: readonly number[]): number | null {

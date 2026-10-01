@@ -360,7 +360,7 @@ describe('ci — through the retro function', () => {
     const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, env: JUDGE_ENV, fetch: judge() });
     const { error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
     const files = widget.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
-    return { error, github: widget.github, markdown: files[`${FOLDER}/retro.md`], json: files[`${FOLDER}/retro.json`] };
+    return { error, github: widget.github, markdown: files[`${FOLDER}/retro.md`]!, json: files[`${FOLDER}/retro.json`]! };
   }
 
   it('writes the Checks section and its findings into retro.md, and keeps its facts in retro.json', async () => {

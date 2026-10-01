@@ -47,8 +47,11 @@ export async function tipOf(octokit: RequestOctokit, { owner, repo, branch }: { 
   return parsedOr(RefSchema, data, `GitHub answered the branch ${branch} unexpectedly`).object.sha;
 }
 
+/** The config's loop paths, as far as `loopPaths` reads them: a path left null or out is not read. */
+type LoopPathsConfig = { paths: Partial<Record<'delivery' | 'knowledge' | 'adr' | 'playbook' | 'glossary', string | null>> };
+
 /** The loop's own paths a harvest reads: the config, the delivery folder, the knowledge base. */
-export function loopPaths(config: Config): string[] {
+export function loopPaths(config: LoopPathsConfig): string[] {
   const { paths } = config;
   return [CONFIG_FILE, paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter(
     (path): path is string => typeof path === 'string' && path.length > 0,
@@ -61,7 +64,7 @@ export function loopPaths(config: Config): string[] {
  */
 export async function withTreeAt<T>(
   octokit: RequestOctokit,
-  { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: Config },
+  { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: LoopPathsConfig },
   fn: (ctx: Context, root: string) => T | Promise<T>,
 ): Promise<T> {
   const root = mkdtempSync(join(tmpdir(), 'omni-harvest-tree-'));
@@ -103,10 +106,10 @@ export async function takenElsewhere(
         per_page: PER_PAGE,
         page,
       })
-      .then(({ data }) => data),
+      .then(({ data }) => data as readonly unknown[]), // ts-allow: a list route answers an array; the whole list is parsed just below, as before
   );
   const branches = [...new Set(parsedOr(OpenPullSchema.array(), pulls, 'GitHub answered the open pull requests unexpectedly').map((pull) => pull.head?.ref))]
-    .filter((ref): ref is string => Boolean(ref) && ref !== own && topicOf(ref, config.branches.knowledge) !== null)
+    .filter((ref): ref is string => typeof ref === 'string' && ref.length > 0 && ref !== own && topicOf(ref, config.branches.knowledge) !== null)
     .sort();
 
   const records = new Set<string>();

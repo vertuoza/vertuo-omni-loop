@@ -73,27 +73,17 @@ export type Scope = DetectContext & {
   atMerge?: FactSheet;
 };
 
-export type Evidence = { label: string; url: string; excerpt?: string };
+/** One link a finding cites; a red run whose log was read also carries its last lines. */
+export type Evidence = { label: string; url: string | null; excerpt?: string };
 
 /** A finding as a kind's detector gives it. */
-export type Finding = { id: string; kind: string; title: string; happened: string; evidence?: Evidence[] };
+export type Finding = { id: string; kind: string; title: string; happened: string; evidence: Evidence[] };
 
 /** A finding on the fact sheet: the kind it came from (`source`) and its rank (`ref`, F1, F2…). */
 export type SheetFinding = Finding & { source: string; ref: string };
 
-/**
- * A kind of finding (`kinds/index.ts`). Written as methods, so a kind typed with narrower records
- * or facts of its own still fits.
- */
-export type Kind = {
-  id: string;
-  section: string;
-  /** The runs it takes part in (`Run`s). */
-  runs: readonly string[];
-  gather(octokit: Octokit, scope: Scope): Promise<unknown> | unknown;
-  detect(records: unknown, context: DetectContext): { facts?: unknown; findings?: readonly Finding[] } | null | undefined;
-  describe(facts: unknown): readonly string[] | null | undefined;
-};
+/** A kind of finding: its contract lives with the registry. */
+export type { Kind } from './kinds/index.ts';
 
 export type RulesSheet = ReturnType<typeof rulesSheet>;
 

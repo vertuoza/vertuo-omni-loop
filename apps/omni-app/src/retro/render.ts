@@ -18,7 +18,7 @@
 import { RetroDocSchema } from './github.schema.ts';
 import { KINDS } from './kinds/index.ts';
 import { JUDGE_VERSION } from './narrate.ts';
-import type { IssueLink, IssueLinks, Kind, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, RunRecord, SheetFinding } from './retro.types.ts';
+import type { IssueLink, IssueLinks, Kind, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
 
 export type { IssueLinks, RetroDoc, RunRecord };
 
@@ -96,7 +96,7 @@ export function render({
     '',
   ];
 
-  const byRun = (run: string) => kinds.filter((kind) => kind.runs.includes(run));
+  const byRun = (run: Run) => kinds.filter((kind) => kind.runs.includes(run));
   const sectionOf = (kind: Kind) => kindSection(kind, runs, findings, prose, issues);
   lines.push(...byRun('merge').flatMap(sectionOf));
   lines.push(...rulesSection(latest.rules));

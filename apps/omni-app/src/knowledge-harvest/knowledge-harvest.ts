@@ -26,7 +26,7 @@
 import { type Inngest, NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import { addCommit as untypedAddCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
+import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT, inngest } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
@@ -36,13 +36,6 @@ import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { filesIn, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import { type CommitFile, commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
 import { CommitSchema, FailedHarvestEventSchema, HarvestEventSchema, parsedOr } from './schema.ts';
-
-/** The shared git writer's commit, as the harvest calls it: the new commit's sha. */
-type AddCommit = (
-  octokit: RequestOctokit,
-  input: { owner: string; repo: string; branch: string; parent: string; defaultBranch: string; message: string; files: CommitFile[]; moves: Move[]; deletes: string[] },
-) => Promise<string>;
-const addCommit = untypedAddCommit as AddCommit; // ts-allow: git-write is untyped until its own slice; this is the shape it takes and returns
 
 /** The installation's REST client, for its id. */
 export type OctokitFor = (installationId: number) => Promise<RequestOctokit> | RequestOctokit;
@@ -237,7 +230,8 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
     const run = <T>(id: string, fn: () => Promise<T>) => (step?.run ? step.run(id, fn) : fn());
     return run('comment-failure', async () => {
       const octokit = await octokitFor(installationId);
-      const posted = await upsertComment(octokit, { owner, repo, prNumber, marker: FAILURE_MARKER, text });
+      const where = { owner, repo } as { owner: string; repo: string }; // ts-allow: a merge's failure event names its repository; one that does not fails the GitHub call, as it always has
+      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text });
       return { ...posted, reason };
     });
   };

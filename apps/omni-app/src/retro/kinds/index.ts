@@ -17,79 +17,22 @@
 //   - `describe(facts)` is pure: the markdown lines of its section, or `null` to leave it out.
 //     `render` adds the kind's findings below them.
 //   - `runs` names the runs it takes part in: `merge`, `day-14`.
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { DetectContext, Finding, Octokit, Run, Scope } from '../retro.types.ts';
 import { afterMerge } from './after-merge.ts';
 import { churn } from './churn.ts';
 import { ci } from './ci.ts';
 import { delivery } from './delivery.ts';
 import { timeline } from './timeline.ts';
 
-/** One link a finding cites; a red run whose log was read also carries its last lines. */
-export type Evidence = { label: string; url: string | null; excerpt?: string };
-
-export type Finding = { id: string; kind: string; title: string; happened: string; evidence: Evidence[] };
-
-/** The one Octokit seam: what a kind sends, and the answer it parses before use. */
-export type Octokit = { request: (route: string, params?: Record<string, unknown>) => Promise<{ data: unknown }> };
-
-/** The feature pull request, as `../github.ts` `readPull` reads it (and `qualify` adds the merge commit). */
-export type RetroPr = {
-  number: number;
-  title?: string;
-  url: string | null;
-  merged?: boolean;
-  baseRef?: string;
-  headRef?: string;
-  headSha?: string;
-  openedAt: string;
-  mergedAt: string | null;
-  mergeSha?: string | null;
-  labels?: string[];
-};
-
-/** A pull request into the feature branch, as `../github.ts` `listPullsInto` reads it. */
-export type RetroPull = {
-  number: number;
-  title?: string;
-  url: string | null;
-  state?: string;
-  draft?: boolean;
-  headRef: string;
-  headSha?: string;
-  openedAt: string;
-  closedAt: string | null;
-  mergedAt: string | null;
-  labels?: string[];
-};
-
-/** The PRD the feature PR closes, as `../qualify.ts` reads it at the merge. */
-export type RetroPrd = {
-  number: number;
-  topic: string;
-  title?: string;
-  problem?: string | null;
-  state: 'inbox' | 'shipped';
-  folder: string;
-  plan?: string | null;
-  settled?: string | null;
-};
-
-/** What the merge run kept that the day-14 run reads back: the churn ranges it found. */
-export type AtMerge = { kinds?: { churn?: { ranges?: { path: string; from: number; to: number }[] } | null } } | null;
-
-export type Run = 'merge' | 'day-14';
-
-/** What every kind's `detect` is given beside its records. */
-export type KindContext = { pr: RetroPr; prd: RetroPrd; config: Config; pulls: RetroPull[] };
-
-/** What every kind's `gather` is given. */
-export type KindScope = KindContext & {
-  owner: string;
-  repo: string;
-  mergeSha: string;
-  mergedAt: string;
-  atMerge?: AtMerge;
-};
+// The shapes a kind reads are the retro's own (`../retro.types.ts`); the kinds know them by these names.
+export type { Evidence, Finding, Octokit, Run } from '../retro.types.ts';
+export type {
+  FeaturePull as RetroPr,
+  PullInto as RetroPull,
+  PrdFacts as RetroPrd,
+  DetectContext as KindContext,
+  Scope as KindScope,
+} from '../retro.types.ts';
 
 /**
  * A kind of finding: `Records` is what its `gather` returns, `Facts` what its `detect` keeps. Its
@@ -99,8 +42,8 @@ export type Kind<Records = unknown, Facts = unknown> = {
   readonly id: string;
   readonly section: string;
   readonly runs: readonly Run[];
-  gather(octokit: Octokit, scope: KindScope): Promise<Records>;
-  detect(records: Records | null, context: KindContext): { facts: Facts | null; findings: Finding[] };
+  gather(octokit: Octokit, scope: Scope): Promise<Records>;
+  detect(records: Records | null, context: DetectContext): { facts: Facts | null; findings: Finding[] };
   describe(facts: Facts | null): string[] | null;
 };
 

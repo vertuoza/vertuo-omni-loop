@@ -495,8 +495,9 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
     const run = <T>(id: string, fn: () => Promise<T>) => (step?.run ? step.run(id, fn) : fn());
     return run('comment-failure', async () => {
       const octokit = await octokitFor(installationId);
-      const comments = await listComments(octokit, { owner, repo, prNumber });
-      const existing = comments.find((comment: { id: number; body: string }) => comment.body.includes(FAILURE_MARKER));
+      const where = { owner, repo } as { owner: string; repo: string }; // ts-allow: a merge's failure event names its repository; one that does not fails the GitHub call, as it always has
+      const comments = await listComments(octokit, { ...where, prNumber });
+      const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
       if (existing) {
         await octokit.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
           owner,
