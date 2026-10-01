@@ -401,7 +401,7 @@ Option B is a one-line change in the web app and dropping one condition in a dat
 - Channel: feature pull request #856
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/856#issuecomment-5928641311
 - Basis: contradiction-marker — the answer says "not", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #880, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: ADR-0051
 - Raised: 2026-10-01
