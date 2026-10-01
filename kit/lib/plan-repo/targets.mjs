@@ -11,18 +11,16 @@
 //   evidence file of the copy), else `ok`. `detail` says why, and is `null` for `ok`.
 //
 // "A filled form" is a Markdown file under the target's `paths.playbook` (read from its own config,
-// the kit's default layout when unset) whose front matter says `state: filled`.
+// the kit's default layout when unset) whose front matter says `state: filled` (playbook/filled.mjs).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'yaml';
+import { isFilled, playbookOf } from '../playbook/filled.mjs';
 import { parseForm } from '../playbook/forms.mjs';
 import { bundleVersion } from '../update/installed.mjs';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';
-const DEFAULT_PLAYBOOK = '.omni-loop/knowledge/playbook';
-const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 /** The error `gh` raised, as its one telling line. */
 function ghLine(error) {
@@ -69,26 +67,6 @@ export function ghReader({ exec, env }) {
       return out === null ? null : JSON.parse(out);
     },
   };
-}
-
-/** The playbook folder a target's config names, the default layout's when it names none. */
-function playbookOf(configText) {
-  try {
-    const playbook = parse(configText)?.paths?.playbook;
-    return typeof playbook === 'string' && playbook.trim() ? playbook.replace(/\/+$/, '') : DEFAULT_PLAYBOOK;
-  } catch {
-    return DEFAULT_PLAYBOOK;
-  }
-}
-
-function isFilled(text) {
-  const block = FRONT_MATTER.exec(text ?? '');
-  if (!block) return false;
-  try {
-    return parse(block[1])?.state === 'filled';
-  } catch {
-    return false;
-  }
 }
 
 function hasFilledForm(gh, repo, playbook, ref) {
