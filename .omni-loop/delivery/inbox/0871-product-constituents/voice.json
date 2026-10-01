@@ -4,24 +4,164 @@
       "stage": "design",
       "date": "2026-10-01",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A Never line that stops an agent calling real APIs from the component repo is exactly the slop guard I want before production.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "If Jev cries 'broken' on fluffy lines, I will learn to merge past the red and the harness becomes noise.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "One Statement per product steering agents in every repository lets me fire ideas without re-explaining the product.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "Owner-only lines with a who-removed-what history is the cohesion tool I have been missing across teams.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A red check on my quick-win spec is fine only if it names the sentence and offers a rewrite I can click.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A Never line that stops an agent calling real APIs from the component repo is exactly the slop guard I want before production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "If Jev cries 'broken' on fluffy lines, I will learn to merge past the red and the harness becomes noise.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "One Statement per product steering agents in every repository lets me fire ideas without re-explaining the product.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Owner-only lines with a who-removed-what history is the cohesion tool I have been missing across teams.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A red check on my quick-win spec is fine only if it names the sentence and offers a rewrite I can click.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "B-E DEv", "text": "If Jev cries 'broken' on fluffy lines like 'world-class', I'll learn to merge past the red and the whole harness becomes noise.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "If Jev cries 'broken' on fluffy lines like 'world-class', I'll learn to merge past the red and the whole harness becomes noise.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
       "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ~ · persona:B-E DEv ~ · offering#36 ✓"
     },
     {
       "stage": "spec",
       "date": "2026-10-01",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Acceptance 7 is my case word for word: a fetch to a real API in the component repo goes red.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "The word-for-word quote rule and Jev starting Off make me less worried it cries wolf; I still want to see it hold on real specs.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Boot sync means every agent in every repository reads the Statement without me doing anything.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "History with before and after, removed ids never reused: I can trace every rule change.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Red never blocks and carries a Rewrite button, so a quick win is never stuck on a check I cannot fix.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Acceptance 7 is my case word for word: a fetch to a real API in the component repo goes red.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The word-for-word quote rule and Jev starting Off make me less worried it cries wolf; I still want to see it hold on real specs.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Boot sync means every agent in every repository reads the Statement without me doing anything.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "History with before and after, removed ids never reused: I can trace every rule change.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Red never blocks and carries a Rewrite button, so a quick win is never stuck on a check I cannot fix.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ~ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-01",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The boot hook puts the Never lines in front of every agent, so a fetch to a real API in the component repo is caught before review.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Jev ships Off and a finding needs a word-for-word quote, so it cannot cry wolf on day one. I will judge it on real specs.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Every repository's agent now reads the product's Statement at boot without me lifting a finger.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Owner-only lines with a who-changed-what history is exactly the cohesion tool I wanted.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A red check names the sentence and offers a rewrite, and it never blocks my merge.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ~ · offering#36 ✓"
