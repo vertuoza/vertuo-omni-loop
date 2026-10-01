@@ -7,7 +7,7 @@ import { lookLabel, PITCH_LOOKS, productHref, PRODUCTS_HREF, type PitchLook, typ
 // may edit Settings › Business, the look as text for anyone else. Drawn on the server first;
 // ProductPage.tsx wires the dropdown.
 
-export const BUSINESS_HREF = '/app/settings/business';
+const BUSINESS_HREF = '/app/settings/business';
 export const LOOK_HINT = 'The look its pitches are drawn in: the slide, the cards and the videos.';
 export const READ_ONLY = 'Only someone who may edit the business changes it.';
 export const NO_PRODUCTS = 'No products yet. Name what your business sells in Settings › Business.';

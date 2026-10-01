@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import '../../../../../src/products/products.css';
 import { memberSession } from '../../../../../src/data/member-session';
 import { loadProduct } from '../../../../../src/products/load';
-import { DEMO_PRODUCTS, ProductScreen, type ProductScreenView } from '../../../../../src/products/ProductsScreen';
+import { ProductScreen } from '../../../../../src/products/ProductsScreen';
+import { productViewOf } from '../../../../../src/products/route-view';
 
 // /app/settings/products/<id> (PRD 859 s1): one product's page, with one section for now, Pitch look:
 // a dropdown for whoever may edit Settings › Business, stored through set_pitch_look() as the
@@ -14,24 +15,8 @@ export const metadata: Metadata = { title: 'Product · OMNI LOOP' };
 
 type Props = { params: Promise<{ id: string }> };
 
-async function viewOf(id: string): Promise<ProductScreenView> {
-  const session = await memberSession();
-  if (session.kind === 'demo') {
-    const product = DEMO_PRODUCTS.find((p) => p.id === id);
-    return product ? { kind: 'product', source: { kind: 'demo' }, editable: true, product } : { kind: 'not-found' };
-  }
-  if (session.kind !== 'signed-in') return session;
-  const load = await loadProduct(session.db, session.user, id);
-  if (load.kind !== 'product') return load;
-  return {
-    kind: 'product',
-    source: { kind: 'database', ...session.env, workspace: load.workspace.id },
-    editable: load.editable,
-    product: load.product,
-  };
-}
-
 export default async function ProductRoute({ params }: Props) {
   const { id } = await params;
-  return <ProductScreen view={await viewOf(id)} />;
+  const view = await productViewOf(await memberSession(), id, (session, product) => loadProduct(session.db, session.user, product));
+  return <ProductScreen view={view} />;
 }
