@@ -57,6 +57,7 @@ import { checkItemText } from '../../lib/outbox/check-outbox.ts';
 import { relayFolder } from '../../lib/outbox/relay.ts';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.ts';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.ts';
+import { KIT_MESSAGES } from '../../lib/schema/messages.ts';
 import { inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.ts';
 
 const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
@@ -143,7 +144,7 @@ function readItemInput(ctx, path) {
   } catch (error) {
     throw usageError(`omni item new: ${path} is not valid JSON (${error.message}).`);
   }
-  const result = ItemInputSchema.safeParse(parsed);
+  const result = ItemInputSchema.safeParse(parsed, { error: KIT_MESSAGES });
   if (!result.success) {
     const [issue] = result.error.issues;
     const field = issue.path.length > 0 ? issue.path.join('.') : '(json)';

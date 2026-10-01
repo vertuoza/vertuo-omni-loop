@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * The plain `key: value` front matter every kit register reads — an inbox spec, an outbox item and
  * a slice's account alike. One copy, so the three parsers cannot drift apart.
@@ -7,11 +6,11 @@
 const FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 
 /** `message` prefixed with the file it is about, when there is one. */
-export function withFile(file, message) {
+export function withFile(file: string | null | undefined, message: string): string {
   return file ? `${file}: ${message}` : message;
 }
 
-function stripQuotes(value) {
+function stripQuotes(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length >= 2) {
     const first = trimmed[0];
@@ -28,9 +27,9 @@ function stripQuotes(value) {
  * `{ key: value }` object. Deliberately dumb: one `key: value` per line, quotes stripped, nothing
  * nested. A line that isn't `key: value` is reported rather than silently dropped.
  */
-export function parseFrontMatterLines(rawFrontMatter) {
-  const data = {};
-  const errors = [];
+export function parseFrontMatterLines(rawFrontMatter: string): { data: Record<string, string>; errors: string[] } {
+  const data: Record<string, string> = {};
+  const errors: string[] = [];
   for (const rawLine of rawFrontMatter.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -39,7 +38,7 @@ export function parseFrontMatterLines(rawFrontMatter) {
       errors.push(`front matter line is not "key: value": "${rawLine}"`);
       continue;
     }
-    const [, key, rawValue] = match;
+    const [, key = '', rawValue = ''] = match;
     data[key] = stripQuotes(rawValue);
   }
   return { data, errors };

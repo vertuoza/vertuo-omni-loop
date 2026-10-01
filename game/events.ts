@@ -24,7 +24,7 @@ export const EventSchema = z.object({
   region: z.string().optional(),
   contributor: z.string().optional(),
   team: z.string().optional(),
-  data: z.record(z.unknown()).default({}),
+  data: z.record(z.string(), z.unknown()).default({}),
 }).strict();
 
 export function eventId(source, identity, state) {

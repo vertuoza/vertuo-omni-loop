@@ -40,7 +40,7 @@
     "vite": "^8.3.1",
     "vitest": "^4.1.11",
     "yaml": "^2.5.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.5"
   },
   "pnpm": {
     "ignoredOptionalDependencies": [
