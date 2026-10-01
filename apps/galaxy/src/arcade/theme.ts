@@ -60,8 +60,8 @@ const NAMES = Object.keys(TOKENS) as [Token, ...Token[]];
 export const Colour = z.string().regex(/^#[0-9a-f]{6}$/, 'not a lowercase #rrggbb colour');
 /** One override: a known token and its colour. */
 export const Override = z.tuple([z.enum(NAMES), Colour]);
-/** A stored theme: an object of overrides. `valid_theme()` in the database, in zod. */
-export const ThemeSchema = z.record(z.enum(NAMES), Colour);
+/** A stored theme: an object of overrides, any token left out. `valid_theme()` in the database, in zod. */
+export const ThemeSchema = z.partialRecord(z.enum(NAMES), Colour);
 
 /** Today's arcade: every token at its default. */
 export const DEFAULT_THEME: Theme = TOKENS;
