@@ -13,4 +13,5 @@ export interface Game {
 
 export const GAMES: readonly Game[] = [
   { id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' },
+  { id: 'platformer', title: 'SUPER OMNI WORLD', scene: 'platformer' },
 ];

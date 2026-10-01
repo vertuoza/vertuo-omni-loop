@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Points Every Repo · PRD 728</title>
+<style>
+/* Layout: three today/after pairs stacked (the team table, what the game reads, how a PRD is named); one column on a phone. */
+:root {
+  --bg: #f4f4fb; --panel: #ffffff; --ink: #16143a; --muted: #5d5b85; --line: #c9c8ea;
+  --accent: #4b47c9; --bad: #c0392b; --ok: #1f8a5b; --pirates: #1f9e84;
+  --display: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #07061a; --panel: #110f33; --ink: #eceaff; --muted: #9b98d8; --line: #3d3a8c;
+    --accent: #8f8bff; --bad: #ff6b5e; --ok: #4fd18f; --pirates: #4fd1b5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #07061a; --panel: #110f33; --ink: #eceaff; --muted: #9b98d8; --line: #3d3a8c;
+  --accent: #8f8bff; --bad: #ff6b5e; --ok: #4fd18f; --pirates: #4fd1b5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+main { max-width: 1100px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 64px; display: grid; gap: 40px; }
+h1 { font: 700 2rem/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+h2 { font: 700 1.2rem/1.2 var(--display); letter-spacing: .04em; text-transform: uppercase; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 14px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tag { font: 700 .72rem/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tag.after { color: var(--accent); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font: 700 .7rem/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 8px; border-bottom: 1px solid var(--line); }
+td.n, th.n { text-align: right; }
+.fleet { color: var(--pirates); font-weight: 700; }
+.bad { color: var(--bad); font-weight: 700; }
+.ok { color: var(--ok); font-weight: 700; }
+.note { font-size: .85rem; color: var(--muted); }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+code { font: .85em var(--mono); background: color-mix(in srgb, var(--line) 35%, transparent); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+.flow { display: grid; gap: 6px; font: .85rem/1.35 var(--mono); }
+.flow div { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.flow .dead { border-style: dashed; color: var(--muted); text-decoration: line-through; }
+.flow .live { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <h1>A PRD delivered in any repository earns points</h1>
+    <p class="lede">PRD 728, found by bug #724. The game reads every repository in Settings → Repositories, in the kit's folder layout, and names each PRD by its repository and number. The season starts fresh when it ships.</p>
+  </header>
+
+  <section>
+    <h2>The Home board's “Your team” table</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="scroll"><table>
+          <tr><th>Name</th><th>Fleet</th><th class="n">Points</th><th class="n">PRs</th><th class="n">PRDs</th></tr>
+          <tr><td>Pierre</td><td class="fleet">PIRATES</td><td class="n bad">115</td><td class="n">221</td><td class="n">0 · 2 · 68</td></tr>
+          <tr><td>Paul</td><td class="fleet">PIRATES</td><td class="n bad">0</td><td class="n">15</td><td class="n">1 · 0 · 1</td></tr>
+        </table></div>
+        <p class="note">Pierre's 115 come from another repository's PRD 149 matched to the wrong issue. Paul shipped vertuo-automation-plan#88 and got nothing.</p>
+      </div>
+      <div class="side">
+        <span class="tag after">After (the first poll after the fresh start)</span>
+        <div class="scroll"><table>
+          <tr><th>Name</th><th>Fleet</th><th class="n">Points</th><th class="n">PRs</th><th class="n">PRDs</th></tr>
+          <tr><td>Pierre</td><td class="fleet">PIRATES</td><td class="n ok">0</td><td class="n">221</td><td class="n">0 · 2 · 68</td></tr>
+          <tr><td>Paul</td><td class="fleet">PIRATES</td><td class="n ok">0</td><td class="n">15</td><td class="n">1 · 0 · 1</td></tr>
+        </table></div>
+        <p class="note">Everyone starts at 0, and games already unlocked stay unlocked. From then on each slice merged pays its author 10 (×1.5 at night), a shipped PRD adds a 50 bonus to the people who built it, and answered outbox items pay whoever answered, in whichever repository the PRD lives. PRs and PRDs are unchanged.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the game reads</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="flow">
+          <div>PRD issues: <code>vertuo-omni-loop</code> only</div>
+          <div class="dead">its work: <code>docs/inbox/*.md</code> in each sector, a layout no repository has had since 2026-09-25</div>
+          <div>owner: first assignee, usually nobody</div>
+          <div class="dead">multi-repository PRDs: not seen</div>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+        <div class="flow">
+          <div class="live">PRD issues: every repository tracked in Settings → Repositories</div>
+          <div class="live">its work: <code>.omni-loop/delivery/{inbox,shipped}/&lt;nnnn&gt;-&lt;topic&gt;/</code>: plan, outbox, settled answers</div>
+          <div class="live">owner: first assignee, else whoever opened the issue</div>
+          <div class="live">multi-repository PRDs: each <code>Part of owner/plan#n</code> feature PR is a region, and its slices score</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the game's history names a PRD</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <ul>
+          <li><code>planet:88:terraformed</code></li>
+          <li>Two repositories' PRD 88 are one planet: shared owner, shared clawback, shared bonus.</li>
+        </ul>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+        <ul>
+          <li><code>planet:vertuoza/vertuo-automation-plan#88:terraformed</code></li>
+          <li>A new <code>home</code> column says the PRD's repository. Rows before the fresh start have none and count for nothing. They stay stored, because the history is append-only.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

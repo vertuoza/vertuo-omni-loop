@@ -1,4 +1,5 @@
-// A PRD's folder as a dossier sees it (PRD 216): its three artifacts, each whole with its SHA-256
+// A PRD's folder as a dossier sees it (PRD 216): its artifacts (the spec, the plan, the before/after page
+// and, since PRD 822, the personas' `voice.json`), each whole with its SHA-256
 // hash and its size in bytes, and the title the spec's front matter gives. Reads files, calls nothing:
 // `omni dossier push` sends what this returns, and the server computes its own hash of each content.
 //
@@ -13,19 +14,21 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseFrontMatterLines } from '../inbox/inbox.mjs';
+import { parseFrontMatterLines } from '../front-matter.mjs';
 import { parseFolderName } from '../layout.mjs';
+import { VOICE_FILE } from '../voice/voice.mjs';
 
 /** The largest artifact the contract takes. */
 export const ARTIFACT_MAX_BYTES = 512 * 1024;
 /** The longest title the contract takes. */
 export const TITLE_MAX = 200;
 
-/** The three kinds, in the order they are sent, each with where the layout keeps its file. */
+/** The kinds, in the order they are sent, each with where the layout keeps its file. */
 export const ARTIFACT_KINDS = Object.freeze([
   { kind: 'spec', pathOf: (layout, prd) => layout.specPath(prd) },
   { kind: 'plan', pathOf: (layout, prd) => layout.planPath(prd) },
   { kind: 'before-after', pathOf: (layout, prd) => layout.beforeAfterPath(prd) },
+  { kind: 'voice', pathOf: (layout, prd) => `${layout.whereIs(prd).dir}/${VOICE_FILE}` },
 ]);
 
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -41,7 +44,7 @@ export function frontMatterTitle(text) {
 export const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest('hex');
 
 /**
- * @typedef {{ kind: 'spec' | 'plan' | 'before-after', path: string, content: string, sha256: string, bytes: number }} Artifact
+ * @typedef {{ kind: 'spec' | 'plan' | 'before-after' | 'voice', path: string, content: string, sha256: string, bytes: number }} Artifact
  * @returns {{ prd: number, dir: string, title: string, artifacts: Artifact[],
  *   tooLarge: Array<{ kind: string, path: string, bytes: number }> } | null} null when PRD `prd` has no folder
  */

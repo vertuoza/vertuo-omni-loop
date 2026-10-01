@@ -48,6 +48,35 @@ describe('/app/engineering/<owner>/<repo> decides once', () => {
     expect(getClaims).not.toHaveBeenCalled();
   });
 
+  it('in the demo: counts only merges into main on that repository, its sub-PRs on the sub-PR line (PRD 714)', async () => {
+    given.mode = 'demo';
+    const actual = await vi.importActual<typeof import('./demo')>('./demo');
+    demoEngineeringBoard.mockImplementationOnce((...args: unknown[]) => (actual.demoEngineeringBoard as (...a: unknown[]) => unknown)(...args));
+    const { view } = await open('acme', 'gears', { period: '30d' });
+    const board = (view as { board: { kind: string; tiles: { merged: number }; omni: { of: number; subPrsMerged: number } } }).board;
+    expect(board.kind).toBe('board');
+    expect(board.omni.of).toBe(board.tiles.merged);
+    expect(board.omni.subPrsMerged).toBeGreaterThan(0);
+    const whole = actual.demoEngineeringBoard('30d', 'merged', new Date());
+    const all = (whole as { board: { omni: { subPrsMerged: number } } }).board.omni.subPrsMerged;
+    expect(board.omni.subPrsMerged).toBeLessThan(all);
+  });
+
+  it('in the demo: counts the needs-fix rate over that repository alone, and the whole board shows it (PRD 714 s4)', async () => {
+    given.mode = 'demo';
+    const actual = await vi.importActual<typeof import('./demo')>('./demo');
+    demoEngineeringBoard.mockImplementationOnce((...args: unknown[]) => (actual.demoEngineeringBoard as (...a: unknown[]) => unknown)(...args));
+    const { view } = await open('acme', 'gears', { period: '30d' });
+    type Rated = { board: { omni: { subPrsMerged: number }; needsFixRate: { got: number; of: number; share: number | null } } };
+    const one = (view as Rated).board;
+    const whole = (actual.demoEngineeringBoard('30d', 'merged', new Date()) as Rated).board;
+    expect(one.needsFixRate.of).toBe(one.omni.subPrsMerged);
+    expect(whole.needsFixRate.of).toBe(whole.omni.subPrsMerged);
+    expect(whole.needsFixRate.got).toBeGreaterThan(0);
+    expect(one.needsFixRate.got).toBeGreaterThan(0);
+    expect(one.needsFixRate.got).toBeLessThan(whole.needsFixRate.got);
+  });
+
   it('in the demo, a repository it does not track: not found', async () => {
     given.mode = 'demo';
     given.demo = { kind: 'not-tracked' };

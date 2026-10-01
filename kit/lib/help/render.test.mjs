@@ -154,6 +154,15 @@ describe('renderEntry', () => {
     expect(renderEntry('/omni:mega-invade', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:mega-invade \[--sync\] +for you$/);
   });
 
+  it('prints /omni:think-big by its name or its slash command, and both usages of /omni:brainstorm (PRD 686)', () => {
+    expect(renderEntry('think-big', DEFAULTS)).toBe(renderEntry('/omni:think-big', DEFAULTS));
+    expect(renderEntry('/omni:think-big', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:think-big <brief or n> +for you$/);
+    expect(renderEntry('/omni:brainstorm', DEFAULTS).split('\n').slice(0, 2)).toEqual([
+      expect.stringMatching(/^\/omni:brainstorm +for you$/),
+      '/omni:brainstorm --concept <n> <area>',
+    ]);
+  });
+
   it('prints /omni:mega-brainstorm by its name or its slash command (PRD 549)', () => {
     expect(renderEntry('mega-brainstorm', DEFAULTS)).toBe(renderEntry('/omni:mega-brainstorm', DEFAULTS));
     expect(renderEntry('/omni:mega-brainstorm', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:mega-brainstorm +for you$/);

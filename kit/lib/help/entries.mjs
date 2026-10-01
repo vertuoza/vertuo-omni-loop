@@ -27,7 +27,7 @@ const deepFreeze = (value) => {
 /** The loop, stage by stage: a name, one line, and the folder that holds it, when one does. The
  * names are the kit's stage words (`STAGE_WORDS` in `kit/lib/status/format.mjs`), in its order. */
 export const STAGES = deepFreeze([
-  { name: 'idea', line: 'talked through with /omni:brainstorm, nothing written yet' },
+  { name: 'idea', line: 'talked through with /omni:brainstorm, or /omni:think-big if vast' },
   { name: 'PRD', line: 'spec, plan and before/after, in a phase-0 PR a person reviews' },
   { name: 'inbox', line: 'phase-0 PR merged: approved, ready to build', folder: '{inbox}' },
   { name: 'building', line: 'first sub-PR merged into the feature branch: built in waves' },
@@ -97,6 +97,22 @@ export const ENTRIES = deepFreeze([
       'it as one document, the one /omni:wave acts on. Needs gh logged in.',
   },
   {
+    name: 'care',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni care state <prd> [--pr <n>] [--repo <owner/name>]',
+      'omni care reply --verdict <v> --body <text> [--thread <id>]',
+      'omni care reply --verdict <v> --file <path> [--thread <id>]',
+    ],
+    summary: "PRD n's feature PR as PR care sees it, and its marked replies",
+    detail:
+      "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review " +
+      'thread with its verdict, whether a wave holds claims, and the next actions of a round. reply ' +
+      'writes a reply ending with the care marker; with --thread it posts it and resolves the thread ' +
+      'unless the verdict is asked. Needs gh logged in.',
+  },
+  {
     name: 'check',
     kind: 'command',
     who: 'you',
@@ -164,6 +180,62 @@ export const ENTRIES = deepFreeze([
       'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
       'instead: its visual update or bug fix page, filled from its folder. It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
+  },
+  {
+    name: 'proof',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni proof push <n> <dir>', 'omni proof session [<file>]'],
+    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
+    detail:
+      "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
+      "tab's link. It reads " +
+      'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
+      '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
+      'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
+      'omni dossier link does. omni proof session writes the signed-in browser session a run films ' +
+      'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
+  },
+  {
+    name: 'business',
+    kind: 'command',
+    who: 'you',
+    usage: [
+      'omni business show [--json]',
+      'omni business cited <id>… --by <skill> [--ref <text>]',
+      'omni business claim add --kind <k> --value <v> --state <s> --ref <text>',
+    ],
+    label: 'omni business show',
+    summary: 'the business this repository serves, as agents read it',
+    detail:
+      "What agents in this repository know of the business it serves: the confirmed claims of the " +
+      "workspace's business, picked or drafted on the Settings › Business page, each with its id (such " +
+      'as rival#4) under the sentence they make. A claim the evidence now contradicts, and nobody has ' +
+      'answered yet, is marked as such and left out of the sentence. --json prints them for an agent, ' +
+      'each with its state (confirmed or contradicted). Under the claims come the product\'s personas, ' +
+      'one line each (name, stance, trade, who they are and how they use it), and --json carries them ' +
+      'as personas, [] when there are none. With no business, ' +
+      'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
+      'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
+      'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. ' +
+      'claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its ' +
+      'receipt the skill and the run: proposed, for a member to confirm on the Business page, or ' +
+      'confirmed; a value the business already holds is named, not stored twice, and a failed call ' +
+      'prints a skip line and exits 0.',
+  },
+  {
+    name: 'decide',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]'],
+    summary: "asks the workspace's Jev decision, such as outbox-risk, after the agent's own call",
+    detail:
+      "Asks TypeSafe's Jev, through the Omni page and the terminal's sign-in, one decision the " +
+      "workspace owner put On in Settings › Jev, such as outbox-risk (is this decision hard to " +
+      "revert?). The agent makes its own call first and passes it with --old; the state file holds " +
+      'what the decision sends. It prints the answer and its confidence when Jev decided, and unset ' +
+      'otherwise (the decision Off or in Shadow, no sign-in, a timeout, a refusal): then the agent ' +
+      'keeps its own answer. --json prints who decided. It always exits 0, except on a usage error.',
   },
   {
     name: 'version',
@@ -461,6 +533,21 @@ export const ENTRIES = deepFreeze([
       'to {remote}/{defaultBranch}.',
   },
   {
+    name: 'concept',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni concept <n> [--base <ref>]'],
+    summary: 'grade a concept branch',
+    detail:
+      "The proof step of a concept, run on its concept branch: one folder for concept <n> under " +
+      "{inbox}concepts/, holding a valid concept.md (its front matter, its six sections and its " +
+      'Areas table), vision.html, debate.md and the boards board-r<k>.html numbered from 1 with no ' +
+      'gap, and nothing else. Each page is under the size cap, holds no base64 raster image and ' +
+      'loads nothing from the network; no file outside that folder changed; every commit carries ' +
+      "the loop's signature, unless signing is off. Prints ok, or not ok with one line per failed " +
+      'check. --base defaults to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
@@ -484,6 +571,18 @@ export const ENTRIES = deepFreeze([
       'status for you.',
   },
   {
+    name: 'heartbeat',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni heartbeat [--end]'],
+    summary: 'tells the Omni page this Claude session is working',
+    detail:
+      "What the plugin's hooks run after every tool call: at most once a minute per Claude session, " +
+      'it tells the Omni page that the session is working, and on which draft, PRD or fix. --end, ' +
+      "run when the session ends, says it stopped. It sends only when you are signed in and dossiers " +
+      'are on, sends no path, command or text, prints nothing and always exits 0.',
+  },
+  {
     name: 'statusline',
     kind: 'command',
     who: 'skills',
@@ -500,17 +599,42 @@ export const ENTRIES = deepFreeze([
 
   // Skills you type in Claude. Their order is the overview's.
   {
+    name: 'think-big',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:think-big <brief or n>'],
+    label: '/omni:think-big',
+    summary: 'a vast idea, explored by a studio, to a concept PR',
+    detail:
+      'For a vast idea, one that spans the whole product and would take several PRDs, before anyone ' +
+      'commits to building it. A studio of agents goes wide with six to eight rendered concepts, then ' +
+      'deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft ' +
+      'critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every ' +
+      'round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every ' +
+      'board, the debate and an area map of PRD-sized areas, and ends with one ' +
+      '/omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is ' +
+      'offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no ' +
+      'code and never merges.',
+    group: 'start',
+    when: 'Use it when an idea spans the whole product and you want bold directions to react to before any scope is cut.',
+    example: {
+      type: '/omni:think-big give the app a brand new identity',
+      result: 'rounds of concepts to react to, then a concept PR and one /omni:brainstorm line per area',
+    },
+  },
+  {
     name: 'brainstorm',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:brainstorm'],
+    usage: ['/omni:brainstorm', '/omni:brainstorm --concept <n> <area>'],
     label: '/omni:brainstorm',
     summary: 'an idea, to a design, to a PRD and its phase-0 PR',
     detail:
       'Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, ' +
       'the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and ' +
       'merges before any code is written. It writes no code and merges nothing, and ends with the ' +
-      '/omni:yolo line that builds it.',
+      '/omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a ' +
+      "concept in the inbox: the area's brief, the vision and the verdict.",
     group: 'start',
     when: 'Use it when you have an idea for a change and want it designed before any code is written.',
     example: {
@@ -758,6 +882,26 @@ export const ENTRIES = deepFreeze([
     },
   },
   {
+    name: 'pr-care',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:pr-care <n>'],
+    label: '/omni:pr-care <n>',
+    summary: "look after a PRD's feature PR until it is merged",
+    detail:
+      "Looks after PRD n's feature PR, round by round, until it is merged or closed or you stop it: " +
+      'it merges {defaultBranch} on a conflict, fixes red CI, then judges each review comment against ' +
+      "the repository's review form and fixes it, pushes back with a reason, or leaves it for the " +
+      'PM. A reviewer who answers again gets the PM, not an argument. It pushes nothing while a ' +
+      'wave is building, shows on the PRD page that it is watching, and never merges.',
+    group: 'build',
+    when: 'Use it when a feature PR is ready and you want CI, conflicts and review comments handled while you do other things.',
+    example: {
+      type: '/omni:pr-care 790',
+      result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
     name: 'invade',
     kind: 'skill',
     who: 'you',
@@ -851,6 +995,28 @@ export const ENTRIES = deepFreeze([
       result: 'what /omni:yolo does, when to use it and an example',
     },
   },
+  {
+    name: 'prove',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:prove <n>'],
+    label: '/omni:prove <n>',
+    summary: "film a ready PRD's acceptance criteria as proof",
+    detail:
+      "Records PRD n's acceptance criteria as evidence once its feature PR is ready: one headless " +
+      "Playwright clip per criterion against the PR's preview, at most 10, each capped at " +
+      'proof.maxSeconds, with a pass or fail verdict; a criterion no browser can show is marked ' +
+      "unfilmable, with why. It sends the run to the PRD's Proof tab with omni proof push, then " +
+      'posts one unsigned comment on the feature PR: a line per criterion and the link. It stops ' +
+      'with one line when proof.url is not set, and never blocks: the PR keeps its state, labels ' +
+      "and checks. /omni:yolo runs it after ready when the spec says proof: video.",
+    group: 'everyday',
+    when: "Use it when a PRD's feature PR is ready and the reviewer should see each criterion work before merging.",
+    example: {
+      type: '/omni:prove 798',
+      result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
+    },
+  },
 
   // Skills other skills run.
   {
@@ -862,7 +1028,7 @@ export const ENTRIES = deepFreeze([
     detail:
       'Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the ' +
       'people the idea is for can follow it before the first question is asked. /omni:brainstorm ' +
-      'runs it first; it never stops the skill that runs it.',
+      'and /omni:think-big run it first; it never stops the skill that runs it.',
     group: 'run-by-skills',
     when: 'Use it when an idea should be followed on the Omni page before its first question.',
     example: {

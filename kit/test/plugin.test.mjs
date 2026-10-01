@@ -102,6 +102,21 @@ function skillSection(text, start) {
   return lines.slice(from, to < 0 ? undefined : to).join('\n');
 }
 
+/** The last non-blank line of a section's last fenced block, or null when it has none. */
+function lastFencedLine(section) {
+  let open = false;
+  let block = [];
+  let last = null;
+  for (const line of section.split('\n')) {
+    if (line.trim().startsWith('```')) {
+      if (open) last = block.filter((text) => text.trim() !== '').at(-1)?.trim() ?? null;
+      open = !open;
+      block = [];
+    } else if (open) block.push(line);
+  }
+  return last;
+}
+
 // OmniMan signs the loop's work (PRD #99). A skill that asks for the session's co-author trailer
 // asks for the signature's trailer too, and one that opens a pull request or an issue, or rewrites
 // its body, asks for the footer. A comment is never signed, so commenting alone asks for nothing.
@@ -211,6 +226,12 @@ describe('the omni plugin in this repository', () => {
   it('no skill carries a retired name, and /omni:invade is there', () => {
     expect(retiredSkillViolations(repoRoot)).toEqual([]);
     expect(frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8')).name).toBe('invade');
+  });
+
+  // PRD 774: invade drafts nothing of the business itself; its hand-off points at the page that does.
+  it("/omni:invade's hand-off names Settings › Business › Draft from my repos", () => {
+    const handOff = skillSection(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'), 'Hand off');
+    expect(handOff).toContain('Settings › Business › Draft from my repos');
   });
 
   it.skipIf(!claude)(`claude plugin validate passes on the plugin and the marketplace${reason}`, () => {
@@ -622,21 +643,6 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
   const PLAN = ['**What is next?**', 'Review the plan', '/clear'];
   const HANDOFF = 'Next command: `/omni:yolo <n>`, once the phase-0 PR is merged';
 
-  /** The last non-blank line of a section's last fenced block, or null when it has none. */
-  const lastFencedLine = (section) => {
-    let open = false;
-    let block = [];
-    let last = null;
-    for (const line of section.split('\n')) {
-      if (line.trim().startsWith('```')) {
-        if (open) last = block.filter((text) => text.trim() !== '').at(-1)?.trim() ?? null;
-        open = !open;
-        block = [];
-      } else if (open) block.push(line);
-    }
-    return last;
-  };
-
   /** Each phrase the section lacks after the one before it, and a last fenced line that is not the command. */
   const handOffViolations = (section, phrases) => {
     const out = [];
@@ -703,7 +709,8 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
     'See what holds it', '/clear',
   ];
   // Green, red and held, in that order.
-  const ENDINGS = ['Nothing to run: merging #<feature PR> is yours.', '/omni:yolo-fix <n>', '/omni:yolo <n>'];
+  // PRD 790: the green ending hands the ready feature PR to /omni:pr-care.
+  const ENDINGS = ['/omni:pr-care <n>', '/omni:yolo-fix <n>', '/omni:yolo <n>'];
   const WHAT_IS_NEXT = '**What is next?**';
 
   /** The last non-blank line of each fenced block whose first non-blank line is What is next?. */
@@ -833,6 +840,81 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
   });
 });
 
+// PRD 790: `/omni:pr-care <n>` watches PRD n's feature PR round by round: a conflict, then red CI,
+// then each review thread judged against the `review` form, replies through `omni care reply` with the
+// marker the PRD page reads, nothing pushed while a wave holds claims, and the status comment's care
+// line in the exact form the page parses.
+describe('the pr-care skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/pr-care/SKILL.md'), 'utf8');
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named pr-care, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('pr-care');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:pr-care"/);
+  });
+
+  it('reads the briefing, then the review form, and looks after the feature PR only', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', 'kb show briefing', 'kb show review'])).toEqual([]);
+    expect(read()).toMatch(/feature PR\*\* only/);
+  });
+
+  it('reads the state with omni care state, then acts in order: conflict, red CI, then reviews', () => {
+    const round = skillSection(read(), '2. A round');
+    expect(orderGaps(round, [
+      'omni.mjs care state <n>', '`merge-base`', 'not an attempt', '`fix-ci`', 'limits.attempts', 'labels.needsFix',
+      '`judge`', '`mark-asked`', '`status`',
+    ])).toEqual([]);
+  });
+
+  it('judges each thread against the review form, posts through omni care reply, and resolves fixed and pushed-back ones', () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(orderGaps(threads, ['kb show review', '**fixed**', 'Fixed in <sha>: <one line>', '**pushed-back**', 'names the line', '**asked**'])).toEqual([]);
+    expect(threads).toContain('omni.mjs care reply --verdict <verdict> --file <file> --thread <thread id>');
+    expect(threads).toMatch(/resolves the thread/);
+    expect(threads).toMatch(/stays open/);
+    expect(threads).toContain('<!-- omni-care: fixed|pushed-back|asked -->');
+  });
+
+  it("keeps the reviewer's last word: a thread a person answered after a care reply becomes asked, never argued again", () => {
+    const threads = skillSection(read(), '3. Review threads');
+    expect(threads).toMatch(/\*\*The reviewer keeps the last word\.\*\*/);
+    expect(threads).toMatch(/never argue/i);
+  });
+
+  it('pushes nothing while a wave holds claims: report-only rewrites the status comment alone', () => {
+    const text = read();
+    expect(skillSection(text, '2. A round')).toContain('`report-only`');
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never push while a wave holds claims/);
+  });
+
+  it("writes the status comment's care line in the form the PRD page parses, ISO 8601 times", () => {
+    const status = skillSection(read(), '4. The status comment');
+    expect(status).toContain('PR care: watching since <ISO 8601> · last round <ISO 8601>');
+    expect(status).toContain('markers.prefix');
+    expect(status).toMatch(/--edit-last/);
+  });
+
+  it('stops when the PR is merged or closed, or the person stops it, and never merges', () => {
+    const text = read();
+    const stop = skillSection(text, '6. Stop');
+    for (const phrase of ['merged', 'closed', 'the person stops it']) expect(stop, phrase).toContain(phrase);
+    expect(skillSection(text, 'Guardrails')).toMatch(/Never merge/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
+    expect(text).not.toMatch(/\bgh pr ready\b(?! <n> --undo)/);
+  });
+});
+
 // PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
 // its single-repository twin and following it step for step. None merges into a default branch,
 // adds the outbox override, creates a label in a target, or runs anything there but its preflight.
@@ -886,5 +968,341 @@ describe('the ultra skills in this repository', () => {
     expect(skillSection(text, '4.')).toContain('`repo`');
     expect(skillSection(text, '5.')).toContain('/omni:do-work --in-wave --target <repo>');
     expect(skillSection(text, '8.')).toContain('/omni:ultra-yolo-fix <n>');
+  });
+});
+
+// PRD 686: `/omni:think-big` explores a vast idea with a studio of agents before `/omni:brainstorm`.
+// Its step 0 follows `/omni:dossier-open` after the briefing, as the brainstorm's does; its gate gives
+// a tweak the `/omni:visual-fix` line and offers a feature the `/omni:brainstorm` line or a lite run;
+// its record is proven by `omni concept` and opened through `/omni:pr`; it never merges; and its
+// hand-off ends on the wedge's `/omni:brainstorm --concept` line.
+describe('the think-big skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/think-big/SKILL.md'), 'utf8');
+  const STEPS = [
+    '## Step 0', '## 1. Gate', '## 2. Fuel', '## 3. Round 1, go wide', '## 4. Rounds 2 and on, deepen',
+    '## 5. Crown', '## 6. Record', '## 7. Hand off',
+  ];
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named think-big, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('think-big');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:think-big"/);
+  });
+
+  it("carries the spec's steps 0 to 7, in order", () => {
+    expect(orderGaps(read(), STEPS)).toEqual([]);
+  });
+
+  it('follows /omni:dossier-open after the briefing, in step 0, and says the run is token-heavy', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', 'kb show briefing', '/omni:dossier-open', 'token-heavy'])).toEqual([]);
+  });
+
+  it('its gate gives a tweak the /omni:visual-fix line, and offers a feature the /omni:brainstorm line or a lite run', () => {
+    const gate = skillSection(read(), '1.');
+    for (const phrase of ["`/omni:visual-fix '<line>'`", "`/omni:brainstorm '<line>'`", '**lite** run', '*Vast*', '*Feature*', '*Tweak*']) {
+      expect(gate, phrase).toContain(phrase);
+    }
+    for (const kind of ['product', 'identity', 'platform']) expect(gate, kind).toContain(`*${kind}*`);
+    expect(gate).toMatch(/In doubt between feature and vast, take vast/);
+  });
+
+  it('holds the studio: its role cards, one debate, the "go crazy" dial and the verdict rubric', () => {
+    const studio = skillSection(read(), 'The studio');
+    for (const role of ['Concept artist', 'Prototyper', 'Visionary', 'Craft', 'Skeptic', 'Value', 'User', 'Moderator']) {
+      expect(studio, role).toContain(`**${role}**`);
+    }
+    expect(orderGaps(studio, ['**Open.**', '**Cross-talk.**', '**Converge.**'])).toEqual([]);
+    expect(studio).toMatch(/answers the others by name/);
+    expect(studio).toContain('"go crazy" dial');
+    for (const score of ['*Wow*', '*User value*', '*Craft*', '*Fit*', '*Feasibility*']) expect(studio, score).toContain(score);
+    expect(studio).toMatch(/Dissent is kept, never averaged away/);
+    expect(studio).toMatch(/spawns? no (?:agent|subagent)/i);
+  });
+
+  it('draws a board per round, with its toggles and reactions line, and asks one question per round', () => {
+    const boards = skillSection(read(), 'Boards');
+    for (const phrase of ['board-r<k>.html', '**keep**', '**kill**', '**merge**', '**push further**', '**copy my reactions**', '**one question**']) {
+      expect(boards, phrase).toContain(phrase);
+    }
+    expect(boards).toMatch(/never kills, merges or crowns a concept the person did not/);
+    expect(boards).toContain('limits.beforeAfterMaxBytes');
+  });
+
+  it('crowns only what the person crowned, with a vision tour and an area map, the wedge first', () => {
+    const crown = skillSection(read(), '5.');
+    for (const phrase of ['vision.html', 'area map', 'the wedge first', 'one reply']) expect(crown, phrase).toContain(phrase);
+    expect(crown).toMatch(/the studio never does/);
+  });
+
+  it('records the concept through omni config, proves it with omni concept, then opens its PR through /omni:pr', () => {
+    const record = skillSection(read(), '6.');
+    for (const key of ['labels.concept', 'branches.concept', '<paths.delivery>/inbox/concepts/<nnnn>-<slug>/']) expect(record, key).toContain(key);
+    for (const file of ['concept.md', 'vision.html', 'board-r<k>.html', 'debate.md', '<p data-omni-reactions>']) expect(record, file).toContain(file);
+    expect(orderGaps(record, [
+      'gh issue create --title "Concept: <title>"', 'git worktree add -b <concept branch>', 'docs(concept): <slug>',
+      'omni.mjs concept <n>', 'git push -u <remote> <concept branch>', '/omni:pr', 'docs(concept): <title>', 'Refs #<n>',
+      '## The concept', '## Areas', '## Verified', '## Risk and rollback', 'omni sign footer',
+    ])).toEqual([]);
+  });
+
+  // PRD 748: the studio designs for the business this repository serves, and logs what it cited.
+  it("fuels the studio with the business's confirmed claims, read with omni business show --json", () => {
+    const fuel = skillSection(read(), '2.');
+    expect(orderGaps(fuel, ['**The business.**', 'omni.mjs business show --json', 'under their ids', '`state`', 'one line'])).toEqual([]);
+  });
+
+  it('records the cited claim ids in the Fuel section, then logs them with omni business cited', () => {
+    const record = skillSection(read(), '6.');
+    expect(orderGaps(record, ['**Fuel**', 'the business claim ids'])).toEqual([]);
+    expect(orderGaps(record, ['omni.mjs concept <n>', 'omni.mjs business cited <id>… --by think-big --ref \'concept #<n>\'', '/omni:pr'])).toEqual([]);
+  });
+
+  it('never merges, and writes nothing in the repository or on GitHub before its record', () => {
+    const text = read();
+    const never = skillSection(text, 'Never');
+    expect(never).toContain('**Never merge.**');
+    expect(never).toMatch(/Never crown, kill or merge a concept for the person/);
+    expect(never).toMatch(/before step 6/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
+  });
+
+  it("ends its hand-off on the wedge's /omni:brainstorm --concept line, after /clear", () => {
+    const handOff = skillSection(read(), '7.');
+    expect(orderGaps(handOff, ['<folder>/', 'concept.md', 'vision.html', '**What is next?**', 'Merge that PR', '/clear'])).toEqual([]);
+    expect(lastFencedLine(handOff)).toBe('/omni:brainstorm --concept <n> <wedge id>');
+  });
+});
+
+// PRD 822: the product's personas speak through the skills. think-big copies them into its fuel and
+// seats them as its User panelists; the persona a concept or a design fits worst objects once, citing
+// a persona or a claim; the brainstorm saves an overrule or a gap answer as a claim through
+// `omni business claim add`, and writes the voice.json rounds; the yolo writes the shipped one.
+// Without personas, both skills run as today.
+describe('the customer voice in the skills (PRD 822)', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** A `## ` section of a skill, its line breaks and indents folded into single spaces. */
+  const section = (skill, start) => skillSection(read(skill), start).replace(/\s+/g, ' ');
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it("think-big's fuel copies the personas under persona:<name>, beside the claim ids", () => {
+    const fuel = section('think-big', '2.');
+    expect(orderGaps(fuel, ['**The business.**', 'omni.mjs business show --json', '**The personas.**', '`personas`', '`persona:<name>`'])).toEqual([]);
+    expect(fuel).toMatch(/Without personas, the studio runs as today/);
+  });
+
+  it("think-big's User panelists are the personas, five at most, the widest spread of stance and trade", () => {
+    const studio = section('think-big', 'The studio');
+    expect(studio).toMatch(/the User panelists are those personas/);
+    expect(studio).toMatch(/all of them up to five, or the five that differ most in stance and trade/);
+    expect(studio).toMatch(/cites `persona:<name>` or a claim id in each post/);
+    expect(studio).toMatch(/Without personas, the Users are drawn from the brief/);
+  });
+
+  it('in think-big, the persona a concept fits worst objects once, cited, then a fit line, on every board', () => {
+    const studio = section('think-big', 'The studio');
+    const voice = studio.slice(studio.indexOf('### The voice'));
+    expect(orderGaps(voice, ['fits worst', '**objects once**', 'citing', 'is dropped', 'stays silent', 'fit line'])).toEqual([]);
+    expect(voice).toContain('fits persona:Marc ✓ · size#2 ✓ · beats rival#20 ✓');
+    expect(voice).toMatch(/Without personas, no objection and no fit line/);
+    expect(section('think-big', 'Boards')).toMatch(/the objection and the fit line/);
+    expect(orderGaps(studio, ['**Converge.**', '**The voice**', '### The voice'])).toEqual([]);
+  });
+
+  it('think-big logs the claim ids it cited, never a persona id', () => {
+    expect(section('think-big', '6.')).toMatch(/never a `persona:<name>`: personas are not claims/);
+  });
+
+  it('brainstorm reads the business at step 0, after the briefing and before the dossier opens', () => {
+    const step = section('brainstorm', 'Step 0');
+    expect(orderGaps(step, ['kb show briefing', 'omni.mjs business show --json', '/omni:dossier-open'])).toEqual([]);
+    expect(step).toMatch(/Without personas, the brainstorm runs as today/);
+  });
+
+  it("brainstorm's voice objects once, cited, just before the design's approval question", () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, ['fits worst', '**objects once**', 'citing', 'is dropped', 'stays silent'])).toEqual([]);
+    expect(voice).toMatch(/just before the approval question/);
+    expect(voice).toMatch(/the spec's \*\*Decisions\*\* record the objection and how it was settled/i);
+    const design = section('brainstorm', '1.');
+    expect(orderGaps(design, ['**Bounded:**', '**The voice**', 'explicit yes'])).toEqual([]);
+    expect(orderGaps(design, ['**Architectural:**', 'first section', '**The voice**'])).toEqual([]);
+  });
+
+  it("brainstorm's overrule question saves a proposed claim, or keeps it for this run", () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, [
+      '"Is that new about the business?"', '**Save as a claim:**',
+      "omni.mjs business claim add --kind <kind> --value <value> --state proposed --ref 'brainstorm · <run>'",
+      '**Just this run:**', 'nothing is stored',
+    ])).toEqual([]);
+  });
+
+  it('brainstorm asks one gap question at most, stored confirmed, and Not sure stores nothing', () => {
+    const voice = section('brainstorm', 'The voice');
+    expect(orderGaps(voice, [
+      '**One gap question.**', 'At most once per run', 'no confirmed claim', 'AskUserQuestion',
+      "omni.mjs business claim add --kind <kind> --value <answer> --state confirmed --ref 'brainstorm · <run>'",
+      '**Not sure** stores nothing',
+    ])).toEqual([]);
+  });
+
+  it('brainstorm writes the voice.json rounds design and spec, beside the spec, and commits them', () => {
+    expect(orderGaps(section('brainstorm', 'The voice'), ['`voice.json`', 'round `design`', 'round `spec`', 'omni.mjs check inbox'])).toEqual([]);
+    // Step 4 is read up to step 5's heading: the spec it templates has `## ` headings of its own.
+    const brainstorm = read('brainstorm');
+    expect(brainstorm.slice(brainstorm.indexOf('\n## 4.'), brainstorm.indexOf('\n## 5.'))).toMatch(/`voice\.json`/);
+    expect(section('brainstorm', '7.')).toMatch(/`voice\.json`/);
+  });
+
+  it('brainstorm --rework writes a rework-<k> round, and is refused once a sub-PR merged', () => {
+    expect(section('brainstorm', 'Inputs')).toContain('`--rework <n>`');
+    const rework = section('brainstorm', 'Rework');
+    expect(orderGaps(rework, [
+      'gh pr list --base <feature branch> --state merged', 'PRD <n> is being built: /omni:yolo-fix <n> owns its changes now',
+      'rework-<k>', '/omni:dossier-push <n>', 'omni.mjs phase0 <n>',
+    ])).toEqual([]);
+    expect(section('brainstorm', 'Guardrails')).toMatch(/--rework/);
+  });
+
+  it('yolo writes the shipped round on its green path, before omni ship, and sends it to the dossier', () => {
+    const step = section('yolo', '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(orderGaps(step.slice(0, red), [
+      'docs(release): PRD <prd> release note', '**The shipped round**', 'round `shipped`', 'omni.mjs ship <prd>',
+      '/omni:dossier-push <prd>', 'gh pr ready',
+    ])).toEqual([]);
+    expect(step.slice(red)).not.toContain('round `shipped`');
+  });
+
+  it('the unknown-command guard finds business claim in COMMAND_TABLE', () => {
+    for (const skill of ['brainstorm', 'think-big', 'yolo']) {
+      for (const name of commandMentions(read(skill))) expect(Object.hasOwn(COMMAND_TABLE, name), `${skill}: omni ${name}`).toBe(true);
+    }
+    expect(read('brainstorm')).toContain('omni.mjs business claim add');
+    const shim = join(repoRoot, '.omni-loop/bin/omni.mjs');
+    const usage = spawnSync(process.execPath, [shim, 'business', 'claim', 'add'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(usage.status).toBe(2);
+    expect(usage.stderr).toContain('omni business claim add');
+  });
+});
+
+// PRD 798: /omni:prove films a ready PRD's acceptance criteria and reports them, never blocking; the
+// brainstorm asks for it, the yolo follows it after ready, and /omni:invade proposes its config.
+describe('the prove skill and the skills that lead to it (PRD 798)', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const inOrder = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named prove, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read('prove')) ?? {};
+    expect(name).toBe('prove');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:prove/);
+  });
+
+  it('stops with one line when proof.url is unset, and when the preview does not answer', () => {
+    const step = skillSection(read('prove'), '1.');
+    expect(step).toContain('omni.mjs config proof');
+    expect(step).toContain('proof is not configured here: run /omni:invade --refresh, or set proof.url in .omni-loop/config.yml');
+    expect(step).toMatch(/writes nothing and posts nothing/);
+    const target = skillSection(read('prove'), '2.');
+    for (const phrase of ['github-deployment', '10 minutes', 'proof.bypassEnv', 'x-vercel-protection-bypass', 'proof.setup', 'PROOF_STORAGE_STATE', 'preview not reachable: <status>']) {
+      expect(target, phrase).toContain(phrase);
+    }
+  });
+
+  it('proves a shipped PRD too: its merged feature PR, filmed on the fixed URL, never on a preview', () => {
+    const step = skillSection(read('prove'), '1.');
+    expect(step).toContain('--state merged');
+    expect(step).toContain('PRD <n> has no feature PR');
+    expect(step).toMatch(/already merged/);
+    expect(step).toContain('proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url');
+  });
+
+  it('hands the setup the address it films, as PROOF_URL, so a sign-in can target a preview', () => {
+    expect(skillSection(read('prove'), '2.')).toContain('PROOF_URL=<the URL>');
+    expect(skillSection(read('prove'), '2.')).toContain('proof.deployment');
+  });
+
+  it('films at most 10 criteria, each capped at proof.maxSeconds, and says why a criterion is unfilmable', () => {
+    const film = skillSection(read('prove'), '3.');
+    for (const phrase of ['at most 10', 'proof.maxSeconds', '**unfilmable**', '**filmed**', '<k>-<slug>.spec.ts', '1280×720', 'recordVideo', '<worktrees>/proof-<n>/<run>/', 'preview.gif', 'ffmpeg', 'never committed']) {
+      expect(film, phrase).toContain(phrase);
+    }
+    expect(film).toContain('{commit, url, criteria: [{text, verdict, note?, video?, script?}]}');
+    expect(film).toMatch(/`pass`, `fail` or `unfilmable`/);
+  });
+
+  it('pushes the run with omni proof push, and keeps the files when it fails', () => {
+    const push = skillSection(read('prove'), '4.');
+    expect(push).toContain('omni.mjs proof push <n> <dir>');
+    expect(push).toContain('upload failed: rerun omni proof push <n> <dir>');
+  });
+
+  it('posts one unsigned comment on the feature PR, one line per criterion, the link and the GIF', () => {
+    const comment = skillSection(read('prove'), '5.');
+    expect(inOrder(comment, ['gh pr comment', 'Proof — <commit short sha>', '✓', '✗', '—', 'Proof tab', 'preview.gif'])).toEqual([]);
+    expect(comment).toMatch(/[Uu]nsigned/);
+    expect(read('prove')).not.toMatch(/omni(?:\.mjs|`)?\s+sign\b/);
+  });
+
+  it('never blocks: it leaves the PR state, its labels and its checks alone, and never merges', () => {
+    const text = read('prove');
+    expect(skillSection(text, 'Never')).toMatch(/Nothing blocks/);
+    for (const verb of [/\bgh pr ready\b/, /\bgh pr merge\b/, /--add-label/, /--remove-label/, /\bgit commit\b/]) expect(text).not.toMatch(verb);
+  });
+
+  it('/omni:brainstorm asks the proof question only when proof.url is set, and a yes writes proof: video', () => {
+    const text = read('brainstorm');
+    const design = skillSection(text, '1.');
+    expect(inOrder(design, ['**The gate.**', 'proof.url', 'Record a proof video once it ships?', '`proof: video`'])).toEqual([]);
+    // Step 4 holds the spec's own `## ` headings in a template, so it is read up to step 5.
+    const spec = text.slice(text.indexOf('## 4. Write the spec'), text.indexOf('## 5. '));
+    expect(spec).toMatch(/^- `proof: video` only when the person said yes/m);
+  });
+
+  it('/omni:yolo follows /omni:prove after it marks the PR ready, only when the spec says proof: video', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(inOrder(step.slice(0, red), ['gh pr ready', '`proof: video`', '/omni:prove <prd>'])).toEqual([]);
+    expect(step.slice(red)).not.toContain('/omni:prove');
+  });
+
+  it('/omni:invade step 7 proposes proof.url and proof.setup, with when, and only the name of proof.bypassEnv', () => {
+    const step = skillSection(read('invade'), '7.');
+    const row = (key) => step.split('\n').find((line) => line.startsWith(`| \`${key}\``)) ?? '';
+    expect(row('proof.url')).toMatch(/Playwright/);
+    expect(row('proof.url')).toMatch(/preview/);
+    expect(row('proof.setup')).toMatch(/sign-in helper/);
+    expect(step).toMatch(/proof\.bypassEnv[^\n]*name/);
   });
 });

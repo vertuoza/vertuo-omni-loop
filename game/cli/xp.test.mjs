@@ -15,7 +15,7 @@ const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const NOW = new Date('2026-09-30T16:00:00Z');
 
-const row = (workspace_id, id, at, type, over = {}) => ({ workspace_id, id, at, type, planet: 2332, region: null, contributor: null, team: null, data: {}, ...over });
+const row = (workspace_id, id, at, type, over = {}) => ({ workspace_id, id, at, type, planet: 2332, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
 // Alice (as GitHub spells her) secured two zones in working hours; Bob one at night; Carol only claimed one.
 const ledger = () => [
   row(VERTUOZA, 'planet:2332:charted', '2026-09-01T08:00:00+00:00', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver' } }),
@@ -73,6 +73,16 @@ describe('runXp', () => {
       workspace_id: VERTUOZA, github_login: 'alice', xp: 0, level: 0, unlocked: ['invaders'], computed_at: later.toISOString(),
     });
     expect(fake.tables.player_xp.find((r) => r.github_login === 'carol').unlocked).toEqual([]);
+  });
+
+  it('restarts XP at the fresh start: rows with no home add nothing, and a game already unlocked stays (PRD 728)', async () => {
+    const before = ledger().filter((r) => r.workspace_id === VERTUOZA).map((r) => ({ ...r, home: null }));
+    const stored = { workspace_id: VERTUOZA, github_login: 'alice', xp: 20, level: 1, unlocked: ['invaders'], computed_at: '2026-09-29T00:00:00.000Z' };
+    const fake = fakeSupabase({ ledger_events: before, player_xp: [stored] });
+    const rows = await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: NOW });
+    expect(rows.map((r) => [r.github_login, r.xp, r.level, r.unlocked])).toEqual([
+      ['alice', 0, 0, ['invaders']], ['bob', 0, 0, []], ['carol', 0, 0, []],
+    ]);
   });
 
   it.each(['ledger_events', 'player_xp'])('writes nothing and fails when %s cannot be read', async (table) => {

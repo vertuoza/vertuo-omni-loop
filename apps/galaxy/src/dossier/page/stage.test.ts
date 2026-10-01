@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
-import { stageOf, stageView, syncedWords } from './stage';
+import type { CareState } from '../github/care';
+import { careChipOf, stageOf, stageView, syncedWords } from './stage';
 
 // PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
 // row of its spec's table, tried from the latest stage down, and unknown whenever what decides it could
@@ -145,5 +146,36 @@ describe('the header\'s view of the stage (PRD 587)', () => {
     expect(stageView({ prd: 426, rows: [], github: building })).toMatchObject({ id: 'syncing', words: 'Syncing…', action: null, caption: null, synced: 'not synced yet' });
     expect(stageView({ prd: 426, rows: [row('prd', '2026-09-29T11:15:00Z')] }).synced).toBe('last synced 29 Sep 2026, 11:15 UTC');
     expect(syncedWords(null)).toBe('not synced yet');
+  });
+});
+
+describe('the feature PR\'s health chip (PRD 790, s2)', () => {
+  const care = (more: Partial<CareState> = {}): CareState => ({
+    ci: 'green', failedUrl: null, conflict: false, base: 'main', threads: [], watchingSince: null, lastRound: null, ...more,
+  });
+  const thread = (verdict: CareState['threads'][number]['verdict'], resolved: boolean) =>
+    ({ url: 'https://github.com/acme/widgets/pull/433#discussion_r1', login: 'rev', avatar: null, firstLine: 'x', verdict, reason: null, resolved });
+
+  it('reads CI ✓ · no conflict · N open, counting the unresolved threads', () => {
+    expect(careChipOf(care({ threads: [thread('open', false), thread('asked', false), thread('fixed', true)] })))
+      .toEqual({ label: 'CI ✓ · no conflict · 2 open', tone: 'ok' });
+  });
+
+  it('is red on CI red or a conflict, grey while CI runs', () => {
+    expect(careChipOf(care({ ci: 'red' }))).toEqual({ label: 'CI red · no conflict · 0 open', tone: 'red' });
+    expect(careChipOf(care({ conflict: true }))).toEqual({ label: 'CI ✓ · conflict · 0 open', tone: 'red' });
+    expect(careChipOf(care({ ci: 'running' }))).toEqual({ label: 'CI running · no conflict · 0 open', tone: 'grey' });
+    expect(careChipOf(care({ ci: 'running', conflict: true })).tone).toBe('red');
+    expect(careChipOf(care({ ci: 'none', conflict: null }))).toEqual({ label: 'no CI · 0 open', tone: 'ok' });
+  });
+
+  it('sits on the open feature PR\'s link only: none when it is merged, absent, or its care could not be read', () => {
+    const open = summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open'), mergedSlices: 1, care: care({ ci: 'red' }) });
+    const feature = (github: GithubSummary) => stageView({ prd: 426, rows: [row('outbox')], github }).links.find((l) => l.label.startsWith('feature'));
+    expect(feature(open)?.chip).toEqual({ label: 'CI red · no conflict · 0 open', tone: 'red' });
+    expect(stageView({ prd: 426, rows: [row('outbox')], github: open }).links.filter((l) => l.chip)).toHaveLength(1);
+    for (const more of [{ care: UNREAD }, { care: null }, { care: undefined }, { feature: pr(433, 'merged') }] as Partial<GithubSummary>[]) {
+      expect(feature({ ...open, ...more })?.chip ?? null).toBeNull();
+    }
   });
 });

@@ -1,0 +1,23 @@
+/* The platformer group: Super Omni World's score line and the screens over the stage. Laid out on
+   the wide grid (640×360) first; the rules at the end rearrange it for the tall grid (320×288). A
+   screen's title is Entropy Invaders' own (`.inv-title`, invaders.css). */
+
+.pf { position: absolute; inset: 0; }
+.pf-hud { position: absolute; top: 6px; left: 24px; right: 24px; display: flex; justify-content: space-between; }
+.pf-stat { display: grid; gap: 5px; margin: 0; line-height: 1; }
+.pf-stat b { font-weight: 400; font-size: var(--pf-label, 7px); color: var(--white); letter-spacing: 1px; text-shadow: 1px 1px 0 #0b0a26; }
+.pf-stat span { font-size: var(--pf-value, 10px); color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+.pf-foot { position: absolute; bottom: 8px; right: 24px; margin: 0; white-space: nowrap; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+.pf-back { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+.pf-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center; white-space: nowrap; line-height: 1.2; }
+.pf-sub { font-size: 8px; color: var(--cyan); letter-spacing: 1px; }
+.pf-how { font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+.pf-panel .hint { font-size: 8px; }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .pf-hud { top: 4px; left: 8px; right: 8px; }
+/* The tall grid's smallest type is 8px, the label's and the value's alike; a key's is its hint's (hint.tsx). */
+.grid-tall .pf-stat { gap: 4px; --pf-label: 8px; --pf-value: 8px; }
+.grid-tall .pf-foot { bottom: 6px; right: 8px; font-size: 8px; }
+.grid-tall .pf-panel { padding: 8px 10px; }
+.grid-tall .pf-how { white-space: normal; max-width: 260px; }

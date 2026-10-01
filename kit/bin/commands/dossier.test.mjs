@@ -244,6 +244,17 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
 
   const pushed = (url) => json(200, { id: 'd-1', url, added: [{ kind: 'before-after', version: 1 }], unchanged: [] });
 
+  it('push <n> sends voice.json as the voice artifact when the PRD folder has one (PRD 822)', async () => {
+    const { root, write } = checkout();
+    const VOICE = '{"rounds": []}\n';
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    write('.omni-loop/delivery/inbox/0007-team-inbox/voice.json', VOICE);
+    const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: LINK, added: [{ kind: 'voice', version: 2 }], unchanged: ['spec'] }));
+    const result = await run(['push', '7'], { root, fetch });
+    expect(result).toEqual({ code: 0, out: `${LINK}\nadded: voice v2 · unchanged: spec\n`, err: '' });
+    expect(calls[0].body.artifacts).toEqual([{ kind: 'spec', content: SPEC }, { kind: 'voice', content: VOICE }]);
+  });
+
   it('push <n> with no --kind sends exactly what it sent before: no kind, the PRD folder, and asks GitHub nothing', async () => {
     const { root, write } = checkout();
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);

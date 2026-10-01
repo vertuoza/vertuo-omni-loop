@@ -24,7 +24,7 @@ export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams'
 export type FakeTables = Record<FakeTable, Row[]>;
 
 /** A filter other than `eq`, as PostgREST's builder names it. */
-export type FakeFilterOp = 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like' | 'ilike' | 'is';
+export type FakeFilterOp = 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like' | 'ilike' | 'is' | 'not-is';
 export type FakeFilter = { column: string; op: FakeFilterOp; value: unknown };
 
 /** One call the client received: a table's query with its `eq` filters (and its other filters, when
@@ -37,6 +37,16 @@ export type FakeCall =
 const SCORE_CAP = 9_999_999;
 
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+
+/** A refused call, with its Postgres (or PostgREST) code. */
+const refusal = (code: string, message: string): Result => ({ data: null, error: { code, message } });
+
+/** A score submit_score() takes: a whole number from 0 to the cap. */
+const isScore = (score: unknown): score is number =>
+  typeof score === 'number' && Number.isInteger(score) && score >= 0 && score <= SCORE_CAP;
+
+/** A query runs once awaited, on a later turn, as the real client's does. */
+const later = (run: () => Result): Promise<Result> => Promise.resolve().then(run);
 
 /** Two stored values, in their order: numbers as numbers, instants as instants
  * (`2026-09-01T02:00:00+02:00` is `2026-09-01T00:00:00Z`), anything else as text. */
@@ -52,22 +62,24 @@ function compare(a: unknown, b: unknown): number {
 const likeOf = (pattern: string, flags = '') =>
   new RegExp(`^${[...pattern].map((c) => (c === '%' ? '.*' : c === '_' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('')}$`, flags);
 
-/** Whether a row passes one filter, as PostgREST reads it: a range never holds a null. */
-function passes(row: Row, { column, op, value }: FakeFilter): boolean {
-  const cell = row[column];
-  const known = cell !== null && cell !== undefined;
-  switch (op) {
-    case 'neq': return cell !== value;
-    case 'gt': return known && compare(cell, value) > 0;
-    case 'gte': return known && compare(cell, value) >= 0;
-    case 'lt': return known && compare(cell, value) < 0;
-    case 'lte': return known && compare(cell, value) <= 0;
-    case 'in': return (value as unknown[]).includes(cell);
-    case 'like': return typeof cell === 'string' && likeOf(String(value)).test(cell);
-    case 'ilike': return typeof cell === 'string' && likeOf(String(value), 'i').test(cell);
-    case 'is': return (cell ?? null) === value;
-  }
-}
+const known = (cell: unknown) => cell !== null && cell !== undefined;
+
+/** Each filter's test of one cell, as PostgREST reads it: a range never holds a null. */
+const TESTS: Record<FakeFilterOp, (cell: unknown, value: unknown) => boolean> = {
+  neq: (cell, value) => cell !== value,
+  gt: (cell, value) => known(cell) && compare(cell, value) > 0,
+  gte: (cell, value) => known(cell) && compare(cell, value) >= 0,
+  lt: (cell, value) => known(cell) && compare(cell, value) < 0,
+  lte: (cell, value) => known(cell) && compare(cell, value) <= 0,
+  in: (cell, value) => (value as unknown[]).includes(cell),
+  like: (cell, value) => typeof cell === 'string' && likeOf(String(value)).test(cell),
+  ilike: (cell, value) => typeof cell === 'string' && likeOf(String(value), 'i').test(cell),
+  is: (cell, value) => (cell ?? null) === value,
+  'not-is': (cell, value) => (cell ?? null) !== value,
+};
+
+/** Whether a row passes one filter. */
+const passes = (row: Row, { column, op, value }: FakeFilter): boolean => TESTS[op](row[column], value);
 
 /** `a, b:c, d:table(x, y)` → its items, split on the commas outside parentheses. */
 function items(columns: string): string[] {
@@ -158,14 +170,17 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     like(column: string, pattern: string) { return this.where(column, 'like', pattern); }
     ilike(column: string, pattern: string) { return this.where(column, 'ilike', pattern); }
     is(column: string, value: null | boolean) { return this.where(column, 'is', value); }
+    /** Only `not(column, 'is', value)`, the one negation the app sends. */
+    not(column: string, op: 'is', value: null | boolean) { return this.where(column, `not-${op}`, value); }
     order(column: string, options: { ascending?: boolean } = {}) { this.orders.push({ column, ascending: options.ascending ?? true }); return this; }
     range(from: number, to: number) { this.window = [from, to]; return this; }
     limit(count: number) { this.most = count; return this; }
-    single() { this.shape = 'single'; return this; }
-    maybeSingle() { this.shape = 'maybe'; return this; }
+    private shaped(shape: 'single' | 'maybe') { this.shape = shape; return this; }
+    single() { return this.shaped('single'); }
+    maybeSingle() { return this.shaped('maybe'); }
 
     then<A = Result, B = never>(done?: ((value: Result) => A | PromiseLike<A>) | null, failed?: ((reason: unknown) => B | PromiseLike<B>) | null) {
-      return Promise.resolve().then(() => this.run()).then(done, failed);
+      return later(() => this.run()).then(done, failed);
     }
 
     private run(): Result {
@@ -244,51 +259,59 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     .sort((a, b) => (a.at === b.at ? (a.slug < b.slug ? -1 : 1) : a.at < b.at ? -1 : 1))
     .map((m) => m.slug);
 
+  /** join_workspaces_by_github(): the service role joins a person to every workspace their logins name. */
+  function joinByGithub(args: Record<string, unknown> | undefined, service: boolean): Result {
+    if (!service) return refusal('42501', 'permission denied for function join_workspaces_by_github');
+    const { p_user_id: userId, p_logins: logins } = args ?? {};
+    if (typeof userId !== 'string') return refusal('22023', 'Joining needs a person.');
+    const at = stamp();
+    const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]);
+    for (const w of joins) {
+      if (!tables.workspace_members.some((m) => m.workspace_id === w.id && m.user_id === userId)) {
+        tables.workspace_members.push({ workspace_id: w.id, user_id: userId, role: 'member', joined_at: at });
+      }
+    }
+    return { data: slugsOf(userId), error: null };
+  }
+
+  /** Whether `login` of `workspace` has `game` in their player_xp row's unlocked. */
+  const unlockedFor = (workspace: unknown, login: string, game: unknown) => {
+    const xp = tables.player_xp.find((x) => x.workspace_id === workspace && x.github_login === login);
+    return Boolean(xp && (xp.unlocked as string[]).includes(String(game)));
+  };
+
+  /** submit_score(): a player of the workspace, with the game in their player_xp row's unlocked, a
+   * score from 0 to the cap; the higher of the stored best and the score is kept, and returned. */
+  function submitScore(me: FakeUser | null, args: Record<string, unknown> | undefined): Result {
+    const { workspace, game, score } = args ?? {};
+    const player = me && tables.players.find((p) => p.workspace_id === workspace && p.user_id === me.id);
+    if (!me || !player) return refusal('42501', 'Only a player of this workspace may post a score.');
+    if (!isScore(score)) return refusal('22023', 'A score is a whole number from 0 to 9,999,999.');
+    if (!unlockedFor(workspace, String(player.github_login ?? '').toLowerCase(), game)) {
+      return refusal('42501', `The game ${game} is not unlocked for this player yet.`);
+    }
+    const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
+    if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
+    else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() });
+    return { data: row ? row.best : score, error: null };
+  }
+
+  /** link_github(): a member's GitHub identity copied onto every player row of theirs. */
+  function linkGithub(me: FakeUser): Result {
+    if (!tables.workspace_members.some((m) => m.user_id === me.id)) return refusal('42501', 'Sign in with an account of a workspace first.');
+    if (!me.github) return refusal('P0002', 'No GitHub account is linked to this sign-in yet.');
+    for (const p of tables.players) if (p.user_id === me.id) Object.assign(p, { github_id: me.github.id, github_login: me.github.login });
+    return { data: { github_id: me.github.id, github_login: me.github.login }, error: null };
+  }
+
   async function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>, service = false): Promise<Result> {
     calls.push(args === undefined ? { kind: 'rpc', fn } : { kind: 'rpc', fn, args: clone(args) });
     if (state.fail) return { data: null, error: state.fail };
-    if (fn === 'join_workspaces_by_github') {
-      if (!service) return { data: null, error: { code: '42501', message: 'permission denied for function join_workspaces_by_github' } };
-      const { p_user_id: userId, p_logins: logins } = args ?? {};
-      if (typeof userId !== 'string') return { data: null, error: { code: '22023', message: 'Joining needs a person.' } };
-      const at = stamp();
-      const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]);
-      for (const w of joins) {
-        if (!tables.workspace_members.some((m) => m.workspace_id === w.id && m.user_id === userId)) {
-          tables.workspace_members.push({ workspace_id: w.id, user_id: userId, role: 'member', joined_at: at });
-        }
-      }
-      return { data: slugsOf(userId), error: null };
-    }
-    if (fn === 'submit_score') {
-      // A player of the workspace, with the game in their player_xp row's unlocked, a score from 0 to
-      // the cap; the higher of the stored best and the score is kept, and returned.
-      const { workspace, game, score } = args ?? {};
-      const player = me && tables.players.find((p) => p.workspace_id === workspace && p.user_id === me.id);
-      if (!me || !player) return { data: null, error: { code: '42501', message: 'Only a player of this workspace may post a score.' } };
-      if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > SCORE_CAP) {
-        return { data: null, error: { code: '22023', message: 'A score is a whole number from 0 to 9,999,999.' } };
-      }
-      const login = String(player.github_login ?? '').toLowerCase();
-      const xp = tables.player_xp.find((x) => x.workspace_id === workspace && x.github_login === login);
-      if (!xp || !(xp.unlocked as string[]).includes(String(game))) {
-        return { data: null, error: { code: '42501', message: `The game ${game} is not unlocked for this player yet.` } };
-      }
-      const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
-      if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
-      else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() });
-      return { data: row ? row.best : score, error: null };
-    }
-    if (!me) return { data: null, error: { code: '42501', message: 'Sign in first.' } };
-    if (fn === 'link_github') {
-      if (!tables.workspace_members.some((m) => m.user_id === me.id)) {
-        return { data: null, error: { code: '42501', message: 'Sign in with an account of a workspace first.' } };
-      }
-      if (!me.github) return { data: null, error: { code: 'P0002', message: 'No GitHub account is linked to this sign-in yet.' } };
-      for (const p of tables.players) if (p.user_id === me.id) Object.assign(p, { github_id: me.github.id, github_login: me.github.login });
-      return { data: { github_id: me.github.id, github_login: me.github.login }, error: null };
-    }
-    return { data: null, error: { code: 'PGRST202', message: `fake: no function ${fn}` } };
+    if (fn === 'join_workspaces_by_github') return joinByGithub(args, service);
+    if (fn === 'submit_score') return submitScore(me, args);
+    if (!me) return refusal('42501', 'Sign in first.');
+    if (fn === 'link_github') return linkGithub(me);
+    return refusal('PGRST202', `fake: no function ${fn}`);
   }
 
   /** The client for one person (null: nobody signed in), acting as them as the server's client does. */
@@ -323,7 +346,7 @@ const fleet = (workspace_id: string, name: string, sort: number, retired_at: str
 });
 const charted = (workspace_id: string, title: string) => ({
   workspace_id, id: 'planet:12:charted', at: '2026-09-20T10:00:00Z', type: 'PLANET_CHARTED', planet: 12,
-  region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
+  home: workspace_id === VERTUOZA ? 'vertuoza/vertuo-omni-loop' : 'acme/acme-plan', region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
 });
 const xpRow = (workspace_id: string, github_login: string, xp: number, level: number, unlocked: string[]) => ({
   workspace_id, github_login, xp, level, unlocked, computed_at: '2026-09-26T09:45:00Z',

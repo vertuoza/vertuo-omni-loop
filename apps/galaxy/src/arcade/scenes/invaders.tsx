@@ -52,7 +52,7 @@ function sendLine(send: ScoreSend | null): string | null {
   return send.newBest ? 'NEW BEST' : `YOUR BEST ${scoreDigits(send.best)}`;
 }
 
-export function InvadersOverlay({ hud, values, hero, team, hi = null, send = null }: {
+export function InvadersOverlay({ hud, values, hero, team, hi = null, send = null, back = 'GAME ROOM' }: {
   /** What the game shows now; null before a game is set up. */
   hud: GameHud | null;
   /** Each kind's close value: `rules.woundClose`, what each alien pays. */
@@ -64,6 +64,8 @@ export function InvadersOverlay({ hud, values, hero, team, hi = null, send = nul
   hi?: ScoreLine | null;
   /** Where sending the game over's score stands; none before the game is over. */
   send?: ScoreSend | null;
+  /** Where B leaves for, as its hint says: the game room in the arcade; the play dock folds (PRD 757). */
+  back?: string;
 }) {
   const { grid } = useScreen();
   if (!hud) return null;
@@ -84,13 +86,13 @@ export function InvadersOverlay({ hud, values, hero, team, hi = null, send = nul
           <p className="inv-sub">SCORE ADVANCE TABLE</p>
           <ScoreTable values={values} />
           <p className="inv-how">HOLD ◀ ▶ TO FLY · HOLD A TO FIRE</p>
-          <p className="hint"><Hint k="A">START</Hint> <Hint k="B">GAME ROOM</Hint></p>
+          <p className="hint"><Hint k="A">START</Hint> <Hint k="B">{back}</Hint></p>
         </div>
       )}
       {hud.phase === 'paused' && (
         <div className="j-panel inv-panel inv-mid">
           <p className="inv-title">PAUSED</p>
-          <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="B">GAME ROOM</Hint></p>
+          <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="B">{back}</Hint></p>
         </div>
       )}
       {hud.phase === 'over' && (
@@ -100,8 +102,8 @@ export function InvadersOverlay({ hud, values, hero, team, hi = null, send = nul
           {line && <p className={`inv-send inv-${send!.state === 'saved' && send!.newBest ? 'best' : send!.state}`} role="status">{line}</p>}
           <p className="inv-sub">WAVE {hud.wave}</p>
           {canRetry(send)
-            ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">GAME ROOM</Hint></p>
-            : <p className="hint"><Hint k="A">GAME ROOM</Hint></p>}
+            ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>
+            : <p className="hint"><Hint k="A">{back}</Hint></p>}
         </div>
       )}
       {hud.phase === 'play' && <p className="hint inv-foot"><Hint k="ENTER">PAUSE</Hint></p>}

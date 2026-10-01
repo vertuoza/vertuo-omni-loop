@@ -1,5 +1,5 @@
 {
-  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page, a tab per terminal. Silent otherwise.",
+  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page, a tab per terminal. Silent otherwise. The heartbeat: after any tool call, at most once a minute, the Omni page learns this session is working; silent when signed out or with dossiers off.",
   "hooks": {
     "PreToolUse": [
       {
@@ -22,6 +22,16 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook post || true"
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" heartbeat || true",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -40,6 +50,15 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook end || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" heartbeat --end || true",
+            "timeout": 10
           }
         ]
       }

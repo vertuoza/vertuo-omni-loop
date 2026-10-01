@@ -44,6 +44,11 @@ jobs:
         # role adds versions through the same rule: a version only when its content changed, never
         # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
+      - name: Who may read and write the heartbeats
+        # working_ping() upserts the caller's own row and resolves its dossier (a draft, a PRD, a visual
+        # or bug fix, or null); another account cannot write it, nobody signed in writes the table, a
+        # member of the workspace reads it, and anyone else reads nothing.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/working_pings.sql
       - name: Who may read and write the releases
         # Anyone, signed out or signed in, reads every release, and nobody writes one. Only the service
         # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,
@@ -90,6 +95,27 @@ jobs:
         # are refused. Members read the repositories, pull requests and reviews; a stranger reads
         # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
+      - name: Who may read and write the business
+        # Any member of a workspace opens its business, picks, suggests, confirms and rejects claims,
+        # adds and renames products, points repositories at them and cites claims, through the business
+        # functions only; another workspace's member and anyone signed out are refused (42501), a bad
+        # kind or value is refused (22023). Agents read confirmed claims only, region from the business
+        # and the rest from the repository's product. Nothing is seeded, and no citation is rewritten.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
+      - name: Who may read and write the personas
+        # Any member of a workspace adds, edits, deletes and restores its products' personas through the
+        # persona functions; another workspace's member and anyone signed out are refused (42501), a bad
+        # stance, name, text, trade or avatar is refused (22023, the field in `hint`), and the service role
+        # adds through the same checks. A persona follows its product; agents read the product's personas
+        # oldest first, [] without, and state still comes from claims. Nothing is seeded.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/personas.sql
+      - name: Who may read and write the Jev settings
+        # Only a workspace's owner sets and removes its TypeSafe key and sets a decision's mode, threshold
+        # and confidence floor, through the three Jev functions; a member, another workspace's owner, a
+        # stranger and anyone signed out are refused (42501). Nobody signed in reads a sealed key: a member
+        # learns only whether one is stored, the owner its last four. Removing the key sets every decision
+        # Off; a decision stays Off without a key. Only the service role reads a key and appends a call.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bigger Play Dock</title>
+<style>
+/* Each frame is a 1440×900 browser window drawn at 1/3 scale (480×300); the device is drawn to that same scale. */
+:root{--bg:#efedf7;--ink:#1d1b4a;--muted:#5b5a86;--page:#f6f5fb;--line:#c9c6e0;--void:#0b0a26;--body:#2a2a58;--plasma:#a45cff;--yellow:#ffd84a;--cyan:#35e0ff;--red:#ff3d5a;--white:#f4f2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif;padding-inline:16px;padding-block:24px 40px}
+main{max-width:1560px;margin:0 auto;display:grid;gap:22px}
+h1{margin:0;font-size:22px}.lead{margin:4px 0 0;color:var(--muted);max-width:75ch}
+.grid{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr))}
+.opt{display:grid;gap:8px;min-width:0;align-content:start}
+.opt h2{margin:0;font-size:15px}.opt p{margin:0;color:var(--muted);font-size:13px}
+.win{position:relative;width:480px;max-width:100%;aspect-ratio:1440/900;background:var(--page);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.win .side{position:absolute;left:0;top:0;bottom:0;width:40px;background:#fff;border-right:1px solid var(--line)}
+.win .head{position:absolute;left:40px;right:0;top:0;height:34px;background:#fff;border-bottom:1px solid var(--line)}
+.win .row{position:absolute;left:52px;height:6px;background:#dddaf0;border-radius:3px}
+.dev{position:absolute;background:var(--body);border-radius:3px 3px 9px 3px;box-shadow:1px 1px 0 var(--plasma),0 3px 10px rgba(0,0,0,.35);padding:3px}
+.lens{background:var(--void);width:100%;aspect-ratio:10/9;position:relative;overflow:hidden}
+.lens i{position:absolute;height:5%;width:7%;background:var(--red)}
+.lens b{position:absolute;height:5%;width:7%;background:var(--cyan)}
+.lens u{position:absolute;bottom:6%;left:45%;width:10%;height:4%;background:var(--white)}
+.dim{position:absolute;inset:0;background:rgba(11,10,38,.55)}
+.size{font:12px ui-monospace,Menlo,monospace;color:var(--ink)}
+.small{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}.small .win{zoom:.62}
+.pickline{font-weight:700;margin:0}</style></head><body><main>
+<header><h1>Visual fix #785 · the play dock's Game Boy, bigger</h1>
+<p data-omni-pick>Picked C by @pierrederval on 2026-09-30</p>
+<p class="lead">Each frame is a 1440×900 window at one third of its size. Today the screen is 240×216. After, it takes 60% of the window's height with the game's 10:9 shape, and never goes below the game's own 320×288.</p></header>
+<div class="grid big"><section class="opt"><h2>Today</h2><p>Screen 240×216 (0.75× the game), device 260 px wide, bottom-right.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:300px"></div><div class="row" style="top:64px;width:260px"></div>
+<div class="dev" style="right:5px;bottom:5px;width:87px"><div class="lens"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens 240×216 · 0.75×</p></section><section class="opt"><h2>After · C, grows with the window</h2><p>The screen takes 60% of the window's height, keeping the 10:9 shape: 600×540 on a 900 px high window, smaller on a small one, never below 1×.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:300px"></div><div class="row" style="top:64px;width:260px"></div>
+<div class="dev" style="right:5px;bottom:5px;width:207px"><div class="lens"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens 60vh tall · ≈1.9× here</p></section></div>
+<h2>Not picked</h2>
+<div class="small"><section class="opt"><h2>A · 1.5×, corner</h2><p>The same corner, one and a half times the game: 480×432. The device is about 500 px wide and covers the bottom-right of the page.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:300px"></div><div class="row" style="top:64px;width:260px"></div>
+<div class="dev" style="right:5px;bottom:5px;width:167px"><div class="lens"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens 480×432 · 1.5×</p></section><section class="opt"><h2>B · 1×, corner</h2><p>The game at its own size, 320×288, in the same corner. Bigger, but still compact.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:300px"></div><div class="row" style="top:64px;width:260px"></div>
+<div class="dev" style="right:5px;bottom:5px;width:113px"><div class="lens"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens 320×288 · 1×</p></section><section class="opt"><h2>D · Right column, full height</h2><p>A tall panel on the right edge, from under the top bar to the bottom. The screen fills its width, about 2× (640×576). The page stays readable on the left.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:200px"></div><div class="row" style="top:64px;width:170px"></div>
+<div class="dev" style="right:0;top:34px;bottom:0;width:223px;border-radius:0"><div class="lens" style="margin-top:28px"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens 640×576 · 2×</p></section><section class="opt"><h2>E · Centred over a dimmed page</h2><p>Opened, the Game Boy sits in the middle over the dimmed page, as big as the window's height allows (about 2.4× here). Folding it brings the page back.</p>
+<div class="win"><div class="side"></div><div class="head"></div><div class="row" style="top:50px;width:300px"></div><div class="row" style="top:64px;width:260px"></div>
+<div class="dim"></div>
+<div class="dev" style="left:50%;top:50%;transform:translate(-50%,-50%);width:268px"><div class="lens"><i style="left:20%;top:20%"></i><i style="left:40%;top:20%"></i><b style="left:30%;top:32%"></b><u></u></div></div></div>
+<p class="size">lens ≈ 780×700 · ≈2.4×</p></section></div>
+</main></body></html>

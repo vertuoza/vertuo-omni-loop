@@ -13,6 +13,8 @@ export interface RepositoryRow {
   collectedAt: string | null;
   /** Why the last collection failed, or null when it succeeded. */
   collectError: string | null;
+  /** The product it serves, whose business its agents read (PRD 748 s4), or null for none. */
+  product: string | null;
 }
 
 /** A public.repositories row, as PostgREST answers it. */
@@ -21,6 +23,7 @@ export interface StoredRepository {
   tracked: boolean;
   collected_at?: string | null;
   collect_error?: string | null;
+  product_id?: string | null;
 }
 
 export const rowOf = (r: StoredRepository): RepositoryRow => ({
@@ -28,6 +31,7 @@ export const rowOf = (r: StoredRepository): RepositoryRow => ({
   tracked: r.tracked,
   collectedAt: r.collected_at ?? null,
   collectError: r.collect_error ?? null,
+  product: r.product_id ?? null,
 });
 
 const MINUTE = 60_000;

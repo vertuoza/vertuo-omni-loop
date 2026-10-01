@@ -7,6 +7,15 @@
 //
 // Every query asks for `rateLimit`, and none is sent unless the budget would still hold more than half
 // of its limit after it (`BudgetLow` otherwise): the collector never drives a budget below half.
+//
+// Each pull request's label events come in the same query (PRD 714 s4): `needs_fix_at` is when
+// `omni:needs-fix` was first added, whatever was removed or added after.
+//
+// The loop's status comment (PRD 714 s3) is read in a second, small query, and only for the pull
+// requests of a batch where a status can hold a run: open, Omni-man-signed and into `main`, `master` or
+// `develop`. A batch with none sends no second query.
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { isBot, isOmniSigned } from './signed.mjs';
 
 /** Pull requests listed per page. */
@@ -15,8 +24,20 @@ const PER_PAGE = 100;
 const MAX_LIST_PAGES = 50;
 /** Commit messages read per pull request, the latest ones, for the Omni-man trailer. */
 const COMMITS_READ = 100;
+/** Labels read per pull request, the first ones. */
+const LABELS_READ = 100;
 /** Reviews read per pull request, the first ones. */
 const REVIEWS_READ = 100;
+/** Label events read per pull request, the first ones, for when `omni:needs-fix` was first added (PRD 714 s4). */
+const LABEL_EVENTS_READ = 100;
+/** The label a stuck pull request carries, the kit's default: `omni:needs-fix`. */
+const NEEDS_FIX_LABEL = parseConfig('kit: 1\n').labels.needsFix;
+/** Comments read per pull request for its status comment, the first ones: `/omni:pr` posts it early. */
+const COMMENTS_READ = 100;
+/** The branches a status comment is read on (PRD 714): the Engineering board's fixed set. */
+const MAIN_BRANCHES = ['main', 'master', 'develop'];
+/** The marker of the loop's status comment, with the kit's default prefix: `<!-- omni-outbox-status -->`. */
+const STATUS_MARKER = makeMarkers(parseConfig('kit: 1\n').markers.prefix).status;
 /** The share of a budget the collector always leaves. */
 const BUDGET_FLOOR = 0.5;
 /** The most points one of the collector's queries can cost; a query is sent only with this much above the floor. */
@@ -92,9 +113,11 @@ const PULL_FIELDS = `number
   author { login __typename }
   createdAt mergedAt closedAt
   mergedBy { login __typename }
-  baseRefName body additions deletions
-  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message } } }
-  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }`;
+  baseRefName headRefName isDraft body additions deletions
+  labels(first: ${LABELS_READ}) { nodes { name } }
+  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
+  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }
+  timelineItems(first: ${LABEL_EVENTS_READ}, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }`;
 
 /**
  * Several pull requests as the collector stores them, in one query: for each, its `pull_requests` row
@@ -112,7 +135,45 @@ export async function readPullRecords(octokit, budget, { workspaceId, fullName, 
   }
 }`;
   const data = await ask(octokit, budget, query, { owner, repo });
-  return numbers.map((number) => data.repository[`p${number}`]).filter(Boolean).map((pull) => recordOf(pull, { workspaceId, fullName }));
+  const records = numbers.map((number) => data.repository[`p${number}`]).filter(Boolean).map((pull) => recordOf(pull, { workspaceId, fullName }));
+  const held = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
+  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held });
+  for (const { row } of records) row.status_state = states.get(row.number) ?? null;
+  return records;
+}
+
+/** Whether a pull request's status comment can hold a run: open, signed, into a main branch (PRD 714). */
+function canHoldRun(row) {
+  return !row.merged_at && !row.closed_at && row.omni_signed && MAIN_BRANCHES.includes(row.base);
+}
+
+/**
+ * The `state:` of each pull request's status comment, the first comment carrying `STATUS_MARKER`, in
+ * one query; a pull request with no such comment is left out. No query for no pull request.
+ * @returns {Promise<Map<number, string>>}
+ */
+async function readStatusStates(octokit, budget, { owner, repo, numbers }) {
+  const states = new Map();
+  if (numbers.length === 0) return states;
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${Number(number)}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join('\n    ');
+  const query = `query PullStatus($owner: String!, $repo: String!) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    ${pulls}
+  }
+}`;
+  const data = await ask(octokit, budget, query, { owner, repo });
+  for (const number of numbers) {
+    const comment = data.repository[`p${number}`]?.comments?.nodes?.find((node) => node?.body?.includes(STATUS_MARKER));
+    const state = comment ? stateOf(comment.body) : null;
+    if (state) states.set(number, state);
+  }
+  return states;
+}
+
+/** The value of a status comment's `- state: <value>` line, or null without one. */
+function stateOf(body) {
+  return /^\s*-?\s*state:\s*(.+?)\s*$/m.exec(body)?.[1] ?? null;
 }
 
 /**
@@ -135,13 +196,35 @@ function recordOf(pull, { workspaceId, fullName }) {
     author_is_bot: Boolean(pull.author) && isBot({ login: author, type: pull.author.__typename }),
     opened_at: pull.createdAt,
     ...closing(pull),
-    base: pull.baseRefName ?? null,
+    ...loopFacts(pull, commits),
     commits: commits.totalCount,
     additions: pull.additions ?? 0,
     deletions: pull.deletions ?? 0,
     omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) }),
   };
   return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
+}
+
+/** What Loop health reads of a pull request: its branches, draft, labels, last commit and first `omni:needs-fix`. */
+function loopFacts(pull, commits) {
+  return {
+    base: pull.baseRefName ?? null,
+    head: pull.headRefName ?? null,
+    draft: Boolean(pull.isDraft),
+    labels: (pull.labels?.nodes ?? []).map((label) => label?.name).filter(Boolean),
+    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
+    needs_fix_at: firstNeedsFix(pull),
+  };
+}
+
+/** When `omni:needs-fix` was first added to a pull request, of its label events; null when never. */
+function firstNeedsFix(pull) {
+  let first = null;
+  for (const event of pull.timelineItems?.nodes ?? []) {
+    if (event?.label?.name !== NEEDS_FIX_LABEL || !event.createdAt) continue;
+    if (!first || Date.parse(event.createdAt) < Date.parse(first)) first = event.createdAt;
+  }
+  return first;
 }
 
 /** When and by whom a pull request was merged or closed. */

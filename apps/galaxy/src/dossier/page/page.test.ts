@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createElement, type ReactElement } from 'react';
+import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeStageStore } from '../../stages/store.fake';
@@ -43,6 +43,11 @@ vi.mock('../../stages/store', async (original) => ({
   stageStore: () => given.stages,
 }));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+// Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
+vi.mock('./dock-player', () => ({
+  readDockPlayer: async (_db: unknown, user: { id: string }, workspace: string) =>
+    ({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
+}));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: async () => {
@@ -87,6 +92,12 @@ const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 const open = async (id: string, query: Record<string, string> = {}) =>
   settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
+/** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
+const liveOf = (page: ReactElement): ReactElement | undefined => {
+  const props = page.props as { live?: ReactElement; children?: ReactElement | ReactElement[] };
+  if (page.type !== Fragment) return props.live;
+  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh);
+};
 const notFound = { digest: expect.stringContaining('404') };
 
 describe('the page to share', () => {
@@ -199,13 +210,19 @@ describe('the page to share', () => {
     ]);
     given.token = 'bob';
     const page = await open(numbered, { tab: 'spec', v: '1' });
-    const live = (page.props as { live?: ReactElement }).live;
+    const live = liveOf(page);
     expect(live?.type).toBe(LiveRefresh);
     expect(live?.props).toEqual({
       supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
       id: numbered,
-      // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
-      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null, answers: null } }),
+      // Bug #782: started from the database's read, before GitHub answers, so with no GitHub part (the
+      // watch keeps only new work anyway: live-refresh-watch.ts).
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 } }),
+      // PRD 757, s4: the play dock, for the viewer, in the dossier's workspace, its question on the Questions tab.
+      dock: {
+        player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: BOB.id, workspace: FAKE_WORKSPACE,
+        answerHref: `/prd/${numbered}?tab=questions`,
+      },
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
@@ -216,7 +233,7 @@ describe('the page to share', () => {
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
       name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
     given.token = 'bob';
-    const live = ((await open(numbered)).props as { live?: ReactElement<{ signature: string | null }> }).live;
+    const live = liveOf(await open(numbered)) as ReactElement<{ signature: string | null }> | undefined;
     expect(live?.props.signature).toBeNull();
   });
 
@@ -284,7 +301,7 @@ describe('the page to share', () => {
     expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
     expect(questions).toMatch(/Questions<small>\d+\/\d+( answered)?<\/small>/);
-    expect(((await open('anything')).props as { live?: unknown }).live).toBeUndefined();
+    expect(liveOf(await open('anything'))).toBeUndefined();
   });
 });
 
@@ -481,7 +498,7 @@ describe('the layout', () => {
     given.path = '/prd/3f2a';
     const page = renderToStaticMarkup(await Layout({ children: null }));
     // next/link (PRD 657) writes aria-current before href.
-    expect(page).toMatch(/<a class="app-sidebar-item" aria-current="page" href="\/prd"><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span>PRDs<\/a>/);
+    expect(page).toMatch(/<a class="app-sidebar-item" (?=[^>]*title="PRDs")[^>]*aria-current="page"[^>]*href="\/prd"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span><span class="app-sidebar-text">PRDs<\/span><\/a>/);
     expect(page).toContain('<nav class="app-bar-trail" aria-label="Breadcrumb"><ol><li>Work</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/prd">PRDs</a></li></ol></nav>');
     expect(page).not.toContain('All PRDs');
   });

@@ -10,7 +10,7 @@ import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../.
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
 import { renderMarkdown, type RenderedMarkdown } from '../markdown';
-import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
+import { DEMO_VIEWER, DEMO_VOICE_CAST, demoContent, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { pulseOf, signature } from './live';
@@ -18,11 +18,17 @@ import { LiveRefresh } from './live-refresh';
 import { DossierStream, type DossierReads } from './stream/DossierStream';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from './route-gate';
 import { dossierCallbackPath } from './sign-in';
-import { readContent, readDossier, readPlanSlices, type Db } from './source';
+import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from './source';
 import { dossierView, readPick, type DossierRead } from './view';
+import type { VoiceCast, VoiceView } from './voice';
+import { readShownVoice, readVoiceCast } from './voice-source';
 import { kindOf, misrouted } from './work';
+import { readDockPlayer } from './dock-player';
+import { questionsHref } from './working';
 import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
+import { proofStore } from '../../proof/store';
+import { readProofs } from './proof-read';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -51,6 +57,15 @@ import { stageStore } from '../../stages/store';
 // PRD 691 s3: what a fix's page read of GitHub is stored in fix_facts, which /bugs and /visual read, as
 // the service role, after the response (Next's after()): the render never waits on it, a part GitHub
 // could not read keeps its stored value, and a write that fails is only logged.
+// PRD 757 s4: the change check also carries whether Claude works on the dossier, and sits the play dock
+// in the page's corner (LiveRefresh). Who plays is read here, as the member, beside the page's own
+// reads and never before them: their GitHub link, their XP in the dossier's workspace, their hero. A
+// read that fails leaves the dock out, never the page.
+// PRD 822 s3: on the User voice tab, the shown voice.json version is read beside the page's own reads,
+// with the workspace's personas for its portraits, never on another tab.
+// PRD 798 s4: a PRD's proof runs are read as the member beside the dossier (./proof-read.ts), and on the
+// Proof tab only, the shown run's clips and scripts are signed for them; runs that cannot be read leave
+// the Proof tab out, never the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -125,10 +140,16 @@ async function markdownOf(read: () => Promise<string | null>): Promise<RenderedM
   }
 }
 
-/** The shown Spec or Plan of `view`, rendered through `read`; null for a framed artifact or none. */
+/** The shown Spec or Plan of `view`, rendered through `read`; null for a framed artifact, the User voice, or none. */
 async function shownMarkdown(view: ReturnType<typeof dossierView>, read: (id: string) => Promise<string | null>) {
   const shown = view.shown;
-  return shown && !shown.frame ? markdownOf(() => read(shown.id)) : null;
+  return shown && !shown.frame && view.tab !== 'voice' ? markdownOf(() => read(shown.id)) : null;
+}
+
+/** The shown User voice version of `view`, read through `read` with the personas `cast` gives; null off that tab or with none. */
+async function shownVoice(view: ReturnType<typeof dossierView>, read: (id: string) => Promise<string | null>, cast: () => Promise<VoiceCast[]>): Promise<VoiceView | null> {
+  const shown = view.shown;
+  return shown && view.tab === 'voice' ? readShownVoice(() => read(shown.id), cast) : null;
 }
 
 type Query = Record<string, string | string[] | undefined>;
@@ -138,8 +159,9 @@ async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnT
   const elsewhere = misrouted('prd', route, id, query);
   if (elsewhere) redirect(elsewhere);
   const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
-  const markdown = await shownMarkdown(view, async (shownId) => demoContent(shownId));
-  return <DossierPage view={view} markdown={markdown} supabase={null} />;
+  const content = async (shownId: string) => demoContent(shownId);
+  const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, async () => DEMO_VOICE_CAST)]);
+  return <DossierPage view={view} markdown={markdown} voice={voice} supabase={null} />;
 }
 
 function DraftDeleted() {
@@ -163,6 +185,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
 
   let read: DossierRead | null;
+  const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
   try {
     read = await readDossier(db, id, user.id);
   } catch (error) {
@@ -174,17 +197,28 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
-  const live = (seen: DossierRead) => {
+  const { dossier } = read;
+  const dock = readDockPlayer(db, user, dossier.workspace_id).then(
+    (setup) => ({ ...setup, answerHref: questionsHref(dossier.id, kindOf(dossier)) }),
+    (error: unknown) => {
+      console.error(error);
+      return null;
+    },
+  );
+  const live = async (seen: DossierRead) => {
     const pulse = pulseOf(seen);
-    return <LiveRefresh supabase={env} id={read.dossier.id} signature={pulse ? signature(pulse) : null} />;
+    return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} />;
   };
   if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
+    read = { ...read, proofs: await proofs };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
-    const markdown = shownMarkdown(dossierView(read, user.id, pick), (shownId) => readContent(db, shownId));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read)} markdown={markdown} supabase={env} live={live} />;
+    const first = dossierView(read, user.id, pick);
+    const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
+    const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read)} markdown={markdown} voice={voice} supabase={env} live={live} />;
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
   const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={live(withFix)} />;
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} />;
 }

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.mjs';
@@ -66,6 +67,20 @@ describe('findInboxViolations', () => {
     });
 
     expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+
+  it('stays green with a concept under the inbox: a concept folder holds no spec and is no PRD (PRD 686)', () => {
+    const { ctx } = makeRepo({
+      files: {
+        [`${IN}/0042-inbox-and-planner/spec.md`]: specText(),
+        [`${IN}/concepts/0712-x/concept.md`]: '---\nconcept: 712\ntitle: X\nkind: product\nscale: vast\n---\n',
+        [`${IN}/concepts/0712-x/vision.html`]: `<!doctype html>${'x'.repeat(64)}\n`,
+      },
+      config: { limits: { beforeAfterMaxBytes: 32 } },
+    });
+
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: 712 })).toEqual(['PRD 712 has no inbox folder.']);
   });
 
   it('collects violations across several folders, each naming its own file', () => {
@@ -267,10 +282,43 @@ it('refuses a before-after page over the configured cap', () => {
     ),
   ).toMatch(/before-after\.html/);
 });
+it('accepts proof: video and refuses proof: yes, naming the field (PRD 798)', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ proof: 'video' }) })).toBe('');
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ proof: 'yes' }) })).toMatch(/0042-a\/spec\.md: proof: /);
+});
 it('still refuses status, branch, value and priority by name', () => {
   for (const field of ['status', 'branch', 'value', 'priority']) {
     expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ [field]: 'x' }) })).toMatch(
       new RegExp(field),
     );
   }
+});
+
+describe('voice.json (PRD 822)', () => {
+  const VOICE = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
+  const folder = `${IN}/0042-inbox-and-planner`;
+
+  it('passes a valid voice.json beside the spec', () => {
+    const { ctx } = makeRepo({
+      files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(VOICE) },
+    });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual([]);
+  });
+
+  it('refuses an invalid voice.json, naming the file, the round and the field', () => {
+    const bad = JSON.parse(JSON.stringify(VOICE));
+    bad.rounds[1].personas[0].score = 9;
+    const { ctx } = makeRepo({
+      files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(bad) },
+    });
+    const expected = [`${folder}/voice.json: round spec: personas[0].score must be a whole number from 1 to 5.`];
+    expect(findInboxViolations({ ctx })).toEqual(expected);
+    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual(expected);
+  });
+
+  it('refuses a voice.json that is not JSON', () => {
+    const { ctx } = makeRepo({ files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: '{' } });
+    expect(findInboxViolations({ ctx })).toEqual([`${folder}/voice.json: not valid JSON.`]);
+  });
 });

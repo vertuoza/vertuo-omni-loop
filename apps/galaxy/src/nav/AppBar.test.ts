@@ -111,13 +111,14 @@ describe('the top bar', () => {
     expect(render('/app', ADA)).not.toContain('app-bar-crest');
   });
 
-  it('holds a nested item\'s section sprite: Shared with me is under Questions', () => {
+  it('holds a page\'s section sprite: Shared with me is under Questions, Fleets under Settings (PRD 733)', () => {
     expect(tileOf(render('/ask/for-me'))).toBe(sprite('menu-questions'));
+    expect(tileOf(render('/app/settings/fleets'))).toBe(sprite('menu-settings'));
+    expect(tileOf(render('/app/settings/repositories'))).toBe(sprite('menu-settings'));
   });
 
-  it('holds the OMNI LOOP mark in the tile on a section without a sprite, and on a path under no item', () => {
+  it('holds the OMNI LOOP mark in the tile on a path under no item', () => {
     const mark = tileWith(logoSvg('mark', { scale: 1, title: null }));
-    expect(tileOf(render('/app/settings/fleets'))).toBe(mark);
     expect(tileOf(render('/nowhere'))).toBe(mark);
   });
 
@@ -149,6 +150,10 @@ describe('the top bar', () => {
     ['/app/fleet', 'Dashboard › Fleet'],
     ['/app/workspace', 'Dashboard › Workspace'],
     ['/app/settings/fleets', 'Settings › Fleets'],
+    ['/app/settings/repositories', 'Settings › Repositories'],
+    ['/app/settings/business', 'Settings › Business'],
+    ['/app/settings/jev', 'Settings › Jev'],
+    ['/ask/for-me', 'Work › Questions › Shared with me'],
     ['/prd/3f2a', 'Work › PRDs'],
     ['/ask/history', 'Work › Questions › History'],
     ['/knowledge', 'Work › Knowledge'],

@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
+import type { JevOutcome } from '../jev/client';
+import type { JevDecideDeps } from '../jev/resolve';
+import type { JevCall, JevMode } from '../jev/store';
 import type { Category, ClassifyInput } from './classify';
+import { categoryThroughJev } from './classify-jev';
 import { askStore } from './store';
-import { fakeSupabase } from './store.fake';
+import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -351,6 +355,59 @@ describe('a round\'s context (PRD 144)', () => {
       expect(response.status, JSON.stringify(context)).toBe(400);
     }
     expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+});
+
+describe('a round\'s lead (PRD 752)', () => {
+  const ask = (w: ReturnType<typeof world>, id: string, body: unknown) =>
+    addRound(w.request('POST', `/api/ask/sessions/${id}/rounds`, { body }), id, w.deps);
+
+  it('stores the lead Claude wrote before asking, and reads it back with the round', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = '## The design\n\nA lead and a fold. <b>x</b>';
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+
+  it('opens a round without a lead, or with a null one, and stores none', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const sent of [{ questions: QUESTIONS }, { questions: QUESTIONS, lead: null }]) {
+      const { status, body } = await w.read(await ask(w, sessionId, sent));
+      expect(status).toBe(200);
+      expect(w.row('ask_rounds', body.roundId).lead ?? null).toBeNull();
+    }
+  });
+
+  it('takes a lead of 16 KB plus the shortened note', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const lead = `${'é'.repeat(LEAD_MAX_BYTES / 2)}\n\n… (shortened, the rest is in the terminal)`;
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, lead }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ lead });
+  });
+
+  it('refuses a lead that is not text, or is longer than the kit sends, with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    for (const lead of [7, true, [], { text: 'x' }, '', 'x'.repeat(LEAD_MAX_BYTES + 1024)]) {
+      const response = await ask(w, sessionId, { questions: QUESTIONS, lead });
+      expect(response.status, JSON.stringify(lead).slice(0, 40)).toBe(400);
+      expect((await response.json()).error).toMatch(/lead/);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+
+  it('is kept by a migration that adds one nullable column, bounded as this API bounds it, and changes no policy', () => {
+    const migration = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261018090000_ask_round_lead.sql', import.meta.url)), 'utf8');
+    const statements = migration.split('\n').filter((line) => !line.startsWith('--')).join(' ').replace(/\s+/g, ' ');
+    expect(statements).toContain(`alter table public.ask_rounds add column lead text check (lead is null or octet_length(lead) between 1 and ${LEAD_MAX_BYTES + LEAD_NOTE_BYTES});`);
+    expect(statements).toContain('grant insert (lead) on public.ask_rounds to authenticated;');
+    expect(statements).not.toMatch(/\bpolicy\b|row level security|not null/i);
   });
 });
 
@@ -800,6 +857,99 @@ describe('a round sorted by the model (PRD 144)', () => {
     await categorizeRound(w.request('PATCH', `/api/ask/rounds/${roundId}/category`, { token: 'bob-token', body: { category: 'product' } }), roundId, w.deps);
     await w.runLater();
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'product', category_by: BOB.id });
+  });
+});
+
+describe('a round sorted through Jev (PRD 812)', () => {
+  const CONTEXT = { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: 144, skill: '/omni:brainstorm' };
+  const jevSaid = (answer: string, confidence = 0.9): JevOutcome => ({ kind: 'answered', model: 'jev-1.13.0', answer, confidence, probabilities: null, ms: 150 });
+  const JEV_DOWN: JevOutcome = { kind: 'failed', reason: 'status', status: 500, message: 'TypeSafe answered 500.', ms: 80 };
+
+  /** A world whose classifier (Haiku) says `haiku`, and whose Jev, in `mode`, says `jev`. */
+  function sorting({ mode, haiku = 'business' as Category | null, jev = jevSaid('architecture') as JevOutcome }: { mode: JevMode; haiku?: Category | null; jev?: JevOutcome }) {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const logged: Array<[string, JevCall]> = [];
+    const asked: string[] = [];
+    const jevDeps: JevDecideDeps = {
+      settings: async (_, decision) => ({ decision, mode, threshold: 0.5, floor: 0.4 }),
+      key: async () => ({ kind: 'key', key: 'ts_live_key' }),
+      ask: async (_, state) => { asked.push(String(state)); return jev; },
+      log: async (workspace, call) => { logged.push([workspace, call]); },
+    };
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: async () => haiku,
+      decideCategory: categoryThroughJev(jevDeps),
+      later: (task) => { tasks.push(task); },
+    };
+    const ask = async (sessionId: string) => {
+      const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, context: CONTEXT } }), sessionId, deps));
+      expect(status).toBe(200);
+      return body.roundId as string;
+    };
+    const runLater = async () => { for (const task of tasks.splice(0)) await task(); };
+    return { ...w, ask, runLater, logged, asked };
+  }
+
+  it('Off: stores Haiku\'s category, never asks Jev and logs nothing', async () => {
+    const w = sorting({ mode: 'off' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+    expect(w.asked).toEqual([]);
+    expect(w.logged).toEqual([]);
+  });
+
+  it('Shadow: stores Haiku\'s category and logs Jev\'s beside it, about the round, in the session\'s workspace', async () => {
+    const w = sorting({ mode: 'shadow' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+    expect(w.asked[0]).toContain('Which storage should the sessions use?');
+    expect(w.asked[0]).not.toContain('create table ask_sessions');
+    expect(w.logged).toEqual([[FAKE_WORKSPACE, expect.objectContaining({
+      decision: 'question-category', mode: 'shadow', outcome: 'answered', jevAnswer: 'architecture', oldAnswer: 'business',
+      counted: 'business', decidedBy: 'old', ref: `round:${roundId}`,
+    })]]);
+  });
+
+  it('On: stores Jev\'s category, and logs Haiku\'s beside it', async () => {
+    const w = sorting({ mode: 'on' });
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'architecture', category_by: 'model' });
+    expect(w.logged[0][1]).toMatchObject({ jevAnswer: 'architecture', oldAnswer: 'business', counted: 'architecture', decidedBy: 'jev' });
+  });
+
+  it('On: stores Haiku\'s category when Jev fails or answers under the floor', async () => {
+    for (const jev of [JEV_DOWN, jevSaid('architecture', 0.1)]) {
+      const w = sorting({ mode: 'on', jev });
+      const roundId = await w.ask(await w.session());
+      await w.runLater();
+      expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+      expect(w.logged[0][1]).toMatchObject({ counted: 'business', decidedBy: 'old' });
+    }
+  });
+
+  it('On: sorts the round even without a classifier (no OPENROUTER_API_KEY)', async () => {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: null,
+      decideCategory: categoryThroughJev({
+        settings: async (_, decision) => ({ decision, mode: 'on', threshold: 0.5, floor: 0.4 }),
+        key: async () => ({ kind: 'key', key: 'k' }),
+        ask: async () => jevSaid('harness'),
+        log: async () => {},
+      }),
+      later: (task) => { tasks.push(task); },
+    };
+    const sessionId = await w.session();
+    const { body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS } }), sessionId, deps));
+    for (const task of tasks.splice(0)) await task();
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ category: 'harness', category_by: 'model' });
   });
 });
 

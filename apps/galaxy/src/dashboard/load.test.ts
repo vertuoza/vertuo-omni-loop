@@ -32,7 +32,7 @@ const NOW = new Date('2026-09-26T10:00:00Z');
 /** A zone secured this season, credited to a login of a fleet: 10 points on a working day. */
 const secured = (planet: number, zone: string, contributor: string, team: string, at: string): LedgerEvent & Record<string, unknown> => ({
   workspace_id: VERTUOZA, id: `planet:${planet}:zone:${zone}:secured`, at, type: 'ZONE_SECURED', planet,
-  region: 'vertuo-core', contributor, team, data: {},
+  home: 'vertuoza/vertuo-core', region: 'vertuo-core', contributor, team, data: {},
 });
 
 /** Vertuoza's season so far: BOTH (BEAVER) secured two zones, ADA (PIRATES) one. */

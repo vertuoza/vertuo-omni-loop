@@ -5,7 +5,7 @@
 //   POST /api/ask/sessions                {title, context?}    → {id, url}
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
-//   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
+//   POST /api/ask/sessions/:id/rounds     {questions, context?, lead?} → {roundId}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
@@ -31,11 +31,18 @@
 // is ignored; a known one of the wrong shape is refused with 400. The round's cost comes from the one
 // price table (./prices.ts). Who answered is never taken from a body: the database sets it.
 //
+// `lead` is optional on a round (PRD 752): the text Claude wrote before asking, as the kit read it from
+// the transcript (ADR-0002), at most LEAD_MAX_BYTES plus the kit's shortened note. It is text or null;
+// anything else, an empty text or a longer one is refused with 400. It is stored with the round and
+// read back with it, and the classifier never reads it.
+//
 // A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
 // it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
 // leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
 // clears it (`category: null`); a round of another workspace is 404. The model never overrides a
-// person: the database records its guess only while nobody has set one.
+// person: the database records its guess only while nobody has set one. When the session's workspace
+// has its Jev decision `question-category` in Shadow or On (PRD 812), the category goes through the
+// resolver (./classify-jev.ts); Off is exactly the path above.
 //
 // The session's owner shares a round (PRD 144) with another member of the session's workspace, who may
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
@@ -53,6 +60,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
 import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
+import type { CategoryDecider } from './classify-jev';
 import { costUsd } from './prices';
 import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
@@ -66,6 +74,11 @@ export const POLL_MS = 1_000;
 /** The largest body a call accepts (a round's questions, previews included). */
 export const MAX_BODY_BYTES = 256 * 1024;
 
+/** The most a round's lead carries (PRD 752), as the kit caps it, before its shortened note. */
+export const LEAD_MAX_BYTES = 16 * 1024;
+/** Room for the kit's shortened note after a cut lead, and the blank line before it. */
+export const LEAD_NOTE_BYTES = 256;
+
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
 export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
 
@@ -78,6 +91,9 @@ export type AskDeps = {
   pollMs?: number;
   /** Sorts a new round into one of six, or null when there is no classifier (no key): it stays unsorted. */
   classify?: Classifier | null;
+  /** Puts the category through the workspace's Jev decision (PRD 812), `classify` as today's answer;
+   * absent or null: today's classifier alone. */
+  decideCategory?: CategoryDecider | null;
   /** Runs a task once the response has gone (Next's after()); without it, the task just starts. */
   later?: (task: () => Promise<void>) => void;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
@@ -273,6 +289,14 @@ function questionsProblem(questions: unknown): string | null {
   return fine ? null : 'Each question needs its `question` text.';
 }
 
+/** The lead a round body carries — null when it carries none — or why it is refused. */
+function readLead(sent: Record<string, unknown>): { lead: string | null } | { problem: string } {
+  const lead = sent.lead;
+  if (lead === undefined || lead === null) return { lead: null };
+  const fine = typeof lead === 'string' && lead.trim() !== '' && new TextEncoder().encode(lead).length <= LEAD_MAX_BYTES + LEAD_NOTE_BYTES;
+  return fine ? { lead } : { problem: `\`lead\`, when sent, must be the text Claude wrote before asking, up to ${LEAD_MAX_BYTES / 1024} KB, or null.` };
+}
+
 export function addRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
@@ -282,6 +306,8 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
     const read = readContext(sent, ROUND_KEYS);
     if ('problem' in read) return refuse(400, read.problem);
     const { context } = read;
+    const sentLead = readLead(sent);
+    if ('problem' in sentLead) return refuse(400, sentLead.problem);
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
@@ -291,6 +317,7 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
       model: context.model,
       tokens: context.tokens,
       cost_usd: costUsd(context.model, context.tokens),
+      lead: sentLead.lead,
     };
     try {
       const round = await who.store.addRound(session.id, sent.questions as unknown[], facts);
@@ -299,7 +326,7 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
         ...(context.branch !== null && { branch: context.branch }),
         ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
       });
-      sortLater(who, deps, round.id, {
+      sortLater(who, deps, round.id, session.workspace_id, {
         questions: sent.questions as unknown[],
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
@@ -314,12 +341,13 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
 
 /** Has the model sort the round once the response has gone. Nothing it does can fail the round: a
  * null reply, an error or a timeout leaves it unsorted, and nothing retries. */
-function sortLater(who: Signed, deps: AskDeps, roundId: string, input: ClassifyInput) {
-  const classify = deps.classify;
-  if (!classify) return;
+function sortLater(who: Signed, deps: AskDeps, roundId: string, workspace: string | null, input: ClassifyInput) {
+  const classify = deps.classify ?? null;
+  const viaJev = workspace && deps.decideCategory ? deps.decideCategory : null;
+  if (!classify && !viaJev) return;
   const task = async () => {
     try {
-      const category = await classify(input);
+      const category = viaJev ? await viaJev({ workspace: workspace as string, roundId, input, classify }) : await classify!(input);
       if (category) await who.categories.classified(roundId, category);
     } catch (error) {
       console.error(`ask: round ${roundId} stays unsorted: ${error instanceof Error ? error.message : String(error)}`);

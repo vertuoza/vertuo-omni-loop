@@ -92,11 +92,60 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 33 commands and the 20 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
-    expect(skillFolders()).toHaveLength(20);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(20);
+  it('holds the 39 commands and the 23 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(39);
+    expect(skillFolders()).toHaveLength(23);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(39);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(23);
+  });
+
+  it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const prCare = skills.find((e) => e.name === 'pr-care');
+    expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
+    expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
+    expect(prCare.when).toMatch(/^Use it when\b/);
+    expect(prCare.example).toEqual({ type: '/omni:pr-care 790', result: expect.any(String) });
+    expect(prCare.detail).toMatch(/\bfeature PR\b/);
+    expect(prCare.detail).toMatch(/\breview\b/);
+    expect(prCare.detail).toMatch(/never merges/);
+  });
+
+  it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const thinkBig = skills.find((e) => e.name === 'think-big');
+    expect(thinkBig).toMatchObject({ who: 'you', usage: ['/omni:think-big <brief or n>'], label: '/omni:think-big', group: 'start' });
+    expect(skills.indexOf(thinkBig)).toBe(skills.findIndex((e) => e.name === 'brainstorm') - 1);
+    expect(thinkBig.detail).toMatch(/\bvast idea\b/);
+    expect(thinkBig.detail).toMatch(/\bconcept PR\b/);
+    expect(thinkBig.detail).toMatch(/\/omni:brainstorm --concept <n> <area>/);
+    expect(thinkBig.detail).toMatch(/\/omni:visual-fix\b/);
+    expect(thinkBig.detail).toMatch(/\bnever merges\b/);
+  });
+
+  it("gives /omni:brainstorm's usage --concept <n> <area>, and names /omni:think-big on the idea stage's line (PRD 686)", () => {
+    const brainstorm = ENTRIES.find((e) => e.name === 'brainstorm' && e.kind === 'skill');
+    expect(brainstorm.usage).toEqual(['/omni:brainstorm', '/omni:brainstorm --concept <n> <area>']);
+    expect(brainstorm.label).toBe('/omni:brainstorm');
+    const idea = STAGES.find((stage) => stage.name === 'idea');
+    expect(idea.line).toMatch(/\/omni:brainstorm\b/);
+    expect(idea.line).toMatch(/\/omni:think-big\b/);
+  });
+
+  it('says /omni:think-big runs /omni:dossier-open, as /omni:brainstorm does (PRD 686)', () => {
+    const dossierOpen = ENTRIES.find((e) => e.name === 'dossier-open' && e.kind === 'skill');
+    expect(dossierOpen.detail).toMatch(/\/omni:brainstorm\b.*\/omni:think-big\b/);
+  });
+
+  it('lists omni concept for skills, after omni bug, with its usage and what it checks (PRD 686)', () => {
+    const commands = ENTRIES.filter((e) => e.kind === 'command');
+    const concept = commands.find((e) => e.name === 'concept');
+    expect(concept).toMatchObject({ who: 'skills', usage: ['omni concept <n> [--base <ref>]'] });
+    expect(commands.indexOf(concept)).toBe(commands.findIndex((e) => e.name === 'bug') + 1);
+    expect(concept.detail).toMatch(/\bconcept\.md\b/);
+    expect(concept.detail).toMatch(/\bboard-r<k>\.html\b/);
+    expect(concept.detail).toMatch(/\bloads nothing from the network\b/);
+    expect(concept.detail).toMatch(/\bno file outside\b/);
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
@@ -171,11 +220,11 @@ describe('the help table in this repository', () => {
     expect(Object.isFrozen(SKILL_GROUPS)).toBe(true);
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
-      start: ['brainstorm', 'bug-fix', 'visual-fix'],
-      build: ['do-work', 'plan', 'pr', 'wave', 'yolo', 'yolo-fix'],
+      start: ['brainstorm', 'bug-fix', 'think-big', 'visual-fix'],
+      build: ['do-work', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'help', 'status'],
+      everyday: ['ask', 'help', 'prove', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });

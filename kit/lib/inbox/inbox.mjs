@@ -28,56 +28,20 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { z } from 'zod';
 import { readRepoFile } from '../check-report.mjs';
+import { parseFrontMatterLines, withFile } from '../front-matter.mjs';
 
 /** The two ways a PRD's full prose is reached, in the order the plan lists them. */
 export const SPEC_VALUES = /** @type {const} */ (['file', 'issue']);
 
+/** The one value an optional `proof` field may take (PRD 798). */
+const PROOF_VALUES = /** @type {const} */ (['video']);
+
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const FRONT_MATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 const BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 const BRACKET_LIST = /^\[([\s\S]*)\]$/;
 
 /** Front-matter field names this schema never admits — named so a refusal can quote the field. */
 const FORBIDDEN_STATUS_LIKE_FIELDS = ['status', 'branch', 'value', 'priority'];
-
-function withFile(file, message) {
-  return file ? `${file}: ${message}` : message;
-}
-
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-
-/**
- * Reads a fenced front-matter block's raw text (between the `---` fences, exclusive) into a plain
- * `{ key: value }` object. Deliberately dumb, the same shape every other kit front matter reads:
- * one `key: value` per line, quotes stripped, nothing nested. A line that isn't `key: value` is
- * reported rather than silently dropped.
- */
-export function parseFrontMatterLines(rawFrontMatter) {
-  const data = {};
-  const errors = [];
-  for (const rawLine of rawFrontMatter.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match = line.match(FRONT_MATTER_LINE);
-    if (!match) {
-      errors.push(`front matter line is not "key: value": "${rawLine}"`);
-      continue;
-    }
-    const [, key, rawValue] = match;
-    data[key] = stripQuotes(rawValue);
-  }
-  return { data, errors };
-}
 
 /**
  * `blocked-by`'s raw string into `'none'` or an array of PRD numbers. Structural only — whether a
@@ -131,6 +95,8 @@ const FrontMatterSchema = z
     'blocked-by': BlockedBySchema,
     spec: z.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(', ')}` }),
     areas: AreasSchema,
+    // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
+    proof: z.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(' or ')}, or left out` }).optional(),
   })
   .strict();
 
@@ -139,7 +105,7 @@ function unrecognizedKeyMessage(key) {
     return 'unexpected field "plan" — the plan is always the sibling plan.md, never a front-matter value';
   }
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` — an inbox spec names no ${key}` : '';
-  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas`;
+  return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
 
 /**
@@ -187,6 +153,7 @@ export function parseSpec(text, { file = null } = {}) {
     blockedBy: fm['blocked-by'],
     spec: fm.spec,
     ...(fm.areas !== undefined ? { areas: fm.areas } : {}),
+    ...(fm.proof !== undefined ? { proof: fm.proof } : {}),
     file,
   };
   return { ok: true, record };

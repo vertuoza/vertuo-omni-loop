@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Customer size slider — before/after</title>
+<style>
+:root{--plasma:#5a3fd4;--plasma-soft:#ece8ff;--line:#dcd9ea;--line-strong:#8e89a8;--surface:#fff;--ink:#1b1640;--muted:#4b4770;--page:#f4f2fb;--T:22px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:16px/1.4 'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif;padding:24px 16px}
+h1{font-size:22px;margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 20px}
+.card{background:var(--surface);border:1.5px solid var(--line-strong);border-radius:14px;padding:20px 22px 26px;margin:0 0 20px;max-width:900px}
+.tag{display:inline-block;font:700 13px/1 system-ui;letter-spacing:.08em;background:var(--plasma-soft);color:var(--plasma);padding:6px 10px;border-radius:6px;margin-bottom:10px}
+.tag.today{background:#fde8e8;color:#b3261e}
+.note{color:var(--muted);font-size:14px;margin:0 0 14px}
+h2{font-size:18px;margin:0 0 14px}
+/* shared range input reset */
+.s{position:relative;height:28px}
+.s input{position:absolute;inset:0;width:100%;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.s input::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;box-sizing:border-box;width:var(--T);height:var(--T);border-radius:50%;background:var(--plasma);border:2px solid var(--surface);cursor:pointer}
+.s input::-moz-range-thumb{pointer-events:auto;box-sizing:border-box;width:var(--T);height:var(--T);border-radius:50%;background:var(--plasma);border:2px solid var(--surface);cursor:pointer}
+.stops{list-style:none;margin:0;padding:0;font-size:12px;color:var(--muted)}
+/* thumb centre at value v: T/2 + v * (100% - T) */
+/* TODAY (as on main) */
+.today .s{background:linear-gradient(var(--plasma),var(--plasma)) no-repeat calc(var(--lo)*100%) 50%/calc((var(--hi) - var(--lo))*100%) 4px,linear-gradient(var(--line),var(--line)) no-repeat 0 50%/100% 4px}
+.today .stops{display:flex;justify-content:space-between}
+/* fixed placement shared by A–E */
+.fx .s{--a:calc(var(--T)/2 + var(--lo)*(100% - var(--T)));--b:calc(var(--T)/2 + var(--hi)*(100% - var(--T)))}
+.fx .stops{position:relative;height:18px;margin-top:6px}
+.fx .stops li{position:absolute;left:calc(var(--T)/2 + var(--at)*(100% - var(--T)));transform:translateX(-50%);white-space:nowrap}
+/* A — same look, lined up */
+.A .s{background:linear-gradient(90deg,transparent var(--a),var(--plasma) var(--a),var(--plasma) var(--b),transparent var(--b)) no-repeat 0 50%/100% 4px,linear-gradient(var(--line),var(--line)) no-repeat 0 50%/100% 4px}
+/* B — stop dots on the track, in-range labels ink */
+.B .s{background:linear-gradient(90deg,transparent var(--a),var(--plasma) var(--a),var(--plasma) var(--b),transparent var(--b)) no-repeat 0 50%/100% 4px,linear-gradient(var(--line),var(--line)) no-repeat 0 50%/100% 4px}
+.B .dots{position:absolute;inset:0;pointer-events:none}
+.B .dots i{position:absolute;top:50%;left:calc(var(--T)/2 + var(--at)*(100% - var(--T)));width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--line-strong)}
+.B .dots i.in{background:var(--plasma)}
+.B .stops li.in{color:var(--ink);font-weight:700}
+/* C — thicker rounded track, ringed thumbs, only the two picked labels bold plasma */
+.C .s{height:32px;background:linear-gradient(90deg,transparent var(--a),var(--plasma) var(--a),var(--plasma) var(--b),transparent var(--b)) no-repeat 0 50%/100% 8px,linear-gradient(var(--line),var(--line)) no-repeat 0 50%/100% 8px;border-radius:4px}
+.C .s input::-webkit-slider-thumb{background:var(--surface);border:4px solid var(--plasma);box-shadow:0 1px 4px rgba(27,22,64,.25)}
+.C .s input::-moz-range-thumb{background:var(--surface);border:4px solid var(--plasma);box-shadow:0 1px 4px rgba(27,22,64,.25)}
+.C .stops li.end{color:var(--plasma);font-weight:700}
+/* D — arcade segments: one block per step, square thumbs */
+.D .s{height:30px}
+.D .seg{position:absolute;left:calc(var(--T)/2);right:calc(var(--T)/2);top:50%;height:10px;margin-top:-5px;display:flex;gap:3px;pointer-events:none}
+.D .seg b{flex:1;background:var(--line)}
+.D .seg b.in{background:var(--plasma)}
+.D .s input::-webkit-slider-thumb{border-radius:3px;border:3px solid var(--ink);background:var(--surface)}
+.D .s input::-moz-range-thumb{border-radius:3px;border:3px solid var(--ink);background:var(--surface)}
+.D .stops{font-family:ui-monospace,Menlo,monospace}
+/* E — value bubbles over the thumbs, quiet scale below */
+.E .s{margin-top:34px;background:linear-gradient(90deg,transparent var(--a),var(--plasma) var(--a),var(--plasma) var(--b),transparent var(--b)) no-repeat 0 50%/100% 4px,linear-gradient(var(--line),var(--line)) no-repeat 0 50%/100% 4px}
+.E .bub{position:absolute;bottom:100%;margin-bottom:6px;transform:translateX(-50%);background:var(--plasma);color:#fff;font:700 13px/1 system-ui;padding:5px 8px;border-radius:6px;pointer-events:none;white-space:nowrap}
+.E .bub::after{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:var(--plasma)}
+.E .bub.lo{left:var(--a)}.E .bub.hi{left:var(--b)}
+.E .stops{opacity:.75}
+.small{max-width:640px;font-size:14px}
+h3.np{font-size:20px;margin:28px 0 12px}
+</style></head><body>
+<h1>Customer size slider — before/after (#772)</h1>
+<p data-omni-pick>Picked C by @pierrederval on 2026-09-30</p>
+<p class="lead">Today on main beside the pick, at full size and live. The fill now runs from thumb centre to thumb centre, each stop label sits under its stop, and both handles span the whole track (the 900px input cap cut their travel short on wide screens).</p>
+<div id="root"></div>
+<h3 class="np">Not picked</h3>
+<div id="np"></div>
+<script>
+const STOPS=['1','2','5','10','20','50','100','250','500','1000+'],last=STOPS.length-1;
+const V=[
+ ['today','TODAY','Today on main: fill placed by background-position (offset), labels spread edge to edge.'],
+ ['A','A','Same look as today, just lined up: fill runs thumb-centre to thumb-centre, each label centred under its stop.'],
+ ['B','B','Lined up, plus a dot on the track at every stop; stops inside the range and their labels turn plasma/ink.'],
+ ['C','C — PICKED','Lined up, heavier: 8px rounded track, white thumbs with a plasma ring, the two chosen labels bold plasma.'],
+ ['D','D','Lined up, arcade: the track is one block per step, filled blocks plasma, square ink-bordered thumbs, mono labels.'],
+ ['E','E','Lined up, with the chosen values in bubbles above the thumbs; the scale below goes quiet.'],
+];
+for(const [k,tag,note] of [V[0],V[3],V[1],V[2],V[4],V[5]]){
+ const pick=k==='today'||k==='C';const root=document.getElementById(pick?'root':'np');
+ const c=document.createElement('section');c.className='card '+(k==='today'?'today':'fx '+k)+(pick?'':' small');
+ c.innerHTML=`<span class="tag ${k==='today'?'today':''}">${tag}</span><p class="note">${note}</p><h2>Customer size · <span class="said"></span></h2>
+ <div class="s">${k==='B'?'<span class="dots">'+STOPS.map((_,i)=>`<i style="--at:${i/last}"></i>`).join('')+'</span>':''}${k==='D'?'<span class="seg">'+STOPS.slice(1).map(()=>'<b></b>').join('')+'</span>':''}${k==='E'?'<span class="bub lo"></span><span class="bub hi"></span>':''}
+ <input type="range" min="0" max="${last}" step="1" value="1" aria-label="Smallest customer"><input type="range" min="0" max="${last}" step="1" value="4" aria-label="Largest customer"></div>
+ <ol class="stops">${STOPS.map((s,i)=>`<li style="--at:${i/last}">${s}</li>`).join('')}</ol>`;
+ root.appendChild(c);
+ const [a,b]=c.querySelectorAll('input'),s=c.querySelector('.s');
+ const draw=()=>{let lo=+a.value,hi=+b.value;s.style.setProperty('--lo',lo/last);s.style.setProperty('--hi',hi/last);
+  c.querySelector('.said').textContent=`${STOPS[lo]}–${STOPS[hi]} people`;
+  c.querySelectorAll('.dots i').forEach((d,i)=>d.classList.toggle('in',i>=lo&&i<=hi));
+  c.querySelectorAll('.seg b').forEach((d,i)=>d.classList.toggle('in',i>=lo&&i<hi));
+  c.querySelectorAll('.stops li').forEach((d,i)=>{d.classList.toggle('in',i>=lo&&i<=hi);d.classList.toggle('end',i===lo||i===hi)});
+  const bl=c.querySelector('.bub.lo');if(bl){bl.textContent=STOPS[lo];c.querySelector('.bub.hi').textContent=STOPS[hi]}};
+ a.oninput=()=>{if(+a.value>+b.value)b.value=a.value;draw()};b.oninput=()=>{if(+b.value<+a.value)a.value=b.value;draw()};draw();
+}
+</script></body></html>

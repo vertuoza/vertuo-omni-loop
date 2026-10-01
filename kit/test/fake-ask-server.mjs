@@ -11,6 +11,15 @@
 //
 // With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
 // returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
+// With `business`, it answers `GET /api/business?repo=owner/name` (PRD 748) with what
+// `business(repo)` returns, `{ status, body }` (status 200 when not given; the body, personas included
+// since PRD 799, as given); without it, a 404. With
+// `cite`, it answers `POST /api/business/citations` with what `cite(body)` returns, the same way. With
+// `claim`, it answers `POST /api/business/claims` (PRD 822) with what `claim(body)` returns, the same way.
+//
+// It honours `POST /api/ask/heartbeat` (PRD 757): a body of exactly `claudeSessionId`, `repo`, `work`
+// and an optional `ended: true`, else 400; each accepted one is kept in `heartbeats`. With
+// `heartbeat`, it answers what `heartbeat(body)` returns, `{ status, delayMs }`; without it, 204.
 //
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.mjs [--port <p>] [--answer first|none] [--token <t>]
@@ -54,6 +63,26 @@ export function firstOptionAnswers(questions) {
   return answers;
 }
 
+const HEARTBEAT_FIELDS = ['claudeSessionId', 'repo', 'work', 'ended'];
+
+const isObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+/** A heartbeat's body as the contract has it: its session, its repository, what it works on. */
+function isHeartbeat(body) {
+  if (!isObject(body) || Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
+  if (typeof body.claudeSessionId !== 'string' || !body.claudeSessionId) return false;
+  if (typeof body.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return false;
+  return (body.ended === undefined || body.ended === true) && isWork(body.work);
+}
+
+/** A heartbeat's work: null, a draft by its id, or a PRD or fix by its number. */
+function isWork(work) {
+  if (work === null) return true;
+  if (!isObject(work) || Object.keys(work).length !== 2) return false;
+  if (work.kind === 'draft') return typeof work.draftId === 'string' && work.draftId !== '';
+  return ['prd', 'visual', 'bug'].includes(work.kind) && Number.isInteger(work.number) && work.number > 0;
+}
+
 const DOSSIER_KINDS = ['spec', 'plan', 'before-after'];
 const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest('hex');
 
@@ -69,7 +98,15 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *   onCall?: (call: object) => void,
  *   place?: (repo: string) => ({ workspace: { slug: string, name: string } | null, reason: string | null }),
  *                                where a repository's questions land; absent: the call is a 404
+ *   business?: (repo: string) => ({ status?: number, body: object }),
+ *                                what `GET /api/business?repo=` answers (PRD 748); absent: a 404
+ *   cite?: (body: object) => ({ status?: number, body: object }),
+ *                                what `POST /api/business/citations` answers (PRD 748); absent: a 404
+ *   claim?: (body: object) => ({ status?: number, body: object }),
+ *                                what `POST /api/business/claims` answers (PRD 822); absent: a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
+ *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
+ *                                how a well-formed heartbeat is answered, and after how long
  * }} [options]
  */
 export async function startFakeAskServer({
@@ -84,7 +121,11 @@ export async function startFakeAskServer({
   dossierBodyBytes = 2 * 1024 * 1024,
   artifactBytes = 512 * 1024,
   place = null,
+  business = null,
+  cite = null,
+  claim = null,
   tokenExtras = {},
+  heartbeat = () => ({ status: 204 }),
 } = {}) {
   const access = new Set([accessToken]);
   const refresh = new Set([refreshToken]);
@@ -94,6 +135,7 @@ export async function startFakeAskServer({
   const waiters = new Map();
   const calls = [];
   const dossiers = new Map();
+  const heartbeats = [];
   let issued = 1;
   let denied = false;
   let nextId = 1;
@@ -224,10 +266,33 @@ export async function startFakeAskServer({
       const { status, body: reply } = pushDossier(body, raw);
       return json(response, status, reply);
     }
+    if (method === 'GET' && path === '/api/business' && business) {
+      const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
+      const { status = 200, body: reply } = business(repo);
+      return json(response, status, reply);
+    }
+    if (method === 'POST' && path === '/api/business/citations' && cite) {
+      const { status = 200, body: reply } = cite(body);
+      return json(response, status, reply);
+    }
+    if (method === 'POST' && path === '/api/business/claims' && claim) {
+      const { status = 200, body: reply } = claim(body);
+      return json(response, status, reply);
+    }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {
       const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       return json(response, 200, place(repo));
+    }
+    if (method === 'POST' && path === '/api/ask/heartbeat') {
+      if (!isHeartbeat(body)) return json(response, 400, { error: 'malformed heartbeat' });
+      const { status = 204, delayMs = 0 } = heartbeat(body) ?? {};
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (status === 204) heartbeats.push(body);
+      if (response.destroyed) return undefined;
+      response.writeHead(status);
+      return response.end();
     }
     if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {
@@ -241,7 +306,7 @@ export async function startFakeAskServer({
       if (session.status === 'closed') return json(response, 409, { error: 'session closed' });
       if (!Array.isArray(body?.questions)) return json(response, 400, { error: 'questions' });
       const round = {
-        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null,
+        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null, lead: body.lead ?? null,
         status: 'open', answers: null, answeredVia: null,
       };
       rounds.set(round.id, round);
@@ -301,6 +366,8 @@ export async function startFakeAskServer({
     calls,
     sessions,
     rounds,
+    /** Every heartbeat accepted, its body as sent. */
+    heartbeats,
     /** Every dossier, by id: `{ id, repo, prd, title, claudeSessionId, versions: [{ kind, content, sha256 }] }`. */
     dossiers,
     openSession,

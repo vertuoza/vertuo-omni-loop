@@ -8,6 +8,7 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
 import { AnswerList, History } from './History';
+import { LeadMessage } from './LeadMessage';
 import { PersonChip } from '../../people/PersonChip';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
@@ -17,6 +18,7 @@ import { RoundForm } from './RoundForm';
 import { questionPort, type QuestionPort } from './source';
 import { askTitle } from './tabs';
 import { categoryChip, contextParts, minutesLeft, withCategory } from './view';
+import { QuestionList } from './QuestionText';
 
 // One question, at /ask/q/<round> (PRD 144): the link a session's owner shares. While it is open, the
 // owner and the member it is shared with answer it here, with the session's earlier rounds below for
@@ -133,6 +135,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
         onChange={(category) => void onSort(category)}
         saving={sorting}
       />
+      {view.kind !== 'closed' && <LeadMessage key={state.round.id} lead={state.round.lead} />}
 
       {view.kind === 'open' && view.canAnswer && current && (
         <RoundForm
@@ -154,9 +157,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
             The person who opened this session, or whoever they shared it with, answers it. It moves to the terminal in{' '}
             <span suppressHydrationWarning>{minutesLeft(view.movesAt, now)} min</span>.
           </p>
-          <ul className="ask-card-list">
-            {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-          </ul>
+          <QuestionList questions={view.questions} />
         </section>
       )}
 
@@ -172,9 +173,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
         <section className="ask-card" aria-live="polite">
           <h1>Moved to the terminal</h1>
           <p className="ask-muted">Nobody answered it on the page in time, so Claude asks it in the terminal instead.</p>
-          <ul className="ask-card-list">
-            {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-          </ul>
+          <QuestionList questions={view.questions} />
         </section>
       )}
 

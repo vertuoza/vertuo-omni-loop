@@ -36,6 +36,17 @@ const httpsUrl = z.string().refine((value) => {
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'an absolute https URL');
 
+// PRD 798: where `/omni:prove` films — the feature PR's preview (`github-deployment`), or a fixed
+// absolute http(s) URL.
+const PROOF_GITHUB_DEPLOYMENT = 'github-deployment';
+const proofUrl = z.string().refine((value) => {
+  if (value === PROOF_GITHUB_DEPLOYMENT) return true;
+  if (/\s/.test(value)) return false;
+  try { return ['https:', 'http:'].includes(new URL(value).protocol); } catch { return false; }
+}, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
+// The NAME of an environment variable, never its value.
+const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET');
+
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
 
@@ -93,6 +104,8 @@ export const ConfigSchema = z
       update: text.default('chore/omni-update-{version}'),
       // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
       megaInvade: text.default('docs/omni-mega-invade'),
+      // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
+      concept: text.default('docs/concept-{topic}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -121,6 +134,8 @@ export const ConfigSchema = z
       riskHigh: text.default('omni:risk-high'),
       riskMedium: text.default('omni:risk-medium'),
       riskLow: text.default('omni:risk-low'),
+      // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
+      concept: text.default('omni:concept'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -191,6 +206,17 @@ export const ConfigSchema = z
     // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
     // opts out. The pull request takes replies either way.
     answers: section({ enabled: z.boolean().default(true) }),
+    // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
+    // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
+    // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
+    // `deployment` names the GitHub deployment environment to film when a commit has several previews.
+    proof: section({
+      url: proofUrl.nullable().default(null),
+      deployment: nullableText.default(null),
+      setup: nullableText.default(null),
+      bypassEnv: envName.nullable().default(null),
+      maxSeconds: z.number().int().positive().default(60),
+    }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a

@@ -12,7 +12,8 @@ import { DEFAULT_THEME } from '../theme';
 import type { DossiersRead, FleetRow, PlanetDossier } from '../types';
 import { TALL, WIDE, type FrameState, type Grid } from './common.ts';
 import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.ts';
-import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, type DossierShown } from './planet.tsx';
+import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, statusRows, type DossierShown } from './planet.tsx';
+import { twinEvents, twinGalaxy } from '../twins.fake';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -266,6 +267,40 @@ describe('dossierOf', () => {
     expect(dossierOf(read, 985)).toBe('none');
     expect(dossierOf('unreadable', 2410)).toBe('unreadable');
     expect(dossierOf(undefined, 2410)).toBe('none');
+  });
+
+  describe('names the home (PRD 728)', () => {
+    const twins = twinGalaxy();
+    const [plan, tools] = twins.planets;
+    const other = { ...DOSSIER, id: 'd-tools-88', url: '/prd/d-tools-88' };
+
+    it('gives each of two repositories\' PRD 88 the dossier of its own home', () => {
+      const byHome: DossiersRead = { 'acme/plan#88': DOSSIER, 'acme/tools#88': other };
+      expect(dossierOf(byHome, plan, twins.planets)).toBe(DOSSIER);
+      expect(dossierOf(byHome, tools, twins.planets)).toBe(other);
+      expect(dossierLink(byHome, tools, DOSSIER_TAB, twins.planets)).toBe('/prd/d-tools-88');
+    });
+
+    it('reads a dossier kept by number alone only when no other planet holds that number', () => {
+      const byNumber: DossiersRead = { 88: DOSSIER };
+      expect(dossierOf(byNumber, plan, twins.planets)).toBe('none');
+      expect(dossierOf(byNumber, tools, twins.planets)).toBe('none');
+      const one = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob'));
+      expect(dossierOf(byNumber, one.planets[0], one.planets)).toBe(DOSSIER);
+    });
+  });
+});
+
+describe('the status tab of a twin (PRD 728)', () => {
+  it('names as a blocker the planet of the same home, never its twin', () => {
+    const twins = twinGalaxy([
+      ...twinEvents('acme/plan', 'beaver', 'bob'),
+      ...twinEvents('acme/tools', 'octopod', 'alice'),
+      ...twinEvents('acme/tools', 'octopod', 'alice', 90, [{ id: 'planet:acme/tools#90:locked:88', at: '2026-09-03T08:00:00Z', type: 'PLANET_LOCKED', data: { blocker: 88 } }]),
+    ]);
+    const locked = twins.planets.find((p) => p.key === 'acme/tools#90')!;
+    const row = statusRows(locked, twins).find((r) => r.label === 'BLOCKED BY')!;
+    expect(row.value).toBe('#88 88 of acme/tools');
   });
 });
 

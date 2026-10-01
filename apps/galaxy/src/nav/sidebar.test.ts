@@ -1,32 +1,36 @@
 import { SPRITE_DEFS } from '@omni/design';
-import { describe, expect, it } from 'vitest';
-import { SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
+import { describe, expect, it, vi } from 'vitest';
+import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
 
-// The app's sidebar as data (PRD 438, regrouped by PRD 572): Dashboard, Work, Settings, then Omni, and the two pure reads
+// /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
+const redirected = vi.hoisted((): string[] => []);
+vi.mock('next/navigation', () => ({ redirect: (to: string) => void redirected.push(to) }));
+
+// The app's sidebar as data (PRD 438, regrouped by PRD 572 and PRD 733): Dashboard and Work, then the foot's Settings, Docs
+// and Release notes, and the two pure reads
 // the shell makes of a path, the item it falls under and the top bar's trail (issue 704).
 
 describe('SIDEBAR', () => {
-  it('holds Dashboard, Work, Settings, then Omni (PRD 572)', () => {
+  it('holds Dashboard and Work, and no Settings group (PRD 733)', () => {
     expect(SIDEBAR.map((g) => [g.id, g.label])).toEqual([
       ['dashboard', 'Dashboard'],
       ['work', 'Work'],
-      ['settings', 'Settings'],
-      ['omni', 'Omni'],
     ]);
   });
 
-  it('gives every Dashboard and Work section its own 16 px sprite, and Settings and Omni none (issue 653)', () => {
-    const [dashboard, work, settings, omni] = SIDEBAR;
-    expect([...dashboard.items, ...work.items].map((i) => [i.id, i.sprite])).toEqual([
+  it('gives every Dashboard and Work section and Settings its own 16 px sprite, and Docs and Release notes none (issue 653, PRD 733)', () => {
+    const [dashboard, work] = SIDEBAR;
+    const drawn = [...dashboard.items, ...work.items, SETTINGS];
+    expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
       ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['settings', 'menu-settings'],
     ]);
-    for (const item of [...dashboard.items, ...work.items]) expect([SPRITE_DEFS[item.sprite!]?.w, SPRITE_DEFS[item.sprite!]?.h], item.id).toEqual([16, 16]);
-    const rest = [...settings.items, ...omni.items, ...work.items.flatMap((i) => i.children ?? [])];
-    expect(rest.filter((i) => i.sprite)).toEqual([]);
+    for (const item of drawn) expect([SPRITE_DEFS[item.sprite!]?.w, SPRITE_DEFS[item.sprite!]?.h], item.id).toEqual([16, 16]);
+    expect(OMNI.filter((i) => i.sprite)).toEqual([]);
   });
 
-  const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.children ?? []).map((c) => [c.id, c.label, c.path])]);
+  const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.pages ?? []).map((p) => [p.label, p.path])]);
 
   it('holds Home, Fleet, Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
     const [dashboard] = SIDEBAR;
@@ -39,30 +43,39 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds PRDs, Bug Fixes, Visual Updates, Questions (Shared with me, History) and Knowledge under Work, in that order (PRD 627)', () => {
+  it('holds PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
     expect(rows(work.items)).toEqual([
       ['prds', 'PRDs', '/prd', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
-      ['questions', 'Questions', '/ask', [['for-me', 'Shared with me', '/ask/for-me'], ['history', 'History', '/ask/history']]],
+      ['questions', 'Questions', '/ask', [['Shared with me', '/ask/for-me'], ['History', '/ask/history']]],
       ['knowledge', 'Knowledge', '/knowledge', []],
     ]);
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Fleets, then Repositories (PRD 612), under Settings', () => {
-    const [, , settings] = SIDEBAR;
-    expect(rows(settings.items)).toEqual([
-      ['fleets', 'Fleets', '/app/settings/fleets', []],
-      ['repositories', 'Repositories', '/app/settings/repositories', []],
+  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business and Jev (PRD 733, PRD 748, PRD 812)', () => {
+    expect(rows([SETTINGS])).toEqual([
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev']]],
     ]);
-    expect(settings.items.some((i) => i.leavesApp)).toBe(false);
+    expect(SETTINGS.leavesApp).toBeFalsy();
   });
 
-  it('holds Docs and Release notes under Omni, each leaving the app', () => {
-    const [, , , omni] = SIDEBAR;
-    expect(omni.items.map((i) => [i.id, i.label, i.path, i.leavesApp])).toEqual([
+  it('lands /app/settings on its Fleets page (PRD 733)', () => {
+    expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
+    expect(SETTINGS.pages?.[0].path).toBe(SETTINGS_LANDING);
+  });
+
+  it('redirects /app/settings\' page to that landing (PRD 733)', async () => {
+    const { default: SettingsPage } = await import('../../app/app/settings/page.tsx');
+    redirected.length = 0;
+    SettingsPage();
+    expect(redirected).toEqual(['/app/settings/fleets']);
+  });
+
+  it('holds Docs and Release notes for the foot, each leaving the app', () => {
+    expect(OMNI.map((i) => [i.id, i.label, i.path, i.leavesApp])).toEqual([
       ['docs', 'Docs', '/docs', true],
       ['releases', 'Release notes', '/releases', true],
     ]);
@@ -80,8 +93,13 @@ describe('currentItem and pageTrail', () => {
     ['/app/engineering?period=30d&sort=merged', 'engineering', 'Dashboard › Engineering'],
     ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Dashboard › Engineering'],
     ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
-    ['/app/settings/fleets', 'fleets', 'Settings › Fleets'],
-    ['/app/settings/repositories', 'repositories', 'Settings › Repositories'],
+    ['/app/settings', 'settings', 'Settings'],
+    ['/app/settings/fleets', 'settings', 'Settings › Fleets'],
+    ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
+    ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
+    ['/app/settings/business', 'settings', 'Settings › Business'],
+    ['/app/settings/jev', 'settings', 'Settings › Jev'],
+    ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/prd', 'prds', 'Work › PRDs'],
     ['/prd/3f2a', 'prds', 'Work › PRDs'],
     ['/prd?who=all', 'prds', 'Work › PRDs'],
@@ -93,8 +111,9 @@ describe('currentItem and pageTrail', () => {
     ['/ask', 'questions', 'Work › Questions'],
     ['/ask/7c1e', 'questions', 'Work › Questions'],
     ['/ask/q/42', 'questions', 'Work › Questions'],
-    ['/ask/for-me', 'for-me', 'Work › Questions › Shared with me'],
-    ['/ask/history', 'history', 'Work › Questions › History'],
+    ['/ask/for-me', 'questions', 'Work › Questions › Shared with me'],
+    ['/ask/history', 'questions', 'Work › Questions › History'],
+    ['/ask/history?page=2', 'questions', 'Work › Questions › History'],
     ['/knowledge', 'knowledge', 'Work › Knowledge'],
     ['/knowledge?domain=x', 'knowledge', 'Work › Knowledge'],
     ['/nowhere', null, null],
@@ -113,7 +132,7 @@ describe('currentItem and pageTrail', () => {
     expect(pageTrail(null)).toBeNull();
   });
 
-  it('links a nested item\'s section, and never its group, which has no page of its own', () => {
+  it('links a page\'s section, and never its group, which has no page of its own', () => {
     expect(pageTrail('/ask/for-me')?.crumbs).toEqual([
       { label: 'Work' },
       { label: 'Questions', path: '/ask' },
@@ -124,25 +143,41 @@ describe('currentItem and pageTrail', () => {
   it('links the last crumb back to its page from a page under it, and not on the page itself, whatever the query', () => {
     expect(pageTrail('/prd/3f2a')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
     expect(pageTrail('/app/engineering/vertuoza/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
+    expect(pageTrail('/ask/history')?.crumbs.at(-1)).toEqual({ label: 'History' });
     expect(pageTrail('/prd')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/prd/?who=all')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/app/workspace#top')?.crumbs.at(-1)).toEqual({ label: 'Workspace' });
   });
 
-  it('carries the section\'s sprite, a nested item its parent\'s, and none for a section without one', () => {
+  it('gives the foot\'s Settings no group crumb: "Settings › Fleets", Settings linked (PRD 733)', () => {
+    expect(pageTrail('/app/settings/fleets')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Fleets' },
+    ]);
+    expect(pageTrail('/app/settings/repositories')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Repositories' },
+    ]);
+    expect(pageTrail('/app/settings/business')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Business' },
+    ]);
+  });
+
+  it('carries the section\'s sprite, a page its section\'s, and none for an entry without one', () => {
     expect(pageTrail('/app/workspace')?.sprite).toBe('menu-workspace');
     expect(pageTrail('/prd/3f2a')?.sprite).toBe('menu-prds');
     expect(pageTrail('/ask/history')?.sprite).toBe('menu-questions');
-    expect(pageTrail('/app/settings/fleets')?.sprite).toBeNull();
+    expect(pageTrail('/app/settings/fleets')?.sprite).toBe('menu-settings');
+    expect(pageTrail('/docs')?.sprite).toBeNull();
   });
 });
 
 describe('badgeOf', () => {
   const counts = { questions: 3, shared: 1, outbox: 2, total: 5 };
 
-  it('gives Questions the Questions part, and Shared with me the shared questions only', () => {
+  it('gives Questions the Questions part, the shared ones included', () => {
     expect(badgeOf('questions', counts)).toBe(3);
-    expect(badgeOf('for-me', counts)).toBe(1);
   });
 
   it('gives PRDs the Outbox part', () => {
@@ -150,9 +185,8 @@ describe('badgeOf', () => {
     expect(badgeOf('prds', { ...counts, outbox: 0 })).toBeNull();
   });
 
-  it('gives no badge at 0, nor to an item that counts nothing', () => {
+  it('gives no badge at 0, nor to any other entry: only Questions and PRDs count (PRD 733)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'bugs', 'visual', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

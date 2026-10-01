@@ -43,6 +43,21 @@ describe('config', () => {
     expect(c.teamOf(null)).toBeNull();
   });
 
+  it('names the tracked repositories the game reads, and finds a full name\'s sector by its bare name (PRD 728)', () => {
+    const c = configFrom({
+      ...rows,
+      repositories: [
+        { full_name: 'vertuoza/vertuo-ai-domain', tracked: true },
+        { full_name: 'vertuoza/old-thing', tracked: false },
+        { full_name: 'Vertuoza/Vertuo-Apps', tracked: true },
+      ],
+    });
+    expect(c.tracked).toEqual(['vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-apps']);
+    expect(c.sectorOf('vertuoza/vertuo-ai-domain')).toBe('ai');
+    expect(c.sectorOf('vertuoza/vertuo-apps')).toBeNull();
+    expect(configFrom(rows).tracked).toEqual([]);
+  });
+
   it('refuses a fleet whose home is not a sector', () => {
     expect(() => configFrom({ sectors: [], teams: [{ name: 'beaver', home: 'nowhere' }] })).toThrow(/home/);
   });

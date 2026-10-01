@@ -13,3 +13,21 @@ export function Notice({ title, children, tone = 'plain' }: { title: string; chi
     </div>
   );
 }
+
+/** The ask database did not answer: the pages that read it per request say so the same way. */
+export function AskUnreachable() {
+  return (
+    <Notice title="The ask database could not answer" tone="error">
+      <p className="ask-muted">Reload the page in a moment.</p>
+    </Notice>
+  );
+}
+
+/** A deployment with no database: ask mode has nothing to show here. */
+export function AskNotOpen() {
+  return (
+    <Notice title="Ask mode is not open here">
+      <p className="ask-muted">This deployment has no database, so it cannot show Claude&apos;s questions.</p>
+    </Notice>
+  );
+}

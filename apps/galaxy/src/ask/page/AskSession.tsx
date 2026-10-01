@@ -7,15 +7,19 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
+import { LeadMessage } from './LeadMessage';
 import { poll } from './poll';
 import type { Member } from './question';
 import { shareCandidates } from './share';
 import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
+import { QuestionList } from './QuestionText';
 import {
-  categoryChip, contextParts, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
+  categoryChip, contextParts, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
 } from './view';
+import { PlayDock } from '../../play-dock/PlayDock';
+import type { AskDock } from './dock-player';
 
 // One ask session: the open round at the top (or Claude is working, moved to the terminal, session
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
@@ -23,6 +27,11 @@ import {
 // of its workspace (PRD 144) reads it all, with no answer form and no delete. Every round carries its
 // category chip, which the owner and any other member may change. While a round is open, its owner may
 // share it with another member of the workspace (PRD 144), who answers it at /ask/q/<round>.
+// A tab of the person's own (`dock` given) also offers the play dock beside "Claude is working" (PRD
+// 757) while its terminal's heartbeat says it works, pausing on the open question and leading to it.
+
+/** Where the dock's ⏸ CLAUDE ASKED · ANSWER leads: the top of the open question, on this page. */
+const QUESTION_ANCHOR = 'ask-question';
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
@@ -41,6 +50,8 @@ type Props = {
   me?: string | null;
   members?: Member[];
   onState?: (state: SessionState) => void;
+  /** Who plays in the play dock, and where the score goes: none, no dock (a teammate's session). */
+  dock?: AskDock | null;
 };
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
@@ -48,7 +59,7 @@ function makePort(source: SourceConfig, seed: SessionState): AskPort {
   return databasePort(createBrowserClient(source.url, source.key), seed);
 }
 
-export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState }: Props) {
+export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState, dock = null }: Props) {
   const owner = viewer === 'owner';
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
@@ -178,7 +189,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
 
   return (
     <div className="ask-col">
-      <p className="ask-title">{state.session.title}</p>
+      <p className="ask-title" id={dock ? QUESTION_ANCHOR : undefined}>{state.session.title}</p>
       {problem && <p className="ask-problem" role="status">{problem}</p>}
       {notice && <p className="ask-problem" role="status">{notice}</p>}
 
@@ -186,6 +197,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         <>
           <ContextLine parts={contextParts(state.session, view.round)} />
           {chip(view.round)}
+          <LeadMessage key={view.round.id} lead={view.round.lead} />
         </>
       )}
 
@@ -193,9 +205,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
         <section className="ask-card" aria-live="polite">
           <h1>Waiting for the owner&apos;s answer</h1>
           <p className="ask-muted">Only the person who opened this session answers it. The answer shows below once given.</p>
-          <ul className="ask-card-list">
-            {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-          </ul>
+          <QuestionList questions={view.questions} />
         </section>
       )}
 
@@ -241,9 +251,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
               : 'The page did not get an answer in time, so Claude asks this in the terminal instead. The answer shows below once given.'}
           </p>
           {view.questions.length > 0 && (
-            <ul className="ask-card-list">
-              {view.questions.map((q, i) => <li key={i}>{q.question}</li>)}
-            </ul>
+            <QuestionList questions={view.questions} />
           )}
         </section>
       )}
@@ -259,6 +267,18 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
       )}
 
       <History history={view.history} chip={(entry) => chip({ id: entry.id, category: entry.category, category_by: entry.category_by })} />
+
+      {dock && (
+        <PlayDock
+          state={tabWorking(state, now)}
+          player={dock.player}
+          hero={dock.hero}
+          team={dock.team}
+          supabase={dock.supabase}
+          workspace={dock.workspace}
+          answerHref={`#${QUESTION_ANCHOR}`}
+        />
+      )}
 
       {owner && (
         <p>

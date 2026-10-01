@@ -178,7 +178,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const seen = new Set<string>();
     for (const item of artifacts as Row[]) {
       if (!item || typeof item !== 'object' || !ARTIFACT_KINDS.includes(item.kind as never) || typeof item.content !== 'string') {
-        return refuse('22023', 'Each artifact is {kind, content}, its kind one of spec, plan, before-after, variations, bug-record.');
+        return refuse('22023', `Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
       }
       if (item.kind !== 'variations' && seen.has(item.kind as string)) return refuse('22023', 'Each kind is sent once.');
       if (!KIND_ARTIFACTS[kind].includes(item.kind as ArtifactKind)) return refuse('22023', `A ${kind} dossier takes no ${item.kind as string} version.`);

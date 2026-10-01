@@ -25,6 +25,7 @@
 // store), `fetch` and `limits` (the pre hook's waits).
 import { askClient } from '../../lib/ask/client.mjs';
 import { homeTokens } from '../../lib/ask/client-tokens.mjs';
+import { readInput } from '../../lib/ask/hook-input.mjs';
 import { activeMode, endHook, postHook, preHook, promptOutput, WAIT_LIMITS } from '../../lib/ask/hook.mjs';
 import { AskModeError, currentBranch, modeStatus, sessionTitle, turnOff, turnOn } from '../../lib/ask/mode.mjs';
 import { loadConfig } from '../../lib/config.mjs';
@@ -36,24 +37,6 @@ import { ASK_URL_UNSET } from './signin.mjs';
 const KINDS = ['pre', 'post', 'prompt', 'end'];
 const MODES = ['on', 'off', 'status'];
 const USAGE = 'usage: omni ask hook <pre|post|prompt|end> | omni ask <on|off|status>';
-
-/** The hook's input: stdin parsed as a JSON object, or `null`. A terminal is never read. */
-async function readInput(stdin) {
-  let text = '';
-  if (typeof stdin === 'string') {
-    text = stdin;
-  } else {
-    if (!stdin || stdin.isTTY) return null;
-    stdin.setEncoding?.('utf8');
-    for await (const chunk of stdin) text += chunk;
-  }
-  try {
-    const value = JSON.parse(text);
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
 
 /** The hook's output, or `null`. Never throws. */
 async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {

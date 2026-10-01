@@ -184,8 +184,11 @@ describe('the other situations', () => {
     expect(t).toContain('PAUL');
     expect(t).toContain('Pull requests vertuoza/');
     expect(demoProfile('nobody', '7d', NOW)).toEqual({ kind: 'not-member', login: 'nobody' });
-    const you = demoProfile('dam-dev', '30d', new Date());
-    if (you.kind !== 'profile' || you.lists === 'unreadable') throw new Error('no demo lists');
-    expect(you.lists.prd.rows.length).toBeGreaterThan(0);
+    // A fixed clock, never today's (bug 864): mid-season, and a season's first morning, before you score.
+    for (const at of [NOW, new Date('2026-10-01T08:00:00Z')]) {
+      const you = demoProfile('dam-dev', '30d', at);
+      if (you.kind !== 'profile' || you.lists === 'unreadable') throw new Error(`no demo lists at ${at.toISOString()}`);
+      expect(you.lists.prd.rows.length).toBeGreaterThan(0);
+    }
   });
 });

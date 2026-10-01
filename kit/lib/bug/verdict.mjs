@@ -16,9 +16,9 @@
  *
  * It runs no test: the reproduction going green is CI's job.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
-import { fixVerdict } from '../fix-verdict.mjs';
+import { fixVerdict, numberedFolders } from '../fix-verdict.mjs';
 
 const RECORD = 'bug.md';
 
@@ -36,18 +36,6 @@ export function bugRoot(ctx) {
 /** The folder name prefix of an issue's bug fix: its number, zero-padded to four digits, then `-`. */
 export function folderPrefix(issue) {
   return `${String(issue).padStart(4, '0')}-`;
-}
-
-/** Every folder under the bugs root named for `issue`, sorted, as repository paths. */
-function issueFolders(ctx, issue) {
-  const root = bugRoot(ctx);
-  const absolute = join(ctx.root, root);
-  if (!existsSync(absolute)) return [];
-  const prefix = folderPrefix(issue);
-  return readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
-    .map((entry) => `${root}/${entry.name}`)
-    .sort();
 }
 
 /** The record's `## ` sections, as a map from heading to body text (first heading wins). */
@@ -135,7 +123,7 @@ function recordViolations(ctx, record, changed) {
 export function bugVerdict({ ctx, issue, changed, commits }) {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
-    ctx, issue, commits, root: bugRoot(ctx), prefix: folderPrefix(issue), folders: issueFolders(ctx, issue),
+    ctx, issue, commits, root: bugRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), folderPrefix(issue)),
     grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet),
   });
 }

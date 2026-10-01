@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -13,7 +15,7 @@ import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } fro
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const SETTINGS = 'https://github.com/organizations/vertuoza/settings/installations/5001';
 const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow => ({
-  fullName, tracked: true, collectedAt: null, collectError: null, ...over,
+  fullName, tracked: true, collectedAt: null, collectError: null, product: null, ...over,
 });
 const APPS = row('vertuoza/vertuo-apps', { collectedAt: '2026-10-08T11:57:00Z' });
 const PDF = row('vertuoza/pdf-builder', { tracked: false, collectError: 'rate limited' });
@@ -124,6 +126,54 @@ describe('a workspace with no App installation', () => {
   });
 });
 
+describe('products (PRD 748 s4)', () => {
+  const ERP = { id: 'p-1', name: 'Vertuoza' };
+  const LOOP = { id: 'p-2', name: 'Omni Loop' };
+  const withProducts = (rows: RepositoryRow[], products: { id: string; name: string }[], { owner = true, actions = [] as RepositoriesAction[] } = {}) =>
+    renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access: INSTALLED, now: NOW, products }));
+  const selects = (html: string) => [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/g)].map((m) => ({
+    attrs: m[1],
+    options: [...m[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(o[1])?.[1], text: o[2], selected: o[1].includes('selected') })),
+  }));
+
+  it('shows no product select, and never says "Product", while the business has one or none', () => {
+    for (const products of [[], [ERP]]) {
+      const html = withProducts([APPS, PDF], products);
+      expect(selects(html)).toHaveLength(0);
+      expect(text(html)).not.toMatch(/product/i);
+    }
+  });
+
+  it('gives each row a product select once there are two, on the repository\'s product', () => {
+    const html = withProducts([row('vertuoza/vertuo-apps', { product: 'p-1' }), row('vertuoza/vertuo-omni-loop', { product: 'p-2' })], [ERP, LOOP]);
+    const all = selects(html);
+    expect(all).toHaveLength(2);
+    expect(all[0].attrs).toContain('aria-label="Product of vertuoza/vertuo-apps"');
+    expect(all[0].options.map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+    expect(all[0].options.find((o) => o.selected)?.text).toBe('Vertuoza');
+    expect(selects(rowOf(html, 'vertuoza/vertuo-omni-loop'))[0].options.find((o) => o.selected)?.text).toBe('Omni Loop');
+    expect(text(html)).toContain('Each repository’s agents read its product’s business.');
+  });
+
+  it('offers a repository with no product a disabled placeholder first', () => {
+    const [only] = selects(withProducts([APPS], [ERP, LOOP]));
+    expect(only.options[0]).toEqual({ value: '', text: 'Choose…', selected: true });
+    expect(only.options.slice(1).map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+  });
+
+  it('lets a member change it too, but not while a call is on its way', () => {
+    expect(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0].attrs).not.toContain('disabled');
+    expect(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0].attrs).toContain('disabled');
+  });
+
+  it('wraps the select under the name at 393 px', () => {
+    const css = readFileSync(fileURLToPath(new URL('./repositories.css', import.meta.url)), 'utf8');
+    const at = css.lastIndexOf('.repositories-product {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(css.slice(at, css.indexOf('}', at))).toContain('max-width: 100%');
+  });
+});
+
 describe('the page\'s situations', () => {
   const screen = (view: RepositoriesScreenView) => text(renderToStaticMarkup(createElement(RepositoriesScreen, { view })));
 
@@ -136,5 +186,19 @@ describe('the page\'s situations', () => {
 
   it('draws the list otherwise', () => {
     expect(screen({ kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: [APPS], access: INSTALLED, now: NOW })).toContain('vertuoza/vertuo-apps');
+  });
+
+  it('starts with the Fleets · Repositories · Business · Jev tabs in every situation, Repositories marked (PRD 733)', () => {
+    const views: RepositoriesScreenView[] = [
+      { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
+      { kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: [APPS], access: INSTALLED, now: NOW },
+    ];
+    for (const view of views) {
+      const html = renderToStaticMarkup(createElement(RepositoriesScreen, { view }));
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
+      expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
+      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
+      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', true], ['Business', false], ['Jev', false]]);
+    }
   });
 });

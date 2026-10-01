@@ -19,7 +19,7 @@ type Row = Record<string, unknown>;
 type Call = { table: string; eq: Record<string, unknown>; count: boolean; limit: number | null; range: [number, number] | null };
 
 const event = (id: string, at: string, planet = 12, data: Row = { title: 'Workspaces', captain: 'ada-gh' }) =>
-  ({ workspace_id: WS, id, at, type: 'PLANET_CHARTED', planet, region: null, contributor: null, team: null, data });
+  ({ workspace_id: WS, id, at, type: 'PLANET_CHARTED', planet, home: 'vertuoza/vertuo-omni-loop', region: null, contributor: null, team: null, data });
 
 /** A PostgREST-shaped client over rows: `member` false stands for row-level security hiding them all. */
 function fakeDb(tables: Record<string, Row[]>, member = true) {
@@ -27,10 +27,11 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
   const client = {
     from(table: string) {
       const q = {
-        eqs: {} as Record<string, unknown>, orders: [] as { column: string; ascending: boolean }[],
+        eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], orders: [] as { column: string; ascending: boolean }[],
         counting: false, most: null as number | null, window: null as [number, number] | null,
         select(_columns: string, options: { count?: string } = {}) { q.counting = Boolean(options.count); return q; },
         eq(column: string, value: unknown) { q.eqs[column] = value; return q; },
+        not(column: string, _op: 'is', value: unknown) { q.nots.push([column, value]); return q; },
         order(column: string, options: { ascending?: boolean } = {}) { q.orders.push({ column, ascending: options.ascending ?? true }); return q; },
         limit(n: number) { q.most = n; return q; },
         range(from: number, to: number) { q.window = [from, to]; return q; },
@@ -38,6 +39,7 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
           calls.push({ table, eq: { ...q.eqs }, count: q.counting, limit: q.most, range: q.window });
           const all = (member ? tables[table] ?? [] : [])
             .filter((row) => Object.entries(q.eqs).every(([c, v]) => row[c] === v))
+            .filter((row) => q.nots.every(([c, v]) => (row[c] ?? null) !== v))
             .sort((a, b) => {
               for (const { column, ascending } of q.orders) {
                 const x = String(a[column]), y = String(b[column]);

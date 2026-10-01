@@ -197,6 +197,21 @@ const SKY = {
   tall: { key: 'tall-sector', top: TALL_MAP.hud, h: TALL_MAP.dialog - 2 - TALL_MAP.hud, from: TALL_MAP.hud + 4, to: TALL_MAP.dialog - 2 },
 } as const;
 
+/**
+ * The hyperlanes: a locked planet waits on the planets it is blocked by, each from its slot to the
+ * blocker's. A blocker is a PRD of the planet's own home (PRD 728), never a twin of another repository.
+ */
+export function hyperlanes(view: GalaxyView, layout: MapSlot[]): Array<[MapSlot, MapSlot]> {
+  const bySlot = new Map(layout.map((l) => [view.planets[l.index]?.key, l]));
+  return layout.flatMap((slot) => {
+    const p = view.planets[slot.index];
+    return p.blockers.flatMap((b) => {
+      const to = bySlot.get(p.home ? `${p.home}#${b}` : String(b));
+      return to ? [[slot, to] as [MapSlot, MapSlot]] : [];
+    });
+  });
+}
+
 export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.15);
   const { view, layout } = s;
@@ -210,12 +225,7 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
       for (let y = sky.from; y < sky.to; y += 8) ctx.fillRect(Math.round(i * colW), y, 1, 4);
     }
   });
-  const bySlot = new Map(layout.map((l) => [l.prd, l]));
-  // Hyperlanes: a locked planet waits on the planets it is blocked by.
-  for (const slot of layout) {
-    const p = view.planets[slot.index];
-    for (const b of p.blockers) { const to = bySlot.get(b); if (to) dashedLine(ctx, slot, to, s.t, s.theme.red); }
-  }
+  for (const [from, to] of hyperlanes(view, layout)) dashedLine(ctx, from, to, s.t, s.theme.red);
   for (const slot of layout) {
     const p = view.planets[slot.index];
     const look = planetLook(p, s.theme);

@@ -33,16 +33,26 @@ function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRe
   const pull = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
   const github = fakeGitHub({ commits: { base1: fixture(base), head1: fixture(head) }, pull });
   const inner = github.octokit;
+  const extra = {
+    'GET /repos/{owner}/{repo}/compare/{basehead}': (params) => ({ data: params.page === 1 ? { files, commits } : { files: [], commits: [] } }),
+    'GET /repos/{owner}/{repo}/issues/{issue_number}': (params) => {
+      if (issue?.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
+      return { data: issue };
+    },
+    // The canon buttons (PRD 839): a PATCH carrying only the actions adds them to the run.
+    'PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}': (params) => {
+      if (!params.actions) return null;
+      const run = github.state.checkRuns.find((r) => r.id === params.check_run_id);
+      run.actions = params.actions;
+      return { data: run };
+    },
+  };
   github.octokit = {
     async request(route, params) {
-      if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') {
+      const answered = extra[route]?.(params);
+      if (answered) {
         github.state.requests.push({ route, ...params });
-        return { data: params.page === 1 ? { files, commits } : { files: [], commits: [] } };
-      }
-      if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}') {
-        github.state.requests.push({ route, ...params });
-        if (!issue || issue.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
-        return { data: issue };
+        return answered;
       }
       const response = await inner.request(route, params);
       if (route === 'POST /repos/{owner}/{repo}/check-runs' && params.external_id) response.data.external_id = params.external_id;
@@ -95,6 +105,30 @@ describe('inbox-check — a phase-0 PR gets the inbox check', () => {
     expect(github.state.checkRuns[0].output.summary).toContain('issue #42 is closed');
   });
 
+  it('the canon gate grades the PR\'s spec against its repository: red, "canon ✗ 1"', async () => {
+    const github = inboxGitHub();
+    const grade = async ({ repo, spec }) => ({
+      name: 'canon',
+      ok: false,
+      neutral: false,
+      title: 'canon ✗ 1',
+      reason: 'canon ✗ 1',
+      details: [`${repo}: never#4 "Never: widgets" — the spec: "${spec.includes('a complete PRD folder') ? 'a complete PRD folder' : '?'}"`],
+      canon: { state: 'red', reason: 'canon ✗ 1', claimsRead: 1, findings: [], persona: null },
+    });
+    const fn = createInboxCheck({ client: inngest, octokitFor: () => github.octokit, canon: { grade } });
+    const { result } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    expect(result).toMatchObject({ conclusion: 'failure' });
+    expect(github.state.checkRuns[0].output.title).toBe('Not ok: canon ✗ 1');
+    expect(github.state.checkRuns[0].output.summary).toContain('  - acme/widgets: never#4 "Never: widgets" — the spec: "a complete PRD folder"');
+  });
+
+  it('without a canon gate wired, the canon line is neutral and the check still succeeds', async () => {
+    const github = inboxGitHub();
+    await run(github);
+    expect(github.state.checkRuns[0].output.summary).toContain('- neutral — canon: the canon gate is not wired here');
+  });
+
   it('a ci.inboxContext set in the base config renames the check run', async () => {
     const github = inboxGitHub({ base: 'inbox-base-renamed' });
     await run(github);
@@ -107,6 +141,46 @@ describe('inbox-check — a phase-0 PR gets the inbox check', () => {
     const blobs = github.state.requests.filter((r) => r.route.endsWith('/git/blobs/{file_sha}')).map((r) => r.file_sha);
     expect(blobs.length).toBeGreaterThan(0);
     for (const sha of blobs) expect(sha === 'base1:.omni-loop/config.yml' || sha.startsWith('head1:.omni-loop/delivery/inbox/')).toBe(true);
+  });
+});
+
+describe('inbox-check — the two actions on a red canon check (PRD 839)', () => {
+  const canonGate = (state) => ({
+    grade: async () => ({
+      name: 'canon',
+      ok: state !== 'red',
+      neutral: state === 'neutral',
+      title: state === 'red' ? 'canon ✗ 1' : undefined,
+      reason: state === 'red' ? 'canon ✗ 1' : state === 'green' ? 'canon ✓ · 1 claim read' : 'no business',
+      details: [],
+      canon: {
+        state,
+        reason: '',
+        claimsRead: 1,
+        findings: state === 'red' ? [{ quote: 'a complete PRD folder', claims: ['never#4'], why: 'a group' }] : [],
+        persona: state === 'red' ? { name: 'Marc', line: 'Not for me.' } : null,
+      },
+    }),
+  });
+  const runWith = (github, state) =>
+    new InngestTestEngine({ function: createInboxCheck({ client: inngest, octokitFor: () => github.octokit, canon: canonGate(state) }), events: [event()] }).execute();
+
+  it('a red canon check run carries Rewrite for <persona> and Change the claim', async () => {
+    const github = inboxGitHub();
+    const { ctx } = await runWith(github, 'red');
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish', 'actions']);
+    expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
+    expect(github.state.checkRuns[0].actions.map((a) => [a.label, a.identifier])).toEqual([
+      ['Rewrite for Marc', 'canon-rewrite'],
+      ['Change the claim', 'canon-claim'],
+    ]);
+  });
+
+  it.each(['green', 'neutral'])('a %s canon check run carries none', async (state) => {
+    const github = inboxGitHub();
+    const { ctx } = await runWith(github, state);
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish']);
+    expect(github.state.checkRuns[0].actions).toBeUndefined();
   });
 });
 

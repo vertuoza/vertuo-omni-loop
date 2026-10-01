@@ -118,6 +118,18 @@ describe('parseConfig', () => {
     });
   });
 
+  it('names the concept label and the concept branch when the config sets neither (PRD 686)', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.concept).toBe('omni:concept');
+    expect(config.branches.concept).toBe('docs/concept-{topic}');
+  });
+
+  it('reads back a concept label and a concept branch the config sets (PRD 686)', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  concept: big-idea\nbranches:\n  concept: concept/{topic}\n');
+    expect(config.labels.concept).toBe('big-idea');
+    expect(config.branches.concept).toBe('concept/{topic}');
+  });
+
   it('has no mutation command unless the config sets one (PRD 556)', () => {
     expect(parseConfig('kit: 1\n').commands.mutation).toBeNull();
     expect(parseConfig('kit: 1\ncommands:\n  mutation: pnpm stryker run\n').commands.mutation).toBe('pnpm stryker run');
@@ -266,6 +278,24 @@ describe('omni config', () => {
     }
   });
 
+  it('prints labels.concept and branches.concept, from their defaults or as the file sets them (PRD 686)', async () => {
+    const cases = [
+      [files, [['labels.concept', 'omni:concept'], ['branches.concept', 'docs/concept-{topic}']]],
+      [
+        { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlabels:\n  concept: big-idea\nbranches:\n  concept: concept/{topic}\n' },
+        [['labels.concept', 'big-idea'], ['branches.concept', 'concept/{topic}']],
+      ],
+    ];
+    for (const [repoFiles, expected] of cases) {
+      const { root } = makeRepo({ git: true, files: repoFiles });
+      for (const [key, value] of expected) {
+        const s = io();
+        expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+        expect(s.out.join('')).toBe(`${value}\n`);
+      }
+    }
+  });
+
   it('prints the default signature when the file has no signature section (AC 1)', async () => {
     const { root } = makeRepo({ git: true, files });
     const s = io();
@@ -370,7 +400,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'markers', 'signature',
     ]);
   });
 
@@ -423,5 +453,55 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   it('refuses a key the plan section or a target does not hold', () => {
     expect(firstLine(plan([{ ...OWN, url: 'x' }]))).toMatch(/: plan\.targets\.0: .*unrecognized: url/);
     expect(firstLine(`kit: 1\nplan:\n  repos: []\n  targets:\n${target(OWN)}\n`)).toMatch(/: plan: .*unrecognized: repos/);
+  });
+});
+
+describe('the proof section (PRD 798)', () => {
+  const firstLine = (source) => {
+    try { parseConfig(source, 'c.yml'); } catch (error) { return error.message.split('\n')[0]; }
+    return 'parsed';
+  };
+
+  it('is all null with maxSeconds 60 when the file has no proof section', () => {
+    expect(parseConfig('kit: 1\n').proof).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
+  });
+
+  it('reads back every key the file sets', () => {
+    const config = parseConfig(
+      'kit: 1\nproof:\n  url: github-deployment\n  deployment: Preview – web\n  setup: pnpm proof:signin\n  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET\n  maxSeconds: 30\n',
+    );
+    expect(config.proof).toEqual({
+      url: 'github-deployment',
+      deployment: 'Preview – web',
+      setup: 'pnpm proof:signin',
+      bypassEnv: 'VERCEL_AUTOMATION_BYPASS_SECRET',
+      maxSeconds: 30,
+    });
+  });
+
+  it('takes github-deployment or an absolute http(s) URL, and refuses anything else', () => {
+    expect(parseConfig('kit: 1\nproof:\n  url: https://preview.example.com\n').proof.url).toBe('https://preview.example.com');
+    expect(parseConfig('kit: 1\nproof:\n  url: http://127.0.0.1:3000\n').proof.url).toBe('http://127.0.0.1:3000');
+    expect(firstLine('kit: 1\nproof:\n  url: preview\n')).toMatch(/^c\.yml.*proof\.url/);
+    expect(firstLine('kit: 1\nproof:\n  url: ftp://preview.example.com\n')).toMatch(/proof\.url/);
+  });
+
+  it('refuses a maxSeconds that is not a positive whole number, naming it', () => {
+    for (const bad of ['0', '-5', '1.5', 'sixty', '""']) {
+      expect(firstLine(`kit: 1\nproof:\n  maxSeconds: ${bad}\n`)).toMatch(/^c\.yml.*proof\.maxSeconds/);
+    }
+  });
+
+  it('refuses a bypassEnv that is not an environment variable name, and an unknown key', () => {
+    expect(firstLine('kit: 1\nproof:\n  bypassEnv: the secret value\n')).toMatch(/proof\.bypassEnv/);
+    expect(firstLine('kit: 1\nproof:\n  video: true\n')).toMatch(/proof.*video/);
+  });
+
+  it('is printed by omni config', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const out = [];
+    const code = await main(['config', 'proof'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out.join(''))).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
   });
 });

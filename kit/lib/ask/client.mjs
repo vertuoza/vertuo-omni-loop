@@ -3,7 +3,14 @@
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
 // them will do. Since PRD 459 it also asks where a repository's questions land (`GET
 // /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
-// screenshots an answer carries, from the signed links `wait` hands back: those carry no token.
+// screenshots an answer carries, from the signed links `wait` hands back: those carry no token. Since
+// PRD 748 it reads a repository's business (`GET /api/business`), for `omni business show`, and logs
+// the claims an agent cited (`POST /api/business/citations`), for `omni business cited`; since PRD 822
+// it stores a claim a person answered (`POST /api/business/claims`), for `omni business claim add`. Since
+// PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 798 it sends a
+// proof run: asks for signed upload links (`POST /api/proofs/uploads`), puts each file to its link (a
+// signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
+// (`POST /api/decide/<decision>`), for `omni decide`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -12,6 +19,8 @@
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long one proof file's upload may take: a clip is up to 50 MB. */
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 export class AskCallError extends Error {
   /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
@@ -41,6 +50,9 @@ const renewed = (current, fresh) => ({
 
 /** `body` with `context` added only when there is one: an older server never sees the field. */
 const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
+
+/** `body` with `lead` added only when there is one (PRD 752): an older server never sees the field. */
+const withLead = (body, lead) => (typeof lead === 'string' && lead !== '' ? { ...body, lead } : body);
 
 /**
  * @typedef {{ access_token: string, refresh_token?: string, expires_at?: number, email?: string }} Tokens
@@ -162,17 +174,36 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
   }
 
+  /**
+   * Puts `bytes` to a signed upload link as `type`. The link is its own permission: no bearer token
+   * goes with it. Anything but a 2xx, a network failure or a timeout is an `AskCallError`.
+   */
+  async function upload(url, bytes, type, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
+    let response;
+    try {
+      response = await fetch(url, { method: 'PUT', headers: { 'content-type': type }, body: bytes, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      throw new AskCallError(`PUT a proof file: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+    }
+    if (!response.ok) {
+      const reason = reasonOf(await bodyOf(response));
+      throw new AskCallError(`PUT a proof file: ${response.status}`, { status: response.status, reason });
+    }
+  }
+
   return {
     renew,
     download,
+    upload,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
     openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
     closeSession: (sessionId) => call('POST', `/api/ask/sessions/${segment(sessionId)}/close`),
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
-     * from and what it cost (`./context.mjs`). @returns {Promise<{ roundId: string }>} */
-    openRound: (sessionId, questions, context) =>
-      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withContext({ questions }, context) }),
+     * from and what it cost (`./context.mjs`); `lead`, when given, is the text Claude wrote before
+     * asking (`./lead.mjs`, PRD 752). @returns {Promise<{ roundId: string }>} */
+    openRound: (sessionId, questions, context, lead) =>
+      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
@@ -197,7 +228,34 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
      * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+    /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
+     * from the session's end. Answered 204. */
+    heartbeat: ({ claudeSessionId, repo, work, ended = false }) =>
+      call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
     findDossier: ({ repo, prd, kind = 'prd' }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
+    /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
+     * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
+    requestProofUploads: ({ repo, prd, files }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
+    /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
+     * @returns {Promise<{ url: string }>} */
+    registerProof: ({ repo, prd, run, commit, url, criteria }) =>
+      call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
+    /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
+     * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
+     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
+    readBusiness: (repo) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
+    /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
+     * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
+    citeClaims: ({ repo, ids, by, ref = null }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
+    /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
+     * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
+     * @returns {Promise<{ id: string, state: string, added: boolean }>} */
+    addClaim: ({ repo, kind, value, state, ref }) => call('POST', '/api/business/claims', { body: { repo, kind, value, state, ref } }),
+    /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
+     * own answer (`old`); the ref is sent only when there is one.
+     * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
+    decide: ({ decision, repo, state, old, ref = null }) =>
+      call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
   };
 }

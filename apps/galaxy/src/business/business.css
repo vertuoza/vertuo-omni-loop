@@ -1,0 +1,438 @@
+/* Settings → Business (PRD 748 s2), on the ask pages' reading surface: the sentence title with its
+   blanks, Skip, the picks (chips, the two-handle size slider, the typed fields), one row per claim with
+   ✓ / ✗, the claims marked wrong, and the payoff card. Every colour is a token of
+   src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px the chips and each row wrap,
+   every long word breaks, and no width is fixed wider than a phone. */
+
+.business .ask-card { justify-items: stretch; }
+.business .business-head { justify-items: start; }
+.business-kicker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+
+.business .business-sentence { font-size: 26px; line-height: 1.35; text-wrap: balance; overflow-wrap: anywhere; }
+.business-blank { color: var(--ask-muted); letter-spacing: 0.08em; }
+.business-filled { color: var(--ask-plasma); }
+
+.business-refusal { margin: 0; color: var(--ask-red); font-weight: 700; overflow-wrap: anywhere; }
+.business-skip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+
+.business-picks { gap: 24px; }
+.business-group { display: grid; gap: 10px; min-width: 0; }
+.business-group h2 { margin: 0; font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.business-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-chip {
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 999px;
+  padding: 8px 14px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.business-chip[aria-pressed='true'] { color: var(--ask-plasma); background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+.business-chip:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-chip:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+/* A rival the small model guessed (PRD 748 s3): dashed until a person says ✓ Right or ✗ Wrong. */
+.business-guess {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 14px;
+  border: 1.5px dashed var(--ask-line-strong);
+  border-radius: 999px;
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  overflow-wrap: anywhere;
+}
+.business-guess-name { min-width: 0; }
+.business-guess-tag { font-size: 12px; font-weight: 600; color: var(--ask-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.business-guess button {
+  font: 700 13px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.business-guess button:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-guess button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-type { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.business-type label { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.business-type-label { font-size: 14px; color: var(--ask-muted); }
+.business-type input,
+.business-page-field input {
+  font: 16px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Two range inputs on one track: only their thumbs take the pointer.
+   A thumb's centre sits at T/2 + v * (100% - T); the fill and the stop labels use the same place. */
+.business-slider {
+  --thumb: 22px;
+  --from: calc(var(--thumb) / 2 + var(--lo) * (100% - var(--thumb)));
+  --to: calc(var(--thumb) / 2 + var(--hi) * (100% - var(--thumb)));
+  position: relative;
+  height: 32px;
+  background:
+    linear-gradient(90deg, transparent var(--from), var(--ask-plasma) var(--from), var(--ask-plasma) var(--to), transparent var(--to))
+      no-repeat 0 50% / 100% 8px,
+    linear-gradient(var(--ask-line), var(--ask-line)) no-repeat 0 50% / 100% 8px;
+  border-radius: 4px;
+}
+/* Both handles span the whole track: the page's 900px cap on inputs (ask.css) would cut their travel short. */
+.business-slider .business-handle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.business-handle::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ask-surface);
+  border: 4px solid var(--ask-plasma);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+.business-handle::-moz-range-thumb {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ask-surface);
+  border: 4px solid var(--ask-plasma);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+.business-handle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-stops {
+  --thumb: 22px;
+  position: relative;
+  height: 18px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ask-muted);
+}
+.business-stops li {
+  position: absolute;
+  left: calc(var(--thumb) / 2 + var(--at) * (100% - var(--thumb)));
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.business-stops li[data-end] { color: var(--ask-plasma); font-weight: 700; }
+
+.business-claims ul,
+.business-wrong-list ul,
+.business-cites { list-style: none; margin: 0; padding: 0; }
+.business-claims ul,
+.business-wrong-list ul { display: grid; gap: 10px; }
+.business-wrong-list { display: grid; gap: 10px; }
+.business-wrong-list summary { cursor: pointer; color: var(--ask-muted); font-weight: 700; }
+
+.business-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.business-row[data-state='rejected'] { opacity: 0.7; }
+.business-row[data-state='proposed'] { border-style: dashed; }
+.business-row-main { flex: 1 1 160px; min-width: 0; display: grid; gap: 2px; }
+.business-row-main strong { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-kind { font-size: 13px; color: var(--ask-muted); }
+.business-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; color: var(--ask-muted); min-width: 0; }
+.business-row-meta code { font-family: var(--ask-mono); color: var(--ask-ink); }
+.business-source { border: 1px solid var(--ask-line); border-radius: 4px; padding: 2px 6px; }
+.business-cited { overflow-wrap: anywhere; }
+.business-verdict { display: flex; gap: 6px; }
+.business-verdict button {
+  font: 700 16px/1 var(--ask-body);
+  width: 40px;
+  height: 36px;
+  color: var(--ask-muted);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.business-verdict .business-right[aria-pressed='true'] { color: var(--ask-green); border-color: var(--ask-green); }
+.business-verdict .business-wrong[aria-pressed='true'] { color: var(--ask-red); border-color: var(--ask-red); }
+.business-verdict button:disabled { cursor: default; }
+
+.business-payoff { justify-items: start; }
+.business-cites { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.business-cites li { overflow-wrap: anywhere; }
+.business-cites code { font-family: var(--ask-mono); color: var(--ask-plasma); }
+.business-try {
+  margin: 0;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--ask-sunk);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.business-try code { font-family: var(--ask-mono); }
+
+/* Products (PRD 748 s4): the shared region above one tab per product, and "+ Add a product" at the
+   foot while there is one. The tabs wrap, and a long name breaks. */
+.business-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-products-bar { display: grid; gap: 10px; min-width: 0; }
+.business-products { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.business-product-tab {
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 8px 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.business-product-tab[aria-selected='true'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+.business-product-tab:disabled { cursor: not-allowed; }
+.business-product-tab:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+/* The draft (PRD 774 s3): Draft from my repos and "+ add a web page" under the title, the pages
+   pasted, the scan of sources, the Sources used line, What we found with a receipt chip per quote and
+   ✓ Right / ✗ Wrong, and the That's us dock. Everything wraps at 393 px; the title types itself only
+   where motion is welcome. */
+.business-draft-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.business-page-field { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; width: 100%; }
+.business-page-field label { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.business-pages ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.business-pages li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  font: 13px/1.3 var(--ask-mono);
+  overflow-wrap: anywhere;
+}
+.business-page-remove {
+  font: 700 14px/1 var(--ask-body);
+  color: var(--ask-muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.business-page-remove:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-scan { display: grid; gap: 4px; }
+.business-scan p { margin: 0; }
+.business-scan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.business-scan li { font: 13px/1.5 var(--ask-mono); color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-scan li[data-state='read'] { color: var(--ask-ink); }
+
+.business-used { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-reveal-line { margin: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.business-reveal-line p { margin: 0; }
+.business-saved { color: var(--ask-green); font-weight: 700; }
+.business-unsaved { color: var(--ask-plasma); border-color: var(--ask-plasma); }
+
+.business-found h2 { margin: 0; font-size: 16px; }
+.business-found ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.business-found-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ask-line);
+}
+.business-found-row:first-child { border-top: 0; }
+.business-found-main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.business-found-row[data-mark='wrong'] strong { color: var(--ask-muted); text-decoration: line-through; }
+.business-found-value { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-receipts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.business-receipt {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--ask-muted);
+  border: 1px dashed var(--ask-line-strong);
+  border-radius: 6px;
+  padding: 3px 8px;
+  overflow-wrap: anywhere;
+}
+.business-receipt summary { cursor: pointer; font-family: var(--ask-mono); font-weight: 700; color: var(--ask-cyan); }
+.business-receipt summary:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-quote { display: block; margin-top: 4px; font-style: italic; color: var(--ask-ink); }
+.business-found-verdict { display: flex; gap: 6px; }
+.business-found-verdict button {
+  font: 700 13px/1 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.business-found-verdict .business-right[aria-pressed='true'] { color: var(--ask-green); border-color: var(--ask-green); }
+.business-found-verdict .business-wrong[aria-pressed='true'] { color: var(--ask-red); border-color: var(--ask-red); }
+.business-found-verdict button:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-found-verdict button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.business-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--ask-plasma-soft);
+  border: 1px solid var(--ask-plasma);
+  border-radius: 12px;
+}
+.business-dock span { flex: 1 1 200px; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+
+/* What the weekly recheck found (PRD 774 s4), on top of the page: a replacement, the old value struck;
+   an addition, the list it would become; a faded claim, dimmed with its date. Each row wraps at 393 px
+   like a found row. */
+.business-check { border-color: var(--ask-plasma); }
+.business-check h2 { margin: 0; font-size: 16px; }
+.business-check ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.business-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ask-line);
+}
+.business-check-row:first-child { border-top: 0; }
+.business-check-main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.business-check-diff { color: var(--ask-ink); overflow-wrap: anywhere; }
+.business-check-diff s { color: var(--ask-muted); }
+.business-check-since { font-size: 13px; color: var(--ask-muted); }
+.business-check-row[data-kind='faded'] .business-check-main { opacity: 0.6; }
+
+@keyframes business-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .business-typing { animation: business-type 1.2s steps(40, end) both; }
+}
+
+/* Personas (PRD 799 s3, direction A): a header with the count and + Add a persona, a grid of cards
+   (portrait, name, trade, stance chip, who, uses), and the drawer with its portrait picker. Portraits
+   are pixel art: never smoothed. At 393 px the grid is one column, the drawer stacks, the header and
+   every chip row wrap, and long words break. */
+.business-personas-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.business-personas-head h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.business-add-persona { margin-left: auto; }
+.business-personas-hint { margin: 0; overflow-wrap: anywhere; }
+.business-personas-empty { margin: 0; color: var(--ask-muted); }
+.business-personas-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+.business-persona-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.business-persona {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+}
+.business-persona-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.business-persona-id { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.business-persona-name { font-size: 16px; overflow-wrap: anywhere; }
+.business-persona-trade { font-size: 13px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.business-persona-line { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.business-persona-label { font: 700 11px/1 var(--ask-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ask-muted); }
+.business-persona-edit { justify-self: start; }
+
+.business-portrait { display: inline-block; flex: none; line-height: 0; border-radius: 8px; background: var(--ask-sunk); }
+.business-portrait svg { display: block; image-rendering: pixelated; }
+.business-portrait-none { width: 64px; height: 64px; }
+
+.business-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.business-stance[data-stance='excited'] { color: var(--ask-green); }
+.business-stance[data-stance='neutral'] { color: var(--ask-muted); }
+.business-stance[data-stance='skeptical'] { color: var(--ask-red); }
+
+.business-persona-drawer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 16px;
+  padding: 14px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.business-persona-chosen { flex: none; }
+.business-persona-fields { flex: 1 1 240px; min-width: 0; display: grid; gap: 12px; }
+.business-persona-fields h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.business-persona-field { display: grid; gap: 4px; min-width: 0; }
+.business-persona-field input,
+.business-persona-field select,
+.business-persona-field textarea {
+  font: 15px/1.4 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-ground);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+.business-persona-field textarea { resize: vertical; }
+.business-persona-picker { display: grid; gap: 8px; min-width: 0; }
+.business-persona-picker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.business-persona-variations { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; }
+.business-persona-variation {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  background: var(--ask-sunk);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.business-persona-variation[aria-pressed='true'] { border-color: var(--ask-plasma); }
+.business-persona-variation:disabled { cursor: not-allowed; opacity: 0.6; }
+.business-persona-variation:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.business-persona-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.business-persona-delete { margin-left: auto; color: var(--ask-red); }

@@ -5,8 +5,10 @@ every slice a zone, every open question or bug an Entropy unit on its surface. S
 GitHub makes you a member of the workspace of every GitHub org of yours that has Omni Loop installed
 (the `vertuoza` workspace, for the vertuoza org), and a **player** at once: you pick a
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
-counts as XP, which never resets, and levels open arcade games in the game room, the first of them
-Entropy Invaders ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
+game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
+and levels open arcade games in the game room: Entropy Invaders from LV 1, then SUPER OMNI WORLD
+from LV 2 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -102,8 +104,9 @@ HOME.
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
-| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and two SOON cabinets ([The game room](#the-game-room)) |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
+| SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
@@ -550,6 +553,25 @@ opened, merged or still open in the window and their reviews, a thousand rows at
 tracked repository the page says *No tracked repositories yet → Settings → Repositories*; a read that
 fails leaves the board saying it could not load. The demo draws a made-up board (`src/engineering/demo.ts`).
 
+### Settings › Jev (PRD 812)
+
+**Settings › Jev** (`/app/settings/jev`, `src/jev/settings/`) lets a workspace's owner hand some of
+the loop's decisions to Jev, TypeSafe AI's model for typed questions. The owner switches Jev on and
+pastes the workspace's TypeSafe API key: `POST /api/jev/key` tests it with one call to Jev, and only
+if that call answers, seals it with AES-256-GCM under `SECRETS_MASTER_KEY` (`src/jev/secret-box.ts`)
+and stores it through the owner-only `set_jev_key()`. A refused key shows TypeSafe's reason and
+nothing is stored. The page then shows only the key's last four. Switching Jev off (`DELETE
+/api/jev/key`, `remove_jev_key()`) removes the key and sets every decision Off. Members see whether
+Jev is on, never the key. Nobody signed in reads `public.workspace_secrets`; only Galaxy's server,
+with the service role, reads a sealed key, to call Jev (`src/jev/client.ts`: the pinned `jev-1.13.0`,
+5 s, no retry, every token in what it sends masked). Each decision's mode, threshold and confidence
+floor live in `public.jev_decisions`, every call in `public.jev_calls`
+(`supabase/migrations/20261022090000_jev_decisions.sql`, proven by `supabase/checks/jev.sql`).
+
+Without `SECRETS_MASTER_KEY` (32 random bytes, base64: `openssl rand -base64 32`), the page says *Jev
+is not available on this deployment* and nothing can be saved. Losing it makes every stored key
+unreadable: each call then fails, today's path decides, and the owner pastes the key again.
+
 ## The knowledge map
 
 The repository's knowledge base (`.omni-loop/knowledge`: its principles, business rules and
@@ -644,8 +666,8 @@ off, no row exists, and every player sees NO XP YET.
 - **`games`**, the room (`src/arcade/games/room.ts`): the level, the XP bar and the XP to the next
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
-  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at; two dark SOON
-  cabinets stand for the games to come, with no level. A visitor sees every cabinet locked and
+  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
+  `REACH LV 2 TO PLAY`); a dark SOON cabinet stands for the game to come, with no level. A visitor sees every cabinet locked and
   "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
   could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
   choosing; the tall grid shows one a page.
@@ -672,6 +694,27 @@ off, no row exists, and every player sees NO XP YET.
   The screen says SAVING SCORE…, then NEW BEST, YOUR BEST n, or SCORE NOT SAVED, where A retries
   once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
   XP.
+- **`platformer`**, SUPER OMNI WORLD (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
+  rulebook): an original side-scrolling platformer in the SNES style, on Phaser 4, which is imported
+  only when the game opens (`src/arcade/platformer/PlatformerScreen.tsx`, the one way in; a failed
+  import says `GAME DID NOT LOAD · A TO RETRY`). The player's own hero runs (◀ ▶, B held to run),
+  jumps higher the longer A is held, stomps Entropy blobs, takes coins and bumps `?` blocks, over
+  three stages played in order: **1-1** grass, **1-2** underground and **1-3** the castle, each in
+  its own palette of `@omni/design` tiles (`STAGE_PALETTES`) and with its blobs in a wound kind's
+  colours. The stages are text maps in `src/arcade/platformer/stages.ts`, checked by its test (one
+  start, one flag, 18 equal rows, known characters, no pit wider than a run-jump). Three lives: a
+  blob, a pit or the 300-second clock costs one and restarts the stage, the score kept. A coin is
+  10, a stomp 50, and each second left at the flag 10. A stage clear goes on to the next stage on
+  A; 1-3's flag shows WORLD CLEAR. The rules (`rules.ts`, `session.ts`) have no Phaser in them;
+  Phaser does the physics and the drawing and reports what happened. It is silent. At the game over
+  or WORLD CLEAR the score is sent once under `platformer`, with the same SAVING SCORE…, NEW BEST,
+  YOUR BEST n or SCORE NOT SAVED (A retries once) as Invaders.
+- **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
+  `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
+  picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
+  game's ready, pause or game-over screen goes back to the picker, and the last choice is
+  remembered for the tab's session. A question on the page pauses the game at once and only START
+  resumes it. The dock does not send SUPER OMNI WORLD's score.
 
 ## PRD dossiers
 
@@ -1054,6 +1097,10 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    `STAGE_EVENT_SECRET`, the same value as on omni-app, which signs its stage events to
    `/api/stages/event`. Without one, its route refuses every call and stages come from the other way
    in ([PRD stages](#prd-stages-prd-587)).
+   For Jev (PRD 812), one more, server only: `SECRETS_MASTER_KEY`, 32 random bytes in base64
+   (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
+   Settings › Jev says Jev is not available on this deployment and every decision is made as before
+   ([Settings › Jev](#settings--jev-prd-812)).
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.

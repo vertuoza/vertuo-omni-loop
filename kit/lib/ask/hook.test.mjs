@@ -156,6 +156,23 @@ describe('the pre hook', () => {
     expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).toEqual({ questions: [COLOUR] });
   });
 
+  it('sends the lead Claude wrote before asking, and none when there is no lead (PRD 752)', async () => {
+    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    await pre(preInput([COLOUR], 'toolu_01'), ROOMY, { readLead: () => '## The design' });
+    await pre(preInput([PLACES], 'toolu_02'), ROOMY, { readLead: () => null });
+    const bodies = server.calls.filter((call) => call.path.endsWith('/rounds')).map((call) => call.body);
+    expect(bodies[0].lead).toBe('## The design');
+    expect(bodies[1]).not.toHaveProperty('lead');
+  });
+
+  it('still asks the question, with no lead, when reading the lead throws', async () => {
+    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const readLead = () => { throw new Error('the transcript moved'); };
+    const output = await pre(preInput([COLOUR]), ROOMY, { readLead });
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).not.toHaveProperty('lead');
+  });
+
   it('opens the terminal\'s session with context.repo (PRD 144)', async () => {
     const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
     await pre(preInput([COLOUR]), ROOMY, { readSessionContext: () => ({ repo: 'acme/widgets' }) });

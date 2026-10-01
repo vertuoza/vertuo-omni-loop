@@ -2,7 +2,19 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 import { inboxCheck } from '../inbox-check/inbox-check.mjs';
-import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toHarvestRequests, toRetroRequests } from './webhook.mjs';
+import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.mjs';
+import {
+  CANON_ACTIONS,
+  CHECK_ACTIONS,
+  HANDLED,
+  RETRO_ACTIONS,
+  receiveWebhook,
+  toCanonActionRequests,
+  toCheckRequests,
+  toEvents,
+  toHarvestRequests,
+  toRetroRequests,
+} from './webhook.mjs';
 
 const SECRET = 'shh-test-secret';
 
@@ -291,9 +303,9 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toEvents('pull_request', { ...mergedPayload(), action }).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
   });
 
-  it('handles exactly the check actions and the retro actions', () => {
+  it('handles exactly the check actions, the retro actions and the canon buttons', () => {
     expect(HANDLED.pull_request).toEqual([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]);
-    expect(HANDLED.check_run).toEqual(CHECK_ACTIONS.check_run);
+    expect(HANDLED.check_run).toEqual([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]);
     expect(RETRO_ACTIONS).toEqual({ pull_request: ['closed'] });
   });
 });
@@ -366,5 +378,67 @@ describe('webhook — the stage events (PRD 587)', () => {
   it('never fails the reply when the forward throws, nor when the Inngest send finds nothing to send', async () => {
     const response = await receive(cases[0][1], { forward: async () => { throw new Error('galaxy down'); } });
     expect(response.status).toBe(200);
+  });
+});
+
+describe('webhook — the two actions on a red canon check (PRD 839)', () => {
+  const FACTS = { prd: 839, persona: 'Marc', claims: ['never#4'] };
+  const clicked = (identifier, over = {}) => ({
+    action: 'requested_action',
+    installation: INSTALLATION,
+    repository: REPOSITORY,
+    requested_action: { identifier },
+    check_run: {
+      id: 77,
+      name: 'inbox',
+      external_id: INBOX_EXTERNAL_ID,
+      head_sha: 'abc123',
+      output: { title: 'Not ok: canon ✗ 1', summary: `PRD 839\n\n- not ok — canon: canon ✗ 1\n\n<!-- omni-canon ${JSON.stringify(FACTS)} -->` },
+      pull_requests: [{ number: 28, head: { sha: 'abc123', ref: 'docs/phase-0-canon-check' }, base: { ref: 'main' } }],
+      ...over,
+    },
+  });
+
+  it('handles check_run.requested_action beside the re-run', () => {
+    expect(HANDLED.check_run).toEqual(['rerequested', 'requested_action']);
+    expect(CANON_ACTIONS.check_run).toEqual(['requested_action']);
+  });
+
+  it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon action event', async (identifier) => {
+    const { response, send } = await deliver({ event: 'check_run', payload: clicked(identifier) });
+    expect(response.status).toBe(200);
+    expect(send.mock.calls[0][0]).toEqual([
+      {
+        name: CANON_ACTION_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+          headSha: 'abc123',
+          checkRunId: 77,
+          action: identifier,
+          facts: FACTS,
+        },
+      },
+    ]);
+  });
+
+  it('never re-runs a check for a click', () => {
+    expect(toEvents('check_run', clicked(CANON_ACTION.rewrite)).map((e) => e.name)).toEqual([CANON_ACTION_EVENT]);
+    expect(toCheckRequests('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
+  });
+
+  it.each([
+    ['another check run', clicked(CANON_ACTION.rewrite, { external_id: 'someone-else' })],
+    ['an unknown button', clicked('ship-anyway')],
+    ['a check run without the canon facts', clicked(CANON_ACTION.claim, { output: { title: 'x', summary: 'PRD 839' } })],
+    ['a check run tied to no pull request', clicked(CANON_ACTION.claim, { pull_requests: [] })],
+  ])('sends nothing for %s', async (_, payload) => {
+    expect(toCanonActionRequests('check_run', payload)).toEqual([]);
+    const { response, send } = await deliver({ event: 'check_run', payload });
+    expect(response.status).toBe(200);
+    expect(send).not.toHaveBeenCalled();
   });
 });

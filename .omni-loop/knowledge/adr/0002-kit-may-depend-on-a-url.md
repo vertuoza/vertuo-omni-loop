@@ -1,6 +1,6 @@
 # ADR-0002 — The kit may depend on a URL the game's app serves, and still never names the game
 
-**Status:** accepted · **Date:** 2026-09-25 · **PRD:** #71 · **Amends:** PRD 3's spec
+**Status:** accepted · **Date:** 2026-09-25 (amended 2026-09-30, PRD #752: the round's `lead`) · **PRD:** #71 · **Amends:** PRD 3's spec
 (`.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md`), §2 principle 7
 
 ## Context
@@ -32,6 +32,14 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    claudeSessionId, skill, model, tokens}`, each field null when the kit could not read it. Only
    names and counts leave the machine, never transcript text, and the kit holds no price. An older
    kit sends neither and keeps working; a server that ignores the field still honours the contract.
+   **One exception, since PRD 752:** the same round call takes an optional top-level `lead`, a text
+   or null: the text blocks of Claude's last assistant message before the AskUserQuestion call, read
+   from the transcript (`kit/lib/ask/lead.mjs`), capped at 16 KB and ending with "… (shortened, the
+   rest is in the terminal)" when cut. It is shown above that round's questions on the page, to the
+   round's readers. No other transcript text leaves the machine: never a tool call, a tool result, a
+   file's content, thinking, or the person's own messages. The lead is never in `context`, and the
+   classifier never reads it. The server refuses a `lead` that is not text, or is longer, with 400.
+   An older kit sends no `lead`, and an older server ignores it.
    The galaxy's own pages add calls the kit never makes: `POST /api/ask/rounds/:id/shares` (the
    owner shares a round with a member of the session's workspace; any round may be shared, and an
    answered one is then read-only), `PATCH /api/ask/rounds/:id/category` and
@@ -52,6 +60,21 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    caller cannot read), 413 and 503. Only the three files, the repository's name, the PRD number, the
    title and the Claude session id (`CLAUDE_CODE_SESSION_ID`) leave the machine. An older kit makes
    neither call; a server without them answers 404, which the kit reports as `refused (404)`.
+   Since PRD 757, the kit makes one more call, with the bearer token, when this computer is signed in
+   and `dossier.enabled` is true with `ask.url` set, whether ask mode is on or off (`omni heartbeat`,
+   run by the plugin's `PostToolUse` hook on every tool and by a `SessionEnd` hook step of its own,
+   beside ask mode's, so the end is sent whether ask mode is on or off; answered on PR #760):
+   - `POST /api/ask/heartbeat {claudeSessionId, repo, work, ended?}` → `204` says a Claude session is
+     working. `work` is what it works on, found on this computer: `{kind: 'draft', draftId}`,
+     `{kind: 'prd' | 'visual' | 'bug', number}`, or `null` for the session alone; `ended: true` comes
+     only from the session's end, with `work: null`. It is sent at most once per 60 seconds per
+     Claude session, with a 2-second limit in all and no retry.
+
+   Only the Claude session id, the repository's name, the work's kind and number (or the draft's id)
+   and the time of the call leave the machine: no tool name, no path, no command, no transcript
+   text. Any failure — unreachable, 401, a 404 from a server older than the call, a 5xx, the limit —
+   exits 0 in silence: the hook never blocks or fails a tool. The call names a heartbeat and
+   working, never the game.
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The

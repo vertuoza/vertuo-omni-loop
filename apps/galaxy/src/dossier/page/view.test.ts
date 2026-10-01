@@ -5,7 +5,8 @@ import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { peopleOf } from '../../people/load';
 import { REPLIES_UNREAD, SEND_OFF, SIGN_IN_TO_ANSWER } from './outbox-view';
-import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
+import type { CareState } from '../github/care';
+import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, watcherOf, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -146,13 +147,15 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then Outbox and Retro, dimmed while empty', () => {
+  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then User voice, Outbox, PR care and Retro, dimmed while empty', () => {
     expect(view().tabs).toEqual([
       { kind: 'questions', label: 'Questions', badge: '2/4', alert: '1 to answer', href: `/prd/${ID}`, current: true, empty: false },
       { kind: 'before-after', label: 'Before/after', badge: 'v2', alert: null, href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
       { kind: 'spec', label: 'Spec', badge: 'v3', alert: null, href: `/prd/${ID}?tab=spec`, current: false, empty: false },
       { kind: 'plan', label: 'Plan', badge: null, alert: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
+      { kind: 'voice', label: 'User voice', badge: null, alert: null, href: `/prd/${ID}?tab=voice`, current: false, empty: true },
       { kind: 'outbox', label: 'Outbox', badge: null, alert: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
+      { kind: 'care', label: 'PR care', badge: null, alert: null, href: `/prd/${ID}?tab=care`, current: false, empty: true },
       { kind: 'retro', label: 'Retro', badge: null, alert: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
     ]);
   });
@@ -172,7 +175,9 @@ describe('the tabs', () => {
         ['before-after', `/prd/${ID}`, true],
         ['spec', `/prd/${ID}?tab=spec`, false],
         ['plan', `/prd/${ID}?tab=plan`, false],
+        ['voice', `/prd/${ID}?tab=voice`, false],
         ['outbox', `/prd/${ID}?tab=outbox`, false],
+        ['care', `/prd/${ID}?tab=care`, false],
         ['retro', `/prd/${ID}?tab=retro`, false],
       ]);
     }
@@ -767,5 +772,93 @@ describe('the faces of the people it names (PRD 652)', () => {
     expect(outbox.settled[0].face).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(outbox.sender).toEqual({ kind: 'photo', url: 'https://a.test/marie.png' });
     expect(dossierView(read({ github }), null, readPick({ tab: 'outbox' })).outbox.sender).toBeNull();
+  });
+});
+
+describe('the PR care tab (PRD 790, s4)', () => {
+  const NOW = Date.parse('2026-09-30T12:00:00Z');
+  const FEATURE = { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
+  const thread = (verdict: CareState['threads'][number]['verdict'], n: number, more: Partial<CareState['threads'][number]> = {}) => ({
+    url: `https://github.com/vertuoza/vertuo-omni-loop/pull/221#discussion_r${n}`, login: `rev${n}`, avatar: null, firstLine: `Comment ${n}`,
+    verdict, reason: verdict === 'open' ? null : `Reason ${n}`, resolved: verdict === 'fixed' || verdict === 'pushed-back', ...more,
+  });
+  const CARE: CareState = {
+    ci: 'red', failedUrl: 'https://github.com/vertuoza/vertuo-omni-loop/actions/runs/9', conflict: true, base: 'main',
+    threads: [thread('asked', 1), thread('open', 2), thread('fixed', 3), thread('pushed-back', 4)],
+    watchingSince: '2026-09-30T10:00:00Z', lastRound: '2026-09-30T11:57:00Z',
+  };
+  const github = (more: Partial<GithubSummary> = {}): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE, ...more,
+  });
+  const careOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
+    dossierView({ dossier, versions, members: MEMBERS, rounds, github: summary }, PIERRE.user_id, readPick({ tab: 'care' }), NOW);
+
+  it('comes after Outbox, badged with the threads still waiting; left out once GitHub says there is no feature PR, and for a draft', () => {
+    const v = careOf(github());
+    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'voice', 'outbox', 'care', 'retro']);
+    expect(v.tabs.find((t) => t.kind === 'care')).toEqual({
+      kind: 'care', label: 'PR care', badge: '2 open', alert: null, href: `/prd/${ID}?tab=care`, current: true, empty: false,
+    });
+    expect(v.tab).toBe('care');
+    for (const none of [careOf(github({ feature: null })), careOf(github(), draft)]) {
+      expect(none.tabs.map((t) => t.kind)).not.toContain('care');
+      expect(none.tab).toBe('questions');
+      expect(none.care).toBeNull();
+    }
+  });
+
+  it('stays, dimmed, while GitHub is being read or did not answer, so the tab bar does not move', () => {
+    const pending = careOf(undefined);
+    expect(pending.tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+    expect(pending.care).toMatchObject({ state: 'pending', words: 'Reading GitHub…', prUrl: null });
+    for (const summary of [null, github({ feature: UNREAD })]) {
+      expect(careOf(summary).tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+      expect(careOf(summary).care).toMatchObject({ state: 'unread', words: GITHUB_UNREAD, prUrl: null });
+    }
+  });
+
+  it('shows CI with the failed run, the conflict with its base, the counts, and the threads asked first, each with its verdict and reason', () => {
+    const { care } = careOf(github());
+    expect(care).toMatchObject({
+      state: 'care', prUrl: FEATURE.url,
+      ci: { state: 'red', words: 'red', href: 'https://github.com/vertuoza/vertuo-omni-loop/actions/runs/9' },
+      conflict: { state: 'conflict', words: 'conflicting with main' },
+      counts: { open: 1, fixed: 1, 'pushed-back': 1, asked: 1 },
+    });
+    expect(care!.threads.map((t) => [t.login, t.firstLine, t.verdictWords, t.reason])).toEqual([
+      ['rev1', 'Comment 1', 'asked: the PM decides', 'Reason 1'],
+      ['rev2', 'Comment 2', 'not handled yet', null],
+      ['rev3', 'Comment 3', 'fixed', 'Reason 3'],
+      ['rev4', 'Comment 4', 'pushed back', 'Reason 4'],
+    ]);
+    expect(care!.threads[0].person).toMatchObject({ name: 'rev1', face: { kind: 'photo', url: 'https://github.com/rev1.png?size=48' } });
+    const avatar = careOf(github({ care: { ...CARE, threads: [thread('open', 5, { avatar: 'https://a.test/5.png' })] } })).care!;
+    expect(avatar.threads[0].person.face).toEqual({ kind: 'photo', url: 'https://a.test/5.png' });
+  });
+
+  it('reads CI green or running with no link, and no conflict, or GitHub still checking', () => {
+    const green = careOf(github({ care: { ...CARE, ci: 'green', failedUrl: null, conflict: false, threads: [] } }));
+    expect(green.care).toMatchObject({ ci: { state: 'green', words: 'green', href: null }, conflict: { state: 'none', words: 'none' } });
+    expect(green.tabs.find((t) => t.kind === 'care')?.badge).toBeNull();
+    const running = careOf(github({ care: { ...CARE, ci: 'running', failedUrl: null, conflict: null } })).care!;
+    expect(running).toMatchObject({ ci: { state: 'running', href: null }, conflict: { state: 'unknown', words: 'GitHub is still checking' } });
+  });
+
+  it('says Claude is watching under 15 minutes after the last round, else nobody, with the command to start', () => {
+    expect(careOf(github()).care!.watcher).toEqual({ watching: true, words: 'Claude is watching · last round 3 min ago', command: '/omni:pr-care 216' });
+    expect(watcherOf('2026-09-30T11:45:01Z', 216, NOW)).toMatchObject({ watching: true, words: 'Claude is watching · last round 14 min ago' });
+    for (const last of ['2026-09-30T11:45:00Z', '2026-09-29T11:57:00Z', null]) {
+      expect(watcherOf(last, 216, NOW)).toEqual({ watching: false, words: 'Nobody is watching', command: '/omni:pr-care 216' });
+    }
+  });
+
+  it('has nothing to look after once the feature PR is merged, and says when GitHub did not answer', () => {
+    const merged = careOf(github({ feature: { ...FEATURE, state: 'merged' }, care: null }));
+    expect(merged.care).toMatchObject({ state: 'done', words: 'The feature PR is merged: nothing is left to look after.', prUrl: FEATURE.url });
+    expect(merged.tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+    for (const care of [UNREAD, null, undefined] as const) {
+      expect(careOf(github({ care })).care).toMatchObject({ state: 'unread', words: GITHUB_UNREAD });
+    }
   });
 });

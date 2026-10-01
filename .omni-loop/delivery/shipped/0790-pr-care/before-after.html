@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PR care</title>
+<style>
+/* Layout: three moments (the PRD page, a review thread, the terminal), each today | after side by side, stacking at phone width. Look: the PRD page's own tokens. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#ffffff;
+ --red:#b3122f;--redSoft:#fbe8ec;--amber:#8a5a00;--amberSoft:#fdf1d8;--green:#15703f;--greenSoft:#e4f4ea;
+ --term:#14132e;--termInk:#e7e8ff;--termMuted:#9a9cc9;
+ --shadow:0 1px 0 rgba(23,21,61,.04),0 14px 36px -18px rgba(23,21,61,.35);
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ --display:Impact,"Haettenschweiler","Arial Narrow Bold",sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+ --red:#ff6b86;--redSoft:#3a1633;--amber:#ffc865;--amberSoft:#3a2f1a;--green:#4ee08a;--greenSoft:#133b3c;
+ --term:#07061c;--termInk:#e7e8ff;--termMuted:#8d90c4;
+ --shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:36px}
+header h1{font:900 30px/1.05 var(--display);letter-spacing:.04em;text-transform:uppercase;margin:0}
+header p{margin:6px 0 0;color:var(--muted);max-width:75ch}
+.moment{display:grid;gap:12px}
+.moment>h2{margin:0;font-size:20px;text-wrap:balance}
+.moment>p{margin:0;color:var(--muted);max-width:80ch}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.pair{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;min-width:0;align-content:start}
+.tag{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag.after{color:var(--plasma)}
+.win{border:1px solid var(--lineStrong);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.head{padding:12px 14px;border-bottom:2px solid var(--lineStrong);display:grid;gap:8px}
+.head h3{margin:0;font-size:17px;line-height:1.25}
+.links{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:13px/1.4 var(--mono)}
+.lk{color:var(--plasma);font-weight:700}
+.lk.done::before{content:"✓ ";color:var(--green)}
+.chip{display:inline-flex;gap:6px;align-items:center;font:700 12px/1 var(--mono);padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--sunk);color:var(--ink)}
+.chip .ok{color:var(--green)}.chip .bad{color:var(--red)}
+.chip.red{border-color:var(--red);background:var(--redSoft)}
+.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 10px;border-bottom:1px solid var(--line);font-size:13px}
+.tabs span{padding:8px 10px;color:var(--muted);white-space:nowrap}
+.tabs .on{color:var(--ink);font-weight:700;border-bottom:3px solid var(--plasma)}
+.tabs .new{color:var(--plasma)}
+.main{background:var(--ground);padding:14px;display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.empty{color:var(--muted);font-size:14px}
+.stat{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)}
+.stat:first-child{border-top:0}
+.k{font:700 11px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.good{color:var(--green);font-weight:700}.warn{color:var(--red);font-weight:700}
+.counts{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font:700 11px/1 var(--mono);padding:4px 8px;border-radius:999px;border:1px solid currentColor}
+.p-asked{color:var(--amber)}.p-fixed{color:var(--green)}.p-push{color:var(--plasma)}.p-open{color:var(--muted)}
+.thread{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.av{width:28px;height:28px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);display:grid;place-items:center;font:700 11px/1 var(--mono);color:var(--muted)}
+.thread p{margin:0;font-size:14px}
+.why{font-size:13px;color:var(--muted)}
+.thread.asked{background:var(--amberSoft);margin:0 -14px;padding:8px 14px}
+.watch{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--greenSoft)}
+code.cp{font:700 13px/1 var(--mono);padding:5px 8px;border-radius:6px;border:1px dashed var(--plasma);color:var(--plasma);background:var(--plasmaSoft)}
+.gh{padding:12px 14px;display:grid;gap:10px}
+.cm{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.bubble{border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.bubble .by{background:var(--sunk);padding:5px 10px;font-size:12px;color:var(--muted)}
+.bubble .tx{padding:8px 10px;font-size:14px}
+.bubble.bot{border-color:var(--plasma)}
+.bubble.bot .by{background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.file{font:12px/1.4 var(--mono);color:var(--muted)}
+.resolved{font:700 12px/1 var(--mono);color:var(--green)}
+.unres{font:700 12px/1 var(--mono);color:var(--muted)}
+.term{background:var(--term);color:var(--termInk);font:13px/1.6 var(--mono);padding:14px;border-radius:14px;overflow-x:auto;white-space:pre;border:1px solid var(--lineStrong)}
+.term .m{color:var(--termMuted)}.term .g{color:#4ee08a}.term .r{color:#ff6b86}.term .p{color:#c9a4ff}.term .a{color:#ffc865}
+.notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.notes{grid-template-columns:minmax(0,1fr)}}
+.notes ul{margin:0;padding-left:20px}
+.notes h3{margin:0 0 6px;font-size:15px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <h1>PR care</h1>
+ <p>PRD #790. A PM runs <code>/omni:pr-care &lt;n&gt;</code> once. From then on the feature PR stays green and conflict-free, and each review comment is either fixed or pushed back with a reason. The PRD page shows all of it.</p>
+</header>
+
+<section class="moment">
+ <h2>1 · The PRD page</h2>
+ <p>Today the page links the feature PR and says nothing about its health. After, a chip in the header gives the state at a glance, and a new PR care tab lists every review thread with Claude's verdict.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win">
+    <div class="head"><h3>PRD 774 · Drafted from evidence</h3>
+     <div class="links"><span class="lk done">#777 phase-0</span><span class="lk">#775 feature</span><span class="lk">#774 issue</span></div></div>
+    <div class="tabs"><span>Before/after</span><span>Spec</span><span>Plan</span><span>Questions</span><span class="on">Outbox</span><span>Timeline</span></div>
+    <div class="main"><div class="card"><div class="empty">Nothing here says the feature PR has red CI, a conflict with main and 6 unanswered review comments. The PM finds out on GitHub, on the day they want to merge.</div></div></div>
+   </div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="win">
+    <div class="head"><h3>PRD 774 · Drafted from evidence</h3>
+     <div class="links"><span class="lk done">#777 phase-0</span><span class="lk">#775 feature</span><span class="chip"><span class="ok">CI ✓</span>· no conflict · 1 asked</span><span class="lk">#774 issue</span></div></div>
+    <div class="tabs"><span>Before/after</span><span>Spec</span><span>Plan</span><span>Questions</span><span>Outbox</span><span class="on new">PR care</span><span>Timeline</span></div>
+    <div class="main">
+     <div class="card">
+      <div class="stat"><span class="k">CI</span><span class="good">green · 12 checks</span></div>
+      <div class="stat"><span class="k">Conflicts</span><span class="good">none with main</span></div>
+      <div class="stat"><span class="k">Review</span><span class="counts"><span class="pill p-asked">1 asked</span><span class="pill p-fixed">3 fixed</span><span class="pill p-push">2 pushed back</span><span class="pill p-open">0 open</span></span></div>
+     </div>
+     <div class="card">
+      <div class="thread asked"><span class="av">AM</span><div><p><b>amelie-dev</b> · "Should drafts expire after 30 days?"</p><div class="why"><b style="color:var(--amber)">Asked</b> · needs a product decision, left open for you · <span class="lk">thread ↗</span></div></div></div>
+      <div class="thread"><span class="av">JL</span><div><p><b>jlambert</b> · "parseSources and parsePages are the same loop"</p><div class="why"><b class="good">Fixed</b> in a41c9e0 · merged into one helper · <span class="lk">thread ↗</span></div></div></div>
+      <div class="thread"><span class="av">JL</span><div><p><b>jlambert</b> · "I'd call this <code>srcs</code> instead of <code>sources</code>"</p><div class="why"><b style="color:var(--plasma)">Pushed back</b> · naming taste, no linter rule · resolved with the reason · <span class="lk">thread ↗</span></div></div></div>
+     </div>
+     <div class="watch"><span class="dot"></span><span>Claude is watching · last round 3 min ago</span></div>
+    </div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>2 · A review thread on GitHub</h2>
+ <p>Today a nitpick waits until a developer replies or gives in. After, the watching Claude answers it: it fixes what the <code>review</code> rubric says is worth fixing, pushes back with a reason on the rest, and resolves the thread either way. If the reviewer answers again, a person decides.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+   <div class="win"><div class="gh">
+    <div class="file">apps/galaxy/src/business/draft/merge.ts · line 42</div>
+    <div class="cm"><span class="av">JL</span><div class="bubble"><div class="by">jlambert · 2 days ago</div><div class="tx">nit: I'd rather use a <code>for…of</code> here than <code>.map</code>.</div></div></div>
+    <span class="unres">○ Unresolved · blocks the merge on the PM's last day</span>
+   </div></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+   <div class="win"><div class="gh">
+    <div class="file">apps/galaxy/src/business/draft/merge.ts · line 42</div>
+    <div class="cm"><span class="av">JL</span><div class="bubble"><div class="by">jlambert · 12 min ago</div><div class="tx">nit: I'd rather use a <code>for…of</code> here than <code>.map</code>.</div></div></div>
+    <div class="cm"><span class="av">Ω</span><div class="bubble bot"><div class="by">Omni PR care · 9 min ago</div><div class="tx">Thanks. Low value for this PR: it's a style preference, there's no defect, and no linter rule enforces it (review rubric: <i>style no linter enforces</i>). I'm resolving this thread. If it matters to you, reply here and the PM will decide.</div></div></div>
+    <span class="resolved">✓ Resolved with a reason · pushed back</span>
+   </div></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>3 · The terminal</h2>
+ <p>Today <code>/omni:pr</code> fixes CI and conflicts only while the skill that opened the PR is still running, and never reads a review. After, one command watches the feature PR until it merges.</p>
+ <div class="pair">
+  <div class="col"><span class="tag">Today</span>
+<div class="term"><span class="m">$ /omni:yolo 774</span>
+…
+<span class="g">✓ feature PR #775 marked ready</span>
+<span class="m">  (session ends; reviews arrive over the next days,
+   and nobody is watching)</span></div>
+  </div>
+  <div class="col"><span class="tag after">After</span>
+<div class="term"><span class="m">$ /omni:pr-care 774</span>
+<span class="p">round 1</span> · #775 · CI <span class="r">red</span> · <span class="r">conflict</span> · 3 new threads
+  <span class="g">✓</span> merged main, resolved 2 files, preflight green, pushed
+  <span class="g">✓</span> CI: fixed a failing test in draft/merge.test.ts
+  <span class="g">✓</span> fixed    jlambert  duplicated loop → a41c9e0
+  <span class="p">↩</span> pushed   jlambert  for…of vs .map (style)
+  <span class="a">?</span> asked    amelie    drafts expire after 30 days?
+<span class="p">round 2</span> · CI <span class="g">green</span> · mergeable · 1 asked
+<span class="m">  waiting for the next CI run or 5 min…</span></div>
+  </div>
+ </div>
+</section>
+
+<section class="moment">
+ <h2>What changes, what stays</h2>
+ <div class="notes">
+  <div class="card"><h3>Changes</h3><ul>
+   <li>A new skill, <code>/omni:pr-care &lt;n&gt;</code>, runs locally and watches the feature PR only.</li>
+   <li>A new <code>review</code> playbook form (fix · push-back · ask) that each repository can edit.</li>
+   <li>A health chip in the PRD header and a new PR care tab, both read live from GitHub.</li>
+   <li><code>/omni:yolo</code>'s hand-off suggests <code>/omni:pr-care</code> once the PR is ready.</li>
+  </ul></div>
+  <div class="card"><h3>Stays the same</h3><ul>
+   <li>No new tables, webhooks or cloud runners. Verdicts live on GitHub as reply markers.</li>
+   <li><code>/omni:pr</code>'s CI and conflict steps, and its 3-attempt limit.</li>
+   <li>Sub-PRs, phase-0, retro and fix PRs are not watched.</li>
+   <li>A person still merges. The reviewer keeps the last word.</li>
+  </ul></div>
+ </div>
+</section>
+</div>
+</body>
+</html>

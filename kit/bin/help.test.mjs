@@ -105,6 +105,16 @@ describe('omni help', () => {
 });
 
 describe('omni --help, omni -h and a bare omni', () => {
+  it('lists heartbeat among the commands the skills run, and explains it (PRD 757)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const overview = await run(['help'], root);
+    expect(overview.out.slice(overview.out.indexOf('Run by the skills:'))).toMatch(/\bheartbeat\b/);
+    const { code, out } = await run(['help', 'heartbeat'], root);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^omni heartbeat \[--end\] +run by the skills\n/);
+    expect(out).toMatch(/once a\s+minute/);
+  });
+
   it('--help and -h print exactly what omni help prints', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const help = await run(['help'], root);
