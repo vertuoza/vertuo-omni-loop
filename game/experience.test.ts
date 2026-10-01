@@ -1,21 +1,20 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
-import { experience, levelFor, unlockedFor, xpForLevel, xpKindOf, playerXp, counted } from './experience.ts';
+import { experience, levelFor, unlockedFor, xpForLevel, xpKindOf, playerXp, counted, type XpRules } from './experience.ts';
 import { score } from './economy.ts';
-import { EVENT_TYPES } from './events.ts';
+import { EVENT_TYPES, type EventType, type GameEvent } from './events.ts';
 import { RULEBOOK } from './rulebook.ts';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
 // Every event names its home (PRD 728): a row with none was written before the fresh start.
-const E = (id, at, type, over = {}) => ({ id, at, type, planet: 2332, home: 'acme/plan', data: {}, ...over });
-const old = ({ home, ...e }) => e;
+const E = (id: string, at: string, type: EventType, over: Partial<GameEvent> = {}): GameEvent => ({ id, at, type, planet: 2332, home: 'acme/plan', data: {}, ...over });
+const old = ({ home, ...e }: GameEvent): GameEvent => e;
 const charted = E('planet:2332:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } });
-const secured = (id, at, contributor, team = 'octopod', planet = 2332) => E(`zone:r:${planet}:${id}:secured`, at, 'ZONE_SECURED', { planet, contributor, team });
-const closed = (id, at, contributor, team, kind) => [
+const secured = (id: string, at: string, contributor: string, team = 'octopod', planet = 2332) => E(`zone:r:${planet}:${id}:secured`, at, 'ZONE_SECURED', { planet, contributor, team });
+const closed = (id: string, at: string, contributor: string, team: string, kind: string) => [
   E(`${id}:opened`, '2026-09-21T09:00:00Z', 'WOUND_OPENED', { data: { kind, rank: 'high' } }),
   E(`${id}:closed`, at, 'WOUND_CLOSED', { contributor, team, data: { kind, rank: 'high', verdict: 'agreed' } }),
 ];
-const rules = (over = {}) => ({ ...RULEBOOK.xp, ...over, weights: { ...RULEBOOK.xp.weights, ...(over.weights ?? {}) } });
+const rules = (over: Partial<XpRules> = {}): XpRules => ({ ...RULEBOOK.xp, ...over, weights: { ...RULEBOOK.xp.weights, ...(over.weights ?? {}) } });
 
 describe('experience', () => {
   it('gives 10 XP for one zone secured in working hours, and 15 at night', () => {

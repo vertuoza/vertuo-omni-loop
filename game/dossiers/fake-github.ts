@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A fake `gh` for the fallback's tests: answers the four `gh api` reads game/dossiers/github.ts makes
 // (the default branch, its head, a file at a commit, the recursive tree, a blob, an issue's title) from a small world of
 // repositories, each a map of path → content on its default branch. Every blob is named by the hash
@@ -9,18 +8,24 @@
 // same fake as an executable `gh`, for a test that runs game:dossiers as a process.
 import { createHash } from 'node:crypto';
 import { gitBlobSha } from './folders.ts';
+import type { Exec } from '../sources/github.ts';
 
-const notFound = (path) => Object.assign(new Error(`Command failed: gh api ${path}\ngh: Not Found (HTTP 404)`), { stderr: 'gh: Not Found (HTTP 404)\n' });
-const treeOf = (commit) => createHash('sha1').update(`tree of ${commit}`).digest('hex');
+/** One repository of the fake's world. */
+export type FakeRepo = { branch?: string; commit: string; files: Record<string, string>; issues?: Record<string, string>; unreadable?: boolean; truncated?: boolean };
+/** The fake's world: repositories by `owner/name`. */
+export type World = Record<string, FakeRepo>;
 
-export function fakeGitHub(world) {
-  const calls = [];
-  const exec = async (args) => {
+const notFound = (path: string): Error => Object.assign(new Error(`Command failed: gh api ${path}\ngh: Not Found (HTTP 404)`), { stderr: 'gh: Not Found (HTTP 404)\n' });
+const treeOf = (commit: string): string => createHash('sha1').update(`tree of ${commit}`).digest('hex');
+
+export function fakeGitHub(world: World): { exec: Exec; calls: string[] } {
+  const calls: string[] = [];
+  const exec: Exec = async (args) => {
     calls.push(args.join(' '));
-    const [verb, path, ...rest] = args;
+    const [verb, path = '', ...rest] = args;
     const match = verb === 'api' ? /^repos\/([^/]+\/[^/?]+)(\/[^?]*)?(?:\?(.*))?$/.exec(path) : null;
     if (!match) throw new Error(`the fake gh does not know: ${args.join(' ')}`);
-    const [, slug, route = '', query = ''] = match;
+    const [, slug = '', route = '', query = ''] = match;
     const repo = world[slug];
     if (!repo || repo.unreadable) throw notFound(path);
     const branch = repo.branch ?? 'main';
@@ -32,8 +37,9 @@ export function fakeGitHub(world) {
     if (route.startsWith('/contents/') && raw) {
       const file = route.slice('/contents/'.length);
       if (query !== `ref=${repo.commit}`) throw new Error(`the fake gh reads files at the head commit only: ${path}`);
-      if (!(file in repo.files)) throw notFound(path);
-      return repo.files[file];
+      const content = repo.files[file];
+      if (content === undefined) throw notFound(path);
+      return content;
     }
     if (route === `/git/trees/${treeOf(repo.commit)}` && query === 'recursive=1' && !rest.length) {
       const dirs = new Set(Object.keys(repo.files).flatMap((p) => p.split('/').slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join('/'))));

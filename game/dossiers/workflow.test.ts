@@ -1,12 +1,15 @@
-// @ts-nocheck
 // Where the fallback runs (PRD 216): a root script, a step of the game workflow's ledger job after
 // game:project, and a line among the game's outputs.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 
-const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-const wf = parse(read('.github/workflows/game.yml'));
+type Step = { run?: string; env: Record<string, string>; 'continue-on-error'?: boolean };
+type Job = { steps: Step[]; env: Record<string, string> };
+type Workflow = { jobs: { ledger: Job; rankings: Job } };
+
+const read = (path: string): string => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+const wf = parse(read('.github/workflows/game.yml')) as Workflow;
 
 describe('game:dossiers in the game workflow', () => {
   it('has a root script beside the other game scripts', () => {
@@ -19,8 +22,8 @@ describe('game:dossiers in the game workflow', () => {
     const dossiers = steps.findIndex((s) => s.run === 'pnpm game:dossiers');
     expect(project).toBeGreaterThanOrEqual(0);
     expect(dossiers).toBeGreaterThan(project);
-    expect(steps[dossiers].env.GH_TOKEN).toBe(steps[project].env.GH_TOKEN);
-    expect(steps[dossiers]['continue-on-error']).toBe(true);
+    expect(steps[dossiers]!.env.GH_TOKEN).toBe(steps[project]!.env.GH_TOKEN);
+    expect(steps[dossiers]!['continue-on-error']).toBe(true);
     expect(wf.jobs.ledger.env.SUPABASE_SERVICE_ROLE_KEY).toBe('${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}');
     expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:dossiers');
   });
