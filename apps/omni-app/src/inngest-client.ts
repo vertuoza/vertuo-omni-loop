@@ -53,17 +53,17 @@ export const CheckRequestDataSchema = SourceSchema.extend({
 });
 
 /** A merged pull request, for the retro. */
-export const RetroRequestDataSchema = SourceSchema.extend({
+const RetroRequestDataSchema = SourceSchema.extend({
   prNumber: z.number(),
   mergeSha: z.string(),
   mergedAt: z.string(),
 });
 
 /** A merged pull request, for the knowledge harvest. */
-export const HarvestRequestDataSchema = SourceSchema.extend({ prNumber: z.number() });
+const HarvestRequestDataSchema = SourceSchema.extend({ prNumber: z.number() });
 
 /** The facts a red canon check run hides in its summary (./inbox-check/canon-actions.ts). */
-export const CanonFactsSchema = z.object({
+const CanonFactsSchema = z.object({
   prd: z.number(),
   persona: z.string().nullable(),
   claims: z.array(z.string()),

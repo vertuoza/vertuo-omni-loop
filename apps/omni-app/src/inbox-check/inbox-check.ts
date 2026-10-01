@@ -22,12 +22,11 @@ import { NonRetriableError, type Inngest } from 'inngest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import { CheckRequestDataSchema, FailureEventDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import { installationOctokit, type FailureInput, type OctokitFor } from '../outbox-check/outbox-check.ts';
+import { CheckRequestDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { installationOctokit, notRetriedPastBound, onFailedRun, type OctokitFor } from '../outbox-check/outbox-check.ts';
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
-import { messageField } from '../outbox-check/github-schema.ts';
 import { publish } from '../publish/publish.ts';
-import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
+import { snapshot } from '../snapshot/snapshot.ts';
 import { canonFromEnv } from '../canon/live.ts';
 import { evaluateInbox, inboxPrd, phase0Topic, type CanonGrader, type InboxVerdict } from './evaluate-inbox.ts';
 import { canonActions } from './canon-actions.ts';
@@ -69,15 +68,9 @@ export function createInboxCheck({ client, octokitFor, canon = null }: { client:
       });
       if (!started) return { ...SILENT };
 
-      const verdict = await step.run('evaluate', async () => {
-        const octokit = await octokitFor(installationId);
-        try {
-          return await evaluateAt(octokit, { owner, repo, prNumber, headSha, canon });
-        } catch (error) {
-          if (error instanceof SnapshotBoundError) throw new NonRetriableError(error.message, { cause: error });
-          throw error;
-        }
-      });
+      const verdict = await step.run('evaluate', () =>
+        notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha, canon })),
+      );
       if (!verdict) throw new NonRetriableError('the pull request is no longer a phase-0 PR of this repository');
 
       await step.run('publish', async () => {
@@ -158,28 +151,20 @@ async function evaluateAt(
  * completes an open inbox run of the default name if there is one, and creates none.
  */
 export function createInboxFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
-  return async ({ event, error, step }: FailureInput): Promise<unknown> => {
-    const failed = FailureEventDataSchema.parse(event.data);
-    const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(failed.event.data);
-    const reason = messageField(error) ?? failed.error?.message ?? 'unknown error';
-
-    const run = (id: string, fn: () => Promise<unknown>) => (step?.run ? step.run(id, fn) : fn());
-    return run('complete-as-failure', async () => {
-      const octokit = await octokitFor(installationId);
-      let name = DEFAULT_INBOX_NAME;
-      let create = false;
-      try {
-        const phase0 = await phase0CheckName(octokit, { owner, repo, prNumber });
-        if (phase0 === null) return { ...SILENT };
-        name = phase0;
-        create = true;
-      } catch {
-        name = DEFAULT_INBOX_NAME;
-      }
-      const checkRunIds = await completeInboxAsFailure(octokit, { owner, repo, headSha, name, reason, create });
-      return { checkRunIds, name, reason };
-    });
-  };
+  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
+    let name = DEFAULT_INBOX_NAME;
+    let create = false;
+    try {
+      const phase0 = await phase0CheckName(octokit, { owner, repo, prNumber });
+      if (phase0 === null) return { ...SILENT };
+      name = phase0;
+      create = true;
+    } catch {
+      name = DEFAULT_INBOX_NAME;
+    }
+    const checkRunIds = await completeInboxAsFailure(octokit, { owner, repo, headSha, name, reason, create });
+    return { checkRunIds, name, reason };
+  });
 }
 
 export const inboxCheck = createInboxCheck({ client: inngest, octokitFor: installationOctokit, canon: canonFromEnv() });

@@ -1,12 +1,11 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { upsertComment } from './verdict-comment.ts';
 
 const at = { owner: 'acme', repo: 'widgets', prNumber: 43 };
 const MARKER = '<!-- omni-outbox-knowledge-verdict -->';
-const on = (github, issue = 43) => github.state.comments.filter((comment) => comment.issue === issue);
-const writes = (github) => github.state.requests.filter((r) => !r.route.startsWith('GET ')).map((r) => r.route);
+const on = (github: any, issue = 43) => github.state.comments.filter((comment: any) => comment.issue === issue);
+const writes = (github: any) => github.state.requests.filter((r: any) => !r.route.startsWith('GET ')).map((r: any) => r.route);
 
 describe('verdict-comment — one marked comment per pull request', () => {
   it('creates the comment, marker first, when the pull request has none', async () => {
@@ -41,7 +40,7 @@ describe('verdict-comment — one marked comment per pull request', () => {
     await upsertComment(github.octokit, { ...at, marker: other, text: 'Retro: no new lesson.' });
     await upsertComment(github.octokit, { ...at, marker: MARKER, text: 'Knowledge: nothing new.' });
     await upsertComment(github.octokit, { ...at, marker: MARKER, text: 'Knowledge: still nothing.' });
-    expect(on(github).map((comment) => comment.body)).toEqual([
+    expect(on(github).map((comment: any) => comment.body)).toEqual([
       'a person wrote this',
       `${other}\nRetro: no new lesson.\n`,
       `${MARKER}\nKnowledge: still nothing.\n`,
@@ -52,7 +51,7 @@ describe('verdict-comment — one marked comment per pull request', () => {
     const github = replayGitHub();
     await upsertComment(github.octokit, { ...at, prNumber: 45, marker: MARKER, text: 'elsewhere' });
     await upsertComment(github.octokit, { ...at, marker: MARKER, text: 'here' });
-    expect(on(github, 45).map((comment) => comment.body)).toEqual([`${MARKER}\nelsewhere\n`]);
-    expect(on(github).map((comment) => comment.body)).toEqual([`${MARKER}\nhere\n`]);
+    expect(on(github, 45).map((comment: any) => comment.body)).toEqual([`${MARKER}\nelsewhere\n`]);
+    expect(on(github).map((comment: any) => comment.body)).toEqual([`${MARKER}\nhere\n`]);
   });
 });

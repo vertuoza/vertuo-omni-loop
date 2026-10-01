@@ -3,8 +3,8 @@
 // the inbox's `external_id`; the compare's changed paths and commits; and the PRD issue. Every call
 // goes through `octokit.request(route, params)`, so a test stubs one function.
 import { INBOX_EXTERNAL_ID } from '../inngest-client.ts';
+import { completeAsFailure } from '../outbox-check/github.ts';
 import {
-  CheckRunsSchema,
   ComparePageSchema,
   CreatedSchema,
   IssueSchema,
@@ -105,61 +105,13 @@ export async function readIssue(octokit: GitHubClient, { owner, repo, number }: 
  * Fail closed: completes every inbox check run of this name on the head SHA that is not completed yet
  * as `failure`, the reason as its title. When there is none it creates one already completed, unless
  * `create` is false (the handler could not tell whether this is a phase-0 PR).
- * @returns {Promise<number[]>} the check run ids completed or created
+ * @returns the check run ids completed or created
  */
-export async function completeInboxAsFailure(
+export function completeInboxAsFailure(
   octokit: GitHubClient,
   { owner, repo, headSha, name, reason, create = true }: Repo & { headSha: string; name: string; reason: unknown; create?: boolean },
 ): Promise<number[]> {
-  const title = `omni-loop could not evaluate: ${firstLine(reason)}`;
-  const output = { title, summary: title };
-  const completed_at = new Date().toISOString();
-
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
-    owner,
-    repo,
-    ref: headSha,
-    check_name: name,
-    per_page: PER_PAGE,
-  });
-  const open = (CheckRunsSchema.parse(data).check_runs ?? []).filter((run) => run.status !== 'completed');
-
-  const ids: number[] = [];
-  for (const run of open) {
-    try {
-      await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', {
-        owner,
-        repo,
-        check_run_id: run.id,
-        status: 'completed',
-        conclusion: 'failure',
-        completed_at,
-        output,
-      });
-      ids.push(run.id);
-    } catch {
-      // Not this app's check run; GitHub refuses the write.
-    }
-  }
-  if (ids.length > 0 || !create) return ids;
-
-  const { data: created } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
-    owner,
-    repo,
-    name,
-    head_sha: headSha,
-    external_id: INBOX_EXTERNAL_ID,
-    status: 'completed',
-    conclusion: 'failure',
-    completed_at,
-    output,
-  });
-  return [CreatedSchema.parse(created).id];
-}
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
+  return completeAsFailure(octokit, { owner, repo, headSha, name, reason, create, externalId: INBOX_EXTERNAL_ID });
 }
 
 /**

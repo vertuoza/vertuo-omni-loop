@@ -33,46 +33,44 @@ export type StageEvent = { repository: string; topic: string; prd: number | null
 type Branches = { phase0: string; slice: string; feature: string; retro: string };
 export type Shapes = { branches: Branches; prLinks: Record<string, string> };
 
-/** The parts of a pull request event the stages read; a field of another type reads as none. */
+/**
+ * The parts of a pull request event the stages read: the repository's name, both branches, and the
+ * facts each move is told by. An event missing one of the first three, or with a field of another
+ * type, shows no stage.
+ */
 const PullEventSchema = z.looseObject({
   action: z.unknown(),
-  repository: z.looseObject({ full_name: z.string().nullish(), default_branch: z.string().nullish() }).nullish(),
-  pull_request: z
-    .looseObject({
-      head: z.looseObject({ ref: z.unknown() }).nullish(),
-      base: z.looseObject({ ref: z.unknown() }).nullish(),
-      merged: z.unknown(),
-      merged_at: z.string().nullish(),
-      created_at: z.string().nullish(),
-      updated_at: z.string().nullish(),
-      body: z.unknown(),
-    })
-    .nullish(),
+  repository: z.looseObject({ full_name: z.string().min(1), default_branch: z.string().nullish() }),
+  pull_request: z.looseObject({
+    head: z.looseObject({ ref: z.string() }),
+    base: z.looseObject({ ref: z.string() }),
+    merged: z.unknown(),
+    merged_at: z.string().nullish(),
+    created_at: z.string().nullish(),
+    updated_at: z.string().nullish(),
+    body: z.unknown(),
+  }),
 });
-type PullRequest = NonNullable<z.infer<typeof PullEventSchema>['pull_request']>;
-type Pull = { pr: PullRequest; repository: string; head: string; base: string; defaultBranch: string };
+type PullEvent = z.infer<typeof PullEventSchema>;
+type Pull = { pr: PullEvent['pull_request']; repository: string; head: string; base: string; defaultBranch: string };
 type Seen = { stage: EventStage; topic: string | undefined; at: string | null | undefined };
 type Recogniser = (pull: Pull, branches: Branches) => Seen | null;
 
 /** The stage a pull request event shows, pure; null for any other event, action or branch. */
 export function toStageEvent(event: string, payload: unknown, shapes: Shapes = DEFAULT_SHAPES): StageEvent | null {
   const read = event === 'pull_request' ? PullEventSchema.safeParse(payload) : null;
-  const pull = read?.success ? pullOf(read.data) : null;
-  const action = read?.success ? read.data.action : undefined;
-  const recognise = pull && typeof action === 'string' ? RECOGNISERS.get(action) : undefined;
-  const seen = pull && recognise ? recognise(pull, shapes.branches) : null;
-  if (!pull || !seen?.topic || !seen.at) return null;
+  if (!read?.success) return null;
+  const pull = pullOf(read.data);
+  const { action } = read.data;
+  const recognise = typeof action === 'string' ? RECOGNISERS.get(action) : undefined;
+  const seen = recognise ? recognise(pull, shapes.branches) : null;
+  if (!seen?.topic || !seen.at) return null;
   return { repository: pull.repository, topic: seen.topic, prd: prdOf(pull.pr.body, shapes.prLinks), stage: seen.stage, at: seen.at };
 }
 
-/** The parts of a pull request event the stages read; null when one is missing. */
-function pullOf(payload: z.infer<typeof PullEventSchema>): Pull | null {
-  const pr = payload.pull_request;
-  const repository = payload.repository?.full_name;
-  const head = pr?.head?.ref;
-  const base = pr?.base?.ref;
-  if (!pr || !repository || typeof head !== 'string' || typeof base !== 'string') return null;
-  return { pr, repository, head, base, defaultBranch: payload.repository?.default_branch ?? 'main' };
+/** The parts of a pull request event the stages read. */
+function pullOf({ pull_request: pr, repository }: PullEvent): Pull {
+  return { pr, repository: repository.full_name, head: pr.head.ref, base: pr.base.ref, defaultBranch: repository.default_branch ?? 'main' };
 }
 
 const seenAt = (stage: EventStage, topic: string | undefined, at: string | null | undefined): Seen => ({ stage, topic, at });

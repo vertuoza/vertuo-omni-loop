@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { InngestTestEngine } from '@inngest/test';
@@ -8,7 +7,7 @@ import { fakeGitHub } from './fake-github.ts';
 import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck, outboxCheck } from './outbox-check.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
-const fixture = (name) => join(FIXTURES, name);
+const fixture = (name: string) => join(FIXTURES, name);
 
 const event = (over = {}) => ({
   name: OUTBOX_CHECK_EVENT,
@@ -32,7 +31,7 @@ function featureGitHub(over = {}) {
   });
 }
 
-function engine(github) {
+function engine(github: any) {
   const fn = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
   return new InngestTestEngine({ function: fn, events: [event()] });
 }
@@ -74,7 +73,7 @@ describe('outbox-check — the three steps', () => {
     const github = featureGitHub();
     await engine(github).execute();
     const compare = github.state.requests.find((r) => r.route === 'GET /repos/{owner}/{repo}/compare/{basehead}');
-    expect(compare.basehead).toBe('base1...head1');
+    expect(compare!.basehead).toBe('base1...head1');
   });
 });
 
@@ -102,7 +101,7 @@ describe('outbox-check — silent where the loop is not installed (PRD 359)', ()
   it('the failure handler posts nothing either on a repository without .omni-loop', async () => {
     const github = inactiveGitHub();
     const handler = createFailureHandler({ octokitFor: () => github.octokit });
-    const out = await handler({
+    const out: any = await handler({
       event: { name: 'inngest/function.failed', data: { event: event(), error: { message: 'boom' } } },
       error: new Error('boom'),
     });
@@ -132,14 +131,14 @@ describe('outbox-check — the function’s configuration', () => {
 describe('outbox-check — fail closed', () => {
   it('a thrown step fails the run (and Inngest then calls the failure handler)', async () => {
     const github = featureGitHub();
-    const broken = { request: async (route, params) => {
+    const broken = { request: async (route: any, params: any) => {
       if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') throw new Error('GitHub is down');
       return github.octokit.request(route, params);
     } };
     const fn = createOutboxCheck({ client: inngest, octokitFor: () => broken });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    const { error }: any = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
     expect(error).toBeTruthy();
-    expect(github.state.checkRuns[0].status).toBe('in_progress');
+    expect(github.state.checkRuns[0]!.status).toBe('in_progress');
 
     const handler = createFailureHandler({ octokitFor: () => github.octokit });
     await handler({
@@ -174,22 +173,22 @@ describe('outbox-check — fail closed', () => {
 
   it('falls back to the default check name when GitHub cannot be read', async () => {
     const github = featureGitHub();
-    const flaky = { request: async (route, params) => {
+    const flaky = { request: async (route: any, params: any) => {
       if (route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}') throw new Error('502');
       return github.octokit.request(route, params);
     } };
     const handler = createFailureHandler({ octokitFor: () => flaky });
-    const out = await handler({
+    const out: any = await handler({
       event: { name: 'inngest/function.failed', data: { event: event(), error: { message: '502' } } },
       error: new Error('502'),
     });
     expect(out.name).toBe('outbox');
-    expect(github.state.checkRuns[0].conclusion).toBe('failure');
+    expect(github.state.checkRuns[0]!.conclusion).toBe('failure');
   });
 
   it('does not retry a snapshot over its bound, and names the bound', async () => {
     const github = featureGitHub();
-    const huge = { request: async (route, params) => {
+    const huge = { request: async (route: any, params: any) => {
       const response = await github.octokit.request(route, params);
       if (route.endsWith('/git/trees/{tree_sha}') && params.recursive === '1' && params.tree_sha.startsWith('head1')) {
         const many = Array.from({ length: 2001 }, (_, i) => ({ path: `f${i}.md`, mode: '100644', type: 'blob', sha: `x${i}`, size: 1 }));
@@ -198,7 +197,7 @@ describe('outbox-check — fail closed', () => {
       return response;
     } };
     const fn = createOutboxCheck({ client: inngest, octokitFor: () => huge });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    const { error }: any = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
     expect(error?.name).toBe('NonRetriableError');
     expect(error?.message).toMatch(/over the bound of 2,000 files/);
   });

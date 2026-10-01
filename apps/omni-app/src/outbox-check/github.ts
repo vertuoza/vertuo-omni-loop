@@ -156,12 +156,21 @@ export async function changedFiles(
  * Fail closed (PRD 28, decision 6): completes every check run of this name on the head SHA that is
  * not completed yet as `failure`, with the reason as its title. When there is none — the run failed
  * before it could create one — it creates the check already completed, so the failure is never
- * silent. A check run this app cannot write (another app's, of the same name) is left alone.
+ * silent, unless `create` is false. A check run this app cannot write (another app's, of the same
+ * name) is left alone. `externalId`: the one a created check run carries (the inbox check's).
  * @returns the check run ids completed or created
  */
 export async function completeAsFailure(
   octokit: GitHubClient,
-  { owner, repo, headSha, name, reason }: Repo & { headSha: string; name: string; reason: unknown },
+  {
+    owner,
+    repo,
+    headSha,
+    name,
+    reason,
+    externalId,
+    create = true,
+  }: Repo & { headSha: string; name: string; reason: unknown; externalId?: string; create?: boolean },
 ): Promise<number[]> {
   const title = `omni-loop could not evaluate: ${firstLine(reason)}`;
   const output = { title, summary: title };
@@ -193,13 +202,14 @@ export async function completeAsFailure(
       // Not this app's check run; GitHub refuses the write. Nothing to complete here.
     }
   }
-  if (ids.length > 0) return ids;
+  if (ids.length > 0 || !create) return ids;
 
   const { data: created } = await octokit.request('POST /repos/{owner}/{repo}/check-runs', {
     owner,
     repo,
     name,
     head_sha: headSha,
+    ...(externalId === undefined ? {} : { external_id: externalId }),
     status: 'completed',
     conclusion: 'failure',
     completed_at,

@@ -58,7 +58,7 @@ export const CheckRunsSchema = z.looseObject({
 });
 
 /** One entry of a Git tree. */
-export const TreeEntrySchema = z.looseObject({
+const TreeEntrySchema = z.looseObject({
   path: z.string(),
   mode: z.string(),
   type: z.string(),
