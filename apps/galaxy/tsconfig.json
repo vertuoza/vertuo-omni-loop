@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
@@ -6,16 +7,13 @@
       "dom.iterable",
       "es2023"
     ],
+    "noUncheckedIndexedAccess": false,
+    "erasableSyntaxOnly": false,
     "allowJs": true,
     "checkJs": false,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,

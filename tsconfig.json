@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["**/*.ts", "**/*.mts"],
+  "exclude": ["node_modules", "**/node_modules", "apps/galaxy", "kit/dist", ".omni-loop/bin", ".claude/worktrees"]
+}

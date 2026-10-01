@@ -6,7 +6,8 @@ export const TEST_TIMEOUT_MS = 120_000;
 
 export default {
   test: {
-    include: ['game/**/*.test.mjs', 'kit/**/*.test.mjs', 'packages/**/*.test.mjs', 'apps/omni-app/**/*.test.mjs', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.mjs', 'scripts/**/*.test.mjs'],
+    // Every folder runs `*.test.ts` beside `*.test.mjs` (PRD 725): the rename turns one into the other.
+    include: ['game/**/*.test.{mjs,ts}', 'kit/**/*.test.{mjs,ts}', 'packages/**/*.test.{mjs,ts}', 'apps/omni-app/**/*.test.{mjs,ts}', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.{mjs,ts}', 'scripts/**/*.test.{mjs,ts}'],
     exclude: ['**/node_modules/**'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,

@@ -10,10 +10,11 @@
     "kit/dist/omni.mjs"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc -p . && pnpm --filter @omni/galaxy-app typecheck",
     "fallow:audit": "fallow audit",
     "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.mjs",
     "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.mjs",
@@ -32,8 +33,10 @@
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",
+    "@types/node": "^22.20.4",
     "esbuild": "^0.28.1",
     "fallow": "3.30.0",
+    "typescript": "^5.9.3",
     "vite": "^8.3.1",
     "vitest": "^4.1.11",
     "yaml": "^2.5.0",
