@@ -6,10 +6,10 @@
 //   step "evaluate"     snapshot the head's inbox, shipped folders and knowledge domains into /tmp, read
 //                       the compare and the PRD issue, and let `evaluateInbox` grade the five gates:
 //                       the four of the kit, and canon (PRD 839) through `canon`, the spec against the
-//                       business of the repository
+//                       business of the repository and its product's constituents (PRD 871)
 //   step "publish"      complete the check run with the verdict; no comment
 //   step "actions"      on a red canon gate only, add its two buttons to the check run (PRD 839):
-//                       Rewrite for <persona> and Change the claim, which ./canon-action.mjs answers
+//                       Rewrite for <persona> and Change the line, which ./canon-action.mjs answers
 //   onFailure           complete the check run as `failure` with the reason — never left `in_progress`
 //
 // It listens to the outbox check's event, so every pull request action that re-evaluates the outbox

@@ -1,11 +1,12 @@
 import { bugRisk } from './bug-risk';
+import { constituentBreak } from './constituent-break';
 import type { JevDecisionEntry, JevDecisionRow } from './entry';
 import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
 import { unknownWorthAsking } from './unknown-worth-asking';
 
-// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The four
-// rows (PRD 855 s4 added Unknown worth asking) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
+// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The five
+// rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
 // not registered yet is shown on Settings › Jev as coming, and cannot be switched on. An entry with `terminal` can also be asked from a Claude session, through
 // `POST /api/decide/<name>` (./decide-route.ts).
 
@@ -36,6 +37,12 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
     about: 'Says whether a question an editor’s agent could not answer is worth asking a person; when not, it is set aside on Settings › Business, with Bring back.',
     sends: 'The agent’s question, its repository and file, and the product’s confirmed claims.',
   },
+  {
+    name: 'constituent-break',
+    title: 'Constituent break',
+    about: 'Says whether a phase-0 spec breaks its product’s Statement or one of its Never lines, which turns the inbox check red.',
+    sends: 'The spec, the product’s Statement and Never lines, and today’s verdict with the quotes it found.',
+  },
 ]);
 
 const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.freeze({
@@ -43,6 +50,7 @@ const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.fr
   [outboxRisk.name]: outboxRisk,
   [bugRisk.name]: bugRisk,
   [unknownWorthAsking.name]: unknownWorthAsking,
+  [constituentBreak.name]: constituentBreak,
 });
 
 /** The decision's registry entry, or null when it has none (yet). */

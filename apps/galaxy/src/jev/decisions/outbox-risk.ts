@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { JevDecisionEntry } from './entry';
+import { noulAtThreshold } from './noul';
 
 // `outbox-risk` (PRD 812 s3): whether a decision a slice took alone is hard to revert, as a Noul. Jev
 // answers only `hardToRevert` (decision 5): the kit still computes the item's rank, and its law floor
@@ -45,7 +46,7 @@ export const outboxRisk: JevDecisionEntry<OutboxRiskInput, boolean> = {
       ...(input.slice ? [`Slice: ${input.slice}`] : []),
       ...lines('Paths the slice touches:', input.paths),
     ].join('\n'),
-  value: (answer, { threshold }) => noulAt(answer, threshold),
+  value: noulAtThreshold,
   show: (value) => String(value),
   terminal: {
     input: (state) => {

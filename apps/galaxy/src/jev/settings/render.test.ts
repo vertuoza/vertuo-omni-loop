@@ -115,11 +115,12 @@ describe('the decision rows (PRD 812 s2)', () => {
   const row = (html: string, name: string) => rows(html).find((r) => r.name === name)!.html;
   const valueOf = (html: string, name: string) => new RegExp(`name="${name}"[^>]*value="([^"]*)"|value="([^"]*)"[^>]*name="${name}"`).exec(html)?.slice(1).find(Boolean);
 
-  it('lists the four decisions, each with what it sends, Off at the defaults (PRD 855 s4 adds Unknown worth asking)', () => {
+  it('lists the five decisions, each with what it sends, Off at the defaults (PRD 855 s4 adds Unknown worth asking, PRD 871 s4 Constituent break)', () => {
     const html = page(STORED);
-    expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking']);
+    expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking', 'constituent-break']);
     expect(text(row(html, 'unknown-worth-asking'))).toContain('Sends: The agent’s question, its repository and file');
     expect(row(html, 'unknown-worth-asking')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(text(row(html, 'constituent-break'))).toContain('Sends: The spec, the product’s Statement and Never lines');
     expect(text(row(html, 'question-category'))).toContain('Sends: The round’s questions, their options and descriptions (never a preview)');
     expect(text(row(html, 'outbox-risk'))).toContain('Sends: The item’s decision text and options');
     expect(text(row(html, 'bug-risk'))).toContain('Sends: The issue’s title and body');
@@ -135,7 +136,7 @@ describe('the decision rows (PRD 812 s2)', () => {
     expect(valueOf(category, 'threshold')).toBe('0.65');
     expect(valueOf(category, 'floor')).toBe('0.30');
     expect(buttons(category).map((b) => b.text)).toEqual(['Save']);
-    for (const name of ['outbox-risk', 'bug-risk']) {
+    for (const name of ['outbox-risk', 'bug-risk', 'constituent-break']) {
       expect(buttons(row(html, name)).map((b) => b.text)).toEqual(['Save']);
       expect(text(row(html, name))).not.toContain('Coming in this PRD');
     }

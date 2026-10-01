@@ -224,6 +224,21 @@ export const ENTRIES = deepFreeze([
       'prints a skip line and exits 0.',
   },
   {
+    name: 'constituents',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni constituents [--json]'],
+    summary: "the product's Statement and Never list, read at every session's start",
+    detail:
+      "Prints the constituents of the product this repository serves: its Statement (what the product " +
+      'is) and its Never list (what it must never become or do, each line with its never#<n> id), as an ' +
+      'owner wrote them on Settings › Business. The plugin runs it when a session starts, so they come ' +
+      'before the briefing. It reads them from the Omni page with your omni signin, keeps a copy on this ' +
+      'computer, and says "synced just now"; offline or failing, it prints that copy with its age. With ' +
+      'no copy, no product or no sign-in it prints one line. It always exits 0 within 3 seconds. --json ' +
+      'prints the same for skills: state, product, statement, never and syncedAt.',
+  },
+  {
     name: 'decide',
     kind: 'command',
     who: 'skills',

@@ -102,7 +102,7 @@ describe('createCanon — the verdicts', () => {
 
   it.each([
     ['no business', { ...BUSINESS, state: 'none', business: null, claims: [], personas: [], updatedAt: null }, 'no business: no workspace tracking acme/widgets has one'],
-    ['no product claims', { ...BUSINESS, state: 'none', claims: [] }, 'no confirmed claim for this repository\'s product'],
+    ['no product claims', { ...BUSINESS, state: 'none', claims: [] }, 'no confirmed claim or constituent for this repository\'s product'],
   ])('neutral for %s, with its line, and no model call', async (_, business, reason) => {
     const { canon, ask } = canonWith({ business });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
@@ -184,5 +184,202 @@ describe('createCanon — one call, cached by the spec and the claims', () => {
     expect(user).toContain('never#4: never — Never: build for groups of companies');
     expect(user).toContain('Marc');
     expect(user.length).toBeLessThan(CANON_SPEC_LIMIT + 2000);
+  });
+});
+
+// ── PRD 871: the constituents, judged through the `constituent-break` Jev decision ──
+
+const API_SPEC = [
+  '# Project list',
+  '',
+  "The list loads with fetch('/api/v1/projects') and shows each project's name.",
+].join('\n');
+
+const CONSTITUENTS = Object.freeze({
+  state: 'ok',
+  product: { name: 'Vertuoza UX' },
+  statement: { id: 'statement', text: 'The component workshop, shown with fixtures.' },
+  never: [
+    { id: 'never#1', text: 'Calls real Vertuoza data or real Vertuoza APIs' },
+    { id: 'never#3', text: 'Holds business logic' },
+  ],
+  latestEventId: '41',
+});
+
+const NO_CONSTITUENTS = Object.freeze({ ...CONSTITUENTS, state: 'none', statement: null, never: [], latestEventId: null });
+
+const API_BREAK = {
+  findings: [{ quote: "fetch('/api/v1/projects')", claims: ['never#1'], why: 'A real API call.' }],
+  persona: { name: '', line: '' },
+};
+
+const NOTHING = { findings: [], persona: { name: '', line: '' } };
+
+/** A judge answering as galaxy's route does: `{answer, confidence, decidedBy}`; `answer` null echoes today's. */
+const judgeAnswering = (answer, confidence = null, decidedBy = 'old') =>
+  vi.fn(async ({ old }) => ({ ok: true, answer: answer ?? old, confidence, decidedBy, error: null, reason: null }));
+
+const constituentCanon = ({
+  business = { ...BUSINESS, claims: [], personas: [] },
+  constituents = CONSTITUENTS,
+  reply = API_BREAK,
+  judge = judgeAnswering(null),
+} = {}) => {
+  const readBusiness = vi.fn(async () => business);
+  const readConstituents = vi.fn(async () => constituents);
+  const ask = modelAnswering(reply);
+  return { canon: createCanon({ readBusiness, readConstituents, judge, ask }), readBusiness, readConstituents, judge, ask };
+};
+
+describe('createCanon — the constituents (PRD 871)', () => {
+  it("Off: the judge answers today's verdict; red names the quote and never#1", async () => {
+    const { canon, judge, readConstituents } = constituentCanon();
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC, ref: 'PRD 9' });
+    expect(readConstituents).toHaveBeenCalledWith('acme/ux');
+    expect(gate).toMatchObject({ ok: false, neutral: false, reason: 'canon ✗ 1' });
+    expect(gate.canon.findings).toEqual([{ quote: "fetch('/api/v1/projects')", claims: ['never#1'], why: 'A real API call.' }]);
+    expect(gate.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
+    expect(gate.canon.judge).toEqual({ decidedBy: 'old', confidence: null });
+    const [call] = judge.mock.calls[0];
+    expect(call).toMatchObject({ repo: 'acme/ux', old: 'true', ref: 'PRD 9' });
+    expect(call.state).toEqual({
+      spec: API_SPEC,
+      statement: 'The component workshop, shown with fixtures.',
+      never: [
+        { id: 'never#1', text: 'Calls real Vertuoza data or real Vertuoza APIs' },
+        { id: 'never#3', text: 'Holds business logic' },
+      ],
+      verdict: { broken: true, findings: [{ quote: "fetch('/api/v1/projects')", constituents: ['never#1'], why: 'A real API call.' }] },
+    });
+  });
+
+  it('the model reads the Statement and the live Never lines by their ids', async () => {
+    const { canon, ask } = constituentCanon();
+    await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    const { user, system } = ask.mock.calls[0][0];
+    expect(user).toContain('statement: The component workshop, shown with fixtures.');
+    expect(user).toContain('never#1: Calls real Vertuoza data or real Vertuoza APIs');
+    expect(system).toContain('Statement');
+  });
+
+  it('a spec breaking nothing is green, and the judge is asked with today\'s "false"', async () => {
+    const { canon, judge } = constituentCanon({ reply: NOTHING });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: false, reason: 'canon ✓ · 0 claims, 3 constituents read' });
+    expect(judge.mock.calls[0][0]).toMatchObject({ old: 'false' });
+  });
+
+  it("Shadow: the judge answers today's (Jev only logged), so the model decides", async () => {
+    const { canon } = constituentCanon({ judge: judgeAnswering('true', null, 'old') });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate.ok).toBe(false);
+    expect(gate.details.join('\n')).not.toContain('judged by Jev');
+  });
+
+  it('On, above the floor: Jev says not broken, so the constituent finding is dropped', async () => {
+    const { canon } = constituentCanon({ judge: judgeAnswering('false', 0.91, 'jev') });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: false });
+    expect(gate.canon.findings).toEqual([]);
+    expect(gate.canon.judge).toEqual({ decidedBy: 'jev', confidence: 0.91 });
+  });
+
+  it('On, Jev says broken: red, with the judge named under the findings', async () => {
+    const { canon } = constituentCanon({ judge: judgeAnswering('true', 0.82, 'jev') });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate.ok).toBe(false);
+    expect(gate.details).toContain('judged by Jev (constituent-break, confidence 0.82)');
+  });
+
+  it('Jev saying broken with no quoted finding is not red: a finding needs a word-for-word quote', async () => {
+    const { canon } = constituentCanon({ reply: NOTHING, judge: judgeAnswering('true', 0.9, 'jev') });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: false });
+  });
+
+  it("Jev saying not broken keeps a size claim's part of a finding", async () => {
+    const reply = { findings: [{ quote: "fetch('/api/v1/projects')", claims: ['never#1', 'size#1'], why: 'both' }], persona: { name: '', line: '' } };
+    const { canon } = constituentCanon({ business: BUSINESS, reply, judge: judgeAnswering('false', 0.95, 'jev') });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate.canon.findings).toEqual([{ quote: "fetch('/api/v1/projects')", claims: ['size#1'], why: 'both' }]);
+  });
+
+  it('drops a finding citing a removed line, and one without a word-for-word quote', async () => {
+    const reply = {
+      findings: [
+        { quote: "fetch('/api/v1/projects')", claims: ['never#2'], why: 'never#2 was removed' },
+        { quote: 'calls the real projects API', claims: ['never#1'], why: 'a paraphrase' },
+      ],
+      persona: { name: '', line: '' },
+    };
+    const { canon, judge } = constituentCanon({ reply });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: false });
+    expect(judge.mock.calls[0][0]).toMatchObject({ old: 'false' });
+  });
+
+  it('cites the Statement by its id', async () => {
+    const reply = { findings: [{ quote: 'shows each project', claims: ['statement'], why: 'not a workshop' }], persona: { name: '', line: '' } };
+    const { canon } = constituentCanon({ reply });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate.canon.findings[0].claims).toEqual(['statement']);
+    expect(gate.details[0]).toContain('statement "The component workshop, shown with fixtures."');
+  });
+
+  it.each([
+    ['a judge-route error', { ok: false, error: 'refused', reason: 'galaxy answered 500' }, 'judge error: galaxy answered 500'],
+    ['a missing secret', { ok: false, error: 'no-secret', reason: 'CONSTITUENT_JUDGE_SECRET is not set' }, 'judge not configured (CONSTITUENT_JUDGE_SECRET is not set)'],
+  ])('neutral, never red, on %s', async (_, answer, reason) => {
+    const { canon } = constituentCanon({ judge: vi.fn(async () => answer) });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: true, reason });
+  });
+
+  it('neutral, never red, with no judge wired at all', async () => {
+    const canon = createCanon({
+      readBusiness: async () => ({ ...BUSINESS, claims: [] }),
+      readConstituents: async () => CONSTITUENTS,
+      ask: modelAnswering(API_BREAK),
+    });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: true, reason: 'judge not configured (no judge here)' });
+  });
+
+  it('neutral when the constituents read fails', async () => {
+    const canon = createCanon({
+      readBusiness: async () => BUSINESS,
+      readConstituents: async () => { throw new Error('connection reset'); },
+      judge: judgeAnswering(null),
+      ask: modelAnswering(API_BREAK),
+    });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ neutral: true, reason: 'no constituents: the read failed (connection reset)' });
+  });
+
+  it('neutral with neither a claim nor a constituent, asking nothing', async () => {
+    const { canon, ask, judge } = constituentCanon({ constituents: NO_CONSTITUENTS });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ neutral: true, reason: "no confirmed claim or constituent for this repository's product" });
+    expect(ask).not.toHaveBeenCalled();
+    expect(judge).not.toHaveBeenCalled();
+  });
+
+  it('with claims but no constituents, the judge is not asked', async () => {
+    const { canon, judge } = constituentCanon({ business: BUSINESS, constituents: NO_CONSTITUENTS });
+    const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate.neutral).toBe(false);
+    expect(judge).not.toHaveBeenCalled();
+  });
+
+  it('a new constituent event re-judges a cached spec; the same one asks the model once', async () => {
+    const constituents = { ...CONSTITUENTS };
+    const { canon, ask, judge } = constituentCanon({ constituents });
+    await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(ask).toHaveBeenCalledTimes(1);
+    constituents.latestEventId = '42';
+    await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(judge).toHaveBeenCalledTimes(3);
   });
 });

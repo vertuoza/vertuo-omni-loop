@@ -124,7 +124,7 @@ async function canonGateOf({ canon, ctx, prd, head, repo }) {
   if (!canon || !repo) return neutral('the canon gate is not wired here');
   const file = join(head, ctx.layout.specPath(prd));
   if (!existsSync(file)) return neutral(`no spec.md in ${ctx.layout.whereIs(prd).dir}`);
-  return canon.grade({ repo, spec: readFileSync(file, 'utf8') });
+  return canon.grade({ repo, spec: readFileSync(file, 'utf8'), ref: `PRD ${prd}` });
 }
 
 /** Every failed gate by its title; else how many judged gates are ok, with the canon gate's word. */
