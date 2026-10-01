@@ -811,12 +811,12 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
   };
 
   /** The stage words each line under the track starts with, in order. */
-  const stageLines = (block: any[] | undefined) => block.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
+  const stageLines = (block: any[] | undefined) => block!.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
 
   /** The track word above the marker of "you are here". */
   const here = (block: any[] | undefined) => {
-    const track = block.find((line: string) => line.trim() === TRACK);
-    const at = block.find((line: string | string[]) => line.includes('└─ you are here')).indexOf('└─ you are here');
+    const track = block!.find((line: string) => line.trim() === TRACK);
+    const at = block!.find((line: string | string[]) => line.includes('└─ you are here')).indexOf('└─ you are here');
     for (const word of track.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
     return null;
   };

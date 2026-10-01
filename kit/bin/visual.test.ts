@@ -35,7 +35,7 @@ function setup(configText = CONFIG_TEXT) {
   return { root, write, base };
 }
 
-async function run(root: string, base: string, issue = ISSUE) {
+async function run(root: string, base: string, issue: number | string = ISSUE) {
   const s = io();
   const code = await main(['visual', String(issue), '--base', base], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };

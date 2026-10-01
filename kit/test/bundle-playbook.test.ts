@@ -59,7 +59,7 @@ describe('the committed bundle, alone in a fixture repository (acceptance criter
     const wrote = bundled(bundle.root, ['kb', 'init']);
     expect(wrote.code).toBe(0);
     expect(wrote.out).toBe((await fromSource(source.root, ['kb', 'init'])).out);
-    for (const path of wrote.out.match(/^wrote (.+)$/gm).map((line) => line.slice('wrote '.length))) {
+    for (const path of (wrote.out.match(/^wrote (.+)$/gm) ?? []).map((line) => line.slice('wrote '.length))) {
       expect(readFileSync(join(bundle.root, path), 'utf8'), path).toBe(source.read(path));
     }
     const checked = bundled(bundle.root, ['check', 'kb']);

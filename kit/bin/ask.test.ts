@@ -218,7 +218,7 @@ describe('each terminal\'s session', () => {
     await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
     await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
     expect(server.sessions.size).toBe(2);
-    expect(readTerminal(root, 'term-a').sessionId).not.toBe(readTerminal(root, 'term-b').sessionId);
+    expect(readTerminal(root, 'term-a')!.sessionId).not.toBe(readTerminal(root, 'term-b')!.sessionId);
   });
 });
 

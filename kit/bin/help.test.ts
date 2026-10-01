@@ -30,7 +30,7 @@ describe('omni help', () => {
     const marks = ['THE LOOP', '  idea ', '  PRD ', '  inbox ', '  outbox ', '  shipped ', '  retro ', 'The folder is the status.',
       'IN CLAUDE', 'IN THE TERMINAL', 'Run by the skills:', 'omni help <command> tells more about any of them.\n'];
     const at = marks.map((mark) => out.indexOf(mark));
-    expect(at.every((index) => index >= 0), marks.filter((_, i) => at[i] < 0).join(' | ')).toBe(true);
+    expect(at.every((index) => index >= 0), marks.filter((_, i) => (at[i] ?? -1) < 0).join(' | ')).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
     expect(out.endsWith('omni help <command> tells more about any of them.\n')).toBe(true);
   });

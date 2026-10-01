@@ -84,7 +84,7 @@ const neverFetches = (calls: any[]) => calls.every((call: string) => !/^git\b.*\
 describe('omni statusline', () => {
   it('is in the command table', () => {
     expect(Object.keys(COMMAND_TABLE)).toContain('statusline');
-    expect(COMMAND_TABLE.statusline.withoutContext).toBe(true);
+    expect(COMMAND_TABLE.statusline!.withoutContext).toBe(true);
   });
 
   it('prints the session line, then the no-PRD line, where the loop is installed', async () => {
@@ -174,7 +174,7 @@ describe('omni statusline', () => {
       const lines = run.out.replace(/\x1b\[[0-9;]*m/g, '').split('\n').slice(0, -1);
       expect(lines).toHaveLength(2);
       for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
-      expect(lines[0].endsWith('…')).toBe(columns < 70);
+      expect(lines[0]!.endsWith('…')).toBe(columns < 70);
     }
   });
 
@@ -184,7 +184,7 @@ describe('omni statusline', () => {
     for (const env of [PLAIN, { ...PLAIN, COLUMNS: 'wide' }]) {
       const [line] = (await statusline(root, long, { env })).out.split('\n');
       expect([...line].length).toBe(80);
-      expect(line.endsWith('…')).toBe(true);
+      expect(line!.endsWith('…')).toBe(true);
     }
   });
 
@@ -194,7 +194,7 @@ describe('omni statusline', () => {
       const child = execFile(process.execPath, [CLI, 'statusline'], { cwd: root, env: { ...process.env, NO_COLOR: '1', COLUMNS: '200' }, encoding: 'utf8' }, (error, stdout, stderr) => {
         resolve({ code: error ? error.code : 0, stdout, stderr });
       });
-      child.stdin.end(payload(root, { rate_limits: undefined }));
+      child.stdin!.end(payload(root, { rate_limits: undefined }));
     });
     expect(run).toEqual({ code: 0, stderr: '', stdout: `Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n` });
   });

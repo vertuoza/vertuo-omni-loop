@@ -166,7 +166,7 @@ function fakeFetch(replies) {
   return vi.fn(async (_url: string, init) => {
     const body = JSON.parse(init.body);
     const user = body.messages.find((m) => m.role === 'user').content;
-    const id = /^## The decision: (\S+)$/m.exec(user)[1];
+    const id = /^## The decision: (\S+)$/m.exec(user)![1];
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(replies[id]) } }] }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -219,9 +219,9 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(ledger.startsWith(LEDGER_TEXT)).toBe(false); // lines were added inside entries
     const latest = Object.fromEntries(parseSettledEntries(ledger, markers).map((e) => [e.id, e]));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
-      expect(latest[id].verdict).toBe('adopted');
-      expect(latest[id].fields['Approved by']).toBe('@octocat');
-      expect(latest[id].fields.Basis).toMatch(/^merged-over-red/);
+      expect(latest[id]!.verdict).toBe('adopted');
+      expect(latest[id]!.fields['Approved by']).toBe('@octocat');
+      expect(latest[id]!.fields.Basis).toMatch(/^merged-over-red/);
     }
     // The plan's paths follow the move.
     expect(r.read(`${SHIPPED}/plan.md`)).toContain(`\`${SHIPPED}/spec.md\``);
@@ -234,10 +234,10 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(r.read(`${K}/product/rules.md`)).toContain('## BR-PRODUCT-1');
     expect(r.read(`${K}/product/rules.md`)).toContain(`Proposed: harvest ${TODAY}`);
     expect(r.read(`${K}/product/principles.md`)).toContain('## P-PRODUCT-2');
-    expect(latest['s1-01-high-one'].became).toEqual(['ADR-0002']);
-    expect(latest['s1-02-set-secret'].became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(latest['s0-04-drift'].became).toEqual(['ADR-0001']);
-    expect(latest['s0-01-local-name'].fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(latest['s1-01-high-one']!.became).toEqual(['ADR-0002']);
+    expect(latest['s1-02-set-secret']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(latest['s0-04-drift']!.became).toEqual(['ADR-0001']);
+    expect(latest['s0-01-local-name']!.fields['Stays here']).toBe('a local choice, nothing lasting');
 
     expect(out).toContain('omni harvest — PRD 42, pull request #43 merged by @octocat on 2026-09-26 (abcdef1):');
     expect(out).toContain('settled at merge: 2 open item(s), 1 drift(s) never reworked, adopted by @octocat');
@@ -263,8 +263,8 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     expect(code).toBe(0);
     expect(out).toMatch(/s0-02-cited — the checks refused it: .*BR-GHOST-9/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-02-cited'].became).toEqual([]);
-    expect(latest['s0-02-cited'].fields['Stays here']).toBeUndefined();
+    expect(latest['s0-02-cited']!.became).toEqual([]);
+    expect(latest['s0-02-cited']!.fields['Stays here']).toBeUndefined();
     expect(r.read(`${K}/product/invariants.md`)).not.toContain('BR-GHOST-9');
   });
 
@@ -273,7 +273,7 @@ describe('omni harvest — the happy path, on a PRD merged over red', () => {
     const { out } = await harvest(r);
     expect(out).toMatch(/s0-03-refused — the model's reply was refused twice/);
     const latest = Object.fromEntries(parseSettledEntries(r.read(LEDGER), markers).map((e) => [e.id, e]));
-    expect(latest['s0-03-refused'].became).toEqual([]);
+    expect(latest['s0-03-refused']!.became).toEqual([]);
     const refusedCalls = fetch.mock.calls.filter(([, init]) => init.body.includes('## The decision: s0-03-refused'));
     expect(refusedCalls).toHaveLength(2);
   });

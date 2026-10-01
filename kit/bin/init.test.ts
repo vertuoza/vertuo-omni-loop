@@ -232,7 +232,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     await init(root);
     const config = readConfig(read);
     expect(config.ask.url).toBe('https://vertuo-omni-loop-galaxy.vercel.app');
-    expect(config.ask.url).toBe(config.signature.home);
+    expect(config.ask.url).toBe(config.signature!.home);
     expect(config.dossier.enabled).toBe(true);
     expect(read('.omni-loop/config.yml')).toContain('ask:\n  url: https://vertuo-omni-loop-galaxy.vercel.app\n');
     expect(read('.omni-loop/config.yml')).toContain('dossier:\n  enabled: true\n');
@@ -857,7 +857,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
         const file = id === 'decisions' ? `${KNOWLEDGE}/adr/README.md` : `${KNOWLEDGE}/playbook/${id}.md`;
         const parsed = parseForm(read(file), { file });
         expect(parsed.errors ?? [], file).toEqual([]);
-        expect(parsed.form.state, file).toBe('blank');
+        expect(parsed.form!.state, file).toBe('blank');
       }
       expect(readConfig(read).laws.source).toBe('none');
       expect(first.out).toContain('\n       /omni:invade\n');

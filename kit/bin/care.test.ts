@@ -102,7 +102,7 @@ function fakeExec(root: string, { featurePrs = [{ number: 9, state: 'OPEN', upda
   ];
   const answerGraphql = (options) => {
     const { query } = JSON.parse(options.input);
-    return JSON.stringify(answers.find(([asks]) => query.includes(asks))[1]());
+    return JSON.stringify(answers.find(([asks]) => query.includes(asks))![1]());
   };
   // Every command the fake answers, by its file and first two arguments.
   const handlers = {

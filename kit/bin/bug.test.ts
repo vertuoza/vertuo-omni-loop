@@ -59,7 +59,7 @@ function setup(configText = CONFIG_TEXT, files = {}) {
 }
 
 /** A fix branch: the reproduction added and a record, both committed. */
-function fixBranch({ bug = record(), configText, signed } = {}) {
+function fixBranch({ bug = record(), configText, signed }: { bug?: string; configText?: string; signed?: boolean } = {}) {
   const repo = setup(configText);
   repo.write(REPRO, "it('saves once', () => {});\n");
   repo.write(RECORD, bug);
@@ -67,7 +67,7 @@ function fixBranch({ bug = record(), configText, signed } = {}) {
   return { ...repo, sha };
 }
 
-async function run(root: string, base: string, issue = ISSUE) {
+async function run(root: string, base: string, issue: number | string = ISSUE) {
   const s = io();
   const code = await main(['bug', String(issue), '--base', base], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };

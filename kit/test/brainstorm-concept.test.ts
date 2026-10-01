@@ -7,9 +7,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AREA_COLUMNS, CONCEPT_SECTIONS } from '../lib/concept/parse.ts';
 import { foldersLayout } from '../lib/layout.ts';
+import type { LayoutPaths } from '../lib/layout.ts';
 
 const TEXT = readFileSync(new URL('../plugin/skills/brainstorm/SKILL.md', import.meta.url), 'utf8');
-const CONCEPTS = foldersLayout('/nowhere', { delivery: '<paths.delivery>', playbook: '<paths.playbook>' }).dirs.concepts;
+const CONCEPTS = foldersLayout('/nowhere', { delivery: '<paths.delivery>', playbook: '<paths.playbook>' } as LayoutPaths).dirs.concepts;
 
 /** The `## ` headings of a text, outside fenced blocks, in order. */
 function headings(text: string) {
@@ -44,7 +45,7 @@ const flat = (text: string) => text.replace(/\s+/g, ' ');
 const paragraphs = (text: string) => text.split(/\n\s*\n/);
 
 /** The first paragraph of `text` holding `phrase`, flattened, or '' when none does. */
-const paragraphWith = (text: any, phrase: string) => paragraphs(text).map(flat).find((p: string | any[]) => p.includes(phrase)) ?? '';
+const paragraphWith = (text: string, phrase: string) => paragraphs(text).map(flat).find((p) => p.includes(phrase)) ?? '';
 
 // What only a run from a concept reads or writes.
 const CONCEPT_ONLY = /concept\.md|vision\.html|<concept>|<concept folder>|<area>/;
@@ -52,7 +53,7 @@ const CONCEPT_ONLY = /concept\.md|vision\.html|<concept>|<concept folder>|<area>
 /** Each paragraph from step 1 on that names what only a concept run touches, without saying `--concept`. */
 function unconditionalParagraphs(text: string) {
   const from = text.search(/^## 1\. /m);
-  return paragraphs(text.slice(from)).filter((p: string | string[]) => CONCEPT_ONLY.test(p) && !p.includes('--concept'));
+  return paragraphs(text.slice(from)).filter((p) => CONCEPT_ONLY.test(p) && !p.includes('--concept'));
 }
 
 describe('/omni:brainstorm --concept <n> <area> (PRD 686)', () => {

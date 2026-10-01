@@ -4,6 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../../test/fixture.ts';
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const BUNDLE = 'var define_OMNI_BUNDLE_default = { home: "acme/kit", version: "0.0.40" };\n';
@@ -33,19 +35,22 @@ const WITH_TYPO = `${PLAN}    - repo: acme/typo
 `;
 
 /** A fake `execFileSync` answering `gh api` for the repositories of `world` (see targets.test.mjs). */
-function fakeGh(world) {
-  const calls: any[] = [];
-  const exec = (file: string, args: any[] | readonly string[], options) => {
-    if (file === 'git') return execFileSync(file, args, options);
+/** The repositories `gh` can read: each one's files, path to text. */
+type World = Record<string, Record<string, string>>;
+
+function fakeGh(world: World) {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+    if (file === 'git') return realExec(file, args, options);
     if (file !== 'gh') throw new Error(`unexpected ${file}`);
     calls.push(args.join(' '));
-    const endpoint = args[args.length - 1];
-    const [, owner, name, kind, ...rest] = endpoint.split('?')[0].split('/');
+    const endpoint = String(args[args.length - 1]);
+    const [, owner, name, kind, ...rest] = String(endpoint.split('?')[0]).split('/');
     const repo = world[`${owner}/${name}`];
     if (!repo) throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });
     if (kind === undefined) return JSON.stringify({ default_branch: 'main' });
     const path = rest.map(decodeURIComponent).join('/');
-    if (Object.hasOwn(repo, path)) return repo[path];
+    if (Object.hasOwn(repo, path)) return String(repo[path]);
     const under = Object.keys(repo).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
     if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
     throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });
@@ -53,7 +58,7 @@ function fakeGh(world) {
   return { exec, calls };
 }
 
-async function targets(args: string[], { config, world = {} }) {
+async function targets(args: string[], { config, world = {} }: { config: string; world?: World }) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const { exec, calls } = fakeGh(world);
   const out: string[] = [];
@@ -108,9 +113,9 @@ describe('omni targets', () => {
       },
     });
     const { exec } = fakeGh(ALL_OK);
-    const faked = (file: string, args: string | any[] | readonly string[], options) => {
-      if (file === 'git') return execFileSync(file, args, options);
-      const endpoint = args[args.length - 1];
+    const faked = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+      if (file === 'git') return realExec(file, args, options);
+      const endpoint = String(args[args.length - 1]);
       if (endpoint === 'repos/acme/back') return JSON.stringify({ default_branch: 'main' });
       if (endpoint === `repos/acme/back/compare/${SHA}...main`) return JSON.stringify({ ahead_by: 3, files: [{ filename: 'composer.json' }] });
       if (endpoint.startsWith('repos/acme/back/')) throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });

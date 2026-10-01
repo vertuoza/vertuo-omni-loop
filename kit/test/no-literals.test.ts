@@ -19,7 +19,7 @@ const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'omni
 const PROVENANCE = /^(?:\/\/|<!--) Ported from vertuo-ai-domain@/;
 
 // Controller ruling: exempt kit/lib/config.ts from exactly these patterns (per-pattern list)
-const EXEMPT_PATHS = {
+const EXEMPT_PATHS: Record<string, string[]> = {
   "'omni:outbox-go'": ['lib/config.ts'],
   "'omni:feature'": ['lib/config.ts'],
   '\\bdocs\\/': ['lib/config.ts'],
@@ -29,13 +29,13 @@ const EXEMPT_PATHS = {
 // the default of `signature.home`, in `lib/config.ts` only. Each whole occurrence of its host (the
 // boundary `kit/test/no-game-words.test.ts` uses) is removed from a line before the line is
 // tested, so every other hit on that line, in that file or any other, still fails.
-const EXEMPT_VALUES = {
+const EXEMPT_VALUES: Record<string, RegExp[]> = {
   'lib/config.ts': [/(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g],
 };
 
-function files(dir, ext: string) {
+function files(dir: string, ext: string): string[] {
   let out: string[] = [];
-  let names = [];
+  let names: string[] = [];
   try { names = readdirSync(dir); } catch { return out; }
   for (const name of names) {
     const path = join(dir, name);
@@ -53,7 +53,7 @@ function literalHits(root: string) {
       const relPath = relative(root, file);
       readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
         if (PROVENANCE.test(line.trim())) return;
-        const tested = (EXEMPT_VALUES[relPath] || []).reduce((rest: string, value: any) => rest.replace(value, ''), line);
+        const tested = (EXEMPT_VALUES[relPath] || []).reduce((rest: string, value: RegExp) => rest.replace(value, ''), line);
         for (const pattern of [...FORBIDDEN, ...also]) {
           const exempt = EXEMPT_PATHS[pattern.source] || [];
           if (exempt.includes(relPath)) continue;
@@ -72,7 +72,7 @@ describe('kit source carries no repository literal', () => {
 
   it('scans the kit defaults under templates/, and exempts their provenance lines', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path: string, text) => {
+    const write = (path: string, text: string) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };
@@ -96,7 +96,7 @@ describe('kit source carries no repository literal', () => {
 
   it('lets the arcade\'s exact address through in lib/config.ts only, and nothing else (ADR-0047)', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path: string, text) => {
+    const write = (path: string, text: string) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };
@@ -117,7 +117,7 @@ describe('kit source carries no repository literal', () => {
 
   it('scans skill prose under plugin/, and exempts its provenance lines', () => {
     const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
-    const write = (path: string, text) => {
+    const write = (path: string, text: string) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), text);
     };

@@ -4,13 +4,13 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
-import type { Context, ExecText } from '../lib/context.ts';
+import type { ExecText } from '../lib/context.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
 import type { Env } from './io.ts';
 import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
 
 /** What the GitHub helpers read of the context: the `gh` user and the repository's slug. */
-type GithubContext = { config: Pick<Context['config'], 'github' | 'repo'> };
+type GithubContext = { config: { github: { user: string | null }; repo: { slug: string | null } } };
 
 /**
  * The production comment client. `--input -` feeds the body as JSON on stdin rather than an argv

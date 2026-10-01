@@ -29,7 +29,7 @@ async function omni(root: string, argv: readonly string[], options = {}) {
 
 /** The kit default of `form`'s slot `slot`, filled from `config` as `omni kb show` fills it. */
 function kitDefault(form: string, slot: string, config = { commands: { test: 'make check' } }) {
-  const body = parseForm(formTemplate(form)).form.slots.find((entry) => entry.id === slot).body.text;
+  const body = parseForm(formTemplate(form)).form!.slots.find((entry) => entry.id === slot)!.body.text;
   return fillConfig(body, ConfigSchema.parse({ kit: 1, ...config })).text;
 }
 
@@ -72,15 +72,15 @@ describe('omni kb init — acceptance criterion 1', () => {
       const file = form.id === 'decisions' ? DECISIONS : `${PLAYBOOK}/${form.id}.md`;
       const kit = parseForm(formTemplate(form.id)).form;
       const written = parseForm(read(file)).form;
-      expect({ title: written.title, opener: written.opener }).toEqual({ title: kit.title, opener: kit.opener });
-      expect(written.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual(
-        kit.slots.map(({ id, heading, required }) => ({ id, heading, required, by: null, verified: null })),
+      expect({ title: written!.title, opener: written!.opener }).toEqual({ title: kit!.title, opener: kit!.opener });
+      expect(written!.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual(
+        kit!.slots.map(({ id, heading, required }) => ({ id, heading, required, by: null, verified: null })),
       );
-      expect(written.slots.every((slot) => slot.body.kind === 'empty'), file).toBe(true);
+      expect(written!.slots.every((slot) => slot.body.kind === 'empty'), file).toBe(true);
       expect(read(file)).not.toMatch(/Ported from/);
     }
     const { out } = await omni(root, ['kb', 'show', 'testing']);
-    expect(out.match(/^## .*$/gm).every((line) => line.endsWith('[kit default]'))).toBe(true);
+    expect(out.match(/^## .*$/gm)!.every((line) => line.endsWith('[kit default]'))).toBe(true);
   });
 
   it('writes the front door README filled from the config, naming where each half lives', async () => {
@@ -578,7 +578,7 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.ts@1234567'] },
       slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?\nTODO(human): who owns the fixtures?' } },
     });
-    const blank = (form: string) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form).slots.map(({ id, required }) => ({ id, required })) });
+    const blank = (form: string) => formText({ frontMatter: { form }, slots: FORMS.find((entry) => entry.id === form)!.slots.map(({ id, required }) => ({ id, required })) });
     const { root } = makeRepo({
       git: true,
       files: {

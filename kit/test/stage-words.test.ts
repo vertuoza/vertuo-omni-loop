@@ -15,7 +15,7 @@ const GALAXY_STAGE = 'apps/galaxy/src/stages/stage.ts';
 function galaxyStages(source: string) {
   const found = source.match(/export const STAGES\b[^=]*=\s*\[([^\]]*)\]/);
   if (!found) return null;
-  return [...found[1].matchAll(/'([^']*)'|"([^"]*)"/g)].map((quoted) => quoted[1] ?? quoted[2]);
+  return [...(found[1] ?? '').matchAll(/'([^']*)'|"([^"]*)"/g)].map((quoted) => quoted[1] ?? quoted[2]);
 }
 
 describe("the kit's stage words and galaxy's (PRD 587)", () => {

@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { compareVersions, latestRelease, versionLines } from '../lib/version/version.ts';
 import { main } from './omni.ts';
+import type { RunningKit } from '../lib/init/bundle.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -19,9 +21,9 @@ function io() {
 }
 
 /** A fake `exec` whose `gh release view` answers `tag`, or throws `error`. It records every call. */
-function fakeGh({ tag = null, error = null } = {}) {
-  const calls = [];
-  const exec = (file: string, args: any, options: any) => {
+function fakeGh({ tag = null, error = null }: { tag?: string | null; error?: Error | null } = {}) {
+  const calls: { file: string; args: readonly string[]; options: ExecFileSyncOptions }[] = [];
+  const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions) => {
     calls.push({ file, args, options });
     if (file !== 'gh') throw new Error(`unexpected ${file}`);
     if (error) throw error;
@@ -30,9 +32,9 @@ function fakeGh({ tag = null, error = null } = {}) {
   return { exec, calls };
 }
 
-const KIT = { home: 'acme/kit', version: '0.0.13', source: false };
+const KIT: RunningKit = { home: 'acme/kit', version: '0.0.13', source: false };
 
-async function version(argv: readonly string[], { kit = KIT, gh = fakeGh() } = {}) {
+async function version(argv: readonly string[], { kit = KIT, gh = fakeGh() }: { kit?: RunningKit; gh?: ReturnType<typeof fakeGh> } = {}) {
   const s = io();
   const code = await main(argv, { cwd: mkdtempSync(join(tmpdir(), 'omni-version-')), ...s, exec: gh.exec, kit });
   return { code, out: s.out.join(''), err: s.err.join(''), calls: gh.calls };
@@ -44,8 +46,8 @@ describe('omni version', () => {
     expect(code).toBe(0);
     expect(out).toBe('omni v0.0.13\nlatest v0.0.15, run: omni update\n');
     expect(calls).toHaveLength(1);
-    expect(calls[0].args).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
-    expect(calls[0].options.timeout).toBe(5000);
+    expect(calls[0]!.args).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
+    expect(calls[0]!.options.timeout).toBe(5000);
   });
 
   it('up to date: (latest) on the one line', async () => {
@@ -60,7 +62,7 @@ describe('omni version', () => {
     ['gh timing out', { error: Object.assign(new Error('spawnSync gh ETIMEDOUT'), { code: 'ETIMEDOUT' }) }],
     ['no release yet', { error: Object.assign(new Error('release not found'), { status: 1 }) }],
     ['an answer that is no version', { tag: 'release-3' }],
-  ])('%s: the first line alone, exit 0', async (_: any, gh) => {
+  ])('%s: the first line alone, exit 0', async (_: string, gh: { tag?: string; error?: Error }) => {
     const { code, out, err } = await version(['version'], { gh: fakeGh(gh) });
     expect(code).toBe(0);
     expect(out).toBe('omni v0.0.13\n');
@@ -126,7 +128,7 @@ describe('the version module', () => {
 
 describe('the built bundle carries the version of its package.json', () => {
   /** Builds the kit from a package.json holding `pkg`, and runs its `omni version` with no `gh` on the PATH. */
-  function builtVersion(pkg) {
+  function builtVersion(pkg: Record<string, string>) {
     const dir = mkdtempSync(join(tmpdir(), 'omni-build-'));
     const pkgFile = join(dir, 'package.json');
     writeFileSync(pkgFile, JSON.stringify(pkg));

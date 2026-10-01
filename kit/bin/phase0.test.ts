@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import type { Repo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -34,7 +35,7 @@ function setup(configText = CONFIG_TEXT) {
 }
 
 /** The three files a phase-0 pull request carries for PRD 7. */
-function writeDocs(write) {
+function writeDocs(write: Repo['write']) {
   write(`${DIR}/spec.md`, '# spec\n');
   write(`${DIR}/plan.md`, '# plan\n');
   write(`${DIR}/before-after.html`, '<html></html>\n');

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptions } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -56,6 +57,28 @@ export function makeRepo({ files = {}, config = {}, git = false }: { files?: Rea
   }
   return { root, ctx: testContext(root, config), write, read: (path: string) => readFileSync(join(root, path), 'utf8') };
 }
+
+/** What `makeRepo` hands a test: the root, its context, and a writer and a reader of its files. */
+export type Repo = ReturnType<typeof makeRepo>;
+
+/** A repository's files, path to text. */
+export type Files = Record<string, string>;
+
+/** A fake `execFileSync` a test hands a command: it answers what it fakes, and may run the rest. */
+export type FakeExec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => string;
+
+/** The real `execFileSync`, for the calls a fake does not answer: the kit always asks for text. */
+export const realExec: FakeExec = (file, args, options) => execFileSync(file, args, options) as string; // ts-allow: the kit runs every process with a text encoding
+
+/** Where a test's command prints, and what it printed. */
+export function io() {
+  const out: string[] = [];
+  const err: string[] = [];
+  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
+}
+
+/** What `io()` hands a test. */
+export type Io = ReturnType<typeof io>;
 
 /** One slot's `<!-- slot: … -->` marker, fields in the order the parser reads them. */
 export function slotMarker({ id, required = false, by = null, verified = null }: SlotFixture): string {

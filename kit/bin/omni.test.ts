@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.ts';
 import { main, prdNamedBy } from './omni.ts';
 import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { Io } from '../test/fixture.ts';
 
 function io() {
   const out: string[] = [];
@@ -239,7 +242,7 @@ const STRAY_MEDIUM = [
 const STRAY_HIGH = STRAY_MEDIUM.replace('rank: medium', 'rank: high');
 
 describe('omni — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
 
   it('check all with an explicit --base that does not exist', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
@@ -336,14 +339,14 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
   const NO_SIGN_IN = { read: () => null, write() {} };
 
   /** `execFileSync` for git; `gh pr list` lists nothing, and any other `gh` call fails: no test calls GitHub. */
-  const noGitHub = (file: string, args: any[] | readonly string[], options) => {
-    if (file !== 'gh') return execFileSync(file, args, options);
+  const noGitHub = (file: string, args: readonly string[], options?: ExecFileSyncOptions): string => {
+    if (file !== 'gh') return realExec(file, args, options);
     if (args[0] === 'pr' && args[1] === 'list') return '[]';
     throw new Error(`no gh here: ${args.join(' ')}`);
   };
 
   /** `omni <argv>` in `cwd` with `env`: its exit code and its output, the fixture's own folder written `<root>`. */
-  async function omni(argv, { root, cwd = root, env = {} }) {
+  async function omni(argv: string[], { root, cwd = root, env = {} }: { root: string; cwd?: string; env?: Record<string, string> }) {
     const s = io();
     const code = await main(argv, { cwd, ...s, exec: noGitHub, env, tokens: NO_SIGN_IN });
     const clean = (text: string) => text.split(realpathSync(root)).join('<root>').split(root).join('<root>');
@@ -399,7 +402,7 @@ describe('omni — the PRD a command names, recorded for the Claude session', ()
 
   it('records nothing without the variable, with an id that is not safe, or for a number that is no PRD', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
-    const runs = [
+    const runs: [string[], Record<string, string>][] = [
       [['prd', '7'], {}],
       [['prd', '7'], { CLAUDE_CODE_SESSION_ID: '' }],
       [['prd', '7'], { CLAUDE_CODE_SESSION_ID: '../abc' }],
@@ -473,10 +476,11 @@ describe('prdNamedBy: the one PRD a command names', () => {
 // PRD 420: run as a program (the global `omni`), the entry is a launcher. These start the real CLI.
 describe('omni — the launcher', () => {
   const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
-  const run = (argv: string[], { cwd, input = '' }) => {
+  const run = (argv: string[], { cwd, input = '' }: { cwd: string; input?: string }) => {
     try {
       return { code: 0, out: execFileSync(process.execPath, [CLI, ...argv], { cwd, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }), err: '' };
-    } catch (error) {
+    } catch (caught) {
+      const error = caught as { status: number; stdout: unknown; stderr: unknown };
       return { code: error.status, out: String(error.stdout), err: String(error.stderr) };
     }
   };

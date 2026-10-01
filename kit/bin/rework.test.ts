@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import type { Files, Repo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -74,7 +75,7 @@ function baseFiles() {
   };
 }
 
-async function settle(root: string, file: string, answer: string, extra = {}) {
+async function settle(root: string, file: string, answer: string, extra: Record<string, string> = {}) {
   return main(
     ['settle', file, '--by', 'pierrederval', '--at', '2026-09-22', '--channel', 'prd-issue', '--number', '1', '--answer', answer, ...Object.entries(extra).flatMap(([k, v]) => [`--${k}`, v])],
     { cwd: root, ...io() },
@@ -94,7 +95,7 @@ async function driftedRepo() {
 
 /** Adds a second PRD to `root`, drifted under the exact same item id as `driftedRepo`'s own PRD
  * 985 — the collision `--prd` exists to prevent. */
-async function addOtherDriftedPrd(root: string, write) {
+async function addOtherDriftedPrd(root: string, write: Repo['write']) {
   write(`${OTHER_DIR}/spec.md`, '# spec\n');
   write(`${OTHER_DIR}/plan.md`, PLAN);
   write(`${OTHER_OUTBOX}/s1-01-default-country.md`, ITEM_TEXT.replace(`prd: ${PRD}`, `prd: ${OTHER_PRD}`));
@@ -186,7 +187,7 @@ describe('omni rework plan — in a plan repository (PRD 563, s3)', () => {
     '',
   ].join('\n');
 
-  async function multiRepo(config) {
+  async function multiRepo(config: Files) {
     const { root } = makeRepo({
       git: true,
       files: { ...config, [`${DIR}/spec.md`]: '# spec\n', [`${DIR}/plan.md`]: MULTI_PLAN, [`${OUTBOX}/s1-01-default-country.md`]: ITEM_TEXT },

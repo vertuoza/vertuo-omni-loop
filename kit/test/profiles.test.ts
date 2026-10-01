@@ -38,7 +38,7 @@ const EMPTY_INVARIANTS = '# Invariants\n';
 
 /** The valid outbox item fixture (Task 5's parser, ported test), parameterised on prd, bears-on
  * and rank — every required section, plain words, two options in order. */
-function itemText({ prd, bearsOn, rank }) {
+function itemText({ prd, bearsOn, rank }: { prd: number; bearsOn: string; rank: string }) {
   return [
     '---',
     'id: s1-01-x',

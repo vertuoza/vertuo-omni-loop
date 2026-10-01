@@ -43,7 +43,7 @@ function runCli(args: string[], { cwd, input = '', env = {} }) {
     const child = execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
     });
-    child.stdin.end(input);
+    child.stdin!.end(input);
   });
 }
 
@@ -180,7 +180,7 @@ describe('omni ask hook, with the mode on', () => {
     expect(server.calls.find((call) => call.path === '/api/ask/sessions')).toBeUndefined();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin: PRE, tokens })).toBe(0);
     const opened = server.calls.find((call) => call.path === '/api/ask/sessions');
-    expect(opened.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
+    expect(opened!.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
   });
 
   it('pre still asks with nulls in the context when there is no transcript and HEAD is detached', async () => {
@@ -357,7 +357,7 @@ describe('the plugin\'s hooks.json', () => {
     const run = await new Promise((resolve) => {
       const child = execFile('sh', ['-c', command], { cwd: root, env: { ...process.env, HOME: home, CLAUDE_PROJECT_DIR: root }, encoding: 'utf8' },
         (error, stdout) => resolve({ status: error ? error.code : 0, stdout }));
-      child.stdin.end('{"prompt":"hi"}');
+      child.stdin!.end('{"prompt":"hi"}');
     });
     expect(run.status).toBe(0);
     expect(JSON.parse(run.stdout).hookSpecificOutput.additionalContext).toBe(PROMPT_CONTEXT);

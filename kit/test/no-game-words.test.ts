@@ -23,7 +23,7 @@ const HOME_ADDRESS = /(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.
 const isTest = (name: string) => /\.test\.[cm]?[jt]sx?$/.test(name);
 
 /** Every file under `dir` that is not a test, dependencies left out. */
-function nonTestFiles(dir) {
+function nonTestFiles(dir: string): string[] {
   let out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules') continue;
@@ -45,7 +45,7 @@ function gameWordHits(root: string) {
   return hits.sort();
 }
 
-function fixture(files) {
+function fixture(files: Record<string, string>) {
   const root = mkdtempSync(join(tmpdir(), 'omni-game-words-'));
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });

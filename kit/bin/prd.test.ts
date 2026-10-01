@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
+import type { Files } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 function io() {
@@ -39,7 +40,7 @@ const ORDINARY = [
   '',
 ].join('\n');
 
-async function prdOut(files) {
+async function prdOut(files: Files) {
   const { root } = makeRepo({ git: true, files: { ...CONFIG, [`${DIR}/spec.md`]: 'x', ...files } });
   const s = io();
   const code = await main(['prd', '7'], { cwd: root, ...s });

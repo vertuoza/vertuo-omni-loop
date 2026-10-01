@@ -48,7 +48,7 @@ describe('positiveInt', () => {
   });
 
   it('refuses zero, a negative, a fraction, an empty string and no value', () => {
-    for (const value of ['0', '000', '-3', '1.5', '', undefined, true]) {
+    for (const value of ['0', '000', '-3', '1.5', '', undefined, true] as const) {
       expect(() => positiveInt('prd', '<n>', value)).toThrow(/must be a positive number/);
     }
   });
