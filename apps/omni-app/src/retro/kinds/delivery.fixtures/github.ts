@@ -12,7 +12,7 @@ import { SUB_PULLS } from '../../../../test/retro-scenario.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
-const url = (path) => `https://github.com/${OWNER}/${REPO}/${path}`;
+const url = (path: string) => `https://github.com/${OWNER}/${REPO}/${path}`;
 
 /** A first claim of s3, closed after a minute without merging: s3 was claimed twice. */
 export const RECLAIMED = {
@@ -33,7 +33,7 @@ export const RECLAIMED = {
 
 export const DELIVERY_PULLS = [...SUB_PULLS, RECLAIMED];
 
-const file = (filename, extra = {}) => ({ filename, status: 'modified', additions: 1, deletions: 0, changes: 1, ...extra });
+const file = (filename: string, extra = {}) => ({ filename, status: 'modified', additions: 1, deletions: 0, changes: 1, ...extra });
 
 export const FILES = {
   13: [
@@ -45,7 +45,7 @@ export const FILES = {
   15: [file('src/show/colour.mjs', { status: 'added' }), file('src/registry.mjs'), file('src/store/colour.mjs'), file('README.md')],
 };
 
-const user = (login, type = 'User') => ({ login, type });
+const user = (login: string, type = 'User') => ({ login, type });
 
 export const REVIEWS = {
   12: [{ id: 1201, user: user('ada'), state: 'APPROVED', body: 'Looks right.', html_url: url('pull/12#pullrequestreview-1201'), submitted_at: '2026-09-20T11:55:00Z' }],
@@ -63,7 +63,9 @@ export const REVIEWS = {
   15: [{ id: 1501, user: user('grace'), state: 'COMMENTED', body: '🔴 I would rename this.', html_url: url('pull/15#pullrequestreview-1501'), submitted_at: '2026-09-20T11:00:00Z' }],
 };
 
-const thread = ({ resolved, path, author, bot = false, body, id, outdated = false }) => ({
+type ThreadFixture = { resolved: boolean; path: string; author: string; bot?: boolean; body: string; id: string; outdated?: boolean };
+
+const thread = ({ resolved, path, author, bot = false, body, id, outdated = false }: ThreadFixture) => ({
   isResolved: resolved,
   isOutdated: outdated,
   path,
@@ -71,7 +73,7 @@ const thread = ({ resolved, path, author, bot = false, body, id, outdated = fals
 });
 
 /** The review threads GraphQL returns for each pull request, first page only. */
-export const THREADS = {
+export const THREADS: Record<number, ReturnType<typeof thread>[] | undefined> = {
   12: [],
   13: [thread({ id: '13#discussion_r1', resolved: true, path: 'src/store/colour.mjs', author: 'claude', bot: true, body: '🔴 Off by one: the last colour is dropped.' })],
   14: [],
@@ -105,7 +107,7 @@ export const COMMENTS = [
 
 /** The recorded reads, in the shape `replayGitHub` replays. */
 export function deliveryRecording() {
-  const page = (number) => ({ owner: OWNER, repo: REPO, pull_number: number, per_page: 100, page: 1 });
+  const page = (number: number) => ({ owner: OWNER, repo: REPO, pull_number: number, per_page: 100, page: 1 });
   return [
     ...Object.entries(FILES).map(([number, data]) => ({ route: 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files', params: page(Number(number)), data })),
     ...Object.entries(REVIEWS).map(([number, data]) => ({ route: 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', params: page(Number(number)), data })),
@@ -113,7 +115,7 @@ export function deliveryRecording() {
 }
 
 /** GraphQL's answer to the review-threads query for one pull request. */
-export function threadsAnswer(number) {
+export function threadsAnswer(number: number) {
   const nodes = THREADS[number];
   if (!nodes) return null;
   return {
