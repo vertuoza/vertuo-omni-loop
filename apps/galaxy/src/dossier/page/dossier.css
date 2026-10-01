@@ -122,6 +122,27 @@
 .stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
+/* Pitch (PRD 859): the button, and under it a small panel of two choices, the command and Copy. */
+.pitch-action { position: relative; display: inline-flex; }
+.pitch-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 6px;
+  background: var(--ask-surface);
+}
+.pitch-choices { display: flex; gap: 12px; align-items: center; margin: 0; padding: 0; border: 0; }
+.pitch-choices legend { float: left; margin-right: 4px; }
+.pitch-choice { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.pitch-choices:disabled .pitch-choice { cursor: not-allowed; color: var(--ask-muted); }
+.pitch-command { overflow-wrap: anywhere; }
+.pitch-hint { margin: 0; }
 .stage-links {
   list-style: none;
   margin: 0;

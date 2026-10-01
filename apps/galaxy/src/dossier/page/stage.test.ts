@@ -66,16 +66,16 @@ describe('the stage of a PRD, read from GitHub for the pulse', () => {
     expect(stageOf(426, { ...open, outbox: UNREAD }, 4).id).toBe('unknown');
   });
 
-  it('is shipped once the feature PR merged and there is no retro PR', () => {
+  it('is shipped once the feature PR merged and there is no retro PR: Pitch, and the retro comes next', () => {
     expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4 }))).toEqual({
-      id: 'shipped', action: null, caption: 'Shipped · the retro is written next',
+      id: 'shipped', action: { kind: 'pitch', label: 'Pitch', prd: 426 }, caption: 'Shipped · the retro is written next',
     });
   });
 
-  it('is retro once a retro PR exists, open or merged, and the latest stage wins', () => {
+  it('is retro once a retro PR exists, open or merged, and the latest stage wins: Pitch is its button', () => {
     for (const state of ['open', 'merged'] as const) {
       expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4, retro: pr(440, state) }))).toEqual({
-        id: 'retro', action: { kind: 'link', label: 'Read the retro', href: 'https://github.com/acme/widgets/pull/440' }, caption: null,
+        id: 'retro', action: { kind: 'pitch', label: 'Pitch', prd: 426 }, caption: null,
       });
     }
   });
@@ -124,8 +124,23 @@ describe('the header\'s view of the stage (PRD 587)', () => {
     expect(at([row('prd')], summary({ phase0: pr(431, 'open') }))).toEqual({ kind: 'link', label: 'Approve spec', href: 'https://github.com/acme/widgets/pull/431' });
     expect(stageView({ prd: 426, rows: [row('prd')], github: summary() }).caption).toBe('Spec being written');
     expect(at([row('outbox')], summary({ feature: pr(433, 'open') }))).toEqual({ kind: 'link', label: 'Review & merge', href: 'https://github.com/acme/widgets/pull/433' });
-    expect(at([row('retro')], summary({ retro: pr(440, 'open') }))).toEqual({ kind: 'link', label: 'Read the retro', href: 'https://github.com/acme/widgets/pull/440' });
-    expect(at([row('shipped')], summary({ feature: pr(433, 'merged') }))).toBeNull();
+  });
+
+  it('is Pitch at shipped and retro, with or without GitHub, and at no earlier stage (PRD 859)', () => {
+    const pitch = { kind: 'pitch', label: 'Pitch', prd: 426 };
+    for (const github of [summary({ feature: pr(433, 'merged'), retro: pr(440, 'open') }), null]) {
+      expect(stageView({ prd: 426, rows: [row('shipped')], github }).action).toEqual(pitch);
+      expect(stageView({ prd: 426, rows: [row('retro')], github }).action).toEqual(pitch);
+    }
+    const earlier = summary({ phase0: pr(431, 'open'), feature: pr(433, 'open'), mergedSlices: 2 });
+    for (const stage of ['prd', 'inbox', 'building', 'outbox'] as const) {
+      for (const github of [earlier, null]) {
+        expect(stageView({ prd: 426, rows: [row(stage)], github }).action?.kind, stage).not.toBe('pitch');
+      }
+    }
+    expect(stageView({ prd: null, rows: [] }).action).toBeNull();
+    expect(stageView({ prd: null, answered: true, rows: [] }).action).toBeNull();
+    expect(stageView({ prd: 426, rows: [] }).action).toBeNull();
   });
 
   it('at building with open outbox items, shows N questions waiting linking to the outbox comment, and Answer the outbox', () => {

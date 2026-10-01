@@ -1,4 +1,5 @@
 import type { StageView } from './stage';
+import { PitchAction } from './PitchAction';
 import { StageHeaderCopy } from './StageHeaderCopy';
 
 // The stage's pieces of /prd/<id>'s header box (PRD 426, laid out by PRD 476), rendered on the server:
@@ -26,9 +27,11 @@ export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: 
   );
 }
 
-/** The stage's one button: a link to GitHub, or a command to copy; nothing when the stage has none. */
-export function StageAction({ stage }: { stage: StageView | null }) {
+/** The stage's one button: a link to GitHub, a command to copy, or Pitch's panel (PRD 859), disabled in
+ * the demo; nothing when the stage has none. */
+export function StageAction({ stage, demo = false }: { stage: StageView | null; demo?: boolean }) {
   const action = stage?.action;
+  if (action?.kind === 'pitch') return <PitchAction prd={action.prd} disabled={demo} />;
   if (action?.kind === 'link') {
     return <a className="ask-button stage-action" href={action.href} target="_blank" rel="noopener noreferrer">{action.label}</a>;
   }

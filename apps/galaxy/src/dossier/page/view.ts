@@ -293,6 +293,8 @@ export type DossierView = {
   rework: string | null;
   /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
   proof: ProofView | null;
+  /** The demo dossier (PRD 859): its Pitch panel opens disabled. Left out on any other dossier. */
+  demo?: true;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -707,6 +709,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     fix: page.work === 'prd' ? null : read.fix ?? null,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
+    ...(read.demo ? { demo: true as const } : {}),
   };
 }
 
