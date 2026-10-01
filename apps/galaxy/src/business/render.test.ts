@@ -297,13 +297,13 @@ describe('the page\'s situations', () => {
     expect(text(screen({ kind: 'business', source: { kind: 'demo' }, claims: [], products: DEMO_PRODUCTS }))).toContain('We sell ___');
   });
 
-  it('starts with the Fleets · Repositories · Business · Jev tabs in every situation, Business marked', () => {
+  it('starts with the Fleets · Repositories · Business · Products · Jev tabs in every situation, Business marked', () => {
     for (const view of VIEWS) {
       const html = screen(view);
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', true], ['Jev', false]]);
+      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', true], ['Products', false], ['Jev', false]]);
     }
   });
 });

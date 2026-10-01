@@ -1306,3 +1306,61 @@ describe('the prove skill and the skills that lead to it (PRD 798)', () => {
     expect(step).toMatch(/proof\.bypassEnv[^\n]*name/);
   });
 });
+
+// PRD 859: /omni:pitch makes a shipped PRD's launch package on the person's computer and sends it to the
+// Pitch tab: it refuses with one line first, writes words only from the spec and the release note, films
+// a walk-through on production that never changes anything, keeps its script beside the run, and posts
+// nothing anywhere.
+describe('the pitch skill (PRD 859)', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', 'pitch', 'SKILL.md'), 'utf8');
+
+  it('is named pitch, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('pitch');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:pitch/);
+  });
+
+  it('starts with omni pitch start, and stops on each of its four refusal lines, writing nothing', () => {
+    const step = skillSection(read(), '1.');
+    expect(step).toContain('omni.mjs pitch start <n> --for <audience>');
+    for (const line of [
+      'PRD <n> is not shipped: a pitch is for shipped PRDs',
+      'proof.url is github-deployment: a merged PRD has no preview to film; set a fixed proof.url',
+      'ffmpeg is needed for a pitch: brew install ffmpeg',
+      'no sign-in (omni signin)',
+    ]) expect(step, line).toContain(line);
+    expect(step).toMatch(/wrote nothing/);
+  });
+
+  it('writes the words from the spec and the release note only, never an invented number or name', () => {
+    const step = skillSection(read(), '2.');
+    expect(step).toMatch(/release\.md/);
+    expect(step).toMatch(/\*\*and nothing else\*\*/);
+    expect(step).toMatch(/Never write a number, a customer's name or a\s+capability/);
+    for (const word of ['**hook**', '**benefit**', '**kicker**', '**closing**', 'NEW IN <PRODUCT>', 'SHIPPED · PRD <n>']) expect(step, word).toContain(word);
+  });
+
+  it('films one walk-through, its script kept beside the run, and forbids any save, delete or change on production', () => {
+    const step = skillSection(read(), '3.');
+    for (const phrase of ['walk.spec.ts', 'kept beside the run', '10 to 15 seconds', '1920×1080', 'cursor', 'asserts nothing', 'proof session', 'walk.webm', 'one real frame']) {
+      expect(step, phrase).toContain(phrase);
+    }
+    expect(step).toMatch(/\*\*Never change production\.\*\*/);
+    expect(step).toMatch(/never saves, submits, deletes/);
+    expect(skillSection(read(), 'Never')).toMatch(/Never save, delete or change anything on production/);
+  });
+
+  it('makes the slide, the music and the videos with the kit, then pushes, keeping the files when the push fails', () => {
+    const make = skillSection(read(), '4.');
+    for (const verb of ['pitch slide <dir> --frame', 'pitch music <dir> --for <audience>', 'pitch video <dir>']) expect(make, verb).toContain(verb);
+    const push = skillSection(read(), '5.');
+    expect(push).toContain('omni.mjs pitch push <n> <dir>');
+    expect(push).toContain('upload failed: rerun omni pitch push <n> <dir>');
+  });
+
+  it('posts nothing and changes no PR, issue or label', () => {
+    const text = read();
+    for (const verb of [/\bgh pr comment\b/, /\bgh pr ready\b/, /\bgh pr merge\b/, /--add-label/, /--remove-label/, /\bgit commit\b/, /\bgh issue\b/]) expect(text).not.toMatch(verb);
+    expect(skillSection(text, 'Never')).toMatch(/Never post a comment/);
+  });
+});

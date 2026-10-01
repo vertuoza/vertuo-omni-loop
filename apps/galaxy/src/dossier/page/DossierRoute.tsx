@@ -29,6 +29,8 @@ import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
 import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
+import { pitchStore } from '../../pitch/store';
+import { readPitches } from './pitch-read';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -66,6 +68,8 @@ import { readProofs } from './proof-read';
 // PRD 798 s4: a PRD's proof runs are read as the member beside the dossier (./proof-read.ts), and on the
 // Proof tab only, the shown run's clips and scripts are signed for them; runs that cannot be read leave
 // the Proof tab out, never the page.
+// PRD 859 s3: its pitches are read the same way (./pitch-read.ts), and on the Pitch tab only the shown
+// pitch of each audience has its five files signed; pitches that cannot be read leave the tab out.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -186,6 +190,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
 
   let read: DossierRead | null;
   const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
+  const pitches = isDossierId(id) ? readPitches(pitchStore(db), id, { sign: pick.tab === 'pitch', pitch: pick.pitch ?? null }) : Promise.resolve(null);
   try {
     read = await readDossier(db, id, user.id);
   } catch (error) {
@@ -210,7 +215,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} />;
   };
   if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
-    read = { ...read, proofs: await proofs };
+    read = { ...read, proofs: await proofs, pitches: await pitches };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));

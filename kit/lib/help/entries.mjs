@@ -197,6 +197,31 @@ export const ENTRIES = deepFreeze([
       'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
   },
   {
+    name: 'pitch',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni pitch start <n> --for customers|inside',
+      'omni pitch slide <dir> --frame <png>',
+      'omni pitch music <dir> --for customers|inside',
+      'omni pitch video <dir>',
+      'omni pitch push <n> <dir>',
+    ],
+    summary: "makes a shipped PRD's pitch, and sends it to its Pitch tab",
+    detail:
+      'The verbs /omni:pitch runs. start refuses with one line, writing nothing, a PRD not shipped, a ' +
+      'proof.url that is not a fixed URL, no ffmpeg or no sign-in; otherwise it opens the run folder ' +
+      "under the worktrees with the product's look and prints it. slide renders the wedge slide in that " +
+      "look, 16:9 and 1:1, from a real frame; music writes the audience's default music, the same every " +
+      'time; video makes pitch.mp4, pitch-square.mp4 and pitch.gif with ffmpeg. push ' +
+      "sends a pitch /omni:pitch made of shipped PRD n to its dossier on the Omni page, and prints its " +
+      "Pitch tab's link, then the GIF's link that opens without signing in. It reads pitch.json in the " +
+      'folder and refuses, before sending anything, a run missing one of its five files ' +
+      '(slide.png, slide-square.png, pitch.mp4, pitch-square.mp4, pitch.gif) or one over 50 MB. A PRD ' +
+      'that is not shipped prints not shipped. It never retries, and never holds up the skill that runs ' +
+      'it: anything that stops it exits 1 with one line, as omni proof push does, and keeps every file.',
+  },
+  {
     name: 'business',
     kind: 'command',
     who: 'you',
@@ -1015,6 +1040,29 @@ export const ENTRIES = deepFreeze([
     example: {
       type: '/omni:prove 798',
       result: 'a comment on the feature PR with a ✓, ✗ or — line per criterion, and the Proof tab full of clips',
+    },
+  },
+
+  {
+    name: 'pitch',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:pitch <n> --for customers|inside'],
+    label: '/omni:pitch <n>',
+    summary: 'a slide, video and GIF announcing a shipped PRD',
+    detail:
+      'Makes a launch package for shipped PRD n, for customers or for inside: a hook, a benefit, a ' +
+      'kicker and a closing line written from the spec and the release note only, one slow ' +
+      'walk-through filmed on production that never saves, deletes or changes anything, the wedge slide ' +
+      "in the product's look from a real frame, generated music, and pitch.mp4, pitch-square.mp4 and " +
+      "pitch.gif made with ffmpeg. It sends them to the PRD's Pitch tab with omni pitch push. It refuses " +
+      'with one line a PRD not shipped, a proof.url that is not fixed, no ffmpeg or no sign-in, and ' +
+      'posts no comment.',
+    group: 'everyday',
+    when: 'Use it when a PRD has shipped and you want to announce it to customers or at an all-hands.',
+    example: {
+      type: '/omni:pitch 859 --for customers',
+      result: "slide.png, a 20 to 30 second pitch.mp4 with music and pitch.gif, on the PRD's Pitch tab",
     },
   },
 

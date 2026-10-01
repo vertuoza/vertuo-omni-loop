@@ -13,6 +13,7 @@ import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
+import { PitchPane } from './PitchPane';
 import { ProofPane } from './ProofPane';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
@@ -44,6 +45,7 @@ import { VoicePane } from './VoicePane';
 // PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
 // State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
 // PRD 798, s4: a PRD with a proof run has a Proof tab (ProofPane.tsx): the run, then a row per criterion.
+// PRD 859, s3: a PRD with a pitch has a Pitch tab after it (PitchPane.tsx): the latest pitch per audience.
 // PRD 652: "opened by" draws the opener's face (PersonChip) before their name; the words are unchanged.
 // PRD 822: a PRD's User voice tab, after Plan, draws the shown version of its voice.json (VoicePane.tsx)
 // under its version picker; with none, it says so in the spec's words.
@@ -92,6 +94,7 @@ const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactN
   retro: ({ view }) => <RetroPane retro={view.retro} />,
   timeline: ({ view }) => <TimelinePane fix={view.fix} />,
   proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
+  pitch: ({ view }) => <PitchPane pitch={view.pitch} action={view.link} />,
   voice: VoiceTab,
 };
 
@@ -155,7 +158,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
         <div className="dossier-head-top">
           <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
-            <StageAction stage={stage} />
+            <StageAction stage={stage} demo={view.demo ?? false} />
             <CopyLink path={view.link} />
             {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
           </div>

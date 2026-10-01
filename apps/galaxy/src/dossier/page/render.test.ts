@@ -12,6 +12,9 @@ import { DossierSignIn } from './DossierSignIn';
 import { headHeight } from './PinnedHead';
 import { Taken, takenLine } from './QuickAnswer';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
+import { PitchAction, PitchPanel, pitchCommand, PITCH_HINT } from './PitchAction';
+import { StageAction } from './StageHeader';
+import { stageView } from './stage';
 import { dossierView, readPick, type DossierPick } from './view';
 
 // A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
@@ -73,6 +76,8 @@ function page({
   const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
+/** The Pitch button of a shipped or retro PRD (PRD 859), closed as the server renders it. */
+const PITCH_BUTTON = '<button type="button" class="ask-button stage-action" aria-expanded="false">Pitch</button>';
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
 /** What the markup reads as text, its tags taken out (PRD 652: a face now sits before a name). */
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
@@ -175,15 +180,29 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(syncing).toContain('<p class="stage-words" title="not synced yet"><strong>Syncing…</strong></p>');
   });
 
-  it('in the shipped stage, no button and the retro comes next; in the retro stage, Read the retro opens the retro PR', () => {
+  it('in the shipped stage, Pitch and the retro comes next; in the retro stage, Pitch, with the retro PR in the links (PRD 859)', () => {
     const shipped = summary({ issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
     const html = page({ github: shipped, stages: at('shipped') });
     expect(html).toContain('Shipped · the retro is written next');
     expect(button(html)).toBeNull();
+    expect(html).toContain(PITCH_BUTTON);
     const retro = page({ github: { ...shipped, retro: pr(230, 'open') }, stages: at('retro') });
     expect(track(retro)).toEqual(['idea:passed', 'PRD:passed', 'inbox:passed', 'building:passed', 'outbox:passed', 'shipped:passed', 'retro:current']);
-    expect(button(retro)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/230', 'Read the retro']);
+    expect(button(retro)).toBeNull();
+    expect(retro).toContain(PITCH_BUTTON);
     expect(links(retro)).toEqual(['issue #216 ✓', 'phase-0 #220 ✓', 'feature #221 ✓', 'retro #230 open']);
+  });
+
+  it('shows no Pitch at any stage before shipped (PRD 859)', () => {
+    const pages = [
+      page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') }),
+      page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') }),
+      page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 }), stages: at('building') }),
+      page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') }),
+      page({ dossier: draft, me: PIERRE.user_id }),
+      page(),
+    ];
+    for (const html of pages) expect(html).not.toContain('pitch-action');
   });
 
   it('when GitHub did not answer, still shows the stored stage and the rest of the page, with no GitHub-bound button', () => {
@@ -192,6 +211,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
       expect(track(html).at(-1)).toBe('retro:current');
       expect(html).toContain('<strong>Stage: retro</strong>');
       expect(button(html)).toBeNull();
+      expect(html).toContain(PITCH_BUTTON);
       expect(html).toContain('PRD #216 ↗');
       expect(html).toContain('<nav class="dossier-tabs"');
     }
@@ -754,5 +774,74 @@ describe('the pieces the browser takes over', () => {
     expect(html).toContain('>Sign in with GitHub</button>');
     expect(html).not.toMatch(/google/i);
     expect(html).toContain('role="alert">Not allowed</p>');
+  });
+});
+
+describe('the Pitch panel (PRD 859)', () => {
+  const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
+  const noop = () => {};
+  const panel = (more: Partial<Parameters<typeof PitchPanel>[0]> = {}) =>
+    html(createElement(PitchPanel, { prd: 216, audience: 'customers', disabled: false, copied: 'idle', onChoose: noop, onCopy: noop, ...more }));
+
+  it('reads /omni:pitch <n> --for <audience>', () => {
+    expect(pitchCommand(216, 'customers')).toBe('/omni:pitch 216 --for customers');
+    expect(pitchCommand(216, 'inside')).toBe('/omni:pitch 216 --for inside');
+  });
+
+  it('opens on Customers, selected first, with its command, Copy and the one line', () => {
+    const shown = panel();
+    const customers = shown.indexOf('Customers');
+    expect(customers).toBeGreaterThan(-1);
+    expect(shown.indexOf('Inside')).toBeGreaterThan(customers);
+    expect(shown).toContain('<input type="radio" name="pitch-audience-216" checked="" value="customers"/>');
+    expect(shown).toContain('<input type="radio" name="pitch-audience-216" value="inside"/>');
+    expect(shown).toContain('<code class="stage-command pitch-command">/omni:pitch 216 --for customers</code>');
+    expect(shown).toContain('<button type="button" class="ask-button" title="/omni:pitch 216 --for customers">Copy</button>');
+    expect(shown).toContain(PITCH_HINT);
+    expect(PITCH_HINT).toBe('Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.');
+  });
+
+  it('with Inside chosen, shows --for inside, and Copy carries the shown command', () => {
+    const shown = panel({ audience: 'inside' });
+    expect(shown).toContain('checked="" value="inside"');
+    expect(shown).not.toContain('checked="" value="customers"');
+    expect(shown).toContain('<code class="stage-command pitch-command">/omni:pitch 216 --for inside</code>');
+    expect(shown).toContain('title="/omni:pitch 216 --for inside">Copy</button>');
+    expect(shown).not.toContain('--for customers');
+  });
+
+  it('says Copied, or asks to copy by hand where the clipboard refuses', () => {
+    expect(panel({ copied: 'copied' })).toContain(`<span class="ask-hint" role="status">${COPY_WORDS.copied}</span>`);
+    expect(panel({ copied: 'refused' })).toContain(`<span class="ask-hint" role="status">${COPY_WORDS.refused}</span>`);
+    expect(panel()).not.toContain('role="status"');
+  });
+
+  it('in the demo, shows the panel disabled: no choice can change and Copy does nothing', () => {
+    const shown = panel({ disabled: true });
+    expect(shown).toContain('<fieldset class="pitch-choices" disabled="">');
+    expect(shown).toMatch(/<button type="button" class="ask-button" disabled="" title="[^"]+">Copy<\/button>/);
+    expect(shown).toContain('/omni:pitch 216 --for customers');
+    expect(shown).toContain('The demo cannot make a pitch.');
+    expect(panel()).not.toContain('disabled=""');
+  });
+
+  it('the button opens nothing on the server: the panel is drawn once it is pressed', () => {
+    const closed = html(createElement(PitchAction, { prd: 216, disabled: false }));
+    expect(closed).toContain(PITCH_BUTTON);
+    expect(closed).not.toContain('pitch-panel');
+  });
+
+  it('the header passes the demo to the Pitch action, and only the Pitch action', () => {
+    const shipped = stageView({ prd: 216, rows: at('shipped') });
+    expect(html(createElement(StageAction, { stage: shipped, demo: true }))).toContain('<span class="pitch-action" data-demo="true">');
+    expect(html(createElement(StageAction, { stage: shipped }))).toContain('<span class="pitch-action">');
+    const inbox = stageView({ prd: 216, rows: at('inbox') });
+    expect(html(createElement(StageAction, { stage: inbox, demo: true }))).toContain('<button type="button" class="ask-button stage-action" title="/omni:yolo 216">Build it</button>');
+  });
+
+  it('a demo page at shipped draws its Pitch action disabled', () => {
+    const view = dossierView({ dossier: numbered, versions, members: [PIERRE, MARIE], rounds, repos: null, answerable: [], stages: at('shipped'), demo: true }, MARIE.user_id, readPick({}), Date.now());
+    const shown = renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: null }));
+    expect(shown).toContain('<span class="pitch-action" data-demo="true">');
   });
 });
