@@ -1,7 +1,16 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { fillConfig, resolveForm } from './resolve.ts';
+import type { ResolvedForm } from './resolve.ts';
+
+/** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
+type FormTextOptions = {
+  frontMatter?: Record<string, unknown>;
+  title?: string;
+  opener?: string | null;
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+};
+const formText = fixtureFormText as (options?: FormTextOptions) => string;
 
 const FILE = '.omni-loop/knowledge/playbook/testing.md';
 
@@ -17,17 +26,17 @@ const TEMPLATE = formText({
 });
 
 /** A repository testing form holding `slots` (id → body, plus marker fields). */
-function repoForm(slots, frontMatter = { state: 'filled' }) {
+function repoForm(slots: NonNullable<FormTextOptions['slots']>, frontMatter: Record<string, unknown> = { state: 'filled' }) {
   return formText({ frontMatter, slots });
 }
 
-function resolved(files, config = { commands: { test: 'pnpm test' } }) {
+function resolved(files: Record<string, string>, config: Record<string, unknown> = { commands: { test: 'pnpm test' } }) {
   const { ctx } = makeRepo({ files, config });
   return resolveForm('testing', { ctx, template: TEMPLATE });
 }
 
 /** The one section of `result` for `slot`. */
-const section = (result, slot) => result.sections.find((entry) => entry.slot === slot);
+const section = (result: ResolvedForm, slot: string) => result.sections.find((entry) => entry.slot === slot);
 
 describe('resolveForm — one row of the resolution table each', () => {
   it('a filled section: the repository text, labelled [repo], [repo · by human] or [repo · verified <date>]', () => {
@@ -84,7 +93,7 @@ describe('resolveForm — one row of the resolution table each', () => {
   });
 
   it('a form with state: pointer at a folder: its index, else its Markdown file list', () => {
-    const pointer = (index) =>
+    const pointer = (index?: string | null) =>
       formText({ frontMatter: { state: 'pointer', 'points-to': 'guides/', ...(index ? { index } : {}) }, slots: [] });
     const files = { 'guides/index.md': 'The guides, in reading order.\n', 'guides/b.md': 'b', 'guides/a.md': 'a', 'guides/notes.txt': 'n' };
 
@@ -147,7 +156,7 @@ describe('resolveForm — order, headings and what it reports', () => {
 describe('resolveForm — {config:<key>} in a kit default', () => {
   it('fills a key from the repository’s config', () => {
     const result = resolved({}, { commands: { test: 'pnpm vitest run' } });
-    expect(section(result, 'commands').text).toBe('Run the whole suite with pnpm vitest run.');
+    expect(section(result, 'commands')!.text).toBe('Run the whole suite with pnpm vitest run.');
     expect(result.problems).toEqual([]);
   });
 
@@ -155,13 +164,13 @@ describe('resolveForm — {config:<key>} in a kit default', () => {
     const template = formText({ slots: [{ id: 'commands', required: true, body: 'Run {config:commands.tests} first.' }] });
     const { ctx } = makeRepo();
     const result = resolveForm('testing', { ctx, template });
-    expect(section(result, 'commands').text).toBe('Run {config:commands.tests} first.');
+    expect(section(result, 'commands')!.text).toBe('Run {config:commands.tests} first.');
     expect(result.problems).toEqual(['kit default testing#commands: {config:commands.tests} names no config key']);
   });
 
   it('never fills the repository’s own text', () => {
     const result = resolved({ [FILE]: repoForm([{ id: 'commands', required: true, body: 'Literally {config:commands.test}.' }]) });
-    expect(section(result, 'commands').text).toBe('Literally {config:commands.test}.');
+    expect(section(result, 'commands')!.text).toBe('Literally {config:commands.test}.');
   });
 });
 

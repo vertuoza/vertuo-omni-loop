@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **An inbox spec is a typed thing** (PRD #1015, slice s1) — the guard, folders layout.
  *
@@ -29,12 +28,20 @@ import { readRepoFile } from '../check-report.ts';
 import { domainsDir } from '../knowledge/registers.ts';
 import { parseFolderName } from '../layout.ts';
 import { parseVoice, VOICE_FILE } from '../voice/voice.ts';
+import type { Context } from '../context.ts';
+import type { InboxItem } from '../types.ts';
 import { parseSpec } from './inbox.ts';
 
+/** What the inbox guard reads of a context. */
+type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
+
+/** A graded folder's record: the spec's fields, its file and its folder's name. */
+type FolderRecord = InboxItem & { file: string; folder: string };
+
 /** Every folder directly under the knowledge root's `domains/` — a real area name, nothing parsed. */
-function knownAreas(ctx) {
+function knownAreas(ctx: Ctx): Set<string> {
   const dir = join(ctx.root, domainsDir(ctx));
-  if (!existsSync(dir)) return new Set();
+  if (!existsSync(dir)) return new Set<string>();
   return new Set(
     readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
@@ -47,14 +54,19 @@ function knownAreas(ctx) {
  * `areas` (when configured) against the knowledge root. Returns `{ record, violations }` —
  * `record` is `null` when the spec is malformed, so a caller can still collect every violation.
  */
-function violationsForFile(file, folder, text, ctx) {
+function violationsForFile(
+  file: string,
+  folder: string,
+  text: string,
+  ctx: Ctx,
+): { record: InboxItem | null; violations: string[] } {
   const parsed = parseSpec(text, { file });
   if (!parsed.ok) {
     return { record: null, violations: parsed.errors };
   }
 
   const { record } = parsed;
-  const violations = [];
+  const violations: string[] = [];
 
   const folderPrd = parseFolderName(folder)?.prd;
   if (folderPrd !== undefined && record.prd !== folderPrd) {
@@ -76,14 +88,14 @@ function violationsForFile(file, folder, text, ctx) {
 }
 
 /** Grades one already-read spec's text. Empty array means entirely well-formed. */
-export function checkSpecText(file, text, { ctx }) {
+export function checkSpecText(file: string, text: string, { ctx }: { ctx: Ctx }): string[] {
   const folder = basename(dirname(file));
   return violationsForFile(file, folder, text, ctx).violations;
 }
 
 /** Every `blocked-by` PRD number no inbox or shipped folder carries, one violation per unresolved dependency. */
-function blockedByViolations(records, ctx) {
-  const violations = [];
+function blockedByViolations(records: readonly FolderRecord[], ctx: Ctx): string[] {
+  const violations: string[] = [];
   for (const record of records) {
     if (record.blockedBy === 'none') continue;
     for (const prd of record.blockedBy) {
@@ -101,7 +113,7 @@ function blockedByViolations(records, ctx) {
  * The size violation for one before-after.html, or `null` when it is absent or within the cap. Also
  * `omni visual`'s size check (`kit/lib/visual/verdict.ts`), so both read one cap one way.
  */
-export function beforeAfterViolation(file, ctx) {
+export function beforeAfterViolation(file: string, ctx: Pick<Context, 'root' | 'config'>): string | null {
   const absolute = join(ctx.root, file);
   if (!existsSync(absolute)) return null;
   const { size } = statSync(absolute);
@@ -110,19 +122,19 @@ export function beforeAfterViolation(file, ctx) {
 }
 
 /** The violations of one voice.json, each naming the file: none when it is absent or reads. */
-function voiceViolations(file, ctx) {
+function voiceViolations(file: string, ctx: Ctx): string[] {
   if (!existsSync(join(ctx.root, file))) return [];
-  return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
+  return parseVoice(readRepoFile(ctx, file)).errors.map((error: string) => `${file}: ${error}`);
 }
 
 /**
  * One inbox folder's own grading, its spec file named: the spec's violations, its before-after
  * page's size, and the parsed record (`null` when absent or malformed) for the `blocked-by` pass.
  */
-function gradeFolder(specFile, ctx) {
+function gradeFolder(specFile: string, ctx: Ctx): { violations: string[]; record: FolderRecord | null } {
   const folder = basename(dirname(specFile));
-  const violations = [];
-  let record = null;
+  const violations: string[] = [];
+  let record: FolderRecord | null = null;
 
   if (!existsSync(join(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
@@ -145,7 +157,7 @@ function gradeFolder(specFile, ctx) {
  * for that folder, and nothing for any other folder's faults. A PRD with no inbox folder is one
  * violation saying so. What the omni-loop App grades a phase-0 PR with.
  */
-export function inboxViolationsFor({ ctx, prd }) {
+export function inboxViolationsFor({ ctx, prd }: { ctx: Ctx; prd: number | string }): string[] {
   const wanted = Number(prd);
   const specFile = ctx.layout
     .specFiles()
@@ -157,9 +169,9 @@ export function inboxViolationsFor({ ctx, prd }) {
 }
 
 /** Grades every spec the inbox holds, and every sibling before-after page, folder by folder. */
-export function findInboxViolations({ ctx }) {
-  const violations = [];
-  const records = [];
+export function findInboxViolations({ ctx }: { ctx: Ctx }): string[] {
+  const violations: string[] = [];
+  const records: FolderRecord[] = [];
 
   for (const specFile of ctx.layout.specFiles()) {
     const graded = gradeFolder(specFile, ctx);
