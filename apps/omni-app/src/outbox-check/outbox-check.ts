@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `outbox-check`: the Inngest function wiring the app's units together (PRD 28, "Flow").
 //
 //   step "in-progress"  create the check run, `in_progress`, on the head SHA — unless the base branch
@@ -22,12 +21,33 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App } from '@octokit/app';
-import { NonRetriableError } from 'inngest';
-import { NOT_ACTIVE_ON_REPO, evaluate } from '../evaluate/evaluate.ts';
-import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { NonRetriableError, type Inngest } from 'inngest';
+import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
+import { CheckRequestDataSchema, FailureEventDataSchema, inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
-import { changedFiles, checkTarget, completeAsFailure, listComments, readBaseConfig, readPull } from './github.ts';
+import {
+  changedFiles,
+  checkTarget,
+  completeAsFailure,
+  listComments,
+  readBaseConfig,
+  readPull,
+  type Change,
+  type Comment,
+  type GitHubClient,
+} from './github.ts';
+import { messageField } from './github-schema.ts';
+
+/** An installation's GitHub client, by the installation's id. */
+export type OctokitFor = (installationId: number) => Promise<GitHubClient> | GitHubClient;
+
+/** What a failure handler is handed: the failed run's event, its final error, and its steps. */
+export type FailureInput = {
+  event: { data: unknown };
+  error?: unknown;
+  step?: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> };
+};
 
 export const FUNCTION_ID = 'outbox-check';
 
@@ -41,13 +61,7 @@ export const DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-/**
- * @param {{
- *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
- * }} deps
- */
-export function createOutboxCheck({ client, octokitFor }) {
+export function createOutboxCheck({ client, octokitFor }: { client: Inngest; octokitFor: OctokitFor }) {
   return client.createFunction(
     {
       id: FUNCTION_ID,
@@ -58,7 +72,7 @@ export function createOutboxCheck({ client, octokitFor }) {
       onFailure: createFailureHandler({ octokitFor }),
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, headSha } = event.data;
+      const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
 
       const started = await step.run('in-progress', async () => {
         const octokit = await octokitFor(installationId);
@@ -92,7 +106,7 @@ export function createOutboxCheck({ client, octokitFor }) {
         });
       });
 
-      return { checkRunId: started.checkRunId, name: started.name, conclusion: verdict.conclusion, ...published };
+      return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment };
     },
   );
 }
@@ -102,15 +116,18 @@ export function createOutboxCheck({ client, octokitFor }) {
  * gather the pull request's facts, comments and changed files, and let `evaluate` decide. The
  * temporary folders are removed whatever happens.
  */
-async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
+async function evaluateAt(
+  octokit: GitHubClient,
+  { owner, repo, prNumber, headSha }: { owner: string; repo: string; prNumber: number; headSha: string },
+): Promise<Verdict> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-base-'));
   const head = mkdtempSync(join(tmpdir(), 'omni-head-'));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
 
-    let comments = [];
-    let changes = null;
+    let comments: Comment[] = [];
+    let changes: Change[] | null = null;
     if (config) {
       await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery], dest: head });
       comments = await listComments(octokit, { owner, repo, prNumber });
@@ -135,13 +152,13 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
  * with the reason ("omni-loop could not evaluate: …"). Inngest hands it the original event under
  * `event.data.event` and the final error.
  */
-export function createFailureHandler({ octokitFor }) {
-  return async ({ event, error, step }) => {
-    const original = event.data.event;
-    const { installationId, owner, repo, prNumber, headSha } = original.data;
-    const reason = error?.message ?? event.data.error?.message ?? 'unknown error';
+export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+  return async ({ event, error, step }: FailureInput): Promise<unknown> => {
+    const failed = FailureEventDataSchema.parse(event.data);
+    const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(failed.event.data);
+    const reason = messageField(error) ?? failed.error?.message ?? 'unknown error';
 
-    const run = (id, fn) => (step?.run ? step.run(id, fn) : fn());
+    const run = (id: string, fn: () => Promise<unknown>) => (step?.run ? step.run(id, fn) : fn());
     return run('complete-as-failure', async () => {
       const octokit = await octokitFor(installationId);
       let name = DEFAULT_CHECK_NAME;
@@ -163,8 +180,8 @@ export function createFailureHandler({ octokitFor }) {
  * An installation's Octokit, signed with the app's private key (`GITHUB_APP_ID`,
  * `GITHUB_APP_PRIVATE_KEY`). A key pasted with literal `\n` sequences is accepted.
  */
-let app;
-export function installationOctokit(installationId) {
+let app: App | undefined;
+export function installationOctokit(installationId: number) {
   app ??= new App({
     appId: requiredEnv('GITHUB_APP_ID'),
     privateKey: requiredEnv('GITHUB_APP_PRIVATE_KEY').replace(/\\n/g, '\n'),
@@ -172,7 +189,7 @@ export function installationOctokit(installationId) {
   return app.getInstallationOctokit(installationId);
 }
 
-function requiredEnv(name) {
+function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set.`);
   return value;

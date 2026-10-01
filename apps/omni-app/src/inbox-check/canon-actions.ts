@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The two actions on a red canon check (PRD 839), pure: the check run's buttons, the facts a click
 // needs, and the one comment each action posts.
 //
@@ -10,6 +9,9 @@
 // facts a comment needs (the PRD, the persona, the cited claims) ride in the check run's summary as a
 // hidden HTML comment, written by `evaluateInbox` on a red canon only. Each posted comment carries a
 // marker of its action, so a second click of the same button edits that comment, never a new one.
+import { z } from 'zod';
+import type { CanonFacts } from '../inngest-client.ts';
+import type { CheckAction } from './github.ts';
 
 /** The event the webhook sends for a click on a canon button; the `canon-action` function posts. */
 export const CANON_ACTION_EVENT = 'omni-loop/canon.action.requested';
@@ -22,11 +24,18 @@ const MAX_LABEL = 20;
 
 const FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
 
-/**
- * The buttons of a check run whose canon gate is red; none on a green, neutral or absent one.
- * @param {{ state: string, persona: { name: string } | null } | null | undefined} canon
- */
-export function canonActions(canon) {
+/** What the buttons and the marker read of a canon gate's facts. */
+type CanonState = {
+  state: string;
+  persona: { name: string } | null;
+  findings: readonly { claims: readonly string[] }[];
+};
+
+/** The facts as the marker carries them; read leniently, as they always were. */
+const MarkerSchema = z.looseObject({ prd: z.unknown(), persona: z.unknown(), claims: z.unknown() });
+
+/** The buttons of a check run whose canon gate is red; none on a green, neutral or absent one. */
+export function canonActions(canon: Pick<CanonState, 'state' | 'persona'> | null | undefined): CheckAction[] {
   if (canon?.state !== 'red') return [];
   const persona = canon.persona?.name;
   return [
@@ -43,50 +52,46 @@ export function canonActions(canon) {
  * The hidden line carrying a red canon's facts into the check run's summary, or `null` when the
  * canon is not red or the PRD is unknown.
  */
-export function canonMarker({ prd, canon }) {
-  if (canon?.state !== 'red' || !Number.isInteger(prd)) return null;
+export function canonMarker({ prd, canon }: { prd: number | null; canon: CanonState | null | undefined }): string | null {
+  if (!canon || canon.state !== 'red' || !Number.isInteger(prd)) return null;
   const claims = [...new Set(canon.findings.flatMap((finding) => finding.claims))];
   return `<!-- omni-canon ${JSON.stringify({ prd, persona: canon.persona?.name ?? null, claims })} -->`;
 }
 
-/**
- * The facts `canonMarker` hid in a summary, or `null` when there are none.
- * @returns {{ prd: number, persona: string | null, claims: string[] } | null}
- */
-export function readCanonMarker(summary) {
+/** The facts `canonMarker` hid in a summary, or `null` when there are none. */
+export function readCanonMarker(summary: unknown): CanonFacts | null {
   const match = FACTS.exec(String(summary ?? ''));
   if (!match) return null;
-  let facts;
+  let parsed: unknown;
   try {
-    facts = JSON.parse(match[1]);
+    parsed = JSON.parse(match[1] ?? '');
   } catch {
     return null;
   }
-  if (!Number.isInteger(facts?.prd) || !Array.isArray(facts.claims)) return null;
+  const read = MarkerSchema.safeParse(parsed);
+  if (!read.success) return null;
+  const facts = read.data;
+  if (typeof facts.prd !== 'number' || !Number.isInteger(facts.prd) || !Array.isArray(facts.claims)) return null;
+  const claims: unknown[] = facts.claims;
   return {
     prd: facts.prd,
     persona: typeof facts.persona === 'string' && facts.persona ? facts.persona : null,
-    claims: facts.claims.filter((id) => typeof id === 'string'),
+    claims: claims.filter((id): id is string => typeof id === 'string'),
   };
 }
 
 /** The line that marks the comment an action posted, so the next click finds it. */
-export const commentMarker = (action) => `<!-- omni-canon-action:${action} -->`;
+export const commentMarker = (action: string): string => `<!-- omni-canon-action:${action} -->`;
 
 /** Settings › Business at a claim: a Never line at its `#never-<seq>`, any other claim the page. */
-function claimLink(galaxyUrl, id) {
+function claimLink(galaxyUrl: string, id: string): string {
   const page = `${galaxyUrl.replace(/\/+$/, '')}/app/settings/business`;
   const never = /^never#(\d+)$/.exec(id);
   return never ? `${page}#never-${never[1]}` : page;
 }
 
-/**
- * The one comment an action posts, or `null` for an identifier that is not a canon button.
- * @param {string} action  the button's identifier
- * @param {{ prd: number, persona: string | null, claims: string[] }} facts
- * @param {{ galaxyUrl: string }} where
- */
-export function canonComment(action, facts, { galaxyUrl }) {
+/** The one comment an action posts (`action`: the button's identifier), or `null` for one that is not a canon button. */
+export function canonComment(action: string, facts: CanonFacts, { galaxyUrl }: { galaxyUrl: string }): string | null {
   if (action === CANON_ACTION.rewrite) {
     const whom = facts.persona ? ` for ${facts.persona}` : '';
     return [commentMarker(action), `To rewrite the spec${whom}, run \`/omni:brainstorm --rework ${facts.prd}\`.`].join('\n');

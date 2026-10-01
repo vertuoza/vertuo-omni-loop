@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `/api/inngest`: where Inngest syncs the app and calls its functions. A Vercel function in the
 // web-standard shape (a `Request` in, a `Response` out), served through the SDK's web-standard
 // adapter. Inngest's signing key (`INNGEST_SIGNING_KEY`) is read by the SDK itself; in production

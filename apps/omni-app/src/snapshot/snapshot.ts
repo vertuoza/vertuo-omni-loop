@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `snapshot`: an installation's Octokit, a repository, a ref and a LIST OF PATHS in, a local folder
 // holding exactly those paths at that ref out. It reads through GitHub's Git Data API (trees and
 // blobs) only — it never clones, and never runs anything it fetched (PRD 28, decision 5).
@@ -17,6 +16,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { BlobSchema, TreeSchema, type GitHubClient, type TreeEntry } from '../outbox-check/github-schema.ts';
 
 export const MAX_FILES = 2000;
 export const MAX_BYTES = 20 * 1024 * 1024;
@@ -25,34 +25,42 @@ const TREE = 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}';
 const BLOB = 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}';
 
 export class SnapshotBoundError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
     this.name = 'SnapshotBoundError';
   }
 }
 
+/** A regular file to fetch: its path in the repository, its blob, its size. */
+type FileAt = { path: string; sha: string; size: number | null | undefined };
+
+/** One tree's entries, by its sha, listed recursively or not. */
+type TreeReader = (treeSha: string, recursive?: boolean) => Promise<TreeEntry[]>;
+
 /**
- * @param {{ request: (route: string, params: object) => Promise<{ data: any }> }} octokit
- * @param {{ owner: string, repo: string, ref: string, paths: string[], dest?: string }} input
- * @returns {Promise<string>} the folder the paths were written under
+ * @returns the folder the paths were written under
  */
-export async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
+export async function snapshot(
+  octokit: GitHubClient,
+  { owner, repo, ref, paths, dest }: { owner: string; repo: string; ref: string; paths: string[]; dest?: string | undefined },
+): Promise<string> {
   const segmentsOf = paths.map(repositoryPath);
-  const trees = new Map();
-  const tree = async (treeSha, recursive = false) => {
+  const trees = new Map<string, TreeEntry[]>();
+  const tree: TreeReader = async (treeSha, recursive = false) => {
     const key = `${treeSha}${recursive ? ':r' : ''}`;
-    if (!trees.has(key)) {
-      const params = { owner, repo, tree_sha: treeSha, ...(recursive ? { recursive: '1' } : {}) };
-      const { data } = await octokit.request(TREE, params);
-      if (data.truncated) {
-        throw new SnapshotBoundError(`The tree under ${treeSha} is too large for GitHub to list whole.`);
-      }
-      trees.set(key, data.tree);
+    const known = trees.get(key);
+    if (known) return known;
+    const params = { owner, repo, tree_sha: treeSha, ...(recursive ? { recursive: '1' } : {}) };
+    const { data: answer } = await octokit.request(TREE, params);
+    const data = TreeSchema.parse(answer);
+    if (data.truncated) {
+      throw new SnapshotBoundError(`The tree under ${treeSha} is too large for GitHub to list whole.`);
     }
-    return trees.get(key);
+    trees.set(key, data.tree);
+    return data.tree;
   };
 
-  const files = new Map();
+  const files = new Map<string, FileAt>();
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
@@ -72,7 +80,8 @@ export async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
 
   const folder = dest ?? mkdtempSync(join(tmpdir(), 'omni-snapshot-'));
   for (const file of list) {
-    const { data } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+    const { data: answer } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+    const data = BlobSchema.parse(answer);
     const target = join(folder, ...repositoryPath(file.path));
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, Buffer.from(data.content, data.encoding === 'base64' ? 'base64' : 'utf8'));
@@ -81,7 +90,7 @@ export async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
 }
 
 /** A listed path's segments, refusing anything that could land outside the snapshot folder. */
-function repositoryPath(path) {
+function repositoryPath(path: string): string[] {
   const segments = path.split('/').filter((segment) => segment !== '');
   if (segments.length === 0 || segments.some((segment) => segment === '.' || segment === '..')) {
     throw new Error(`snapshot: "${path}" is not a repository path.`);
@@ -93,7 +102,7 @@ function repositoryPath(path) {
  * The regular files at or under one listed path, walking the tree one segment at a time from the
  * ref's root. Symlinks and submodules are never followed or written.
  */
-async function filesUnder(tree, ref, segments) {
+async function filesUnder(tree: TreeReader, ref: string, segments: string[]): Promise<FileAt[]> {
   let entries = await tree(ref);
   for (const [index, name] of segments.entries()) {
     const entry = entries.find((candidate) => candidate.path === name);
@@ -114,4 +123,4 @@ async function filesUnder(tree, ref, segments) {
   return [];
 }
 
-const isRegular = (entry) => entry.mode === '100644' || entry.mode === '100755';
+const isRegular = (entry: TreeEntry): boolean => entry.mode === '100644' || entry.mode === '100755';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `stage-forward` (PRD 587): a pull request event in, the PRD stage it shows out, forwarded to galaxy.
 //
 // Five moves of the loop record a stage: a merged phase-0 PR (inbox), a merged slice PR into its
@@ -13,7 +12,9 @@
 // The shapes are the kit's defaults: the webhook reads no GitHub API, so it cannot read the
 // repository's own config. A repository with other branch shapes gets its stages from the sync alone.
 import { createHmac } from 'node:crypto';
+import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { messageOf } from '../outbox-check/github-schema.ts';
 
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
@@ -27,43 +28,58 @@ const DEFAULT_SHAPES = (() => {
   return Object.freeze({ branches, prLinks });
 })();
 
-/**
- * @typedef {'inbox' | 'building' | 'outbox' | 'shipped' | 'retro'} EventStage
- * @typedef {{ repository: string, topic: string, prd: number | null, stage: EventStage, at: string }} StageEvent
- * @typedef {{ branches: { phase0: string, slice: string, feature: string, retro: string },
- *   prLinks: { feature: string, sub: string, phase0: string } }} Shapes
- */
+export type EventStage = 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
+export type StageEvent = { repository: string; topic: string; prd: number | null; stage: EventStage; at: string };
+type Branches = { phase0: string; slice: string; feature: string; retro: string };
+export type Shapes = { branches: Branches; prLinks: Record<string, string> };
 
-/**
- * The stage a pull request event shows, pure; null for any other event, action or branch.
- * @param {string} event
- * @param {any} payload
- * @param {Shapes} [shapes]
- * @returns {StageEvent | null}
- */
-export function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
-  const pull = event === 'pull_request' ? pullOf(payload) : null;
-  const recognise = pull ? RECOGNISERS.get(payload.action) : undefined;
-  const seen = recognise ? recognise(pull, shapes.branches) : null;
-  if (!seen?.topic || !seen.at) return null;
+/** The parts of a pull request event the stages read; a field of another type reads as none. */
+const PullEventSchema = z.looseObject({
+  action: z.unknown(),
+  repository: z.looseObject({ full_name: z.string().nullish(), default_branch: z.string().nullish() }).nullish(),
+  pull_request: z
+    .looseObject({
+      head: z.looseObject({ ref: z.unknown() }).nullish(),
+      base: z.looseObject({ ref: z.unknown() }).nullish(),
+      merged: z.unknown(),
+      merged_at: z.string().nullish(),
+      created_at: z.string().nullish(),
+      updated_at: z.string().nullish(),
+      body: z.unknown(),
+    })
+    .nullish(),
+});
+type PullRequest = NonNullable<z.infer<typeof PullEventSchema>['pull_request']>;
+type Pull = { pr: PullRequest; repository: string; head: string; base: string; defaultBranch: string };
+type Seen = { stage: EventStage; topic: string | undefined; at: string | null | undefined };
+type Recogniser = (pull: Pull, branches: Branches) => Seen | null;
+
+/** The stage a pull request event shows, pure; null for any other event, action or branch. */
+export function toStageEvent(event: string, payload: unknown, shapes: Shapes = DEFAULT_SHAPES): StageEvent | null {
+  const read = event === 'pull_request' ? PullEventSchema.safeParse(payload) : null;
+  const pull = read?.success ? pullOf(read.data) : null;
+  const action = read?.success ? read.data.action : undefined;
+  const recognise = pull && typeof action === 'string' ? RECOGNISERS.get(action) : undefined;
+  const seen = pull && recognise ? recognise(pull, shapes.branches) : null;
+  if (!pull || !seen?.topic || !seen.at) return null;
   return { repository: pull.repository, topic: seen.topic, prd: prdOf(pull.pr.body, shapes.prLinks), stage: seen.stage, at: seen.at };
 }
 
 /** The parts of a pull request event the stages read; null when one is missing. */
-function pullOf(payload) {
-  const pr = payload?.pull_request;
-  const repository = payload?.repository?.full_name;
+function pullOf(payload: z.infer<typeof PullEventSchema>): Pull | null {
+  const pr = payload.pull_request;
+  const repository = payload.repository?.full_name;
   const head = pr?.head?.ref;
   const base = pr?.base?.ref;
-  if (!repository || typeof head !== 'string' || typeof base !== 'string') return null;
-  return { pr, repository, head, base, defaultBranch: payload.repository.default_branch ?? 'main' };
+  if (!pr || !repository || typeof head !== 'string' || typeof base !== 'string') return null;
+  return { pr, repository, head, base, defaultBranch: payload.repository?.default_branch ?? 'main' };
 }
 
-const seenAt = (stage, topic, at) => ({ stage, topic, at });
+const seenAt = (stage: EventStage, topic: string | undefined, at: string | null | undefined): Seen => ({ stage, topic, at });
 const now = () => new Date().toISOString();
 
 /** A merged PR: a phase-0 PR (inbox), a slice PR into its feature branch (building) or the feature PR (shipped). */
-function mergedStage({ pr, head, base, defaultBranch }, branches) {
+const mergedStage: Recogniser = ({ pr, head, base, defaultBranch }, branches) => {
   if (pr.merged !== true) return null;
   const phase0 = match(branches.phase0, head);
   if (phase0) return seenAt('inbox', phase0.topic, pr.merged_at);
@@ -71,35 +87,35 @@ function mergedStage({ pr, head, base, defaultBranch }, branches) {
   if (slice) return base === fill(branches.feature, slice.topic) ? seenAt('building', slice.topic, pr.merged_at) : null;
   const feature = match(branches.feature, head);
   return feature && base === defaultBranch ? seenAt('shipped', feature.topic, pr.merged_at) : null;
-}
+};
 
 /** The feature PR marked ready (outbox); a slice PR marked ready is none. */
-function readyStage({ pr, head, base, defaultBranch }, branches) {
+const readyStage: Recogniser = ({ pr, head, base, defaultBranch }, branches) => {
   if (match(branches.slice, head)) return null;
   const feature = match(branches.feature, head);
   return feature && base === defaultBranch ? seenAt('outbox', feature.topic, pr.updated_at ?? now()) : null;
-}
+};
 
 /** An opened retro PR (retro). */
-function openedStage({ pr, head }, branches) {
+const openedStage: Recogniser = ({ pr, head }, branches) => {
   const retro = match(branches.retro, head);
   return retro ? seenAt('retro', retro.topic, pr.created_at ?? now()) : null;
-}
+};
 
 /** The pull request actions that can show a stage, each to its reading. */
-const RECOGNISERS = new Map([
+const RECOGNISERS = new Map<string, Recogniser>([
   ['closed', mergedStage],
   ['ready_for_review', readyStage],
   ['opened', openedStage],
 ]);
 
 /** `sha256=<hex>`: the HMAC-SHA256 of the exact body under the shared secret. */
-export function signStageEvent(secret, body) {
+export function signStageEvent(secret: string, body: string): string {
   return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 }
 
 /** Galaxy's event route, on `GALAXY_URL` when set. */
-export function stageEventUrl(env = process.env) {
+export function stageEventUrl(env: Record<string, string | undefined> = process.env): string {
   const host = (env.GALAXY_URL || DEFAULT_GALAXY_URL).replace(/\/+$/, '');
   return `${host}/api/stages/event`;
 }
@@ -107,10 +123,16 @@ export function stageEventUrl(env = process.env) {
 /**
  * POSTs one stage event to galaxy, signed. Never throws: a missing secret, a refusal or a network
  * failure is one line in the log.
- * @param {StageEvent} stageEvent
- * @param {{ url: string, secret: string | undefined, fetch?: typeof fetch, log?: (line: string) => void }} deps
  */
-export async function forwardStageEvent(stageEvent, { url, secret, fetch: post = fetch, log = console.error }) {
+export async function forwardStageEvent(
+  stageEvent: StageEvent,
+  { url, secret, fetch: post = fetch, log = console.error }: {
+    url: string;
+    secret: string | undefined;
+    fetch?: (url: string, init: RequestInit) => Promise<Response>;
+    log?: (line: string) => void;
+  },
+): Promise<void> {
   const what = `${stageEvent.stage} of ${stageEvent.repository} ${stageEvent.prd ? `#${stageEvent.prd}` : stageEvent.topic}`;
   if (!secret) {
     log(`stage event: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
@@ -126,12 +148,12 @@ export async function forwardStageEvent(stageEvent, { url, secret, fetch: post =
     });
     if (!response.ok) log(`stage event: galaxy answered ${response.status} to the ${what}`);
   } catch (error) {
-    log(`stage event: the ${what} could not be sent — ${error?.message ?? error}`);
+    log(`stage event: the ${what} could not be sent — ${messageOf(error)}`);
   }
 }
 
 /** The PRD number from the body's first link line (`Closes #7`, `Part of #7`, `Refs #7`); null when none. */
-function prdOf(body, prLinks) {
+function prdOf(body: unknown, prLinks: Record<string, string>): number | null {
   if (typeof body !== 'string') return null;
   for (const template of Object.values(prLinks)) {
     if (!template.includes('{prd}')) continue;
@@ -143,9 +165,9 @@ function prdOf(body, prLinks) {
 }
 
 /** The placeholders a branch shape fills from a branch name; null when it does not match. */
-function match(template, ref) {
+function match(template: string | undefined, ref: string): Record<string, string | undefined> | null {
   if (!template?.includes('{topic}')) return null;
-  const names = [];
+  const names: string[] = [];
   const pattern = template.split(/(\{topic\}|\{slice\})/).map((part) => {
     if (part === '{topic}' || part === '{slice}') {
       names.push(part.slice(1, -1));
@@ -158,10 +180,10 @@ function match(template, ref) {
   return Object.fromEntries(names.map((name, i) => [name, found[i + 1]]));
 }
 
-function fill(template, topic) {
-  return template.replace('{topic}', topic);
+function fill(template: string, topic: string | undefined): string {
+  return template.replace('{topic}', String(topic));
 }
 
-function escape(text) {
+function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
