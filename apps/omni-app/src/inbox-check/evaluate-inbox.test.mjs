@@ -213,7 +213,7 @@ describe('evaluateInbox — the canon gate, fifth', () => {
 
   it.each([
     ['no business', { business: { state: 'none', business: null, claims: [], personas: [], updatedAt: null } }, 'no business: no workspace tracking acme/widgets has one'],
-    ['no product claims', { business: { ...BUSINESS, state: 'none', claims: [] } }, "no confirmed claim for this repository's product"],
+    ['no product claims', { business: { ...BUSINESS, state: 'none', claims: [] } }, "no confirmed claim or constituent for this repository's product"],
     ['no key', { answer: { ok: false, error: 'no-key', reply: null, reason: 'OPENROUTER_API_KEY is not set' } }, 'model not configured (OPENROUTER_API_KEY is not set)'],
     ['a model error', { answer: { ok: false, error: 'unavailable', reply: null, reason: 'model unavailable (503)' } }, 'model error: model unavailable (503)'],
   ])('neutral, never red, for %s, with its line', async (_, stub, reason) => {
