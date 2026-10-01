@@ -14,6 +14,7 @@ import { LOCAL_DIR, readMode, readRound, readTerminal, writeRound, writeTerminal
 import { ASK_URL_UNSET } from './commands/signin.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.ts');
@@ -43,8 +44,11 @@ const config = (url: string | null, slug = 'acme/widgets') =>
   `kit: 1\nrepo:\n  slug: ${slug}\nask:\n  url: ${url === null ? 'null' : url}\n`;
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
-function runCli(args: string[], { cwd, env = {} }) {
-  return new Promise((resolve) => {
+/** What a run of the CLI as a process came to: its exit status and its output. */
+type CliRun = { status: number | string | null | undefined; stdout: string; stderr: string };
+
+function runCli(args: string[], { cwd, env = {} }: { cwd: string; env?: Record<string, string> }) {
+  return new Promise<CliRun>((resolve) => {
     execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
     });
@@ -56,26 +60,26 @@ const sessionCalls = () => server.calls.filter((call) => call.path !== '/api/ask
 const WHERE = 'GET /api/ask/workspace';
 const whereCalls = () => server.calls.filter((call) => `${call.method} ${call.path}` === WHERE);
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 /** A checkout whose `ask.url` is the fake server, signed in to it. */
-async function signedIn(options = {}) {
+async function signedIn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
   server = await startFakeAskServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(server.url) } });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' } });
   return { ...repo, tokens };
 }
 
-const ask = (sub: string, { root, tokens, ...more }) => {
+const ask = (sub: string, { root, tokens, ...more }: { root: string; tokens: unknown; [option: string]: unknown }) => {
   const s = io();
   return main(['ask', sub], { cwd: root, ...s, tokens, ...more }).then((code) => ({ code, ...s }));
 };
 
-const hook = (kind: string, stdin: string, { root, tokens }) => {
+const hook = (kind: string, stdin: string, { root, tokens }: { root: string; tokens: unknown }) => {
   const s = io();
   return main(['ask', 'hook', kind], { cwd: root, ...s, stdin, tokens }).then((code) => ({ code, ...s }));
 };
@@ -113,7 +117,7 @@ describe('omni ask on', () => {
     const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
     await ask('on', { root, tokens });
     expect((await hook('pre', preFrom('term-a'), { root, tokens })).code).toBe(0);
-    const { sessionId } = readTerminal(root, 'term-a');
+    const { sessionId } = readTerminal(root, 'term-a')!;
 
     await ask('on', { root, tokens });
 
@@ -329,7 +333,7 @@ describe('omni ask status', () => {
   });
 
   it('while on, says where the questions land, or the page\'s reason (PRD 459)', async () => {
-    let placed = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+    let placed: { workspace: { slug: string; name: string } | null; reason: string | null } = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
     const { root, tokens } = await signedIn({ place: () => placed });
     await ask('on', { root, tokens });
     expect((await ask('status', { root, tokens })).out()).toBe(`${server.url}/ask\nquestions go to Acme's page\n`);

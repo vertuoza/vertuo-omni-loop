@@ -12,6 +12,7 @@ import { PROMPT_CONTEXT } from '../lib/ask/hook.ts';
 import { readMode, readRound, readTerminal, writeMode, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.ts');
@@ -39,8 +40,11 @@ function memoryTokens(entries: Record<string, Tokens> = {}) {
 }
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
-function runCli(args: string[], { cwd, input = '', env = {} }) {
-  return new Promise((resolve) => {
+/** What a run of the CLI as a process came to: its exit status and its output. */
+type CliRun = { status: number | string | null | undefined; stdout: string; stderr: string };
+
+function runCli(args: string[], { cwd, input = '', env = {} }: { cwd: string; input?: string; env?: Record<string, string> }) {
+  return new Promise<CliRun>((resolve) => {
     const child = execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
     });
@@ -48,13 +52,13 @@ function runCli(args: string[], { cwd, input = '', env = {} }) {
   });
 }
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
-async function modeOn(options = {}) {
+async function modeOn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
   server = await startFakeAskServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${server.url}\n` } });
   writeMode(repo.root, { host: server.host });
@@ -158,8 +162,8 @@ describe('omni ask hook, with the mode on', () => {
     const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: transcript, cwd: root });
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin, tokens })).toBe(0);
     const sent = server.calls.find((call) => call.path.endsWith('/rounds'));
-    expect(sent.body.lead).toBe('## The design\n\nA lead and a fold.');
-    for (const word of ['hunter2', 'private reasoning', 'tool-input', 'tool output']) expect(JSON.stringify(sent.body)).not.toContain(word);
+    expect(sent!.body.lead).toBe('## The design\n\nA lead and a fold.');
+    for (const word of ['hunter2', 'private reasoning', 'tool-input', 'tool output']) expect(JSON.stringify(sent!.body)).not.toContain(word);
     expect([...server.rounds.values()][0].lead).toBe('## The design\n\nA lead and a fold.');
   });
 
@@ -169,7 +173,7 @@ describe('omni ask hook, with the mode on', () => {
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin, tokens })).toBe(0);
     expect(JSON.parse(s.out.join('')).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
-    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).not.toHaveProperty('lead');
+    expect(server.calls.find((call) => call.path.endsWith('/rounds'))!.body).not.toHaveProperty('lead');
   });
 
   it('a session open sends context.repo, read from the config', async () => {
@@ -296,7 +300,7 @@ describe('omni ask usage', () => {
 describe('the plugin\'s hooks.json', () => {
   const hooks = JSON.parse(readFileSync(HOOKS, 'utf8')).hooks;
   /** The event's hooks, each with its entry's matcher, in order. */
-  const all = (event: string) => hooks[event].flatMap((entry) => {
+  const all = (event: string) => hooks[event].flatMap((entry: { matcher?: string; hooks: Record<string, unknown>[] }) => {
     expect(entry.hooks).toHaveLength(1);
     return [{ matcher: entry.matcher, ...entry.hooks[0] }];
   });
@@ -355,7 +359,7 @@ describe('the plugin\'s hooks.json', () => {
     mkdirSync(join(home, '.config', 'omni'), { recursive: true });
     writeFileSync(join(home, '.config', 'omni', 'credentials.json'), JSON.stringify({ [server.host]: tokens.read(server.host) }));
     const { command } = only('UserPromptSubmit');
-    const run = await new Promise((resolve) => {
+    const run = await new Promise<Omit<CliRun, 'stderr'>>((resolve) => {
       const child = execFile('sh', ['-c', command], { cwd: root, env: { ...process.env, HOME: home, CLAUDE_PROJECT_DIR: root }, encoding: 'utf8' },
         (error, stdout) => resolve({ status: error ? error.code : 0, stdout }));
       child.stdin!.end('{"prompt":"hi"}');

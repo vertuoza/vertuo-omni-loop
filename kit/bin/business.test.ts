@@ -6,6 +6,7 @@ import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
+import type { FakeAskServer } from '../test/fake-ask-server.ts';
 
 function io() {
   const out: string[] = [];
@@ -44,10 +45,10 @@ const CAST = [
   persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
 ];
 
-let server;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 /** A checkout of acme/widgets pointed at the fake server, signed in to it unless `signedIn` is false. */

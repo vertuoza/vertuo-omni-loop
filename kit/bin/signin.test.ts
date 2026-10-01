@@ -57,10 +57,10 @@ function fakeBrowser({ code = 'code-1', callbacks }: { code?: string; callbacks?
   return { open, opened, visits };
 }
 
-let server: FakeAskServer | undefined;
+let server: FakeAskServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined as unknown as FakeAskServer; // the next test starts its own
 });
 
 describe('omni signin', () => {
