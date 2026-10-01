@@ -18,19 +18,31 @@ import {
   slicePulls,
   territoryFacts,
 } from './delivery.facts.ts';
+import type { DecisionFacts, FrictionFacts, Reads, ReviewFacts, TerritoryFacts } from './delivery.facts.ts';
 import { listChangedPaths, listLabelAdds, listReviewThreads, listReviews, listStuckComments, readOrNull } from './delivery.reads.ts';
+import type { PullReads } from './delivery.reads.ts';
+import type { Kind } from './index.ts';
 
-/** @type {import('./index.ts').Kind} */
-export const delivery = Object.freeze({
+type Records = { pulls: Reads };
+
+type Facts = {
+  decisions: DecisionFacts;
+  override: { label: string; mergedUnder: boolean };
+  territory: TerritoryFacts;
+  friction: FrictionFacts;
+  review: ReviewFacts;
+};
+
+export const delivery: Kind<Records, Facts> = Object.freeze({
   id: 'delivery',
   section: 'Decisions',
-  runs: Object.freeze(['merge']),
+  runs: Object.freeze(['merge'] as const),
 
   async gather(octokit, { owner, repo, pr, prd, config, pulls }) {
     const subs = slicePulls(pulls, config, prd.topic);
     const merged = new Set(mergedSlicePulls(subs).map(({ pull }) => pull.number));
-    const read = {};
-    const at = (number) => (read[number] ??= {});
+    const read: Record<string, PullReads> = {};
+    const at = (number: number): PullReads => (read[number] ??= {});
 
     for (const { pull } of subs) {
       const ref = { owner, repo, number: pull.number };
@@ -88,7 +100,7 @@ export const delivery = Object.freeze({
   },
 });
 
-function decisionsLine(decisions) {
+function decisionsLine(decisions: DecisionFacts): string {
   if (!decisions.file) return '- Decisions: no settled file at the merge, so no decision is counted.';
   const drifted =
     decisions.drifted > 0 ? `${decisions.drifted} drifted, ${decisions.reworked} of them reworked` : `${decisions.drifted} drifted`;
@@ -98,14 +110,14 @@ function decisionsLine(decisions) {
   }.`;
 }
 
-function overrideLine(override) {
+function overrideLine(override: Facts['override']): string {
   return `- The feature PR merged ${override.mergedUnder ? 'under' : 'without'} the override label \`${override.label}\`.`;
 }
 
-function territoryLine(territory) {
+function territoryLine(territory: TerritoryFacts): string {
   if (territory.reason) return `- Territory: not graded — ${territory.reason}.`;
   const { graded, breaches, shared, unread, unplanned } = territory.counts;
-  const notes = [];
+  const notes: string[] = [];
   if (unread > 0) notes.push(`the files of ${plural(unread, 'more sub-PR')} could not be read`);
   if (unplanned > 0) notes.push(`${plural(unplanned, 'more sub-PR')} ${unplanned === 1 ? 'names a slice' : 'name slices'} the plan does not hold`);
   const outside = breaches === 0 ? 'no path' : plural(breaches, 'path');
@@ -114,9 +126,9 @@ function territoryLine(territory) {
   }${notes.map((note) => `; ${note}`).join('')}.`;
 }
 
-function frictionLine(friction) {
+function frictionLine(friction: FrictionFacts): string {
   const { stuck, needsFix, reclaimed, commentsUnread, eventsUnread } = friction.counts;
-  const notes = [];
+  const notes: string[] = [];
   if (commentsUnread > 0) notes.push(`the comments of ${plural(commentsUnread, 'sub-PR')} could not be read`);
   if (eventsUnread > 0) notes.push(`the label events of ${plural(eventsUnread, 'sub-PR')} could not be read, so only the labels they carry now count`);
   return `- Friction: ${plural(stuck, 'slice')} stuck, ${needsFix} labelled \`${friction.label}\`, ${reclaimed} claimed more than once${notes
@@ -124,16 +136,16 @@ function frictionLine(friction) {
     .join('')}.`;
 }
 
-function reviewLine(review) {
+function reviewLine(review: ReviewFacts): string {
   const c = review.counts;
   const reviewsRead = c.pulls - c.reviewsUnread;
   const threadsRead = c.pulls - c.threadsUnread;
-  const parts = [];
+  const parts: string[] = [];
   if (reviewsRead > 0) parts.push(`${plural(c.reviews, 'review')}${c.reviews > 0 ? ` (${c.reviewsByPeople} by people, ${c.reviewsByBots} by bots)` : ''}`);
   if (threadsRead > 0) parts.push(`${plural(c.threads, 'review thread')}${c.threads > 0 ? ` (${c.threadsByPeople} by people, ${c.threadsByBots} by bots)` : ''}`);
   if (reviewsRead > 0 || threadsRead > 0) parts.push(plural(c.red, 'red-circle bot finding'));
   if (threadsRead > 0) parts.push(`${plural(c.unresolved, 'thread')} unresolved at the merge`);
-  const unread = [];
+  const unread: string[] = [];
   if (c.reviewsUnread > 0) unread.push(`the reviews of ${c.reviewsUnread}`);
   if (c.threadsUnread > 0) unread.push(`the review threads of ${c.threadsUnread}`);
   return `- Review: ${plural(c.pulls, 'pull request')}${parts.length > 0 ? ` — ${parts.join(', ')}` : ''}${
