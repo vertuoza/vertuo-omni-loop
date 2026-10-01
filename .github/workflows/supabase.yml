@@ -116,6 +116,13 @@ jobs:
         # learns only whether one is stored, the owner its last four. Removing the key sets every decision
         # Off; a decision stays Off without a key. Only the service role reads a key and appends a call.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql
+      - name: Who may read and write the constituents
+        # Only a workspace's owner adds, edits and removes its products' Statement and Never lines; a
+        # member, another workspace's owner and anyone signed out are refused (42501). Each write logs
+        # exactly one event; a removed line keeps its row and id. Members read both tables and the
+        # terminal's read; the App's read is the service role's. The move turns confirmed `never`
+        # claims into Never lines and leaves the claims rejected.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
