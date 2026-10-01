@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni decide <decision>` (PRD 812 s3), seen from the outside: through `main()` on a fixture
 // repository, with a stubbed `fetch` and an in-memory token store. Jev can never block (decision 6):
 // every decision outcome exits 0, printing `<answer> <confidence>` when Jev's answer counted and

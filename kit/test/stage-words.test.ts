@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 587: the seven stages of the loop are the same words everywhere. Each side keeps its list in one
 // place — `STAGES` in galaxy's stage module, and `STAGE_ORDER` in the kit's `kit/lib/status/format.ts`,
 // which `omni status`, `omni help` and the skills' hand-offs are held to — and this test holds the two

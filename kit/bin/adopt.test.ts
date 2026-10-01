@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni adopt <item-text-file>` — adopts a medium item straight to the ledger, then removes the
 // open item file it adopted (PRD 7, slice s12: the bug found in wave 1 left the file behind, so
 // `omni status` kept counting it as open).

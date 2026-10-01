@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni ask on | off | status` — ask mode switched on and off in this checkout — and
 // `omni ask hook <pre|post|prompt|end>`, the bodies of its harness hooks. The mode is per checkout;
 // the session is per terminal (PRD 142's spec).
@@ -25,6 +24,9 @@
 // `{ cwd, stdout, stderr, exec }`, and a test also passes `stdin` (a string), `tokens` (the token
 // store), `fetch` and `limits` (the pre hook's waits).
 import { askClient } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import type { HookStdin } from '../../lib/ask/hook-input.ts';
+import { field } from '../../lib/ask/schema.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { readInput } from '../../lib/ask/hook-input.ts';
 import { activeMode, endHook, postHook, preHook, promptOutput, WAIT_LIMITS } from '../../lib/ask/hook.ts';
@@ -33,14 +35,21 @@ import { loadConfig } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { findRoot } from '../../lib/init/repo.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { ASK_URL_UNSET } from './signin.ts';
 
-const KINDS = ['pre', 'post', 'prompt', 'end'];
-const MODES = ['on', 'off', 'status'];
+const KINDS: readonly string[] = ['pre', 'post', 'prompt', 'end'];
+const MODES: readonly string[] = ['on', 'off', 'status'];
+
+/** What the hooks and the modes are handed beyond `main()`'s own: a test's stdin, token store, fetch and waits. */
+type AskOptions = { stdin?: HookStdin; tokens?: TokenStore | undefined; fetch?: Fetch; limits?: typeof WAIT_LIMITS };
 const USAGE = 'usage: omni ask hook <pre|post|prompt|end> | omni ask <on|off|status>';
 
 /** The hook's output, or `null`. Never throws. */
-async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
+async function runHook(
+  kind: string,
+  { cwd, exec, stdin, tokens, fetch, limits }: { cwd: string; exec: Exec } & Required<Omit<AskOptions, 'tokens'>> & Pick<AskOptions, 'tokens'>,
+): Promise<unknown> {
   try {
     const root = findRoot(cwd, exec);
     const mode = activeMode(root);
@@ -63,11 +72,25 @@ async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
 }
 
 /** The line saying where `slug`'s questions land, or `null` when the page cannot say. Never throws. */
-async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
+async function whereLine({
+  baseUrl,
+  host,
+  slug,
+  tokens,
+  fetch,
+}: {
+  baseUrl: string;
+  host: string;
+  slug: string | null;
+  tokens: TokenStore;
+  fetch: Fetch;
+}): Promise<string | null> {
   if (!slug) return null;
   try {
-    const { workspace, reason } = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
-    if (typeof workspace?.name === 'string' && workspace.name) return `questions go to ${workspace.name}'s page`;
+    const reply = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
+    const name = field(field(reply, 'workspace'), 'name');
+    const reason = field(reply, 'reason');
+    if (typeof name === 'string' && name) return `questions go to ${name}'s page`;
     return typeof reason === 'string' && reason.trim() ? reason.replace(/\s+/g, ' ').trim() : null;
   } catch {
     return null;
@@ -75,14 +98,17 @@ async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
 }
 
 /** `on`, `off` or `status`, with the repository's context. A config error surfaces as exit 2. */
-async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
+async function runMode(
+  mode: string,
+  { cwd, stdout, stderr, exec, tokens, fetch }: { cwd: string; stdout: Out; stderr: Out; exec: Exec; tokens: TokenStore | undefined; fetch: Fetch },
+): Promise<number> {
   const ctx = loadContext(cwd, { exec });
   const { root } = ctx;
   const askUrl = ctx.config.ask.url;
   const store = tokens ?? homeTokens();
 
   const slug = ctx.config.repo?.slug ?? null;
-  const printWhere = async (baseUrl) => {
+  const printWhere = async (baseUrl: string) => {
     const line = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
     if (line) println(stdout, line);
   };
@@ -90,7 +116,7 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   if (mode === 'status') {
     const page = modeStatus(root);
     println(stdout, page ?? 'off');
-    if (page) await printWhere(activeMode(root).baseUrl);
+    if (page) await printWhere(activeMode(root)!.baseUrl); // ts-allow: a mode with a page is an active one
     return 0;
   }
 
@@ -118,11 +144,14 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   return 0;
 }
 
-export const ask = {
+export const ask: FreeCommand = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS }) {
+  async run(
+    args: string[],
+    { cwd, stdout, stderr, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS }: FreeIo & AskOptions,
+  ) {
     const { positional } = parseArgs('ask', args);
-    const [sub, kind, ...rest] = positional;
+    const [sub = '', kind = '', ...rest] = positional;
     if (MODES.includes(sub) && positional.length === 1) return runMode(sub, { cwd, stdout, stderr, exec, tokens, fetch });
     if (sub !== 'hook' || !KINDS.includes(kind) || rest.length > 0) throw usageError(USAGE);
     const output = await runHook(kind, { cwd, exec, stdin, tokens, fetch, limits });

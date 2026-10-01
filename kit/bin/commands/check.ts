@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni check [inbox|outbox|knowledge|kb|releases|coverage|all]` — the repository's guards. Each
 // prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
@@ -27,6 +26,7 @@ import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
@@ -165,8 +165,8 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd }) {
 
 const GUARDS = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
 
-export const check = {
-  async run(args, io) {
+export const check: Command = {
+  async run(args: string[], io: CommandIo) {
     const { ctx, stdout, exec } = io;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);

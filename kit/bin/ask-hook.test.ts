@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni ask hook <pre|post|prompt|end>` and the plugin's hooks.json that runs it: the hook bodies seen
 // from the outside — stdin in, stdout out, exit code — against the fake contract server.
 import { execFile, spawnSync } from 'node:child_process';

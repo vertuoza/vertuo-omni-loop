@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni dossier link <n>` (PRD 413), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the lookup's contract (`GET /api/dossiers?repo=<owner/name>&prd=<n>`). The sign-in is an
 // in-memory token store and the environment is passed in, so nothing real is read or written.

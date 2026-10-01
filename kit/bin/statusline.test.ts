@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slices s1, s4, s5 and s6: `omni statusline` through `main()` — Claude Code's JSON on
 // stdin, the session line out, then the PRD of the session's branch, else the one the session last
 // worked on, with its stage and, in the outbox, the slices of its cached board (or the no-PRD line)

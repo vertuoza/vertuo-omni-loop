@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni signin`, `omni signout`, `omni whoami` — the person's sign-in to the server `ask.url` names,
 // once per computer and per host (PRD 71's spec, "The kit side").
 //
@@ -20,16 +19,19 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { askClient } from '../../lib/ask/client.ts';
+import type { Fetch } from '../../lib/ask/client.ts';
+import type { Tokens } from '../../lib/ask/schema.ts';
 import { askEndpoint, credentials, credentialsHost, exchangeCode, signedInLine, SignInError } from '../../lib/ask/credentials.ts';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.ts';
 import { loadContext } from '../../lib/context.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
 export const ASK_URL_UNSET = 'ask mode is not set up for this repository (ask.url)';
 
 /** Opens a link in the person's browser, without waiting for it and without a shell. */
-export function openInBrowser(url, { platform = process.platform } = {}) {
-  const [command, args] =
+export function openInBrowser(url: string, { platform = process.platform }: { platform?: NodeJS.Platform } = {}): void {
+  const [command, args]: [string, string[]] =
     platform === 'darwin' ? ['open', [url]]
       : platform === 'win32' ? ['rundll32', ['url.dll,FileProtocolHandler', url]]
         : ['xdg-open', [url]];
@@ -39,26 +41,38 @@ export function openInBrowser(url, { platform = process.platform } = {}) {
 }
 
 /** `ask.url` from the repository's config, or `null`. A config error surfaces as exit 2. */
-function askUrlOf(cwd, exec) {
+function askUrlOf(cwd: string, exec: Exec): string | null {
   return loadContext(cwd, { exec }).config.ask.url;
 }
 
 /** `ask.url` and `repo.slug` from the repository's config, each or `null`. */
-function signInConfig(cwd, exec) {
+function signInConfig(cwd: string, exec: Exec): { askUrl: string | null; repo: string | null } {
   const { config } = loadContext(cwd, { exec });
   return { askUrl: config.ask.url, repo: config.repo?.slug ?? null };
 }
 
 /** The command's arguments: none. */
-function noArguments(name, args) {
+function noArguments(name: string, args: string[]): void {
   const { positional } = parseArgs(name, args);
   if (positional.length > 0) throw usageError(`usage: omni ${name}`);
 }
 
-export const signin = {
+/** What a test (or `omni init`) hands `omni signin` beyond `main()`'s own. */
+export type SigninOptions = {
+  home?: string | undefined;
+  openBrowser?: (url: string) => unknown;
+  fetch?: Fetch;
+  waitMs?: number;
+  onSignedIn?: ((line: string) => void) | undefined;
+};
+
+export const signin: FreeCommand = {
   withoutContext: true,
   /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
-  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }) {
+  async run(
+    args: string[],
+    { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }: FreeIo & SigninOptions,
+  ) {
     noArguments('signin', args);
     const { askUrl, repo } = signInConfig(cwd, exec);
     if (!askUrl) {
@@ -94,9 +108,9 @@ export const signin = {
   },
 };
 
-export const signout = {
+export const signout: FreeCommand = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home }) {
+  async run(args: string[], { cwd, stdout, stderr, exec, home }: FreeIo & { home?: string | undefined }) {
     noArguments('signout', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
@@ -109,9 +123,9 @@ export const signout = {
   },
 };
 
-export const whoami = {
+export const whoami: FreeCommand = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }) {
+  async run(args: string[], { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }: FreeIo & { home?: string | undefined; fetch?: Fetch }) {
     noArguments('whoami', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
@@ -125,7 +139,7 @@ export const whoami = {
       println(stdout, 'signed out');
       return 0;
     }
-    const who = entry.email ?? entry.login ?? `signed in to ${host}`;
+    const who = String(entry.email ?? entry.login ?? `signed in to ${host}`);
     if (!expired(entry)) {
       println(stdout, who);
       return 0;
@@ -141,7 +155,7 @@ export const whoami = {
 };
 
 /** Past its `expires_at`, in seconds as the sign-in server gives it (or milliseconds, read as such). */
-function expired({ expires_at: at }, now = Date.now()) {
+function expired({ expires_at: at }: Tokens, now: number = Date.now()): boolean {
   if (typeof at !== 'number') return false;
   return (at < 1e12 ? at * 1000 : at) <= now;
 }

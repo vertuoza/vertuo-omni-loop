@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #99, slice s1: `omni sign trailer | footer`, through `main()` on a fixture repository (AC 3).
 // PRD #215: the footer links home (slice s1), and the hero is Omni-man (slice s2).
 import { describe, expect, it } from 'vitest';

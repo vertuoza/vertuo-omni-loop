@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #99, slices s3 and s4: `omni credits`, through `main()` on a fixture repository, with `gh`
 // stubbed — the text report, `--repo`, `--since`, `--list`, `--json`, `signature: null`, a `gh` that
 // cannot be read and the 1,000-result cap (AC 7 to AC 10). It never calls GitHub.

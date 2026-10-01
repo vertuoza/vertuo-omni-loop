@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni signin`, `omni signout` and `omni whoami`, seen from the outside: the browser is faked by a
 // plain HTTP GET on the loopback callback, the sign-in server by the fake contract server, and the
 // home folder by a temporary one — the real `~/.config/omni/` is never touched.

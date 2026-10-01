@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni business show [--json]` (PRD 748), seen from the outside: through `main()` on a fixture
 // repository, against the fake contract server, with the sign-in an in-memory token store. Every
 // reading outcome exits 0 with one "— agents carry on" line; only a usage error exits 2.

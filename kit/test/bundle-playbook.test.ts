@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #45, acceptance criterion 6: the committed `kit/dist/omni.mjs`, copied alone into a fixture
 // repository with no `node_modules` and no kit beside it, prints the kit defaults — the very text
 // `omni kb show` prints from the kit's source — and lays down the same blank forms.

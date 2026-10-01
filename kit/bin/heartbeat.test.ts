@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni heartbeat [--end]` through `main()` (PRD 757): the throttle, the body, when it stays silent,
 // and that it always exits 0 — against the fake contract server.
 import { spawnSync } from 'node:child_process';

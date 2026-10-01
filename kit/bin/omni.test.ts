@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';

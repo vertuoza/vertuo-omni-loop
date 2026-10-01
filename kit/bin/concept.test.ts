@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni concept <n>` (PRD 686), shaped like `omni visual`: run on a concept branch, it grades the
 // concept's one folder under `<paths.delivery>/inbox/concepts/`, what the branch changed, and every
 // commit's signature. Each failure the spec's test seams list is named alone.

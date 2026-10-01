@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Task 16: the acceptance test for phase 1 — the whole loop (check → red gate → settle → green
 // gate → ship → prd) through the CLI's `main()`, under three law profiles: knowledge,
 // claudeMdInvariants, none. Every fixture below is copied, not imported from another test file.

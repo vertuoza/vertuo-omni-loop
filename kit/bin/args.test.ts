@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Bug #571: a number an omni command is given (a PRD, an issue, a pull request) is plain digits.
 // "1e2" or "0x10" used to be read as PRD 100 or PRD 16 instead of being refused.
 import { describe, expect, it } from 'vitest';

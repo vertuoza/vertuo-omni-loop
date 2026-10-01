@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni answers ask <prd> --pr <n> [--repo owner/name] [--json]` and
 // `omni answers post --prd <n> --pr <n> --answers <file> [--repo owner/name] [--print]` — the terminal
 // door of an outbox (PRD 251).
@@ -18,6 +17,7 @@ import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumber
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
 import { githubClientFor } from '../github.ts';
 import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE =
   'usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | ' +
@@ -132,8 +132,8 @@ async function post(args, { ctx, stdout, stderr, exec, env }) {
   return 0;
 }
 
-export const answers = {
-  async run(args, io) {
+export const answers: Command = {
+  async run(args: string[], io: CommandIo) {
     const [verb, ...rest] = args;
     if (verb === 'ask') return ask(rest, io);
     if (verb === 'post') return post(rest, io);

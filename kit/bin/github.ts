@@ -1,39 +1,61 @@
-// @ts-nocheck
 // The one place the CLI talks to GitHub: `gh api`, shelled out, reading and writing an issue's (or a
 // pull request's — the same thing to the API) comments by id. Every library function that posts
 // takes a client with `listComments` / `createComment` / `updateComment`; this is the production one.
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import type { Context, ExecText } from '../lib/context.ts';
+import type { CommentClient } from '../lib/outbox/comment.ts';
+import type { Env } from './io.ts';
+import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
+
+/** What the GitHub helpers read of the context: the `gh` user and the repository's slug. */
+type GithubContext = { config: Pick<Context['config'], 'github' | 'repo'> };
 
 /**
  * The production comment client. `--input -` feeds the body as JSON on stdin rather than an argv
  * value, so a long, multi-paragraph comment never risks the OS argv length limit or `gh`'s own
  * `-f` value-typing rules. `env`, when given, is passed to every call (it carries `GH_TOKEN`).
  *
- * @param {{ owner: string, repo: string, issue: number, exec?: typeof execFileSync, env?: object }} args
  */
-export function ghClient({ owner, repo, issue, exec = execFileSync, env }) {
+export function ghClient({
+  owner,
+  repo,
+  issue,
+  exec = execFileSync,
+  env,
+}: {
+  owner: string | undefined;
+  repo: string | undefined;
+  issue: number;
+  exec?: ExecText;
+  env?: Env | undefined;
+}): CommentClient {
   const repoSlug = `${owner}/${repo}`;
-  const options = (extra = {}) => ({ encoding: 'utf8', ...extra, ...(env ? { env } : {}) });
+  const options = (extra: { input?: string } = {}): ExecFileSyncOptionsWithStringEncoding => ({
+    encoding: 'utf8',
+    ...extra,
+    ...(env ? { env } : {}),
+  });
   return {
     listComments: () =>
-      JSON.parse(exec('gh', ['api', `repos/${repoSlug}/issues/${issue}/comments`, '--paginate'], options())),
+      GhCommentsSchema.parse(JSON.parse(exec('gh', ['api', `repos/${repoSlug}/issues/${issue}/comments`, '--paginate'], options()))),
     createComment: (body) =>
-      JSON.parse(
+      GhWrittenCommentSchema.parse(JSON.parse(
         exec(
           'gh',
           ['api', `repos/${repoSlug}/issues/${issue}/comments`, '--input', '-'],
           options({ input: JSON.stringify({ body }) }),
         ),
-      ),
+      )),
     updateComment: (id, body) =>
-      JSON.parse(
+      GhWrittenCommentSchema.parse(JSON.parse(
         exec(
           'gh',
           ['api', '-X', 'PATCH', `repos/${repoSlug}/issues/comments/${id}`, '--input', '-'],
           options({ input: JSON.stringify({ body }) }),
         ),
-      ),
+      )),
   };
 }
 
@@ -42,7 +64,7 @@ export function ghClient({ owner, repo, issue, exec = execFileSync, env }) {
  * `gh` login), else `env` plus `GH_TOKEN` read once from `gh auth token --user <user>`. The token is
  * only ever passed through `env` — never interpolated into an argument or a shell string.
  */
-export function githubEnv(ctx, { exec = execFileSync, env = process.env } = {}) {
+export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = process.env }: { exec?: ExecText; env?: Env } = {}): Env | undefined {
   const user = ctx.config.github.user;
   if (!user) return undefined;
   const token = String(
@@ -55,9 +77,12 @@ export function githubEnv(ctx, { exec = execFileSync, env = process.env } = {}) 
  * The comment client for one issue or pull request of `repo` (default `ctx.config.repo.slug`) —
  * what `omni comment` and `omni replies` hand to the library.
  */
-export function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }) {
+export function githubClientFor(
+  ctx: GithubContext,
+  { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }: { repo?: string | null; issue: number; exec?: ExecText; env?: Env },
+): CommentClient {
   const [owner, name] = String(repo ?? '').split('/');
-  let resolved;
+  let resolved: Env | undefined;
   let fetched = false;
   const lazyEnv = () => {
     if (!fetched) {
@@ -74,17 +99,30 @@ export function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue, exec 
   };
 }
 
+/** One pull request, as the harvest reads it. */
+export type PullRequest = {
+  number: number;
+  url: string;
+  merged: boolean;
+  mergedAt: string | null;
+  mergedBy: string | null;
+  mergeSha: string | null;
+  base: string;
+  head: string;
+};
+
 /**
  * One pull request of `repo` (default `ctx.config.repo.slug`), as the harvest needs it: whether and
  * when it merged, who merged it, into which branch, and its merge commit. Read through `gh api`.
  *
- * @returns {{ number: number, url: string, merged: boolean, mergedAt: string | null,
- *   mergedBy: string | null, mergeSha: string | null, base: string, head: string }}
  */
-export function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }) {
+export function pullRequestFor(
+  ctx: GithubContext,
+  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }: { repo?: string | null; number: number; exec?: ExecText; env?: Env },
+): PullRequest {
   const ghEnv = githubEnv(ctx, { exec, env });
-  const data = JSON.parse(
-    exec('gh', ['api', `repos/${repo}/pulls/${number}`], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) }),
+  const data = GhPullRequestSchema.parse(
+    JSON.parse(exec('gh', ['api', `repos/${repo}/pulls/${number}`], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) })),
   );
   return {
     number: data.number,

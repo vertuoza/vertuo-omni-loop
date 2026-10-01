@@ -1,15 +1,16 @@
-// @ts-nocheck
 // `omni version` (and `omni --version`) — which kit runs, and whether a newer release exists
 // (PRD 347). It runs without a context, like `help`: it needs no config. The running kit is
 // `runningKit()` unless a caller injects `kit` ({ home, version, source }). Always exit 0, or 2 for
 // a usage error: a GitHub that does not answer only drops the second line.
 import { runningKit } from '../../lib/init/bundle.ts';
 import { latestRelease, versionLines } from '../../lib/version/version.ts';
+import type { RunningKit } from '../../lib/init/bundle.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { FreeCommand, FreeIo } from '../io.ts';
 
-export const version = {
+export const version: FreeCommand = {
   withoutContext: true,
-  async run(args, { stdout, exec, kit }) {
+  async run(args: string[], { stdout, exec, kit }: FreeIo & { kit?: RunningKit }) {
     const { positional } = parseArgs('version', args);
     if (positional.length) throw usageError('usage: omni version');
     const running = kit ?? runningKit({ exec });

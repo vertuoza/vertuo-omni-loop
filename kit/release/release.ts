@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 // Cuts the kit's next release (PRD #347), from a checkout of `main` with its whole history and
 // tags. The `release` workflow (`.github/workflows/release.yml`) runs it after every push to `main`,
 // and does nothing else. It:

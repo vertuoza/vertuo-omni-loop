@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni version` (PRD 347, s1): which kit runs, and whether a newer release exists. Through `main()`
 // with a fake `gh` and an injected running kit; and once through a real build, whose bundle carries
 // the version of the package.json it was built from. No test here ever calls GitHub.

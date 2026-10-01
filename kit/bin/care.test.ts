@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 790, slice s1: `omni care state` and `omni care reply` through `main()`, on a stubbed GitHub.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';

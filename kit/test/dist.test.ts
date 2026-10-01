@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The one-line install runs the committed bundle: `npx <kit repository> init` executes the root
 // package.json's `bin.omni`, which is `kit/dist/omni.mjs`. So that file must be committed, and must
 // be exactly what a fresh build of today's kit source gives.

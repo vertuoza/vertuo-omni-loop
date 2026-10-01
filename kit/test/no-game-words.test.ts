@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The kit may depend on a URL the game's app serves (ask mode's `ask.url`), but it still never names
 // the game (ADR-0002, amending PRD 3's principle 7). This guard fails on the game's world — "galaxy",
 // in any case and inside any word — in every file under `kit/` that is not a test: code, the bundle,

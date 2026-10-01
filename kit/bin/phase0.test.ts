@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';

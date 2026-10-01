@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The `release` workflow only calls the release script: it runs on push to main, one run at a time,
 // with `contents: write` and nothing else.
 import { readFileSync } from 'node:fs';

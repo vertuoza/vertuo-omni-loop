@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 686, slice s3: `/omni:brainstorm --concept <n> <area>` starts a PRD from one area of a concept
 // that `/omni:think-big` recorded and a person merged into the inbox. Each point of the slice's "done
 // when" is read here against the brainstorm's SKILL.md text; `kit/test/plugin.test.ts` keeps its own

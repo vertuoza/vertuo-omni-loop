@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The suite's time limits (#570). Tests that build git repositories and run child processes slow down
 // with the machine's load, so a limit sized for a quiet machine fails a correct test on a busy one.
 // The limit is one generous value in vitest.config.ts, meant to catch a hang; a test that sets its own

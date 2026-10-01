@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni board <prd> [--json] [--repo owner/name]` — the loop's view of a PRD's slices, rebuilt from
 // GitHub on every run. Reads the plan's own slice table (`parsePlanSlices`, which carries each
 // slice's own `blocked by` ids), fetches only this feature's own pull requests (`gh pr list`,
@@ -19,26 +18,31 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardFor, fillBranch } from '../../lib/board.ts';
+import type { BoardPr, BoardRepos, BoardRow } from '../../lib/board.ts';
+import type { Context } from '../../lib/context.ts';
+import type { Slice } from '../../lib/inbox/territory.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
-import { parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import type { Command, CommandIo, Env, Exec } from '../io.ts';
+import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
-function readPlan(prd, { ctx }) {
+function readPlan(prd: number, { ctx }: { ctx: Context }): { planPath: string; markdown: string } {
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   try {
     return { planPath, markdown: readFileSync(join(ctx.root, planPath), 'utf8') };
   } catch (error) {
-    if (error?.code === 'ENOENT') throw usageError(`omni board: no plan at ${planPath}.`);
+    if (errorCode(error) === 'ENOENT') throw usageError(`omni board: no plan at ${planPath}.`);
     throw error;
   }
 }
 
 /** The PRD folder's own topic, which fills `{topic}` in `branches.feature` and `branches.slice`. */
-function topicFor(prd, { ctx }) {
+function topicFor(prd: number, { ctx }: { ctx: Context }): string {
   const where = ctx.layout.whereIs(prd);
   if (!where) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   const parsed = parseFolderName(where.name);
@@ -56,13 +60,16 @@ const PR_FIELDS = ['number', 'title', 'headRefName', 'baseRefName', 'state', 'is
  * label` — narrows `gh pr list` to this feature's own pull requests, server-side. Without this an
  * old sub-PR (say, already merged) can fall off a page of the whole repository's pull requests and
  * read as if it never existed — exactly what `--state all` was supposed to prevent. */
-function narrowingArgs({ matchBy, featureBranch, subLabel }) {
+/** What narrows `gh pr list` to one feature's pull requests. */
+type Narrowing = { matchBy: string; featureBranch: string; subLabel: string };
+
+function narrowingArgs({ matchBy, featureBranch, subLabel }: Narrowing): string[] {
   return matchBy === 'label' ? ['--label', subLabel] : ['--base', featureBranch];
 }
 
 /** Every pull request of this feature — never the whole repository's. */
-function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
-  const options = { encoding: 'utf8', ...(env ? { env } : {}) };
+function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { repo: string; exec: Exec; env: Env | undefined } & Narrowing): BoardPr[] {
+  const options = { encoding: 'utf8' as const, ...(env ? { env } : {}) };
   const raw = exec(
     'gh',
     [
@@ -80,24 +87,24 @@ function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }) {
     ],
     options,
   );
-  return JSON.parse(raw).map((pr) => ({ ...pr, headCommitDate: null }));
+  return GhPrListSchema.parse(JSON.parse(raw)).map((pr) => ({ ...pr, headCommitDate: null }));
 }
 
 /** Whether `pr` could possibly read as `claimed-stale` at all: only an open draft whose claim
  * (`createdAt`) is already older than the limit is worth a second `gh` call for — a merged, closed
  * or non-draft pull request, or a draft claimed only moments ago, can never be `claimed-stale`
  * regardless of what its head commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
-function couldBeStale(pr, now, staleMinutes) {
+function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
   if (!pr.isDraft || pr.state !== 'OPEN' || !pr.createdAt) return false;
   return now - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1000;
 }
 
 /** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
  * `null` when the payload carries no commit at all. */
-function fetchHeadCommitDate({ repo, number, exec, env }) {
-  const options = { encoding: 'utf8', ...(env ? { env } : {}) };
+function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: number | undefined; exec: Exec; env: Env | undefined }): string | null {
+  const options = { encoding: 'utf8' as const, ...(env ? { env } : {}) };
   const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
-  const commits = JSON.parse(raw).commits ?? [];
+  const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
   const last = commits.at(-1);
   return last?.committedDate ?? last?.authoredDate ?? null;
 }
@@ -105,7 +112,10 @@ function fetchHeadCommitDate({ repo, number, exec, env }) {
 /** Widens every pull request that could possibly be `claimed-stale` with its own head commit date —
  * one extra `gh pr view` call each, never for a pull request the staleness rule could not apply to
  * anyway. */
-function fetchHeadCommitDates(prs, { repo, exec, env, now, staleMinutes }) {
+function fetchHeadCommitDates(
+  prs: BoardPr[],
+  { repo, exec, env, now, staleMinutes }: { repo: string; exec: Exec; env: Env | undefined; now: number; staleMinutes: number },
+): BoardPr[] {
   return prs.map((pr) =>
     couldBeStale(pr, now, staleMinutes)
       ? { ...pr, headCommitDate: fetchHeadCommitDate({ repo, number: pr.number, exec, env }) }
@@ -115,9 +125,15 @@ function fetchHeadCommitDates(prs, { repo, exec, env, now, staleMinutes }) {
 
 const STATE_WIDTH = 'claimed-stale'.length;
 
-function tableLine(row, repoWidth) {
+/** A plan slice as the board reads it: `board.ts` types its wave as a number, the plan as a number or null. */
+type PlanSlice = Slice & { wave: number };
+
+/** A repository of a plan repository's slices that could not be read. */
+type Unreadable = { repo: string | null | undefined; slug: string | null; reason: string };
+
+function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
-  const repoCol = row.repo === undefined ? '' : `${row.repo.padEnd(repoWidth)}  `;
+  const repoCol = row.repo === undefined ? '' : `${row.repo!.padEnd(repoWidth)}  `; // ts-allow: boardFor sets `repo` to a name or leaves it out
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 
@@ -126,24 +142,24 @@ function tableLine(row, repoWidth) {
  * requests from `gh pr list` (with a head commit date for each that could be `claimed-stale`), and
  * `boardFor`. Throws a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read,
  * and whatever `gh` throws.
+ * `repo` is `--repo`'s value, when given.
  *
- * @param {number} prd
- * @param {{ ctx: object, exec: Function, env?: object, repo?: string, now?: number }} options `repo`
- *   is `--repo`'s value, when given
  * In a plan repository whose plan has a `repo` column (PRD 563), it reads one pull-request list per
  * repository a slice names instead, and a repository `gh` cannot read makes only its own slices
  * `unreadable` rather than throwing.
- *
- * @returns {{ slices: object[], result: ReturnType<typeof boardFor>, unreadable: Array<{ repo: string, slug: string | null, reason: string }> }}
- *   the plan's slices, the board, and each repository that could not be read (in a plan repository)
+ * It returns the plan's slices, the board, and each repository that could not be read (in a plan
+ * repository).
  */
-export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
+export function buildBoard(
+  prd: number,
+  { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
+): { slices: PlanSlice[]; result: ReturnType<typeof boardFor<PlanSlice>>; unreadable: Unreadable[] } {
   const { markdown } = readPlan(prd, { ctx });
-  let slices;
+  let slices: PlanSlice[];
   try {
-    slices = parsePlanSlices(markdown);
+    slices = parsePlanSlices(markdown) as PlanSlice[]; // ts-allow: a slice with no wave reaches boardFor as it always has
   } catch (error) {
-    throw usageError(`omni board: ${error.message}`);
+    throw usageError(`omni board: ${errorMessage(error)}`);
   }
   const topic = topicFor(prd, { ctx });
   const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
@@ -152,7 +168,7 @@ export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now
   const matchBy = ctx.config.board.matchBy;
   const subLabel = ctx.config.labels.sub;
   const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const read = (slug) => {
+  const read = (slug: string) => {
     const listed = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
     return fetchHeadCommitDates(listed, { repo: slug, exec, env: ghEnv, now, staleMinutes });
   };
@@ -166,21 +182,23 @@ export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now
   // A plan repository (PRD 563): one pull-request list per repository a slice names, each pull
   // request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
   const known = knownRepositories(ctx, repo);
-  const repos = {};
-  const prs = [];
-  const unreadable = [];
+  const repos: BoardRepos = {};
+  const prs: BoardPr[] = [];
+  const unreadable: Unreadable[] = [];
   for (const name of new Set(slices.map((slice) => slice.repo))) {
-    const slug = known.get(name) ?? null;
+    // `String(name)` is the key JavaScript itself would use for a slice with no repo name.
+    const key = String(name);
+    const slug = (typeof name === 'string' ? known.get(name) : undefined) ?? null;
     if (slug === null) {
-      repos[name] = { slug: null, readable: false };
+      repos[key] = { slug: null, readable: false };
       unreadable.push({ repo: name, slug: null, reason: 'neither a target nor this plan repository' });
       continue;
     }
     try {
       prs.push(...read(slug).map((pr) => ({ ...pr, slug })));
-      repos[name] = { slug, readable: true };
+      repos[key] = { slug, readable: true };
     } catch (error) {
-      repos[name] = { slug, readable: false };
+      repos[key] = { slug, readable: false };
       unreadable.push({ repo: name, slug, reason: ghReason(error) });
     }
   }
@@ -189,27 +207,28 @@ export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now
 }
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
-function shortName(slug) {
+function shortName(slug: string): string {
   return slug.slice(slug.indexOf('/') + 1);
 }
 
 /** Every repository a plan repository's slices may name, short name to slug: its `plan.targets`,
  * then the plan repository itself (`repo.slug`, or `--repo`). */
-function knownRepositories(ctx, planSlug) {
-  const known = new Map();
+function knownRepositories(ctx: Context, planSlug: string): Map<string, string> {
+  const known = new Map<string, string>();
   for (const target of ctx.config.plan?.targets ?? []) known.set(shortName(target.repo), target.repo);
   known.set(shortName(planSlug), planSlug);
   return known;
 }
 
 /** What gh said when it could not read a repository, as one line. */
-function ghReason(error) {
-  const lines = `${error?.stderr ?? ''}\n${error?.message ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+function ghReason(error: unknown): string {
+  const failure = error as { stderr?: unknown; message?: unknown } | null | undefined; // ts-allow: whatever was thrown, read as `error?.stderr` and `error?.message` read it
+  const lines = `${failure?.stderr ?? ''}\n${failure?.message ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? 'gh could not read it';
 }
 
-export const board = {
-  async run(args, { ctx, stdout, exec, env }) {
+export const board: Command = {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('board', '<prd>', positional[0]);

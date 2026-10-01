@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A fake ask-mode server: the HTTP contract under `/api/ask/*` (PRD 71's spec, "The contract"),
 // held in memory, for the kit's tests and for a live tracer run. It checks the bearer token on every
 // call but the token exchange, and it records every call it gets.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 413, Decision 8: every skill that reports on a PRD prints its page, from `omni dossier link <n>`,
 // beside the PRD's number, or its issue when it has no page. This text check fails as soon as one
 // of those skills stops naming the command or the fallback.

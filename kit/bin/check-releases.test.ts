@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 262, slice s1: `omni check releases`, and `omni check all` running it, through `main()` on a
 // fixture repository.
 import { describe, expect, it } from 'vitest';

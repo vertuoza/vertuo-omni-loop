@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni proof session [<file>]` — writes the signed-in Playwright session `/omni:prove` films with
 // (`proof.setup`), to `<file>` or to `$PROOF_STORAGE_STATE`, from the person's own `omni signin`, its
 // cookie on the host of `$PROOF_URL` (the address filmed, a preview's) or else of `ask.url`
@@ -26,20 +25,30 @@
 import { writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { ProofReplyError, pushProof } from '../../lib/proof/push.ts';
+import type { ProofClient } from '../../lib/proof/push.ts';
 import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.ts';
+import type { ProofRun } from '../../lib/proof/run.ts';
 import { SessionRefused, storageState } from '../../lib/proof/session.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Env, FreeCommand, FreeIo, Out } from '../io.ts';
+
+/** What a test hands `omni proof` beyond `main()`'s own. */
+type ProofOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
+
+/** What a call is handed: the streams and the options. */
+type CallIo = { stdout: Out; stderr: Out; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
 const USAGE = 'usage: omni proof push <n> <dir> | omni proof session [<file>]';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni dossier link` words it. */
-function skipLine(error) {
+function skipLine(error: unknown): string {
   if (error instanceof ProofReplyError) return `refused (${error.message})`;
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return 'unreachable';
@@ -48,7 +57,7 @@ function skipLine(error) {
 }
 
 /** What `omni proof push <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
-function argsOf(args, env) {
+function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | { verb: 'push'; prd: number; dir: string } {
   const { positional } = parseArgs('proof', args);
   const [verb, first, second, ...rest] = positional;
   if (verb === 'session') {
@@ -61,7 +70,7 @@ function argsOf(args, env) {
 }
 
 /** The run in `dir`, or the one line a local refusal is reported with. */
-function localRun(cwd, dir) {
+function localRun(cwd: string, dir: string): { line: string; run?: undefined } | { run: ProofRun; line?: undefined } {
   const folder = isAbsolute(dir) ? dir : resolve(cwd, dir);
   let run;
   try {
@@ -75,7 +84,10 @@ function localRun(cwd, dir) {
 }
 
 /** Sends the run and prints its links, or the one line that stopped it; the exit code. */
-async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
+async function send(
+  { toggle, repo, prd, run }: { toggle: { askUrl: string }; repo: string; prd: number; run: ProofRun },
+  { stdout, stderr, tokens, home, fetch, callMs }: CallIo,
+): Promise<number> {
   const host = credentialsHost(toggle.askUrl);
   const store = tokens ?? homeTokens(home ? { home } : undefined);
   if (!store.read(host)) {
@@ -85,7 +97,8 @@ async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, 
   const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
   let pushed;
   try {
-    pushed = await pushProof({ client, repo, prd, run });
+    // The ask client uploads any BodyInit; push reads its files as Uint8Array, which fetch sends as is.
+    pushed = await pushProof({ client: client as ProofClient, repo, prd, run }); // ts-allow: askClient's upload takes the Uint8Array push hands it
   } catch (error) {
     println(stderr, skipLine(error));
     return 1;
@@ -96,20 +109,23 @@ async function send({ toggle, repo, prd, run }, { stdout, stderr, tokens, home, 
 }
 
 /** `HH:MM`, local time, of a moment in seconds. */
-const clock = (seconds) => new Date(seconds * 1000).toTimeString().slice(0, 5);
+const clock = (seconds: number): string => new Date(seconds * 1000).toTimeString().slice(0, 5);
 
 /** The access token of a sign-in renewed just now, or the one line that stopped it. */
-async function renewedToken(askUrl, { tokens, home, fetch, callMs }) {
+async function renewedToken(
+  askUrl: string,
+  { tokens, home, fetch, callMs }: Omit<CallIo, 'stdout' | 'stderr'>,
+): Promise<{ line: string; host?: undefined; token?: undefined } | { host: string; token: string; line?: undefined }> {
   const host = credentialsHost(askUrl);
   const store = tokens ?? homeTokens(home ? { home } : undefined);
   if (!store.read(host)) return { line: NO_SIGN_IN };
   const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) }).renew();
-  if (outcome === 'renewed') return { host, token: store.read(host).access_token };
+  if (outcome === 'renewed') return { host, token: store.read(host)!.access_token }; // ts-allow: a renewal just wrote this host's tokens
   return { line: outcome === 'refused' ? NO_SIGN_IN : 'unreachable' };
 }
 
 /** The session a token makes, or null when it is not a sign-in the app would take. */
-function sessionFor(token, host) {
+function sessionFor(token: string, host: string): ReturnType<typeof storageState> | null {
   try {
     return storageState(token, { host });
   } catch (error) {
@@ -119,7 +135,7 @@ function sessionFor(token, host) {
 }
 
 /** The host of the address a run films (`PROOF_URL`, a preview's), or undefined for ask.url's own. */
-function targetHost(url) {
+function targetHost(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
     return new URL(url).hostname;
@@ -129,7 +145,10 @@ function targetHost(url) {
 }
 
 /** Renews the sign-in and writes the session to `file`, or prints the one line that stopped it; the exit code. */
-async function writeSession({ askUrl, file, target }, { stdout, stderr, ...io }) {
+async function writeSession(
+  { askUrl, file, target }: { askUrl: string; file: string; target: string | undefined },
+  { stdout, stderr, ...io }: CallIo,
+): Promise<number> {
   const renewed = await renewedToken(askUrl, io);
   const made = renewed.token ? sessionFor(renewed.token, target ?? renewed.host) : null;
   if (!made) {
@@ -141,9 +160,9 @@ async function writeSession({ askUrl, file, target }, { stdout, stderr, ...io })
   return 0;
 }
 
-export const proof = {
+export const proof: FreeCommand = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }) {
+  async run(args: string[], { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ProofOptions) {
     const parsed = argsOf(args, env);
     const ctx = loadContext(cwd, { exec });
     if (parsed.verb === 'session') {
@@ -161,7 +180,7 @@ export const proof = {
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError('omni proof: no repository slug — set repo.slug in the config.');
     const local = localRun(cwd, dir);
-    if (local.line) {
+    if (local.run === undefined) {
       println(stderr, local.line);
       return 1;
     }

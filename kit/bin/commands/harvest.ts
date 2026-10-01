@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni harvest <prd> --pr <n>` — the knowledge harvest, run locally: the same pipeline the app runs
 // on a merged feature pull request. The merge's facts come through `gh`, the model through the kit's
 // OpenRouter client with the key from the environment, and the files go into the working tree:
@@ -9,24 +8,26 @@ import { KEY_VAR } from '../../lib/openrouter.ts';
 import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import { pullRequestFor } from '../github.ts';
+import type { Command, CommandIo } from '../io.ts';
+import type { Merge, Placed } from '../../lib/knowledge/write.ts';
 
 const USAGE = 'usage: omni harvest <prd> --pr <feature pull request>';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-function landedText(entry) {
+function landedText(entry: Placed): string {
   if (entry.kind === 'stays-here') return 'stays here';
   if (entry.kind === 'covered') return `covered by ${entry.landedAs.join(', ')}`;
   const standing = entry.kind === 'adr' ? entry.status : entry.proposed ? 'proposed' : 'confirmed';
   return `${entry.landedAs.join(', ')} (new, ${standing})`;
 }
 
-function checkLine(name, violations) {
+function checkLine(name: string, violations: readonly string[]): string {
   return violations.length === 0 ? `omni check ${name} ✓` : `omni check ${name} ✗ (${violations.length})`;
 }
 
-export const harvest = {
-  async run(args, { ctx, stdout, stderr, exec, env }) {
+export const harvest: Command = {
+  async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('harvest', args, { values: ['pr'] });
     if (positional.length !== 1 || flags.pr === undefined) throw usageError(USAGE);
     const prd = positiveInt('harvest', '<prd>', positional[0]);
@@ -44,7 +45,7 @@ export const harvest = {
       println(stderr, `omni harvest: pull request #${number} merged into ${pr.base}, not into ${defaultBranch} — only a feature pull request is harvested.`);
       return 1;
     }
-    const merge = { by: pr.mergedBy ?? '', at: pr.mergedAt, pr: pr.number ?? number, ...(pr.url ? { url: pr.url } : {}) };
+    const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number ?? number, ...(pr.url ? { url: pr.url } : {}) };
 
     const prepared = prepareHarvest({ ctx, prd, merge });
     if (!prepared.ok) {

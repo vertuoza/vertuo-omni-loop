@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #45, slice s3: `omni kb init | show | status` and `omni check kb`, each through `main()` on a
 // fixture repository. The kit's own templates are the kit defaults throughout.
 import { execFileSync } from 'node:child_process';

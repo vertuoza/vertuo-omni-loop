@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]` — counts what OmniMan,
 // the loop's signature (PRD #99), worked on across the organisation that owns `repo.slug`: his pull
 // requests, his PRD issues, what his bot account opened and the co-authored commits on default
@@ -16,22 +15,23 @@ import { creditsList, creditsReport } from '../../lib/credits/report.ts';
 import { botLogin } from '../../lib/signature.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, repoSlug, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]';
 const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 
 /** The one line `omni credits` exits 2 with when `gh` cannot be read. */
-const ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
+const ghUsageError = (cause: Error) => usageError(`omni credits: ${cause.message}`);
 
-export const credits = {
-  async run(args, { ctx, stdout, stderr, exec, env }) {
+export const credits: Command = {
+  async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('credits', args, { values: ['repo', 'since'], booleans: ['list', 'json'] });
     if (positional.length) throw usageError(USAGE);
     const slug = repoSlug('credits', ctx, flags.repo);
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
     const repo = flags.repo ?? null;
-    const owner = slug.split('/')[0];
+    const owner = slug.split('/')[0] ?? '';
     const { labels, signature } = ctx.config;
 
     let ghEnv;

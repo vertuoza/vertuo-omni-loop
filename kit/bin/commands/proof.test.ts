@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni proof push <n> <dir>` (PRD 798), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the proof contract (`POST /api/proofs/uploads`, a PUT per signed link, `POST /api/proofs`).
 // The sign-in is an in-memory token store, so nothing real is read or written.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni kb init | show <form> [--json] | status [--json] | graph [--json]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
@@ -19,6 +18,7 @@ import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]';
 
@@ -171,8 +171,8 @@ function graph(positional, flags, { ctx, stdout }) {
   return 0;
 }
 
-export const kb = {
-  async run(args, io) {
+export const kb: Command = {
+  async run(args: string[], io: CommandIo) {
     const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
     const [sub, ...rest] = positional;
     if (sub === 'init') return init(rest, flags, io);

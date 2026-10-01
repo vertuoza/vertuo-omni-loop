@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Test-only. Reproduces upstream vertuo-ai-domain's flat layout (docs/outbox/<prd>/, docs/adr,
 // docs/knowledge) and its `vertuo-outbox` markers, so ported upstream tests keep their assertions
 // byte for byte. Never shipped: kit/lib knows only the folders layout.

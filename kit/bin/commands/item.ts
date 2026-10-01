@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]` — records one decision
 // as an outbox item, through the recording policy in `kit/lib/policy/outbox-policy.ts`. The
 // `--file` JSON file carries `renderOutboxItem`'s fields minus `prd`, `slice` and `laws` (this
@@ -59,6 +58,7 @@ import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.ts';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.ts';
 import { KIT_MESSAGES } from '../../lib/schema/messages.ts';
 import { inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
 const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>';
@@ -390,8 +390,8 @@ async function runRelay(args, { ctx, stdout, stderr }) {
   return refused.length > 0 ? 2 : 0;
 }
 
-export const item = {
-  async run(args, io) {
+export const item: Command = {
+  async run(args: string[], io: CommandIo) {
     const [sub, ...rest] = args;
     if (sub === 'new') return runNew(rest, io);
     if (sub === 'relay') return runRelay(rest, io);

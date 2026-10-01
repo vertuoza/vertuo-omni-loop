@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni comment --prd <n> (--pr <n> [--result f] | --branch <b> [--ref] [--base] [--labels]
 // [--slack-note f] [--title] [--owner-slack-id] [--owner-login] [--pr-comment f]) [--repo]` — the two
 // outbox comments (the feature pull request's, then the PRD issue's) and the Slack note file.
@@ -13,22 +12,24 @@ import {
   upsertOutboxPrComment,
 } from '../../lib/outbox/comment.ts';
 import { githubClientFor } from '../github.ts';
-import { inRoot, list, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import { errorMessage, inRoot, list, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import type { NameStatus } from '../../lib/git.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE =
   'usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] ' +
   '[--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>]' +
   ' | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]';
 
-export const comment = {
-  async run(args, { ctx, stdout, exec, env }) {
+export const comment: Command = {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('comment', args, {
       values: ['prd', 'pr', 'repo', 'result', 'branch', 'ref', 'base', 'labels', 'slack-note', 'title', 'owner-slack-id', 'owner-login', 'pr-comment'],
     });
     if (positional.length) throw usageError(USAGE);
     const prd = positiveInt('comment', '--prd', flags.prd);
     const repo = repoSlug('comment', ctx, flags.repo);
-    const [owner, name] = repo.split('/');
+    const [owner = '', name = ''] = repo.split('/');
 
     // `--pr` writes the plain-words comment on the feature pull request itself; its absence writes
     // the PRD-issue comment.
@@ -53,12 +54,12 @@ export const comment = {
     const branch = flags.branch;
     if (!branch) throw usageError(USAGE);
     const ref = flags.ref ?? branch;
-    let changes = [];
+    let changes: NameStatus[] = [];
     if (flags.base) {
       try {
         changes = rangeChanges({ ctx, base: flags.base, exec });
       } catch (error) {
-        throw usageError(error.message.split('\n')[0]);
+        throw usageError(errorMessage(error).split('\n')[0] ?? '');
       }
     }
     const result = upsertOutboxComment(

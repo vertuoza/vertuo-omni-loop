@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni phase0 <prd> [--base <ref>]` — grades a candidate phase-0 pull request's own diff against
 // `phase0Verdict` (`kit/lib/policy/phase-0.ts`): docs-only, and carrying the spec, the plan and the
 // before/after this one PRD is being asked to approve. `--base` defaults to
@@ -7,35 +6,38 @@
 // empty diff. Every commit of the range must also carry the trailer `omni sign trailer` prints
 // (PRD #99), unless the config says `signature: null`.
 import { phase0Verdict } from '../../lib/policy/phase-0.ts';
+import type { Phase0Verdict } from '../../lib/policy/phase-0.ts';
+import type { ExecText } from '../../lib/context.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import { rangeBase, rangeCommits } from '../branch-range.ts';
+import type { Command, CommandIo, Out } from '../io.ts';
 
 const USAGE = 'usage: omni phase0 <prd> [--base <ref>]';
 
-function git(args, cwd, exec) {
+function git(args: string[], cwd: string, exec: ExecText): string {
   return exec('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** The range's changed paths, `git diff --name-only --no-renames <base>...HEAD` — paths only; this
  * command never needs a change's status, unlike `rangeChanges` (`kit/lib/git.ts`), which the
  * decision-coverage and comment guards read `--name-status` through instead. */
-function changedPaths(ctx, base, exec) {
+function changedPaths(ctx: { root: string }, base: string, exec: ExecText): string[] {
   return git(['diff', '--name-only', '--no-renames', `${base}...HEAD`], ctx.root, exec)
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
 }
 
-function signedLine(signed) {
+function signedLine(signed: boolean | null): string {
   if (signed === null) return 'signed: off (signature: null)';
   return `signed: ${signed ? 'yes' : 'no'}`;
 }
 
-function carriesLine(label, files) {
+function carriesLine(label: string, files: readonly string[]): string {
   return `  ${label}: ${files.length > 0 ? files.map((file) => `\`${file}\``).join(', ') : '(none)'}`;
 }
 
-function printVerdict(stdout, prd, base, verdict) {
+function printVerdict(stdout: Out, prd: number, base: string, verdict: Phase0Verdict): void {
   println(stdout, `omni phase0 — PRD ${prd}, range ${base}...HEAD:`);
   println(stdout, `${verdict.ok ? 'ok' : 'not ok'} — ${verdict.reason}`);
   println(stdout, `docs-only: ${verdict.docsOnly ? 'yes' : 'no'}`);
@@ -59,8 +61,8 @@ function printVerdict(stdout, prd, base, verdict) {
   }
 }
 
-export const phase0 = {
-  async run(args, { ctx, stdout, exec }) {
+export const phase0: Command = {
+  async run(args: string[], { ctx, stdout, exec }: CommandIo) {
     const { positional, flags } = parseArgs('phase0', args, { values: ['base'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('phase0', '<prd>', positional[0]);

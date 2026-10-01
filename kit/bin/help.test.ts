@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni help [<name>]`, `omni --help` and `omni -h`, through `main()` (PRD 315).
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

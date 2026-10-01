@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni dossier open "<title>" | push <n> | link <n> | status` — a PRD's dossier on the Omni page (PRD 216's
 // spec, "The kit"): its artifacts, every version of each, uploaded with the terminal's sign-in.
 //

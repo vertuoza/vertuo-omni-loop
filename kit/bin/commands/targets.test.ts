@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni targets` (PRD 522, s1), through `main()` on a fixture repository with `gh` faked: the table in
 // config order, `--json`, the exit code, and a repository with no plan section. It never calls GitHub.
 import { execFileSync } from 'node:child_process';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni ask on`, `omni ask off` and `omni ask status`: ask mode switched on and off in one checkout,
 // seen from the outside — the server is the fake contract server, the sign-in an in-memory token
 // store or a temporary home folder. The real `~/.config/omni/` is never touched.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni plan check <prd>` — grades a PRD's own `plan.md` before anyone builds off it, through
 // `gradePlan` (`kit/lib/inbox/plan-grade.ts`, which says what it checks). Prints the slice count,
 // the waves and the collision matrix, then every violation; exits 1 on any. In a plan repository
@@ -15,43 +14,45 @@ import { formatFailure, formatPass } from '../../lib/check-report.ts';
 import { gradePlan } from '../../lib/inbox/plan-grade.ts';
 import { parsePlanRepositories, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { movedTable, planMoved } from '../../lib/plan-repo/moved.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Context } from '../../lib/context.ts';
 import { githubEnv } from '../github.ts';
+import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni plan check <prd> | omni plan moved <prd> [--json]';
 
 /** `count` and its noun, singular for one. */
-function counted(count, singular, pluralForm) {
+function counted(count: number, singular: string, pluralForm: string): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
 /** PRD n's plan: its path and its Markdown. */
-function readPlanText(prd, { ctx, verb }) {
+function readPlanText(prd: number, { ctx, verb }: { ctx: Context; verb: string }): { planPath: string; markdown: string } {
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd} has no inbox or shipped folder.`);
 
   try {
     return { planPath, markdown: readFileSync(join(ctx.root, planPath), 'utf8') };
   } catch (error) {
-    if (error?.code === 'ENOENT') throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
+    if (errorCode(error) === 'ENOENT') throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error;
   }
 }
 
 /** PRD n's plan, read and parsed: its path, its slices and its `## Repositories` rows. */
-function readPlan(prd, { ctx, verb }) {
+function readPlan(prd: number, { ctx, verb }: { ctx: Context; verb: string }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb });
   let slices;
   try {
     slices = parsePlanSlices(markdown);
   } catch (error) {
-    throw usageError(`omni plan ${verb}: ${planPath}: ${error.message}`);
+    throw usageError(`omni plan ${verb}: ${planPath}: ${errorMessage(error)}`);
   }
   return { planPath, slices, repositories: parsePlanRepositories(markdown) };
 }
 
 /** PRD n's plan, graded; a slice table that cannot be read is a usage error, as it always was. */
-function checkPlan(prd, { ctx }) {
+function checkPlan(prd: number, { ctx }: { ctx: Context }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb: 'check' });
   const graded = gradePlan(markdown, { config: ctx.config });
   if (graded.parseError !== null) throw usageError(`omni plan check: ${planPath}: ${graded.parseError}`);
@@ -59,7 +60,7 @@ function checkPlan(prd, { ctx }) {
 }
 
 /** `omni plan moved <prd> [--json]`: one row per target, exit 0 in a plan repository. */
-function moved(rest, { ctx, stdout, exec, env }) {
+function moved(rest: string[], { ctx, stdout, exec, env }: Omit<CommandIo, 'stderr'>): number {
   const { positional, flags } = parseArgs('plan moved', rest, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = positiveInt('plan moved', '<prd>', positional[0]);
@@ -70,7 +71,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
   }
   const { slices, repositories } = readPlan(prd, { ctx, verb: 'moved' });
   const rows = planMoved(
-    { slices, repositories, planSlug: ctx.config.repo.slug, targets: planSection.targets },
+    { slices, repositories, planSlug: ctx.config.repo.slug as string, targets: planSection.targets }, // ts-allow: a plan repository with no slug still crashes in planMoved (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     { exec, env: githubEnv(ctx, { exec, env }) },
   );
   if (flags.json) println(stdout, JSON.stringify(rows.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));
@@ -78,8 +79,8 @@ function moved(rest, { ctx, stdout, exec, env }) {
   return 0;
 }
 
-export const plan = {
-  async run(args, { ctx, stdout, exec, env }) {
+export const plan: Command = {
+  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
     const [sub, ...rest] = args;
     if (sub === 'moved') return moved(rest, { ctx, stdout, exec, env });
     if (sub !== 'check') throw usageError(USAGE);

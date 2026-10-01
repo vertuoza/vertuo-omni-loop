@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni business show [--json]` — the business agents in this repository read (PRD 748's spec, "The
 // read"): the confirmed claims of its workspace's business, the region from the business and the rest
 // from the repository's product, read with the terminal's sign-in through `GET /api/business`.

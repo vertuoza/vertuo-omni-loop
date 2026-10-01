@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Bundles the `omni` CLI into one dependency-free file, `kit/dist/omni.mjs`, that a repository
 // carries as `.omni-loop/bin/omni.mjs` and runs with plain `node` — no install step.
 // `__OMNI_BUNDLE__` is the bundle's marker (see lib/init/bundle.ts): only a build defines it, and

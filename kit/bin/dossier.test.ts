@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni dossier open | push | status` (PRD 216), seen from the outside: through `main()` on a fixture
 // repository, against the fake contract server, with the sign-in an in-memory token store. The real
 // `~/.config/omni/` is never touched, and the environment is always passed in, so the Claude session

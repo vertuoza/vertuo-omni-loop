@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

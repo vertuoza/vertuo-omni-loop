@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni update` (PRD 347, s3): the pull request that brings a repository to a release. Through
 // `main()` on a fixture repository whose remote is a local bare repository: git is real, `gh` and
 // the hand-over to the new bundle (`node <bundle> update --apply`) are faked. No test here ever

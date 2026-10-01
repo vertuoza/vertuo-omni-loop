@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni statusline` — the command Claude Code runs as its status line (PRD 324's spec): it reads the
 // session's JSON on stdin and prints line 1 (the model, the context bar, the 5-hour usage, `ask on`)
 // and, where the loop is installed, line 2: the PRD the session's branch names, else the one the
@@ -30,7 +29,10 @@ import { refreshBoard } from '../../lib/statusline/board-cache.ts';
 import { readFacts as readCheckoutFacts } from '../../lib/statusline/facts.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import type { HookStdin } from '../../lib/ask/hook-input.ts';
 import { positiveInt } from '../args.ts';
+import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
 import { buildBoard } from './board.ts';
 
 const REFRESH_FLAG = '--refresh';
@@ -38,7 +40,7 @@ const REFRESH_FLAG = '--refresh';
 const CALL_TIMEOUT_MS = 60 * 1000;
 
 /** The text on stdin: `stdin` itself when a test passes a string, else the stream read to its end; a terminal is never read. */
-async function readText(stdin) {
+async function readText(stdin: HookStdin): Promise<string> {
   if (typeof stdin === 'string') return stdin;
   if (!stdin || stdin.isTTY) return '';
   stdin.setEncoding?.('utf8');
@@ -48,14 +50,30 @@ async function readText(stdin) {
 }
 
 /** The lines to print, never throwing: line 1 from the JSON alone when the reader fails, `omni` when anything else does. */
-async function statusLines({ cwd, exec, env, stdin, now, readFacts, spawn }) {
+/** What a test hands `omni statusline` beyond `main()`'s own. */
+type StatuslineOptions = {
+  stdin?: HookStdin;
+  now?: () => number;
+  readFacts?: typeof readCheckoutFacts;
+  spawn?: typeof spawnProcess;
+};
+
+async function statusLines({
+  cwd,
+  exec,
+  env,
+  stdin,
+  now,
+  readFacts,
+  spawn,
+}: { cwd: string; exec: Exec; env: Env } & Required<StatuslineOptions>): Promise<string[]> {
   try {
     const input = parseInput(await readText(stdin).catch(() => ''));
     const instant = now();
     let facts = null;
     if (input) {
       try {
-        facts = readFacts(input, { cwd, exec, now: instant, spawn, env });
+        facts = readFacts(input, { cwd, exec, now: instant, spawn: spawn as unknown as null, env }); // ts-allow: lib/statusline is untyped until s18, so its `spawn = null` default reads as null only
       } catch {
         facts = null;
       }
@@ -67,7 +85,7 @@ async function statusLines({ cwd, exec, env, stdin, now, readFacts, spawn }) {
 }
 
 /** `value` as a PRD number, or `null`. */
-function prdNumber(value) {
+function prdNumber(value: string | undefined): number | null {
   try {
     return positiveInt('statusline', '<n>', value);
   } catch {
@@ -76,13 +94,13 @@ function prdNumber(value) {
 }
 
 /** The refresh of PRD `value`'s board: never throws, never prints. */
-function refresh(value, { cwd, exec, env, now }) {
+function refresh(value: string | undefined, { cwd, exec, env, now }: { cwd: string; exec: Exec; env: Env; now: () => number }): void {
   const prd = prdNumber(value);
   if (prd === null) return;
   try {
     const root = mainCheckout(cwd, exec);
     if (!root) return;
-    const timed = (file, args, options) => exec(file, args, { ...options, timeout: CALL_TIMEOUT_MS });
+    const timed = ((file: string, args: readonly string[], options: ExecFileSyncOptions) => exec(file, args, { ...options, timeout: CALL_TIMEOUT_MS })) as Exec; // ts-allow: exec with a timeout added is the same exec
     const instant = now();
     const build = () => buildBoard(prd, { ctx: loadContext(cwd, { exec: timed }), exec: timed, env, now: instant }).result.slices;
     refreshBoard({ root, prd, now: instant, build });
@@ -91,9 +109,12 @@ function refresh(value, { cwd, exec, env, now }) {
   }
 }
 
-export const statusline = {
+export const statusline: FreeCommand = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, env, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess }) {
+  async run(
+    args: string[],
+    { cwd, stdout, exec, env, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess }: FreeIo & StatuslineOptions,
+  ) {
     if (args[0] === REFRESH_FLAG) {
       refresh(args[1], { cwd, exec, env, now });
       return 0;

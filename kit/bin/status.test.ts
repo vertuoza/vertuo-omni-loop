@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A bare `omni status`: the repository's overview, read from git. The fixture is a `makeRepo` seed
 // cloned into a local bare repository, which a second clone (the checkout `omni status` runs in)
 // takes as its `origin`, so every test reads a real remote-tracking ref and never the network.

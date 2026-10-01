@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The kit's release number (PRD #347): patch numbers only, from `v0.0.1`. The next version is the
 // highest `v0.0.<n>` tag plus one; a tag of any other shape (`v1.2`, `release-3`, `v0.1.0`) is
 // ignored, so no major or minor bump is ever computed. Pure: the tags come in as strings.

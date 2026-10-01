@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The `omni` plugin's guard: its skills parse, name only commands the CLI has, sign the loop's work,
 // and its manifests agree. Each rule runs on the live repository, then on a fixture built to break it.
 import { spawnSync } from 'node:child_process';
