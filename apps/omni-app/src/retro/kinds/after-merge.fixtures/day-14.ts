@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The after-merge kind's fixture (PRD 72, slice s8): what GitHub holds about PRD 7 of `acme/widgets`
 // (`test/retro-scenario.ts`) in the fourteen days after its feature PR #12 merged, on
 // 2026-09-20T12:00:00Z. The window closes on 2026-10-04T12:00:00Z.
@@ -26,9 +25,11 @@ export { FEATURE, MERGED_AT, MERGE_SHA, OWNER, REPO };
 /** The window's end: the merge plus fourteen days. */
 export const DAY_14 = '2026-10-04T12:00:00.000Z';
 
-const url = (kind, number) => `https://github.com/${OWNER}/${REPO}/${kind}/${number}`;
+const url = (kind: string, number: number) => `https://github.com/${OWNER}/${REPO}/${kind}/${number}`;
 
-const issue = ({ number, title, body = '', createdAt, closedAt = null, labels = ['bug'] }) => ({
+type IssueFixture = { number: number; title: string; body?: string; createdAt: string; closedAt?: string | null; labels?: string[] };
+
+const issue = ({ number, title, body = '', createdAt, closedAt = null, labels = ['bug'] }: IssueFixture) => ({
   number,
   title,
   body,
@@ -50,7 +51,9 @@ export const ISSUES = [
   issue({ number: 44, title: 'Before the merge', body: 'Seen on the preview of #7.', createdAt: '2026-09-19T08:00:00Z' }),
 ];
 
-const pull = ({ number, title, body = '', mergedAt, closedAt = mergedAt }) => ({
+type PullFixture = { number: number; title: string; body?: string; mergedAt: string | null; closedAt?: string | null };
+
+const pull = ({ number, title, body = '', mergedAt, closedAt = mergedAt }: PullFixture) => ({
   number,
   title,
   body,
@@ -90,7 +93,7 @@ const ROUTES = {
 };
 export { ROUTES };
 
-const request = (route, params, data, status) => ({
+const request = (route: string, params: Record<string, unknown>, data: unknown, status: number | undefined) => ({
   route,
   params: { owner: OWNER, repo: REPO, ...params },
   ...(status ? { status } : { data }),
@@ -111,7 +114,7 @@ export const FIX_FILES = {
   47: [{ filename: 'src/show/table.js', status: 'modified', additions: 4, deletions: 1 }],
 };
 
-const job = (id, name, conclusion) => ({
+const job = (id: number, name: string, conclusion: string) => ({
   id,
   name,
   status: 'completed',
@@ -134,7 +137,9 @@ export const MERGE_JOBS = {
  * `replayGitHub({ recording })`. `missing` names reads GitHub answers with a status instead:
  * `{ runs: 403, jobs: { 7001: 404 }, files: { 45: 404 } }`.
  */
-export function afterMergeRecording({ missing = {} } = {}) {
+export type Missing = { runs?: number; jobs?: Record<string, number>; files?: Record<string, number> };
+
+export function afterMergeRecording({ missing = {} }: { missing?: Missing } = {}) {
   const entries = [];
   for (const [number, files] of Object.entries(FIX_FILES)) {
     entries.push(request(ROUTES.files, { pull_number: number, per_page: 100, page: 1 }, files, missing.files?.[number]));

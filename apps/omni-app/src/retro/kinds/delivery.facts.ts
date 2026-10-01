@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The detectors of the delivery kind (PRD 72, "The facts, and what makes a finding"): decisions and
 // the override label, territory, agent friction and review. Pure: plain records and the PRD's plan
 // and settled file in, facts and findings out. They reuse the kit unchanged: `parsePlanSlices`,
@@ -25,6 +24,21 @@ import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import { RANK_VALUES, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { reworkPullRequest } from 'vertuo-omni-plan/kit/lib/policy/rework.ts';
+import type { SettledEntry } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { Evidence, Finding, RetroPr, RetroPrd, RetroPull } from './index.ts';
+import type { PullReads, StuckComment } from './delivery.reads.ts';
+
+/** A sub-PR of a slice: the pull request and the slice its head branch names. */
+export type Sub = { pull: RetroPull; slice: string };
+
+/** What the kind read, by pull request number. */
+export type Reads = Record<string, PullReads | undefined>;
+
+/** Links into the repository, built from the feature PR's own URL. */
+export type Links = ReturnType<typeof repoLinks>;
+
+type Part<Facts> = { facts: Facts; findings: Finding[] };
 
 /** The heading of the comment `/omni:pr` posts when a pull request is stuck: "## Stuck after 3 attempts". */
 const STUCK = /^#{1,6}\s*Stuck after (\d+) attempts?\b/m;
@@ -32,68 +46,70 @@ const STUCK = /^#{1,6}\s*Stuck after (\d+) attempts?\b/m;
 const RED_CIRCLE = /🔴|:red_circle:/u;
 
 /** The attempts a "Stuck after N attempts" comment names, or `null` for any other comment. */
-export function stuckAttempts(body) {
+export function stuckAttempts(body: string | null | undefined): number | null {
   const match = STUCK.exec(body ?? '');
   return match ? Number(match[1]) : null;
 }
 
-export function hasRedCircle(body) {
+export function hasRedCircle(body: unknown): boolean {
   return typeof body === 'string' && RED_CIRCLE.test(body);
 }
 
 /** GitHub names an app's account `<name>[bot]`. */
-export function isBotLogin(login) {
+export function isBotLogin(login: unknown): boolean {
   return typeof login === 'string' && login.endsWith('[bot]');
 }
 
 /** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-export function sliceOf(headRef, template) {
-  const [prefix, suffix = ''] = template.split('{slice}');
+export function sliceOf(headRef: string, template: string): string | null {
+  const [prefix = '', suffix = ''] = template.split('{slice}');
   if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
   const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
   return slice && !slice.includes('/') ? slice : null;
 }
 
 /** The pull requests into the feature branch that are sub-PRs of a slice, oldest claim first. */
-export function slicePulls(pulls, config, topic) {
+export function slicePulls(pulls: readonly RetroPull[], config: Config, topic: string): Sub[] {
   const template = config.branches.slice.replace('{topic}', topic);
-  return pulls.map((pull) => ({ pull, slice: sliceOf(pull.headRef, template) })).filter(({ slice }) => slice !== null);
+  return pulls
+    .map((pull) => ({ pull, slice: sliceOf(pull.headRef, template) }))
+    .filter((sub): sub is Sub => sub.slice !== null);
 }
 
 /** The sub-PRs that merged: the ones whose diffs, reviews and threads the retro reads. */
-export function mergedSlicePulls(subs) {
+export function mergedSlicePulls(subs: readonly Sub[]): Sub[] {
   return subs.filter(({ pull }) => Boolean(pull.mergedAt));
 }
 
 /** Where the settled file of the PRD lives at the merge: in its shipped folder, or in the outbox. */
-export function settledPath(prd, config) {
+export function settledPath(prd: RetroPrd, config: Config): string {
   return prd.state === 'shipped' ? `${prd.folder}/outbox/${SETTLED_FILE}` : `${outboxFolder(prd, config)}/${SETTLED_FILE}`;
 }
 
-function outboxFolder(prd, config) {
+function outboxFolder(prd: RetroPrd, config: Config): string {
   return `${foldersLayout('', config.paths).dirs.outbox}/${prd.folder.split('/').at(-1)}`;
 }
 
 /** Links into the repository, from the feature PR's own URL; `null` links when it has none. */
-export function repoLinks(pr) {
+export function repoLinks(pr: RetroPr) {
   const base = typeof pr.url === 'string' ? pr.url.replace(/\/pull\/\d+$/, '') : null;
   return {
-    pull: (number) => (base ? `${base}/pull/${number}` : null),
-    blob: (path) => (base && pr.mergeSha ? `${base}/blob/${pr.mergeSha}/${path}` : null),
-    ref: (reference) => (/^#\d+$/.test(reference) ? (base ? `${base}/pull/${reference.slice(1)}` : null) : reference),
+    pull: (number: number): string | null => (base ? `${base}/pull/${number}` : null),
+    blob: (path: string): string | null => (base && pr.mergeSha ? `${base}/blob/${pr.mergeSha}/${path}` : null),
+    ref: (reference: string): string | null => (/^#\d+$/.test(reference) ? (base ? `${base}/pull/${reference.slice(1)}` : null) : reference),
   };
 }
 
 // ---- decisions and the override label ------------------------------------------------------------
 
 /** The settled decisions, by verdict and by rank; a finding for each drift. */
-export function decisionFacts({ prd, config, links }) {
+export function decisionFacts({ prd, config, links }: { prd: RetroPrd; config: Config; links: Links }): Part<DecisionFacts> {
   if (typeof prd.settled !== 'string') {
     return { facts: { file: null, raised: 0, adopted: 0, agreed: 0, drifted: 0, reworked: 0, byRank: {}, drifts: [] }, findings: [] };
   }
   const entries = parseSettledEntries(prd.settled, makeMarkers(config.markers.prefix));
   const file = settledPath(prd, config);
-  const verdicts = (verdict) => entries.filter((entry) => entry.verdict === verdict).length;
+  const verdicts = (verdict: string) => entries.filter((entry) => entry.verdict === verdict).length;
   const drifts = entries
     .filter((entry) => entry.verdict === 'drifted')
     .map((entry) => ({ id: entry.id, rank: entry.fields.Rank ?? null, slice: entry.fields.Slice ?? null, reworkedBy: reworkPullRequest(entry) }));
@@ -114,7 +130,7 @@ export function decisionFacts({ prd, config, links }) {
     const rework = drift.reworkedBy
       ? `${drift.reworkedBy.startsWith('#') ? `rework ${drift.reworkedBy}` : 'a rework'} brought the build back in line`
       : 'no rework had closed it at the merge';
-    const evidence = [{ label: SETTLED_FILE, url: links.blob(file) }];
+    const evidence: Evidence[] = [{ label: SETTLED_FILE, url: links.blob(file) }];
     if (drift.reworkedBy) evidence.push({ label: drift.reworkedBy.startsWith('#') ? drift.reworkedBy : 'rework', url: links.ref(drift.reworkedBy) });
     return {
       id: `drift:${drift.id}`,
@@ -128,21 +144,22 @@ export function decisionFacts({ prd, config, links }) {
 }
 
 /** Each rank's count, the kit's ranks first. */
-function byRank(entries) {
-  const counts = new Map();
+function byRank(entries: readonly SettledEntry[]): Record<string, number> {
+  const counts = new Map<string, number>();
   for (const entry of entries) {
     const rank = entry.fields.Rank ?? 'unknown';
     counts.set(rank, (counts.get(rank) ?? 0) + 1);
   }
-  const order = (rank) => (RANK_VALUES.includes(rank) ? RANK_VALUES.indexOf(rank) : RANK_VALUES.length);
+  const ranks: readonly string[] = RANK_VALUES;
+  const order = (rank: string) => (ranks.includes(rank) ? ranks.indexOf(rank) : ranks.length);
   return Object.fromEntries([...counts].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b)));
 }
 
 /** Whether the feature PR merged carrying the override label; a finding when it did. */
-export function overrideFacts({ pr, config }) {
+export function overrideFacts({ pr, config }: { pr: RetroPr; config: Config }): Part<{ label: string; mergedUnder: boolean }> {
   const label = config.labels.outboxGo;
   const mergedUnder = (pr.labels ?? []).includes(label);
-  const findings = mergedUnder
+  const findings: Finding[] = mergedUnder
     ? [
         {
           id: `override:#${pr.number}`,
@@ -159,21 +176,21 @@ export function overrideFacts({ pr, config }) {
 // ---- territory ----------------------------------------------------------------------------------
 
 /** Each merged sub-PR's changed paths against its slice's territory; a finding per slice that breached it. */
-export function territoryFacts({ prd, config, subs, read }) {
+export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; config: Config; subs: readonly Sub[]; read: Reads }): Part<TerritoryFacts> {
   const counts = { graded: 0, breaches: 0, shared: 0, unread: 0, unplanned: 0 };
-  const ungraded = (reason) => ({ facts: { reason, sharedGround: [], counts, pulls: [] }, findings: [] });
+  const ungraded = (reason: string): Part<TerritoryFacts> => ({ facts: { reason, sharedGround: [], counts, pulls: [] }, findings: [] });
   if (typeof prd.plan !== 'string') return ungraded('no plan at the merge');
   let slices;
   try {
     slices = parsePlanSlices(prd.plan);
   } catch (error) {
-    return ungraded(firstClause(error.message));
+    return ungraded(firstClause((error as Error).message)); // ts-allow: the plan parser throws only Error
   }
 
   const sharedGround = [...new Set(collisions(slices).flatMap((pair) => pair.shared))];
   const ownOutbox = [`${outboxFolder(prd, config)}/`, `${prd.folder}/outbox/`];
 
-  const pulls = mergedSlicePulls(subs).map(({ pull, slice }) => {
+  const pulls = mergedSlicePulls(subs).map(({ pull, slice }): TerritoryPull => {
     const base = { slice, pr: pull.number, url: pull.url };
     const files = read[pull.number]?.files ?? null;
     if (files === null) return { ...base, status: 'unread', files: null, breaches: null, shared: null };
@@ -199,7 +216,7 @@ export function territoryFacts({ prd, config, subs, read }) {
   }
 
   const bySlice = groupBy(
-    pulls.filter((pull) => pull.status === 'graded' && pull.breaches.length > 0),
+    pulls.filter((pull): pull is GradedPull => pull.status === 'graded' && pull.breaches.length > 0),
     (pull) => pull.slice,
   );
   const findings = [...bySlice].map(([slice, own]) => {
@@ -217,23 +234,23 @@ export function territoryFacts({ prd, config, subs, read }) {
 }
 
 /** "No slice table was found in this plan; its slices…" → "no slice table was found in this plan". */
-function firstClause(message) {
-  const clause = String(message).split(/;|\.(\s|$)/)[0].trim();
+function firstClause(message: string): string {
+  const clause = (String(message).split(/;|\.(\s|$)/)[0] ?? '').trim();
   return clause.charAt(0).toLowerCase() + clause.slice(1);
 }
 
 // ---- friction -----------------------------------------------------------------------------------
 
 /** Per slice: its claims, its stuck comments and when needs-fix was added; a finding per stuck or needs-fix slice. */
-export function frictionFacts({ subs, read, config }) {
+export function frictionFacts({ subs, read, config }: { subs: readonly Sub[]; read: Reads; config: Config }): Part<FrictionFacts> {
   const label = config.labels.needsFix;
   const counts = { stuck: 0, needsFix: 0, reclaimed: 0, commentsUnread: 0, eventsUnread: 0 };
   const urls = new Map(subs.map(({ pull }) => [pull.number, pull.url]));
-  const slices = new Map();
+  const slices = new Map<string, FrictionSlice>();
 
   for (const { pull, slice } of subs) {
-    if (!slices.has(slice)) slices.set(slice, { slice, prs: [], claims: 0, stuck: [], needsFix: [] });
-    const entry = slices.get(slice);
+    const entry = slices.get(slice) ?? { slice, prs: [], claims: 0, stuck: [], needsFix: [] };
+    slices.set(slice, entry);
     entry.prs.push(pull.number);
     entry.claims += 1;
 
@@ -256,15 +273,16 @@ export function frictionFacts({ subs, read, config }) {
   const findings = all
     .filter((entry) => entry.stuck.length > 0 || entry.needsFix.length > 0)
     .map((entry) => {
-      const parts = [];
+      const parts: string[] = [];
       if (entry.needsFix.length > 0) parts.push(`was labelled \`${label}\``);
-      if (entry.stuck.length === 1) parts.push(`went stuck after ${plural(entry.stuck[0].attempts, 'attempt')}`);
+      const [onlyStuck] = entry.stuck;
+      if (entry.stuck.length === 1 && onlyStuck) parts.push(`went stuck after ${plural(onlyStuck.attempts, 'attempt')}`);
       if (entry.stuck.length > 1) parts.push(`went stuck ${entry.stuck.length} times`);
       if (entry.claims > 1) parts.push(`was claimed ${entry.claims} times`);
       const evidence = [
         ...entry.stuck.map((comment) => ({ label: `stuck comment on #${comment.pr}`, url: comment.url })),
-        ...entry.needsFix.map(({ pr }) => ({ label: `#${pr}`, url: urls.get(pr) })),
-        ...(entry.claims > 1 ? entry.prs.map((pr) => ({ label: `#${pr}`, url: urls.get(pr) })) : []),
+        ...entry.needsFix.map(({ pr }) => ({ label: `#${pr}`, url: urls.get(pr) ?? null })),
+        ...(entry.claims > 1 ? entry.prs.map((pr) => ({ label: `#${pr}`, url: urls.get(pr) ?? null })) : []),
       ];
       return {
         id: `friction:${entry.slice}`,
@@ -281,8 +299,8 @@ export function frictionFacts({ subs, read, config }) {
 // ---- review -------------------------------------------------------------------------------------
 
 /** The feature PR's and each merged sub-PR's reviews and threads; a finding per pull request left with a red circle or an open thread. */
-export function reviewFacts({ pr, subs, read }) {
-  const targets = [
+export function reviewFacts({ pr, subs, read }: { pr: RetroPr; subs: readonly Sub[]; read: Reads }): Part<ReviewFacts> {
+  const targets: { pr: number; slice: string | null; url: string | null }[] = [
     { pr: pr.number, slice: null, url: pr.url },
     ...mergedSlicePulls(subs).map(({ pull, slice }) => ({ pr: pull.number, slice, url: pull.url })),
   ];
@@ -305,7 +323,7 @@ export function reviewFacts({ pr, subs, read }) {
     const threads = read[target.pr]?.threads ?? null;
     if (reviews === null) counts.reviewsUnread += 1;
     if (threads === null) counts.threadsUnread += 1;
-    const red = [
+    const red: RedFinding[] = [
       ...(reviews ?? [])
         .filter((review) => review.bot && review.red)
         .map((review) => ({ url: review.url, author: review.author, path: null, resolved: null, text: review.text })),
@@ -338,7 +356,7 @@ export function reviewFacts({ pr, subs, read }) {
     .filter((pull) => pull.red.length > 0 || pull.unresolved.length > 0)
     .map((pull) => {
       const where = pull.slice ? `slice ${pull.slice}` : 'the feature PR';
-      const parts = [];
+      const parts: string[] = [];
       if (pull.red.length > 0) parts.push(`${plural(pull.red.length, 'red-circle finding')} from ${pull.red.length === 1 ? 'a bot' : 'bots'}`);
       if (pull.unresolved.length > 0) parts.push(`${plural(pull.unresolved.length, 'review thread')} unresolved at the merge`);
       const evidence = [
@@ -357,7 +375,7 @@ export function reviewFacts({ pr, subs, read }) {
   return { facts: { counts, pulls }, findings };
 }
 
-function byAuthorKind(items) {
+function byAuthorKind(items: readonly { bot: boolean }[]): { people: number; bots: number } {
   const bots = items.filter((item) => item.bot).length;
   return { people: items.length - bots, bots };
 }
@@ -365,31 +383,93 @@ function byAuthorKind(items) {
 // ---- words --------------------------------------------------------------------------------------
 
 /** "1 path", "2 paths". */
-export function plural(count, word) {
+export function plural(count: number, word: string): string {
   return `${count} ${count === 1 ? word : `${word}s`}`;
 }
 
 /** "a", "a and b", "a, b and c". */
-function joinAnd(parts) {
+function joinAnd(parts: readonly string[]): string {
   return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
 }
 
-function code(path) {
+function code(path: string): string {
   return `\`${path}\``;
 }
 
-function groupBy(items, keyOf) {
-  const groups = new Map();
+function groupBy<T, K>(items: readonly T[], keyOf: (item: T) => K): Map<K, T[]> {
+  const groups = new Map<K, T[]>();
   for (const item of items) {
     const key = keyOf(item);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
+    const group = groups.get(key) ?? [];
+    groups.set(key, group);
+    group.push(item);
   }
   return groups;
 }
 
 /** Evidence with a link, each link once. */
-function withUrls(evidence) {
-  const seen = new Set();
+function withUrls(evidence: readonly Evidence[]): Evidence[] {
+  const seen = new Set<string>();
   return evidence.filter((item) => item.url && !seen.has(item.url) && seen.add(item.url));
 }
+
+// ---- shapes -------------------------------------------------------------------------------------
+
+export type DecisionFacts = {
+  file: string | null;
+  raised: number;
+  adopted: number;
+  agreed: number;
+  drifted: number;
+  reworked: number;
+  byRank: Record<string, number>;
+  drifts: { id: string; rank: string | null; slice: string | null; reworkedBy: string | null }[];
+};
+
+type TerritoryCounts = { graded: number; breaches: number; shared: number; unread: number; unplanned: number };
+type PullBase = { slice: string; pr: number; url: string | null };
+type GradedPull = PullBase & { status: 'graded'; files: number; breaches: string[]; shared: string[] };
+type TerritoryPull =
+  | GradedPull
+  | (PullBase & { status: 'unread'; files: null; breaches: null; shared: null })
+  | (PullBase & { status: 'unplanned'; files: number; breaches: null; shared: null });
+export type TerritoryFacts = { reason: string | null; sharedGround: string[]; counts: TerritoryCounts; pulls: TerritoryPull[] };
+
+type FrictionSlice = {
+  slice: string;
+  prs: number[];
+  claims: number;
+  stuck: (StuckComment & { pr: number })[];
+  needsFix: { pr: number; at: string | null }[];
+};
+export type FrictionFacts = {
+  label: string;
+  counts: { stuck: number; needsFix: number; reclaimed: number; commentsUnread: number; eventsUnread: number };
+  slices: FrictionSlice[];
+};
+
+type RedFinding = { url: string | null; author: string | null; path: string | null; resolved: boolean | null; text: string | null | undefined };
+export type ReviewFacts = {
+  counts: {
+    pulls: number;
+    reviews: number;
+    reviewsByPeople: number;
+    reviewsByBots: number;
+    threads: number;
+    threadsByPeople: number;
+    threadsByBots: number;
+    red: number;
+    unresolved: number;
+    reviewsUnread: number;
+    threadsUnread: number;
+  };
+  pulls: {
+    pr: number;
+    slice: string | null;
+    url: string | null;
+    reviews: { people: number; bots: number } | null;
+    threads: { people: number; bots: number } | null;
+    red: RedFinding[];
+    unresolved: { url: string | null; author: string | null; bot: boolean; path: string | null; outdated: boolean }[];
+  }[];
+};

@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
 
-const fixture = (name) => readFileSync(new URL(`./ci.fixtures/${name}.log`, import.meta.url), 'utf8');
+const fixture = (name: string) => readFileSync(new URL(`./ci.fixtures/${name}.log`, import.meta.url), 'utf8');
 
 describe('cleanLog', () => {
   it('drops the byte-order mark, the timestamp Actions puts on every line and the colour codes', () => {

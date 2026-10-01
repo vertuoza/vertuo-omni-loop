@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Churn's fixture (PRD 72, slice s4): PRD 7 of `acme/widgets` (`test/retro-scenario.ts`), its three
 // merged sub-PRs given commits whose patches are real unified diffs, as GitHub's REST API returns them.
 //
@@ -27,10 +26,10 @@ export { FEATURE, OWNER, REPO, SUB_PULLS };
 export const GITATTRIBUTES = 'dist/** linguist-generated\n';
 
 /** A 40-character SHA from a short tag, so its first seven characters read back as the tag. */
-export const sha = (tag) => tag.padEnd(40, '0');
-export const short = (tag) => sha(tag).slice(0, 7);
+export const sha = (tag: string) => tag.padEnd(40, '0');
+export const short = (tag: string) => sha(tag).slice(0, 7);
 
-const commitUrl = (tag) => `https://github.com/${OWNER}/${REPO}/commit/${sha(tag)}`;
+const commitUrl = (tag: string) => `https://github.com/${OWNER}/${REPO}/commit/${sha(tag)}`;
 
 /** An unmerged first claim of s3. */
 export const UNMERGED = {
@@ -51,10 +50,10 @@ export const UNMERGED = {
 
 // ---- patches ---------------------------------------------------------------------------------------
 
-const text = (name, n, from = 1) => Array.from({ length: n }, (_, i) => `${name} ${from + i}`);
+const text = (name: string, n: number, from = 1) => Array.from({ length: n }, (_, i) => `${name} ${from + i}`);
 
 /** The patch adding a file of `n` lines. */
-export function addedPatch(n, name = 'line') {
+export function addedPatch(n: number, name = 'line') {
   return [`@@ -0,0 +1,${n} @@`, ...text(name, n).map((line) => `+${line}`)].join('\n');
 }
 
@@ -62,10 +61,10 @@ export function addedPatch(n, name = 'line') {
  * The patch of one hunk on a file of `total` lines: `remove` lines from line `from` replaced by `add`
  * new ones, with up to three lines of context on each side, as git writes it.
  */
-export function hunkPatch({ total, from, remove, add, name = 'new' }) {
+export function hunkPatch({ total, from, remove, add, name = 'new' }: { total: number; from: number; remove: number; add: number; name?: string }) {
   const before = Math.max(1, from - 3);
   const after = Math.min(total, from + remove + 2);
-  const context = (start, end) => text('line', Math.max(0, end - start + 1), start).map((line) => ` ${line}`);
+  const context = (start: number, end: number) => text('line', Math.max(0, end - start + 1), start).map((line) => ` ${line}`);
   const head = context(before, from - 1);
   const tail = context(from + remove, after);
   const oldCount = head.length + remove + tail.length;
@@ -79,7 +78,7 @@ export function hunkPatch({ total, from, remove, add, name = 'new' }) {
   ].join('\n');
 }
 
-const file = (filename, { status = 'modified', additions, deletions = 0, patch }) => ({
+const file = (filename: string, { status = 'modified', additions, deletions = 0, patch }: { status?: string; additions: number; deletions?: number; patch?: string }) => ({
   filename,
   status,
   additions,
@@ -125,7 +124,7 @@ export const PULL_COMMITS = {
   15: ['claim3', 'c6', 'c7', 'm1', 'c8'],
 };
 
-const listed = (tag, parents = 1) => ({
+const listed = (tag: string, parents = 1) => ({
   sha: sha(tag),
   html_url: commitUrl(tag),
   commit: { message: tag },
@@ -143,7 +142,7 @@ export const FINAL_FILES = [
   file(COLOUR, { status: 'added', additions: 23 }),
 ];
 
-const request = (route, params, data, status) => ({
+const request = (route: string, params: Record<string, unknown>, data: unknown, status: number | undefined) => ({
   route,
   params: { owner: OWNER, repo: REPO, ...params },
   ...(status ? { status } : { data }),
@@ -157,7 +156,9 @@ export const LIST_FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
  * The recorded reads churn makes, for `replayGitHub({ recording })`. `missing` names reads GitHub
  * answers with a status instead: `{ pulls: { 14: 404 }, commits: { c4: 404 }, final: 404 }`.
  */
-export function churnRecording({ missing = {} } = {}) {
+export type Missing = { pulls?: Record<string, number>; commits?: Record<string, number>; final?: number };
+
+export function churnRecording({ missing = {} }: { missing?: Missing } = {}) {
   const entries = [];
   for (const [number, tags] of Object.entries(PULL_COMMITS)) {
     const list = tags.map((tag) => listed(tag, tag === 'm1' ? 2 : 1));
