@@ -155,7 +155,7 @@ export function DossierPage({ view, markdown, supabase, live, voice }: Props) {
         <div className="dossier-head-top">
           <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
-            <StageAction stage={stage} />
+            <StageAction stage={stage} demo={view.demo ?? false} />
             <CopyLink path={view.link} />
             {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
           </div>
