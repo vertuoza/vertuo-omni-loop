@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { makeMarkers } from '../markers.ts';
@@ -7,13 +6,14 @@ import { parseOutboxItem } from '../outbox/outbox.ts';
 import { parseSettledEntries, renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox/settle.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
-import { applyKnowledgeWrites, decidedLine, writeKnowledge } from './write.ts';
+import type { ClassificationReply } from './classify.ts';
+import { applyKnowledgeWrites, decidedLine, writeKnowledge, type Taken, type WriteResult } from './write.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
 const LEDGER = '.omni-loop/delivery/shipped/0028-outbox-check/outbox/settled.md';
 
-function itemText({ id, rank = 'medium', raised = '2026-09-25' }) {
+function itemText({ id, rank = 'medium', raised = '2026-09-25' }: { id: string; rank?: string; raised?: string }): string {
   return [
     '---',
     `id: ${id}`,
@@ -57,17 +57,27 @@ function itemText({ id, rank = 'medium', raised = '2026-09-25' }) {
   ].join('\n');
 }
 
-const parsed = (id, rank) => {
+const parsed = (id: string, rank?: string) => {
   const text = itemText({ id, rank });
   return { text, item: parseOutboxItem(text).item };
 };
 
-function adopted(id) {
+function adopted(id: string): string {
   const { text, item } = parsed(id);
   return renderAdoptedEntry({ item, itemText: text, markers });
 }
 
-function answered(id, { verdict, approvedBy = '@ada', basis = 'stated', reason = 'a human said so', channel, answer = 'Yes.' }) {
+function answered(
+  id: string,
+  {
+    verdict,
+    approvedBy = '@ada',
+    basis = 'stated',
+    reason = 'a human said so',
+    channel,
+    answer = 'Yes.',
+  }: { verdict: string; approvedBy?: string; basis?: string; reason?: string; channel: object; answer?: string },
+): string {
   const { text, item } = parsed(id, 'high');
   return renderSettledEntry({
     item,
@@ -130,7 +140,7 @@ const FILES = {
 const MERGE = { by: 'grace', at: '2026-09-26T09:30:00Z', pr: 29, url: 'https://github.com/acme/widgets/pull/29' };
 const DATE = '2026-09-27';
 
-const REPLIES = {
+const REPLIES: Record<string, ClassificationReply | null> = {
   's1-01-two-snapshots': {
     kind: 'adr',
     title: 'The outbox check reads base settings and head delivery as two snapshots',
@@ -163,19 +173,20 @@ const REPLIES = {
   's1-07-refused': null,
 };
 
-function setup({ taken } = {}) {
+function setup({ taken }: { taken?: Taken } = {}) {
   const repo = makeRepo({ files: FILES });
   const candidates = harvestCandidates({ ctx: repo.ctx, prd: 28 });
   const classified = candidates.map((candidate) =>
     REPLIES[candidate.id] === null
       ? { candidate, reply: null, reason: "the model's reply was refused twice" }
-      : { candidate, reply: REPLIES[candidate.id] },
+      : { candidate, reply: REPLIES[candidate.id] ?? null },
   );
   const result = writeKnowledge({ ctx: repo.ctx, classified, merge: MERGE, taken, date: DATE });
   return { ...repo, candidates, result };
 }
 
-const byPath = (result) => Object.fromEntries(result.writes.map((write) => [write.path, write.text]));
+const byPath = (result: WriteResult): Record<string, string> =>
+  Object.fromEntries(result.writes.map((write) => [write.path, write.text]));
 
 describe('writeKnowledge', () => {
   it('writes a decision record exactly as the spec shows, past the default branch and the taken numbers', () => {
@@ -244,7 +255,7 @@ describe('writeKnowledge', () => {
       ].join('\n'),
     );
     expect(files[`${K}/product/principles.md`]).not.toContain('Decided: @grace');
-    expect(files[`${K}/product/principles.md`].startsWith(FILES[`${K}/product/principles.md`])).toBe(true);
+    expect(files[`${K}/product/principles.md`]!.startsWith(FILES[`${K}/product/principles.md`])).toBe(true);
   });
 
   it('puts an invariant in its domain, confirmed when a person answered', () => {
@@ -269,7 +280,7 @@ describe('writeKnowledge', () => {
 
   it('writes the ledger lines: Became for placed and covered, Stays here, and nothing for not placed', () => {
     const { result, ctx } = setup();
-    const ledger = byPath(result)[LEDGER];
+    const ledger = byPath(result)[LEDGER]!;
     const entries = Object.fromEntries(parseSettledEntries(ledger, ctx.markers).map((entry) => [entry.id, entry]));
     expect(entries['s1-01-two-snapshots'].became).toEqual(['ADR-0002']);
     expect(entries['s1-02-intro-cap'].became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
@@ -279,7 +290,7 @@ describe('writeKnowledge', () => {
     expect(entries['s1-06-reworked'].became).toEqual(['BR-BILLING-1']);
     expect(entries['s1-07-refused'].became).toEqual([]);
     expect(entries['s1-07-refused'].fields['Stays here']).toBeUndefined();
-    expect(ledger.startsWith(ledgerText.split('<!-- omni-outbox-settled')[0])).toBe(true);
+    expect(ledger.startsWith(ledgerText.split('<!-- omni-outbox-settled')[0]!)).toBe(true);
     expect(result.notPlaced).toEqual([{ id: 's1-07-refused', reason: "the model's reply was refused twice" }]);
     expect(result.placed.map((entry) => [entry.id, entry.landedAs])).toEqual([
       ['s1-01-two-snapshots', ['ADR-0002']],
@@ -301,15 +312,15 @@ describe('writeKnowledge', () => {
     const candidates = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-01-two-snapshots');
     const result = writeKnowledge({
       ctx: repo.ctx,
-      classified: [{ candidate: candidates[0], reply: REPLIES['s1-01-two-snapshots'] }],
+      classified: [{ candidate: candidates[0]!, reply: REPLIES['s1-01-two-snapshots'] ?? null }],
       merge: MERGE,
       date: DATE,
     });
-    const ledger = byPath(result)[LEDGER];
+    const ledger = byPath(result)[LEDGER]!;
     const blocks = ledger.split('<!-- omni-outbox-settled: s1-01-two-snapshots -->');
     expect(blocks[1]).not.toContain('Became:');
     expect(blocks[2]).toContain('- Wave: 1\n- Became: ADR-0002\n');
-    const record = Object.entries(byPath(result)).find(([path]) => path.includes('/adr/0002-'))[1];
+    const record = Object.entries(byPath(result)).find(([path]) => path.includes('/adr/0002-'))![1];
     expect(record).toContain('**Status:** accepted');
     expect(record).toContain('**Decided:** @ada via feature pull request #12, 2026-09-22');
   });
@@ -317,9 +328,9 @@ describe('writeKnowledge', () => {
   it('records a reworked drift with the answer that asked for the change', () => {
     const repo = makeRepo({ files: FILES });
     const [candidate] = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-06-reworked');
-    const reply = { kind: 'adr', title: 'Invoices read the head', statement: 'Invoices are read from the head.', reason: 'how it is built' };
-    const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate, reply }], merge: MERGE, date: DATE });
-    const record = writes.find((write) => write.path.includes('/adr/')).text;
+    const reply: ClassificationReply = { kind: 'adr', title: 'Invoices read the head', statement: 'Invoices are read from the head.', reason: 'how it is built' };
+    const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate: candidate!, reply }], merge: MERGE, date: DATE });
+    const record = writes.find((write) => write.path.includes('/adr/'))!.text;
     expect(record).toContain('**Status:** accepted');
     expect(record).toContain('Invoices are read from the head.\n\nThe answer, as it was given: No, read the head instead.\n');
     expect(record).not.toContain('The option chosen');

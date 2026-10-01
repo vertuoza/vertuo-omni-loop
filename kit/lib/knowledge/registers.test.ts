@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,9 +12,15 @@ import {
   memorySource,
   parseEntryFile,
   readKnowledge,
+  type KnowledgeEntry,
+  type Place,
 } from './registers.ts';
 
-const DOMAIN_RULES = { scope: 'domain', domain: 'advisor', codes: ['ADVISOR'], kind: 'rule' };
+const DOMAIN_RULES: Place = { scope: 'domain', domain: 'advisor', codes: ['ADVISOR'], kind: 'rule' };
+
+/** `parseEntryFile`, read as holding at least one entry, as every fixture here does. */
+const entriesOf = (...args: Parameters<typeof parseEntryFile>) =>
+  parseEntryFile(...args) as [KnowledgeEntry, ...KnowledgeEntry[]];
 
 describe('codeOf — a domain code is its folder name uppercased, hyphens removed', () => {
   it('reads agent-session as AGENTSESSION and erp as ERP', () => {
@@ -76,7 +81,7 @@ describe('parseEntryFile', () => {
       'Stated: 2026-09-24',
     ].join('\n');
 
-    const [rule] = parseEntryFile('docs/knowledge/domains/advisor/rules.md', text, DOMAIN_RULES);
+    const [rule] = entriesOf('docs/knowledge/domains/advisor/rules.md', text, DOMAIN_RULES);
     expect(rule).toMatchObject({
       id: 'BR-ADVISOR-1',
       kind: 'rule',
@@ -103,7 +108,7 @@ describe('parseEntryFile', () => {
       'Decided: recorded in docs/orientation/mission-and-goals.md, 2026-09-10',
       'Source: docs/orientation/mission-and-goals.md',
     ].join('\n');
-    const [principle] = parseEntryFile('p.md', text, { ...DOMAIN_RULES, kind: 'principle' });
+    const [principle] = entriesOf('p.md', text, { ...DOMAIN_RULES, kind: 'principle' });
     expect(principle.why).toBe(
       "the product's promise is serenity — a customer's data changes only when one of their people says so.",
     );
@@ -124,7 +129,7 @@ describe('parseEntryFile', () => {
       '',
       'Serves: P-NOTHING-1',
     ].join('\n');
-    const entries = parseEntryFile('i.md', text, { ...DOMAIN_RULES, kind: 'invariant' });
+    const entries = entriesOf('i.md', text, { ...DOMAIN_RULES, kind: 'invariant' });
     expect(entries).toHaveLength(1);
     expect(entries[0].statement).toBe('Data shapes are Zod-first.');
     expect(entries[0].enforced).toBe(true);
@@ -139,7 +144,7 @@ describe('parseEntryFile', () => {
       '',
       'Kind: rule',
     ].join('\n');
-    const [entry] = parseEntryFile('x.md', text, {
+    const [entry] = entriesOf('x.md', text, {
       scope: 'cross-domain',
       domain: 'advisor--credits',
       codes: ['ADVISOR', 'CREDITS'],
@@ -152,18 +157,18 @@ describe('parseEntryFile', () => {
     const text = ['## BR-ADVISOR-1', 'x', '', 'Serves: P-ADVISOR-1', 'Serves: P-ADVISOR-2'].join(
       '\n',
     );
-    const [rule] = parseEntryFile('r.md', text, DOMAIN_RULES);
+    const [rule] = entriesOf('r.md', text, DOMAIN_RULES);
     expect(rule.serves).toBe('P-ADVISOR-1');
     expect(rule.fieldCounts.serves).toBe(2);
   });
 });
 
-const roots = [];
+const roots: string[] = [];
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-function tree(files) {
+function tree(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'registers-'));
   roots.push(root);
   for (const [path, text] of Object.entries(files)) {
@@ -260,7 +265,7 @@ describe('the sources readKnowledge reads through', () => {
 });
 
 describe('parseEntryFile — a proposed entry (PRD #68)', () => {
-  const proposedRule = (line) =>
+  const proposedRule = (line: string) =>
     [
       '## BR-ADVISOR-1',
       '',
@@ -274,20 +279,20 @@ describe('parseEntryFile — a proposed entry (PRD #68)', () => {
     ].join('\n');
 
   it('reads "Proposed: invade 2026-09-25" as proposed by invade on that date', () => {
-    const [rule] = parseEntryFile('r.md', proposedRule('Proposed: invade 2026-09-25'), DOMAIN_RULES);
+    const [rule] = entriesOf('r.md', proposedRule('Proposed: invade 2026-09-25'), DOMAIN_RULES);
     expect(rule.proposed).toEqual({ by: 'invade', on: '2026-09-25' });
     expect(rule.problems).toEqual([]);
   });
 
   it('reads an entry without the line as not proposed', () => {
-    const [rule] = parseEntryFile('r.md', proposedRule(''), DOMAIN_RULES);
+    const [rule] = entriesOf('r.md', proposedRule(''), DOMAIN_RULES);
     expect(rule.proposed).toBeNull();
     expect(rule.problems).toEqual([]);
   });
 
   it('refuses a malformed Proposed: line, naming the file — and still reads the entry as proposed', () => {
     for (const line of ['Proposed: invade', 'Proposed: 2026-09-25', 'Proposed: invade 25/09/2026', 'Proposed:']) {
-      const [rule] = parseEntryFile('docs/knowledge/domains/advisor/rules.md', proposedRule(line), DOMAIN_RULES);
+      const [rule] = entriesOf('docs/knowledge/domains/advisor/rules.md', proposedRule(line), DOMAIN_RULES);
       expect(rule.proposed).toEqual({ by: null, on: null });
       expect(rule.problems).toHaveLength(1);
       expect(rule.problems[0]).toMatch(
@@ -324,23 +329,23 @@ describe('parseEntryFile — a harvested entry carries Merged: as its own field 
       'Merged: @octocat, 2026-09-26, PR #51',
       'Proposed: harvest 2026-09-26',
     ].join('\n');
-  const PRODUCT = { scope: 'product', domain: 'product', codes: ['PRODUCT'] };
+  const PRODUCT: Omit<Place, 'kind'> = { scope: 'product', domain: 'product', codes: ['PRODUCT'] };
 
   it('reads Decided: then Merged: as two fields, merged on the parsed entry', () => {
-    const [rule] = parseEntryFile('r.md', harvestedRule(), { ...PRODUCT, kind: 'rule' });
+    const [rule] = entriesOf('r.md', harvestedRule(), { ...PRODUCT, kind: 'rule' });
     expect(rule.decided).toBe('nobody — adopted when raised (medium), 2026-09-25');
     expect(rule.merged).toBe('@octocat, 2026-09-26, PR #51');
     expect(rule.proposed).toEqual({ by: 'harvest', on: '2026-09-26' });
   });
 
   it('never glues Merged: onto Source:', () => {
-    const [principle] = parseEntryFile('p.md', harvestedPrinciple(), { ...PRODUCT, kind: 'principle' });
+    const [principle] = entriesOf('p.md', harvestedPrinciple(), { ...PRODUCT, kind: 'principle' });
     expect(principle.source).toBe(`${LEDGER}, entry s1-01-fun-line-sentence-count, PRD #50`);
     expect(principle.merged).toBe('@octocat, 2026-09-26, PR #51');
   });
 
   it('reads an entry without the line as merged null', () => {
-    const [rule] = parseEntryFile('r.md', '## BR-PRODUCT-1\n\nx\n\nServes: P-PRODUCT-1\n', { ...PRODUCT, kind: 'rule' });
+    const [rule] = entriesOf('r.md', '## BR-PRODUCT-1\n\nx\n\nServes: P-PRODUCT-1\n', { ...PRODUCT, kind: 'rule' });
     expect(rule.merged).toBeNull();
   });
 

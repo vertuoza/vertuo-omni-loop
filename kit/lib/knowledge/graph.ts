@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The knowledge graph** (PRD #149): the knowledge folder as one document an agent or a map can
  * read in one call — its domains with their counts, every entry, and the links between entries.
@@ -29,21 +28,64 @@
  * ({@link readGraph}) or from texts already fetched, such as another repository's files read from
  * GitHub ({@link graphOfTexts}); the same parser reads both.
  */
-import { idsCitedIn, memorySource, PRODUCT_CODE, readKnowledge } from './registers.ts';
+import {
+  idsCitedIn,
+  memorySource,
+  PRODUCT_CODE,
+  readKnowledge,
+  type EntryKind,
+  type Knowledge,
+  type KnowledgeCtx,
+  type KnowledgeEntry,
+} from './registers.ts';
 
 export const GRAPH_VERSION = 1;
 
-const KINDS = ['principle', 'rule', 'invariant'];
+/** An entry as the graph carries it. */
+export type GraphEntry = {
+  id: string;
+  kind: EntryKind;
+  domain: string | null;
+  domains: string[];
+  statement: string;
+  why: string | null;
+  status: 'law' | 'proposed';
+  serves: string | null;
+  enforced: boolean;
+  enforcedBy: string | null;
+  prd: number | null;
+  file: string;
+};
+
+export type GraphCounts = { principles: number; rules: number; invariants: number; laws: number; proposed: number };
+export type GraphDomain = { name: string; code: string; scope: 'product' | 'domain'; counts: GraphCounts };
+export type GraphLink = { from: string; to: string; kind: 'serves' | 'cites' };
+export type Graph = {
+  version: number;
+  repo: string | null;
+  domains: GraphDomain[];
+  entries: GraphEntry[];
+  links: GraphLink[];
+  loose: string[];
+  unserved: string[];
+};
+
+const KINDS: readonly (EntryKind | null)[] = ['principle', 'rule', 'invariant'];
+
+/** Whether an entry's kind could be read: only those enter the graph. */
+function hasKind(entry: KnowledgeEntry): entry is KnowledgeEntry & { kind: EntryKind } {
+  return KINDS.includes(entry.kind);
+}
 const PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 
 /** The PRD number a `Source:` line names (`…, PRD #7`), or `null`. */
-export function prdOf(source) {
+export function prdOf(source: string | null | undefined): number | null {
   const match = PRD_IN_SOURCE.exec(source ?? '');
   return match ? Number(match[1]) : null;
 }
 
 /** A parsed entry as the graph carries it. `pairs` maps a cross-domain file to its pair. */
-function graphEntry(entry, pairs) {
+function graphEntry(entry: KnowledgeEntry & { kind: EntryKind }, pairs: Map<string, string[]>): GraphEntry {
   const crossDomain = entry.scope === 'cross-domain';
   return {
     id: entry.id,
@@ -62,35 +104,31 @@ function graphEntry(entry, pairs) {
 }
 
 /** How many of `entries` are principles, rules and invariants, and how many are laws and proposed. */
-export function countsOf(entries) {
-  const counts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
+export function countsOf(entries: readonly Pick<GraphEntry, 'kind' | 'status'>[]): GraphCounts {
+  const counts: GraphCounts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
   for (const entry of entries) {
-    counts[`${entry.kind}s`] += 1;
+    const kindKey: 'principles' | 'rules' | 'invariants' = `${entry.kind}s`;
+    counts[kindKey] += 1;
     counts[entry.status === 'law' ? 'laws' : 'proposed'] += 1;
   }
   return counts;
 }
 
-/**
- * The graph from what `readKnowledge` returned. `repo` is the repository's slug, carried as given.
- *
- * @param {{ entries: object[], domains: object[], crossDomainFiles: object[], productFiles: string[] }} knowledge
- * @param {{ repo: string | null }} options
- */
-export function buildGraph(knowledge, { repo }) {
+/** The graph from what `readKnowledge` returned. `repo` is the repository's slug, carried as given. */
+export function buildGraph(knowledge: Knowledge, { repo }: { repo: string | null }): Graph {
   const pairs = new Map(knowledge.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
-  const entries = knowledge.entries.filter((entry) => KINDS.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const entries = knowledge.entries.filter(hasKind).map((entry) => graphEntry(entry, pairs));
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
 
-  const domainRows = [
-    ...(knowledge.productFiles.length > 0 ? [{ name: 'product', code: PRODUCT_CODE, scope: 'product' }] : []),
-    ...knowledge.domains.map(({ name, code }) => ({ name, code, scope: 'domain' })),
+  const domainRows: Omit<GraphDomain, 'counts'>[] = [
+    ...(knowledge.productFiles.length > 0 ? [{ name: 'product', code: PRODUCT_CODE, scope: 'product' } satisfies Omit<GraphDomain, 'counts'>] : []),
+    ...knowledge.domains.map(({ name, code }): Omit<GraphDomain, 'counts'> => ({ name, code, scope: 'domain' })),
   ];
   const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries.filter((entry) => entry.domain === row.name)) }));
 
-  const links = [];
+  const links: GraphLink[] = [];
   for (const entry of entries) {
-    const served = entry.kind === 'principle' ? undefined : byId.get(entry.serves);
+    const served = entry.kind === 'principle' || entry.serves === null ? undefined : byId.get(entry.serves);
     if (served?.kind === 'principle') links.push({ from: entry.id, to: served.id, kind: 'serves' });
     const cited = idsCitedIn([entry.statement, entry.why ?? ''].join('\n'));
     for (const id of cited) {
@@ -107,7 +145,7 @@ export function buildGraph(knowledge, { repo }) {
 }
 
 /** The graph of the repository `ctx` names, read off disk through the one parser. */
-export function readGraph({ ctx }) {
+export function readGraph({ ctx }: { ctx: KnowledgeCtx & { config: { repo: { slug: string | null } } } }): Graph {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
 }
 
@@ -117,7 +155,16 @@ export function readGraph({ ctx }) {
  * that repository's config says (`paths.knowledge`), and `repo` its slug. Files outside the folder
  * are ignored; a folder with no file is an empty graph.
  */
-export function graphOfTexts({ texts, knowledgeRoot, repo }) {
-  const ctx = { layout: { knowledgeRoot } };
+export function graphOfTexts({
+  texts,
+  knowledgeRoot,
+  repo,
+}: {
+  texts: Record<string, string>;
+  knowledgeRoot: string;
+  repo: string | null;
+}): Graph {
+  // No checkout: every file comes from `texts`, so the root is never read.
+  const ctx = { root: '', layout: { knowledgeRoot } };
   return buildGraph(readKnowledge({ ctx, source: memorySource(texts) }), { repo });
 }

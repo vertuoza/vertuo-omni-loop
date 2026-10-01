@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Imported knowledge** (PRD 522, s2) — a plan repository's copy of a target repository's
  * knowledge base, one per `plan.targets` entry whose `knowledge` is `imported`, under
@@ -21,7 +20,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { trackedFiles } from '../check-report.ts';
-import { createContext } from '../context.ts';
+import { createContext, type Context, type ExecText } from '../context.ts';
 import { copyFolder } from '../plan-repo/targets.ts';
 import { gradePlaybook } from '../playbook/check-playbook.ts';
 import { playbookStatus } from '../playbook/status.ts';
@@ -31,19 +30,28 @@ import { registerCounts } from './registers.ts';
 /** The folder, under `paths.knowledge`, that holds every copy. */
 export const COPIES_DIR = 'repos';
 
+/** A plan target, as the config holds it. */
+type PlanTarget = NonNullable<Context['config']['plan']>['targets'][number];
+
+/** A copy context: the plan repository's own context, its knowledge paths moved into the copy. */
+export type CopyContext = Readonly<Context & { copyOf: string }>;
+
+/** One imported target, read: its copy's folder, whether it exists, and its copy context. */
+export type Copy = { repo: string; folder: string; exists: boolean; ctx: CopyContext };
+
 /** The plan's `imported` targets, in config order; `[]` in a repository with no `plan` section. */
-export function importedTargets({ ctx }) {
+export function importedTargets({ ctx }: { ctx: Context }): PlanTarget[] {
   return (ctx.config.plan?.targets ?? []).filter((target) => target.knowledge === 'imported');
 }
 
 /** `ctx` moved into the copy at `folder` of `repo`: see the module note. */
-export function copyContext(ctx, { repo, folder }) {
+export function copyContext(ctx: Context, { repo, folder }: { repo: string; folder: string }): CopyContext {
   const paths = { ...ctx.config.paths, knowledge: folder, playbook: `${folder}/playbook`, adr: `${folder}/adr`, glossary: null };
   return Object.freeze({ ...createContext(ctx.root, { ...ctx.config, paths }), copyOf: repo });
 }
 
 /** Every imported target as `{ repo, folder, exists, ctx }`, `ctx` its copy context. */
-export function readCopies({ ctx }) {
+export function readCopies({ ctx }: { ctx: Context }): Copy[] {
   return importedTargets({ ctx }).map(({ repo }) => {
     const folder = copyFolder(repo, { ctx });
     return { repo, folder, exists: existsSync(join(ctx.root, folder)), ctx: copyContext(ctx, { repo, folder }) };
@@ -56,12 +64,16 @@ export function readCopies({ ctx }) {
  * forms are graded as the playbook is, its registers as `omni check knowledge` grades the
  * repository's own; an imported target whose folder is absent is a violation.
  */
-export function gradeCopies({ ctx, exec }) {
+export function gradeCopies({ ctx, exec }: { ctx: Context; exec: ExecText }): {
+  copies: number;
+  violations: string[];
+  warnings: string[];
+} {
   const copies = readCopies({ ctx });
-  const violations = [];
-  const warnings = [];
+  const violations: string[] = [];
+  const warnings: string[] = [];
   for (const copy of copies) {
-    const prefix = (line) => `${copy.folder}: ${line}`;
+    const prefix = (line: string) => `${copy.folder}: ${line}`;
     if (!copy.exists) {
       violations.push(prefix(`missing — plan.targets lists ${copy.repo} as imported, so its copy lives here`));
       continue;
@@ -80,7 +92,7 @@ export function gradeCopies({ ctx, exec }) {
  * registers }]`, `forms` and `registers` shaped as the repository's own. A copy's evidence is
  * never looked up here, so each form's `stale` is empty: `omni targets` says when a copy is stale.
  */
-export function copiesStatus({ ctx, exec }) {
+export function copiesStatus({ ctx, exec }: { ctx: Context; exec: ExecText }) {
   return readCopies({ ctx }).map(({ repo, folder, ctx: copy }) => {
     const { forms } = playbookStatus({ ctx: copy, exec });
     return { repo, folder, forms, registers: registerCounts({ ctx: copy }) };
