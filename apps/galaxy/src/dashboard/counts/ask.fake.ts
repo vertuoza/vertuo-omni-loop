@@ -51,11 +51,16 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
   };
 
   class Query implements PromiseLike<Result> {
+    private table: AskTable;
+    private me: FakeUser | null;
     private filters: AskRead['filters'] = [];
     private counting = false;
     private head = false;
 
-    constructor(private table: AskTable, private me: FakeUser | null) {}
+    constructor(table: AskTable, me: FakeUser | null) {
+      this.table = table;
+      this.me = me;
+    }
 
     select(_columns = '*', options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
       this.counting = options.count !== undefined;

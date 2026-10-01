@@ -90,8 +90,13 @@ export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at
 /** The database refused or failed; `code` is Postgres's (42501: row-level security, or the workspace
  * pick, said no), and `reason` the database's own words. */
 export class AskStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+
+  constructor(what: string, code: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 
