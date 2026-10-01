@@ -184,7 +184,7 @@ describe('the other situations', () => {
     expect(t).toContain('PAUL');
     expect(t).toContain('Pull requests vertuoza/');
     expect(demoProfile('nobody', '7d', NOW)).toEqual({ kind: 'not-member', login: 'nobody' });
-    const you = demoProfile('dam-dev', '30d', new Date());
+    const you = demoProfile('dam-dev', '30d', NOW);
     if (you.kind !== 'profile' || you.lists === 'unreadable') throw new Error('no demo lists');
     expect(you.lists.prd.rows.length).toBeGreaterThan(0);
   });
