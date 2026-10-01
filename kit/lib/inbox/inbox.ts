@@ -27,79 +27,16 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox.mjs — changes in kit/porting/inbox--inbox.md.
 import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { z } from 'zod';
 import { readRepoFile } from '../check-report.ts';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
+import { SPEC_VALUES, SpecFrontMatterSchema } from '../schema/front-matter.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
-/** The two ways a PRD's full prose is reached, in the order the plan lists them. */
-export const SPEC_VALUES = /** @type {const} */ (['file', 'issue']);
-
-/** The one value an optional `proof` field may take (PRD 798). */
-const PROOF_VALUES = /** @type {const} */ (['video']);
+export { SPEC_VALUES };
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
-const BRACKET_LIST = /^\[([\s\S]*)\]$/;
-
 /** Front-matter field names this schema never admits — named so a refusal can quote the field. */
 const FORBIDDEN_STATUS_LIKE_FIELDS = ['status', 'branch', 'value', 'priority'];
-
-/**
- * `blocked-by`'s raw string into `'none'` or an array of PRD numbers. Structural only — whether a
- * named PRD actually exists is a boundary check `check-inbox.mjs` makes across the whole inbox
- * tree, not something one file's text can answer on its own.
- */
-const BlockedBySchema = z
-  .string()
-  .trim()
-  .min(1, 'blocked-by is required')
-  .transform((raw, ctx) => {
-    if (raw === 'none') return 'none';
-    const match = raw.match(BLOCKED_BY_LIST);
-    if (!match) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]',
-      });
-      return z.NEVER;
-    }
-    const inner = (match[1] ?? '').trim();
-    return inner.length === 0 ? [] : inner.split(',').map((token) => Number(token.trim()));
-  });
-
-/**
- * `areas`'s raw string into an array of domain-folder names. Structural only, same reasoning as
- * `blocked-by` — whether a named area is a real folder under the knowledge root, when this
- * repository's laws come from it, is `check-inbox.mjs`'s own cross-file check.
- */
-const AreasSchema = z
-  .string()
-  .trim()
-  .transform((raw, ctx) => {
-    const match = raw.match(BRACKET_LIST);
-    if (!match) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'areas must be a bracketed list of domain folder names, e.g. [credits]',
-      });
-      return z.NEVER;
-    }
-    const inner = match[1].trim();
-    return inner.length === 0 ? [] : inner.split(',').map((token) => token.trim());
-  })
-  .optional();
-
-const FrontMatterSchema = z
-  .object({
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
-    title: z.string().trim().min(1, 'title is required'),
-    'blocked-by': BlockedBySchema,
-    spec: z.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(', ')}` }),
-    areas: AreasSchema,
-    // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
-    proof: z.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(' or ')}, or left out` }).optional(),
-  })
-  .strict();
 
 function unrecognizedKeyMessage(key) {
   if (key === 'plan') {
@@ -131,7 +68,7 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
   const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
   errors.push(...lineErrors.map((message) => withFile(file, message)));
 
-  const parsed = FrontMatterSchema.safeParse(data);
+  const parsed = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       if (issue.code === 'unrecognized_keys') {

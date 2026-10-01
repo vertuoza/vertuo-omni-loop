@@ -49,6 +49,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
 const req = (id) => Object.freeze({ id, required: true });
 const opt = (id) => Object.freeze({ id, required: false });
@@ -144,7 +145,7 @@ function readFrontMatter(raw) {
   if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     return { errors: ['front matter is not a set of keys'] };
   }
-  const result = FrontMatterSchema.safeParse(data);
+  const result = FrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (result.success) return { data: result.data };
   return {
     errors: result.error.issues.map((issue) => {

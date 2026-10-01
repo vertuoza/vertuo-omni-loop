@@ -11,15 +11,12 @@
 // or `bug`, part of its key. Every read names the kind it reads (`prd` when it names none), so a visual
 // fix and a PRD of the same number never meet.
 import { z } from 'zod';
+import { DossierRowSchema } from '../../kit/lib/schema/dossier.ts';
 import { supabaseRest } from '../sources/supabase.ts';
 
 const KEY = 'workspace_id,home_repo,kind,prd';
 // dossier_add_version()'s own order: the first version of a kind in this order is its latest.
 const LATEST_FIRST = 'created_at.desc,id.desc';
-
-const VERSION_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record'];
-const VersionRow = z.object({ id: z.string().min(1), kind: z.enum(VERSION_KINDS), git_blob: z.string().nullable(), bytes: z.number().int() });
-const DossierRow = z.object({ id: z.string().min(1), prd: z.number().int().positive(), title: z.string(), dossier_versions: z.array(VersionRow).default([]) });
 
 /**
  * @typedef {{ id: string, gitBlob: string | null, bytes: number }} Latest
@@ -27,7 +24,7 @@ const DossierRow = z.object({ id: z.string().min(1), prd: z.number().int().posit
  *   `rounds`, a visual fix's only: every variations version, since each round is its own
  */
 function toDossier(row, kind) {
-  const { id, prd, title, dossier_versions: versions } = DossierRow.parse(row);
+  const { id, prd, title, dossier_versions: versions } = DossierRowSchema.parse(row);
   const latest = {};
   const rounds = [];
   for (const v of versions) {

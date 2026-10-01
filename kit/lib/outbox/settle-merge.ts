@@ -26,6 +26,7 @@ import {
   settledHeader,
 } from './settle.ts';
 import { openItemFiles } from './status.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** The basis every entry settled at the merge carries. */
 export const MERGED_OVER_RED_BASIS = 'merged-over-red';
@@ -90,7 +91,7 @@ function itemFromEntry(entry) {
  *   append: string, text: string | null, deletes: string[] } | { ok: false, errors: string[] }}
  */
 export function settleAtMerge({ ctx, prd, merge }) {
-  const parsedMerge = MergeSchema.safeParse(merge);
+  const parsedMerge = MergeSchema.safeParse(merge, { error: KIT_MESSAGES });
   if (!parsedMerge.success) {
     return { ok: false, errors: parsedMerge.error.issues.map((issue) => issue.message) };
   }

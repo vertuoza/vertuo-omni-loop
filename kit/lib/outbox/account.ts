@@ -22,9 +22,10 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-account.mjs — changes in kit/porting/outbox--account.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { basename } from 'node:path';
-import { z } from 'zod';
 import { readRepoFile } from '../check-report.ts';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
+import { AccountFrontMatterSchema } from '../schema/front-matter.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 import { SETTLED_FILE, outboxItemFiles } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
 
@@ -33,14 +34,6 @@ export const ACCOUNTS_DIR = 'accounts';
 
 /** The one heading an account body carries. */
 const RISKY_CHANGES_HEADING = 'Risky changes';
-
-const FrontMatterSchema = z
-  .object({
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
-    slice: z.string().trim().min(1, 'slice is required'),
-    graded: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'graded must be a YYYY-MM-DD date'),
-  })
-  .strict();
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const HEADING_LINE = /^##\s+(.+?)\s*$/;
@@ -184,7 +177,7 @@ export function parseAccount(text, { file = null } = {}) {
   const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
   errors.push(...lineErrors.map((message) => withFile(file, message)));
 
-  const parsedFrontMatter = FrontMatterSchema.safeParse(data);
+  const parsedFrontMatter = AccountFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (!parsedFrontMatter.success) {
     for (const issue of parsedFrontMatter.error.issues) {
       const field = issue.path.length > 0 ? issue.path.join('.') : '(front matter)';

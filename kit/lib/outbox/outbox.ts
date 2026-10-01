@@ -72,13 +72,14 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox.mjs — changes in kit/porting/outbox--outbox.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { z } from 'zod';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
+import { OutboxItemFrontMatterSchema, RANK_VALUES } from '../schema/front-matter.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
+
+export { RANK_VALUES };
 
 export const SETTLED_FILE = 'settled.md';
 
-/** The three ranks a `rank` front-matter value may hold, in the order the plan lists them. */
-export const RANK_VALUES = /** @type {const} */ (['human-action', 'high', 'medium']);
 
 /**
  * Severity order used only to decide whether `floorRank` would RAISE a proposed rank — never to
@@ -142,20 +143,6 @@ const SECTION_FIELD = {
   'What it costs to change later': 'whatItCostsToChangeLater',
   'What I could not know': 'whatICouldNotKnow',
 };
-
-const FrontMatterSchema = z
-  .object({
-    id: z.string().trim().min(1, 'id is required'),
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
-    slice: z.string().trim().min(1, 'slice is required'),
-    rank: z.enum(RANK_VALUES, {
-      message: `rank must be one of: ${RANK_VALUES.join(', ')}`,
-    }),
-    'bears-on': z.string().trim().min(1, 'bears-on is required'),
-    raised: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'raised must be a YYYY-MM-DD date'),
-    wave: z.coerce.number({ message: 'wave must be a number' }).int().positive(),
-  })
-  .strict();
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const HEADING_LINE = /^##\s+(.+?)\s*$/;
@@ -303,7 +290,7 @@ export function parseOutboxItem(text: string, { file = null }: { file?: string |
   const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
   errors.push(...lineErrors.map((message) => withFile(file, message)));
 
-  const parsedFrontMatter = FrontMatterSchema.safeParse(data);
+  const parsedFrontMatter = OutboxItemFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (!parsedFrontMatter.success) {
     for (const issue of parsedFrontMatter.error.issues) {
       const field = issue.path.length > 0 ? issue.path.join('.') : '(front matter)';
