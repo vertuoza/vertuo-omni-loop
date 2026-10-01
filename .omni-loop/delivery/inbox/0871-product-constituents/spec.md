@@ -17,11 +17,10 @@ proof: video
 - `apps/galaxy/src/business/` (a Constituents panel above the claims, its History drawer, the vague-word
   hint; the `never` kind leaves the claim editor), `apps/galaxy/src/constituents/` (new: model, store,
   load)
-- `apps/galaxy/app/api/constituents/` (new: the terminal's read), `apps/galaxy/src/agent-connect/mcp/`
-  (a `get_constituents` tool)
+- `apps/galaxy/app/api/constituents/` (new: the terminal's read, and the App's signed judge route)
 - `apps/galaxy/src/jev/decisions/` (a `constituent-break` entry, registered in `index.ts`)
 - `apps/omni-app/src/canon/` (the gate reads constituents, and asks Jev through the decision when it is
-  Shadow or On)
+  Shadow or On, through galaxy's App-signed judge route)
 - `kit/bin/commands/constituents.mjs` and `kit/lib/constituents/` (new: fetch, cache, print),
   `kit/plugin/hooks/hooks.json` (a `SessionStart` hook), the help entry for `omni constituents`
 
@@ -65,13 +64,14 @@ Each product gets its **constituents**: one **Statement** (what the product is) 
    sign-in), writes them to `.omni-loop/local/constituents.json`, and prints them, then the briefing
    follows. Offline or failing, it prints the cached copy with its age ("synced 3 d ago, offline");
    with no cache, no product or no sign-in, it prints one line saying so. It always exits 0, within a
-   3-second budget. `omni constituents --json` prints the same for skills, and the MCP link gains a
-   `get_constituents {repo?}` tool.
+   3-second budget. `omni constituents --json` prints the same for skills.
 5. **The inbox judge.** A Jev decision `constituent-break` joins the registry (Off, Shadow, On,
    threshold and confidence floor, as PRD 812's three). The canon gate reads the constituents beside
    the claims and personas. Off: today's Haiku verdict, now also judging the Statement. Shadow: the
    Haiku verdict decides and Jev's is logged. On: Jev's verdict decides when its confidence is at or
-   above the floor, otherwise Haiku's. A "broken" finding is kept only when its quote is in the spec
+   above the floor, otherwise Haiku's. The App reaches Jev through a galaxy route it signs, as it
+   signs stage events (HMAC over the body, its own shared secret), since only galaxy holds the
+   workspace's sealed Jev key. A "broken" finding is kept only when its quote is in the spec
    word for word and it cites a live `never#<n>` or the Statement; then the check is red, names the
    spec sentence and the constituent, and carries the Rewrite and "Change the line" buttons (the latter
    links to `#never-<n>` on the panel). Red never blocks a merge: a person can still merge. The gate is
@@ -116,10 +116,11 @@ Each product gets its **constituents**: one **Statement** (what the product is) 
 
 In: the two tables and their functions, the move of `never` claims, the panel and its History drawer,
 the vague-word hint, `GET /api/constituents`, `omni constituents` and its `--json`, the kit
-`SessionStart` hook, the MCP `get_constituents` tool, the `constituent-break` Jev decision and the
+`SessionStart` hook, the `constituent-break` Jev decision and the
 canon gate's use of it.
 
-Out: the retro's `already-known` check (PRD B); members suggesting changes; AI-proposed lines; a
+Out: an MCP `get_constituents` tool (the MCP link, PRD 855, is not on main yet; a follow-up adds it);
+the retro's `already-known` check (PRD B); members suggesting changes; AI-proposed lines; a
 required check that blocks merges; an Always list; per-repository constituents (they are per product);
 seeding any workspace.
 
