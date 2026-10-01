@@ -1,5 +1,5 @@
-// @ts-nocheck
 // The launcher's decision (PRD 420): hand over to the checkout's own bin, run itself, or refuse.
+import type { SpawnSyncOptions } from 'node:child_process';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -57,7 +57,7 @@ describe('planLaunch', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/bin/omni.mjs': '// bin\n', 'src/a.txt': 'a' } });
     const plan = planLaunch(['status'], { cwd: join(root, 'src'), self: SELF });
     expect(plan.kind).toBe('handover');
-    expect(plan.bin.endsWith('/.omni-loop/bin/omni.mjs')).toBe(true);
+    expect(plan.kind === 'handover' && plan.bin.endsWith('/.omni-loop/bin/omni.mjs')).toBe(true);
   });
 
   it('runs itself when the checkout’s bin is a link to the running file', () => {
@@ -93,8 +93,8 @@ describe('planLaunch', () => {
 
 describe('handOver', () => {
   it('runs the bin with node and the same arguments, and returns its exit code', () => {
-    const calls = [];
-    const spawn = (command, args, options) => { calls.push({ command, args, options }); return { status: 7 }; };
+    const calls: { command: string; args: readonly string[]; options: SpawnSyncOptions }[] = [];
+    const spawn = (command: string, args: readonly string[], options: SpawnSyncOptions) => { calls.push({ command, args, options }); return { status: 7 }; };
     expect(handOver('/repo/bin.mjs', ['status', '42', '--x'], { spawn })).toBe(7);
     expect(calls).toEqual([{ command: process.execPath, args: ['/repo/bin.mjs', 'status', '42', '--x'], options: { stdio: 'inherit' } }]);
   });
