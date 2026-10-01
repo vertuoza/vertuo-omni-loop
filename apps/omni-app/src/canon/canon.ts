@@ -60,7 +60,7 @@ export type Ask = (request: { system: string; user: string; check: (value: unkno
   reason: string | null;
 }>;
 
-export const CANON_GATE = 'canon' as const;
+export const CANON_GATE = 'canon';
 /** The most characters of the spec the model reads; the quote check still reads all of it. */
 export const CANON_SPEC_LIMIT = 40_000;
 /** The longest quote a finding may carry, as a receipt's. */
