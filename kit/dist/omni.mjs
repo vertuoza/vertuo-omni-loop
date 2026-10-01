@@ -31237,9 +31237,9 @@ var GhPrListItemSchema = external_exports.looseObject({
   createdAt: external_exports.string().nullish()
 });
 var GhPrListSchema = external_exports.array(GhPrListItemSchema);
-var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: external_exports.number(), state: external_exports.string().optional(), updatedAt: external_exports.unknown() }));
+var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: external_exports.number(), state: external_exports.string().optional(), updatedAt: external_exports.unknown().optional() }));
 var GhGraphqlSchema = external_exports.looseObject({
-  data: external_exports.unknown(),
+  data: external_exports.unknown().optional(),
   errors: external_exports.array(external_exports.looseObject({ message: external_exports.string() })).nullish()
 });
 var GhReplyMutationSchema = external_exports.looseObject({
@@ -38999,7 +38999,7 @@ function insideLoop2(path) {
   return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
 }
 var OWN_STATUS_LINE = /* @__PURE__ */ new Set(["wrote", "kept"]);
-var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
+var FLAGS = Object.freeze({ test: "test", preflight: "preflight", preflightFull: "preflight-full" });
 var QUESTIONS = {
   test: "the command that runs the tests",
   preflight: "the command a slice must pass before its sub-PR is ready",

@@ -27,6 +27,7 @@ import { githubEnv } from '../github.ts';
 import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
@@ -69,7 +70,7 @@ function narrowingArgs({ matchBy, featureBranch, subLabel }: Narrowing): string[
 
 /** Every pull request of this feature — never the whole repository's. */
 function fetchPrList({ repo, exec, env, matchBy, featureBranch, subLabel }: { repo: string; exec: Exec; env: Env | undefined } & Narrowing): BoardPr[] {
-  const options = { encoding: 'utf8' as const, ...(env ? { env } : {}) };
+  const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec(
     'gh',
     [
@@ -102,7 +103,7 @@ function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
 /** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
  * `null` when the payload carries no commit at all. */
 function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: number | undefined; exec: Exec; env: Env | undefined }): string | null {
-  const options = { encoding: 'utf8' as const, ...(env ? { env } : {}) };
+  const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
   const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
   const last = commits.at(-1);

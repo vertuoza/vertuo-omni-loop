@@ -58,7 +58,7 @@ function insideLoop(path: string): boolean {
 // The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
 const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
 
-const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' } as const;
+const FLAGS = Object.freeze({ test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' });
 const QUESTIONS: Record<keyof InitCommands, string> = {
   test: 'the command that runs the tests',
   preflight: 'the command a slice must pass before its sub-PR is ready',
