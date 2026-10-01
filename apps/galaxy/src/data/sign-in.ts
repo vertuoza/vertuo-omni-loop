@@ -84,7 +84,7 @@ export async function linkGithub(db: Rpc): Promise<Linked> {
   try {
     const { data, error } = await db.rpc('link_github');
     if (error) return { login: null, error: error.message };
-    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null };
+    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null }; // ts-allow: link_github() answers JSON holding the login it linked
   } catch (err) {
     return { login: null, error: err instanceof Error ? err.message : String(err) };
   }

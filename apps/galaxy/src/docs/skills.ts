@@ -65,8 +65,8 @@ export interface SkillPageModel extends SkillCard {
   source: string;
 }
 
-const HELP_ENTRIES = ENTRIES as readonly SkillEntry[];
-const GROUPS = SKILL_GROUPS as readonly SkillGroupEntry[];
+const HELP_ENTRIES = ENTRIES as readonly SkillEntry[]; // ts-allow: the kit's help table, read as the fields the page shows
+const GROUPS = SKILL_GROUPS as readonly SkillGroupEntry[]; // ts-allow: the kit's skill groups, read as the fields the page shows
 
 /** The generic words that stand for a repository's own in the help table's braces. */
 const DELIVERY = '.omni-loop/delivery';

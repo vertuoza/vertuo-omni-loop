@@ -71,11 +71,11 @@ type Answer = { status: number; body?: unknown } | 'down';
 
 /** A GitHub answering over fetch: the code exchange, then the comment. Each answer can be changed. */
 export function fakeGitHub({
-  exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } } as Answer,
+  exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } } as Answer, // ts-allow: a test fake's canned answer
   comment = {
     status: 201,
     body: { html_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', user: { login: 'ada' }, author_association: 'MEMBER' },
-  } as Answer,
+  } as Answer, // ts-allow: a test fake's canned answer
 } = {}) {
   const token = 'ghu_user_token_never_kept';
   const calls: GitHubCall[] = [];
@@ -87,5 +87,5 @@ export function fakeGitHub({
     if (answer === 'down') throw new TypeError('fetch failed');
     return Response.json(answer.body ?? {}, { status: answer.status });
   };
-  return { fetch: fetch as typeof globalThis.fetch, calls, answers, token };
+  return { fetch: fetch as typeof globalThis.fetch, calls, answers, token }; // ts-allow: a test fake answers the calls the code makes
 }

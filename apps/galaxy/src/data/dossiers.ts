@@ -49,7 +49,7 @@ export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], ur
   const latest = Object.fromEntries(ARTIFACTS.map((kind) => {
     const v = row.latest[kind];
     return [kind, v ? { version: Number(v.version), at: v.created_at } : null];
-  })) as PlanetDossier['latest'];
+  })) as PlanetDossier['latest']; // ts-allow: fromEntries over ARTIFACTS keeps every kind
   const last = rounds
     .filter((r) => r.status === 'answered' && r.answered_at)
     .sort((a, b) => Date.parse(b.answered_at!) - Date.parse(a.answered_at!) || b.round_id.localeCompare(a.round_id))

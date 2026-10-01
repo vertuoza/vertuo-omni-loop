@@ -71,7 +71,7 @@ const TESTS: Record<FakeFilterOp, (cell: unknown, value: unknown) => boolean> = 
   gte: (cell, value) => known(cell) && compare(cell, value) >= 0,
   lt: (cell, value) => known(cell) && compare(cell, value) < 0,
   lte: (cell, value) => known(cell) && compare(cell, value) <= 0,
-  in: (cell, value) => (value as unknown[]).includes(cell),
+  in: (cell, value) => (value as unknown[]).includes(cell), // ts-allow: a test fake: in() is given a list
   like: (cell, value) => typeof cell === 'string' && likeOf(String(value)).test(cell),
   ilike: (cell, value) => typeof cell === 'string' && likeOf(String(value), 'i').test(cell),
   is: (cell, value) => (cell ?? null) === value,
@@ -102,7 +102,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
   };
   const calls: FakeCall[] = [];
   /** `fail`: every call fails, as a database out of reach; `failOn`: only the reads of one table. */
-  const state = { fail: null as Failure | null, failOn: null as FakeTable | null, clock: Date.parse('2026-09-26T09:00:00Z') };
+  const state = { fail: null as Failure | null, failOn: null as FakeTable | null, clock: Date.parse('2026-09-26T09:00:00Z') }; // ts-allow: a test fake's state, set by each test
   const stamp = () => new Date((state.clock += 1000)).toISOString();
 
   const isMember = (me: FakeUser | null, workspace: unknown) =>
@@ -129,7 +129,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       const [, alias, nameGroup, inner] = m;
       const name = nameGroup!; // ts-allow: the pattern's second group is not optional
       if (inner === undefined) { out[alias ?? name] = clone(row[name]); continue; }
-      const table = name as FakeTable;
+      const table = name as FakeTable; // ts-allow: a test fake embeds only its own tables
       const on = joined(table, row);
       const found = tables[table].find((r) => on(r) && visible(table, r, me));
       out[alias ?? name] = found ? project(found, inner, me) : null;
@@ -210,7 +210,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       const sorted = [...rows].sort((a, b) => {
         for (const { column, ascending } of this.orders) {
           const numbers = typeof a[column] === 'number' && typeof b[column] === 'number';
-          const x = numbers ? (a[column] as number) : String(a[column] ?? ''), y = numbers ? (b[column] as number) : String(b[column] ?? '');
+          const x = numbers ? (a[column] as number) : String(a[column] ?? ''), y = numbers ? (b[column] as number) : String(b[column] ?? ''); // ts-allow: a test fake orders a numeric column as numbers
           if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
         }
         return 0;
@@ -266,7 +266,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     const { p_user_id: userId, p_logins: logins } = args ?? {};
     if (typeof userId !== 'string') return refusal('22023', 'Joining needs a person.');
     const at = stamp();
-    const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]);
+    const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]); // ts-allow: a test fake's rows hold the columns the rule reads
     for (const w of joins) {
       if (!tables.workspace_members.some((m) => m.workspace_id === w.id && m.user_id === userId)) {
         tables.workspace_members.push({ workspace_id: w.id, user_id: userId, role: 'member', joined_at: at });
@@ -278,7 +278,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
   /** Whether `login` of `workspace` has `game` in their player_xp row's unlocked. */
   const unlockedFor = (workspace: unknown, login: string, game: unknown) => {
     const xp = tables.player_xp.find((x) => x.workspace_id === workspace && x.github_login === login);
-    return Boolean(xp && (xp.unlocked as string[]).includes(String(game)));
+    return Boolean(xp && (xp.unlocked as string[]).includes(String(game))); // ts-allow: a test fake's xp rows hold their unlocked list
   };
 
   /** submit_score(): a player of the workspace, with the game in their player_xp row's unlocked, a
@@ -293,7 +293,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     }
     const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
     if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
-    else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() });
+    else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() }); // ts-allow: a test fake's score rows hold their best
     return { data: row ? row.best : score, error: null };
   }
 

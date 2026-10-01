@@ -174,7 +174,7 @@ interface PageFile {
 
 /** The bundler's dependency tracker fumadocs-mdx leaves on the page's data, if any. */
 const tracker = (file: PageFile) =>
-  (file.data as { _compiler?: { addDependency?: (path: string) => void } } | undefined)?._compiler;
+  (file.data as { _compiler?: { addDependency?: (path: string) => void } } | undefined)?._compiler; // ts-allow: fumadocs-mdx's compiler hangs from the file's data, untyped
 
 /**
  * The compile step, a remark plugin run before fumadocs' own (source.config.ts), so its image step

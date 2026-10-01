@@ -38,7 +38,7 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
   const error = top.error ?? mine?.error;
   if (error) throw new Error(`Supabase: could not read the high scores (${error.message})`);
   const own = mine?.data;
-  return { top: ((top.data ?? []) as unknown as ScoreRow[]).map(lineOf), mine: own ? Number(own.best) : null };
+  return { top: ((top.data ?? []) as unknown as ScoreRow[]).map(lineOf), mine: own ? Number(own.best) : null }; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }
 
 /**

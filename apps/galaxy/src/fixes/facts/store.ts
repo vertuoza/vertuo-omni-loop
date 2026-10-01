@@ -41,7 +41,7 @@ const Summary = z.object({
 /** A stored `facts` value as a FixSummary; null when it is not one. */
 export function factsOf(value: unknown): FixSummary | null {
   const parsed = Summary.safeParse(value);
-  return parsed.success ? (parsed.data as FixSummary) : null;
+  return parsed.success ? (parsed.data as FixSummary) : null; // ts-allow: the schema reads the FixSummary shape, its texts as strings
 }
 
 export function fixFactsStore(db: Pick<SupabaseClient<Database>, 'from'>): FixFactsStore {
@@ -52,7 +52,7 @@ export function fixFactsStore(db: Pick<SupabaseClient<Database>, 'from'>): FixFa
       if (wanted.length === 0) return facts;
       const { data, error } = await db.from(TABLE).select('dossier_id, facts').eq('workspace_id', workspace).in('dossier_id', wanted);
       settle('read the fix facts', error);
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
+      for (const row of data ?? []) {
         const summary = factsOf(row.facts);
         if (summary) facts.set(String(row.dossier_id), summary);
       }

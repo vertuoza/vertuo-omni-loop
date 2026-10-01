@@ -49,12 +49,12 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
   const read = (file: string) => readFileSync(join(root, file), 'utf8');
   if (existsSync(join(root, folder.note))) {
     const text = read(folder.note);
-    const broken = gradeReleaseNote(text, { prd: folder.prd }) as string[];
+    const broken = gradeReleaseNote(text, { prd: folder.prd });
     if (broken.length) return { refused: broken.map((rule) => `${folder.note}: ${rule}`) };
-    const { note } = parseReleaseNote(text) as { note: { title: string; description: string; version: string | null } };
+    const note = parseReleaseNote(text).note!; // ts-allow: a note the grade passed parses
     return { words: { title: note.title, description: note.description, pinned: note.version === INITIAL_VERSION } };
   }
-  const spec = parseSpec(read(folder.spec), { file: folder.spec }) as { ok: true; record: { title: string } } | { ok: false; errors: string[] };
+  const spec = parseSpec(read(folder.spec), { file: folder.spec });
   if (!spec.ok) return { refused: spec.errors };
   return { words: { title: spec.record.title, description: '', pinned: false } };
 }

@@ -45,7 +45,7 @@ export type StageStore = {
 export const prdKey = ({ repository, prd }: PrdRef) => `${repository.toLowerCase()}#${prd}`;
 
 /** No PRD at any stage. */
-export const noCounts = (): StageCounts => Object.fromEntries(STORED_STAGES.map((s) => [s, 0])) as StageCounts;
+export const noCounts = (): StageCounts => Object.fromEntries(STORED_STAGES.map((s) => [s, 0])) as StageCounts; // ts-allow: fromEntries over STORED_STAGES keeps every stage
 
 /** Counts the current stages given. */
 export function countStages(current: Iterable<StoredStage>): StageCounts {
@@ -86,9 +86,9 @@ export function settle(what: string, error: Refusal): void {
 const lower = (repository: string) => repository.toLowerCase();
 
 function stageRows(data: unknown): StageRow[] {
-  return ((data ?? []) as Record<string, unknown>[])
+  return ((data ?? []) as Record<string, unknown>[]) // ts-allow: rows read as unknown; each field is checked below
     .filter((row) => isStoredStage(row.stage))
-    .map((row) => ({ stage: row.stage as StoredStage, reached_at: String(row.reached_at), synced_at: String(row.synced_at) }))
+    .map((row) => ({ stage: row.stage as StoredStage, reached_at: String(row.reached_at), synced_at: String(row.synced_at) })) // ts-allow: isStoredStage() kept only stored stages
     .sort(byTrack);
 }
 
@@ -123,7 +123,7 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
         const { data, error } = await db.from(STAGES_TABLE).select('repository, prd, stage')
           .eq('workspace_id', workspace).order('repository').order('prd').order('stage').range(first, first + PAGE - 1);
         settle('read the stages', error);
-        const page = (data ?? []) as Record<string, unknown>[];
+        const page = data ?? [];
         for (const row of page) {
           if (isStoredStage(row.stage)) rows.push({ repository: String(row.repository), prd: Number(row.prd), stage: row.stage });
         }

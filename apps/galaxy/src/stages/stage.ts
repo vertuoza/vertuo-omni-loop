@@ -18,8 +18,8 @@ export const STAGES: readonly StageId[] = ['idea', 'prd', 'inbox', 'building', '
 export type StoredStage = Exclude<StageId, 'idea'>;
 export const STORED_STAGES: readonly StoredStage[] = ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'];
 
-export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage);
-export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId);
+export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage); // ts-allow: includes() checks any value
+export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId); // ts-allow: includes() checks any value
 
 export const STAGE_LABELS: Readonly<Record<StageId, string>> = {
   idea: 'idea', prd: 'PRD', inbox: 'inbox', building: 'building', outbox: 'outbox', shipped: 'shipped', retro: 'retro',

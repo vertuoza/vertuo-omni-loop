@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { fenceProblem } from './badges';
 import { diagramsNamed, svgProblem } from './diagrams';
 import { pageUrl } from './paths';
@@ -80,10 +81,21 @@ export function fences(markdown: string): Fence[] {
   return found;
 }
 
+/** The order file, meta.json: the guide's pages by slug, in order; none when it names none. */
+const GuideMeta = z.object({ pages: z.array(z.string()).optional() });
+
+/** meta.json's pages; throws, naming the field, when it is not an object with a list of slugs. */
+function readOrder(metaFile: string): string[] {
+  const parsed = GuideMeta.safeParse(JSON.parse(readFileSync(metaFile, 'utf8')));
+  if (parsed.success) return parsed.data.pages ?? [];
+  const issue = parsed.error.issues[0]!; // ts-allow: a failed parse has an issue
+  throw new Error(`${metaFile}: ${issue.path.join('.') || 'the file'}: ${issue.message}`);
+}
+
 /** The guide in `dir`: its order file and every page. */
 export function readGuide(dir: string): Guide {
   const metaFile = join(dir, 'meta.json');
-  const order: string[] = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')).pages ?? []) : [];
+  const order = existsSync(metaFile) ? readOrder(metaFile) : [];
   const slugs = readdirSync(dir).filter((name) => name.endsWith('.md')).map((name) => name.slice(0, -'.md'.length));
   const sorted = [...order.filter((slug) => slugs.includes(slug)), ...slugs.filter((slug) => !order.includes(slug)).sort()];
   return { order, pages: sorted.map((slug) => parsePage(slug, readFileSync(join(dir, `${slug}.md`), 'utf8'))) };

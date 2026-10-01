@@ -51,8 +51,8 @@ const text = (value: unknown) => (typeof value === 'string' && value.trim() ? va
  * list, so a GitHub sign-in's login (its metadata's user_name, else preferred_username) stands in as
  * the one linked GitHub identity the app reads. */
 export function userOfClaims(claims: JwtPayload): User {
-  const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
-  const app = (claims.app_metadata ?? {}) as Record<string, unknown>;
+  const meta = (claims.user_metadata ?? {}) as Record<string, unknown>; // ts-allow: metadata is an object of JSON; each field is read with text()
+  const app = (claims.app_metadata ?? {}) as Record<string, unknown>; // ts-allow: metadata is an object of JSON; each field is read with text()
   const providers = Array.isArray(app.providers) ? app.providers : [app.provider];
   const userName = text(meta.user_name);
   const preferred = text(meta.preferred_username);
@@ -70,7 +70,7 @@ export function userOfClaims(claims: JwtPayload): User {
     identities: github
       ? [{ id: claims.sub, user_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
       : [],
-  } as unknown as User;
+  } as unknown as User; // ts-allow: the fields of a User the app reads; the claims carry no more
 }
 
 /** A read started at most once: the first call's promise, every call after. */
@@ -101,7 +101,7 @@ export async function readViewing(deps: ViewerDeps): Promise<Viewing> {
   const user = userOfClaims(claims);
   return {
     kind: 'signed-in', db, env, user,
-    workspace: once(() => memberWorkspace(db as unknown as SupabaseClient<Database>, user.id)),
+    workspace: once(() => memberWorkspace(db as unknown as SupabaseClient<Database>, user.id)), // ts-allow: the viewer's client is the server client, typed narrower here
     questions: once(() => deps.questions(db, user.id, deps.now())),
   };
 }

@@ -32,7 +32,7 @@ export function releasesTable(db: Pick<SupabaseClient<Database>, 'from'>): Relea
       for (let first = 0; ; first += PAGE) {
         const { data, error } = await db.from(RELEASES_TABLE).select(RELEASE_COLUMNS).order('prd').range(first, first + PAGE - 1);
         settle('read the releases', error);
-        const page = (data ?? []) as unknown[];
+        const page: unknown[] = data ?? [];
         rows.push(...parseReleaseRows(page));
         if (page.length < PAGE) return rows;
       }
