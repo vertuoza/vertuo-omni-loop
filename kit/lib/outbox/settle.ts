@@ -43,6 +43,7 @@ import { dirname, isAbsolute, join, relative } from 'node:path';
 import { z } from 'zod';
 import { COMMANDS } from '../commands.ts';
 import { SETTLED_FILE, parseOutboxItem } from './outbox.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /**
  * The two verdicts a HUMAN's answer produces, through {@link judgeAnswer}. Named by the plan; no
@@ -441,7 +442,7 @@ function locate(root, file) {
 export function settleItem({ ctx, file, answer }) {
   const { absoluteFile, relativeFile } = locate(ctx.root, file);
 
-  const parsedAnswer = AnswerSchema.safeParse(answer);
+  const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
   if (!parsedAnswer.success) {
     return {
       ok: false,

@@ -1,17 +1,17 @@
-// @ts-nocheck
 // The one definition of `.omni-loop/config.yml`. Every repository-specific value the kit needs is a
 // key here; a key that is not here does not exist, and a key the file has that is not here is an
-// error, never ignored.
+// error, never ignored. `kit/lib/schema/config.ts` names it beside the kit's other schemas.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
 export const CONFIG_VERSION = 1;
 
 export class ConfigError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
     this.name = 'ConfigError';
   }
@@ -22,7 +22,9 @@ const nullableText = text.nullable();
 const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
-const section = (shape) => z.object(shape).strict().default({});
+// A section every key of which has a default: absent, it parses as `{}` would, defaults filled in.
+const section = <Shape extends z.ZodRawShape>(shape: Shape) =>
+  z.object(shape).strict().prefault({} as z.input<z.ZodObject<Shape, z.core.$strict>>); // ts-allow: every key of a section has a default, so {} is its input
 // A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
 const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
 // Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
@@ -173,7 +175,7 @@ export const ConfigSchema = z
         message: 'acceptance.dir is required when acceptance.enabled is true',
         path: ['dir'],
       })
-      .default({}),
+      .prefault({}),
     laws: section({
       source: z.enum(['knowledge', 'claudeMdInvariants', 'none']).default('none'),
       claudeMdHeading: text.default('## Invariants'),
@@ -232,7 +234,7 @@ export const ConfigSchema = z
       })
       .strict()
       .nullable()
-      .default({}),
+      .prefault({}),
     plan: planSection.optional(),
   })
   .strict();
@@ -241,26 +243,33 @@ export const ConfigSchema = z
  * Whether dossiers are on in a repository (PRD 216): `dossier.enabled` is true and `ask.url` is set.
  * `reason` says why, in the words `omni dossier status` prints; `askUrl` is where the calls go.
  *
- * @returns {{ on: true, reason: string, askUrl: string } | { on: false, reason: string }}
  */
-export function dossierSwitch(config) {
+export function dossierSwitch(config: Pick<Config, 'dossier' | 'ask'>): { on: true; reason: string; askUrl: string } | { on: false; reason: string } {
   if (!config.dossier.enabled) return { on: false, reason: 'dossier.enabled is false' };
   if (!config.ask.url) return { on: false, reason: 'ask.url is not set' };
   return { on: true, reason: `dossier.enabled is true in ${CONFIG_FILE}`, askUrl: config.ask.url };
 }
 
+/** `.omni-loop/config.yml`, parsed: `Config` in `kit/lib/types.ts`. */
+type Config = z.infer<typeof ConfigSchema>;
+
+/** One step from a `kit:` format to the next: a raw file in, the same file one `kit:` higher out. */
+type Migration = { from: number; migrate: (raw: Record<string, unknown>) => unknown };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object';
+
 /** Keys a config once held under another name (PRD #68): refused, naming the key that replaced them,
  * never read as an alias — a person set them by hand, and a clear error beats a silent alias. */
 const RENAMED = Object.freeze([{ section: 'branches', from: 'terraform', to: 'invade' }]);
 
-function renamedKey(raw) {
+function renamedKey(raw: unknown) {
   return RENAMED.find(({ section: name, from }) => {
-    const value = raw?.[name];
+    const value: unknown = isRecord(raw) ? raw[name] : undefined;
     return value !== null && typeof value === 'object' && Object.hasOwn(value, from);
   });
 }
 
-function describeIssue(issue) {
+function describeIssue(issue: z.core.$ZodIssue): string {
   const path = issue.path.join('.') || '(top level)';
   const keys = issue.code === 'unrecognized_keys' ? ` (unrecognized: ${issue.keys.join(', ')})` : '';
   return `${path}: ${issue.message}${keys}`;
@@ -272,13 +281,13 @@ function describeIssue(issue) {
  * `omni update` runs them on the parsed YAML, in memory, before checking it; the file itself is never
  * rewritten by an update.
  */
-export const MIGRATIONS = Object.freeze([]);
+export const MIGRATIONS: readonly Migration[] = Object.freeze([]);
 
 /** `raw` (parsed YAML) brought from its own `kit:` up through every migration that applies. */
-export function migrateConfig(raw, migrations = MIGRATIONS) {
+export function migrateConfig(raw: unknown, migrations: readonly Migration[] = MIGRATIONS): unknown {
   let current = raw;
   for (const { from, migrate } of migrations) {
-    if (current?.kit === from) current = migrate(current);
+    if (isRecord(current) && current.kit === from) current = migrate(current);
   }
   return current;
 }
@@ -288,12 +297,12 @@ export function migrateConfig(raw, migrations = MIGRATIONS) {
  * the CLI prints only that line — and whose later lines list every other issue. With `migrate`, the
  * migration step runs first, as `omni update` checks a file written for an older kit.
  */
-export function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
-  let raw;
+export function parseConfig(source: string, file: string = CONFIG_FILE, { migrate = false }: { migrate?: boolean } = {}): Config {
+  let raw: unknown;
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML — ${error.message.split('\n')[0]}`);
+    throw new ConfigError(`${file}: not valid YAML — ${(error as Error).message.split('\n')[0]}`); // ts-allow: the yaml parser throws only Error
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
@@ -301,7 +310,7 @@ export function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}
     const { section: name, from, to } = renamed;
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
   }
-  const result = ConfigSchema.safeParse(raw);
+  const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `\n${others.map((line) => `  - ${line}`).join('\n')}` : '';
@@ -311,7 +320,7 @@ export function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}
 }
 
 /** Reads `<root>/.omni-loop/config.yml`. */
-export function loadConfig(root) {
+export function loadConfig(root: string): Config {
   const file = join(root, CONFIG_FILE);
   if (!existsSync(file)) {
     throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);

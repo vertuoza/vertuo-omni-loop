@@ -22,6 +22,7 @@
  *        `ok` true: `reply` is what the check kept. Otherwise `error` is `NO_KEY` (no request was
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
  */
+import { KIT_MESSAGES } from './schema/messages.ts';
 
 /** The model asked when `OPENROUTER_MODEL` names none. */
 export const DEFAULT_MODEL = 'anthropic/claude-opus-5.5';
@@ -135,7 +136,7 @@ function runCheck(check, value) {
   try {
     if (value === undefined) return { errors: ['the reply must be one JSON object'], reply: null };
     if (check && typeof check.safeParse === 'function') {
-      const parsed = check.safeParse(value);
+      const parsed = check.safeParse(value, { error: KIT_MESSAGES });
       if (parsed.success) return { errors: [], reply: parsed.data };
       const issues = parsed.error?.issues ?? [];
       const errors = issues.map((issue) => `${issue.path?.length ? issue.path.join('.') : '(root)'}: ${issue.message}`);

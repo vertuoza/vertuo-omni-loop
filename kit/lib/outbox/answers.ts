@@ -19,6 +19,7 @@
  */
 import { z } from 'zod';
 import { parseOutboxItem } from './outbox.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -107,7 +108,7 @@ function lineFor(question, pick) {
  */
 export function writeReply({ prd, door, questions, picks }) {
   if (!Object.hasOwn(DOORS, door)) return { ok: false, reason: `unknown door "${door}": terminal or page` };
-  const parsed = PicksSchema.safeParse(picks);
+  const parsed = PicksSchema.safeParse(picks, { error: KIT_MESSAGES });
   if (!parsed.success) return { ok: false, reason: describeIssue(parsed.error.issues[0]) };
   if (parsed.data.length === 0) return { ok: false, reason: 'no answer to write' };
 

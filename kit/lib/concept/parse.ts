@@ -16,6 +16,7 @@
  */
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
+import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
 export const CONCEPT_KINDS = /** @type {const} */ (['product', 'identity', 'platform']);
@@ -61,7 +62,7 @@ function frontMatter(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
   const scale = CONCEPT_SCALES.includes(data.scale) ? data.scale : null;
-  const parsed = FrontMatterSchema.safeParse(data);
+  const parsed = FrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (parsed.success) return { data: parsed.data, errors, scale };
   for (const issue of parsed.error.issues) {
     if (issue.code === 'unrecognized_keys') {
