@@ -44,7 +44,7 @@ export function recommend(questions: Pickable[], picks: Picks): Picks {
   const next: Picks = { ...picks };
   for (const q of questions) {
     if (q.kind !== 'decision' || q.adopted || !q.letters.includes('A')) continue;
-    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number] : { pick: 'A', reason: '' };
+    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number]! : { pick: 'A', reason: '' };
   }
   return next;
 }
@@ -80,7 +80,7 @@ export function answers(questions: Pickable[], picks: Picks): Array<{ number: nu
     .filter((q) => isAnswer(q, picks[q.number]))
     .sort((a, b) => a.number - b.number)
     .map(({ number }) => {
-      const { pick, reason } = picks[number];
+      const { pick, reason } = picks[number]!;
       return reason.trim() ? { number, pick, reason } : { number, pick };
     });
 }

@@ -22,7 +22,7 @@ export type RenderedMarkdown = {
 
 export function renderMarkdown(text: string): RenderedMarkdown {
   const match = FRONT.exec(text);
-  const lines = match ? match[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
+  const lines = match ? match[1]!.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
   const body = match ? text.slice(match[0].length) : text;
   return { front: lines.length ? lines.join(' · ') : null, html: renderer.render(body) };
 }

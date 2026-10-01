@@ -110,7 +110,7 @@ const ENTRIES: readonly Entry[] = [
   ...(item.pages ?? []).map((page) => ({ item, page, group, path: page.path })),
 ]);
 
-const bare = (pathname: string) => pathname.split(/[?#]/)[0].replace(/(.)\/+$/, '$1');
+const bare = (pathname: string) => pathname.split(/[?#]/)[0]!.replace(/(.)\/+$/, '$1');
 
 function entryOf(pathname: string | null | undefined): Entry | null {
   if (!pathname) return null;

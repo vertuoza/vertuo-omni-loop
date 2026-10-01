@@ -256,7 +256,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         for (const pull of await pulls({ sort: 'created', direction: 'desc' })) {
           for (const { head, link } of kinds) {
             const match = head.exec(pull.head.ref);
-            if (match && link.test(pull.body ?? '')) return match[1];
+            if (match && link.test(pull.body ?? '')) return match[1]!;
           }
         }
         return null;

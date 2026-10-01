@@ -71,7 +71,7 @@ export function planetPixels(progress: number): PixelGrid {
   const { width: w, height: h, data } = image;
   const pixels: (string | null)[] = [];
   for (let i = 0; i < data.length; i += 4) {
-    pixels.push(data[i + 3] < 128 ? null : `#${hex(data[i])}${hex(data[i + 1])}${hex(data[i + 2])}`);
+    pixels.push(data[i + 3]! < 128 ? null : `#${hex(data[i]!)}${hex(data[i + 1]!)}${hex(data[i + 2]!)}`);
   }
   return { w, h, pixels };
 }

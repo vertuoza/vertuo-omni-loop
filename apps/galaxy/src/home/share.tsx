@@ -35,12 +35,15 @@ const CREST_SCALE = 7;
 const crestSrc = () =>
   `data:image/svg+xml;base64,${Buffer.from(logoSvg('full', { scale: CREST_SCALE, title: null })).toString('base64')}`;
 
+/** The star colours, each a token the design package defines. */
+const [WHITE, CYAN, YELLOW] = [COLOURS.white!, COLOURS.cyan!, COLOURS.yellow!];
+
 /** A handful of fixed stars, as [left %, top %, size px, colour]: the same field on every build. */
 const STARS: readonly (readonly [number, number, number, string])[] = [
-  [4, 8, 4, COLOURS.white], [13, 71, 3, COLOURS.cyan], [21, 18, 3, COLOURS.white], [29, 88, 4, COLOURS.yellow],
-  [37, 6, 3, COLOURS.cyan], [46, 93, 3, COLOURS.white], [58, 11, 4, COLOURS.white], [66, 84, 3, COLOURS.cyan],
-  [74, 4, 3, COLOURS.yellow], [83, 76, 4, COLOURS.white], [91, 15, 3, COLOURS.white], [96, 58, 4, COLOURS.cyan],
-  [8, 44, 3, COLOURS.yellow], [93, 36, 3, COLOURS.white], [52, 78, 3, COLOURS.yellow], [17, 94, 3, COLOURS.white],
+  [4, 8, 4, WHITE], [13, 71, 3, CYAN], [21, 18, 3, WHITE], [29, 88, 4, YELLOW],
+  [37, 6, 3, CYAN], [46, 93, 3, WHITE], [58, 11, 4, WHITE], [66, 84, 3, CYAN],
+  [74, 4, 3, YELLOW], [83, 76, 4, WHITE], [91, 15, 3, WHITE], [96, 58, 4, CYAN],
+  [8, 44, 3, YELLOW], [93, 36, 3, WHITE], [52, 78, 3, YELLOW], [17, 94, 3, WHITE],
 ];
 
 /** The Open Graph card, as the element `ImageResponse` draws (flexbox and inline styles only). */
