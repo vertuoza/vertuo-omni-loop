@@ -27,14 +27,14 @@ export interface RecheckDeps {
 
 type Skipped = { workspace: string; reason: string };
 
-const why = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0].slice(0, 300);
+const why = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0]!.slice(0, 300);
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** Whether the request carries `Bearer <secret>`; never, without a secret. Compared in constant time. */
 function bearerMatches(request: Request, secret: string | undefined): boolean {
   if (!secret) return false;
   const match = /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '');
-  return match ? timingSafeEqual(digest(match[1]), digest(secret)) : false;
+  return match ? timingSafeEqual(digest(match[1]!), digest(secret)) : false;
 }
 
 /** Rechecks one workspace; null when it ran, else why it was skipped. */

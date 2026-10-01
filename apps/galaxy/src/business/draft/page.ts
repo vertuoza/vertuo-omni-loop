@@ -51,7 +51,7 @@ export function privateAddress(address: string): boolean {
   if (isIP(ip) === 4) return ipv4Private(ip);
   if (isIP(ip) !== 6) return true;
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
-  if (mapped) return ipv4Private(mapped[1]);
+  if (mapped) return ipv4Private(mapped[1]!);
   if (/^::ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(ip)) return true;
   return ip === '::' || ip === '::1' || /^f[cd]/.test(ip) || /^fe[89ab]/.test(ip) || /^ff/.test(ip);
 }
@@ -93,7 +93,7 @@ export function htmlText(html: string): string {
     .replace(/<[^>]+>/g, ' ')
     .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
       if (name[0] === '#') {
-        const code = name[1].toLowerCase() === 'x' ? Number.parseInt(name.slice(2), 16) : Number.parseInt(name.slice(1), 10);
+        const code = name[1]!.toLowerCase() === 'x' ? Number.parseInt(name.slice(2), 16) : Number.parseInt(name.slice(1), 10);
         return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : ' ';
       }
       return ENTITIES[name.toLowerCase()] ?? whole;
