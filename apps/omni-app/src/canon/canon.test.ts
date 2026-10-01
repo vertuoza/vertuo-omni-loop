@@ -1,8 +1,8 @@
-// @ts-nocheck
 // The canon gate (PRD 839) with a stubbed business and a stubbed model: nothing here calls Supabase or
 // OpenRouter.
 import { describe, expect, it, vi } from 'vitest';
-import { CANON_SPEC_LIMIT, createCanon, quoted } from './canon.ts';
+import { type Ask, CANON_SPEC_LIMIT, createCanon, quoted } from './canon.ts';
+import type { Business } from './schema.ts';
 
 const SPEC = [
   '# Group consolidation',
@@ -11,7 +11,7 @@ const SPEC = [
   'who closes the books of every company at once.',
 ].join('\n');
 
-const BUSINESS = Object.freeze({
+const BUSINESS: Business = Object.freeze({
   state: 'ok',
   business: { name: 'Vertuoza' },
   product: null,
@@ -32,15 +32,15 @@ const BREAK = {
 };
 
 /** A model that answers `reply` (run through the caller's check, as the kit's client does). */
-const modelAnswering = (reply) =>
-  vi.fn(async ({ check }) => {
+const modelAnswering = (reply: unknown) =>
+  vi.fn<Ask>(async ({ check }) => {
     const out = check(reply);
     return out.errors.length === 0
       ? { ok: true, error: null, reply: out.reply, reason: null }
       : { ok: false, error: 'refused', reply: null, reason: `model reply invalid: ${out.errors.join('; ')}` };
   });
 
-const canonWith = ({ business = BUSINESS, ask = modelAnswering({ findings: [], persona: { name: '', line: '' } }) } = {}) => {
+const canonWith = ({ business = BUSINESS, ask = modelAnswering({ findings: [], persona: { name: '', line: '' } }) }: { business?: Business; ask?: Ask } = {}) => {
   const readBusiness = vi.fn(async () => business);
   return { canon: createCanon({ readBusiness, ask }), readBusiness, ask };
 };
@@ -70,12 +70,12 @@ describe('createCanon — the verdicts', () => {
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ name: 'canon', ok: false, neutral: false, title: 'canon ✗ 1', reason: 'canon ✗ 1' });
     expect(gate.canon.findings).toEqual([
-      { quote: BREAK.findings[0].quote, claims: ['never#4', 'size#1'], why: 'A holding is a group.' },
+      { quote: BREAK.findings[0]!.quote, claims: ['never#4', 'size#1'], why: 'A holding is a group.' },
     ]);
     expect(gate.canon.persona).toEqual({ name: 'Marc', line: 'Six entities? I have one van and five plumbers.' });
     const details = gate.details.join('\n');
     expect(details).toContain('never#4 "Never: build for groups of companies"');
-    expect(details).toContain(`"${BREAK.findings[0].quote}"`);
+    expect(details).toContain(`"${BREAK.findings[0]!.quote}"`);
     expect(details).toContain('Marc: "Six entities? I have one van and five plumbers."');
   });
 
@@ -101,7 +101,7 @@ describe('createCanon — the verdicts', () => {
     expect(gate.canon.persona).toBeNull();
   });
 
-  it.each([
+  it.each<[string, Business, string]>([
     ['no business', { ...BUSINESS, state: 'none', business: null, claims: [], personas: [], updatedAt: null }, 'no business: no workspace tracking acme/widgets has one'],
     ['no product claims', { ...BUSINESS, state: 'none', claims: [] }, 'no confirmed claim for this repository\'s product'],
   ])('neutral for %s, with its line, and no model call', async (_, business, reason) => {
@@ -156,7 +156,7 @@ describe('createCanon — one call, cached by the spec and the claims', () => {
   });
 
   it('a changed spec, or a later claims update, asks again', async () => {
-    const business = { ...BUSINESS };
+    const business: Business = { ...BUSINESS };
     const { canon, ask } = canonWith({ business, ask: modelAnswering(BREAK) });
     await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     await canon.grade({ repo: 'acme/widgets', spec: `${SPEC}\nOne more line.` });
@@ -181,7 +181,7 @@ describe('createCanon — one call, cached by the spec and the claims', () => {
     const long = `${SPEC}\n${'x'.repeat(CANON_SPEC_LIMIT)}`;
     await canon.grade({ repo: 'acme/widgets', spec: long });
     expect(ask).toHaveBeenCalledTimes(1);
-    const { user } = ask.mock.calls[0][0];
+    const { user } = vi.mocked(ask).mock.calls[0]![0];
     expect(user).toContain('never#4: never — Never: build for groups of companies');
     expect(user).toContain('Marc');
     expect(user.length).toBeLessThan(CANON_SPEC_LIMIT + 2000);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The canon gate's live ports (PRD 839): the business read as the service role, and the small model
 // through the kit's OpenRouter client (`kit/lib/openrouter.ts`).
 //
@@ -7,8 +6,27 @@
 // - `OPENROUTER_API_KEY`: with it unset the gate is neutral, "model not configured". The gate asks the
 //   small model, CANON_MODEL, whatever `OPENROUTER_MODEL` names for the retro and the harvest.
 import { createClient } from '@supabase/supabase-js';
-import { askModel, KEY_VAR, MODEL_CALL, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
-import { createCanon } from './canon.ts';
+import { z } from 'zod';
+import { askModel as untypedAskModel, KEY_VAR, MODEL_CALL, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import type { Database } from '../../../../supabase/database.types.ts';
+import { type Ask, createCanon } from './canon.ts';
+import { type Business, parseBusiness } from './schema.ts';
+
+/** The environment the gate reads: the database's address, the service role's key, the model's key. */
+const CanonEnvSchema = z.looseObject({
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  [KEY_VAR]: z.string().optional(),
+});
+
+/** The kit's OpenRouter client, as the gate calls it. */
+type AskModel = (input: Parameters<Ask>[0] & {
+  env: Record<string, string | undefined>;
+  fetch: typeof globalThis.fetch;
+  call: { attempts: number; backoffMs: readonly number[]; budgetMs: number; maxTokens: number };
+  title: string;
+}) => ReturnType<Ask>;
+const askModel = untypedAskModel as unknown as AskModel; // ts-allow: openrouter is untyped (its JSDoc is not read in a .ts file); this is the shape it takes and returns
 
 /** The small model galaxy's business draft and ask classifier use. */
 export const CANON_MODEL = 'anthropic/claude-haiku-4.5';
@@ -17,27 +35,27 @@ const CANON_CALL = Object.freeze({ ...MODEL_CALL, budgetMs: 60_000, maxTokens: 2
 
 /**
  * `business_for_repo_app(repo)`, as the service role: the repository's confirmed claims, personas and
- * `updatedAt`. Throws when the database refuses.
- * @param {{ url: string, key: string, fetch?: typeof fetch }} connection
+ * `updatedAt`. Throws when the database refuses, or answers a business of another shape.
  */
-export function businessReader({ url, key, fetch = undefined }) {
-  const db = createClient(url, key, {
+export function businessReader({ url, key, fetch = undefined }: { url: string; key: string; fetch?: typeof globalThis.fetch | undefined }) {
+  const db = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     ...(fetch ? { global: { fetch } } : {}),
   });
-  return async (repo) => {
+  return async (repo: string): Promise<Business | null> => {
     const { data, error } = await db.rpc('business_for_repo_app', { p_repo: repo });
     if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ''}`);
-    return data;
+    return data === null ? null : parseBusiness(data);
   };
 }
 
 /** The canon gate bound to `env`. One per warm instance, so its cache lives as long as the instance. */
-export function canonFromEnv(env = process.env, { fetch = globalThis.fetch } = {}) {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+export function canonFromEnv(env: Record<string, string | undefined> = process.env, { fetch = globalThis.fetch }: { fetch?: typeof globalThis.fetch } = {}) {
+  const read = CanonEnvSchema.parse(env);
+  const url = read.SUPABASE_URL;
+  const key = read.SUPABASE_SERVICE_ROLE_KEY;
   const readBusiness = url && key ? businessReader({ url, key, fetch }) : async () => null;
-  const modelEnv = { [KEY_VAR]: env[KEY_VAR], [MODEL_VAR]: CANON_MODEL };
-  const ask = (request) => askModel({ ...request, env: modelEnv, fetch, call: CANON_CALL, title: 'omni loop canon' });
+  const modelEnv = { [KEY_VAR]: read[KEY_VAR], [MODEL_VAR]: CANON_MODEL };
+  const ask: Ask = (request) => askModel({ ...request, env: modelEnv, fetch, call: CANON_CALL, title: 'omni loop canon' });
   return createCanon({ readBusiness, ask });
 }
