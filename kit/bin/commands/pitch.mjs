@@ -1,3 +1,4 @@
+// `omni pitch start|slide|music|video` make a pitch on the person's computer (`./pitch-make.mjs`);
 // `omni pitch push <n> <dir>` — sends a pitch run `/omni:pitch` made of shipped PRD n to its dossier on
 // the Omni page (PRD 859's spec, "Push"), and prints the Pitch tab's link, then the GIF's stable link (the
 // one that opens without signing in) on a second line.
@@ -25,8 +26,10 @@ import { loadContext } from '../../lib/context.mjs';
 import { PitchReplyError, pushPitch } from '../../lib/pitch/push.mjs';
 import { PITCH_RUN_FILE, PitchRunRefused, readPitchRun } from '../../lib/pitch/push-run.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
+import { PITCH_MAKERS } from './pitch-make.mjs';
 
 const USAGE = 'usage: omni pitch push <n> <dir>';
+const VERBS = 'usage: omni pitch start|slide|music|video|push …';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The one line a failed call is reported with, as `omni proof push` words it. */
@@ -90,7 +93,11 @@ async function send({ toggle, repo, prd, run }, { stdout, stderr, ...io }) {
 
 export const pitch = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }) {
+  async run(args, { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now, screenshot }) {
+    const [verb, ...rest] = args;
+    const maker = Object.hasOwn(PITCH_MAKERS, verb) ? PITCH_MAKERS[verb] : null;
+    if (maker) return maker(rest, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, screenshot });
+    if (verb !== 'push') throw usageError(VERBS);
     const { prd, dir } = argsOf(args);
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
