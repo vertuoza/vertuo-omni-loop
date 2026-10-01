@@ -5,6 +5,13 @@ import { renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { candidatesFromLedger, harvestCandidates, writtenBack, type Candidate } from './harvest.ts';
 
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
+
 const markers = makeMarkers('omni-outbox');
 
 /** One item's text, as a slice raised it. */
@@ -54,13 +61,13 @@ function itemText({ id, rank = 'medium', slice = 's1', prd = 7 }: { id: string; 
 
 function adopted(id: string): string {
   const text = itemText({ id });
-  const { item } = parseOutboxItem(text);
+  const item = itemOf(text);
   return renderAdoptedEntry({ item, itemText: text, markers });
 }
 
 function drifted(id: string, { answer = 'No, it should read two files instead.' }: { answer?: string } = {}): string {
   const text = itemText({ id });
-  const { item } = parseOutboxItem(text);
+  const item = itemOf(text);
   return renderSettledEntry({
     item,
     itemText: text,

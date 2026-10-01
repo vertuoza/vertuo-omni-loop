@@ -3,11 +3,25 @@ import { makeRepo } from '../../test/fixture.ts';
 import { makeMarkers } from '../markers.ts';
 import { findOutboxViolations } from '../outbox/check-outbox.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
-import { parseSettledEntries, renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox/settle.ts';
+import {
+  parseSettledEntries,
+  renderAdoptedEntry,
+  renderSettledEntry,
+  settledHeader,
+  type AnswerChannel,
+  type SettledVerdict,
+} from '../outbox/settle.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
 import type { ClassificationReply } from './classify.ts';
 import { applyKnowledgeWrites, decidedLine, writeKnowledge, type Taken, type WriteResult } from './write.ts';
+
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -59,7 +73,7 @@ function itemText({ id, rank = 'medium', raised = '2026-09-25' }: { id: string; 
 
 const parsed = (id: string, rank?: string) => {
   const text = itemText({ id, rank });
-  return { text, item: parseOutboxItem(text).item };
+  return { text, item: itemOf(text) };
 };
 
 function adopted(id: string): string {
@@ -76,7 +90,7 @@ function answered(
     reason = 'a human said so',
     channel,
     answer = 'Yes.',
-  }: { verdict: string; approvedBy?: string; basis?: string; reason?: string; channel: object; answer?: string },
+  }: { verdict: SettledVerdict; approvedBy?: string; basis?: string; reason?: string; channel: AnswerChannel; answer?: string },
 ): string {
   const { text, item } = parsed(id, 'high');
   return renderSettledEntry({
@@ -88,8 +102,8 @@ function answered(
   });
 }
 
-const FEATURE_PR = { kind: 'feature-pull-request', number: 12, url: 'https://github.com/acme/widgets/pull/12' };
-const MERGE_PR = { kind: 'feature-pull-request', number: 29, url: 'https://github.com/acme/widgets/pull/29' };
+const FEATURE_PR: AnswerChannel = { kind: 'feature-pull-request', number: 12, url: 'https://github.com/acme/widgets/pull/12' };
+const MERGE_PR: AnswerChannel = { kind: 'feature-pull-request', number: 29, url: 'https://github.com/acme/widgets/pull/29' };
 
 const ledgerText = [
   settledHeader(28, { ctx: { config: { paths: { delivery: '.omni-loop/delivery' } } } }),
@@ -282,14 +296,14 @@ describe('writeKnowledge', () => {
     const { result, ctx } = setup();
     const ledger = byPath(result)[LEDGER]!;
     const entries = Object.fromEntries(parseSettledEntries(ledger, ctx.markers).map((entry) => [entry.id, entry]));
-    expect(entries['s1-01-two-snapshots'].became).toEqual(['ADR-0002']);
-    expect(entries['s1-02-intro-cap'].became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(entries['s1-03-one-run'].became).toEqual(['N-BILLING-1']);
-    expect(entries['s1-04-already'].became).toEqual(['ADR-0001']);
-    expect(entries['s1-05-local'].fields['Stays here']).toBe('a local choice, nothing lasting');
-    expect(entries['s1-06-reworked'].became).toEqual(['BR-BILLING-1']);
-    expect(entries['s1-07-refused'].became).toEqual([]);
-    expect(entries['s1-07-refused'].fields['Stays here']).toBeUndefined();
+    expect(entries['s1-01-two-snapshots']!.became).toEqual(['ADR-0002']);
+    expect(entries['s1-02-intro-cap']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(entries['s1-03-one-run']!.became).toEqual(['N-BILLING-1']);
+    expect(entries['s1-04-already']!.became).toEqual(['ADR-0001']);
+    expect(entries['s1-05-local']!.fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(entries['s1-06-reworked']!.became).toEqual(['BR-BILLING-1']);
+    expect(entries['s1-07-refused']!.became).toEqual([]);
+    expect(entries['s1-07-refused']!.fields['Stays here']).toBeUndefined();
     expect(ledger.startsWith(ledgerText.split('<!-- omni-outbox-settled')[0]!)).toBe(true);
     expect(result.notPlaced).toEqual([{ id: 's1-07-refused', reason: "the model's reply was refused twice" }]);
     expect(result.placed.map((entry) => [entry.id, entry.landedAs])).toEqual([

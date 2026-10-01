@@ -12,7 +12,6 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Context } from '../context.ts';
 
 /** One decision record: its four-digit number, its file, and its title (`null` with no `# ` heading). */
 export type DecisionRecord = { number: string; file: string; title: string | null };
@@ -33,7 +32,7 @@ const TITLE = /^#\s+(.+?)\s*$/m;
  * number order (a shared number's files by name), `title` `null` when the file has no `# `
  * heading, `next` the next free number, four digits. A folder that does not exist has no records.
  */
-export function readDecisions({ ctx }: { ctx: Pick<Context, 'root' | 'layout'> }): Decisions {
+export function readDecisions({ ctx }: { ctx: { root: string; layout: { adrDir: string } } }): Decisions {
   const dir = ctx.layout.adrDir.replace(/\/+$/, '');
   const absolute = join(ctx.root, dir);
   const names = existsSync(absolute)

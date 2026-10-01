@@ -113,7 +113,10 @@ function blockedByViolations(records: readonly FolderRecord[], ctx: Ctx): string
  * The size violation for one before-after.html, or `null` when it is absent or within the cap. Also
  * `omni visual`'s size check (`kit/lib/visual/verdict.ts`), so both read one cap one way.
  */
-export function beforeAfterViolation(file: string, ctx: Pick<Context, 'root' | 'config'>): string | null {
+export function beforeAfterViolation(
+  file: string,
+  ctx: { root: string; config: { limits: { beforeAfterMaxBytes: number } } },
+): string | null {
   const absolute = join(ctx.root, file);
   if (!existsSync(absolute)) return null;
   const { size } = statSync(absolute);

@@ -7,6 +7,13 @@ import { renderAdoptedEntry, settledHeader } from '../outbox/settle.ts';
 import type { ClassificationReply } from './classify.ts';
 import { finishHarvest, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
 
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
+
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
 const D = '.omni-loop/delivery';
@@ -56,7 +63,7 @@ function adopted(id: string): string {
     '(author) Nothing settles it.',
     '',
   ].join('\n');
-  return renderAdoptedEntry({ item: parseOutboxItem(text).item, itemText: text, markers });
+  return renderAdoptedEntry({ item: itemOf(text), itemText: text, markers });
 }
 
 const IDS = ['s1-01-local-name', 's1-02-button-colour', 's1-03-covered', 's1-04-unasked'];

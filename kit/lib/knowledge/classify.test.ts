@@ -16,6 +16,13 @@ import {
 import { candidatesFromLedger } from './harvest.ts';
 import { LOOK_RULE } from './look-rule.ts';
 
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
+
 const K = '.omni-loop/knowledge';
 
 const KNOWLEDGE_FILES = {
@@ -127,7 +134,7 @@ const ITEM_TEXT = [
 
 function candidate() {
   const markers = makeMarkers('omni-outbox');
-  const { item } = parseOutboxItem(ITEM_TEXT);
+  const item = itemOf(ITEM_TEXT);
   const entry = renderSettledEntry({
     item,
     itemText: ITEM_TEXT,
