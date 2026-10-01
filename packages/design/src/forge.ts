@@ -1,11 +1,10 @@
-// @ts-nocheck
 // The sprite forge. Sprites are laid out as material shapes (ellipses, polygons, lines, single
 // pixels), then finished the way a GBA pixel artist would: every material has a 4-tone ramp
 // (light, base, shade, dark) and is lit from the top left per connected shape, and the silhouette
 // gets a coloured outline — the material's own darkest tone on the lit side, near-black on the
 // shadow side. Pure: the result is a grid of hex colours, drawn to canvas by draw.mjs.
 
-export const RAMPS = Object.freeze({
+export const RAMPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   W: ['#ffffff', '#e4e8ff', '#b3bbe6', '#7880bc'], // suit white
   N: ['#5a6cf0', '#3346cc', '#22309a', '#141c62'], // suit navy
   n: ['#3a4796', '#222b6e', '#161d4d', '#0c1030'], // deep navy: gloves, boots, belts
@@ -35,7 +34,7 @@ export const RAMPS = Object.freeze({
 });
 
 // Flat colours: never shaded, never outlined by the lit-side rule. forge()'s `flat` recolours them.
-export const FLAT = Object.freeze({
+export const FLAT: Readonly<Record<string, string>> = Object.freeze({
   Q: '#ffffff', X: '#08070f',
   1: '#ff3b5c', 2: '#ff7aa8', 3: '#b07cff', 4: '#5b7bff', // the Vertuoza stripes, a theme's stripe-1 to stripe-4
   e: '#ff2a4a', // Entropy eyes
@@ -46,17 +45,46 @@ const HEX = /^#[0-9a-f]{6}$/i;
 const OUTLINE_DARK = '#0b0a26';
 const INNER_LINE = 'k';
 
-function makeGrid(w, h) {
-  return Array.from({ length: h }, () => Array(w).fill(null));
+/** A ramp swap: material letter to its four tones (light, base, shade, dark). */
+export type Tint = Record<string, readonly string[]>;
+/** One `#rrggbb` per flat colour to recolour (any other value keeps the default): `1` to `4` are the stripes on every hero's suit. */
+export type Flat = Readonly<Record<string, string>>;
+/** A material letter, or `null` to clear the pixel. */
+type Material = string | null;
+/** A tone index into a material's ramp: 0 light to 3 dark; unset lets the forge shade it. */
+type Tone = number | undefined;
+type Point = readonly [number, number];
+interface Cell { m: string; t: Tone }
+type Grid = (Cell | null)[][];
+
+/** The painter API a sprite's `draw(d)` paints materials with; every call returns the painter. */
+export interface Painter {
+  readonly w: number;
+  readonly h: number;
+  px(x: number, y: number, m: Material, t?: Tone): Painter;
+  pxs(points: readonly Point[], m: Material, t?: Tone): Painter;
+  rect(x: number, y: number, rw: number, rh: number, m: Material, t?: Tone): Painter;
+  ellipse(cx: number, cy: number, rx: number, ry: number, m: Material, t?: Tone): Painter;
+  poly(points: readonly Point[], m: Material, t?: Tone): Painter;
+  line(x0: number, y0: number, x1: number, y1: number, m: Material, thick?: number, t?: Tone): Painter;
+  mirror(): Painter;
+  clear(x: number, y: number): Painter;
 }
 
-function painter(grid, w, h) {
-  const set = (x, y, m, t) => {
+/** A forged sprite: `w`×`h` colours, row by row, `null` for empty. */
+export interface Pixels { w: number; h: number; pixels: (string | null)[] }
+
+function makeGrid<T>(w: number, h: number): (T | null)[][] {
+  return Array.from({ length: h }, () => Array<T | null>(w).fill(null));
+}
+
+function painter(grid: Grid, w: number, h: number): Painter {
+  const set = (x: number, y: number, m: Material, t?: Tone): void => {
     x = Math.round(x); y = Math.round(y);
     if (x < 0 || y < 0 || x >= w || y >= h) return;
-    grid[y][x] = m === null ? null : { m, t };
+    grid[y]![x] = m === null ? null : { m, t };
   };
-  const d = {
+  const d: Painter = {
     w, h,
     px(x, y, m, t) { set(x, y, m, t); return d; },
     pxs(points, m, t) { for (const [x, y] of points) set(x, y, m, t); return d; },
@@ -80,7 +108,7 @@ function painter(grid, w, h) {
           const px = i + 0.5, py = j + 0.5;
           let inside = false;
           for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
-            const [xa, ya] = points[a], [xb, yb] = points[b];
+            const [xa, ya] = points[a]!, [xb, yb] = points[b]!;
             if ((ya > py) !== (yb > py) && px < ((xb - xa) * (py - ya)) / (yb - ya) + xa) inside = !inside;
           }
           if (inside) set(i, j, m, t);
@@ -100,8 +128,8 @@ function painter(grid, w, h) {
     // Copy the left half onto the right half (for symmetric bodies), then add asymmetric details.
     mirror() {
       for (let y = 0; y < h; y++) for (let x = 0; x < Math.floor(w / 2); x++) {
-        const c = grid[y][x];
-        if (c) grid[y][w - 1 - x] = { ...c };
+        const c = grid[y]![x];
+        if (c) grid[y]![w - 1 - x] = { ...c };
       }
       return d;
     },
@@ -110,23 +138,26 @@ function painter(grid, w, h) {
   return d;
 }
 
-function components(grid, w, h) {
-  const id = makeGrid(w, h);
-  const boxes = [];
+interface Box { minx: number; maxx: number; miny: number; maxy: number; n: number }
+
+function components(grid: Grid, w: number, h: number): { id: (number | null)[][]; boxes: Box[] } {
+  const id = makeGrid<number>(w, h);
+  const boxes: Box[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const c = grid[y][x];
-    if (!c || id[y][x] !== null || !(c.m in RAMPS)) continue;
-    const box = { minx: x, maxx: x, miny: y, maxy: y, n: 0 };
-    const stack = [[x, y]];
-    id[y][x] = boxes.length;
+    const c = grid[y]![x];
+    if (!c || id[y]![x] !== null || !(c.m in RAMPS)) continue;
+    const box: Box = { minx: x, maxx: x, miny: y, maxy: y, n: 0 };
+    const stack: Point[] = [[x, y]];
+    id[y]![x] = boxes.length;
     while (stack.length) {
-      const [cx, cy] = stack.pop();
+      const [cx, cy] = stack.pop()!;
       box.n++;
       box.minx = Math.min(box.minx, cx); box.maxx = Math.max(box.maxx, cx);
       box.miny = Math.min(box.miny, cy); box.maxy = Math.max(box.maxy, cy);
-      for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h || id[ny][nx] !== null) continue;
-        if (grid[ny][nx]?.m === c.m) { id[ny][nx] = boxes.length; stack.push([nx, ny]); }
+      const around: Point[] = [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
+      for (const [nx, ny] of around) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || id[ny]![nx] !== null) continue;
+        if (grid[ny]![nx]?.m === c.m) { id[ny]![nx] = boxes.length; stack.push([nx, ny]); }
       }
     }
     boxes.push(box);
@@ -139,25 +170,32 @@ function components(grid, w, h) {
  * `tint` swaps a material's ramp; `flat` swaps a flat colour for one `#rrggbb` (a workspace's
  * theme passes its stripes as `1` to `4`), and an override that is not `#rrggbb` keeps the
  * default, so a colour never breaks a sprite. With neither, every sprite forges as it always has.
- * @returns {{ w: number, h: number, pixels: (string | null)[] }}
  */
-export function forge(w, h, draw, { tint = {}, flat = {}, outline = true } = {}) {
-  const grid = makeGrid(w, h);
+export function forge(
+  w: number,
+  h: number,
+  draw: (d: Painter) => void,
+  { tint = {}, flat = {}, outline = true }: { tint?: Tint; flat?: Flat; outline?: boolean } = {},
+): Pixels {
+  const grid = makeGrid<Cell>(w, h);
   draw(painter(grid, w, h));
-  const ramp = (m) => tint[m] ?? RAMPS[m];
-  const flatColour = (m) => (HEX.test(flat[m]) ? flat[m] : FLAT[m]);
+  const ramp = (m: string): readonly string[] => tint[m] ?? RAMPS[m]!;
+  const flatColour = (m: string): string => {
+    const own = flat[m];
+    return own !== undefined && HEX.test(own) ? own : FLAT[m]!;
+  };
   const { id, boxes } = components(grid, w, h);
-  const pixels = Array(w * h).fill(null);
-  const same = (x, y, comp) => x >= 0 && y >= 0 && x < w && y < h && id[y][x] === comp;
+  const pixels = Array<string | null>(w * h).fill(null);
+  const same = (x: number, y: number, comp: number | null): boolean => x >= 0 && y >= 0 && x < w && y < h && id[y]![x] === comp;
 
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const c = grid[y][x];
+    const c = grid[y]![x];
     if (!c) continue;
     if (c.m in FLAT) { pixels[y * w + x] = flatColour(c.m); continue; }
     if (c.m === INNER_LINE) continue; // resolved below, once its neighbours have colours
     let tone = c.t;
     if (tone === undefined) {
-      const box = boxes[id[y][x]];
+      const box = boxes[id[y]![x]!]!;
       const bw = box.maxx - box.minx, bh = box.maxy - box.miny;
       if (box.n < 5 || bw < 2 || bh < 1) tone = 1;
       else {
@@ -165,37 +203,40 @@ export function forge(w, h, draw, { tint = {}, flat = {}, outline = true } = {})
         const s = 0.55 * fx + 0.45 * fy;
         tone = s < 0.3 ? 0 : s < 0.64 ? 1 : 2;
         // The edge facing away from the light sinks one more tone.
-        if (!same(x + 1, y, id[y][x]) && !same(x, y + 1, id[y][x]) && tone < 2) tone = 2;
+        const comp = id[y]![x]!;
+        if (!same(x + 1, y, comp) && !same(x, y + 1, comp) && tone < 2) tone = 2;
         // The lit rim catches a highlight.
-        if (!same(x - 1, y, id[y][x]) && !same(x, y - 1, id[y][x]) && s < 0.5) tone = 0;
+        if (!same(x - 1, y, comp) && !same(x, y - 1, comp) && s < 0.5) tone = 0;
       }
     }
-    pixels[y * w + x] = ramp(c.m)[tone];
+    pixels[y * w + x] = ramp(c.m)[tone]!;
   }
 
   // Inner lines take the darkest tone of the material they sit in.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (grid[y][x]?.m !== INNER_LINE) continue;
-    const counts = new Map();
+    if (grid[y]![x]?.m !== INNER_LINE) continue;
+    const counts = new Map<string, number>();
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
       const m = grid[y + j]?.[x + i]?.m;
       if (m && m in RAMPS) counts.set(m, (counts.get(m) ?? 0) + 1);
     }
     const m = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    pixels[y * w + x] = m ? ramp(m)[3] : OUTLINE_DARK;
+    pixels[y * w + x] = m ? ramp(m)[3]! : OUTLINE_DARK;
   }
 
   if (outline) {
-    const filled = (x, y) => x >= 0 && y >= 0 && x < w && y < h && grid[y][x] !== null;
+    const filled = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && grid[y]![x] !== null;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (grid[y][x]) continue;
+      if (grid[y]![x]) continue;
       // The neighbour the outline hugs: right/below means this pixel is on the lit side.
-      const lit = [[x + 1, y], [x, y + 1]].find(([i, j]) => filled(i, j));
-      const shadow = [[x - 1, y], [x, y - 1]].find(([i, j]) => filled(i, j));
-      if (!lit && !shadow) continue;
-      const [i, j] = lit ?? shadow;
-      const m = grid[j][i].m;
-      pixels[y * w + x] = lit && m in RAMPS ? ramp(m)[3] : OUTLINE_DARK;
+      const litSide: Point[] = [[x + 1, y], [x, y + 1]], shadowSide: Point[] = [[x - 1, y], [x, y - 1]];
+      const lit = litSide.find(([i, j]) => filled(i, j));
+      const shadow = shadowSide.find(([i, j]) => filled(i, j));
+      const hug = lit ?? shadow;
+      if (!hug) continue;
+      const [i, j] = hug;
+      const m = grid[j]![i]!.m;
+      pixels[y * w + x] = lit && m in RAMPS ? ramp(m)[3]! : OUTLINE_DARK;
     }
   }
   return { w, h, pixels };

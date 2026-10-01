@@ -1,12 +1,49 @@
-// @ts-nocheck
 // The four font roles, their faces, and the type scale. The woff2 files sit in ../fonts, each under
 // the SIL Open Font License that sits beside it, cut to the latin and latin-ext subsets; fonts.css
 // declares them, and names the type scale as :root custom properties. Change a face or a step here,
 // then run `pnpm --filter @omni/design fonts`: fonts.test.mjs fails while the committed fonts.css
 // differs from what this writes.
 
+export type FontRole = 'display' | 'pixel' | 'body' | 'mono';
+export type FontStyle = 'normal' | 'italic';
+
+/** A face: its family, the slug its files are named by, its role, the cuts it ships and its stack. */
+export interface FontFaceSpec {
+  readonly family: string;
+  readonly slug: string;
+  readonly role: FontRole;
+  readonly cuts: readonly { readonly weight: number; readonly style: FontStyle }[];
+  readonly stack: string;
+}
+
+/** One woff2 file: a face's cut in one subset. */
+export interface FontFile {
+  family: string;
+  role: FontRole;
+  weight: number;
+  style: FontStyle;
+  subset: string;
+  unicodeRange: string;
+  file: string;
+}
+
+/** A step of the type scale. */
+export interface TypeStep {
+  readonly role: FontRole;
+  readonly face: string;
+  readonly size: number;
+  readonly lineHeight: number;
+  readonly slant: number;
+}
+
+export type TypeStepName =
+  | 'display-xl' | 'display-l' | 'display-m' | 'display-s'
+  | 'pixel-l' | 'pixel-m' | 'pixel-s'
+  | 'body-l' | 'body-m' | 'body-s'
+  | 'mono';
+
 /** The two subsets every face ships, as the unicode ranges fonts.css gives them. */
-export const SUBSETS = Object.freeze({
+export const SUBSETS: Readonly<Record<'latin' | 'latin-ext', string>> = Object.freeze({
   latin:
     'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD',
   'latin-ext':
@@ -18,7 +55,7 @@ export const SUBSETS = Object.freeze({
  * weights and styles it ships, and the stack a page names it by (the fallbacks keep its width,
  * so a panel does not overflow before the face loads).
  */
-export const FACES = Object.freeze([
+const faces: { family: string; slug: string; role: FontRole; cuts: { weight: number; style: FontStyle }[]; stack: string }[] = [
   {
     family: 'Anton', slug: 'anton', role: 'display',
     cuts: [{ weight: 400, style: 'normal' }],
@@ -44,23 +81,27 @@ export const FACES = Object.freeze([
     cuts: [{ weight: 400, style: 'normal' }, { weight: 600, style: 'normal' }],
     stack: "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
   },
-].map((face) => Object.freeze({ ...face, cuts: Object.freeze(face.cuts.map(Object.freeze)) })));
+];
+export const FACES: readonly FontFaceSpec[] = Object.freeze(
+  faces.map((face) => Object.freeze({ ...face, cuts: Object.freeze(face.cuts.map((cut) => Object.freeze(cut))) })),
+);
 
 /** Each role and the families it draws with: the pixel role's first face labels, its second reads. */
-export const ROLES = Object.freeze(Object.fromEntries(
-  ['display', 'pixel', 'body', 'mono'].map((role) => [
-    role,
-    Object.freeze(FACES.filter((f) => f.role === role).map((f) => f.family)),
-  ]),
-));
+const familiesOf = (role: FontRole): readonly string[] => Object.freeze(FACES.filter((f) => f.role === role).map((f) => f.family));
+export const ROLES: Readonly<Record<FontRole, readonly string[]>> = Object.freeze({
+  display: familiesOf('display'),
+  pixel: familiesOf('pixel'),
+  body: familiesOf('body'),
+  mono: familiesOf('mono'),
+});
 
-const step = (role, face, size, lineHeight, slant = 0) => Object.freeze({ role, face, size, lineHeight, slant });
+const step = (role: FontRole, face: string, size: number, lineHeight: number, slant = 0): TypeStep => Object.freeze({ role, face, size, lineHeight, slant });
 
 /**
  * The type scale: each step's role, face, size in CSS pixels, line height (unitless) and slant in
  * degrees of forward lean. The display role leans 12°; nothing else leans.
  */
-export const TYPE_SCALE = Object.freeze({
+export const TYPE_SCALE: Readonly<Record<TypeStepName, TypeStep>> = Object.freeze({
   'display-xl': step('display', 'Anton', 96, 0.9, 12),
   'display-l': step('display', 'Anton', 72, 0.9, 12),
   'display-m': step('display', 'Anton', 48, 0.95, 12),
@@ -75,7 +116,7 @@ export const TYPE_SCALE = Object.freeze({
 });
 
 /** Every woff2 file the package ships: one per face, cut and subset. */
-export function fontFiles() {
+export function fontFiles(): FontFile[] {
   return FACES.flatMap((face) => face.cuts.flatMap(({ weight, style }) =>
     Object.entries(SUBSETS).map(([subset, unicodeRange]) => ({
       family: face.family,
@@ -89,7 +130,7 @@ export function fontFiles() {
 }
 
 /** The @font-face rules for `files`, each src written by `url(file name)`. */
-export function fontFaceCss(files, url = (file) => `./fonts/${file}`) {
+export function fontFaceCss(files: readonly FontFile[], url = (file: string): string => `./fonts/${file}`): string {
   return files.map((f) => [
     '@font-face {',
     `  font-family: '${f.family}';`,
@@ -103,11 +144,11 @@ export function fontFaceCss(files, url = (file) => `./fonts/${file}`) {
   ].join('\n')).join('');
 }
 
-const stackOf = (family) => FACES.find((f) => f.family === family).stack;
+const stackOf = (family: string): string => FACES.find((f) => f.family === family)!.stack;
 
 /** fonts.css: every face, then each role's stack and each type-scale step as :root custom properties. */
-export function fontsCss() {
-  const roles = Object.entries(ROLES).map(([role, faces]) => `  --font-${role}: ${stackOf(faces[0])};`);
+export function fontsCss(): string {
+  const roles = Object.entries(ROLES).map(([role, families]) => `  --font-${role}: ${stackOf(families[0]!)};`);
   const steps = Object.entries(TYPE_SCALE).flatMap(([name, s]) => [
     `  --type-${name}-family: ${stackOf(s.face)};`,
     `  --type-${name}-size: ${s.size}px;`,

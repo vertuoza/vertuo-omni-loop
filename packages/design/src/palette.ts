@@ -1,8 +1,7 @@
-// @ts-nocheck
 // The whole galaxy is drawn from this one palette: navy-and-white hero suits, a purple
 // plasma glow, comic yellow for anything worth points, and red for Entropy and danger.
 // One character per colour, so sprites can be written as strings.
-export const PALETTE = Object.freeze({
+const palette = {
   k: '#0b0a26', // outline, the void
   x: '#000000',
   q: '#ffffff',
@@ -35,11 +34,12 @@ export const PALETTE = Object.freeze({
   A: '#5b5f80', // slate, light
   z: '#4ee08a', // terraform green
   Z: '#1d8f55', // terraform green, shade
-});
+};
+export const PALETTE: Readonly<typeof palette> = Object.freeze(palette);
 
 // Named swatches the UI uses outside sprites. tokens.mjs writes them, with the arcade's own
 // colours, into tokens.css as custom properties (`navyDark` becomes `--navy-dark`).
-export const INK = Object.freeze({
+const ink = {
   void: '#07061c',
   deep: '#0e0d33',
   navy: PALETTE.n,
@@ -63,4 +63,5 @@ export const INK = Object.freeze({
   magenta: '#ff3ea5',
   adPurple: '#5b1a86',
   starfield: '#05040f',
-});
+};
+export const INK: Readonly<typeof ink> = Object.freeze(ink);

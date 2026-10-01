@@ -1,26 +1,43 @@
-// @ts-nocheck
 // Personas: the customers a team pictures, drawn as 32×32 arcade portraits. Each trade has one
 // bust with its own prop, and every variation is a ramp swap or a small overlay on it — skin, hair
 // style, hair colour, outfit colour and an accessory — so no variation needs new art. An avatar is
 // stored as `{ v: 1, skin, hair, hairColor, outfit, accessory }` beside the trade;
 // public.valid_persona_avatar() checks the same ranges in the database.
 import { forge } from './forge.ts';
+import type { Painter, Pixels } from './forge.ts';
 import { rampFrom } from './heroes.ts';
+
+export type PersonaTrade =
+  | 'builder' | 'plumber' | 'heating' | 'electrician' | 'carpenter' | 'roofer' | 'painter' | 'foreman'
+  | 'office' | 'accountant' | 'doctor' | 'nurse' | 'shopkeeper' | 'driver' | 'developer';
+
+/** A stored persona avatar: preset numbers into its trade's sprite variations. */
+export interface PersonaAvatar { v: 1; skin: number; hair: number; hairColor: number; outfit: number; accessory: number }
+
+/** An inclusive range of preset numbers. */
+interface Range { readonly min: number; readonly max: number }
+type Field = 'skin' | 'hair' | 'hairColor' | 'outfit' | 'accessory';
+type Paint = (d: Painter) => void;
 
 // ── Trades ──────────────────────────────────────────────────────────────────
 
-/** The generic trade list, the same for every workspace. An id is a short lower-case word. */
-export const PERSONA_TRADES = Object.freeze([
+const TRADE_LABELS: [PersonaTrade, string][] = [
   ['builder', 'Builder'], ['plumber', 'Plumber'], ['heating', 'Heating engineer'], ['electrician', 'Electrician'],
   ['carpenter', 'Carpenter'], ['roofer', 'Roofer'], ['painter', 'Painter'], ['foreman', 'Site foreman'],
   ['office', 'Office manager'], ['accountant', 'Accountant'], ['doctor', 'Doctor'], ['nurse', 'Nurse'],
   ['shopkeeper', 'Shopkeeper'], ['driver', 'Driver'], ['developer', 'Developer'],
-].map(([id, label]) => Object.freeze({ id, label })));
+];
+/** The generic trade list, the same for every workspace. An id is a short lower-case word. */
+export const PERSONA_TRADES: readonly { readonly id: PersonaTrade; readonly label: string }[] = Object.freeze(
+  TRADE_LABELS.map(([id, label]) => Object.freeze({ id, label })),
+);
 
 // ── Ranges and presets ──────────────────────────────────────────────────────
 
 /** The stored avatar's ranges, inclusive; the database's valid_persona_avatar() checks the same. */
-export const PERSONA_AVATAR_RANGES = Object.freeze({
+export const PERSONA_AVATAR_RANGES: {
+  readonly v: 1; readonly skin: Range; readonly hair: Range; readonly hairColor: Range; readonly outfit: Range; readonly accessory: Range;
+} = Object.freeze({
   v: 1,
   skin: Object.freeze({ min: 0, max: 5 }),
   hair: Object.freeze({ min: 0, max: 5 }),
@@ -29,17 +46,23 @@ export const PERSONA_AVATAR_RANGES = Object.freeze({
   accessory: Object.freeze({ min: 0, max: 3 }),
 });
 
-const FIELDS = Object.freeze(['skin', 'hair', 'hairColor', 'outfit', 'accessory']);
-const SIZE = Object.fromEntries(FIELDS.map((f) => [f, PERSONA_AVATAR_RANGES[f].max - PERSONA_AVATAR_RANGES[f].min + 1]));
+const FIELDS: readonly Field[] = Object.freeze<Field[]>(['skin', 'hair', 'hairColor', 'outfit', 'accessory']);
+const SIZE: Readonly<Record<string, number>> = Object.fromEntries(FIELDS.map((f) => [f, PERSONA_AVATAR_RANGES[f].max - PERSONA_AVATAR_RANGES[f].min + 1]));
 
 /** How many avatars one trade can draw. */
-export const PERSONA_VARIATIONS = FIELDS.reduce((n, f) => n * SIZE[f], 1);
+export const PERSONA_VARIATIONS: number = FIELDS.reduce((n, f) => n * SIZE[f]!, 1);
 
-export const PERSONA_PRESETS = Object.freeze({
+export const PERSONA_PRESETS: {
+  readonly skin: readonly string[];
+  readonly hair: readonly string[];
+  readonly hairColor: readonly string[];
+  readonly accessory: readonly ['none', 'cap', 'glasses', 'helmet'];
+  readonly outfit: Readonly<Record<PersonaTrade, readonly string[]>>;
+} = Object.freeze({
   skin: Object.freeze(['#fbd9bc', '#f5c19a', '#dfa377', '#b97c52', '#8c5a3a', '#5f3b27']),
   hair: Object.freeze(['short', 'side part', 'long', 'bun', 'curly', 'buzz and beard']),
   hairColor: Object.freeze(['#2a2436', '#6b4226', '#e8c15a', '#c9cbd6']),
-  accessory: Object.freeze(['none', 'cap', 'glasses', 'helmet']),
+  accessory: Object.freeze<['none', 'cap', 'glasses', 'helmet']>(['none', 'cap', 'glasses', 'helmet']),
   // Four outfit colours per trade, the first its usual one.
   outfit: Object.freeze({
     builder: Object.freeze(['#ff9b30', '#ffd84a', '#9be04e', '#ff5a6e']),
@@ -60,18 +83,20 @@ export const PERSONA_PRESETS = Object.freeze({
   }),
 });
 
-const inRange = (v, { min, max }) => Number.isInteger(v) && v >= min && v <= max;
+const inRange = (v: unknown, { min, max }: Range): boolean => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
 
 /** True for a stored avatar the presets can draw; the database's valid_persona_avatar() agrees. */
-export function validPersonaAvatar(a) {
-  return Boolean(a) && typeof a === 'object' && a.v === PERSONA_AVATAR_RANGES.v
-    && FIELDS.every((f) => inRange(a[f], PERSONA_AVATAR_RANGES[f]));
+export function validPersonaAvatar(a: unknown): a is PersonaAvatar {
+  if (!a || typeof a !== 'object') return false;
+  const field = (name: string): unknown => Reflect.get(a, name);
+  return field('v') === PERSONA_AVATAR_RANGES.v
+    && FIELDS.every((f) => inRange(field(f), PERSONA_AVATAR_RANGES[f]));
 }
 
 // ── Seeds ───────────────────────────────────────────────────────────────────
 
-function seed32(seed) {
-  let x;
+function seed32(seed: number | string): number {
+  let x: number;
   if (typeof seed === 'string') {
     x = 0x811c9dc5;
     for (let i = 0; i < seed.length; i++) x = Math.imul(x ^ seed.charCodeAt(i), 0x01000193);
@@ -83,32 +108,33 @@ function seed32(seed) {
   return x >>> 0;
 }
 
-function avatarAt(index) {
-  const a = { v: 1 };
+function avatarAt(index: number): PersonaAvatar {
+  // Every field is set below, in FIELDS order: the keys keep the order they always had.
+  const a: PersonaAvatar = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
   let n = index;
-  for (const f of FIELDS) { a[f] = PERSONA_AVATAR_RANGES[f].min + (n % SIZE[f]); n = Math.floor(n / SIZE[f]); }
+  for (const f of FIELDS) { a[f] = PERSONA_AVATAR_RANGES[f].min + (n % SIZE[f]!); n = Math.floor(n / SIZE[f]!); }
   return a;
 }
 
 /** One avatar picked by a seed (a number or a text): the same seed always gives the same avatar. */
-export function randomAvatar(seed) {
+export function randomAvatar(seed: number | string): PersonaAvatar {
   return avatarAt(seed32(seed) % PERSONA_VARIATIONS);
 }
 
-const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
 
 /**
  * A page of `count` distinct avatars, in an order the seed shuffles: page 0 is what the portrait
  * picker shows first, each next page (Shuffle) shows others, and the pages cycle once every
  * avatar has been shown.
  */
-export function personaVariations(seed, page = 0, count = 24) {
+export function personaVariations(seed: number | string, page = 0, count = 24): PersonaAvatar[] {
   const n = PERSONA_VARIATIONS, s = seed32(seed);
   let step = (s % n) | 1;
   while (gcd(step, n) !== 1) step += 2;
   const start = seed32(s ^ 0x9e3779b9) % n;
   const pages = Math.ceil(n / count), p = ((Math.floor(page) % pages) + pages) % pages;
-  const out = [];
+  const out: PersonaAvatar[] = [];
   for (let i = p * count; i < Math.min(n, (p + 1) * count); i++) out.push(avatarAt((start + i * step) % n));
   return out;
 }
@@ -118,17 +144,17 @@ export function personaVariations(seed, page = 0, count = 24) {
 // F a white shirt, the rest the props'. Every trade draws its bust, then its prop; the head, the
 // hair and the accessory are shared.
 
-const darker = (hex, k = 0.62) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
+const darker = (hex: string, k = 0.62): string => '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
 
-function shoulders(d) {
+function shoulders(d: Painter): void {
   d.poly([[2, 32], [4, 25], [9, 21.5], [23, 21.5], [28, 25], [30, 32]], 'W');
 }
 
-function neck(d) {
+function neck(d: Painter): void {
   d.rect(13, 17, 6, 5, 'S');
 }
 
-const BUSTS = {
+const BUSTS: Readonly<Record<string, Paint>> = {
   tee(d) { shoulders(d); neck(d); d.poly([[12, 21.5], [20, 21.5], [16, 24]], 'S'); d.rect(11, 21, 10, 1, 'N'); },
   vest(d) {
     d.poly([[2, 32], [4, 25], [9, 21.5], [23, 21.5], [28, 25], [30, 32]], 'A');
@@ -169,7 +195,7 @@ const BUSTS = {
   },
 };
 
-const TRADES = {
+const TRADES: Readonly<Record<string, { bust: string; prop: Paint }>> = {
   builder: { bust: 'vest', prop(d) { d.rect(1, 26, 7, 5, 'R').rect(1, 28, 7, 1, 'L', 1).px(4, 26, 'L', 1).px(4, 27, 'L', 1).px(2, 29, 'L', 1).px(2, 30, 'L', 1); } },
   plumber: { bust: 'overalls', prop(d) { d.line(24, 31, 29, 23, 'L', 2).rect(27, 20, 4, 3, 'L').clear(28, 20).clear(29, 20); } },
   heating: { bust: 'overalls', prop(d) {
@@ -233,14 +259,15 @@ const TRADES = {
 
 // The six hair styles. Each shows below a helmet's brim in its own way (the sideburns, the fall,
 // the curls or the beard), so every style stays tellable under every accessory.
-const HAIR = [
+const HAIR: readonly Paint[] = [
   (d) => { d.ellipse(16, 6, 7, 3.6, 'H').rect(9, 6, 2, 5, 'H').rect(21, 6, 2, 5, 'H'); },
   (d) => { d.ellipse(15.5, 5.5, 7.5, 3.8, 'H').poly([[8.5, 4], [14, 2], [12, 8], [9, 9]], 'H').rect(9, 6, 2, 4, 'H').rect(21, 6, 1, 3, 'H'); },
   (d) => { d.ellipse(16, 6, 7.5, 4, 'H').rect(8, 6, 3, 14, 'H').rect(21, 6, 3, 14, 'H'); },
   (d) => { d.ellipse(16, 6, 7, 3.6, 'H').ellipse(16, 1.8, 3, 2, 'H').rect(9, 6, 2, 7, 'H').rect(21, 6, 2, 7, 'H'); },
   (d) => {
     d.ellipse(16, 5.5, 8, 4.2, 'H');
-    for (const [x, y] of [[8.5, 8], [23.5, 8], [8, 11], [24, 11], [8.5, 14], [23.5, 14]]) d.ellipse(x, y, 1.8, 1.8, 'H');
+    const curls: [number, number][] = [[8.5, 8], [23.5, 8], [8, 11], [24, 11], [8.5, 14], [23.5, 14]];
+    for (const [x, y] of curls) d.ellipse(x, y, 1.8, 1.8, 'H');
   },
   (d) => {
     d.ellipse(16, 5, 6.6, 2.6, 'H');
@@ -248,17 +275,17 @@ const HAIR = [
   },
 ];
 
-function head(d, hair) {
+function head(d: Painter, hair: number): void {
   d.ellipse(16, 11, 6.5, 7.5, 'S');
   d.px(9, 11, 'S', 2).px(22, 11, 'S', 2);
-  HAIR[hair](d);
+  HAIR[hair]!(d);
   d.rect(12, 9, 3, 1, 'H').rect(17, 9, 3, 1, 'H');
   d.px(13, 11, 'X').px(18, 11, 'X');
   d.px(15, 13, 'S', 2).px(16, 13, 'S', 2);
   d.rect(14, 15, 4, 1, 'S', 3);
 }
 
-const ACCESSORIES = [
+const ACCESSORIES: readonly Paint[] = [
   () => {},
   (d) => { d.poly([[9, 8], [9.5, 4], [12, 2], [20, 2], [22.5, 4], [23, 8]], 'N').rect(9, 7, 16, 2, 'N', 2).px(16, 2, 'N', 0); },
   (d) => {
@@ -274,23 +301,23 @@ const ACCESSORIES = [
 /**
  * A persona's portrait: a 32×32 grid of `#rrggbb` (null is empty), row by row. Pure and
  * deterministic: the same trade and avatar always give the same grid.
- * @returns {{ w: number, h: number, pixels: (string | null)[] }}
  */
-export function personaGrid(trade, avatar) {
+export function personaGrid(trade: string, avatar: PersonaAvatar): Pixels {
   const def = TRADES[trade];
   if (!def) throw new Error(`personaGrid: ${trade} is not a persona trade`);
   if (!validPersonaAvatar(avatar)) throw new Error(`personaGrid: ${JSON.stringify(avatar)} is not a persona avatar`);
-  const outfit = PERSONA_PRESETS.outfit[trade][avatar.outfit];
+  const outfits: Readonly<Record<string, readonly string[]>> = PERSONA_PRESETS.outfit;
+  const outfit = outfits[trade]![avatar.outfit]!;
   const tint = {
-    S: rampFrom(PERSONA_PRESETS.skin[avatar.skin]),
-    H: rampFrom(PERSONA_PRESETS.hairColor[avatar.hairColor]),
+    S: rampFrom(PERSONA_PRESETS.skin[avatar.skin]!),
+    H: rampFrom(PERSONA_PRESETS.hairColor[avatar.hairColor]!),
     W: rampFrom(outfit),
     N: rampFrom(darker(outfit)),
   };
   const grid = forge(32, 32, (d) => {
-    BUSTS[def.bust](d);
+    BUSTS[def.bust]!(d);
     head(d, avatar.hair);
-    ACCESSORIES[avatar.accessory](d);
+    ACCESSORIES[avatar.accessory]!(d);
     def.prop(d);
   }, { tint });
   return { w: grid.w, h: grid.h, pixels: grid.pixels };

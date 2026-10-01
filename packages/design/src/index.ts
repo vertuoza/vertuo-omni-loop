@@ -1,4 +1,3 @@
-// @ts-nocheck
 export * from './palette.ts';
 export * from './forge.ts';
 export * from './sprites.ts';

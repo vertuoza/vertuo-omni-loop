@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The one source of colour. The pixel palette and INK live in palette.mjs, where the sprites read
 // them; this module adds the arcade's own colours (its cabinet, its dim text and the Game Boy's
 // body), Ask's Omni, light and dark reading tokens, and the generator of tokens.css, the :root custom
@@ -6,8 +5,7 @@
 // tokens`: tokens.test.mjs fails while the committed tokens.css differs from what this writes.
 import { INK } from './palette.ts';
 
-/** The arcade's colours that are not INK: the cabinet, dim text, and the Game Boy's body. */
-export const ARCADE = Object.freeze({
+const arcade = {
   cab: '#120f3a',
   dim: '#8a90d6',
   // The Game Boy's body: its shell runs from plasma through bodyMid to plasmaDark; A is red with
@@ -29,20 +27,22 @@ export const ARCADE = Object.freeze({
   bodyPill1: '#3b2a86',
   bodyPill2: '#241a5a',
   bodyGrille: '#4a1fa6',
-});
+};
+/** The arcade's colours that are not INK: the cabinet, dim text, and the Game Boy's body. */
+export const ARCADE: Readonly<typeof arcade> = Object.freeze(arcade);
 
 /** A JS colour name as its CSS custom property's name: `navyDark` → `navy-dark`, `bodyLens1` → `body-lens-1`. */
-export function cssName(name) {
-  return name.replace(/[A-Z]|\d+/g, (m) => `-${m.toLowerCase()}`);
+export function cssName(name: string): string {
+  return name.replace(/[A-Z]|\d+/g, (m: string) => `-${m.toLowerCase()}`);
 }
 
 /** Every colour tokens.css declares, by its CSS name (no `--`): INK, then the arcade's own. */
-export const COLOURS = Object.freeze(Object.fromEntries(
+export const COLOURS: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
   Object.entries({ ...INK, ...ARCADE }).map(([name, value]) => [cssName(name), value]),
 ));
 
 /** tokens.css, as the generator writes it. */
-export function tokensCss() {
+export function tokensCss(): string {
   const lines = Object.entries(COLOURS).map(([name, value]) => `  --${name}: ${value};`);
   return [
     '/* Generated from @omni/design (src/tokens.ts): do not edit. Change a colour there and run',
@@ -58,8 +58,15 @@ export function tokensCss() {
 // yellow the Recommended badge, cyan links and focus, green what is answered, red errors only. The
 // light theme darkens the same hues on an off-white ground. Omni is HOME's own palette on the same
 // surface (PRD 284): the void and the cabinet's navy, with comic yellow as the signal.
-/** Ask's semantic tokens: Omni, light and dark. */
-export const ASK = Object.freeze({
+export type AskTheme = 'omni' | 'light' | 'dark';
+export type AskToken =
+  | 'ground' | 'surface' | 'sunk' | 'line' | 'lineStrong' | 'ink' | 'muted'
+  | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow' | 'cyan' | 'green' | 'red';
+/** A text colour, the background it sits on, and where Ask puts the pair. */
+export type AskPair = { readonly text: AskToken; readonly on: AskToken; readonly where: string };
+
+/** Ask's semantic tokens: Omni, light and dark. In Omni, `yellow` holds magenta (the Recommended badge). */
+export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>> = Object.freeze({
   omni: Object.freeze({
     ground: INK.void,
     surface: ARCADE.cab,
@@ -120,7 +127,7 @@ export const ASK = Object.freeze({
 });
 
 /** Every text colour on every background Ask puts it on. Each must reach 4.5:1. */
-export const ASK_TEXT_PAIRS = Object.freeze([
+export const ASK_TEXT_PAIRS: readonly AskPair[] = Object.freeze<AskPair[]>([
   { text: 'ink', on: 'ground', where: 'page text' },
   { text: 'ink', on: 'surface', where: 'an option, a card' },
   { text: 'ink', on: 'sunk', where: 'the preview panel' },
@@ -143,7 +150,7 @@ export const ASK_TEXT_PAIRS = Object.freeze([
 ]);
 
 /** Edges that tell a control's state (WCAG 1.4.11): 3:1 against what they sit on. */
-export const ASK_UI_PAIRS = Object.freeze([
+export const ASK_UI_PAIRS: readonly AskPair[] = Object.freeze<AskPair[]>([
   { text: 'cyan', on: 'ground', where: 'the focus ring' },
   { text: 'cyan', on: 'surface', where: 'the focus ring on a card' },
   { text: 'plasma', on: 'surface', where: 'the selected option\'s edge' },
@@ -154,8 +161,8 @@ export const ASK_UI_PAIRS = Object.freeze([
   { text: 'lineStrong', on: 'sunk', where: 'a chip or a key cap on the sunk panel' },
 ]);
 
-function luminance(hex) {
-  const channel = (i) => {
+function luminance(hex: string): number {
+  const channel = (i: number): number => {
     const c = parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16) / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
@@ -163,7 +170,8 @@ function luminance(hex) {
 }
 
 /** The WCAG 2 contrast ratio of two #rrggbb colours, from 1 to 21. */
-export function contrast(a, b) {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+export function contrast(a: string, b: string): number {
+  const sorted = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  const hi = sorted[0]!, lo = sorted[1]!;
   return (hi + 0.05) / (lo + 0.05);
 }
