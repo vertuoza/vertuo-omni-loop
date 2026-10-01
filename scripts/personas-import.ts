@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck
 // node scripts/personas-import.ts <workspace-id> <file.json> [--write] — imports a workspace's
 // personas once, from a file kept outside the repository (PRD 799, spec: .omni-loop/delivery/inbox/
 // 0799-business-personas/spec.md). Needs SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and
@@ -21,63 +20,98 @@
 // Exit codes: 0 done (or dry run), 1 refused.
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { z } from 'zod';
 import { PERSONA_TRADES, randomAvatar, validPersonaAvatar } from '../packages/design/src/index.ts';
+import type { PersonaAvatar } from '../packages/design/src/index.ts';
+import { KIT_MESSAGES } from '../kit/lib/schema/messages.ts';
 
-const STANCES = ['excited', 'neutral', 'skeptical'];
+const STANCES = ['excited', 'neutral', 'skeptical'] as const;
 const KEYS = ['product', 'name', 'stance', 'trade', 'who', 'usage', 'avatar'];
-const TRADES = new Set(PERSONA_TRADES.map((t) => t.id));
+const TRADES = new Set<string>(PERSONA_TRADES.map((t) => t.id));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USAGE = 'usage: node scripts/personas-import.ts <workspace-id> <file.json> [--write]';
 
-const trimmed = (v) => (typeof v === 'string' ? v.trim() : v == null ? '' : null);
-const fold = (s) => s.trim().toLowerCase();
-const isRecord = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-const messageOf = (error) => (error instanceof Error ? error.message : String(error));
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const personaKey = (productId, name) => `${productId}\n${name}`;
+type Stance = (typeof STANCES)[number];
 
-const nameError = (v) =>
+/** One product of the workspace. */
+type Product = { id: string; name: string };
+
+/** A persona as a row of the file describes it, before its fields are checked. */
+type Persona = { name: string | null; stance: unknown; trade: unknown; avatar: unknown; who: string | null; usage: string | null };
+
+/** A persona whose every field passed its rule. */
+type CheckedPersona = { name: string; stance: Stance; trade: string; avatar: PersonaAvatar; who: string; usage: string };
+
+/** A checked row, ready to add. */
+type ReadyRow = CheckedPersona & { row: number; productId: string; productName: string };
+
+const trimmed = (v: unknown): string | null => (typeof v === 'string' ? v.trim() : v == null ? '' : null);
+const fold = (s: string): string => s.trim().toLowerCase();
+const isRecord = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+const personaKey = (productId: string, name: string): string => `${productId}\n${name}`;
+
+const nameError = (v: string | null): string | null =>
   v === null || v.length < 1 || v.length > 40 || /[\r\n\t]/.test(v) ? 'name: 1 to 40 characters, on one line' : null;
-const textError = (field) => (v) => (v === null || v.length > 400 ? `${field}: a text of 400 characters at most` : null);
+const textError =
+  (field: string) =>
+  (v: string | null): string | null =>
+    v === null || v.length > 400 ? `${field}: a text of 400 characters at most` : null;
+const isStance = (v: unknown): v is Stance => STANCES.some((stance) => stance === v);
 
 /** Each field's rule, the same as public.persona_fields(): the field's error, or null. */
-const FIELD_RULES = {
+const FIELD_RULES: { [F in keyof Persona]: (v: Persona[F]) => string | null } = {
   name: nameError,
-  stance: (v) => (STANCES.includes(v) ? null : 'stance: excited, neutral or skeptical'),
+  stance: (v) => (isStance(v) ? null : 'stance: excited, neutral or skeptical'),
   trade: (v) => (typeof v === 'string' && TRADES.has(v) ? null : `trade: one of ${[...TRADES].join(', ')}`),
   who: textError('who'),
   usage: textError('usage'),
   avatar: (v) => (validPersonaAvatar(v) ? null : 'avatar: {v 1, skin 0–5, hair 0–5, hairColor 0–3, outfit 0–3, accessory 0–3}'),
 };
 
-/** The first error of a persona's fields, or undefined. */
-const personaError = (persona) => Object.keys(persona).map((f) => FIELD_RULES[f](persona[f])).find(Boolean);
+/** The first error of a persona's fields, in the order `personaOf` gives them, or undefined. */
+const personaError = (persona: Persona): string | undefined =>
+  [
+    FIELD_RULES.name(persona.name),
+    FIELD_RULES.stance(persona.stance),
+    FIELD_RULES.trade(persona.trade),
+    FIELD_RULES.avatar(persona.avatar),
+    FIELD_RULES.who(persona.who),
+    FIELD_RULES.usage(persona.usage),
+  ].find((error): error is string => Boolean(error));
+
+/** Whether every field of `persona` passed its rule. */
+const isChecked = (persona: Persona): persona is Persona & CheckedPersona => personaError(persona) === undefined;
 
 /** How an error names a row: `row <n>`, and its name when it has one. */
-function rowLabel(raw, n) {
+function rowLabel(raw: Record<string, unknown>, n: number): string {
   const shown = typeof raw.name === 'string' ? raw.name.replace(/\s+/g, ' ').trim() : '';
   return `row ${n}${shown ? ` (${shown})` : ''}`;
 }
 
 /** The error of a row's unknown fields, or null. */
-function unknownFieldsError(raw) {
+function unknownFieldsError(raw: Record<string, unknown>): string | null {
   const unknown = Object.keys(raw).filter((k) => !KEYS.includes(k));
   return unknown.length ? `${unknown.join(', ')}: unknown field (a persona has ${KEYS.join(', ')})` : null;
 }
 
 /** The row's product among `products` ({product}), or why it names none ({error}). */
-function productOf(raw, products) {
-  if (raw.product == null && products.length === 1) return { product: products[0] };
+function productOf(raw: Record<string, unknown>, products: Product[]): { product: Product } | { error: string } {
+  const [only] = products;
+  if (raw.product == null && products.length === 1 && only) return { product: only };
   const names = products.map((p) => p.name).join(', ');
-  if (typeof raw.product !== 'string') return { error: `product: name the product it belongs to (${names})` };
-  const matches = products.filter((p) => fold(p.name) === fold(raw.product));
-  return matches.length === 1
-    ? { product: matches[0] }
-    : { error: `product: "${raw.product}" is not one product of this workspace (${names})` };
+  const named = raw.product;
+  if (typeof named !== 'string') return { error: `product: name the product it belongs to (${names})` };
+  const matches = products.filter((p) => fold(p.name) === fold(named));
+  const [match] = matches;
+  return matches.length === 1 && match
+    ? { product: match }
+    : { error: `product: "${named}" is not one product of this workspace (${names})` };
 }
 
 /** The persona a row describes, trimmed, with an avatar picked from its product and name when it has none. */
-function personaOf(raw, product) {
+function personaOf(raw: Record<string, unknown>, product: Product): Persona {
   return {
     name: trimmed(raw.name),
     stance: raw.stance,
@@ -89,20 +123,22 @@ function personaOf(raw, product) {
 }
 
 /** One row on its own: its {label, product, persona}, or its {error}. */
-function checkRow(raw, n, products) {
+type CheckedRow = { label: string; product: Product; persona: CheckedPersona };
+
+function checkRow(raw: unknown, n: number, products: Product[]): CheckedRow | { error: string } {
   if (!isRecord(raw)) return { error: `row ${n}: a persona is an object with ${KEYS.join(', ')}` };
   const label = rowLabel(raw, n);
   const unknown = unknownFieldsError(raw);
   if (unknown) return { error: `${label}: ${unknown}` };
-  const { product, error } = productOf(raw, products);
-  if (error) return { error: `${label}: ${error}` };
+  const found = productOf(raw, products);
+  if ('error' in found) return { error: `${label}: ${found.error}` };
+  const { product } = found;
   const persona = personaOf(raw, product);
-  const refused = personaError(persona);
-  return refused ? { error: `${label}: ${refused}` } : { label, product, persona };
+  return isChecked(persona) ? { label, product, persona } : { error: `${label}: ${personaError(persona)}` };
 }
 
 /** The error of a row whose name is already on its product at an earlier row (`seen`), or null. */
-function duplicateError({ label, product, persona }, seen) {
+function duplicateError({ label, product, persona }: CheckedRow, seen: Map<string, number>): string | null {
   const at = seen.get(personaKey(product.id, persona.name));
   return at === undefined ? null : `${label}: name: "${persona.name}" is on ${product.name} already, at row ${at}`;
 }
@@ -112,17 +148,21 @@ function duplicateError({ label, product, persona }, seen) {
  * add ({row, productId, productName, name, stance, trade, avatar, who, usage}) and one error line per
  * refused row, `row <n> (<name>): <field>: …`. Any error refuses the whole file.
  */
-export function checkRows(rows, products) {
+export function checkRows(rows: unknown, products: Product[]): { rows: ReadyRow[]; errors: string[] } {
   if (!Array.isArray(rows)) return { rows: [], errors: ['the file must hold a JSON array of personas'] };
-  const ready = [];
-  const errors = [];
-  const seen = new Map();
-  rows.forEach((raw, i) => {
+  const ready: ReadyRow[] = [];
+  const errors: string[] = [];
+  const seen = new Map<string, number>();
+  rows.forEach((raw: unknown, i) => {
     const n = i + 1;
     const checked = checkRow(raw, n, products);
-    const error = checked.error ?? duplicateError(checked, seen);
-    if (error) {
-      errors.push(error);
+    if ('error' in checked) {
+      errors.push(checked.error);
+      return;
+    }
+    const duplicate = duplicateError(checked, seen);
+    if (duplicate) {
+      errors.push(duplicate);
       return;
     }
     const { product, persona } = checked;
@@ -132,15 +172,40 @@ export function checkRows(rows, products) {
   return { rows: ready, errors };
 }
 
+/** What Supabase answers each read with, checked before use. */
+const NamedRowsSchema = z.array(z.object({ id: z.string(), name: z.string() }));
+const PersonaRowsSchema = z.array(z.object({ product_id: z.string(), name: z.string() }));
+/** A refusal's body: PostgREST's error fields, each as it came. */
+const RefusalSchema = z.object({ code: z.unknown(), message: z.unknown(), hint: z.unknown() }).partial();
+
+/** `value`, what Supabase answered `path` with, parsed by `schema`; else an error naming the field. */
+function answer<S extends z.ZodType>(schema: S, value: unknown, path: string): z.infer<S> {
+  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
+  throw new Error(`Supabase answered ${path.split('?')[0]} with an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+}
+
+/** The reads the import needs, and persona_add(). */
+type PersonaStore = {
+  workspace(id: string): Promise<Product | null>;
+  products(workspaceId: string): Promise<Product[]>;
+  personas(workspaceId: string): Promise<Array<{ productId: string; name: string }>>;
+  add(workspaceId: string, p: Omit<ReadyRow, 'row' | 'productName'>): Promise<void>;
+};
+
 /** Supabase's REST API as the service role: the reads the import needs, and persona_add(). */
-export function restStore({ url, key, fetch = globalThis.fetch }) {
+export function restStore({ url, key, fetch = globalThis.fetch }: { url: string; key: string; fetch?: typeof globalThis.fetch }): PersonaStore {
   const base = `${url.replace(/\/+$/, '')}/rest/v1`;
   const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
-  async function call(path, init = {}) {
+  async function call(path: string, init: RequestInit = {}): Promise<unknown> {
     const res = await fetch(`${base}/${path}`, { ...init, headers });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const said = [body.code, body.message, body.hint && `(${body.hint})`].filter(Boolean).join(' ');
+      const raw: unknown = await res.json().catch(() => ({}));
+      const parsed = RefusalSchema.safeParse(raw);
+      const body = parsed.success ? parsed.data : {};
+      const said = [body.code, body.message, body.hint && `(${String(body.hint)})`].filter(Boolean).join(' ');
       throw new Error(`Supabase refused (${res.status})${said ? `: ${said}` : ''}`);
     }
     return res.json();
@@ -148,14 +213,17 @@ export function restStore({ url, key, fetch = globalThis.fetch }) {
   const q = encodeURIComponent;
   return {
     async workspace(id) {
-      const [found] = await call(`workspaces?select=id,name&id=eq.${q(id)}`);
+      const path = `workspaces?select=id,name&id=eq.${q(id)}`;
+      const [found] = answer(NamedRowsSchema, await call(path), path);
       return found ?? null;
     },
     async products(workspaceId) {
-      return call(`products?select=id,name&workspace_id=eq.${q(workspaceId)}&order=ordinal`);
+      const path = `products?select=id,name&workspace_id=eq.${q(workspaceId)}&order=ordinal`;
+      return answer(NamedRowsSchema, await call(path), path);
     },
     async personas(workspaceId) {
-      const rows = await call(`personas?select=product_id,name&workspace_id=eq.${q(workspaceId)}`);
+      const path = `personas?select=product_id,name&workspace_id=eq.${q(workspaceId)}`;
+      const rows = answer(PersonaRowsSchema, await call(path), path);
       return rows.map((r) => ({ productId: r.product_id, name: r.name }));
     },
     async add(workspaceId, p) {
@@ -170,33 +238,39 @@ export function restStore({ url, key, fetch = globalThis.fetch }) {
   };
 }
 
-const describeRow = (p) => `row ${p.row}  ${p.name} · ${p.trade} · ${p.stance} → ${p.productName}`;
+const describeRow = (p: ReadyRow): string => `row ${p.row}  ${p.name} · ${p.trade} · ${p.stance} → ${p.productName}`;
 
 /** A refused run: the lines it prints on stderr before it exits 1. */
 class Refused extends Error {
-  constructor(lines) {
+  lines: string[];
+
+  constructor(lines: string[]) {
     super(lines.join('\n'));
     this.lines = lines;
   }
 }
 
-function refuse(...lines) {
+function refuse(...lines: string[]): never {
   throw new Refused(lines);
 }
 
-const connectFromEnv = (e) => restStore({ url: e.SUPABASE_URL || e.NEXT_PUBLIC_SUPABASE_URL, key: e.SUPABASE_SERVICE_ROLE_KEY });
-const readText = (file) => readFileSync(file, 'utf8');
+type Env = Record<string, string | undefined>;
+
+// checkEnv has refused the run before `connect` is called when either is unset.
+const connectFromEnv = (e: Env): PersonaStore =>
+  restStore({ url: e.SUPABASE_URL || e.NEXT_PUBLIC_SUPABASE_URL || '', key: e.SUPABASE_SERVICE_ROLE_KEY ?? '' });
+const readText = (file: string): string => readFileSync(file, 'utf8');
 
 /** The run's workspace id, file and --write, or a refusal with the usage. */
-function argsOf(argv) {
+function argsOf(argv: string[]): { workspaceId: string; file: string; write: boolean } {
   const args = argv.filter((a) => a !== '--write');
-  if (args.length !== 2 || args.some((a) => a.startsWith('--'))) refuse(USAGE);
   const [workspaceId, file] = args;
+  if (args.length !== 2 || workspaceId === undefined || file === undefined || args.some((a) => a.startsWith('--'))) refuse(USAGE);
   if (!UUID.test(workspaceId)) refuse(`personas-import: "${workspaceId}" is not a workspace id (a uuid)\n${USAGE}`);
   return { workspaceId, file, write: argv.includes('--write') };
 }
 
-function rowsOf(read, file) {
+function rowsOf(read: (file: string) => string, file: string): unknown {
   try {
     return JSON.parse(read(file));
   } catch (error) {
@@ -205,7 +279,7 @@ function rowsOf(read, file) {
 }
 
 /** Refuses when a variable the store needs is not set, naming each one. */
-function checkEnv(env) {
+function checkEnv(env: Env): void {
   const missing = [
     !(env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL)?.trim() && 'SUPABASE_URL',
     !env.SUPABASE_SERVICE_ROLE_KEY?.trim() && 'SUPABASE_SERVICE_ROLE_KEY',
@@ -214,7 +288,9 @@ function checkEnv(env) {
 }
 
 /** The workspace with its products and the personas already there; null when no workspace has the id. */
-async function fetchWorkspace(store, workspaceId) {
+type FoundWorkspace = { workspace: Product; products: Product[]; existing: Array<{ productId: string; name: string }> };
+
+async function fetchWorkspace(store: PersonaStore, workspaceId: string): Promise<FoundWorkspace | null> {
   try {
     const workspace = await store.workspace(workspaceId);
     if (!workspace) return null;
@@ -224,14 +300,14 @@ async function fetchWorkspace(store, workspaceId) {
   }
 }
 
-async function readWorkspace(store, workspaceId) {
+async function readWorkspace(store: PersonaStore, workspaceId: string): Promise<FoundWorkspace> {
   const found = await fetchWorkspace(store, workspaceId);
   if (!found) refuse(`personas-import: no workspace has the id ${workspaceId}; nothing written`);
   return found;
 }
 
 /** The checked rows not on their product yet; refuses the file on any invalid row. */
-function rowsToAdd(rows, products, existing, out) {
+function rowsToAdd(rows: unknown, products: Product[], existing: FoundWorkspace['existing'], out: (line: string) => void): ReadyRow[] {
   const checked = checkRows(rows, products);
   const count = checked.errors.length;
   if (count) refuse(...checked.errors, `personas-import: the file is refused, ${plural(count, 'row')} above; nothing written`);
@@ -242,7 +318,7 @@ function rowsToAdd(rows, products, existing, out) {
 }
 
 /** Adds each row in turn; stops at the first refused one, saying how many were added before it. */
-async function addAll(store, workspaceId, toAdd, out) {
+async function addAll(store: PersonaStore, workspaceId: string, toAdd: ReadyRow[], out: (line: string) => void): Promise<number> {
   let added = 0;
   for (const p of toAdd) {
     try {
@@ -259,7 +335,16 @@ async function addAll(store, workspaceId, toAdd, out) {
   return added;
 }
 
-async function runImport({ argv, env, connect, read, out }) {
+type ImportInput = {
+  argv: string[];
+  env: Env;
+  connect?: (env: Env) => PersonaStore;
+  read?: (file: string) => string;
+  out?: (line: string) => void;
+  err?: (line: string) => void;
+};
+
+async function runImport({ argv, env, connect, read, out }: Required<Omit<ImportInput, 'err'>>): Promise<number> {
   const { workspaceId, file, write } = argsOf(argv);
   const rows = rowsOf(read, file);
   checkEnv(env);
@@ -279,7 +364,7 @@ async function runImport({ argv, env, connect, read, out }) {
 }
 
 /** One run of the import; returns the exit code. `connect` gives the store from the environment. */
-export async function importPersonas({ argv, env, connect = connectFromEnv, read = readText, out = console.log, err = console.error }) {
+export async function importPersonas({ argv, env, connect = connectFromEnv, read = readText, out = console.log, err = console.error }: ImportInput): Promise<number> {
   try {
     return await runImport({ argv, env, connect, read, out });
   } catch (error) {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The personas import (PRD 799, s4): a dry run prints the workspace's name and the rows it would add,
 // and writes nothing; one invalid row refuses the whole file, naming the row and the field; `--write`
 // adds every row once, and never changes or deletes a persona already there. No test calls Supabase:
@@ -8,26 +7,27 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PERSONA_AVATAR_RANGES, validPersonaAvatar } from '../packages/design/src/index.ts';
+import type { PersonaAvatar } from '../packages/design/src/index.ts';
 import { checkRows, importPersonas, restStore } from './personas-import.ts';
 
 const WS = '11111111-1111-4111-8111-111111111111';
-const AVATAR = { v: 1, skin: 2, hair: 1, hairColor: 0, outfit: 3, accessory: 1 };
+const AVATAR = { v: 1, skin: 2, hair: 1, hairColor: 0, outfit: 3, accessory: 1 } as PersonaAvatar;
 const PRODUCTS = [
   { id: 'p-app', name: 'Site App' },
   { id: 'p-books', name: 'Ledger' },
 ];
 
-const row = (over = {}) => ({
+const row = (over: Record<string, unknown> = {}) => ({
   product: 'Site App', name: 'Sam', stance: 'neutral', trade: 'plumber',
   who: 'Runs a company of five plumbers', usage: 'Mostly the quotes', avatar: AVATAR, ...over,
 });
 
-const dirs = [];
+const dirs: string[] = [];
 afterEach(() => {
-  while (dirs.length) rmSync(dirs.pop(), { recursive: true, force: true });
+  for (let dir = dirs.pop(); dir !== undefined; dir = dirs.pop()) rmSync(dir, { recursive: true, force: true });
 });
 
-function fileOf(content) {
+function fileOf(content: unknown) {
   const dir = mkdtempSync(join(tmpdir(), 'personas-import-'));
   dirs.push(dir);
   const file = join(dir, 'personas.json');
@@ -35,25 +35,32 @@ function fileOf(content) {
   return file;
 }
 
-function fakeStore({ workspace = { id: WS, name: 'Acme Builders' }, products = PRODUCTS, personas = [], failOn } = {}) {
-  const added = [];
+type FakeStoreOptions = {
+  workspace?: { id: string; name: string };
+  products?: Array<{ id: string; name: string }>;
+  personas?: Array<{ productId: string; name: string }>;
+  failOn?: string;
+};
+
+function fakeStore({ workspace = { id: WS, name: 'Acme Builders' }, products = PRODUCTS, personas = [], failOn }: FakeStoreOptions = {}) {
+  const added: Array<Record<string, unknown>> = [];
   return {
     added,
-    async workspace(id) { return id === WS ? workspace : null; },
+    async workspace(id: string) { return id === WS ? workspace : null; },
     async products() { return products; },
     async personas() { return personas; },
-    async add(workspaceId, p) {
+    async add(workspaceId: string, p: { name: string }) {
       if (failOn === p.name) throw new Error('Supabase refused');
       added.push({ workspaceId, ...p });
     },
   };
 }
 
-async function run(args, store = fakeStore(), env = { SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'k' }) {
-  const out = [];
-  const err = [];
+async function run(args: string[], store = fakeStore(), env: Record<string, string> = { SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'k' }) {
+  const out: string[] = [];
+  const err: string[] = [];
   const code = await importPersonas({
-    argv: args, env, connect: () => store, out: (l) => out.push(l), err: (l) => err.push(l),
+    argv: args, env, connect: () => store as unknown as ReturnType<typeof restStore>, out: (l) => out.push(l), err: (l) => err.push(l),
   });
   return { code, out: out.join('\n'), err: err.join('\n'), store };
 }
@@ -95,14 +102,14 @@ describe('checkRows', () => {
   });
 
   it('picks an avatar in range when a row leaves it out, the same one every time', () => {
-    const a = checkRows([row({ avatar: undefined })], PRODUCTS).rows[0].avatar;
-    const b = checkRows([row({ avatar: undefined })], PRODUCTS).rows[0].avatar;
+    const a = checkRows([row({ avatar: undefined })], PRODUCTS).rows[0]?.avatar;
+    const b = checkRows([row({ avatar: undefined })], PRODUCTS).rows[0]?.avatar;
     expect(validPersonaAvatar(a)).toBe(true);
     expect(a).toEqual(b);
   });
 
   it('takes the only product when a row leaves it out, and asks for it with two', () => {
-    expect(checkRows([row({ product: undefined })], PRODUCTS.slice(0, 1)).rows[0].productId).toBe('p-app');
+    expect(checkRows([row({ product: undefined })], PRODUCTS.slice(0, 1)).rows[0]?.productId).toBe('p-app');
     expect(checkRows([row({ product: undefined })], PRODUCTS).errors[0]).toMatch(/^row 1\b.*product/);
   });
 
@@ -191,14 +198,14 @@ describe('importPersonas', () => {
 });
 
 describe('restStore', () => {
-  function stub(responses) {
-    const calls = [];
-    const fetch = async (url, init = {}) => {
+  function stub(responses: Array<[number, unknown]>) {
+    const calls: Array<{ url: string; init: RequestInit & { headers?: unknown; body?: unknown } }> = [];
+    const fetch = async (url: unknown, init: RequestInit = {}) => {
       calls.push({ url: String(url), init });
-      const [status, body] = responses.shift();
+      const [status, body] = responses.shift() ?? [500, null];
       return { ok: status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
     };
-    return { calls, fetch };
+    return { calls, fetch: fetch as unknown as typeof globalThis.fetch };
   }
 
   it('reads as the service role and adds through persona_add', async () => {
@@ -214,18 +221,25 @@ describe('restStore', () => {
     expect(await store.personas(WS)).toEqual([{ productId: 'p-app', name: 'Sam' }]);
     await store.add(WS, { productId: 'p-app', name: 'Ada', stance: 'neutral', trade: 'nurse', avatar: AVATAR, who: '', usage: '' });
 
-    expect(calls[0].url).toBe(`http://db/rest/v1/workspaces?select=id,name&id=eq.${WS}`);
-    expect(calls[0].init.headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
-    expect(calls[3].url).toBe('http://db/rest/v1/rpc/persona_add');
-    expect(calls[3].init.method).toBe('POST');
-    expect(JSON.parse(calls[3].init.body)).toEqual({
+    expect(calls[0]?.url).toBe(`http://db/rest/v1/workspaces?select=id,name&id=eq.${WS}`);
+    expect(calls[0]?.init.headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
+    expect(calls[3]?.url).toBe('http://db/rest/v1/rpc/persona_add');
+    expect(calls[3]?.init.method).toBe('POST');
+    expect(JSON.parse(String(calls[3]?.init.body))).toEqual({
       p_workspace: WS, p_product: 'p-app', p_name: 'Ada', p_stance: 'neutral', p_trade: 'nurse',
       p_avatar: AVATAR, p_who: '', p_usage: '',
     });
   });
 
+  it('refuses an answer of the wrong shape, naming the field (PRD 725)', async () => {
+    const { fetch } = stub([[200, [{ id: 'p-app' }]]]);
+    await expect(restStore({ url: 'http://db', key: 'k', fetch }).products(WS)).rejects.toThrow(
+      'Supabase answered products with an unexpected shape: 0.name: Required',
+    );
+  });
+
   it('turns a refusal into an error carrying its message and hint', async () => {
     const { fetch } = stub([[400, { code: '22023', message: 'Stance: excited, neutral or skeptical.', hint: 'stance' }]]);
-    await expect(restStore({ url: 'http://db', key: 'k', fetch }).add(WS, { productId: 'p' })).rejects.toThrow(/22023.*Stance.*stance/);
+    await expect(restStore({ url: 'http://db', key: 'k', fetch }).add(WS, { productId: 'p' } as Parameters<ReturnType<typeof restStore>['add']>[1])).rejects.toThrow(/22023.*Stance.*stance/);
   });
 });

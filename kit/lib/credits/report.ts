@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The text `omni credits` prints** (PRD #99): the heading, the pull request lines, the PRD issues,
  * what the app opened, the co-authored commits, then the pull requests by repository and by month,
@@ -19,28 +18,28 @@
  * off, and the PRD issues carry no signature. The app's line is left out when no account was looked
  * for (`byTheApp: null`), the commits' line when no commit was read (`commits: null`). Pure.
  */
+import type { CreditItem, CreditSummary } from './classify.ts';
 
 const LABEL = 11;
 const COUNT = 5;
 const STATES = 26;
 
 /** `text` padded to `width`, always followed by at least `gap` spaces. */
-function cell(text, width, gap = 1) {
+function cell(text: string | number, width: number, gap = 1): string {
   const value = String(text);
   return value.length + gap > width ? `${value}${' '.repeat(gap)}` : value.padEnd(width);
 }
 
-const joined = (parts) => (parts.length ? parts.join(' · ') : 'none');
-const shortName = (repo) => repo.slice(repo.indexOf('/') + 1);
-const counted = (count, one, many) => `${count} ${count === 1 ? one : many}`;
-const signatureLine = (signatures) =>
+const joined = (parts: string[]): string => (parts.length ? parts.join(' · ') : 'none');
+const shortName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
+const counted = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
+const signatureLine = (signatures: Record<string, number>): string =>
   `signed ${signatures.signed} · before signing ${signatures['before signing']} · missed ${signatures.missed}`;
 
-/**
- * @param {{ name: string | null, scope: string, since: string | null, summary: ReturnType<typeof import('./classify.ts').summarize> }} input
- * @returns {string[]} the report's lines
- */
-export function creditsReport({ name, scope, since, summary }) {
+export type CreditsReportInput = { name: string | null; scope: string; since: string | null; summary: CreditSummary };
+
+/** The report's lines. */
+export function creditsReport({ name, scope, since, summary }: CreditsReportInput): string[] {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary;
   const { states, kinds } = prs;
   const lines = [
@@ -67,16 +66,19 @@ export function creditsReport({ name, scope, since, summary }) {
   return lines;
 }
 
+/** One `--list` row: six padded columns, then the title. */
+type Row = [string, string, string, string, string, string, string];
+
+/** The `index`th column of `row`; `index` is always below seven. */
+const cellOf = (row: Row, index: number): string => row[index] ?? '';
+
 /**
  * The `--list` lines, one per item in the order given (`creditItems` gives them oldest first):
  * repository, number, kind, state, created date, signature (`-` when none), title, each column but
  * the title padded to its widest value.
- *
- * @param {ReturnType<typeof import('./classify.ts').creditItems>} items
- * @returns {string[]}
  */
-export function creditsList(items) {
-  const rows = items.map((item) => [
+export function creditsList(items: CreditItem[]): string[] {
+  const rows = items.map((item): Row => [
     shortName(item.repo),
     `#${item.number}`,
     item.kind,
@@ -85,6 +87,6 @@ export function creditsList(items) {
     item.signature ?? '-',
     item.title,
   ]);
-  const widths = rows.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
-  return rows.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(' '));
+  const widths = rows.reduce<number[]>((max, row) => max.map((width, index) => Math.max(width, cellOf(row, index).length)), Array(6).fill(0));
+  return rows.map((row) => [...widths.map((width, index) => cellOf(row, index).padEnd(width)), row[6]].join(' '));
 }

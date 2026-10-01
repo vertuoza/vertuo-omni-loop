@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,9 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), 'fallow-gate.sh');
 
-const scratch = [];
+const scratch: string[] = [];
 afterEach(() => {
-  while (scratch.length) rmSync(scratch.pop(), { recursive: true, force: true });
+  while (scratch.length) rmSync(scratch.pop() as string, { recursive: true, force: true });
 });
 
 function tempDir() {
@@ -21,7 +20,7 @@ function tempDir() {
 
 // Runs the hook as Claude Code does: the Bash tool input as JSON on stdin. The working directory is
 // an empty folder, so no node_modules/.bin/fallow is found there; PATH decides what is reachable.
-function runHook(command, { env = {}, path = process.env.PATH } = {}) {
+function runHook(command: string, { env = {}, path = process.env.PATH }: { env?: NodeJS.ProcessEnv; path?: string } = {}) {
   const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
   const { CLAUDE_PROJECT_DIR, FALLOW_GATE_DEBUG, ...base } = process.env;
   return spawnSync('bash', [HOOK], {
@@ -33,7 +32,7 @@ function runHook(command, { env = {}, path = process.env.PATH } = {}) {
 }
 
 // A folder holding only a `fallow` that answers --version and prints the given audit JSON.
-function stubFallow(auditJson, auditExit = 0) {
+function stubFallow(auditJson: string, auditExit = 0) {
   const bin = join(tempDir(), 'bin');
   mkdirSync(bin);
   const file = join(bin, 'fallow');
@@ -50,7 +49,7 @@ exit ${auditExit}
 }
 
 describe('fallow-gate: which commands are audited', () => {
-  const dryRun = (command) => runHook(command, { env: { FALLOW_GATE_DRY_RUN: '1' } });
+  const dryRun = (command: string) => runHook(command, { env: { FALLOW_GATE_DRY_RUN: '1' } });
 
   it.each([
     'git commit -m x',

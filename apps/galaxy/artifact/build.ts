@@ -1,16 +1,16 @@
-// @ts-nocheck
 // pnpm galaxy:artifact — bundle the arcade into a single self-contained HTML page
 // (artifact/dist/omni-loop.html) for sharing without a server. React loads from cdnjs
 // (the 18.x UMD build; the app uses nothing React 19 adds); everything else is inlined.
 import { build } from 'esbuild';
+import type { Plugin } from 'esbuild';
 import { fontFaceCss, fontFiles } from '@omni/design';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const here = (p) => fileURLToPath(new URL(p, import.meta.url));
-const GLOBALS = { react: 'React', 'react-dom': 'ReactDOM', 'react-dom/client': 'ReactDOM' };
+const here = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
+const GLOBALS: Record<string, string> = { react: 'React', 'react-dom': 'ReactDOM', 'react-dom/client': 'ReactDOM' };
 
-const umdGlobals = {
+const umdGlobals: Plugin = {
   name: 'umd-globals',
   setup(b) {
     b.onResolve({ filter: /^react(-dom)?(\/client)?$/ }, (args) => ({ path: args.path, namespace: 'umd' }));
@@ -39,7 +39,11 @@ const result = await build({
   plugins: [umdGlobals],
   logLevel: 'warning',
 });
-const output = (ext) => result.outputFiles.find((f) => f.path.endsWith(ext)).text;
+const output = (ext: string): string => {
+  const file = result.outputFiles.find((f) => f.path.endsWith(ext));
+  if (!file) throw new Error(`artifact: esbuild wrote no ${ext} file`);
+  return file.text;
+};
 const js = output('.js').replaceAll('</script', '<\\/script');
 const css = output('.css');
 
@@ -51,7 +55,7 @@ if (left.length) throw new Error(`artifact: no module imports ${left.join(', ')}
 
 // The two pixel faces the arcade draws with are inlined from @omni/design, so the page makes no font
 // request; the display and body roles are left out to keep it small, and fall back to system faces.
-const woff2 = (file) => readFileSync(fileURLToPath(import.meta.resolve(`@omni/design/fonts/${file}`))).toString('base64');
+const woff2 = (file: string): string => readFileSync(fileURLToPath(import.meta.resolve(`@omni/design/fonts/${file}`))).toString('base64');
 const faces = fontFaceCss(fontFiles().filter((f) => f.role === 'pixel'), (file) => `data:font/woff2;base64,${woff2(file)}`);
 
 const html = `<title>Omni Loop Galaxy</title>

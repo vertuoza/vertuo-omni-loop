@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The settle gate of the `checks` workflow (PRD 598): after the wait, a branch whose tip moved past
 // the run's head sha answers stale=true, one still at it stale=false, and a `gh` that fails answers
 // stale=false, so a settle that cannot look never skips the checks. `gh` is a stub on PATH: no test
@@ -12,13 +11,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), 'settle-head.sh');
 const HEAD = 'a'.repeat(40);
-const dirs = [];
+const dirs: string[] = [];
 
 afterEach(() => {
-  while (dirs.length) rmSync(dirs.pop(), { recursive: true, force: true });
+  while (dirs.length) rmSync(dirs.pop() as string, { recursive: true, force: true });
 });
 
-function settle({ ghTip, ghExit = 0 }) {
+function settle({ ghTip, ghExit = 0 }: { ghTip: string; ghExit?: number }) {
   const dir = mkdtempSync(join(tmpdir(), 'settle-head-'));
   dirs.push(dir);
   const gh = join(dir, 'gh');

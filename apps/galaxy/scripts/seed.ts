@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm galaxy:seed — regenerate supabase/seed.sql from the demo world, dated now.
 // `supabase db reset` loads it, so a local stack opens on the same galaxy the demo mode shows.
 // The demo galaxy is played in the `vertuoza` workspace, which the migrations create, with the demo
