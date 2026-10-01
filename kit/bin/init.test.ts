@@ -10,6 +10,8 @@ import { credentials } from '../lib/ask/credentials.ts';
 import { LABEL_STYLES } from '../lib/init/labels.ts';
 import { FORM_IDS, parseForm } from '../lib/playbook/forms.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
 const FIXTURES = join(kitRoot, 'test/fixtures/init');
@@ -37,7 +39,7 @@ function fakeExec({
   // Every outward step of the install pull request, in the order it ran, as `cmd verb`.
   const install = [];
   const present = labels.map((label) => ({ description: '', ...label }));
-  const exec = (cmd: string, args: any[] | readonly string[], options) => {
+  const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd === 'git' && ['switch', 'add', 'commit', 'push'].includes(args[0])) {
       install.push({ cmd: `git ${args[0]}`, args });
       // The commit and the push are faked unless the test asks for a real commit: the footprint tests
@@ -56,7 +58,7 @@ function fakeExec({
       if (claude === 'fails' && args[1] === 'install') throw new Error('plugin not found');
       return '';
     }
-    if (cmd !== 'gh') return execFileSync(cmd, args, options);
+    if (cmd !== 'gh') return realExec(cmd, args, options);
     calls.push(args);
     if (ghFails) throw new Error('gh: not logged in');
     if (args[0] === 'pr') {

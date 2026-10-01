@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
@@ -31,8 +33,8 @@ function searched(number: number, { repo = 'acme/widgets', labels = [], ...overr
  */
 function fakeExec(routes = []) {
   const calls: any[] = [];
-  const exec = (file: string, args: any[] | readonly string[], options) => {
-    if (file === 'git') return execFileSync(file, args, options);
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (file === 'git') return realExec(file, args, options);
     calls.push(args.join(' '));
     const key = args.join(' ');
     for (const [prefix, out] of [...routes, ['search ', []]]) {

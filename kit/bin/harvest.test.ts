@@ -10,6 +10,9 @@ import { parseOutboxItem } from '../lib/outbox/outbox.ts';
 import { parseSettledEntries, renderAdoptedEntry, renderSettledEntry, settledHeader } from '../lib/outbox/settle.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { FetchInit } from '../test/fixture.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -152,18 +155,18 @@ function io() {
 }
 
 function fakeExec(pr, calls = []) {
-  return (cmd: string, args: readonly string[], options) => {
+  return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd === 'gh') {
       calls.push(args);
       return JSON.stringify(pr);
     }
-    return execFileSync(cmd, args, options);
+    return realExec(cmd, args, options);
   };
 }
 
 /** A fake OpenRouter: the reply the prompt's decision id is given, from `replies`. */
 function fakeFetch(replies) {
-  return vi.fn(async (_url: string, init) => {
+  return vi.fn(async (_url: string, init: FetchInit) => {
     const body = JSON.parse(init.body);
     const user = body.messages.find((m) => m.role === 'user').content;
     const id = /^## The decision: (\S+)$/m.exec(user)![1];

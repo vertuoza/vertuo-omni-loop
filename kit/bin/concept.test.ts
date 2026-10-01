@@ -69,13 +69,13 @@ function setup(configText = CONFIG_TEXT) {
   const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': configText } });
   const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   execFileSync('git', ['switch', '-q', '-c', 'docs/concept-712-team-agenda'], { cwd: root });
-  const writeAll = (files) => {
+  const writeAll = (files: Record<string, string>) => {
     for (const [path, text] of Object.entries(files)) write(path, text);
   };
   return { root, write, writeAll, base };
 }
 
-async function run(root: string, base: string | undefined, concept = CONCEPT) {
+async function run(root: string, base: string | undefined, concept: number | string = CONCEPT) {
   const s = io();
   const argv = base === undefined ? ['concept', String(concept)] : ['concept', String(concept), '--base', base];
   const code = await main(argv, { cwd: root, ...s });
@@ -88,7 +88,7 @@ function failures(out: string) {
 }
 
 /** A valid concept, committed signed, then `change` applied and committed: its run's result. */
-async function withChange(change, { configText, signed = true } = {}) {
+async function withChange(change: (repo: ReturnType<typeof setup>) => unknown, { configText, signed = true }: { configText?: string; signed?: boolean } = {}) {
   const repo = setup(configText);
   repo.writeAll(validFolder());
   change(repo);

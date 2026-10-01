@@ -11,6 +11,7 @@ import { makeRepo } from '../test/fixture.ts';
 import { PROMPT_CONTEXT } from '../lib/ask/hook.ts';
 import { readMode, readRound, readTerminal, writeMode, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.ts');
@@ -32,9 +33,9 @@ function io() {
   return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries) {
-  const store = { ...entries };
-  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
 /** Runs the real CLI in a child process, without blocking this process's event loop. */
@@ -233,7 +234,7 @@ describe('omni ask hook, with the mode on', () => {
     expect(server.calls).toEqual([]);
     expect(readRound(root, 'toolu_01')).toBeNull();
 
-    const token = tokens.read(server.host).access_token;
+    const token = tokens.read(server.host)!.access_token;
     const opened = await fetch(`${server.url}/api/ask/sessions/${sessionId}/rounds`, {
       method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ questions: [QUESTION] }),
     }).then((response) => response.json());

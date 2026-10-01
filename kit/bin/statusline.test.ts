@@ -15,6 +15,8 @@ import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.ts
 import { makeRepo } from '../test/fixture.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
 
 const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
@@ -42,17 +44,17 @@ function payload(dir: string, more = {}) {
 /** `execFileSync`, with every call it runs recorded as `<file> <args…>`. */
 function recordingExec() {
   const calls: string[] = [];
-  const exec = (file: string, args: readonly string[], options) => {
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     calls.push([file, ...args].join(' '));
-    return execFileSync(file, args, options);
+    return realExec(file, args, options);
   };
   return { calls, exec };
 }
 
 /** A spawn that starts nothing: it records each call as `{ command, args, options }`. */
 function recordingSpawn() {
-  const spawns = [];
-  const spawn = (command: any, args: any, options: any) => {
+  const spawns: { command: string; args: readonly string[]; options: unknown }[] = [];
+  const spawn = (command: string, args: readonly string[], options: unknown) => {
     spawns.push({ command, args, options });
     return { unref() {}, on() { return this; } };
   };
@@ -60,13 +62,13 @@ function recordingSpawn() {
 }
 
 /** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns }`. */
-async function statusline(cwd: string, stdin: string, options = {}, args = []) {
+async function statusline(cwd: string | undefined, stdin: string, options: Record<string, unknown> = {}, args: string[] = []) {
   const out: string[] = [];
   const err: string[] = [];
   const { calls, exec } = recordingExec();
   const { spawns, spawn } = recordingSpawn();
   const code = await main(['statusline', ...args], {
-    cwd,
+    cwd: cwd as string,
     stdout: { write: (s) => out.push(s) },
     stderr: { write: (s) => err.push(s) },
     exec,
@@ -183,7 +185,7 @@ describe('omni statusline', () => {
     const long = payload(root, { model: { display_name: 'A model whose display name is long enough to push the line past eighty' } });
     for (const env of [PLAIN, { ...PLAIN, COLUMNS: 'wide' }]) {
       const [line] = (await statusline(root, long, { env })).out.split('\n');
-      expect([...line].length).toBe(80);
+      expect([...line!].length).toBe(80);
       expect(line!.endsWith('…')).toBe(true);
     }
   });
@@ -207,7 +209,7 @@ const LONG_TOPIC = 'statusline-for-claude-code';
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
 
 /** Writes `files` under `root` and commits them. */
-function commit(root: string, files, message = 'change') {
+function commit(root: string, files: Record<string, string>, message = 'change') {
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(join(root, path, '..'), { recursive: true });
     writeFileSync(join(root, path), text);
@@ -362,7 +364,7 @@ describe('omni statusline: line 2 names the PRD the session last worked on', () 
 });
 
 const SECOND = 1000;
-const iso = (ms) => new Date(ms).toISOString();
+const iso = (ms: number) => new Date(ms).toISOString();
 
 describe('omni statusline: the slices, from a board refreshed in the background', () => {
   const fixture = originFixture();
@@ -371,14 +373,14 @@ describe('omni statusline: the slices, from a board refreshed in the background'
   const WIDE = { ...PLAIN, COLUMNS: '200' };
 
   /** PRD `prd`'s board in the fixture's main checkout, written `age` milliseconds before `NOW`. */
-  function plantBoard(prd: number, age: number, body) {
+  function plantBoard(prd: number, age: number, body: Record<string, unknown>) {
     mkdirSync(join(fixture.root, BOARD_DIR), { recursive: true });
     writeFileSync(boardFile(fixture.root, prd), JSON.stringify({ at: iso(NOW - age), ...body }));
   }
 
   /** Line 2 in `dir`, and the refreshes the run started; exit 0, nothing on stderr, no `gh`, no fetch. */
-  async function run(dir: string | undefined, env = WIDE) {
-    const result = await statusline(dir, payload(dir), { env });
+  async function run(dir: string | undefined, env: Record<string, string> = WIDE) {
+    const result = await statusline(dir, payload(dir as string), { env });
     expect({ code: result.code, err: result.err }).toEqual({ code: 0, err: '' });
     expect(neverFetches(result.calls)).toBe(true);
     return { line: result.out.split('\n')[1], spawns: result.spawns };
@@ -416,7 +418,7 @@ describe('omni statusline: the slices, from a board refreshed in the background'
     const { line, spawns } = await run(dir);
     expect(line).toBe('PRD 7 bravo · s9 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
     expect(spawns).toHaveLength(1);
-    const [{ command, args, options }] = spawns;
+    const [{ command, args, options }] = spawns as [(typeof spawns)[number]];
     expect(command).toBe(process.execPath);
     expect(args).toEqual([CLI, 'statusline', '--refresh', '7']);
     expect(options).toMatchObject({ cwd: dir, detached: true, stdio: 'ignore' });
@@ -514,9 +516,9 @@ describe('omni statusline --refresh <n>', () => {
   /** `execFileSync` for git, and a stub for `gh`: `pr list` returns `prs`, and any `gh` throws when `ghFails`. */
   function stubbedExec({ prs = PRS, ghFails = false } = {}) {
     const calls: string[] = [];
-    const exec = (file: string, args: any[] | readonly string[], options) => {
+    const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([file, ...args].join(' '));
-      if (file !== 'gh') return execFileSync(file, args, options);
+      if (file !== 'gh') return realExec(file, args, options);
       if (ghFails) throw new Error('spawnSync gh ENOENT\n    at stub');
       if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
       if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ commits: [] });

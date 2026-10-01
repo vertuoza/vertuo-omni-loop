@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
 
 function io() {
   const out: string[] = [];
@@ -92,25 +93,31 @@ const PULL_REQUEST = {
 };
 
 /** A fake `execFileSync` standing in for git and gh. Records every call. */
-function fakeExec(root: string, { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: NOW }], subPrs = [subPr('s1'), subPr('s2')], graphql = {} } = {}) {
-  const calls = [];
+/** What a fake GraphQL call answers instead of the defaults: the read, or the reply's mutation. */
+type Graphql = { read?: unknown; reply?: unknown };
+
+function fakeExec(
+  root: string,
+  { featurePrs = [{ number: 9, state: 'OPEN', updatedAt: NOW }], subPrs = [subPr('s1'), subPr('s2')], graphql = {} }: { featurePrs?: unknown[]; subPrs?: unknown[]; graphql?: Graphql } = {},
+) {
+  const calls: { file: string; args: readonly string[]; options: ExecFileSyncOptions }[] = [];
   // GraphQL answers by what the query asks for; the first match wins, the read last.
-  const answers = [
+  const answers: [string, () => unknown][] = [
     ['addPullRequestReviewThreadReply', () => graphql.reply ?? { data: { addPullRequestReviewThreadReply: { comment: { url: 'https://github.com/acme/widgets/pull/9#discussion_r9' } } } }],
     ['resolveReviewThread', () => ({ data: { resolveReviewThread: { thread: { isResolved: true } } } })],
     ['', () => graphql.read ?? { data: { repository: { pullRequest: PULL_REQUEST } } }],
   ];
-  const answerGraphql = (options) => {
-    const { query } = JSON.parse(options.input);
+  const answerGraphql = (options: ExecFileSyncOptions) => {
+    const { query } = JSON.parse(String(options.input));
     return JSON.stringify(answers.find(([asks]) => query.includes(asks))![1]());
   };
   // Every command the fake answers, by its file and first two arguments.
-  const handlers = {
+  const handlers: Record<string, (args: readonly string[], options: ExecFileSyncOptions) => string> = {
     'git rev-parse': () => `${root}\n`,
-    'gh pr list': (args: string | string[]) => JSON.stringify(args.includes('--head') ? featurePrs : subPrs),
-    'gh api graphql': (_args: any, options: any) => answerGraphql(options),
+    'gh pr list': (args) => JSON.stringify(args.includes('--head') ? featurePrs : subPrs),
+    'gh api graphql': (_args, options) => answerGraphql(options),
   };
-  const exec = (file: any, args: any[], options = {}) => {
+  const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}) => {
     calls.push({ file, args, options });
     const handler = handlers[[file, ...args.slice(0, 2)].join(' ')] ?? handlers[`${file} ${args[0]}`];
     if (!handler) throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
@@ -119,7 +126,7 @@ function fakeExec(root: string, { featurePrs = [{ number: 9, state: 'OPEN', upda
   return { exec, calls };
 }
 
-async function run(argv: any[] | readonly string[], root: string, fake) {
+async function run(argv: readonly string[], root: string, fake: ReturnType<typeof fakeExec>) {
   const s = io();
   const code = await main(argv, { cwd: root, exec: fake.exec, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
@@ -136,13 +143,13 @@ describe('omni care state', () => {
     expect(state.pr).toMatchObject({ number: 9, state: 'OPEN', base: 'main', head: 'feat/widgets' });
     expect(state.checks).toEqual({ state: 'red', failed: [{ name: 'test', url: 'https://ci/run/1' }], stuck: false, fixable: true });
     expect(state.mergeable).toBe('CONFLICTING');
-    expect(state.threads.map((t) => [t.id, t.verdict, t.needs])).toEqual([
+    expect(state.threads.map((t: { id: string; verdict: string | null; needs: string | null }) => [t.id, t.verdict, t.needs])).toEqual([
       ['T1', null, 'judge'],
       ['T2', 'pushed-back', null],
     ]);
     expect(state.status).toEqual({ commentId: 5, watchingSince: '10:00', lastRound: '10:05' });
     expect(state.wave).toEqual({ holdsClaims: false, claimed: [] });
-    expect(state.round.actions.map((a) => a.kind)).toEqual(['merge-base', 'fix-ci', 'judge', 'status']);
+    expect(state.round.actions.map((a: { kind: string }) => a.kind)).toEqual(['merge-base', 'fix-ci', 'judge', 'status']);
   });
 
   it('finds the feature PR by its branch, and reads it with the owner, name and number', async () => {
@@ -150,9 +157,9 @@ describe('omni care state', () => {
     const fake = fakeExec(root);
     await run(['care', 'state', '7'], root, fake);
     const list = fake.calls.find((c) => c.args[1] === 'list' && c.args.includes('--head'));
-    expect(list.args).toEqual(expect.arrayContaining(['--repo', 'acme/widgets', '--head', 'feat/widgets', '--state', 'all']));
+    expect(list!.args).toEqual(expect.arrayContaining(['--repo', 'acme/widgets', '--head', 'feat/widgets', '--state', 'all']));
     const read = fake.calls.find((c) => c.args[1] === 'graphql');
-    expect(JSON.parse(read.options.input).variables).toEqual({ owner: 'acme', name: 'widgets', number: 9 });
+    expect(JSON.parse(String(read!.options?.input)).variables).toEqual({ owner: 'acme', name: 'widgets', number: 9 });
   });
 
   it('says a wave holds claims while a sub-PR is open, and the round only reports', async () => {
@@ -168,14 +175,14 @@ describe('omni care state', () => {
     const fake = fakeExec(root);
     await run(['care', 'state', '7', '--pr', '12'], root, fake);
     expect(fake.calls.some((c) => c.args.includes('--head'))).toBe(false);
-    expect(JSON.parse(fake.calls.find((c) => c.args[1] === 'graphql').options.input).variables.number).toBe(12);
+    expect(JSON.parse(String(fake.calls.find((c) => c.args[1] === 'graphql')!.options.input)).variables.number).toBe(12);
   });
 
   it('prefers the open feature PR over a closed one', async () => {
     const root = repo();
     const fake = fakeExec(root, { featurePrs: [{ number: 3, state: 'CLOSED', updatedAt: NOW }, { number: 9, state: 'OPEN', updatedAt: NOW }] });
     await run(['care', 'state', '7'], root, fake);
-    expect(JSON.parse(fake.calls.find((c) => c.args[1] === 'graphql').options.input).variables.number).toBe(9);
+    expect(JSON.parse(String(fake.calls.find((c) => c.args[1] === 'graphql')!.options.input)).variables.number).toBe(9);
   });
 
   it('exits 1 with one line when the PRD has no feature PR', async () => {
@@ -213,7 +220,7 @@ describe('omni care reply', () => {
     const fake = fakeExec(root);
     const { code, out } = await run(['care', 'reply', '--verdict', verdict, '--body', 'Why.', '--thread', 'T1'], root, fake);
     expect(code).toBe(0);
-    const [reply, resolve] = fake.calls.filter((c) => c.args[1] === 'graphql').map((c) => JSON.parse(c.options.input));
+    const [reply, resolve] = fake.calls.filter((c) => c.args[1] === 'graphql').map((c) => JSON.parse(String(c.options?.input)));
     expect(reply.variables).toEqual({ thread: 'T1', body: `Why.\n\n<!-- omni-care: ${verdict} -->` });
     expect(resolve.query).toMatch(/resolveReviewThread/);
     expect(resolve.variables).toEqual({ thread: 'T1' });

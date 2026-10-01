@@ -8,6 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { DOSSIERS_FILE } from '../../lib/dossier/local.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { main } from '../omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../../test/fixture.ts';
+import type { Tokens } from '../../lib/ask/schema.ts';
+import type { FetchInit } from '../../test/fixture.ts';
 
 const BASE = 'https://omni.example';
 const HOST = 'omni.example';
@@ -16,16 +20,16 @@ const LINK = `${BASE}/prd/0b7c-dossier-7`;
 const config = ({ url = BASE, enabled = true } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
 
 /** A fetch that answers every call with `reply(url, init)` and keeps each call. */
 function stubFetch(reply) {
   const calls = [];
-  const fetch = async (url: string, init) => {
+  const fetch = async (url: string, init: FetchInit) => {
     calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization });
     return reply(String(url), init);
   };
@@ -217,7 +221,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   /** A fetch that keeps each call with its body, and answers with `reply`. */
   function recordingFetch(reply) {
     const calls = [];
-    const fetch = async (url: string, init) => {
+    const fetch = async (url: string, init: FetchInit) => {
       calls.push({ url: String(url), method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) });
       return reply(String(url), init);
     };
@@ -225,8 +229,8 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
   }
 
   /** git as it is; gh answers the issue's title with `title`, or fails when it is null. */
-  const withIssue = (title: string | null, seen = []) => (command: string, args: readonly string[], options) => {
-    if (command !== 'gh') return execFileSync(command, args, options);
+  const withIssue = (title: string | null, seen = []) => (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    if (command !== 'gh') return realExec(command, args, options);
     seen.push(args);
     if (title === null) throw new Error('gh: not found');
     return `${title}\n`;

@@ -13,6 +13,7 @@ import { DOSSIERS_FILE, readDossiers } from '../lib/dossier/local.ts';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
 
 const INBOX = '.omni-loop/delivery/inbox/0007-team-inbox';
 const SPEC = '---\nprd: 7\ntitle: Team inbox\nblocked-by: none\nspec: file\n---\n\n# Team inbox\n';
@@ -26,9 +27,9 @@ function io() {
   return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
 const config = ({ url, enabled = true }) =>

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
 
 function io() {
   const out: string[] = [];
@@ -12,9 +13,9 @@ function io() {
   return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
 const config = (url: string) => `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\n`;

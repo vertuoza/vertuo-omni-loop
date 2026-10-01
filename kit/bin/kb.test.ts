@@ -12,6 +12,7 @@ import { fillConfig } from '../lib/playbook/resolve.ts';
 import { formTemplate } from '../lib/playbook/templates.ts';
 import { formText, makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import { realExec } from '../test/fixture.ts';
 
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\ncommands:\n  test: make check\n';
 const CONFIG = { '.omni-loop/config.yml': CONFIG_TEXT };
@@ -293,7 +294,7 @@ function testingForm({ frontMatter = {}, slots = {}, extra = [] } = {}) {
 function hashing(hashes) {
   return (command: string, args: readonly string[] | (string | number)[], options) => {
     if (command === 'git' && args[0] === 'hash-object') return `${hashes[args.at(-1)]}\n`;
-    return execFileSync(command, args, options);
+    return realExec(command, args, options);
   };
 }
 

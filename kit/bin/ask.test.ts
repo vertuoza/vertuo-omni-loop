@@ -13,6 +13,7 @@ import { activeMode } from '../lib/ask/hook.ts';
 import { LOCAL_DIR, readMode, readRound, readTerminal, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
 import { ASK_URL_UNSET } from './commands/signin.ts';
 import { main } from './omni.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.ts');
@@ -33,9 +34,9 @@ function io() {
   return { out: () => out.join(''), err: () => err.join(''), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
-  return { store, read: (host: string | number) => store[host] ?? null, write: (host: string | number, tokens: any) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
 const config = (url: string | null, slug = 'acme/widgets') =>

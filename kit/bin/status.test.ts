@@ -8,6 +8,9 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+import type { FakeExec, Repo } from '../test/fixture.ts';
 
 function io() {
   const out: string[] = [];
@@ -34,7 +37,10 @@ const OTHER = 'other@example.com';
 
 /** A bare copy of `seed`, and a clone of the bare copy to run in, its `user.email` set to `ME` so
  * the output never depends on the machine's own git config. */
-function cloneOf(seed) {
+/** A clone of a bare copy of a seed repository: the seed, the bare copy and the clone's root. */
+type Clone = { seed: Repo; bare: string; root: string };
+
+function cloneOf(seed: Repo): Clone {
   const bare = join(mkdtempSync(join(tmpdir(), 'omni-bare-')), 'origin.git');
   git(seed.root, 'clone', '-q', '--bare', seed.root, bare);
   const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
@@ -143,9 +149,9 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
   it('never fetches without --fetch', async () => {
     const { root } = cloned(THREE_AND_TWO);
     const calls: any[][] = [];
-    const exec = (command: string, args: readonly string[], options) => {
+    const exec = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([command, ...args]);
-      return execFileSync(command, args, options);
+      return realExec(command, args, options);
     };
     expect(await main(['status'], { cwd: root, ...io(), exec })).toBe(0);
     expect(calls.some(([command]) => command === 'git')).toBe(true);
@@ -243,7 +249,7 @@ describe('omni status — the flags (PRD 315, slice s1)', () => {
  * Cuts `branch` in the seed from `from`, writes `files` on it, commits, pushes it to the bare
  * repository and returns to `main`; the clone then fetches, so it reads `origin/<branch>`.
  */
-function pushBranch({ seed, bare, root }, branch: string, files, { from = 'main' } = {}) {
+function pushBranch({ seed, bare, root }: Clone, branch: string, files: Record<string, string>, { from = 'main' } = {}) {
   git(seed.root, 'checkout', '-q', '-b', branch, from);
   for (const [path, text] of Object.entries(files)) seed.write(path, text);
   commit(seed.root, `on ${branch}`);
@@ -259,7 +265,7 @@ async function overviewIn(root: string) {
   expect(s.err.join('')).toBe('');
   const out = s.out.join('').split('\n');
   const bar = out.find((line) => line.startsWith('  delivered'));
-  return { counts: out.slice(2, out.indexOf('', 2)).join('\n'), bar: bar?.split('  ').at(-1), under: out[out.indexOf(bar) + 1] };
+  return { counts: out.slice(2, out.indexOf('', 2)).join('\n'), bar: bar?.split('  ').at(-1), under: out[out.indexOf(bar ?? '') + 1] };
 }
 
 const OUTBOX = `${DELIVERY}/outbox`;
@@ -350,9 +356,9 @@ describe('omni status — building and the PRDs in review (PRD 315 s2, PRD 587 s
     commit(root, 'not pushed');
     writeFileSync(join(root, `${OUTBOX}/0004-fourth/s1-02-b.md`), '# b\n');
     const calls: any[][] = [];
-    const exec = (command: string, args: readonly string[], options) => {
+    const exec = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       calls.push([command, ...args]);
-      return execFileSync(command, args, options);
+      return realExec(command, args, options);
     };
     const s = io();
     expect(await main(['status'], { cwd: root, ...s, exec })).toBe(0);
@@ -421,7 +427,7 @@ describe('omni status — the fetch time in a linked worktree (PRD 315, slice s2
 
 describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   /** Commits `files` as `email` on the seed's `branch`, cutting it from `main` when it is new. */
-  function commitOn(seed, branch: string, email: string, files) {
+  function commitOn(seed: Repo, branch: string, email: string, files: Record<string, string>) {
     const exists = git(seed.root, 'branch', '--list', branch).trim() !== '';
     if (branch !== 'main') git(seed.root, 'checkout', '-q', ...(exists ? [branch] : ['-b', branch, 'main']));
     for (const [path, text] of Object.entries(files)) seed.write(path, text);
@@ -470,7 +476,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   ];
 
   /** `omni status` in `root`, its lines. */
-  async function statusIn(root: string, exec) {
+  async function statusIn(root: string, exec?: FakeExec) {
     const s = io();
     expect(await main(['status'], { cwd: root, ...s, ...(exec ? { exec } : {}) })).toBe(0);
     expect(s.err.join('')).toBe('');
@@ -519,7 +525,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   it('says one line without a user.email, the counts and the bar still shown', async () => {
     const { root } = cloneOf(seeded());
     git(root, 'config', '--unset', 'user.email');
-    const bare = (command: string, args: readonly string[], options) => execFileSync(command, args, { ...options, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
+    const bare = (command: string, args: readonly string[], options?: ExecFileSyncOptions) => realExec(command, args, { ...options, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
     const out = await statusIn(root, bare);
     expect(yoursIn(out)).toEqual(['  set git config user.email to see yours']);
     expect(out.slice(2, 4).join('\n')).toBe('  IDEA on the app     PRD 2     INBOX 2     BUILDING 3 · 1 open item\n  OUTBOX 0     SHIPPED 3     RETRO 0');
