@@ -113,11 +113,11 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
   // Their categories (PRD 144): one the model sorted, one the owner set, and the open one unsorted.
   const answered = [
     round(1, [MODE], 14 * MIN, {
-      status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0].label }, answered_at: iso(now - 13 * MIN),
+      status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0]!.label }, answered_at: iso(now - 13 * MIN),
       category: 'architecture', category_by: 'model',
     }),
     round(2, [HOST], 8 * MIN, {
-      status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0].label }, answered_at: iso(now - 7 * MIN),
+      status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0]!.label }, answered_at: iso(now - 7 * MIN),
       category: 'product', category_by: DEMO_OWNER,
     }),
   ];
@@ -166,7 +166,7 @@ export function demoSessions(scenario: DemoScenario, now: number): SessionState[
     rounds: [{
       id: `demo-terminal-${n}-round-1`,
       questions: [question],
-      answers: { [question.question]: question.options[0].label },
+      answers: { [question.question]: question.options[0]!.label },
       answered_via: 'page',
       status: 'answered',
       created_at: iso(now - ago - 3 * MIN),
@@ -194,7 +194,7 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
   return {
     async read() {
       if (askAt !== null && now() >= askAt && asked < LATER.length) {
-        const questions = LATER[asked];
+        const questions = LATER[asked]!;
         asked += 1;
         askAt = null;
         state.rounds.push({ id: `demo-round-${3 + asked}`, questions, answers: null, answered_via: null, status: 'open', created_at: iso(now()), answered_at: null });
@@ -234,7 +234,7 @@ export function demoHistory(now: number): HistoryRow[] {
     options: [{ label: '14 days', description: '' }, { label: '30 days', description: '' }],
   };
   const pricing: SessionRow = {
-    id: 'demo-pricing', owner: DEMO_MEMBERS[1].user_id, title: 'vertuo-app · feat/pricing', status: 'closed',
+    id: 'demo-pricing', owner: DEMO_MEMBERS[1]!.user_id, title: 'vertuo-app · feat/pricing', status: 'closed',
     created_at: iso(now - 3 * 24 * 60 * MIN), last_seen_at: iso(now - 3 * 24 * 60 * MIN + 30 * MIN), repo: 'vertuoza/vertuo-app', branch: 'feat/pricing',
   };
   const trial: RoundRow = {
@@ -244,19 +244,19 @@ export function demoHistory(now: number): HistoryRow[] {
     attachments: { [TRIAL.question]: ['demo-round-trial/1.png', 'demo-round-trial/2.png'] },
   };
   // The page answer came from the teammate it was shared with; the terminal's is the owner's.
-  const answeredBy = (round: RoundRow) => (round.status !== 'answered' ? null : round.answered_via === 'terminal' ? DEMO_OWNER : DEMO_MEMBERS[1].user_id);
+  const answeredBy = (round: RoundRow) => (round.status !== 'answered' ? null : round.answered_via === 'terminal' ? DEMO_OWNER : DEMO_MEMBERS[1]!.user_id);
   return [...rounds.map((round) => ({ round: { ...round, answered_by: answeredBy(round) }, session })), { round: trial, session: pricing }];
 }
 
 /** The teammate the demo's open question is shared with: whoever plays /ask/q/demo is them. */
-export const DEMO_TEAMMATE = DEMO_MEMBERS[1].user_id;
+export const DEMO_TEAMMATE = DEMO_MEMBERS[1]!.user_id;
 
 /** The demo's shared question (PRD 144): its open round, shared with the teammate, or (`answered`)
  * already answered by the owner in the terminal. */
 export function demoQuestion(now: number, answered = false): QuestionState {
   const { session, rounds } = demoState('demo', 'open', now);
-  const open = rounds[rounds.length - 1];
-  const answers = Object.fromEntries((open.questions as Array<{ question: string; options: Array<{ label: string }> }>).map((q) => [q.question, q.options[0].label]));
+  const open = rounds[rounds.length - 1]!;
+  const answers = Object.fromEntries((open.questions as Array<{ question: string; options: Array<{ label: string }> }>).map((q) => [q.question, q.options[0]!.label]));
   const round = answered
     ? { ...open, status: 'answered' as const, answers, answered_via: 'terminal' as const, answered_at: iso(now - 20_000), answered_by: DEMO_OWNER }
     : open;

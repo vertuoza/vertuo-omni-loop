@@ -7,7 +7,7 @@ const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const CREDS = { appId: '123456', privateKey: PEM };
 const NOW = Date.parse('2026-09-28T10:00:00Z');
 
-const part = (jwt: string, i: number) => JSON.parse(Buffer.from(jwt.split('.')[i], 'base64url').toString('utf8'));
+const part = (jwt: string, i: number) => JSON.parse(Buffer.from(jwt.split('.')[i]!, 'base64url').toString('utf8'));
 
 describe('the App\'s JWT', () => {
   it('is signed RS256 with the App\'s key, issued by the App, for under ten minutes', () => {
@@ -15,7 +15,7 @@ describe('the App\'s JWT', () => {
     const [head, body, sig] = jwt.split('.');
     expect(part(jwt, 0)).toEqual({ alg: 'RS256', typ: 'JWT' });
     expect(part(jwt, 1)).toEqual({ iss: '123456', iat: NOW / 1000 - 60, exp: NOW / 1000 + 540 });
-    expect(createVerify('RSA-SHA256').update(`${head}.${body}`).verify(publicKey, Buffer.from(sig, 'base64url'))).toBe(true);
+    expect(createVerify('RSA-SHA256').update(`${head}.${body}`).verify(publicKey, Buffer.from(sig!, 'base64url'))).toBe(true);
   });
 });
 

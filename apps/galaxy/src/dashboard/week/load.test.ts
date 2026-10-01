@@ -54,7 +54,7 @@ describe('the week, read', () => {
     await loadWeek(inputOf(w, PEOPLE.ada, VERTUOZA, 'ada-gh'));
     const reads = w.calls.filter((c) => c.kind === 'from');
     expect(reads).toHaveLength(1);
-    const [read] = reads as Array<Extract<(typeof w.calls)[number], { kind: 'from' }>>;
+    const [read] = reads as [Extract<(typeof w.calls)[number], { kind: 'from' }>];
     expect(read).toMatchObject({ table: 'contributions', op: 'select', eq: { workspace_id: VERTUOZA, kind: 'pr-merged' } });
     expect(read.filters).toContainEqual({ column: 'login', op: 'ilike', value: 'ada-gh' });
     const since = read.filters?.find((f) => f.column === 'at' && f.op === 'gte')?.value as string;

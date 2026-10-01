@@ -50,13 +50,13 @@ const section = (html: string, id: string) => {
   const at = html.indexOf(`aria-labelledby="${id}"`);
   return html.slice(at, html.indexOf('</section>', at));
 };
-const rows = (html: string) => [...section(html, 'board-people').matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].slice(1).map((m) => text(m[1]));
+const rows = (html: string) => [...section(html, 'board-people').matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].slice(1).map((m) => text(m[1]!));
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 
 describe('Home, with the real board', () => {
   it('in a fleet: Your fleet lists every member of the fleet, Paul at 0 included, you marked, and no one else', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' });
-    const heading = /<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1];
+    const heading = /<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1]!;
     expect(text(heading)).toBe('Your fleet OCTO');
     expect(heading).toMatch(/<a class="fleet-chip is-inline" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg /);
     expect(rows(html)).toEqual([
@@ -68,7 +68,7 @@ describe('Home, with the real board', () => {
   });
 
   it('counts only you in the tiles: your merges and your questions, not your team\'s', () => {
-    const tiles = text(home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' }).split('board-charts')[0]);
+    const tiles = text(home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' }).split('board-charts')[0]!);
     expect(tiles).toContain('PRs merged 2');
     expect(tiles).toContain('Questions answered 4');
   });
@@ -84,20 +84,20 @@ describe('Home, with the real board', () => {
   it('solo: your own row, and the line to Fleet', () => {
     const html = home({ userId: 'u-bob', login: 'bob-gh', team: null });
     expect(rows(html)).toEqual(['BOB ◀ (you) BEAVER 300 3 0 · 0 · 0 6']);
-    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1])).toBe('Your fleet · SOLO');
+    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1]!)).toBe('Your fleet · SOLO');
     expect(section(html, 'board-people')).toMatch(/<a href="\/app\/fleet">See a fleet’s board on Fleet<\/a>/);
   });
 
   it('the roster out of reach: only Your fleet says so, still headed by your fleet; the tiles and charts still count you', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' }, { roster: true });
-    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1])).toBe('Your fleet OCTO');
+    expect(text(/<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1]!)).toBe('Your fleet OCTO');
     expect(text(section(html, 'board-people'))).toContain(UNREADABLE_LINE);
-    expect(text(html.split('board-charts')[0])).toContain('PRs merged 2');
+    expect(text(html.split('board-charts')[0]!)).toContain('PRs merged 2');
   });
 
   it('the contributions out of reach: the tiles they fill and the charts say so; Questions answered and the team stay', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' }, { activity: true });
-    expect(text(html.split('board-charts')[0])).toContain('Questions answered 4');
+    expect(text(html.split('board-charts')[0]!)).toContain('Questions answered 4');
     expect(text(section(html, 'board-merges'))).toContain(UNREADABLE_LINE);
     expect(rows(html)).toHaveLength(2);
   });

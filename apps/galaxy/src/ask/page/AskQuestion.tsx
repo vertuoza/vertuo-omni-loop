@@ -116,7 +116,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
     setProblem(null);
     try {
       const set = await getPort().sort(state.round.id, category);
-      if (set) setState((s) => ({ ...s, round: withCategory({ session: s.session, rounds: [s.round] }, s.round.id, set).rounds[0] }));
+      if (set) setState((s) => ({ ...s, round: withCategory({ session: s.session, rounds: [s.round] }, s.round.id, set).rounds[0] ?? s.round }));
       else setProblem('This question could not be sorted: it is no longer in your workspace.');
     } catch {
       setProblem('The category was not saved. Check your connection and try again.');

@@ -14,6 +14,8 @@ import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
 
+type Asked = ReturnType<typeof readQuestions>[number];
+
 // The round and the history as the server renders them: what a person sees before any script runs.
 
 const [storage, checks] = readQuestions([
@@ -32,7 +34,7 @@ const [storage, checks] = readQuestions([
     multiSelect: true,
     options: [{ label: 'RLS', description: 'two JWTs' }, { label: 'Handlers', description: 'stubbed client' }],
   },
-]);
+]) as [Asked, Asked];
 
 function round(draft = emptyDraft([storage, checks]), canSend = false) {
   return renderToStaticMarkup(
@@ -86,7 +88,7 @@ describe('the round, rendered', () => {
 
   it('keeps Send off until every question has an answer', () => {
     expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to Claude<\/button>/);
-    const draft = [pickOption(storage, emptyDraft([storage])[0], 'Memory'), pickOption(checks, emptyDraft([checks])[0], 'RLS')];
+    const draft = [pickOption(storage, emptyDraft([storage])[0]!, 'Memory'), pickOption(checks, emptyDraft([checks])[0]!, 'RLS')];
     expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to Claude<\/button>/);
   });
 
@@ -161,7 +163,7 @@ describe('the shared-round page, answered with screenshots (PRD 620)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const page = (shots: boolean) => {
     const initial = demoQuestion(NOW, true);
-    const question = Object.keys(initial.round.answers ?? {})[0];
+    const question = Object.keys(initial.round.answers ?? {})[0]!;
     const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
     return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
   };
@@ -353,7 +355,7 @@ describe('a long question, rendered (PRD 752)', () => {
         { label: 'Not yet', description: 'Nobody made it.' },
       ],
     },
-  ]);
+  ]) as [Asked];
   const html = renderToStaticMarkup(createElement(RoundForm, {
     roundId: 'r1', questions: [erp], draft: emptyDraft([erp]), onDraft: () => {}, canSend: false, sending: false, onSend: () => {}, minutesLeft: 8,
   }));
@@ -375,7 +377,7 @@ describe('a long question, rendered (PRD 752)', () => {
   it('shows a backticked path as code, and raw HTML in a question or a description as text', () => {
     expect(html).toContain('<code>libs/vertuo-workflow-ui/README.md</code>');
     expect(html).toContain('<span class="ask-opt-desc">The change is in <code>vertuo-apps</code> &lt;b&gt;x&lt;/b&gt;.</span>');
-    const [raw] = readQuestions([{ question: `${'<b>x</b> '.repeat(40)}Fine?`, header: 'Raw', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }]);
+    const [raw] = readQuestions([{ question: `${'<b>x</b> '.repeat(40)}Fine?`, header: 'Raw', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }]) as [Asked];
     const shown = renderToStaticMarkup(createElement(RoundForm, {
       roundId: 'r2', questions: [raw], draft: emptyDraft([raw]), onDraft: () => {}, canSend: false, sending: false, onSend: () => {}, minutesLeft: 8,
     }));

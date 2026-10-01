@@ -16,7 +16,7 @@ export type ForMeRead =
 export async function readForMeLive(now: number): Promise<ForMeRead> {
   const mode = arcadeMode(process.env);
   if (mode === 'demo') {
-    const [, teammate] = DEMO_MEMBERS;
+    const teammate = DEMO_MEMBERS[1]!;
     return {
       kind: 'entries',
       entries: [{ roundId: 'demo', question: 'How should the page and the agent be authenticated?', sessionTitle: 'vertuo-omni-loop · feat/ask-mode', sharedBy: teammate.name ?? teammate.email, minutesLeft: 7 }],

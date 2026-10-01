@@ -17,7 +17,7 @@ describe('the working-pings migration', () => {
   });
 
   it('keeps no tool, path or text: only the session, the repository, the work and the time', () => {
-    const columns = [...oneLine.matchAll(/^.*?create table public\.working_pings \((.*?)\);/g)][0][1];
+    const columns = [...oneLine.matchAll(/^.*?create table public\.working_pings \((.*?)\);/g)][0]![1];
     expect(columns).not.toMatch(/\b(tool|path|command|transcript|content)\b/);
   });
 

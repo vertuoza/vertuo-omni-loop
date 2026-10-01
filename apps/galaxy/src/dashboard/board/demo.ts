@@ -57,12 +57,12 @@ export function demoActivity(roster: readonly Member[], now: Date): Activity[] {
     logins.forEach((login, k) => {
       // Paul merges most days: the member a points-only board missed.
       const merges = login === 'paul-e' ? (back % 3 === 0 ? 0 : 1) : login === 'new-hire' ? 0 : (back * 7 + k * 3) % 11 < 2 ? 1 : 0;
-      for (let i = 0; i < merges; i++) rows.push({ kind: 'pr-merged', repo: REPOS[(back + k) % REPOS.length], number: ++number, login, at: noon(back) });
+      for (let i = 0; i < merges; i++) rows.push({ kind: 'pr-merged', repo: REPOS[(back + k) % REPOS.length]!, number: ++number, login, at: noon(back) });
     });
     if (back % 4 === 1) rows.push({ kind: 'pr-merged', repo: 'vertuo-core', number: ++number, login: OUTSIDER, at: noon(back) });
     if (back % 3 === 0) {
       const prd = 500 + back;
-      const author = logins[back % logins.length];
+      const author = logins[back % logins.length]!;
       rows.push({ kind: 'prd-opened', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back) });
       if (back >= 2) rows.push({ kind: 'prd-started', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 2) });
       if (back >= 5) rows.push({ kind: 'prd-shipped', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 5) });
@@ -86,7 +86,7 @@ const DEMO_STAGES: readonly StageId[] = ['shipped', 'shipped', 'retro', 'buildin
 export function demoPrds(roster: readonly Member[]): PrdNow[] {
   const authors = roster.filter((m) => m.login && m.login !== 'new-hire');
   return authors.flatMap((m, k) => [0, 1].map((i): PrdNow => {
-    const stage = DEMO_STAGES[(k * 2 + i) % DEMO_STAGES.length];
+    const stage = DEMO_STAGES[(k * 2 + i) % DEMO_STAGES.length]!;
     return stage === 'idea' ? { stage, login: null, userId: m.userId } : { stage, login: m.login, userId: null };
   }));
 }

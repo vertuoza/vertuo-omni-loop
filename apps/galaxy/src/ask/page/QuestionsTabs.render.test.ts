@@ -19,9 +19,9 @@ const render = (current: string, questions: WaitingQuestion[] = FIVE) =>
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
-  href: /href="([^"]*)"/.exec(m[1])?.[1],
-  current: /aria-current="page"/.test(m[1]),
-  text: text(m[2]),
+  href: /href="([^"]*)"/.exec(m[1]!)?.[1],
+  current: /aria-current="page"/.test(m[1]!),
+  text: text(m[2]!),
 }));
 
 describe('the Questions tabs', () => {
