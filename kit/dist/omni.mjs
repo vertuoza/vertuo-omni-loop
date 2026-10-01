@@ -28085,9 +28085,9 @@ function codeOf(name) {
 function idParts(id) {
   if (!ID_SHAPE.test(id)) return null;
   const core = id.match(/^N(\d+)$/);
-  if (core) return { type: "CORE", codes: [], n: core[1] };
+  if (core) return { type: "CORE", codes: [], n: core[1] ?? "" };
   const parts = id.split("-");
-  return { type: parts[0], codes: parts.slice(1, -1), n: parts.at(-1) };
+  return { type: parts[0] ?? "", codes: parts.slice(1, -1), n: parts.at(-1) ?? "" };
 }
 function readFields(lines) {
   const fields = {};
@@ -28101,7 +28101,7 @@ function readFields(lines) {
       const key = FIELD_KEY[match[1]];
       counts2[key] = (counts2[key] ?? 0) + 1;
       if (counts2[key] === 1) {
-        fields[key] = match[2].trim();
+        fields[key] = (match[2] ?? "").trim();
         open3 = key;
       } else {
         open3 = null;
@@ -28120,8 +28120,9 @@ var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
 function readProposed(file2, id, value) {
   if (value === void 0) return { proposed: null, problems: [] };
   const match = value.match(PROPOSED_VALUE);
-  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
-    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  const [, by = "", on = ""] = match ?? [];
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(by)) {
+    return { proposed: { by, on }, problems: [] };
   }
   return {
     proposed: { by: null, on: null },
@@ -28135,7 +28136,7 @@ function splitEntries(text4) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries3.push(current);
-      current = { id: match[1], lines: [] };
+      current = { id: match[1] ?? "", lines: [] };
     } else if (ANY_H2.test(line)) {
       if (current) entries3.push(current);
       current = null;
@@ -33638,9 +33639,9 @@ function findOwningLibraryViolations(ctx, knowledge2) {
     if (!existsSync19(join25(ctx.root, readme))) continue;
     const section4 = readFileSync20(join25(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed2 = section4.split(/^## /m)[0];
+    const listed2 = section4.split(/^## /m)[0] ?? "";
     for (const match of listed2.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
-      const path = match[1].replace(/\/$/, "");
+      const path = (match[1] ?? "").replace(/\/$/, "");
       if (!existsSync19(join25(ctx.root, path))) {
         violations.push(
           violation(readme, domain2.name, `names owning library ${path}, which does not exist.`)
@@ -33693,7 +33694,7 @@ function findCrossDomainFileViolations(knowledge2) {
       violations.push(violation(file2, name, 'is not named "<a>--<b>", two domains.'));
       continue;
     }
-    const [a, b] = pair;
+    const [a = "", b = ""] = pair;
     for (const half of pair) {
       if (!known.has(half)) {
         violations.push(violation(file2, name, `names "${half}", which is not a domain folder.`));
@@ -33753,7 +33754,7 @@ function idShapeViolations(entry) {
       )
     ];
   }
-  const expected = PREFIX_OF_KIND[entry.kind];
+  const expected = entry.kind === null ? void 0 : PREFIX_OF_KIND[entry.kind];
   if (parts.type !== expected) {
     return [
       violation(
@@ -33780,7 +33781,7 @@ function headingAnchors(text4) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
-    const base = match[1].replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+    const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
     anchors.add(count3 === 0 ? base : `${base}-${count3}`);
@@ -33792,7 +33793,7 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
   if (ctx.copyOf) return violations;
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
-    const [path, anchor2] = part.split("#");
+    const [path = "", anchor2] = part.split("#");
     if (anchor2 && existsSync19(join25(ctx.root, path)) && path.endsWith(".md")) {
       if (!headingAnchors(readFileSync20(join25(ctx.root, path), "utf8")).has(anchor2.toLowerCase())) {
         violations.push(
@@ -33916,7 +33917,7 @@ function findEntryViolations(ctx, entries3) {
         )
       );
     }
-    if (entry.serves !== null) violations.push(...servesViolations(entry, principles));
+    if (entry.serves !== null) violations.push(...servesViolations({ ...entry, serves: entry.serves }, principles));
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
@@ -33945,11 +33946,15 @@ function findProposals(entries3) {
     (entry) => violation(
       entry.file,
       entry.id,
-      `is proposed by ${entry.proposed.by} on ${entry.proposed.on} \u2014 not a law until a person removes its "Proposed:" line.`
+      `is proposed by ${entry.proposed?.by} on ${entry.proposed?.on} \u2014 not a law until a person removes its "Proposed:" line.`
     )
   );
 }
-function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
+function gradeKnowledge({
+  ctx,
+  files = [],
+  glossaryText
+}) {
   const knowledge2 = readKnowledge({ ctx });
   const resolve5 = (id) => knowledge2.entries.find((entry) => entry.id === id);
   const text4 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
@@ -36262,10 +36267,7 @@ init_define_OMNI_BUNDLE();
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
 // kit/lib/knowledge/classify.ts
-var CLASSIFICATION_KINDS = (
-  /** @type {const} */
-  ["adr", "invariant", "rule", "covered", "stays-here"]
-);
+var CLASSIFICATION_KINDS = ["adr", "invariant", "rule", "covered", "stays-here"];
 var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
@@ -36323,7 +36325,7 @@ function knowledgeSummary({ ctx }) {
   });
   const principles = knowledge2.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf2(entry), statement: entry.statement }));
   const laws = knowledge2.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf2(entry), statement: entry.statement }));
-  const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number, title: record2.title })) : [];
+  const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number ?? "", title: record2.title })) : [];
   return { places, domains, principles, decisions, laws };
 }
 function allowedKinds(places) {
@@ -36362,7 +36364,7 @@ function classificationSchema(summary) {
     }
     if (reply.kind === "covered") {
       const record2 = reply.covers.match(RECORD_ID);
-      const known = record2 ? records.has(record2[1]) : entryIds.has(reply.covers);
+      const known = record2 ? records.has(record2[1] ?? "") : entryIds.has(reply.covers);
       if (!known) issue2(["covers"], `covers "${reply.covers}", which names no existing entry or decision record`);
     }
   });
@@ -36479,7 +36481,7 @@ function toCandidate(entry, ledgerFile) {
   return {
     id: entry.id,
     ledgerFile,
-    item: parsed.ok ? parsed.item : null,
+    item: parsed.ok ? parsed.item ?? null : null,
     itemText: entry.itemText,
     answer: entry.answerText,
     verdict: entry.verdict ?? null,
@@ -36492,7 +36494,8 @@ function toCandidate(entry, ledgerFile) {
   };
 }
 function candidatesFromLedger(text4, { markers, ledgerFile = null }) {
-  return parseSettledEntries(text4, markers).filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
+  const entries3 = parseSettledEntries(text4, markers);
+  return entries3.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd: prd2 }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
@@ -36588,7 +36591,7 @@ function makeFiles(ctx) {
         const absolute = join42(ctx.root, path);
         texts.set(path, existsSync35(absolute) ? readFileSync31(absolute, "utf8") : null);
       }
-      return texts.get(path);
+      return texts.get(path) ?? null;
     },
     write(path, text4) {
       texts.set(path, text4);
@@ -36596,7 +36599,7 @@ function makeFiles(ctx) {
     },
     changed: /* @__PURE__ */ new Set(),
     writes() {
-      return [...this.changed].map((path) => ({ path, text: texts.get(path) }));
+      return [...this.changed].map((path) => ({ path, text: texts.get(path) ?? "" }));
     }
   };
 }
@@ -36608,7 +36611,7 @@ function appendEntry(text4, entry, { heading }) {
     const start = lines.findIndex((line) => NONE_YET.test(line));
     if (start !== -1) {
       let end = start;
-      while (end < lines.length && lines[end].trim() !== "") end += 1;
+      while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
       lines.splice(start, end - start);
       base = lines.join("\n");
     }
@@ -36624,7 +36627,17 @@ function sourceLine(candidate, ledgerFile, prd2) {
 function renderRegisterEntry({ id, statement: statement2, fields }) {
   return [`## ${id}`, "", oneLine(statement2), "", ...fields.map(([key, value]) => `${key}: ${value}`), ""].join("\n");
 }
-function renderRecord({ number: number4, reply, candidate, status: status3, decided, merged, merge: merge2, prd: prd2, ledgerFile }) {
+function renderRecord({
+  number: number4,
+  reply,
+  candidate,
+  status: status3,
+  decided,
+  merged,
+  merge: merge2,
+  prd: prd2,
+  ledgerFile
+}) {
   const option = chosenOption(candidate);
   return [
     `# ADR-${number4} \u2014 ${oneLine(reply.title)}`,
@@ -36658,14 +36671,20 @@ function addLedgerLine(text4, { id, line, markers }) {
   const end = close === -1 ? lines.length : close;
   let at = -1;
   for (let index = open3 + 1; index < end; index += 1) {
-    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index])) at = index;
+    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? "")) at = index;
     else if (at !== -1) break;
   }
   if (at === -1) return null;
   lines.splice(at + 1, 0, line);
   return lines.join("\n");
 }
-function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date5 }) {
+function writeKnowledge({
+  ctx,
+  classified,
+  merge: merge2,
+  taken = {},
+  date: date5
+}) {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
   const merged = mergedLine(merge2);
@@ -36696,7 +36715,7 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
       const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd2);
       const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.serves ?? null;
+      let serves = reply.kind === "rule" ? reply.serves : null;
       let principleId = null;
       if (reply.kind === "rule" && serves === NEW_PRINCIPLE) {
         principleId = numbering.entry("principle", place.code);
@@ -36720,13 +36739,14 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
       );
       touched.push(path);
       landedAs = [id];
-      if (principleId) {
+      if (principleId && reply.kind === "rule") {
+        const proposal = reply.principle;
         const principlePath = `${place.dir}/${LAYER.principle}`;
         const principle = renderRegisterEntry({
           id: principleId,
-          statement: reply.principle.statement,
+          statement: proposal.statement,
           fields: [
-            ["Why", oneLine(reply.principle.why)],
+            ["Why", oneLine(proposal.why)],
             ["Source", source],
             ["Merged", merged],
             ["Proposed", proposedLine]
@@ -36764,6 +36784,11 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
 }
 
 // kit/lib/knowledge/pipeline.ts
+var settleAtMerge2 = settleAtMerge;
+var planShip2 = planShip;
+var movedPath2 = movedPath;
+var findOutboxViolations2 = findOutboxViolations;
+var askModel2 = askModel;
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -36829,7 +36854,7 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
   const n = Number(prd2);
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge: merge2 });
+    const settle3 = settleAtMerge2({ ctx: scratch, prd: n, merge: merge2 });
     if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
       deletes: settle3.deletes,
@@ -36841,16 +36866,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     let rewrites = [];
     if (scratch.layout.whereIs(n).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
-      const plan2 = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync32(join43(scratch.root, file2), "utf8") });
+      const plan2 = planShip2(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync32(join43(scratch.root, file2), "utf8") });
       if (!plan2.ok) return { ok: false, errors: plan2.reasons };
       moves = plan2.moves;
-      rewrites = plan2.rewrites.map(({ file: file2, text: text4 }) => ({ path: movedPath(moves, file2), text: text4 }));
+      rewrites = plan2.rewrites.map(({ file: file2, text: text4 }) => ({ path: movedPath2(moves, file2), text: text4 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
       deletes: settleEdits.deletes,
       moves,
-      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath(moves, w.path), text: w.text })), ...rewrites])
+      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath2(moves, w.path), text: w.text })), ...rewrites])
     };
     return {
       ok: true,
@@ -36863,11 +36888,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     };
   });
 }
-async function classifyCandidate({ candidate, summary, env, fetch }) {
+async function classifyCandidate({
+  candidate,
+  summary,
+  env,
+  fetch
+}) {
   if (allowedKinds(summary.places).every((kind) => kind === "covered" || kind === "stays-here")) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
-  const answer = await askModel({
+  const answer = await askModel2({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
     check: classificationSchema(summary),
@@ -36876,7 +36906,10 @@ async function classifyCandidate({ candidate, summary, env, fetch }) {
     fetch,
     title: "omni harvest"
   });
-  if (answer.ok) return { id: candidate.id, reply: answer.reply, reason: null, error: null };
+  if (answer.ok) {
+    const reply = answer.reply;
+    return { id: candidate.id, reply, reason: null, error: null };
+  }
   const reason2 = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason: reason2, error: answer.error === NO_KEY ? NO_KEY : answer.error };
 }
@@ -36885,12 +36918,19 @@ function knowledgeFiles(ctx) {
 }
 function runChecks(ctx) {
   const knowledge2 = existsSync36(join43(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
-  const outbox = findOutboxViolations({ ctx });
+  const outbox = findOutboxViolations2({ ctx });
   return { knowledge: knowledge2, outbox };
 }
 var newOnes = (after, before) => after.filter((line) => !before.includes(line));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
-function finishHarvest({ ctx, prepared, classified, merge: merge2, taken = {}, date: date5 }) {
+function finishHarvest({
+  ctx,
+  prepared,
+  classified,
+  merge: merge2,
+  taken = {},
+  date: date5
+}) {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
     const before = runChecks(scratch);
@@ -36905,7 +36945,13 @@ function finishHarvest({ ctx, prepared, classified, merge: merge2, taken = {}, d
         if (keep && !keep.includes(candidate.id)) return null;
         return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0 };
       });
-      return writeKnowledge({ ctx: scratch, classified: input2.filter(Boolean), merge: merge2, taken, date: date5 });
+      return writeKnowledge({
+        ctx: scratch,
+        classified: input2.filter((entry) => entry !== null),
+        merge: merge2,
+        taken,
+        date: date5
+      });
     };
     const failures = (result2) => inScratch(scratch, (trial) => {
       applyHarvestEdits({ root: trial.root, edits: { deletes: [], moves: [], writes: result2.writes } });
@@ -39282,6 +39328,9 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
 var KINDS5 = ["principle", "rule", "invariant"];
+function hasKind(entry) {
+  return KINDS5.includes(entry.kind);
+}
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 function prdOf2(source) {
   const match = PRD_IN_SOURCE.exec(source ?? "");
@@ -39307,14 +39356,15 @@ function graphEntry(entry, pairs) {
 function countsOf(entries3) {
   const counts2 = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
   for (const entry of entries3) {
-    counts2[`${entry.kind}s`] += 1;
+    const kindKey = `${entry.kind}s`;
+    counts2[kindKey] += 1;
     counts2[entry.status === "law" ? "laws" : "proposed"] += 1;
   }
   return counts2;
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file: file2, pair }) => [file2, pair ?? []]));
-  const entries3 = knowledge2.entries.filter((entry) => KINDS5.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const entries3 = knowledge2.entries.filter(hasKind).map((entry) => graphEntry(entry, pairs));
   const byId = new Map(entries3.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
@@ -39323,7 +39373,7 @@ function buildGraph(knowledge2, { repo }) {
   const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries3.filter((entry) => entry.domain === row.name)) }));
   const links = [];
   for (const entry of entries3) {
-    const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
+    const served2 = entry.kind === "principle" || entry.serves === null ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
     const cited2 = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
     for (const id of cited2) {

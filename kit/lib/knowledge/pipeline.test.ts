@@ -1,11 +1,11 @@
-// @ts-nocheck
 import { rmSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { makeMarkers } from '../markers.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { renderAdoptedEntry, settledHeader } from '../outbox/settle.ts';
-import { finishHarvest, noEdits, prepareHarvest } from './pipeline.ts';
+import type { ClassificationReply } from './classify.ts';
+import { finishHarvest, noEdits, prepareHarvest, type Prepared } from './pipeline.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -14,7 +14,7 @@ const INBOX = `${D}/inbox/0042-widgets`;
 const SHIPPED = `${D}/shipped/0042-widgets`;
 const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: 43, url: 'https://github.com/acme/widgets/pull/43' };
 
-function adopted(id) {
+function adopted(id: string): string {
   const text = [
     '---',
     `id: ${id}`,
@@ -62,7 +62,7 @@ function adopted(id) {
 const IDS = ['s1-01-local-name', 's1-02-button-colour', 's1-03-covered', 's1-04-unasked'];
 
 /** A PRD already shipped by its feature branch, whose ledger holds four adopted decisions. */
-function files(prdDir) {
+function files(prdDir: string): Record<string, string> {
   const ledger = `${prdDir}/outbox/settled.md`;
   return {
     '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n',
@@ -78,21 +78,21 @@ function files(prdDir) {
   };
 }
 
-const STAYS = { kind: 'stays-here', statement: 'A local choice.', reason: 'nothing lasting' };
-const COVERED = { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' };
-const ADR = { kind: 'adr', title: 'Widgets are built the simple way', statement: 'Widgets are built the simple way.', reason: 'how it is built' };
+const STAYS: ClassificationReply = { kind: 'stays-here', statement: 'A local choice.', reason: 'nothing lasting' };
+const COVERED: ClassificationReply = { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' };
+const ADR: ClassificationReply = { kind: 'adr', title: 'Widgets are built the simple way', statement: 'Widgets are built the simple way.', reason: 'how it is built' };
 
-const repos = [];
+const repos: { root: string }[] = [];
 afterEach(() => {
-  while (repos.length) rmSync(repos.pop().root, { recursive: true, force: true });
+  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
 });
 
-function harvest(prdDir, replies) {
+function harvest(prdDir: string, replies: Record<string, ClassificationReply>) {
   const r = makeRepo({ files: files(prdDir), git: true });
   repos.push(r);
-  const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE });
+  const prepared = prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }) as Extract<Prepared, { ok: true }>;
   const classified = prepared.candidates.map((c) =>
-    replies[c.id] ? { id: c.id, reply: replies[c.id] } : { id: c.id, reply: null, reason: 'not asked' },
+    replies[c.id] ? { id: c.id, reply: replies[c.id]! } : { id: c.id, reply: null, reason: 'not asked' },
   );
   return { prepared, finished: finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' }) };
 }
@@ -132,7 +132,7 @@ describe('finishHarvest with a promotion', () => {
     expect(noEdits(finished.edits)).toBe(false);
     const paths = finished.edits.writes.map((w) => w.path);
     expect(paths).toContain(`${K}/adr/0002-widgets-are-built-the-simple-way.md`);
-    const ledger = finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`).text;
+    const ledger = finished.edits.writes.find((w) => w.path === `${SHIPPED}/outbox/settled.md`)!.text;
     expect(ledger).toContain('- Stays here: nothing lasting');
     expect(ledger).toContain('- Became: ADR-0002');
     expect(ledger).toContain('- Became: ADR-0001');

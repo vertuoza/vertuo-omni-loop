@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Decisions written as knowledge** (PRD #82, slice s5). The model classifies; code writes. This
  * module takes classified harvest candidates (`harvestCandidates` entries, each with the reply
@@ -28,9 +27,63 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { readDecisions } from '../playbook/decisions.ts';
 import { ADOPTED_VERDICT } from '../outbox/settle.ts';
-import { NEW_PRINCIPLE, PRODUCT_PLACE } from './classify.ts';
+import type { Context } from '../context.ts';
+import { NEW_PRINCIPLE, PRODUCT_PLACE, type ClassificationReply, type ItemSections } from './classify.ts';
 import { BECAME_FIELD, STAYS_HERE_FIELD } from './harvest.ts';
-import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge } from './registers.ts';
+import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge, type EntryKind } from './registers.ts';
+
+/** The merge a harvest runs after: who merged, when, and which pull request. */
+export type Merge = { by: string; at: string; pr: number; url?: string };
+
+/** The record numbers and register ids the open knowledge branches already hold. */
+export type Taken = { records?: readonly (string | number)[]; ids?: readonly string[] };
+
+/** What writing reads of a candidate (a `harvestCandidates` entry). */
+export type WriteCandidate = {
+  id: string;
+  ledgerFile: string | null;
+  item?: { prd?: number | null; sections?: ItemSections | null } | null;
+  answer?: string | null;
+  verdict?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  channel?: string | null;
+  closed?: string | null;
+};
+
+/** One classified candidate: the reply `classificationSchema` accepted, or why there is none. */
+export type Classified = { candidate: WriteCandidate; reply: ClassificationReply | null; reason?: string | null | undefined };
+
+/** A candidate that landed: what it became, which files it touched, and its ledger line. */
+export type Placed = {
+  id: string;
+  kind: ClassificationReply['kind'];
+  landedAs: string[];
+  files: string[];
+  ledgerFile: string;
+  ledgerLine: string;
+  decided: string;
+  status: string | null;
+  proposed: boolean;
+  reason: string;
+};
+
+/** What {@link writeKnowledge} returns: the files to write, and where every candidate landed. */
+export type WriteResult = {
+  writes: { path: string; text: string }[];
+  placed: Placed[];
+  notPlaced: { id: string; reason: string }[];
+};
+
+/** A ledger's markers, as the context carries them. */
+type Markers = Context['markers'];
+
+/** What writing reads of the context: the checkout, its layout and its markers. */
+type WriteCtx = {
+  root: string;
+  layout: { knowledgeRoot: string; adrDir: string };
+  markers: Markers;
+};
 
 /** Who proposes every entry the harvest writes unconfirmed: `Proposed: harvest <date>`. */
 export const HARVEST_PROPOSER = 'harvest';
@@ -38,16 +91,16 @@ export const HARVEST_PROPOSER = 'harvest';
 /** The longest slug a record's file name takes, cut at a word. */
 const SLUG_MAX = 64;
 
-const PREFIX = { principle: 'P', rule: 'BR', invariant: 'N' };
-const LAYER = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
+const PREFIX: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invariant: 'N' };
+const LAYER: Record<EntryKind, string> = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
 const NONE_YET = /^None yet\./;
 
-const day = (value) => String(value ?? '').slice(0, 10);
-const handle = (who) => (String(who).startsWith('@') ? String(who) : `@${who}`);
-const oneLine = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const day = (value: unknown): string => String(value ?? '').slice(0, 10);
+const handle = (who: unknown): string => (String(who).startsWith('@') ? String(who) : `@${who}`);
+const oneLine = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
 
 /** Whether a person answered the decision: agreed, or drifted and reworked since. */
-export function answeredByPerson(candidate) {
+export function answeredByPerson(candidate: Pick<WriteCandidate, 'verdict' | 'closed'>): boolean {
   if (candidate.verdict === 'agreed') return true;
   return candidate.verdict === 'drifted' && /^yes\b/.test(candidate.closed ?? '');
 }
@@ -56,7 +109,7 @@ export function answeredByPerson(candidate) {
  * The `Decided:` value of a candidate, in one of three forms: `@<answerer> via <channel>, <date>`,
  * `nobody — adopted when raised (medium), <date>`, or `@<merger> — merged over a red outbox, <date>`.
  */
-export function decidedLine(candidate) {
+export function decidedLine(candidate: Pick<WriteCandidate, 'verdict' | 'approvedAt' | 'approvedBy' | 'channel'>): string {
   const when = day(candidate.approvedAt);
   if (candidate.verdict === ADOPTED_VERDICT) {
     if (candidate.approvedBy === null || candidate.approvedBy === 'nobody') {
@@ -68,12 +121,12 @@ export function decidedLine(candidate) {
 }
 
 /** The `Merged:` value: `@<merger>, <date>, PR #<n>`. */
-export function mergedLine(merge) {
+export function mergedLine(merge: Merge): string {
   return `${handle(merge.by)}, ${day(merge.at)}, PR #${merge.pr}`;
 }
 
 /** A record's file-name slug: the title lowercased, words joined by hyphens, cut at a word. */
-export function slugOf(title) {
+export function slugOf(title: string): string {
   const slug = title
     .toLowerCase()
     .normalize('NFKD')
@@ -88,7 +141,7 @@ export function slugOf(title) {
  * The option chosen, verbatim: option A (what was built) for a decision kept as built; for a drift
  * reworked since, the answer that asked for the change, as it was given. `null` when neither exists.
  */
-function chosenOption(candidate) {
+function chosenOption(candidate: WriteCandidate): string | null {
   if (candidate.verdict === 'drifted') {
     const answer = (candidate.answer ?? '').trim();
     return answer ? `The answer, as it was given: ${answer}` : null;
@@ -97,14 +150,17 @@ function chosenOption(candidate) {
   return option ? `The option chosen: ${option.letter}. ${option.text}` : null;
 }
 
-function sectionOf(candidate, key) {
+function sectionOf(candidate: WriteCandidate, key: 'whatIHadToDecide' | 'whatItCostsToChangeLater'): string {
   return (candidate.item?.sections?.[key] ?? '').trim() || '(not recorded)';
 }
 
 /** Numbers the ids of one run: past the tree, past `taken`, past what the run handed out. */
-function makeNumbering({ ctx, taken }) {
-  const highest = new Map();
-  const bump = (key, n) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
+function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
+  entry: (kind: EntryKind, code: string) => string;
+  record: () => string;
+} {
+  const highest = new Map<string, number>();
+  const bump = (key: string, n: string) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
   for (const entry of readKnowledge({ ctx }).entries) {
     const parts = idParts(entry.id);
     if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
@@ -116,13 +172,13 @@ function makeNumbering({ ctx, taken }) {
   let record = Number(readDecisions({ ctx }).next) - 1;
   for (const number of taken.records ?? []) record = Math.max(record, Number(String(number).replace(/^ADR-/, '')));
   return {
-    entry(kind, code) {
+    entry(kind: EntryKind, code: string): string {
       const key = `${PREFIX[kind]}-${code}`;
       const n = (highest.get(key) ?? 0) + 1;
       highest.set(key, n);
       return `${key}-${n}`;
     },
-    record() {
+    record(): string {
       record += 1;
       return String(record).padStart(4, '0');
     },
@@ -130,43 +186,50 @@ function makeNumbering({ ctx, taken }) {
 }
 
 /** Where a place's layer file lives, and the code its ids carry. */
-function placeOf(ctx, place) {
+function placeOf(ctx: WriteCtx, place: string): { dir: string; code: string; title: string } {
   if (place === PRODUCT_PLACE) return { dir: productDir(ctx), code: PRODUCT_CODE, title: 'Product' };
   const title = place.charAt(0).toUpperCase() + place.slice(1).replace(/-/g, ' ');
   return { dir: `${domainsDir(ctx)}/${place}`, code: codeOf(place), title };
 }
 
 /** The file texts of one run, read once from the tree and edited in memory. */
-function makeFiles(ctx) {
-  const texts = new Map();
+type Files = {
+  read(path: string): string | null;
+  write(path: string, text: string): void;
+  changed: Set<string>;
+  writes(): { path: string; text: string }[];
+};
+
+function makeFiles(ctx: WriteCtx): Files {
+  const texts = new Map<string, string | null>();
   return {
-    read(path) {
+    read(path: string): string | null {
       if (!texts.has(path)) {
         const absolute = join(ctx.root, path);
         texts.set(path, existsSync(absolute) ? readFileSync(absolute, 'utf8') : null);
       }
-      return texts.get(path);
+      return texts.get(path) ?? null;
     },
-    write(path, text) {
+    write(path: string, text: string): void {
       texts.set(path, text);
       this.changed.add(path);
     },
     changed: new Set(),
     writes() {
-      return [...this.changed].map((path) => ({ path, text: texts.get(path) }));
+      return [...this.changed].map((path) => ({ path, text: texts.get(path) ?? '' }));
     },
   };
 }
 
 /** A layer file with one entry appended; its "None yet." paragraph goes with the first one. */
-function appendEntry(text, entry, { heading }) {
+function appendEntry(text: string | null, entry: string, { heading }: { heading: string }): string {
   let base = text ?? `# ${heading}\n`;
   if (!/^## /m.test(base)) {
     const lines = base.split('\n');
     const start = lines.findIndex((line) => NONE_YET.test(line));
     if (start !== -1) {
       let end = start;
-      while (end < lines.length && lines[end].trim() !== '') end += 1;
+      while (end < lines.length && (lines[end] ?? '').trim() !== '') end += 1;
       lines.splice(start, end - start);
       base = lines.join('\n');
     }
@@ -175,15 +238,35 @@ function appendEntry(text, entry, { heading }) {
   return `${base}${entry}`;
 }
 
-function sourceLine(candidate, ledgerFile, prd) {
+function sourceLine(candidate: WriteCandidate, ledgerFile: string, prd: number | null): string {
   return `${ledgerFile}, entry ${candidate.id}, PRD #${prd}`;
 }
 
-function renderRegisterEntry({ id, statement, fields }) {
+function renderRegisterEntry({ id, statement, fields }: { id: string; statement: string; fields: [string, string][] }): string {
   return [`## ${id}`, '', oneLine(statement), '', ...fields.map(([key, value]) => `${key}: ${value}`), ''].join('\n');
 }
 
-function renderRecord({ number, reply, candidate, status, decided, merged, merge, prd, ledgerFile }) {
+function renderRecord({
+  number,
+  reply,
+  candidate,
+  status,
+  decided,
+  merged,
+  merge,
+  prd,
+  ledgerFile,
+}: {
+  number: string;
+  reply: Extract<ClassificationReply, { kind: 'adr' }>;
+  candidate: WriteCandidate;
+  status: string;
+  decided: string;
+  merged: string;
+  merge: Merge;
+  prd: number | null;
+  ledgerFile: string;
+}): string {
   const option = chosenOption(candidate);
   return [
     `# ADR-${number} — ${oneLine(reply.title)}`,
@@ -214,7 +297,7 @@ function renderRecord({ number, reply, candidate, status, decided, merged, merge
  * The ledger's text with `line` added to the LATEST entry for `id`, right after its list of
  * `- Field:` lines. `null` when the ledger holds no entry for that id.
  */
-export function addLedgerLine(text, { id, line, markers }) {
+export function addLedgerLine(text: string, { id, line, markers }: { id: string; line: string; markers: Pick<Markers, 'settledOpen' | 'settledClose'> }): string | null {
   const lines = text.split('\n');
   const open = lines.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
@@ -222,7 +305,7 @@ export function addLedgerLine(text, { id, line, markers }) {
   const end = close === -1 ? lines.length : close;
   let at = -1;
   for (let index = open + 1; index < end; index += 1) {
-    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index])) at = index;
+    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? '')) at = index;
     else if (at !== -1) break;
   }
   if (at === -1) return null;
@@ -231,43 +314,44 @@ export function addLedgerLine(text, { id, line, markers }) {
 }
 
 /**
- * Turns classified candidates into file edits.
- *
- * @param {{
- *   ctx: object,
- *   classified: { candidate: object, reply: object | null, reason?: string }[],
- *   merge: { by: string, at: string, pr: number, url?: string },
- *   taken?: { records?: string[], ids?: string[] },
- *   date: string,
- * }} input `reply` is what `classificationSchema` accepted, `null` when there is none (`reason`
- *   says why: the candidate is then not placed). `taken` holds the record numbers and register ids
- *   the open knowledge branches already use. `date` is the harvest's day, for `Proposed:`.
- * @returns {{ writes: { path: string, text: string }[],
- *   placed: { id, kind, landedAs: string[], files: string[], ledgerFile, ledgerLine, decided,
- *     status: string | null, proposed: boolean, reason }[],
- *   notPlaced: { id: string, reason: string }[] }}
+ * Turns classified candidates into file edits. `reply` is what `classificationSchema` accepted,
+ * `null` when there is none (`reason` says why: the candidate is then not placed). `taken` holds the
+ * record numbers and register ids the open knowledge branches already use. `date` is the harvest's
+ * day, for `Proposed:`.
  */
-export function writeKnowledge({ ctx, classified, merge, taken = {}, date }) {
+export function writeKnowledge({
+  ctx,
+  classified,
+  merge,
+  taken = {},
+  date,
+}: {
+  ctx: WriteCtx;
+  classified: readonly Classified[];
+  merge: Merge;
+  taken?: Taken;
+  date: string;
+}): WriteResult {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
   const merged = mergedLine(merge);
   const proposedLine = `${HARVEST_PROPOSER} ${date}`;
-  const placed = [];
-  const notPlaced = [];
+  const placed: Placed[] = [];
+  const notPlaced: { id: string; reason: string }[] = [];
 
   for (const { candidate, reply, reason } of classified) {
     if (!reply) {
       notPlaced.push({ id: candidate.id, reason: reason ?? 'not classified' });
       continue;
     }
-    const ledgerFile = candidate.ledgerFile;
+    const ledgerFile = candidate.ledgerFile!; // ts-allow: harvestCandidates always names the ledger it read
     const prd = candidate.item?.prd ?? null;
     const answered = answeredByPerson(candidate);
     const decided = decidedLine(candidate);
     const proposed = !answered;
-    const touched = [];
-    let landedAs = [];
-    let status = null;
+    const touched: string[] = [];
+    let landedAs: string[] = [];
+    let status: string | null = null;
 
     if (reply.kind === 'adr') {
       const number = numbering.record();
@@ -280,20 +364,20 @@ export function writeKnowledge({ ctx, classified, merge, taken = {}, date }) {
       const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd);
       const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.serves ?? null;
-      let principleId = null;
+      let serves = reply.kind === 'rule' ? reply.serves : null;
+      let principleId: string | null = null;
       if (reply.kind === 'rule' && serves === NEW_PRINCIPLE) {
         principleId = numbering.entry('principle', place.code);
         serves = principleId;
       }
-      const fields = [
-        ...(serves ? [['Serves', serves]] : []),
+      const fields: [string, string][] = [
+        ...(serves ? [['Serves', serves] satisfies [string, string]] : []),
         ['Source', source],
         ['Enforced by', 'unenforced'],
         ['Stated', day(merge.at)],
         ['Decided', decided],
         ['Merged', merged],
-        ...(proposed ? [['Proposed', proposedLine]] : []),
+        ...(proposed ? [['Proposed', proposedLine] satisfies [string, string]] : []),
       ];
       const path = `${place.dir}/${LAYER[reply.kind]}`;
       files.write(
@@ -304,13 +388,14 @@ export function writeKnowledge({ ctx, classified, merge, taken = {}, date }) {
       );
       touched.push(path);
       landedAs = [id];
-      if (principleId) {
+      if (principleId && reply.kind === 'rule') {
+        const proposal = reply.principle!; // ts-allow: classificationSchema refuses serves "new" without the principle it proposes
         const principlePath = `${place.dir}/${LAYER.principle}`;
         const principle = renderRegisterEntry({
           id: principleId,
-          statement: reply.principle.statement,
+          statement: proposal.statement,
           fields: [
-            ['Why', oneLine(reply.principle.why)],
+            ['Why', oneLine(proposal.why)],
             ['Source', source],
             ['Merged', merged],
             ['Proposed', proposedLine],
@@ -353,7 +438,7 @@ export function writeKnowledge({ ctx, classified, merge, taken = {}, date }) {
 }
 
 /** Writes `writes` (a {@link writeKnowledge} result's) into the working tree at `ctx.root`. */
-export function applyKnowledgeWrites({ ctx, writes }) {
+export function applyKnowledgeWrites({ ctx, writes }: { ctx: { root: string }; writes: readonly { path: string; text: string }[] }): void {
   for (const { path, text } of writes) {
     const absolute = join(ctx.root, path);
     mkdirSync(dirname(absolute), { recursive: true });

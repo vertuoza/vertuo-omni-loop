@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +8,7 @@ import { gradeKnowledge } from './check-knowledge.ts';
 import { readKnowledge } from './registers.ts';
 
 /** Each fixture domain's glossary term; the fixture glossary holds every one. */
-const TERMS = {
+const TERMS: Record<string, string> = {
   advisor: 'Advisor',
   credits: 'Credit Pack',
   folder: 'Folder',
@@ -19,9 +18,9 @@ const GLOSSARY_TEXT = Object.values(TERMS)
   .map((term) => `**${term}**: a word.`)
   .join('\n');
 
-const roots = [];
+const roots: string[] = [];
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
 /**
@@ -29,15 +28,15 @@ afterEach(() => {
  * product folder and every domain named in a path (or in `domains`) get whichever of their four
  * files the test left out — an empty layer file, a README naming the domain's glossary term.
  */
-function tree(files, { domains = [] } = {}) {
+function tree(files: Record<string, string>, { domains = [] }: { domains?: string[] } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'check-knowledge-'));
   roots.push(root);
   const named = new Set(domains);
   for (const path of Object.keys(files)) {
     const match = path.match(/^docs\/knowledge\/domains\/([^/]+)\//);
-    if (match) named.add(match[1]);
+    if (match) named.add(match[1]!);
   }
-  const all = { ...files };
+  const all: Record<string, string> = { ...files };
   for (const layer of ['principles.md', 'rules.md', 'invariants.md']) {
     all[`docs/knowledge/product/${layer}`] ??= '# Product\n';
     for (const domain of named) all[`docs/knowledge/domains/${domain}/${layer}`] ??= '# Domain\n';
@@ -54,14 +53,14 @@ function tree(files, { domains = [] } = {}) {
 }
 
 /** Grades `root`'s knowledge folder through the flat (upstream) layout: `{ violations, wishes }`, both text. */
-function grade(root, options = {}) {
-  const ctx = flatCtx(root);
+function grade(root: string, options: { glossaryText?: string } = {}) {
+  const ctx = flatCtx(root) as Parameters<typeof gradeKnowledge>[0]['ctx'];
   const knowledge = readKnowledge({ ctx });
   const entryFiles = [...new Set(knowledge.entries.map((entry) => entry.file))];
   return gradeKnowledge({ ctx, files: entryFiles, glossaryText: GLOSSARY_TEXT, ...options });
 }
 
-function principle(id, { extra = [] } = {}) {
+function principle(id: string, { extra = [] }: { extra?: string[] } = {}): string {
   return [
     `## ${id}`,
     '',
@@ -75,7 +74,7 @@ function principle(id, { extra = [] } = {}) {
   ].join('\n');
 }
 
-function rule(id, { serves = 'P-ADVISOR-1', extra = [] } = {}) {
+function rule(id: string, { serves = 'P-ADVISOR-1', extra = [] }: { serves?: string | null; extra?: string[] } = {}): string {
   return [
     `## ${id}`,
     '',
@@ -90,7 +89,7 @@ function rule(id, { serves = 'P-ADVISOR-1', extra = [] } = {}) {
   ].join('\n');
 }
 
-function crossDomain(id, { serves, kind = 'rule' } = {}) {
+function crossDomain(id: string, { serves, kind = 'rule' }: { serves?: string; kind?: string | null } = {}): string {
   return [
     `## ${id}`,
     '',
@@ -112,7 +111,7 @@ const ADVISOR_RULES = 'docs/knowledge/domains/advisor/rules.md';
  * A violation (or wish) is formatted `${file}: ${id} — ${detail}`; split it back apart on the
  * FIRST ": " and the first " — " that follows — neither a file path nor an id ever holds either.
  */
-function parseLine(line) {
+function parseLine(line: string): { file: string; id: string; detail: string } {
   const colon = line.indexOf(': ');
   const file = line.slice(0, colon);
   const rest = line.slice(colon + 2);
@@ -121,7 +120,7 @@ function parseLine(line) {
 }
 
 /** The ids every violation names. */
-function idsFailed(result) {
+function idsFailed(result: { violations: string[] }): string[] {
   return result.violations.map((line) => parseLine(line).id);
 }
 
@@ -145,7 +144,7 @@ describe('Feature: where truth lives', () => {
     expect(violations).toHaveLength(1);
     const [violation] = violations.map(parseLine);
     expect(violation).toMatchObject({ id: 'BR-ADVISOR-2', file: ADVISOR_RULES });
-    expect(violation.detail).toMatch(/missing a "Serves:" line/);
+    expect(violation!.detail).toMatch(/missing a "Serves:" line/);
   });
 
   it('Scenario: a principle no rule serves is a wish, not a failure', () => {
@@ -153,7 +152,7 @@ describe('Feature: where truth lives', () => {
     const { violations, wishes } = grade(root);
     expect(violations).toEqual([]);
     expect(wishes.map((line) => parseLine(line).id)).toEqual(['P-FOLDER-4']);
-    expect(parseLine(wishes[0]).detail).toMatch(/is a wish/);
+    expect(parseLine(wishes[0]!).detail).toMatch(/is a wish/);
   });
 
   it('Scenario: a principle carries no enforcement claim', () => {
@@ -164,7 +163,7 @@ describe('Feature: where truth lives', () => {
     });
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['P-CREDITS-1']);
-    expect(parseLine(violations[0]).detail).toMatch(/judged, not proven/);
+    expect(parseLine(violations[0]!).detail).toMatch(/judged, not proven/);
   });
 
   it("Scenario: an id's prefix names its domain", () => {
@@ -174,7 +173,7 @@ describe('Feature: where truth lives', () => {
     });
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['BR-CREDITS-1']);
-    expect(parseLine(violations[0]).detail).toMatch(/no "Kept id:" line/);
+    expect(parseLine(violations[0]!).detail).toMatch(/no "Kept id:" line/);
   });
 
   it('Scenario: a kept id may keep its old prefix', () => {
@@ -200,7 +199,7 @@ describe('Feature: where truth lives', () => {
     );
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['credits--advisor']);
-    expect(parseLine(violations[0]).detail).toMatch(/advisor--credits/);
+    expect(parseLine(violations[0]!).detail).toMatch(/advisor--credits/);
   });
 
   it('Scenario: a cross-domain entry serves a principle of its own pair', () => {
@@ -215,7 +214,7 @@ describe('Feature: where truth lives', () => {
     );
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['X-ADVISOR-CREDITS-1']);
-    expect(parseLine(violations[0]).detail).toMatch(/own pair/);
+    expect(parseLine(violations[0]!).detail).toMatch(/own pair/);
   });
 });
 
@@ -339,7 +338,7 @@ describe('the lines each kind carries', () => {
   });
 
   it('accepts N1…N8 and N-PRODUCT-<n> in product/invariants.md', () => {
-    const invariant = (id) =>
+    const invariant = (id: string) =>
       `## ${id}\n\nHolds.\n\nSource: PRD #1081\nEnforced by: unenforced\nStated: 2026-09-23\n`;
     const root = tree({
       'docs/knowledge/product/invariants.md': invariant('N1') + '\n' + invariant('N-PRODUCT-1'),
@@ -399,7 +398,7 @@ describe('honesty — a claim names something real', () => {
     });
     const { violations } = grade(root);
     expect(violations).toHaveLength(1);
-    expect(parseLine(violations[0]).detail).toMatch(/already used in/);
+    expect(parseLine(violations[0]!).detail).toMatch(/already used in/);
   });
 });
 
@@ -411,7 +410,7 @@ describe('strictness — every line leads somewhere real', () => {
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-FOLDER-1' }),
     });
     expect(idsFailed(grade(root))).toEqual(['BR-ADVISOR-1']);
-    expect(parseLine(grade(root).violations[0]).detail).toMatch(/cross-domain/);
+    expect(parseLine(grade(root).violations[0]!).detail).toMatch(/cross-domain/);
   });
 
   it('accepts a domain rule serving a product principle', () => {
@@ -433,7 +432,7 @@ describe('strictness — every line leads somewhere real', () => {
     });
     const { violations } = grade(root);
     expect(violations.map((line) => parseLine(line).id)).toEqual(['P-ADVISOR-1']);
-    expect(parseLine(violations[0]).detail).toMatch(/leads nowhere/);
+    expect(parseLine(violations[0]!).detail).toMatch(/leads nowhere/);
   });
 
   it('refuses a link to a heading the file does not have, in Source: and Enforced by:', () => {
@@ -513,7 +512,7 @@ it('grades a knowledge folder at the configured path with no glossary', () => {
 
 describe('Feature: a proposed entry (PRD #68)', () => {
   /** A principle a person has not decided yet: no `Decided:` line, a `Proposed:` one. */
-  function proposedPrinciple(id) {
+  function proposedPrinciple(id: string): string {
     return [
       `## ${id}`,
       '',
