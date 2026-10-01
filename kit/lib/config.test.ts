@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -149,7 +148,7 @@ describe('parseConfig', () => {
   });
 
   it('refuses the renamed branch key, naming the key that replaced it', () => {
-    let error;
+    let error: any;
     try { parseConfig('kit: 1\nbranches:\n  terraform: docs/omni-terraform\n', 'c.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
     expect(error.message.split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
@@ -166,7 +165,7 @@ describe('parseConfig', () => {
   });
 
   it('names the file, the key path and the unknown key for a typo', () => {
-    let error;
+    let error: any;
     try { parseConfig('kit: 1\nlabels:\n  outboxgo: go\n', '.omni-loop/config.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
     expect(error.message).toContain('.omni-loop/config.yml');
@@ -192,7 +191,7 @@ describe('parseConfig', () => {
 });
 
 describe('dossierSwitch (PRD 216)', () => {
-  const at = (yaml) => dossierSwitch(parseConfig(`kit: 1\n${yaml}`));
+  const at = (yaml: string) => dossierSwitch(parseConfig(`kit: 1\n${yaml}`));
 
   it('is off by default, saying the switch is off', () => {
     expect(at('ask:\n  url: https://ask.example.com\n')).toEqual({ on: false, reason: 'dossier.enabled is false' });
@@ -265,14 +264,14 @@ describe('the signature section (PRD #99, PRD #215)', () => {
 
 describe('omni config', () => {
   const io = () => {
-    const out = [];
-    return { out, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } };
+    const out: string[] = [];
+    return { out, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } };
   };
   const files = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
   it('prints paths.playbook and branches.invade from their defaults when the file sets neither', async () => {
     const { root } = makeRepo({ git: true, files });
-    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.invade', 'docs/omni-invade']]) {
+    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.invade', 'docs/omni-invade']] as const) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
@@ -280,7 +279,7 @@ describe('omni config', () => {
   });
 
   it('prints labels.concept and branches.concept, from their defaults or as the file sets them (PRD 686)', async () => {
-    const cases = [
+    const cases: Array<[Record<string, string>, string[][]]> = [
       [files, [['labels.concept', 'omni:concept'], ['branches.concept', 'docs/concept-{topic}']]],
       [
         { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlabels:\n  concept: big-idea\nbranches:\n  concept: concept/{topic}\n' },
@@ -289,7 +288,7 @@ describe('omni config', () => {
     ];
     for (const [repoFiles, expected] of cases) {
       const { root } = makeRepo({ git: true, files: repoFiles });
-      for (const [key, value] of expected) {
+      for (const [key, value] of expected as Array<[string, string]>) {
         const s = io();
         expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
         expect(s.out.join('')).toBe(`${value}\n`);
@@ -314,7 +313,7 @@ describe('omni config', () => {
     for (const [key, value] of [
       ['signature.home', 'https://vertuo-omni-loop-galaxy.vercel.app'],
       ['signature.footer', '🦸 {name} by [Omni Loop]({home}) ©'],
-    ]) {
+    ] as const) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
@@ -369,8 +368,8 @@ describe('branches.update and the migration step (PRD 347)', () => {
 
   it("runs each migration from the file's kit up, keeping every value", () => {
     const migrations = [
-      { from: 1, migrate: (raw) => ({ ...raw, kit: 2, moved: raw.old }) },
-      { from: 2, migrate: (raw) => ({ ...raw, kit: 3 }) },
+      { from: 1, migrate: (raw: any) => ({ ...raw, kit: 2, moved: raw.old }) },
+      { from: 2, migrate: (raw: any) => ({ ...raw, kit: 3 }) },
     ];
     expect(migrateConfig({ kit: 1, old: 'x' }, migrations)).toEqual({ kit: 3, old: 'x', moved: 'x' });
     expect(migrateConfig({ kit: 2 }, migrations)).toEqual({ kit: 3 });
@@ -380,17 +379,17 @@ describe('branches.update and the migration step (PRD 347)', () => {
 
 describe('the plan section and branches.megaInvade (PRD 522)', () => {
   const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-  const target = (fields) =>
+  const target = (fields: Record<string, string>) =>
     Object.entries(fields).map(([key, value], index) => `${index === 0 ? '    - ' : '      '}${key}: ${value}`).join('\n');
-  const plan = (targets, guide = 'docs/git-repositories/README.md') =>
+  const plan = (targets: Array<Record<string, string>>, guide = 'docs/git-repositories/README.md') =>
     `kit: 1\nplan:\n  guide: ${guide}\n  targets:\n${targets.map(target).join('\n')}\n`;
   const IMPORTED = { repo: 'acme/back', role: 'back-end', knowledge: 'imported', readAt: SHA };
   const OWN = { repo: 'acme/front', role: 'front-end', knowledge: 'own' };
   const NONE = { repo: 'acme/legacy', role: 'legacy', knowledge: 'none' };
-  const firstLine = (source) => {
+  const firstLine = (source: string) => {
     try {
       parseConfig(source, 'c.yml');
-    } catch (error) {
+    } catch (error: any) {
       return error.message.split('\n')[0];
     }
     throw new Error('it parsed');
@@ -418,8 +417,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   });
 
   it('takes a null guide, and reads a guide left out as null', () => {
-    expect(parseConfig(plan([OWN], 'null')).plan.guide).toBeNull();
-    expect(parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan.guide).toBeNull();
+    expect(parseConfig(plan([OWN], 'null')).plan!.guide).toBeNull();
+    expect(parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan!.guide).toBeNull();
   });
 
   it('refuses a repo not in owner/name form, and a repo listed twice', () => {
@@ -458,8 +457,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
 });
 
 describe('the proof section (PRD 798)', () => {
-  const firstLine = (source) => {
-    try { parseConfig(source, 'c.yml'); } catch (error) { return error.message.split('\n')[0]; }
+  const firstLine = (source: string) => {
+    try { parseConfig(source, 'c.yml'); } catch (error: any) { return error.message.split('\n')[0]; }
     return 'parsed';
   };
 
@@ -500,8 +499,8 @@ describe('the proof section (PRD 798)', () => {
 
   it('is printed by omni config', async () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
-    const out = [];
-    const code = await main(['config', 'proof'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
+    const out: string[] = [];
+    const code = await main(['config', 'proof'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
     expect(code).toBe(0);
     expect(JSON.parse(out.join(''))).toEqual({ url: null, deployment: null, setup: null, bypassEnv: null, maxSeconds: 60 });
   });

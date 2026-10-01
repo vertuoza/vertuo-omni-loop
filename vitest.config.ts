@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Many tests build real git repositories and run `node` and `git` as child processes, so their wall
 // time grows with the machine's load: a test that takes 1 s on a quiet machine takes 20 s beside a
 // full suite and other work. The limits catch a hang, not slowness, so they are one generous value for
