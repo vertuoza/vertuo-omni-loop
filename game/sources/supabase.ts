@@ -109,9 +109,21 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }: { url: stri
 }
 
 /** The REST client from the environment: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY. */
+// The variables the game reads Supabase's address and key from.
+const SupabaseEnv = z.looseObject({
+  SUPABASE_URL: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+});
+
+/** Supabase's address (SUPABASE_URL, else NEXT_PUBLIC_SUPABASE_URL) and the service role's key, as the environment gives them. */
+export function supabaseEnv(env: Readonly<Record<string, string | undefined>> = process.env): { url: string | undefined; key: string | undefined } {
+  const read = SupabaseEnv.parse(env);
+  return { url: read.SUPABASE_URL ?? read.NEXT_PUBLIC_SUPABASE_URL, key: read.SUPABASE_SERVICE_ROLE_KEY };
+}
+
 export function supabaseFromEnv(env: Readonly<Record<string, string | undefined>> = process.env, fetchImpl?: FetchLike): SupabaseRest {
-  const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, key } = supabaseEnv(env);
   if (!url || !key) {
     throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (the game reads and writes the galaxy database). '
       + 'Locally, `npx supabase status` prints both.');

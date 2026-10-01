@@ -23,9 +23,12 @@ const HOME_REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const HEX = /^[0-9a-f]{7,64}$/;
 const INSERTABLE = new Set(['workspace_id', 'home_repo', 'kind', 'prd', 'title', 'numbered_at']);
 const KEY = 'workspace_id,home_repo,kind,prd';
-const TAKES: Record<string, string[]> = { prd: ['spec', 'plan', 'before-after'], visual: ['before-after', 'variations'], bug: ['bug-record'] };
+const TAKES: Record<string, readonly unknown[]> = { prd: ['spec', 'plan', 'before-after'], visual: ['before-after', 'variations'], bug: ['bug-record'] };
 const RULE_ARGS = ['p_dossier', 'p_kind', 'p_content', 'p_source', 'p_uploaded_by', 'p_commit_sha', 'p_git_blob'];
 const MAX_BYTES = 524288;
+const VERSION_KINDS: readonly unknown[] = ['spec', 'plan', 'before-after', 'variations', 'bug-record'];
+const SOURCES: readonly unknown[] = ['kit', 'github'];
+const NONE: readonly unknown[] = [];
 
 const reply = (status: number, body: unknown): Reply => ({ ok: status < 300, status, json: async () => body, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
 const refuse = (status: number, code: string, message: string): Reply => reply(status, { code, message });
@@ -128,9 +131,9 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     if (bytes > MAX_BYTES) return refuse(400, '54000', `An artifact holds 512 KiB at most: this ${p_kind} is ${bytes} bytes.`);
     const dossier = dossiers.find((d) => d.id === p_dossier);
     if (!dossier) return refuse(400, 'P0002', 'No such dossier.');
-    if (typeof p_kind !== 'string' || !['spec', 'plan', 'before-after', 'variations', 'bug-record'].includes(p_kind)) return refuse(400, '23514', 'dossier_versions_kind_check');
-    if (!(TAKES[dossier.kind] ?? []).includes(p_kind)) return refuse(400, '22023', `A ${dossier.kind} dossier takes no ${p_kind} version.`);
-    if (typeof p_source !== 'string' || !['kit', 'github'].includes(p_source)) return refuse(400, '23514', 'dossier_versions_source_check');
+    if (!VERSION_KINDS.includes(p_kind)) return refuse(400, '23514', 'dossier_versions_kind_check');
+    if (!(TAKES[dossier.kind] || NONE).includes(p_kind)) return refuse(400, '22023', `A ${dossier.kind} dossier takes no ${p_kind} version.`);
+    if (!SOURCES.includes(p_source)) return refuse(400, '23514', 'dossier_versions_source_check');
     if (p_source === 'github' && p_commit_sha === null) return refuse(400, '23514', 'dossier_versions_github_commit');
     if ((p_commit_sha !== null && !HEX.test(String(p_commit_sha))) || (p_git_blob !== null && !HEX.test(String(p_git_blob)))) return refuse(400, '23514', 'dossier_versions_hex_check');
     const sha256 = createHash('sha256').update(content, 'utf8').digest('hex');
