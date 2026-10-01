@@ -248,6 +248,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * stable link. @returns {Promise<{ url: string, gif: string }>} */
     registerPitch: ({ repo, prd, run, audience, look, commit, hook, benefit, kicker, closing }) =>
       call('POST', '/api/pitches', { body: { repo, prd, run, audience, look, commit, hook, benefit, kicker, closing } }),
+    /** PRD 859: the pitch look of the product `repo` (owner/name) belongs to; arcade when it has none.
+     * @returns {Promise<{ look: 'arcade' | 'keynote' }>} */
+    readPitchLook: (repo) => call('GET', `/api/pitch-look?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
