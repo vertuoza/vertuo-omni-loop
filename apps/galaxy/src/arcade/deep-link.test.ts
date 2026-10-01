@@ -25,8 +25,8 @@ describe('the deep links', () => {
   });
 
   it('read a planet by its PRD number, when the galaxy holds it', () => {
-    expect(readHash(`#planet-${planet.prd}`, view)).toEqual({ scene: 'planet', sel: 2 });
-    expect(readHash(`#planet-${planet.prd}`, null)).toBeNull();
+    expect(readHash(`#planet-${planet!.prd}`, view)).toEqual({ scene: 'planet', sel: 2 });
+    expect(readHash(`#planet-${planet!.prd}`, null)).toBeNull();
   });
 
   it('read nothing from any other hash', () => {
@@ -61,12 +61,12 @@ describe('every deep link, through the one door', () => {
       expect(landing(`#${scene}`, { view: null, session: null }), scene).toEqual({ scene: 'coin' });
       expect(landing(`#${scene}`, { view, session: null }), scene).toEqual({ scene: 'coin' });
     }
-    expect(landing(`#planet-${planet.prd}`, { view, session: null })).toEqual({ scene: 'coin', sel: 2 });
+    expect(landing(`#planet-${planet!.prd}`, { view, session: null })).toEqual({ scene: 'coin', sel: 2 });
   });
 
   it('opens the screen it names for a player', () => {
     for (const scene of DEEP_LINKS) expect(landing(`#${scene}`, { view, session: crew }), scene).toEqual({ scene });
-    expect(landing(`#planet-${planet.prd}`, { view, session: crew })).toEqual({ scene: 'planet', sel: 2 });
+    expect(landing(`#planet-${planet!.prd}`, { view, session: crew })).toEqual({ scene: 'planet', sel: 2 });
   });
 
   it('starts at the boot, as at /, for someone signed in whose page holds no galaxy', () => {
@@ -83,7 +83,7 @@ describe('every deep link, through the one door', () => {
 describe('the address the arcade writes', () => {
   it('names the screen it is on, when a deep link names it', () => {
     expect(addressAt('/', { scene: 'map', sel: 0 }, view)).toBe('/#map');
-    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet.home}/${planet.prd}`);
+    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet!.home}/${planet!.prd}`);
   });
 
   it('names nothing on any other screen', () => {
@@ -132,7 +132,7 @@ describe('a planet named by its home (PRD 728)', () => {
 
   it('names a planet with no home by its number alone, as before', () => {
     const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map(({ home: _home, ...e }) => e));
-    expect(bare.planets[0].home).toBeNull();
+    expect(bare.planets[0]!.home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
   });

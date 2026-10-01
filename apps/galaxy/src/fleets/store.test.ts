@@ -27,7 +27,7 @@ describe('the database fleets', () => {
   it('sends no mascot as none', async () => {
     const { db, calls } = fakeRpc({ data: ROW });
     await databaseFleets(db, WS).create({ ...LOOK, mascot: null });
-    expect(calls[0][1].p_mascot).toBeNull();
+    expect(calls[0]![1].p_mascot).toBeNull();
   });
 
   it('updates a fleet by its name, which it never sends to change', async () => {

@@ -248,7 +248,7 @@ describe('the system\'s text', () => {
     const { chars, lines } = CARD_FIT[grid.name];
     for (const page of pages) {
       expect(page.length).toBeLessThanOrEqual(lines);
-      expect(page[page.length - 1].tone === 'label' && page !== pages[pages.length - 1]).toBe(false);
+      expect(page[page.length - 1]!.tone === 'label' && page !== pages[pages.length - 1]).toBe(false);
       for (const line of page) if (line.tone === 'text') expect(line.text.length).toBeLessThanOrEqual(chars);
     }
     const all = pages.flat().map((l) => l.text).join(' ');

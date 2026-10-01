@@ -72,7 +72,7 @@ describe('loadPeople', () => {
   });
 
   it('carries a member\'s login in lower case, by id or by login, so their chip links to their profile (PRD 698)', async () => {
-    const people = peopleOf([{ ...ROSTER[0], github_login: 'Ada-GH' }, ...ROSTER.slice(1)], FLEETS);
+    const people = peopleOf([{ ...ROSTER[0]!, github_login: 'Ada-GH' }, ...ROSTER.slice(1)], FLEETS);
     expect(people.byId('u-ada', 'ADA').login).toBe('ada-gh');
     expect(people.byLogin('ADA-gh').login).toBe('ada-gh');
     expect(people.byId('u-sol', 'Sol')).not.toHaveProperty('login');

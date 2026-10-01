@@ -37,7 +37,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const hero = { v: 1 as const, body: 'girl' as const, skin: 3, hair: 2, suit: 1, cape: 0 };
-const team = fleets[1].name;
+const team = fleets[1]!.name;
 
 /** The first point: LV 1, and Entropy Invaders opened. */
 const FIRST: LevelUp = levelUpFor(xpStatus(true, { xp: 1, level: 1, unlocked: ['invaders'] }), null)!;
@@ -108,13 +108,13 @@ describe('the level-up on the two grids', () => {
 
   it.each([['wide', WIDE], ['tall', TALL]] as const)('draws the player\'s own hero at 2×, in their fleet\'s colours, inside the %s grid', (_, grid) => {
     draw(frame(grid));
-    const look = heroLook(hero, fleets[1].color);
+    const look = heroLook(hero, fleets[1]!.color);
     const heroes = drawn.filter((d) => d.name.startsWith('hero-'));
     expect(heroes).toHaveLength(1);
     expect(heroes[0]).toMatchObject({ name: look.sprite, tint: look.tint, scale: 2 });
-    expect(heroes[0].x).toBeGreaterThanOrEqual(0);
-    expect(heroes[0].x + 64).toBeLessThanOrEqual(grid.w);
-    expect(heroes[0].y + 96).toBeLessThanOrEqual(grid.h);
+    expect(heroes[0]!.x).toBeGreaterThanOrEqual(0);
+    expect(heroes[0]!.x + 64).toBeLessThanOrEqual(grid.w);
+    expect(heroes[0]!.y + 96).toBeLessThanOrEqual(grid.h);
   });
 });
 
@@ -147,11 +147,11 @@ describe('its rays and flashes', () => {
     const reduced = css.slice(open + 1, end), rest = css.slice(0, at) + css.slice(end + 1);
     const still = new Set<string>();
     for (const [, sel, body] of reduced.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-      if (/animation:\s*none/.test(body)) for (const s of sel.split(',')) still.add(s.trim());
+      if (/animation:\s*none/.test(body!)) for (const s of sel!.split(',')) still.add(s.trim());
     }
     const animated = [...rest.matchAll(/([^{}@]+)\{([^}]*)\}/g)]
-      .filter(([, , body]) => /(^|;|\s)animation\s*:/.test(body))
-      .flatMap(([, sel]) => sel.split(',').map((s) => s.trim()));
+      .filter(([, , body]) => /(^|;|\s)animation\s*:/.test(body!))
+      .flatMap(([, sel]) => sel!.split(',').map((s) => s.trim()));
     expect(animated.length).toBeGreaterThan(0);
     expect(animated.filter((s) => !still.has(s)), 'animated with reduced motion').toEqual([]);
   });

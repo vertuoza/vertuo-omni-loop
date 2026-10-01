@@ -216,7 +216,7 @@ describe('the boot draws the brand\'s letter', () => {
       expect(layer(boot(mark, 0.9), mark.stops), letter).toEqual(mark.runs.map(([x, y, w]) => [x, y, w]));
       // Early on, the top row has begun and the bottom one has not.
       const early = layer(boot(mark, 0.2), mark.stops);
-      const shown = (row: number) => early.filter((_, i) => mark.runs[i][3] === row).reduce((n, [, , w]) => n + w, 0);
+      const shown = (row: number) => early.filter((_, i) => mark.runs[i]![3] === row).reduce((n, [, , w]) => n + w!, 0);
       const last = Math.max(...mark.runs.map((r) => r[3]));
       expect(shown(0), letter).toBeGreaterThan(0);
       expect(shown(last), letter).toBe(0);
@@ -352,7 +352,7 @@ describe('the Hall of Heroes', () => {
   it('shows its whole table and no page on the wide grid, as today', () => {
     const wide = text(screen({ form: 'full', grid: WIDE }, createElement(HeroesOverlay, { view, crew: [] })));
     for (const h of view.heroes.slice(0, 8)) expect(wide).toContain(h.name.toUpperCase());
-    expect(wide).not.toContain(view.heroes[8].name.toUpperCase());
+    expect(wide).not.toContain(view.heroes[8]!.name.toUpperCase());
     expect(wide).not.toContain('PAGE');
   });
 
