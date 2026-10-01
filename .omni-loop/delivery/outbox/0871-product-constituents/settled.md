@@ -474,3 +474,159 @@ Reverting the test change is one line; documenting the secret is two lines in th
 ```
 
 <!-- /omni-outbox-settled: s4-02-settings-test-outside-territory -->
+
+<!-- omni-outbox-settled: s5-01-judge-asked-on-every-check -->
+
+## s5-01-judge-asked-on-every-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-judge-asked-on-every-check
+prd: 871
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+Should the inbox check ask the judge again every time it runs, or remember the judge's answer like it remembers the small model's?
+
+## The decision, in plain words
+
+It asks the judge every time, and only remembers the small model's answer. A workspace that switches Jev on or off sees the change at the next re-run, at the price of one judge call per run.
+
+## The intro, for fun
+
+Ask once and remember, or ask every time and stay fresh?
+
+## The punchline, for fun
+
+The judge gets a call on every re-run, even when nothing has changed.
+
+## The options, in plain words
+
+A. A. Ask the judge every time; cache only the small model's verdict.
+B. B. Cache the judge's answer too, so a re-run with nothing changed calls nobody.
+C. C. Cache the judge's answer for a short while, such as ten minutes.
+
+## What I had to decide
+
+Whether the judge's answer is cached with the small model's verdict.
+
+## What I did meanwhile
+
+The small model's verdict is cached by the repository, the spec, the claims and the latest change to the constituents; the judge is asked on every evaluation, so with Jev on, each re-run makes one Jev call.
+
+## What it costs to change later
+
+Adding the judge's answer to the cache is a few lines in the canon gate; the price is a mode switch that only counts after the spec or the lines change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the cache key gains the latest event id but not whether the judge's answer is part of what is cached (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-judge-asked-on-every-check -->
+
+<!-- omni-outbox-settled: s5-02-jev-broken-without-quote-is-not-red -->
+
+## s5-02-jev-broken-without-quote-is-not-red — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-jev-broken-without-quote-is-not-red
+prd: 871
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+When Jev says a spec breaks a Never line or the Statement, but the inbox check found no sentence of the spec to quote, should the check still turn red?
+
+## The decision, in plain words
+
+No: the check only turns red when it can quote the spec sentence and name the line it breaks, so Jev confirms or clears a break the check found but never raises one alone.
+
+## The intro, for fun
+
+Jev smells trouble, but nobody can point at the sentence.
+
+## The punchline, for fun
+
+No quote, no red: a hunch stays a hunch.
+
+## The options, in plain words
+
+A. A. No quote, no red: Jev confirms or clears what the check quoted, never raises a break alone.
+B. B. Red with no quote: the check names Jev's answer and its confidence, but no sentence and no line.
+C. C. Neutral when they disagree, naming that Jev and the check differ.
+
+## What I had to decide
+
+Whether Jev's broken answer without a quoted finding makes the check red.
+
+## What I did meanwhile
+
+Jev's answer only filters the quoted findings: not broken removes the constituents' citations, broken keeps the quoted findings as they are. With no quoted finding, the check stays green whatever Jev says.
+
+## What it costs to change later
+
+One branch in the canon gate and its test: a red with Jev named and no quote would be a few lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says both that Jev's verdict decides when On, and that a finding is kept only with a word-for-word quote; it does not say which wins when they disagree (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-jev-broken-without-quote-is-not-red -->
