@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **OmniMan signs the loop's work** (PRD #99).
  *
@@ -12,19 +11,20 @@
  * Pure: no filesystem, no network, no clock.
  */
 
+/** What a commit's trailer is built from: the `signature` config section's name and address. */
+export type TrailerSignature = { name: string; email: string };
+
+/** What a body's footer is built from: the footer template and the keys it may name. */
+export type FooterSignature = { name?: string; home?: string; footer: string };
+
 /** The hidden marker a signed body carries after its footer, whatever the footer's wording. */
 export const SIGNED_MARKER = '<!-- omni-loop:signed -->';
 
 /** A GitHub noreply address: `<id>+<login>@…`, or the older `<login>@…` with no id. */
 const NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
 
-/**
- * The co-author line a commit the loop makes ends with, or `null` when signing is off.
- *
- * @param {{ name: string, email: string } | null} signature
- * @returns {string | null}
- */
-export function trailerLine(signature) {
+/** The co-author line a commit the loop makes ends with, or `null` when signing is off. */
+export function trailerLine(signature: TrailerSignature | null): string | null {
   return signature ? `Co-authored-by: ${signature.name} <${signature.email}>` : null;
 }
 
@@ -36,20 +36,18 @@ const PLACEHOLDER = /\{(name|home)\}/g;
  * `null` when signing is off. The footer is a template: every `{name}` is filled with the
  * signature's name and every `{home}` with its home page, once each, so a value holding a
  * placeholder is printed as it is. Anything else, an unknown `{…}` included, is printed as written.
- *
- * @param {{ name?: string, home?: string, footer: string } | null} signature
- * @returns {string | null}
  */
-export function footerLine(signature) {
+export function footerLine(signature: FooterSignature | null): string | null {
   if (!signature) return null;
-  const footer = signature.footer.replace(PLACEHOLDER, (placeholder, key) =>
-    typeof signature[key] === 'string' ? signature[key] : placeholder,
-  );
+  const footer = signature.footer.replace(PLACEHOLDER, (placeholder: string, key: 'name' | 'home') => {
+    const value = signature[key];
+    return typeof value === 'string' ? value : placeholder;
+  });
   return `${footer} ${SIGNED_MARKER}`;
 }
 
 /** Whether a pull request or issue body carries the marker. */
-export function isSignedBody(body) {
+export function isSignedBody(body: unknown): boolean {
   return typeof body === 'string' && body.includes(SIGNED_MARKER);
 }
 
@@ -57,11 +55,8 @@ export function isSignedBody(body) {
  * Whether a commit message has a line that is exactly the signature's trailer: another name or
  * another address is not his, and neither is the trailer quoted inside a longer line. Trailing
  * spaces and a carriage return are ignored. Always `false` when signing is off.
- *
- * @param {string | null | undefined} message
- * @param {{ name: string, email: string } | null} signature
  */
-export function carriesTrailer(message, signature) {
+export function carriesTrailer(message: unknown, signature: TrailerSignature | null): boolean {
   const trailer = trailerLine(signature);
   if (trailer === null || typeof message !== 'string') return false;
   return message.split('\n').some((line) => line.trimEnd() === trailer);
@@ -70,11 +65,8 @@ export function carriesTrailer(message, signature) {
 /**
  * The GitHub login a noreply address belongs to — `omni-loop-invader[bot]` in
  * `333776611+omni-loop-invader[bot]@users.noreply.github.com` — or `null` for any other address.
- *
- * @param {string | null | undefined} email
- * @returns {string | null}
  */
-export function botLogin(email) {
+export function botLogin(email: unknown): string | null {
   const match = typeof email === 'string' ? NOREPLY.exec(email.trim()) : null;
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }

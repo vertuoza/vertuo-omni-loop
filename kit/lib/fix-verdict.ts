@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * What `omni visual <n>`, `omni bug <n>` and `omni concept <n>` grade alike (PRD #627, PRD 686): a
  * record's one folder for its number, whatever that folder must hold, no page with a raster image
@@ -7,12 +6,19 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { carriesTrailer, trailerLine } from './signature.ts';
+import type { TrailerSignature } from './signature.ts';
+
+/** One commit of the branch being graded. */
+export type Commit = { sha: string; message: string };
+
+/** What a fix verdict reads of the context: the repository's root and its signature. */
+type VerdictContext = { root: string; config: { signature: TrailerSignature | null } };
 
 /** A `data:image/` URL whose type is anything but SVG. */
 const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 
 /** Every folder under `root` named `prefix` then a slug, sorted, as repository paths. */
-export function numberedFolders(ctx, root, prefix) {
+export function numberedFolders(ctx: { root: string }, root: string, prefix: string): string[] {
   const absolute = join(ctx.root, root);
   if (!existsSync(absolute)) return [];
   return readdirSync(absolute, { withFileTypes: true })
@@ -22,13 +28,13 @@ export function numberedFolders(ctx, root, prefix) {
 }
 
 /** The line naming a base64 raster image inlined in `page`, whose text is `html`, or none. */
-export function rasterFaults(page, html) {
+export function rasterFaults(page: string, html: string): string[] {
   return RASTER_DATA_URL.test(html)
     ? [`${page}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`]
     : [];
 }
 
-function signatureViolations(ctx, commits) {
+function signatureViolations(ctx: VerdictContext, commits: readonly Commit[] | undefined): string[] {
   const { signature } = ctx.config;
   const trailer = trailerLine(signature);
   if (trailer === null || commits === undefined) return [];
@@ -40,21 +46,34 @@ function signatureViolations(ctx, commits) {
 /**
  * Grades one issue's fix: exactly one of `folders` (`<root>/<prefix><slug>`), graded by `grade(folder)`,
  * then the commits' signatures.
- *
- * @param {{ ctx: object, issue: number, root: string, prefix: string, folders: string[],
- *   grade: (folder: string) => string[], commits?: { sha: string, message: string }[] }} options
- * @returns {{ ok: boolean, folder: string | null, failures: string[] }}
  */
-export function fixVerdict({ ctx, issue, root, prefix, folders, grade, commits }) {
-  const failures = [];
-  let folder = null;
-  if (folders.length === 0) {
+export function fixVerdict({
+  ctx,
+  issue,
+  root,
+  prefix,
+  folders,
+  grade,
+  commits,
+}: {
+  ctx: VerdictContext;
+  issue: number;
+  root: string;
+  prefix: string;
+  folders: readonly string[];
+  grade: (folder: string) => string[];
+  commits?: readonly Commit[];
+}): { ok: boolean; folder: string | null; failures: string[] } {
+  const failures: string[] = [];
+  let folder: string | null = null;
+  const [only] = folders;
+  if (only === undefined) {
     failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue}.`);
   } else if (folders.length > 1) {
     failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(', ')}.`);
   } else {
-    [folder] = folders;
-    failures.push(...grade(folder));
+    folder = only;
+    failures.push(...grade(only));
   }
   failures.push(...signatureViolations(ctx, commits));
   return { ok: failures.length === 0, folder, failures };

@@ -1,28 +1,39 @@
-// @ts-nocheck
 // The one object every kit function receives instead of a repository root: where the repository is,
 // what its config says, where its PRDs live, and which markers its comments carry.
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { ConfigError, loadConfig } from './config.ts';
 import { foldersLayout } from './layout.ts';
 import { makeMarkers } from './markers.ts';
 
-export function createContext(root, config) {
+/** The repository's parsed `.omni-loop/config.yml`, exactly as `loadConfig` returns it. */
+export type Config = ReturnType<typeof loadConfig>;
+
+/** A process runner shaped like `execFileSync` called with a text `encoding`: it returns stdout. */
+export type ExecText = (file: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding) => string;
+
+/** The one object every kit function receives: the repository's root, config, layout and markers. */
+export type Context = ReturnType<typeof createContext>;
+
+export function createContext(root: string, config: Config) {
+  // Named key by key: the four `paths` keys the layout reads, typed one by one from the config.
+  const { delivery, adr, knowledge, playbook } = config.paths;
   return Object.freeze({
     root,
     config,
-    layout: foldersLayout(root, config.paths),
+    layout: foldersLayout(root, { delivery, adr, knowledge, playbook }),
     markers: makeMarkers(config.markers.prefix),
   });
 }
 
-export function slugFromRemote(url) {
+export function slugFromRemote(url: string): string | null {
   const match = /github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/.exec(url.trim());
   return match ? `${match[1]}/${match[2]}` : null;
 }
 
-export function loadContext(cwd = process.cwd(), { exec = execFileSync } = {}) {
-  let root;
+export function loadContext(cwd: string = process.cwd(), { exec = execFileSync }: { exec?: ExecText } = {}): Context {
+  let root: string;
   try {
     root = exec('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
