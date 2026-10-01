@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The bodies of ask mode's harness hooks, as functions of (the hook's input, the checkout's local
 // state, the contract client). Whatever goes wrong, a hook answers `null` — no output — so the
 // person's terminal prompt shows exactly as it would without ask mode. The mode never blocks a
@@ -22,11 +21,23 @@
 // - `end` (SessionEnd): closes this terminal's session and deletes its file.
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
 import { loadConfig } from '../config.ts';
+import type { askClient } from './client.ts';
 import { askContext, sessionContext } from './context.ts';
 import { roundLead } from './lead.ts';
 import {
   clearOldShots, clearRound, clearTerminal, isSafeId, isShotName, readMode, readRound, readTerminal, writeRound, writeShot, writeTerminal,
 } from './local-state.ts';
+import type { RoundStatus } from './schema.ts';
+import { field, jsonObject } from './schema.ts';
+
+/** The contract client the hooks call through (`./client.ts`), or a test's own of the same shape. */
+type Client = ReturnType<typeof askClient>;
+
+/** `AskUserQuestion`'s answers, as the tool takes them: question text to the answer. */
+type Answers = Record<string, string>;
+
+/** A hook's output, written to stdout as JSON. */
+type HookOutput = { hookSpecificOutput: Record<string, unknown> };
 
 const TOOL = 'AskUserQuestion';
 
@@ -46,13 +57,11 @@ const SCREENSHOTS_HEADING = 'Screenshots (open each with Read):';
 /**
  * The mode in this checkout: the host it is on against and the URL its calls go to, or `null` when
  * it is off — no `ask.json`, `ask.url` null or unreadable, or `ask.url` naming another host.
- *
- * @returns {{ host: string, baseUrl: string } | null}
  */
-export function activeMode(root) {
+export function activeMode(root: string): { host: string; baseUrl: string } | null {
   const mode = readMode(root);
   if (!mode) return null;
-  let baseUrl;
+  let baseUrl: string | null;
   try {
     baseUrl = loadConfig(root).ask.url;
   } catch {
@@ -66,12 +75,14 @@ export function activeMode(root) {
  * `answers` shaped as `AskUserQuestion` takes them: question text to the chosen label, several
  * labels joined with `, `, typed text kept verbatim. `null` unless every question has an answer.
  */
-export function toolAnswers(questions, answers) {
+export function toolAnswers(questions: unknown, answers: unknown): Answers | null {
   if (!Array.isArray(questions) || questions.length === 0) return null;
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
-  const shaped = {};
-  for (const { question } of questions) {
-    const given = answers[question];
+  const shaped: Answers = {};
+  for (const entry of questions) {
+    // Destructuring a question that is null or undefined throws, as it always has.
+    const { question } = entry;
+    const given = field(answers, String(question));
     const text = Array.isArray(given) && given.every((label) => typeof label === 'string') ? given.join(', ') : given;
     if (typeof text !== 'string' || text === '') return null;
     shaped[question] = text;
@@ -79,17 +90,18 @@ export function toolAnswers(questions, answers) {
   return shaped;
 }
 
-export function promptOutput() {
+export function promptOutput(): HookOutput {
   return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: PROMPT_CONTEXT } };
 }
 
-function preOutput(toolInput, answers) {
-  return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput: { ...toolInput, answers } } };
+function preOutput(toolInput: unknown, answers: Answers): HookOutput {
+  const input = jsonObject(toolInput) ?? {};
+  return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput: { ...input, answers } } };
 }
 
 /** A best-effort context (`./context.ts`), or `null` when even reading it failed: the question goes
  * on either way. */
-function contextOf(read) {
+function contextOf<T>(read: () => T): T | null {
   try {
     return read() ?? null;
   } catch {
@@ -102,13 +114,21 @@ function contextOf(read) {
  * screenshot appended after a blank line: its absolute path once downloaded, or a line saying it
  * could not be. Nothing here can fail the answer.
  */
-async function withScreenshots({ root, client, roundId, answers, attachments, deadline, now }) {
+async function withScreenshots({ root, client, roundId, answers, attachments, deadline, now }: {
+  root: string;
+  client: Client;
+  roundId: string;
+  answers: Answers;
+  attachments: unknown;
+  deadline: number;
+  now: () => number;
+}): Promise<Answers> {
   if (!attachments || typeof attachments !== 'object' || Array.isArray(attachments)) return answers;
   const shaped = { ...answers };
   for (const question of Object.keys(answers)) {
-    const shots = attachments[question];
+    const shots = field(attachments, question);
     if (!Array.isArray(shots) || shots.length === 0) continue;
-    const lines = [];
+    const lines: string[] = [];
     for (const [index, shot] of shots.entries()) {
       const path = await downloadShot({ root, client, roundId, shot, deadline, now });
       lines.push(path ? `- ${path}` : `- Screenshot ${index + 1} could not be downloaded`);
@@ -119,20 +139,29 @@ async function withScreenshots({ root, client, roundId, answers, attachments, de
 }
 
 /** One screenshot written into its round's folder: its absolute path, or `null` when it could not be. */
-async function downloadShot({ root, client, roundId, shot, deadline, now }) {
+async function downloadShot({ root, client, roundId, shot, deadline, now }: {
+  root: string;
+  client: Client;
+  roundId: string;
+  shot: unknown;
+  deadline: number;
+  now: () => number;
+}): Promise<string | null> {
   const left = deadline - now();
+  const url = field(shot, 'url');
+  const name = field(shot, 'name');
   // A name that could leave the folder is refused before anything is fetched.
-  if (left <= 0 || typeof shot?.url !== 'string' || shot.url === '' || !isShotName(shot.name)) return null;
+  if (left <= 0 || typeof url !== 'string' || url === '' || !isShotName(name)) return null;
   try {
-    const bytes = await client.download(shot.url, { timeoutMs: Math.min(SHOT_DOWNLOAD_MS, left) });
-    return writeShot(root, roundId, shot.name, bytes);
+    const bytes = await client.download(url, { timeoutMs: Math.min(SHOT_DOWNLOAD_MS, left) });
+    return writeShot(root, roundId, name, bytes);
   } catch {
     return null;
   }
 }
 
 /** The input's id when it may name a file, else `null`. */
-const idOf = (value) => (isSafeId(value) ? value : null);
+const idOf = (value: unknown): string | null => (isSafeId(value) ? value : null);
 
 /** The session the server says is closed or gone, when a round is posted into it. */
 const SESSION_GONE = [404, 409];
@@ -141,17 +170,25 @@ const SESSION_GONE = [404, 409];
  * This terminal's session: the one its file names on `host`, or one it opens titled `title()` and
  * writes. Throws when none could be opened.
  */
-async function terminalSession({ root, host, client, terminalId, title, readSessionContext }) {
+async function terminalSession({ root, host, client, terminalId, title, readSessionContext }: {
+  root: string;
+  host: string;
+  client: Client;
+  terminalId: string;
+  title: () => string;
+  readSessionContext: (root: string) => unknown;
+}): Promise<string> {
   const known = readTerminal(root, terminalId);
   if (known && known.host === host) return known.sessionId;
   const opened = await client.openSession(title(), contextOf(() => readSessionContext(root)) ?? undefined);
-  if (typeof opened?.id !== 'string' || opened.id === '') throw new Error('the server answered with no session');
-  writeTerminal(root, terminalId, { sessionId: opened.id, host });
-  return opened.id;
+  const id = field(opened, 'id');
+  if (typeof id !== 'string' || id === '') throw new Error('the server answered with no session');
+  writeTerminal(root, terminalId, { sessionId: id, host });
+  return id;
 }
 
 /** Removes the screenshot folders older than 7 days; one that cannot be removed stays one more round. */
-function sweepOldShots(root, now) {
+function sweepOldShots(root: string, now: () => number): void {
   try {
     clearOldShots(root, now());
   } catch {
@@ -160,28 +197,40 @@ function sweepOldShots(root, now) {
 }
 
 /** What `pre` needs from its input, or `null` when the hook has nothing to do with it. */
-function preInput(input) {
-  if (input?.tool_name !== TOOL) return null;
-  const toolInput = input.tool_input;
-  const questions = toolInput?.questions;
+function preInput(input: unknown): { toolInput: unknown; questions: unknown[]; terminalId: string; toolUseId: string } | null {
+  if (field(input, 'tool_name') !== TOOL) return null;
+  const toolInput = field(input, 'tool_input');
+  const questions = field(toolInput, 'questions');
   if (!Array.isArray(questions) || questions.length === 0) return null;
-  const terminalId = idOf(input.session_id);
-  const toolUseId = idOf(input.tool_use_id);
+  const terminalId = idOf(field(input, 'session_id'));
+  const toolUseId = idOf(field(input, 'tool_use_id'));
   if (!terminalId || !toolUseId) return null;
   return { toolInput, questions, terminalId, toolUseId };
 }
 
 /** The round opened for this question in this terminal's session, or `null` when none could be. */
-async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId }) {
-  let roundId;
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId }: {
+  root: string;
+  host: string;
+  client: Client;
+  input: unknown;
+  title: () => string;
+  readContext: (options: { root: string; input: unknown }) => unknown;
+  readSessionContext: (root: string) => unknown;
+  readLead: (options: { input?: unknown }) => unknown;
+  questions: unknown[];
+  terminalId: string;
+}): Promise<string | null> {
+  let roundId: unknown;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
     try {
       const context = contextOf(() => readContext({ root, input })) ?? undefined;
-      ({ roundId } = await client.openRound(sessionId, questions, context, contextOf(() => readLead({ input }))));
+      roundId = field(await client.openRound(sessionId, questions, context, contextOf(() => readLead({ input }))), 'roundId');
     } catch (error) {
       // Closed or gone on the server: this question goes to the terminal, the next opens anew.
-      if (SESSION_GONE.includes(error?.status)) clearTerminal(root, terminalId);
+      const status = field(error, 'status');
+      if (typeof status === 'number' && SESSION_GONE.includes(status)) clearTerminal(root, terminalId);
       return null;
     }
   } catch {
@@ -191,11 +240,8 @@ async function openRoundFor({ root, host, client, input, title, readContext, rea
 }
 
 /**
- * @param {{ root: string, host: string, client: ReturnType<import('./client.ts').askClient>,
- *   input: any, title: () => string, limits?: { totalMs: number, callMs: number }, now?: () => number,
- *   readContext?: typeof askContext, readSessionContext?: typeof sessionContext, readLead?: typeof roundLead }} options
- *   `title` names a session this terminal opens: `<repo slug> · <branch>`.
- * @returns {Promise<object | null>} the hook's output, or `null` for none
+ * The `pre` hook's output, or `null` for none. `title` names a session this terminal opens:
+ * `<repo slug> · <branch>`.
  */
 export async function preHook({
   root,
@@ -208,7 +254,18 @@ export async function preHook({
   readContext = askContext,
   readSessionContext = sessionContext,
   readLead = roundLead,
-}) {
+}: {
+  root: string;
+  host: string;
+  client: Client;
+  input: unknown;
+  title: () => string;
+  limits?: { totalMs: number; callMs: number };
+  now?: () => number;
+  readContext?: (options: { root: string; input: unknown }) => unknown;
+  readSessionContext?: (root: string) => unknown;
+  readLead?: (options: { input?: unknown }) => unknown;
+}): Promise<HookOutput | null> {
   const pre = preInput(input);
   if (!pre) return null;
   const { toolInput, questions, terminalId, toolUseId } = pre;
@@ -217,10 +274,10 @@ export async function preHook({
 
   const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId });
   if (!roundId) return null;
-  const keep = (status) => writeRound(root, toolUseId, { roundId, status });
+  const keep = (status: RoundStatus): void => writeRound(root, toolUseId, { roundId, status });
   keep('open');
 
-  const giveUp = async () => {
+  const giveUp = async (): Promise<null> => {
     await client.abandon(roundId).catch(() => {});
     keep('abandoned');
     return null;
@@ -229,26 +286,27 @@ export async function preHook({
   for (;;) {
     const left = deadline - now();
     if (left <= 0) return giveUp();
-    let result;
+    let result: unknown;
     try {
       result = await client.wait(roundId, { timeoutMs: Math.min(limits.callMs, left) });
     } catch {
       return giveUp();
     }
-    if (result?.status === 'open') continue;
-    if (result?.status === 'closed') {
+    const status = field(result, 'status');
+    if (status === 'open') continue;
+    if (status === 'closed') {
       clearRound(root, toolUseId);
       clearTerminal(root, terminalId);
       return null;
     }
-    if (result?.status === 'abandoned') {
+    if (status === 'abandoned') {
       keep('abandoned');
       return null;
     }
-    const answers = result?.status === 'answered' ? toolAnswers(questions, result.answers) : null;
+    const answers = status === 'answered' ? toolAnswers(questions, field(result, 'answers')) : null;
     if (!answers) return giveUp();
     keep('answered');
-    const attachments = result.attachments;
+    const attachments = field(result, 'attachments');
     return preOutput(toolInput, await withScreenshots({ root, client, roundId, answers, attachments, deadline, now }));
   }
 }
@@ -257,14 +315,16 @@ export async function preHook({
  * Posts an answer the person gave in the terminal to the round `pre` left open or abandoned for this
  * tool call, then deletes that round's file — whatever happens. Another call's round is never read.
  */
-export async function postHook({ root, client, input }) {
-  const toolUseId = idOf(input?.tool_use_id);
+export async function postHook({ root, client, input }: { root: string; client: Client; input: unknown }): Promise<void> {
+  const toolUseId = idOf(field(input, 'tool_use_id'));
   const round = readRound(root, toolUseId);
   if (!round) return;
   try {
     if (round.status === 'answered') return;
-    const questions = input?.tool_input?.questions ?? input?.tool_response?.questions;
-    const answers = toolAnswers(questions, input?.tool_response?.answers ?? input?.tool_input?.answers);
+    const toolInput = field(input, 'tool_input');
+    const toolResponse = field(input, 'tool_response');
+    const questions = field(toolInput, 'questions') ?? field(toolResponse, 'questions');
+    const answers = toolAnswers(questions, field(toolResponse, 'answers') ?? field(toolInput, 'answers'));
     if (answers) await client.answer(round.roundId, answers);
   } catch {
     // The page misses one terminal answer; the session goes on.
@@ -277,8 +337,8 @@ export async function postHook({ root, client, input }) {
  * Closes this terminal's session on the server when it can, then deletes its file — whatever
  * happens. A session left open reads as closed after 12 hours without a call.
  */
-export async function endHook({ root, host, client, input }) {
-  const terminalId = idOf(input?.session_id);
+export async function endHook({ root, host, client, input }: { root: string; host: string; client: Client; input: unknown }): Promise<void> {
+  const terminalId = idOf(field(input, 'session_id'));
   const session = readTerminal(root, terminalId);
   if (!session) return;
   try {

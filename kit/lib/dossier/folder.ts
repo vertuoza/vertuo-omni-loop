@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A PRD's folder as a dossier sees it (PRD 216): its artifacts (the spec, the plan, the before/after page
 // and, since PRD 822, the personas' `voice.json`), each whole with its SHA-256
 // hash and its size in bytes, and the title the spec's front matter gives. Reads files, calls nothing:
@@ -17,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { parseFolderName } from '../layout.ts';
+import type { Layout, PrdNumber } from '../layout.ts';
 import { VOICE_FILE } from '../voice/voice.ts';
 
 /** The largest artifact the contract takes. */
@@ -25,38 +25,64 @@ export const ARTIFACT_MAX_BYTES = 512 * 1024;
 export const TITLE_MAX = 200;
 
 /** The kinds, in the order they are sent, each with where the layout keeps its file. */
-export const ARTIFACT_KINDS = Object.freeze([
-  { kind: 'spec', pathOf: (layout, prd) => layout.specPath(prd) },
-  { kind: 'plan', pathOf: (layout, prd) => layout.planPath(prd) },
-  { kind: 'before-after', pathOf: (layout, prd) => layout.beforeAfterPath(prd) },
-  { kind: 'voice', pathOf: (layout, prd) => `${layout.whereIs(prd).dir}/${VOICE_FILE}` },
+/** The kinds of artifact a PRD's dossier carries. */
+export type ArtifactKind = 'spec' | 'plan' | 'before-after' | 'voice';
+
+/** One artifact of a PRD's folder, whole, with its hash and its size in bytes. */
+export type Artifact = { kind: ArtifactKind; path: string; content: string; sha256: string; bytes: number };
+
+/** A file not sent because it is over {@link ARTIFACT_MAX_BYTES}. */
+export type TooLarge = { kind: string; path: string; bytes: number };
+
+/** A PRD's folder as its dossier is pushed. */
+export type DossierFolder = { prd: number; dir: string; title: string; artifacts: Artifact[]; tooLarge: TooLarge[] };
+
+/** The kinds of fix that keep a folder (PRD 627). */
+export type FixKind = 'visual' | 'bug';
+
+/** One artifact of a fix's folder; a round of variations carries its number. */
+export type FixArtifact = {
+  kind: 'before-after' | 'variations' | 'bug-record';
+  path: string;
+  content: string;
+  sha256: string;
+  bytes: number;
+  round?: number;
+};
+
+/** A fix's folder as its dossier is pushed. */
+export type FixFolder = { issue: number; kind: FixKind; dir: string; title: string; artifacts: FixArtifact[]; tooLarge: TooLarge[] };
+
+export const ARTIFACT_KINDS: readonly { kind: ArtifactKind; pathOf: (layout: Layout, prd: PrdNumber) => string | null }[] = Object.freeze([
+  { kind: 'spec', pathOf: (layout: Layout, prd: PrdNumber) => layout.specPath(prd) },
+  { kind: 'plan', pathOf: (layout: Layout, prd: PrdNumber) => layout.planPath(prd) },
+  { kind: 'before-after', pathOf: (layout: Layout, prd: PrdNumber) => layout.beforeAfterPath(prd) },
+  // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
+  { kind: 'voice', pathOf: (layout: Layout, prd: PrdNumber) => `${layout.whereIs(prd)!.dir}/${VOICE_FILE}` },
 ]);
 
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
 /** The `title:` of a markdown file's front matter, or null. */
-export function frontMatterTitle(text) {
+export function frontMatterTitle(text: string): string | null {
   const block = FRONT_MATTER.exec(text);
   if (!block) return null;
-  const title = parseFrontMatterLines(block[1]).data.title?.trim();
+  const title = parseFrontMatterLines(block[1] ?? '').data.title?.trim();
   return title || null;
 }
 
-export const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest('hex');
+export const sha256 = (content: string): string => createHash('sha256').update(content, 'utf8').digest('hex');
 
-/**
- * @typedef {{ kind: 'spec' | 'plan' | 'before-after' | 'voice', path: string, content: string, sha256: string, bytes: number }} Artifact
- * @returns {{ prd: number, dir: string, title: string, artifacts: Artifact[],
- *   tooLarge: Array<{ kind: string, path: string, bytes: number }> } | null} null when PRD `prd` has no folder
- */
-export function readDossierFolder(ctx, prd) {
+/** PRD `prd`'s folder as its dossier is pushed; null when PRD `prd` has no folder. */
+export function readDossierFolder(ctx: { root: string; layout: Layout }, prd: PrdNumber): DossierFolder | null {
   const where = ctx.layout.whereIs(prd);
   if (!where) return null;
-  const artifacts = [];
-  const tooLarge = [];
-  let title = null;
+  const artifacts: Artifact[] = [];
+  const tooLarge: TooLarge[] = [];
+  let title: string | null = null;
   for (const { kind, pathOf } of ARTIFACT_KINDS) {
-    const path = pathOf(ctx.layout, prd);
+    // Never null: every kind's path is in the folder, and the folder is there.
+    const path = pathOf(ctx.layout, prd)!;
     const file = join(ctx.root, path);
     if (!existsSync(file)) continue;
     const raw = readFileSync(file);
@@ -73,26 +99,29 @@ export function readDossierFolder(ctx, prd) {
 }
 
 /** The folder under `<delivery>` each kind of fix keeps its record in. */
-const FIX_ROOTS = Object.freeze({ visual: 'visual', bug: 'bugs' });
+const FIX_ROOTS: Readonly<Record<FixKind, string>> = Object.freeze({ visual: 'visual', bug: 'bugs' });
 
 const ROUND = /^variations-r([1-9]\d*)\.html$/;
 const FIX_PREFIX = /^(?:visual|bug)\s*:\s*/i;
 
 /** A fix's dossier title: its issue's title without its `Visual: ` or `Bug: ` prefix, else `topic`, cut
  * to the 200 characters the contract takes. */
-export function fixTitle(issueTitle, topic) {
+export function fixTitle(issueTitle: unknown, topic: string): string {
   const title = typeof issueTitle === 'string' ? issueTitle.trim().replace(FIX_PREFIX, '').trim() : '';
   return (title || topic).slice(0, TITLE_MAX);
 }
 
 /** The files of a fix's folder that are sent, in the order they are sent: `{ kind, name, round? }`. */
-function fixFiles(kind, names) {
+type FixFile = { kind: FixArtifact['kind']; name: string; round?: number };
+
+function fixFiles(kind: FixKind, names: readonly string[]): FixFile[] {
   if (kind === 'bug') return names.includes('bug.md') ? [{ kind: 'bug-record', name: 'bug.md' }] : [];
-  const page = names.includes('before-after.html') ? [{ kind: 'before-after', name: 'before-after.html' }] : [];
+  const page: FixFile[] = names.includes('before-after.html') ? [{ kind: 'before-after', name: 'before-after.html' }] : [];
   const rounds = names
-    .map((name) => ({ name, match: ROUND.exec(name) }))
-    .filter(({ match }) => match)
-    .map(({ name, match }) => ({ kind: 'variations', name, round: Number(match[1]) }))
+    .flatMap((name): (FixFile & { round: number })[] => {
+      const match = ROUND.exec(name);
+      return match ? [{ kind: 'variations', name, round: Number(match[1]) }] : [];
+    })
     .sort((a, b) => a.round - b.round);
   return [...page, ...rounds];
 }
@@ -101,12 +130,14 @@ function fixFiles(kind, names) {
  * Issue `issue`'s fix of `kind` ('visual' or 'bug'), as its dossier is pushed: the first folder named
  * for the issue, its artifacts whole with their hashes and sizes (a round carries its number), and its
  * title. A file over 512 KiB is named in `tooLarge` and not sent.
- * @param {{ issueTitle?: string | null }} [options] the issue's title, when it could be read
- * @returns {{ issue: number, kind: 'visual' | 'bug', dir: string, title: string,
- *   artifacts: Array<{ kind: 'before-after' | 'variations' | 'bug-record', path: string, content: string, sha256: string, bytes: number, round?: number }>,
- *   tooLarge: Array<{ kind: string, path: string, bytes: number }> } | null} null when the issue has no such folder
+ * `issueTitle` is the issue's title, when it could be read. Null when the issue has no such folder.
  */
-export function readFixFolder(ctx, kind, issue, { issueTitle = null } = {}) {
+export function readFixFolder(
+  ctx: { root: string; config: { paths: { delivery: string } } },
+  kind: FixKind,
+  issue: number | string,
+  { issueTitle = null }: { issueTitle?: string | null } = {},
+): FixFolder | null {
   const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
   const absolute = join(ctx.root, root);
   if (!existsSync(absolute)) return null;
@@ -117,8 +148,8 @@ export function readFixFolder(ctx, kind, issue, { issueTitle = null } = {}) {
     .sort()[0];
   if (!name) return null;
   const dir = `${root}/${name}`;
-  const artifacts = [];
-  const tooLarge = [];
+  const artifacts: FixArtifact[] = [];
+  const tooLarge: TooLarge[] = [];
   for (const file of fixFiles(kind, readdirSync(join(ctx.root, dir)))) {
     const path = `${dir}/${file.name}`;
     const raw = readFileSync(join(ctx.root, path));

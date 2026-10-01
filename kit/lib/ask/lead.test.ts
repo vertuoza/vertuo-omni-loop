@@ -1,13 +1,12 @@
-// @ts-nocheck
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LEAD_MAX_BYTES, SHORTENED_NOTE, readLead, roundLead } from './lead.ts';
 
-const lines = (...entries) => entries.map((entry) => JSON.stringify(entry)).join('\n');
-const user = (content) => ({ type: 'user', message: { role: 'user', content } });
-const assistant = (id, content) => ({ type: 'assistant', message: { id, role: 'assistant', content } });
+const lines = (...entries: unknown[]) => entries.map((entry) => JSON.stringify(entry)).join('\n');
+const user = (content: unknown) => ({ type: 'user', message: { role: 'user', content } });
+const assistant = (id: string, content: unknown) => ({ type: 'assistant', message: { id, role: 'assistant', content } });
 const ask = (id = 'toolu_ask') => ({ type: 'tool_use', id, name: 'AskUserQuestion', input: { questions: [{ question: 'Does this design look right?' }] } });
 
 // A whole turn: the person's message, thinking, a tool call, its result, two text blocks, then the question.
@@ -76,7 +75,7 @@ describe('readLead', () => {
 
   it(`cuts a lead over ${LEAD_MAX_BYTES} bytes and ends it with the shortened note`, () => {
     const long = 'é'.repeat(LEAD_MAX_BYTES);
-    const lead = readLead(lines(user('go'), assistant('m1', [{ type: 'text', text: long }, ask()])), 'toolu_ask');
+    const lead = readLead(lines(user('go'), assistant('m1', [{ type: 'text', text: long }, ask()])), 'toolu_ask')!;
     expect(lead.endsWith(SHORTENED_NOTE)).toBe(true);
     expect(SHORTENED_NOTE).toBe('… (shortened, the rest is in the terminal)');
     const kept = lead.slice(0, lead.length - SHORTENED_NOTE.length).trimEnd();

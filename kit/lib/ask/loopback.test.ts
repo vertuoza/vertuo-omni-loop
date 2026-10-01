@@ -1,21 +1,20 @@
-// @ts-nocheck
 import { connect } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LoopbackError, startLoopback } from './loopback.ts';
 
 const STATE = 'state-0123456789abcdef';
 
-let listener;
+let listener: Awaited<ReturnType<typeof startLoopback>> | undefined;
 afterEach(async () => {
   await listener?.close();
   listener = undefined;
 });
 
-const get = (port, path) => fetch(`http://127.0.0.1:${port}${path}`);
+const get = (port: number, path: string) => fetch(`http://127.0.0.1:${port}${path}`);
 
 /** Whether anything still accepts a connection on the port. */
-function accepts(port) {
-  return new Promise((resolve) => {
+function accepts(port: number) {
+  return new Promise<boolean>((resolve) => {
     const socket = connect({ host: '127.0.0.1', port });
     socket.once('connect', () => { socket.destroy(); resolve(true); });
     socket.once('error', () => resolve(false));
@@ -45,7 +44,7 @@ describe('the loopback listener omni signin starts', () => {
 
   it('refuses a callback whose state does not match, and keeps waiting for the right one', async () => {
     listener = await startLoopback({ state: STATE });
-    const caught = [];
+    const caught: string[] = [];
     listener.code.then((code) => caught.push(code), () => {});
     for (const state of ['state-somebody-else', '', STATE.slice(0, -1), `${STATE}x`]) {
       const refused = await get(listener.port, `/callback?state=${encodeURIComponent(state)}&code=planted`);

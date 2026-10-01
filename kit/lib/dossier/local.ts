@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The drafts `omni dossier open` recorded on this computer (PRD 216): `.omni-loop/local/dossiers.json`
 // in the repository's main checkout, beside ask mode's state and ignored by the same `.gitignore`.
 // The main checkout is found through `git rev-parse --git-common-dir`, so a brainstorm running in a
@@ -8,19 +7,33 @@
 // numbers the draft. A file that is missing, half-written or not a list reads as empty, and an entry
 // of the wrong shape reads as absent: a draft the kit cannot read is one it does not number.
 import { execFileSync } from 'node:child_process';
+import type { StdioOptions } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { z } from 'zod';
 import { LOCAL_DIR } from '../ask/local-state.ts';
+import type { ExecText } from '../context.ts';
+import type { DossierEntry } from './draft.ts';
 
 export const DOSSIERS_FILE = join(LOCAL_DIR, 'dossiers.json');
 
-const QUIET = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
-const isText = (value) => typeof value === 'string' && value.length > 0;
+const QUIET: { encoding: 'utf8'; stdio: StdioOptions } = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+
+const text = z.string().min(1);
+
+/** One entry of the file, as `entryOf` keeps it: any other key is dropped. */
+export const DossierEntrySchema = z.object({
+  id: text,
+  url: text,
+  claudeSessionId: text.nullable(),
+  prd: z.number().int().positive().nullable(),
+  openedAt: text,
+});
 
 /** The root of the repository's main checkout, from `cwd` in it or in any of its worktrees; null
  * outside a repository. */
-export function mainCheckout(cwd, exec = execFileSync) {
-  let common;
+export function mainCheckout(cwd: string, exec: ExecText = execFileSync): string | null {
+  let common: string;
   try {
     common = String(exec('git', ['rev-parse', '--git-common-dir'], { cwd, ...QUIET })).trim();
   } catch {
@@ -36,28 +49,23 @@ export function mainCheckout(cwd, exec = execFileSync) {
   }
 }
 
-/** @returns {import('./draft.ts').DossierEntry | null} */
-function entryOf(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const { id, url, claudeSessionId, prd, openedAt } = value;
-  if (!isText(id) || !isText(url) || !isText(openedAt)) return null;
-  if (!(claudeSessionId === null || isText(claudeSessionId))) return null;
-  if (!(prd === null || (Number.isInteger(prd) && prd > 0))) return null;
-  return { id, url, claudeSessionId, prd, openedAt };
+/** An entry of the file, or null when it is not of the shape. */
+function entryOf(value: unknown): DossierEntry | null {
+  const parsed = DossierEntrySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
-/** @returns {import('./draft.ts').DossierEntry[]} */
-export function readDossiers(root) {
-  let value;
+export function readDossiers(root: string): DossierEntry[] {
+  let value: unknown;
   try {
     value = JSON.parse(readFileSync(join(root, DOSSIERS_FILE), 'utf8'));
   } catch {
     return [];
   }
-  return Array.isArray(value) ? value.map(entryOf).filter(Boolean) : [];
+  return Array.isArray(value) ? value.map(entryOf).filter((entry) => entry !== null) : [];
 }
 
-function writeDossiers(root, entries) {
+function writeDossiers(root: string, entries: readonly DossierEntry[]): void {
   const dir = join(root, LOCAL_DIR);
   mkdirSync(dir, { recursive: true });
   const ignore = join(dir, '.gitignore');
@@ -66,16 +74,16 @@ function writeDossiers(root, entries) {
 }
 
 /** Adds a draft `omni dossier open` just opened. */
-export function recordDraft(root, entry) {
+export function recordDraft(root: string, entry: DossierEntry): void {
   writeDossiers(root, [...readDossiers(root), entry]);
 }
 
 /** Records that a push numbered draft `draftId` as PRD `prd`, now the dossier `id` at `url`. */
-export function markNumbered(root, draftId, { prd, id, url }) {
+export function markNumbered(root: string, draftId: string, { prd, id, url }: { prd: number; id: string; url: string }): void {
   writeDossiers(root, readDossiers(root).map((entry) => (entry.id === draftId ? { ...entry, id, url, prd } : entry)));
 }
 
 /** Forgets a draft the server no longer has. */
-export function forgetDraft(root, draftId) {
+export function forgetDraft(root: string, draftId: string): void {
   writeDossiers(root, readDossiers(root).filter((entry) => entry.id !== draftId));
 }

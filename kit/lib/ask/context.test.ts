@@ -1,13 +1,12 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { askContext, prdOfBranch, readTranscript, sessionContext } from './context.ts';
 
-const line = (entry) => JSON.stringify(entry);
-const user = (content) => line({ type: 'user', message: { role: 'user', content } });
-const assistant = (id, model, usage) => line({ type: 'assistant', message: { id, model, role: 'assistant', usage } });
-const usage = (input, output, cacheRead = 0, cacheWrite = 0) => ({
+const line = (entry: unknown) => JSON.stringify(entry);
+const user = (content: unknown) => line({ type: 'user', message: { role: 'user', content } });
+const assistant = (id: unknown, model: unknown, usage: unknown) => line({ type: 'assistant', message: { id, model, role: 'assistant', usage } });
+const usage = (input: unknown, output: unknown, cacheRead: unknown = 0, cacheWrite: unknown = 0) => ({
   input_tokens: input,
   output_tokens: output,
   cache_read_input_tokens: cacheRead,
@@ -70,7 +69,7 @@ describe('prdOfBranch', () => {
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 
-function checkout(branch, files = {}) {
+function checkout(branch: string | null, files: Record<string, string> = {}) {
   const repo = makeRepo({
     git: true,
     files: {

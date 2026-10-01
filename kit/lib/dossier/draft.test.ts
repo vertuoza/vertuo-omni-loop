@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { chooseDraft } from './draft.ts';
 
-const entry = (id, { claudeSessionId = null, prd = null } = {}) => ({
+const entry = (id: string, { claudeSessionId = null, prd = null }: { claudeSessionId?: string | null; prd?: number | null } = {}) => ({
   id, url: `https://omni.example/prd/${id}`, claudeSessionId, prd, openedAt: '2026-09-27T09:00:00.000Z',
 });
 

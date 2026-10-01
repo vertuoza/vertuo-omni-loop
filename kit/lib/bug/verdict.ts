@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A bug fix can be proven** (PRD #556, slice s1).
  *
@@ -20,50 +19,56 @@
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, numberedFolders } from '../fix-verdict.ts';
+import type { Commit } from '../fix-verdict.ts';
+import type { TrailerSignature } from '../signature.ts';
+
+/** What a bug verdict reads of the context: the root, where deliveries live and the signature. */
+type BugContext = { root: string; config: { paths: { delivery: string }; signature: TrailerSignature | null } };
 
 const RECORD = 'bug.md';
 
 /** The sections a record holds, in order. */
-export const SECTIONS = ['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'];
+export const SECTIONS: readonly string[] = ['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'];
 
 /** The risk levels a triage may name. */
-export const RISK_LEVELS = ['critical', 'high', 'medium', 'low'];
+export const RISK_LEVELS: readonly string[] = ['critical', 'high', 'medium', 'low'];
 
 /** Where every bug fix's folder lives. */
-export function bugRoot(ctx) {
+export function bugRoot(ctx: { config: { paths: { delivery: string } } }): string {
   return `${ctx.config.paths.delivery}/bugs`;
 }
 
 /** The folder name prefix of an issue's bug fix: its number, zero-padded to four digits, then `-`. */
-export function folderPrefix(issue) {
+export function folderPrefix(issue: number | string): string {
   return `${String(issue).padStart(4, '0')}-`;
 }
 
 /** The record's `## ` sections, as a map from heading to body text (first heading wins). */
-export function parseSections(text) {
-  const sections = new Map();
-  let current = null;
+export function parseSections(text: string): Map<string, string> {
+  const sections = new Map<string, string[]>();
+  let current: string | null = null;
   for (const line of text.split(/\r?\n/)) {
     const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith('###')) {
-      current = sections.has(heading[1]) ? null : heading[1];
+    const name = heading?.[1];
+    if (name !== undefined && !line.startsWith('###')) {
+      current = sections.has(name) ? null : name;
       if (current !== null) sections.set(current, []);
     } else if (/^#\s/.test(line)) {
       current = null;
     } else if (current !== null) {
-      sections.get(current).push(line);
+      sections.get(current)?.push(line);
     }
   }
   return new Map([...sections].map(([name, lines]) => [name, lines.join('\n').trim()]));
 }
 
 /** The value of a `- **<key>:** value` line in `body`: `undefined` with no such line, else trimmed. */
-function field(body, key) {
+function field(body: string, key: string): string | undefined {
   const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${key}:\\*\\*(.*)$`, 'm').exec(body);
-  return match ? match[1].trim() : undefined;
+  return match ? (match[1] ?? '').trim() : undefined;
 }
 
-function isFile(ctx, path) {
+function isFile(ctx: { root: string }, path: string): boolean {
   try {
     return statSync(join(ctx.root, path)).isFile();
   } catch {
@@ -71,16 +76,16 @@ function isFile(ctx, path) {
   }
 }
 
-function triageViolations(record, body) {
+function triageViolations(record: string, body: string): string[] {
   const risk = field(body, 'Risk');
   if (risk === undefined || risk === '') return [`${record}: the Triage has no **Risk:** line.`];
-  const level = risk.split(/[\s—–-]/)[0].replace(/[^a-z]/gi, '').toLowerCase();
+  const level = (risk.split(/[\s—–-]/)[0] ?? '').replace(/[^a-z]/gi, '').toLowerCase();
   if (RISK_LEVELS.includes(level)) return [];
   return [`${record}: the Triage names risk "${risk.split(/\s/)[0]}"; it is one of critical, high, medium or low.`];
 }
 
-function reproductionViolations(ctx, record, body, changed) {
-  const violations = [];
+function reproductionViolations(ctx: { root: string }, record: string, body: string, changed: Set<string> | undefined): string[] {
+  const violations: string[] = [];
   const file = field(body, 'File');
   if (file === undefined || file === '') {
     violations.push(`${record}: the Reproduction has no **File:** line naming the test or scenario.`);
@@ -98,30 +103,31 @@ function reproductionViolations(ctx, record, body, changed) {
   return violations;
 }
 
-function recordViolations(ctx, record, changed) {
+function recordViolations(ctx: { root: string }, record: string, changed: Set<string> | undefined): string[] {
   if (!isFile(ctx, record)) return [`${record}: missing.`];
   const sections = parseSections(readFileSync(join(ctx.root, record), 'utf8'));
-  const violations = [];
+  const violations: string[] = [];
   for (const name of SECTIONS) {
     if (!sections.has(name)) violations.push(`${record}: no "## ${name}" section.`);
     else if (sections.get(name) === '') violations.push(`${record}: the "## ${name}" section is empty.`);
   }
-  if (sections.get('Triage')) violations.push(...triageViolations(record, sections.get('Triage')));
-  if (sections.get('Reproduction')) {
-    violations.push(...reproductionViolations(ctx, record, sections.get('Reproduction'), changed));
-  }
+  const triage = sections.get('Triage');
+  if (triage) violations.push(...triageViolations(record, triage));
+  const reproduction = sections.get('Reproduction');
+  if (reproduction) violations.push(...reproductionViolations(ctx, record, reproduction, changed));
   return violations;
 }
 
 /**
  * Grades one issue's bug fix on the working tree, the branch's changed files and its commits when
  * given.
- *
- * @param {{ ctx: object, issue: number, changed?: Iterable<string>,
- *   commits?: { sha: string, message: string }[] }} options
- * @returns {{ ok: boolean, folder: string | null, failures: string[] }}
  */
-export function bugVerdict({ ctx, issue, changed, commits }) {
+export function bugVerdict({ ctx, issue, changed, commits }: {
+  ctx: BugContext;
+  issue: number;
+  changed?: Iterable<string>;
+  commits?: readonly Commit[];
+}): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
     ctx, issue, commits, root: bugRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), folderPrefix(issue)),
