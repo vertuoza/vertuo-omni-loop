@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { trackedFiles } from './check-report.ts';
 
-const commit = (root) => {
+const commit = (root: string) => {
   execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'files'], {
     cwd: root,

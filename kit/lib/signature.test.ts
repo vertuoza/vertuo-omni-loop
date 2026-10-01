@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #99, slice s1: the signature's lines, built from the `signature` config section, and the
 // three questions `omni phase0` and `omni credits` ask of what GitHub holds. PRD #215, slice s1: the
 // footer is a template, its `{name}` and `{home}` filled before the marker; slice s2: the hero is
@@ -66,7 +65,7 @@ describe('whether a body is signed', () => {
 });
 
 describe('whether a commit message carries the trailer', () => {
-  const message = (...trailers) => ['docs(phase-0): widgets', '', 'Body.', '', ...trailers, ''].join('\n');
+  const message = (...trailers: string[]) => ['docs(phase-0): widgets', '', 'Body.', '', ...trailers, ''].join('\n');
 
   it('carries it when one line is exactly the trailer, beside other trailers', () => {
     expect(carriesTrailer(message('Co-Authored-By: Claude <noreply@anthropic.com>', TRAILER), signature)).toBe(true);

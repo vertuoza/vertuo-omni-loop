@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -8,7 +7,7 @@ import { FORMS } from './playbook/forms.ts';
 
 const PATHS = { delivery: '.omni-loop/delivery', knowledge: '.omni-loop/knowledge', adr: 'docs-adr', playbook: '.omni-loop/knowledge/playbook', glossary: null, context: [] };
 
-function tree(files) {
+function tree(files: Record<string, string>) {
   const root = mkdtempSync(join(tmpdir(), 'layout-'));
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -51,7 +50,7 @@ describe('foldersLayout', () => {
   it('puts a shipped outbox inside the shipped folder', () => {
     const root = tree({ '.omni-loop/delivery/shipped/0042-topic/outbox/settled.md': 'x' });
     const layout = foldersLayout(root, PATHS);
-    expect(layout.whereIs(42).state).toBe('shipped');
+    expect(layout.whereIs(42)?.state).toBe('shipped');
     expect(layout.outboxDir(42)).toBe('.omni-loop/delivery/shipped/0042-topic/outbox');
   });
 
