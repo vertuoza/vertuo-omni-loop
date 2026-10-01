@@ -14,19 +14,24 @@
 // reads fails on its own (`UNREAD`); the App not installed, or no config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
 // Concurrent reads of one dossier share one promise, and a repository's config is read once per
 // 60-second window whatever the number of its PRDs (PRD 657, s6).
+// Every call made with the installation token goes through the shared, budget-aware client
+// (packages/github, PRD 902, s1): a page's read is `interactive`, a recount's `background`. A read the
+// budget refused (deferred or paused) is said once by the client, never per part, and is not kept, so
+// the next caller asks again.
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
 import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { githubClient, type GithubStore, type Priority } from '@omni/github';
 import { z } from 'zod';
 import { CARE_QUERY, parseCare, type CareState } from './care';
 import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
-import { readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { isBudgetRefusal, readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -171,8 +176,11 @@ function settledItems(entries: LedgerEntry[]): SettledItem[] {
 /** An outbox as the tab shows it, and what the kit's reply reader needs of it. */
 type OutboxRead = { outbox: Outbox; items: KitItem[]; adopted: KitAdopted[] };
 
+/** Who waits on a read: a person (`interactive`, the default) or nobody (`background`: a recount, the sync). */
+export type ReadOptions = { priority?: Priority };
+
 export type GithubReader = {
-  summary(dossier: DossierRef): Promise<GithubSummary | null>;
+  summary(dossier: DossierRef, options?: ReadOptions): Promise<GithubSummary | null>;
   /** Drops the dossier's cached summary, so the next read is fresh (PRD 251, s11: a send reads the
    * outbox fresh, and clears it once posted so the answer shows at once). */
   forget(dossierId: string): void;
@@ -182,31 +190,37 @@ export type GithubReader = {
 export type FixReader = {
   /** What GitHub says of a fix (./fix.ts), through the same 60-second cache; null when the App is not
    * installed on its repository, or its config could not be read. */
-  fix(ref: FixRef): Promise<FixSummary | null>;
+  fix(ref: FixRef, options?: ReadOptions): Promise<FixSummary | null>;
 };
 
-export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader & FixReader {
+/** `store` is the budget's store (github_etags, github_budget); without one, the client still reads the
+ * pause and floor of nothing, and every call goes out plain. */
+export function githubReader(
+  creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
+): GithubReader & FixReader {
   const app = githubApp(creds, fetchImpl, clock);
-  const tokens = new Map<string, InstallationToken>();
+  const github = githubClient({ store, fetch: fetchImpl, clock });
+  const tokens = new Map<string, InstallationToken & { installation: number }>();
   const summaries = keptFor<GithubSummary | null>(clock);
   const fixes = keptFor<FixSummary | null>(clock);
   const configs = keptFor<RepoConfig>(clock);
 
-  /** A token for `repo`, reused until a minute before it expires; null when the App is not installed there. */
-  async function tokenFor(repo: string): Promise<string | null> {
+  /** A token for `repo` and its installation, reused until a minute before it expires; null when the App is not installed there. */
+  async function tokenFor(repo: string): Promise<{ token: string; installation: number } | null> {
     const kept = tokens.get(repo);
-    if (kept && clock() < kept.expiresAt - TOKEN_MARGIN_MS) return kept.token;
+    if (kept && clock() < kept.expiresAt - TOKEN_MARGIN_MS) return kept;
     const installation = await app.repoInstallation(repo);
     if (!installation) return null;
-    const token = await app.installationToken(installation.id);
+    const token = { ...(await app.installationToken(installation.id)), installation: installation.id };
     tokens.set(repo, token);
-    return token.token;
+    return token;
   }
 
-  async function read(repo: string, token: string) {
+  async function read(repo: string, { token, installation }: { token: string; installation: number }, priority: Priority) {
+    const call = (url: string, init: RequestInit) => github.fetch(url, { ...init, installation, priority });
     /** A GitHub answer as JSON; null on 404. Throws on any other error. */
     async function json(route: string, accept = 'application/vnd.github+json'): Promise<unknown> {
-      const res = await fetchImpl(`${GITHUB}/repos/${repo}${route}`, {
+      const res = await call(`${GITHUB}/repos/${repo}${route}`, {
         headers: { authorization: `Bearer ${token}`, accept, 'x-github-api-version': '2022-11-28' },
         cache: 'no-store',
       });
@@ -222,7 +236,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     return {
       /** The pull request's care state (PRD 790, s2): one GraphQL read; null when it is not there. */
       async care(pr: number, statusMarker: string): Promise<CareState | null> {
-        const res = await fetchImpl(`${GITHUB}/graphql`, {
+        const res = await call(`${GITHUB}/graphql`, {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
           body: JSON.stringify({ query: CARE_QUERY, variables: { owner, name, number: pr } }),
@@ -309,14 +323,22 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     };
   }
 
-  /** One read on its own: its answer, or UNREAD when it failed. */
-  const part = <T>(what: string, run: () => Promise<T>) => readPart('PRD page', what, run);
-
-  async function fresh({ home_repo: repo, prd }: DossierRef): Promise<GithubSummary | null> {
-    if (!REPO.test(repo)) return null;
+  /** A summary read fresh, and whether the budget refused any of its reads (then it is not kept). */
+  async function fresh({ home_repo: repo, prd }: DossierRef, priority: Priority): Promise<{ summary: GithubSummary | null; refused: boolean }> {
+    let refused = false;
+    /** One read on its own: its answer, or UNREAD when it failed. */
+    const part = <T,>(what: string, run: () => Promise<T>) => readPart('PRD page', what, async () => {
+      try {
+        return await run();
+      } catch (error) {
+        if (isBudgetRefusal(error)) refused = true;
+        throw error;
+      }
+    });
+    if (!REPO.test(repo)) return { summary: null, refused };
     const token = await tokenFor(repo);
-    if (!token) return null;
-    const gh = await read(repo, token);
+    if (!token) return { summary: null, refused };
+    const gh = await read(repo, token, priority);
     const config = await gh.config();
     const main = config.defaultBranch;
     const orNull = <T,>(value: Read<T | null>) => (value === UNREAD ? null : value);
@@ -360,16 +382,24 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       const kit = outboxRead_ ?? { items: [], adopted: [] };
       replies = await part('the pending answers', async () => outboxReplies({ comments, items: kit.items, adopted: kit.adopted, markers: config.markers }));
     }
-    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText, care };
+    return { summary: { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText, care }, refused };
   }
 
+  /** Logs a failed read, unless the budget refused it: the client has said so once already. */
+  const failed = (page: string, repo: string, error: unknown) => {
+    if (!isBudgetRefusal(error)) console.error(`${page}: GitHub could not be read for ${repo}: ${error instanceof Error ? error.message : String(error)}`);
+  };
+
   return {
-    summary(dossier) {
+    summary(dossier, { priority = 'interactive' } = {}) {
       return summaries.get(dossier.id, async () => {
         try {
-          return await fresh(dossier);
+          const { summary, refused } = await fresh(dossier, priority);
+          if (refused) summaries.forget(dossier.id);
+          return summary;
         } catch (error) {
-          console.error(`PRD page: GitHub could not be read for ${dossier.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          failed('PRD page', dossier.home_repo, error);
+          if (isBudgetRefusal(error)) summaries.forget(dossier.id);
           return null;
         }
       });
@@ -377,17 +407,25 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     forget(dossierId) {
       summaries.forget(dossierId);
     },
-    fix(ref) {
+    fix(ref, { priority = 'interactive' } = {}) {
       return fixes.get(ref.id, async () => {
+        let refused = false;
         try {
           const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
           if (!token) return null;
-          const gh = await read(ref.home_repo, token);
+          const gh = await read(ref.home_repo, token, priority);
           const { fix } = await gh.config();
-          return await readFix((route) => gh.json(route), ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
+          const json = (route: string) => gh.json(route).catch((error: unknown) => {
+            if (isBudgetRefusal(error)) refused = true;
+            throw error;
+          });
+          return await readFix(json, ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
         } catch (error) {
-          console.error(`Fix page: GitHub could not be read for ${ref.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          failed('Fix page', ref.home_repo, error);
+          if (isBudgetRefusal(error)) refused = true;
           return null;
+        } finally {
+          if (refused) fixes.forget(ref.id);
         }
       });
     },
@@ -396,7 +434,8 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
 
 /** Answers kept per key for SUMMARY_TTL_MS from when they were asked. Concurrent callers of one key
  * share one promise; a rejected one is dropped at once, and a forgotten key's pending answer is never
- * kept, so the next read is fresh. */
+ * kept, so the next read is fresh: a load that forgets its own key (a read the budget refused) keeps its
+ * answer from the callers after it. */
 function keptFor<T>(clock: () => number) {
   const kept = new Map<string, { at: number; value: Promise<T> }>();
   return {
