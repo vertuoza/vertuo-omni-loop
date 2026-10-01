@@ -1,14 +1,14 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { makeRepo } from '../../test/fixture.ts';
 import { INSTALL_BRANCH, INSTALL_COMMIT, installLines, openInstallPr, switchToInstallBranch } from './install-pr.ts';
 
 const PR_URL = 'https://github.com/acme/widgets/pull/12';
-const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+const git = (root: string, ...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 
 /** A fixture repository whose commits need no global identity. */
-function repo(files) {
+function repo(files: Record<string, string> = {}) {
   const made = makeRepo({ git: true, files });
   git(made.root, 'config', 'user.email', 't@t');
   git(made.root, 'config', 'user.name', 't');
@@ -19,9 +19,14 @@ function repo(files) {
  * git real but `push`, gh faked. Records every faked call as `cmd args…`. `open` is the pull request
  * `gh pr list` finds for the branch; `ghMissing` makes every gh call fail as a missing binary does.
  */
-function fakeExec({ pushFails = false, ghMissing = false, open = null, createFails = false } = {}) {
-  const calls = [];
-  const exec = (cmd, args, options) => {
+function fakeExec({ pushFails = false, ghMissing = false, open = null, createFails = false }: {
+  pushFails?: boolean;
+  ghMissing?: boolean;
+  open?: { url: string; number: number } | null;
+  createFails?: boolean;
+} = {}) {
+  const calls: string[] = [];
+  const exec = (cmd: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding): string => {
     if (cmd === 'git' && args[0] !== 'push') {
       calls.push(`git ${args[0]}`);
       return execFileSync(cmd, args, options);
@@ -72,7 +77,7 @@ describe('switchToInstallBranch', () => {
 
   it('reports a failure and never throws', () => {
     const { root } = repo();
-    const exec = (cmd, args, options) => {
+    const exec = (cmd: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding): string => {
       if (args[0] === 'switch') throw new Error('fatal: nope');
       return execFileSync(cmd, args, options);
     };
@@ -174,7 +179,7 @@ describe('openInstallPr', () => {
 
   it('a commit git refuses skips the push and prints every line from the commit on', () => {
     const { root } = installed();
-    const exec = (cmd, args, options) => {
+    const exec = (cmd: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding): string => {
       if (args[0] === 'commit') throw new Error('hook refused');
       if (args[0] === 'push' || cmd === 'gh') throw new Error('must not run');
       return execFileSync(cmd, args, options);

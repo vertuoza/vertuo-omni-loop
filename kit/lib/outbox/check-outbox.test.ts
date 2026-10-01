@@ -1,13 +1,17 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
-import { flatCtx } from '../../test/flat-layout.ts';
+import type { Context } from '../context.ts';
+import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 import { lawsFor } from '../laws.ts';
+import type { Laws } from '../laws.ts';
 import { makeMarkers } from '../markers.ts';
 import { checkItemText, findOutboxViolations } from './check-outbox.ts';
+
+/** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
+const flatCtx = (root: string): Context => untypedFlatCtx(root) as unknown as Context;
 
 const PLAIN_AND_REQUIRED_SECTIONS = [
   'The question, in plain words',
@@ -22,7 +26,10 @@ const PLAIN_AND_REQUIRED_SECTIONS = [
   'What I could not know',
 ];
 
-function itemText({ frontMatter = {}, sections = {} } = {}) {
+function itemText({
+  frontMatter = {},
+  sections = {},
+}: { frontMatter?: Record<string, unknown>; sections?: Record<string, string | undefined> } = {}) {
   const fm = {
     id: 's2-01-example',
     prd: '985',
@@ -37,7 +44,7 @@ function itemText({ frontMatter = {}, sections = {} } = {}) {
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
 
-  const body = {
+  const body: Record<string, string | undefined> = {
     'The question, in plain words': 'Should the change wait for the next release, or ship now?',
     'The decision, in plain words': 'It ships now, because waiting costs more than the risk.',
     'The options, in plain words': 'A. Ship now, the option built.\nB. Wait for the next release.',
@@ -62,7 +69,7 @@ function itemText({ frontMatter = {}, sections = {} } = {}) {
 const VALID_ITEM_TEXT = itemText({ frontMatter: { prd: 7 } });
 
 /** Seeds a fixture root with a minimal knowledge folder so an N-id `bears-on` can resolve. */
-function seedRegisters(dir) {
+function seedRegisters(dir: string) {
   mkdirSync(join(dir, 'docs/knowledge/product'), { recursive: true });
   writeFileSync(
     join(dir, 'docs/knowledge/product/invariants.md'),
@@ -70,7 +77,7 @@ function seedRegisters(dir) {
   );
 }
 
-let root;
+let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'check-outbox-'));
   seedRegisters(root);
@@ -86,10 +93,10 @@ afterEach(() => {
  * is no "pure, disk-free" path left to special-case here; every call needs a real (if often empty)
  * `root`, which `beforeEach` provides fresh for every test.
  */
-const laws = {
+const laws: Laws = {
   source: 'knowledge',
-  resolve: (b) => lawsFor(flatCtx(root)).resolve(b),
-  floorsHigh: (b) => lawsFor(flatCtx(root)).floorsHigh(b),
+  resolve: (b: string) => lawsFor(flatCtx(root)).resolve(b),
+  floorsHigh: (b: string) => lawsFor(flatCtx(root)).floorsHigh(b),
 };
 
 describe('checkItemText', () => {
@@ -101,7 +108,7 @@ describe('checkItemText', () => {
     const text = itemText({ frontMatter: { rank: 'urgent' } });
     const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
     expect(violations).toHaveLength(1);
-    expect(violations[0].startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
+    expect(violations[0]!.startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
     expect(violations[0]).toMatch(/rank/);
   });
 
@@ -194,7 +201,7 @@ describe('checkItemText', () => {
       });
       const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
       expect(violations).toHaveLength(1);
-      expect(violations[0].startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
+      expect(violations[0]!.startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
       expect(violations[0]).toMatch(/1 option/);
     });
 
@@ -418,7 +425,7 @@ describe('findOutboxViolations', () => {
 
     const violations = findOutboxViolations({ ctx: flatCtx(root) });
     expect(violations).toHaveLength(1);
-    expect(violations[0].startsWith('docs/outbox/985/s2-02-floor.md:')).toBe(true);
+    expect(violations[0]!.startsWith('docs/outbox/985/s2-02-floor.md:')).toBe(true);
   });
 
   describe('Became: every id resolves (Task 7)', () => {
@@ -478,15 +485,15 @@ describe('findOutboxViolations', () => {
     const TESTING = '.omni-loop/knowledge/playbook/testing.md';
 
     /** A settled ledger whose one entry, `s1-01-x`, became `became`. */
-    function settled(became) {
+    function settled(became: string) {
       const m = makeMarkers('omni-outbox');
       return [m.settledOpen('s1-01-x'), '## s1-01-x — agreed', '- Verdict: agreed', '- Closed: yes', `- Became: ${became}`, m.settledClose('s1-01-x'), ''].join('\n');
     }
 
     /** A testing form holding one `never` slot with `body`. */
-    const testingForm = (body) => formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'never', required: true, by: 'human', body }] });
+    const testingForm = (body: string) => formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'never', required: true, by: 'human', body }] } as never);
 
-    function violations(files, became = 'playbook/testing#never') {
+    function violations(files: Record<string, string>, became = 'playbook/testing#never') {
       const { ctx } = makeRepo({ files: { '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', [SETTLED]: settled(became), ...files } });
       return findOutboxViolations({ ctx });
     }
@@ -504,7 +511,7 @@ describe('findOutboxViolations', () => {
     });
 
     it('fails naming the settled file when the form has no such slot', () => {
-      const form = formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'levels', body: 'x' }] });
+      const form = formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'levels', body: 'x' }] } as never);
       expect(violations({ [TESTING]: form })).toEqual([`${SETTLED}: s1-01-x Became: playbook/testing#never — ${TESTING} has no slot "never"`]);
     });
 

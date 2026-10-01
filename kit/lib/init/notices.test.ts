@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { formatterToExclude, legacyLoopWorkflows } from './notices.ts';

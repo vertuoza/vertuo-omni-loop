@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { EVENT_TYPES, WOUND_KINDS, eventId, makeEvent, planetKey, planetKeyOf } from './events.ts';
 

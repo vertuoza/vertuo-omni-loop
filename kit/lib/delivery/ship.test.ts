@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
@@ -9,9 +8,9 @@ import { applyShip, planShip } from './ship.ts';
 
 const D = '.omni-loop/delivery';
 const m = makeMarkers('omni-outbox');
-const agreed = (id) => [m.settledOpen(id), `## ${id} — agreed`, '- Verdict: agreed', '- Closed: yes — agreed', `See ${D}/inbox/0042-a/spec.md`, m.settledClose(id), ''].join('\n');
+const agreed = (id: string) => [m.settledOpen(id), `## ${id} — agreed`, '- Verdict: agreed', '- Closed: yes — agreed', `See ${D}/inbox/0042-a/spec.md`, m.settledClose(id), ''].join('\n');
 
-function tracked(root) {
+function tracked(root: string): string[] {
   return execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
 }
 
@@ -62,7 +61,7 @@ describe('planShip', () => {
 
 describe('planShip — the release-note guard (PRD 262)', () => {
   const ON = { releaseNotes: { enabled: true } };
-  const NOTE = (prd, title = 'Jump between work and play in one tap') =>
+  const NOTE = (prd: number, title = 'Jump between work and play in one tap') =>
     `---\nprd: ${prd}\ntitle: ${title}\n---\nOne tap moves you between the reading pages and the game.\n`;
 
   it('with the switch on, refuses a PRD whose folder has no release note, naming the path', () => {

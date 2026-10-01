@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Replies on the feature pull request become settlements** (PRD #1071, slice s3).
  *
@@ -47,8 +46,42 @@ import {
   parseNumbersMarker,
   parseRoundMarkers,
 } from './comment.ts';
-import { AnswerSchema, judgeAnswer, renderSettledEntry, settleItem } from './settle.ts';
-import { SETTLED_FILE, parseOutboxItem } from './outbox.ts';
+import type { Context } from '../context.ts';
+import type { OutboxItem, OutboxOption } from '../types.ts';
+import { AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
+import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } from './settle.ts';
+import { SETTLED_FILE } from './outbox.ts';
+
+/** A pull request comment, as GitHub lists it: only the fields the reader looks at. */
+type ReplyComment = {
+  id: number;
+  body?: string | null;
+  created_at?: string;
+  user?: { login?: string } | null;
+  author_association?: string;
+  html_url?: string;
+};
+
+/** An adopted settled entry, as far as the reader needs it: its id and its item's text. */
+type AdoptedEntry = { id: string; itemText: string };
+
+/** One reply line: a numbered answer, or an `approve all` (`go with recommendation`). */
+type ReplyLine = { kind: 'numbered'; number: number; text: string } | { kind: 'approve-all'; text: string };
+
+/** How a numbered answer reads against the options its question offers. */
+type Reading =
+  | { statedVerdict: Verdict | null; recorded: string; undetermined?: undefined }
+  | { undetermined: true; recorded: string; statedVerdict?: undefined };
+
+/** A question a reply may answer: its numbering entry, its item, and its adopted entry when it has one. */
+type Question = { number: number; id: string; since: string; item: OutboxItem; adoptedEntry: AdoptedEntry | null };
+
+/** A reply's answer to one question, before and after it is read. */
+type RawAnswer = { approvedBy: string; approvedAt: string | undefined; url: string | undefined; text: string; approveAll?: boolean };
+type ReadAnswer = RawAnswer & { recorded: string; statedVerdict?: Verdict };
+
+/** A question asked again in a round. */
+type RoundQuestion = { number: number; rank: string; questionPlain: string; answerText: string };
 
 /** The `author_association` values whose replies count: people who can write to the repository. */
 export const WRITER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
@@ -72,7 +105,7 @@ export const RECOMMENDATION_TEXT = 'go with recommendation';
 const LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.!]*$/is;
 
 /** How each rank reads in plain words — the same words the pull request comment uses. */
-const RANK_PLAIN_LABEL = { 'human-action': 'needs a person', high: 'high', medium: 'medium' };
+const RANK_PLAIN_LABEL: Record<string, string> = { 'human-action': 'needs a person', high: 'high', medium: 'medium' };
 
 /**
  * The reply lines one comment body carries, in order. Pure.
@@ -82,8 +115,8 @@ const RANK_PLAIN_LABEL = { 'human-action': 'needs a person', high: 'high', mediu
  *
  * @returns {Array<{ kind: 'numbered', number: number, text: string } | { kind: 'approve-all', text: string }>}
  */
-export function parseReplyLines(body) {
-  const lines = [];
+export function parseReplyLines(body: unknown): ReplyLine[] {
+  const lines: ReplyLine[] = [];
   for (const line of String(body ?? '').split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
       lines.push({ kind: 'approve-all', text: APPROVE_ALL_TEXT });
@@ -94,7 +127,7 @@ export function parseReplyLines(body) {
       continue;
     }
     const match = line.match(NUMBERED_LINE);
-    if (match) lines.push({ kind: 'numbered', number: Number(match[1]), text: match[2].trim() });
+    if (match) lines.push({ kind: 'numbered', number: Number(match[1]), text: (match[2] ?? '').trim() });
   }
   return lines;
 }
@@ -113,7 +146,13 @@ export function parseReplyLines(body) {
  * @param {{ text: string, options?: { letter: string, text: string }[] }} args
  * @returns {{ statedVerdict: 'agreed' | 'drifted' | null, recorded: string } | { undetermined: true, recorded: string }}
  */
-export function interpretAnswer({ text, options }) {
+export function interpretAnswer({
+  text,
+  options,
+}: {
+  text: unknown;
+  options?: readonly OutboxOption[] | undefined;
+}): Reading {
   const trimmed = String(text ?? '').trim();
   if (RECOMMENDATION_RE.test(trimmed)) {
     return { statedVerdict: 'agreed', recorded: RECOMMENDATION_TEXT };
@@ -121,7 +160,7 @@ export function interpretAnswer({ text, options }) {
   const match = trimmed.match(LETTER_ANSWER);
   if (!match) return { statedVerdict: null, recorded: trimmed };
 
-  const letter = match[1].toUpperCase();
+  const letter = (match[1] ?? '').toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
   if (!option) return { undetermined: true, recorded: trimmed };
 
@@ -133,21 +172,21 @@ export function interpretAnswer({ text, options }) {
 }
 
 /** Whether a comment is a reply that counts: a writer's, and not one of the outbox's own. */
-export function isCountedReply(comment, markers) {
+export function isCountedReply(comment: ReplyComment | null | undefined, markers: Pick<Markers, 'any'>): boolean {
   return (
     typeof comment?.body === 'string' &&
     !comment.body.includes(markers.any) &&
-    WRITER_ASSOCIATIONS.has(comment.author_association)
+    WRITER_ASSOCIATIONS.has(comment.author_association ?? '')
   );
 }
 
-function time(iso) {
-  const value = Date.parse(iso);
+function time(iso: string | undefined): number {
+  const value = Date.parse(String(iso));
   return Number.isNaN(value) ? 0 : value;
 }
 
 /** Oldest first; ties broken by id, so two comments in the same second keep GitHub's order. */
-function chronological(comments) {
+function chronological(comments: readonly ReplyComment[]): ReplyComment[] {
   return [...comments].sort((a, b) => time(a.created_at) - time(b.created_at) || a.id - b.id);
 }
 
@@ -155,15 +194,16 @@ function chronological(comments) {
  * The latest time each question number was re-asked by a round comment — read one comment at a
  * time, so the round marker has one parser.
  */
-function lastReaskedAt(comments, markers) {
-  const at = new Map();
+function lastReaskedAt(comments: readonly ReplyComment[], markers: Markers): { at: Map<number, number>; highestRound: number } {
+  const at = new Map<number, number>();
   let highestRound = 0;
   for (const comment of comments) {
     const rounds = parseRoundMarkers([comment], markers);
     for (const [number, round] of rounds) {
       highestRound = Math.max(highestRound, round);
       const when = time(comment.created_at);
-      if (!at.has(number) || when > at.get(number)) at.set(number, when);
+      const previous = at.get(number);
+      if (previous === undefined || when > previous) at.set(number, when);
     }
   }
   return { at, highestRound };
@@ -174,19 +214,25 @@ function lastReaskedAt(comments, markers) {
  * adopted item it names, whose item is read back off its settled entry. An adopted entry whose
  * embedded item no longer parses is left out rather than guessed at.
  */
-function answerableQuestions(numbering, items, adopted) {
+function answerableQuestions(
+  numbering: readonly { number: number; id: string; since: string }[],
+  items: readonly OutboxItem[],
+  adopted: readonly AdoptedEntry[],
+): Question[] {
   const itemsById = new Map(items.map((item) => [item.id, item]));
-  const adoptedById = new Map();
+  const adoptedById = new Map<string, { entry: AdoptedEntry; item: OutboxItem }>();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
-  const questions = [];
+  const questions: Question[] = [];
   for (const entry of numbering) {
-    if (itemsById.has(entry.id)) {
-      questions.push({ ...entry, item: itemsById.get(entry.id), adoptedEntry: null });
-    } else if (adoptedById.has(entry.id)) {
-      const { entry: adoptedEntry, item } = adoptedById.get(entry.id);
+    const open = itemsById.get(entry.id);
+    const kept = adoptedById.get(entry.id);
+    if (open !== undefined) {
+      questions.push({ ...entry, item: open, adoptedEntry: null });
+    } else if (kept !== undefined) {
+      const { entry: adoptedEntry, item } = kept;
       questions.push({ ...entry, item, adoptedEntry });
     }
   }
@@ -212,20 +258,28 @@ function answerableQuestions(numbering, items, adopted) {
  *   round: { number: number, questions: Array<object> } | null,
  * }}
  */
-export function planReplies({ comments, items, adopted = [], markers }: { comments: object[]; items: object[]; adopted?: object[]; markers: object }) {
-  const all = Array.isArray(comments) ? comments : [];
-  const prComment = findPrMarkerComment(all, markers);
-  const numbering = prComment ? parseNumbersMarker(prComment.body, markers) : [];
+export function planReplies(args: { comments: object[]; items: object[]; adopted?: object[]; markers: object }) {
+  // The arcade passes its own loosely typed rows, so the parameters stay as wide as they were; the
+  // shapes below are what the reader reads off them.
+  const { comments, items, adopted = [], markers } = args as { // ts-allow: the arcade's callers pass object rows of these shapes
+    comments: ReplyComment[];
+    items: OutboxItem[];
+    adopted?: AdoptedEntry[];
+    markers: Markers;
+  };
+  const all: ReplyComment[] = Array.isArray(comments) ? comments : [];
+  const prComment: ReplyComment | null = findPrMarkerComment(all, markers);
+  const numbering: { number: number; id: string; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
   const questions = answerableQuestions(numbering, items, adopted);
   const byNumber = new Map(questions.map((question) => [question.number, question]));
   const open = questions.filter((question) => question.adoptedEntry === null);
 
   // Per question: the latest numbered answer, and the latest approve-all that covers it.
-  const numbered = new Map();
-  const approved = new Map();
+  const numbered = new Map<number, RawAnswer>();
+  const approved = new Map<number, RawAnswer>();
   for (const comment of chronological(all.filter((comment) => isCountedReply(comment, markers)))) {
     const answeredAt = time(comment.created_at);
-    const source = {
+    const source: Omit<RawAnswer, 'text'> = {
       approvedBy: comment.user?.login ?? '',
       approvedAt: comment.created_at,
       url: comment.html_url,
@@ -244,20 +298,20 @@ export function planReplies({ comments, items, adopted = [], markers }: { commen
   }
 
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle = [];
-  const held = [];
+  const settle: { number: number; item: OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
+  const held: { number: number; item: OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
   for (const { number, item, adoptedEntry } of questions) {
     const raw = numbered.get(number) ?? approved.get(number);
     if (!raw) continue;
-    const reading = raw.approveAll
+    const reading: Reading = raw.approveAll
       ? { statedVerdict: 'agreed', recorded: raw.text }
       : interpretAnswer({ text: raw.text, options: item.sections?.options });
-    const answer = {
+    const answer: ReadAnswer = {
       ...raw,
       recorded: reading.recorded,
       ...(reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}),
     };
-    const judgement = reading.undetermined
+    const judgement: Judgement = reading.undetermined
       ? {
           verdict: null,
           basis: 'undetermined',
@@ -281,7 +335,7 @@ export function planReplies({ comments, items, adopted = [], markers }: { commen
   }
 
   const dueQuestions = held.filter((question) => question.due);
-  const round =
+  const round: { number: number; questions: RoundQuestion[] } | null =
     dueQuestions.length === 0
       ? null
       : {
@@ -303,7 +357,15 @@ export function planReplies({ comments, items, adopted = [], markers }: { commen
  *
  * @param {{ round: number, questions: Array<{ number: number, rank: string, questionPlain: string, answerText: string }>, markers: object }} args
  */
-export function formatRoundComment({ round, questions, markers }) {
+export function formatRoundComment({
+  round,
+  questions,
+  markers,
+}: {
+  round: number;
+  questions: readonly RoundQuestion[];
+  markers: Pick<Markers, 'round'>;
+}): string {
   const ordered = [...questions].sort((a, b) => a.number - b.number);
   const lines = [
     markers.round(round, ordered.map((question) => question.number)),
@@ -337,7 +399,21 @@ export function formatRoundComment({ round, questions, markers }) {
  *
  * @returns {{ ok: true, settledFile: string } | { ok: false, errors: string[] }}
  */
-export function appendObjection({ ctx, prd, adoptedEntry, item, answer, judgement }) {
+export function appendObjection({
+  ctx,
+  prd,
+  adoptedEntry,
+  item,
+  answer,
+  judgement,
+}: {
+  ctx: Pick<Context, 'root' | 'layout' | 'markers'>;
+  prd: number | string;
+  adoptedEntry: Pick<AdoptedEntry, 'itemText'>;
+  item: SettledItemFacts;
+  answer: unknown;
+  judgement: Judgement;
+}): { ok: true; settledFile: string } | { ok: false; errors: string[] } {
   const parsedAnswer = AnswerSchema.safeParse(answer);
   if (!parsedAnswer.success) {
     return {
@@ -374,14 +450,25 @@ export function appendObjection({ ctx, prd, adoptedEntry, item, answer, judgemen
  * @param {{ ctx: object, prd: number, pr: number, post?: boolean }} args
  * @param {{ listComments: () => Array, createComment: (body: string) => any }} client
  */
-export function readReplies({ ctx, prd, pr, post = false }, client) {
+export function readReplies(
+  { ctx, prd, pr, post = false }: { ctx: Context; prd: number; pr: number; post?: boolean },
+  client: { listComments: () => object[]; createComment: (body: string) => unknown },
+) {
   const comments = client.listComments();
-  const items = openItemsForPrd(prd, { ctx });
+  const items = openItemsForPrd(prd, { ctx }) as OutboxItem[]; // ts-allow: comment.ts is typed by its own slice; it lists parsed open items
   const adopted = adoptedEntriesForPrd(prd, { ctx });
   const plan = planReplies({ comments, items, adopted, markers: ctx.markers });
 
-  const settled = [];
-  const failed = [];
+  const settled: {
+    number: number;
+    id: string;
+    verdict: SettledVerdict | null;
+    answer: string;
+    settledFile: string;
+    removedFile: string | null;
+    objection: boolean;
+  }[] = [];
+  const failed: { number: number; id: string; errors: string[] }[] = [];
   for (const { number, item, answer, judgement, adoptedEntry } of plan.settle) {
     const given = {
       text: answer.recorded,
@@ -394,9 +481,11 @@ export function readReplies({ ctx, prd, pr, post = false }, client) {
       },
       ...(answer.statedVerdict ? { statedVerdict: answer.statedVerdict } : {}),
     };
-    const result = adoptedEntry
+    const result:
+      | { ok: true; verdict?: SettledVerdict; settledFile: string; removedFile?: string }
+      | { ok: false; errors: string[] } = adoptedEntry
       ? appendObjection({ ctx, prd, adoptedEntry, item, answer: given, judgement })
-      : settleItem({ ctx, file: item.file, answer: given });
+      : settleItem({ ctx, file: item.file as string, answer: given }); // ts-allow: an open item is always read from its file
     if (result.ok) {
       settled.push({
         number,
@@ -412,7 +501,7 @@ export function readReplies({ ctx, prd, pr, post = false }, client) {
     }
   }
 
-  let round = null;
+  let round: { number: number; body: string; posted: unknown } | null = null;
   if (plan.round) {
     const body = formatRoundComment({
       round: plan.round.number,
@@ -437,7 +526,7 @@ export function readReplies({ ctx, prd, pr, post = false }, client) {
 }
 
 /** A short plain summary of what a run did, for the terminal. Pure. */
-export function summarize(result) {
+export function summarize(result: ReturnType<typeof readReplies>): string {
   const agreed = result.settled.filter((entry) => entry.verdict === 'agreed').length;
   const drifted = result.settled.filter((entry) => entry.verdict === 'drifted').length;
   const lines = [

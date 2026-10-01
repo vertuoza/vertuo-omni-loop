@@ -1,13 +1,12 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { parsePlanSlices } from '../inbox/territory.ts';
-import { appendObjection } from '../outbox/replies.ts';
-import { adoptItem, parseSettledEntries, settleItem } from '../outbox/settle.ts';
-import { parseOutboxItem } from '../outbox/outbox.ts';
+import { appendObjection as appendObjectionTyped } from '../outbox/replies.ts';
+import { adoptItem as adoptItemTyped, parseSettledEntries as parseSettledEntriesTyped, settleItem as settleItemTyped } from '../outbox/settle.ts';
+import { parseOutboxItem as parseOutboxItemTyped } from '../outbox/outbox.ts';
 import {
   closeDriftedEntry,
   deriveRework,
@@ -17,6 +16,14 @@ import {
   renderReworkPlan,
   reworkPullRequest,
 } from './rework.ts';
+
+/** The outbox's own modules, read loosely here: their slices type them, and this file only uses
+ * them to build and read back real ledgers. */
+const appendObjection = appendObjectionTyped as (...args: unknown[]) => any;
+const adoptItem = adoptItemTyped as (...args: unknown[]) => any;
+const parseSettledEntries = parseSettledEntriesTyped as (...args: unknown[]) => any[];
+const settleItem = settleItemTyped as (...args: unknown[]) => any;
+const parseOutboxItem = parseOutboxItemTyped as (...args: unknown[]) => any;
 
 const PRD = 985;
 const FEATURE_BRANCH = 'feat/agent-outbox';
@@ -75,10 +82,10 @@ const PLAN = [
   '',
 ].join('\n');
 
-const roots = [];
+const roots: string[] = [];
 
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
 /**
@@ -86,7 +93,7 @@ afterEach(() => {
  * open item. Nothing here hand-writes a ledger, so every assertion below is made against the bytes
  * slice s5 actually produces.
  */
-function settledLedger(settlings) {
+function settledLedger(settlings: { text: string; file: string; answer: string; statedVerdict?: string }[]): string {
   const root = mkdtempSync(join(tmpdir(), 'yolo-fix-'));
   roots.push(root);
   const ctx = flatCtx(root);
@@ -106,7 +113,7 @@ function settledLedger(settlings) {
         ...(statedVerdict ? { statedVerdict } : {}),
       },
     });
-    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
+    expect(result.ok, result.ok ? '' : (result.errors ?? []).join('\n')).toBe(true);
   }
 
   return readFileSync(join(dir, 'settled.md'), 'utf8');
@@ -133,8 +140,8 @@ describe('A feature that drifted is brought back in line', () => {
       const drifted = driftedEntries(settledLedger([DRIFTED, AGREED]), MARKERS);
 
       expect(drifted.map((entry) => entry.id)).toEqual(['s5-01-default-country']);
-      expect(drifted[0].verdict).toBe('drifted');
-      expect(drifted[0].closed).toBe(false);
+      expect(drifted[0]!.verdict).toBe('drifted');
+      expect(drifted[0]!.closed).toBe(false);
     });
 
     it('derives exactly one rework slice for the one drifted item', () => {
@@ -147,8 +154,8 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       expect(result.reworks).toHaveLength(1);
-      expect(result.reworks[0].itemId).toBe('s5-01-default-country');
-      expect(result.reworks[0].id).toBe('fix-s5-01-default-country');
+      expect(result.reworks[0]!.itemId).toBe('s5-01-default-country');
+      expect(result.reworks[0]!.id).toBe('fix-s5-01-default-country');
       expect(result.opensPullRequest).toBe(true);
     });
 
@@ -161,8 +168,8 @@ describe('A feature that drifted is brought back in line', () => {
         markers: MARKERS,
       });
 
-      expect(result.reworks[0].base).toBe(FEATURE_BRANCH);
-      expect(result.reworks[0].branch).toBe(`${FEATURE_BRANCH}--fix-s5-01-default-country`);
+      expect(result.reworks[0]!.base).toBe(FEATURE_BRANCH);
+      expect(result.reworks[0]!.branch).toBe(`${FEATURE_BRANCH}--fix-s5-01-default-country`);
       expect(result.mergesIntoMain).toBe(false);
       expect(result.report.join('\n')).not.toMatch(/into main/);
     });
@@ -177,9 +184,9 @@ describe('A feature that drifted is brought back in line', () => {
         branches: { feature: 'feature/{topic}', slice: 'slice/{topic}/{slice}', rework: 'rework-{item}' },
       });
 
-      expect(result.reworks[0].id).toBe('rework-s5-01-default-country');
-      expect(result.reworks[0].base).toBe('feature/agent-outbox');
-      expect(result.reworks[0].branch).toBe('slice/agent-outbox/rework-s5-01-default-country');
+      expect(result.reworks[0]!.id).toBe('rework-s5-01-default-country');
+      expect(result.reworks[0]!.base).toBe('feature/agent-outbox');
+      expect(result.reworks[0]!.branch).toBe('slice/agent-outbox/rework-s5-01-default-country');
     });
 
     it('refuses a feature branch the feature template cannot read a topic from', () => {
@@ -202,7 +209,7 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('takes the answer and the item’s own cost section as the brief, verbatim', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
+      const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
 
       expect(rework.answer).toBe(DRIFTED.answer);
       expect(rework.bound).toBe(
@@ -215,7 +222,7 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('declares its territory: the ground the slice stood on, plus every path the bound names', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
+      const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
 
       expect(rework.territory).toEqual([
         'scripts/outbox-settle*',
@@ -227,7 +234,7 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('declares nothing it cannot name when the plan holds no such slice', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry, { planSlices: [] });
+      const rework = deriveRework(entry!, { planSlices: [] });
 
       expect(rework.territory).toEqual(['libs/vertuo-domain-contact/src/contact-builder.ts']);
       expect(rework.unknownPlanSlice).toBe(true);
@@ -243,9 +250,9 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [slice] = parsePlanSlices(renderReworkPlan(result));
-      expect(slice.id).toBe('fix-s5-01-default-country');
-      expect(slice.territory).toEqual(result.reworks[0].territory);
-      expect(slice.wave).toBe(1);
+      expect(slice!.id).toBe('fix-s5-01-default-country');
+      expect(slice!.territory).toEqual(result.reworks[0]!.territory);
+      expect(slice!.wave).toBe(1);
     });
 
     it('keeps two reworks that share ground out of one wave', () => {
@@ -353,8 +360,8 @@ describe('A feature that drifted is brought back in line', () => {
       expect(after).toHaveLength(before.length);
       const changed = before.map((line, index) => index).filter((i) => before[i] !== after[i]);
       expect(changed).toHaveLength(1);
-      expect(before[changed[0]]).toMatch(/^- Closed: no\b/);
-      expect(after[changed[0]]).toMatch(/^- Closed: yes\b/);
+      expect(before[changed[0]!]).toMatch(/^- Closed: no\b/);
+      expect(after[changed[0]!]).toMatch(/^- Closed: yes\b/);
     });
 
     it('keeps the question byte-identical — the four sections are what a rework is derived from', () => {
@@ -372,7 +379,7 @@ describe('A feature that drifted is brought back in line', () => {
 
       const roundTripped = parseOutboxItem(drifted.itemText);
       expect(roundTripped.ok).toBe(true);
-      expect(roundTripped.item.sections).toEqual(parseOutboxItem(ITEM_TEXT).item.sections);
+      expect(roundTripped.item!.sections).toEqual(parseOutboxItem(ITEM_TEXT).item!.sections);
     });
 
     it('refuses to close an item it was not given', () => {
@@ -549,9 +556,9 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     const { settledText, markers } = adoptedThenObjected();
 
     const [entry] = driftedEntries(settledText, markers);
-    expect(entry.id).toBe('s3-01-components');
+    expect(entry!.id).toBe('s3-01-components');
 
-    const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
+    const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
     expect(rework.chosenOption).toEqual({ letter: 'B', text: 'All of them, costs hidden' });
     expect(rework.reason).toBe('we need all of them');
     expect(rework.answer).toBe('B. All of them, costs hidden — because we need all of them');
@@ -560,7 +567,7 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
 
   it('a prose answer names no option, and the rework reads the answer itself', () => {
     const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-    const rework = deriveRework(entry);
+    const rework = deriveRework(entry!);
     expect(rework.chosenOption).toBeNull();
     expect(rework.reason).toBeNull();
   });
@@ -576,7 +583,7 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     });
 
     // The adopted entry — everything up to its own closing marker — is byte-identical.
-    expect(closed.startsWith(adoptedBlock)).toBe(true);
+    expect(closed.startsWith(adoptedBlock!)).toBe(true);
     const [entry] = parseSettledEntries(closed, markers);
     expect(entry.verdict).toBe('drifted');
     expect(entry.closed).toBe(true);
@@ -619,7 +626,7 @@ describe('A rework lands in the repository its decision was taken in (PRD 563, s
       markers: MARKERS,
       planRepository: true,
     });
-    expect(result.reworks[0].repo).toBeNull();
+    expect(result.reworks[0]!.repo).toBeNull();
   });
 
   it('carries no repo field outside a plan repository, even on a plan with a repo column', () => {

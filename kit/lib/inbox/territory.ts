@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A slice declares the ground it stands on, and this says when it stepped off it** (PRD #985).
  *
@@ -37,13 +36,38 @@
  * base branch is a caller's job.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
+import type { Slice } from '../types.ts';
+
+export type { Slice };
+
+/** One row of a plan's `## Repositories` table. */
+export type PlanRepository = { repo: string; role: string; readAt: string; knowledge: string };
+
+/** Two slices whose declarations intersect, and the ground they share. */
+export type Collision = { left: string; right: string; shared: string[] };
+
+/** One slice's diff graded against its declaration. */
+export type TerritoryVerdict = {
+  slice: string;
+  unknownSlice: boolean;
+  declared: string[];
+  breaches: string[];
+  fatal: false;
+  lines: string[];
+};
+
+/** The ground a slice declares: the only field the matching reads. */
+type Declared = Pick<Slice, 'territory'>;
+
+/** What the collision matrix reads of a slice: `repo` may be absent on a hand-built row. */
+type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; wave?: number | null };
 
 /** A cell that declares nothing: an em dash, or nothing at all. */
 const NOTHING = /^[—–-]?$/;
 
 /** The ids one `blocked by` cell names — comma- or space-separated, backticks stripped. `[]` for a
  * cell that declares nothing (an em dash, a bare hyphen, or empty). */
-function blockedByCell(cell) {
+function blockedByCell(cell: string | undefined): string[] {
   const text = (cell ?? '').trim();
   if (NOTHING.test(text)) return [];
   return text
@@ -58,19 +82,19 @@ function blockedByCell(cell) {
  * Only backticked tokens count. A cell of prose declares nothing, which `breaches` then reports as
  * every path being outside — loudly wrong is the right answer for a territory nobody wrote.
  */
-export function territoryPrefixes(cell) {
+export function territoryPrefixes(cell: string | undefined): string[] {
   const text = (cell ?? '').trim();
   if (NOTHING.test(text)) return [];
-  return [...text.matchAll(/`([^`]+)`/g)].map((match) => match[1].trim()).filter(Boolean);
+  return [...text.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? '').trim()).filter(Boolean);
 }
 
 /** A declared prefix ending in `*` covers the same ground with or without the star. */
-function prefixOf(declaration) {
+function prefixOf(declaration: string): string {
   return declaration.replace(/\*+$/, '');
 }
 
 /** One row of a markdown table, as its cells. */
-function cells(line) {
+function cells(line: string): string[] {
   return line
     .trim()
     .replace(/^\|/, '')
@@ -79,12 +103,25 @@ function cells(line) {
     .map((cell) => cell.trim());
 }
 
-function isTableRow(line) {
-  return line.trim().startsWith('|');
+function isTableRow(line: string | undefined): line is string {
+  return line !== undefined && line.trim().startsWith('|');
 }
 
-function isSeparatorRow(line) {
+function isSeparatorRow(line: string): boolean {
   return /^\|[\s:|-]+\|$/.test(line.trim());
+}
+
+/** The cells of each row under the table header at `headerIndex`, up to the table's end, its
+ * separator rows skipped. */
+function bodyRows(lines: readonly string[], headerIndex: number): string[][] {
+  const rows: string[][] = [];
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isTableRow(line)) break;
+    if (isSeparatorRow(line)) continue;
+    rows.push(cells(line));
+  }
+  return rows;
 }
 
 /**
@@ -99,7 +136,7 @@ function isSeparatorRow(line) {
  * `blockedBy` reads `[]` for a plan with no `blocked by` column at all — a plan predating that
  * column declares no blocks, rather than throwing the way a missing `territory` column does.
  */
-export function parsePlanSlices(markdown) {
+export function parsePlanSlices(markdown: string): Slice[] {
   const lines = markdown.split('\n');
 
   // Find the first table whose header starts with `id` AND contains a `territory` column
@@ -129,15 +166,11 @@ export function parsePlanSlices(markdown) {
     throw new Error('No slice table was found in this plan; its slices declare no territory.');
   }
 
-  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
-  const column = (name) => header.indexOf(name);
+  const header = cells(lines[headerIndex] ?? '').map((name) => name.toLowerCase());
+  const column = (name: string): number => header.indexOf(name);
 
-  const slices = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
+  const slices: Slice[] = [];
+  for (const row of bodyRows(lines, headerIndex)) {
     const id = row[column('id')];
     if (!id) continue;
     slices.push({
@@ -156,7 +189,7 @@ export function parsePlanSlices(markdown) {
 }
 
 /** A cell's text with its backticks stripped: `''` for an empty cell, never `null`. */
-function plainCell(cell) {
+function plainCell(cell: string | undefined): string {
   return (cell ?? '').replace(/`/g, '').trim();
 }
 
@@ -166,29 +199,26 @@ function plainCell(cell) {
  * `read at`, and how its `knowledge` was read. `[]` when the plan has no such heading, or no table
  * under it — an ordinary plan names no repository.
  */
-export function parsePlanRepositories(markdown) {
+export function parsePlanRepositories(markdown: string): PlanRepository[] {
   const lines = markdown.split('\n');
   const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
   if (heading === -1) return [];
 
   let headerIndex = -1;
   for (let i = heading + 1; i < lines.length; i += 1) {
-    if (/^#{1,2}\s/.test(lines[i].trim())) break;
-    if (isTableRow(lines[i])) {
+    const line = lines[i] ?? '';
+    if (/^#{1,2}\s/.test(line.trim())) break;
+    if (isTableRow(line)) {
       headerIndex = i;
       break;
     }
   }
   if (headerIndex === -1) return [];
 
-  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
-  const at = (row, name) => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)]));
-  const rows = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
+  const header = cells(lines[headerIndex] ?? '').map((name) => name.toLowerCase());
+  const at = (row: string[], name: string): string => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)]));
+  const rows: PlanRepository[] = [];
+  for (const row of bodyRows(lines, headerIndex)) {
     const repo = at(row, 'repo');
     if (!repo) continue;
     rows.push({ repo, role: at(row, 'role'), readAt: at(row, 'read at'), knowledge: at(row, 'knowledge') });
@@ -197,18 +227,18 @@ export function parsePlanRepositories(markdown) {
 }
 
 /** True when one of the declared prefixes owns this path. */
-export function covers(territory, path) {
+export function covers(territory: readonly string[], path: string): boolean {
   return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
 }
 
 /** The changed paths no declared prefix owns — the breach, in the order the diff listed them. */
-export function breaches(paths, territory) {
+export function breaches(paths: readonly string[], territory: readonly string[]): string[] {
   return paths.filter((path) => !covers(territory, path));
 }
 
 /** The ground two slices both claim: every declaration of one that meets a declaration of the other. */
-export function sharedGround(left, right) {
-  const shared = new Set();
+export function sharedGround(left: Declared, right: Declared): string[] {
+  const shared = new Set<string>();
   for (const a of left.territory) {
     for (const b of right.territory) {
       const [x, y] = [prefixOf(a), prefixOf(b)];
@@ -224,13 +254,13 @@ export function sharedGround(left, right) {
  * can meet (PRD 549): a territory is a path in its slice's `repo`, and two slices with no `repo`
  * (`null`, an ordinary plan) share one repository, as they always did.
  */
-export function collisions(slices) {
-  const pairs = [];
-  for (let i = 0; i < slices.length; i += 1) {
-    for (let j = i + 1; j < slices.length; j += 1) {
-      if ((slices[i].repo ?? null) !== (slices[j].repo ?? null)) continue;
-      const shared = sharedGround(slices[i], slices[j]);
-      if (shared.length > 0) pairs.push({ left: slices[i].id, right: slices[j].id, shared });
+export function collisions(slices: readonly CollidingSlice[]): Collision[] {
+  const pairs: Collision[] = [];
+  for (const [i, a] of slices.entries()) {
+    for (const b of slices.slice(i + 1)) {
+      if ((a.repo ?? null) !== (b.repo ?? null)) continue;
+      const shared = sharedGround(a, b);
+      if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
   return pairs;
@@ -240,7 +270,7 @@ export function collisions(slices) {
  * The pairs a plan may not contain: intersecting territories in one wave. Siblings in a wave merge
  * one after another, so shared ground turns the second into a conflict.
  */
-export function sameWaveCollisions(slices) {
+export function sameWaveCollisions(slices: readonly CollidingSlice[]): (Collision & { wave: number | null | undefined })[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   return collisions(slices)
     .filter(({ left, right }) => waveOf.get(left) === waveOf.get(right))
@@ -248,7 +278,7 @@ export function sameWaveCollisions(slices) {
 }
 
 /** The collision matrix a plan prints, computed from the declarations rather than asserted. */
-export function collisionRows(slices) {
+export function collisionRows(slices: readonly CollidingSlice[]): { pair: string; shared: string; resolved: string }[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   return collisions(slices).map(({ left, right, shared }) => ({
     pair: `${left} · ${right}`,
@@ -263,7 +293,11 @@ export function collisionRows(slices) {
  * `fatal` is always `false`, and it is a field rather than a comment so the caller that merges can
  * read the policy instead of remembering it.
  */
-export function territoryVerdict(slices, sliceId, changedPaths) {
+export function territoryVerdict(
+  slices: readonly Pick<Slice, 'id' | 'territory'>[],
+  sliceId: string,
+  changedPaths: readonly string[],
+): TerritoryVerdict {
   const slice = slices.find((candidate) => candidate.id === sliceId);
   if (!slice) {
     return {

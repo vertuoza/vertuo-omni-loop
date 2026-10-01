@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **An account is a typed thing** (PRD #1044, slice s2).
  *
@@ -23,11 +22,32 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
-import { parseFrontMatterLines, withFile } from '../front-matter.ts';
+import { withFile } from '../front-matter.ts';
 import { AccountFrontMatterSchema } from '../schema/front-matter.ts';
-import { KIT_MESSAGES } from '../schema/messages.ts';
-import { SETTLED_FILE, outboxItemFiles } from './outbox.ts';
+import { SETTLED_FILE, outboxItemFiles, parseHeadingSections, readFrontMatterBlock } from './outbox.ts';
+import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+
+/** What an entry's account line says: `item <id>` or `spec <where>`, and no third form. */
+export type AccountLine = { kind: 'item'; id: string } | { kind: 'spec'; where: string };
+
+/** One accounted risky change: its path, the rule that fired, and the account written for it. */
+export type AccountEntry = { path: string; rule: string; account: AccountLine };
+
+/** A slice's account, parsed. */
+export type Account = { prd: number; slice: string; graded: string; entries: AccountEntry[]; file: string | null };
+
+/** The result of {@link parseAccount} (and of each file {@link readAccounts} reads). */
+export type ParsedAccount = { ok: true; account: Account } | { ok: false; errors: string[] };
+
+/** One change of a range, exactly `git diff --name-status` shape. */
+export type Change = { path: string; status: string };
+
+/** A change a decision-coverage rule fired on (`riskyChanges`, `decision-coverage.ts`). */
+export type RiskyChange = Change & { rule: string };
+
+/** An account entry carried with the slice and file it came from, as {@link compare} reports it. */
+export type NamedEntry = AccountEntry & { slice: string; file: string | null };
 
 /** The subdirectory an account file lives under, inside its PRD's own outbox directory. */
 export const ACCOUNTS_DIR = 'accounts';
@@ -35,30 +55,22 @@ export const ACCOUNTS_DIR = 'accounts';
 /** The one heading an account body carries. */
 const RISKY_CHANGES_HEADING = 'Risky changes';
 
-const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-const HEADING_LINE = /^##\s+(.+?)\s*$/;
 const ENTRY_PATH_LINE = /^-\s+`([^`]+)`$/;
 const ENTRY_RULE_LINE = /^([a-z][a-z0-9-]*)$/;
 const ENTRY_ACCOUNT_LINE = /^(item|spec)\s+(.+)$/;
 
-/** Every `## Heading` in `body`, in the order it appears, with its trimmed body text. */
-function parseHeadingSections(body) {
-  const sections = [];
-  let current = null;
-  for (const line of body.split('\n')) {
-    const match = line.match(HEADING_LINE);
-    if (match) {
-      if (current) sections.push(current);
-      current = { heading: match[1], lines: [] };
-    } else if (current) {
-      current.lines.push(line);
-    }
+/** The `index`th capture of `match`; `''` when that group took no part in the match. */
+function captured(match: RegExpMatchArray, index: number): string {
+  return match[index] ?? '';
+}
+
+/** `lines` in consecutive groups of three, in order; a trailing group of fewer is left out. */
+function groupsOfThree(lines: readonly string[]): [string, string, string][] {
+  const groups: [string, string, string][] = [];
+  for (let i = 0; i + 2 < lines.length; i += 3) {
+    groups.push([lines[i] ?? '', lines[i + 1] ?? '', lines[i + 2] ?? '']);
   }
-  if (current) sections.push(current);
-  return sections.map((section) => ({
-    heading: section.heading,
-    content: section.lines.join('\n').trim(),
-  }));
+  return groups;
 }
 
 /**
@@ -66,7 +78,7 @@ function parseHeadingSections(body) {
  * come in fixed groups of three non-blank lines — a backticked path, a rule id, and an account —
  * blank lines between entries are allowed and ignored, since they are only for readability.
  */
-function parseEntries(content) {
+function parseEntries(content: string): { errors: string[]; entries: AccountEntry[] } {
   const lines = content
     .split('\n')
     .map((line) => line.trim())
@@ -83,12 +95,11 @@ function parseEntries(content) {
     };
   }
 
-  const errors = [];
-  const entries = [];
+  const errors: string[] = [];
+  const entries: AccountEntry[] = [];
 
-  for (let i = 0; i < lines.length; i += 3) {
-    const [pathLine, ruleLine, accountLine] = lines.slice(i, i + 3);
-
+  // The length is a multiple of three here, so every line falls in a group.
+  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines)) {
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
     if (!pathMatch) {
       errors.push(`risky change entry must start with a backticked path: "${pathLine}"`);
@@ -109,11 +120,11 @@ function parseEntries(content) {
       continue;
     }
 
-    const [, kind, rawValue] = accountMatch;
-    const value = rawValue.trim();
+    const kind = captured(accountMatch, 1);
+    const value = captured(accountMatch, 2).trim();
     entries.push({
-      path: pathMatch[1],
-      rule: ruleMatch[1],
+      path: captured(pathMatch, 1),
+      rule: captured(ruleMatch, 1),
       account: kind === 'item' ? { kind: 'item', id: value } : { kind: 'spec', where: value },
     });
   }
@@ -125,14 +136,14 @@ function parseEntries(content) {
  * Validates that `body` carries exactly one heading, `## Risky changes`, and parses its entries.
  * Returns `{ errors, entries }`.
  */
-function validateBody(body) {
+function validateBody(body: string): { errors: string[]; entries: AccountEntry[] } {
   const found = parseHeadingSections(body);
 
   if (found.length === 0) {
     return { errors: [`missing section: "## ${RISKY_CHANGES_HEADING}"`], entries: [] };
   }
 
-  const errors = [];
+  const errors: string[] = [];
   const unexpected = found.filter((section) => section.heading !== RISKY_CHANGES_HEADING);
   if (unexpected.length > 0) {
     errors.push(
@@ -162,36 +173,18 @@ function validateBody(body) {
  * @param {{ file?: string | null }} [options] `file` is only used to prefix error messages
  * @returns {{ ok: true, account: object } | { ok: false, errors: string[] }}
  */
-export function parseAccount(text, { file = null } = {}) {
-  const blockMatch = text.match(FRONT_MATTER_BLOCK);
-  if (!blockMatch) {
-    return {
-      ok: false,
-      errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')],
-    };
-  }
-  const [, rawFrontMatter, body] = blockMatch;
+export function parseAccount(text: string, { file = null }: { file?: string | null } = {}): ParsedAccount {
+  const read = readFrontMatterBlock(text, file, AccountFrontMatterSchema);
+  if (read.body === null) return { ok: false, errors: read.errors };
 
-  const errors = [];
+  const { errors: bodyErrors, entries } = validateBody(read.body);
+  const errors = [...read.errors, ...bodyErrors.map((message) => withFile(file, message))];
 
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile(file, message)));
+  // A front matter the schema refused always left at least one error above.
+  if (errors.length > 0 || read.data === null) return { ok: false, errors };
 
-  const parsedFrontMatter = AccountFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (!parsedFrontMatter.success) {
-    for (const issue of parsedFrontMatter.error.issues) {
-      const field = issue.path.length > 0 ? issue.path.join('.') : '(front matter)';
-      errors.push(withFile(file, `${field}: ${issue.message}`));
-    }
-  }
-
-  const { errors: bodyErrors, entries } = validateBody(body);
-  errors.push(...bodyErrors.map((message) => withFile(file, message)));
-
-  if (errors.length > 0) return { ok: false, errors };
-
-  const fm = parsedFrontMatter.data;
-  const account = {
+  const fm = read.data;
+  const account: Account = {
     prd: fm.prd,
     slice: fm.slice,
     graded: fm.graded,
@@ -216,7 +209,7 @@ export function parseAccount(text, { file = null } = {}) {
  * @param {{ ctx: object }} options
  * @returns {({ ok: true, account: object } | { ok: false, errors: string[] })[]}
  */
-export function readAccounts(prd, { ctx }) {
+export function readAccounts(prd: string | number, { ctx }: { ctx: OutboxContext }): ParsedAccount[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
 
@@ -242,22 +235,22 @@ export function readAccounts(prd, { ctx }) {
     .filter((name) => name.endsWith('.md'))
     .sort();
 
-  return names.map((name) => {
+  return names.map((name): ParsedAccount => {
     const file = `${dir}/${name}`;
     const text = readRepoFile(ctx, file);
     const parsed = parseAccount(text, { file });
     if (!parsed.ok) return parsed;
 
-    const unresolved = parsed.account.entries.filter(
-      (entry) => entry.account.kind === 'item' && !itemIds.has(entry.account.id),
+    const unresolved = parsed.account.entries.flatMap((entry) =>
+      entry.account.kind === 'item' && !itemIds.has(entry.account.id) ? [entry.account.id] : [],
     );
     if (unresolved.length > 0) {
       return {
         ok: false,
-        errors: unresolved.map((entry) =>
+        errors: unresolved.map((id) =>
           withFile(
             file,
-            `item account names an id no outbox file carries: "${entry.account.id}"`,
+            `item account names an id no outbox file carries: "${id}"`,
           ),
         ),
       };
@@ -268,7 +261,7 @@ export function readAccounts(prd, { ctx }) {
 }
 
 /** `path` and `rule` together identify one risky change (a path may fire more than one rule). */
-function entryKey(change) {
+function entryKey(change: { path: string; rule: string }): string {
   return `${change.path}\u0000${change.rule}`;
 }
 
@@ -290,8 +283,11 @@ function entryKey(change) {
  * @param {{ slice: string, file: string | null, entries: { path: string, rule: string, account: object }[] }[]} accounts
  * @returns {{ accounted: object[], unaccounted: object[], stale: object[] }}
  */
-export function compare(risky, accounts) {
-  const entries = accounts.flatMap((account) =>
+export function compare<R extends { path: string; rule: string }>(
+  risky: readonly R[],
+  accounts: readonly Pick<Account, 'slice' | 'file' | 'entries'>[],
+): { accounted: R[]; unaccounted: R[]; stale: NamedEntry[] } {
+  const entries: NamedEntry[] = accounts.flatMap((account) =>
     account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file })),
   );
 

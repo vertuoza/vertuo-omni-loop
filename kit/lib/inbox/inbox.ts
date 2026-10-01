@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **An inbox spec is a typed thing** (PRD #1015, slice s1; folders layout, this task).
  *
@@ -31,14 +30,22 @@ import { readRepoFile } from '../check-report.ts';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
 import { SPEC_VALUES, SpecFrontMatterSchema } from '../schema/front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import type { Context } from '../context.ts';
+import type { InboxItem } from '../types.ts';
 
 export { SPEC_VALUES };
+
+/** A spec parsed: its record, or every reason it was refused. */
+export type ParsedSpec = { ok: true; record: InboxItem; errors?: undefined } | { ok: false; errors: string[]; record?: undefined };
+
+/** One inbox record as `readInbox` returns it: the spec's fields, its file and its folder's name. */
+export type InboxRecord = Pick<InboxItem, 'prd' | 'title' | 'blockedBy' | 'spec'> & { file: string; folder: string };
 
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 /** Front-matter field names this schema never admits — named so a refusal can quote the field. */
 const FORBIDDEN_STATUS_LIKE_FIELDS = ['status', 'branch', 'value', 'priority'];
 
-function unrecognizedKeyMessage(key) {
+function unrecognizedKeyMessage(key: string): string {
   if (key === 'plan') {
     return 'unexpected field "plan" — the plan is always the sibling plan.md, never a front-matter value';
   }
@@ -54,7 +61,7 @@ function unrecognizedKeyMessage(key) {
  * @param {{ file?: string | null }} [options] `file` is only used to prefix error messages
  * @returns {{ ok: true, record: object } | { ok: false, errors: string[] }}
  */
-export function parseSpec(text: string, { file = null }: { file?: string | null } = {}) {
+export function parseSpec(text: string, { file = null }: { file?: string | null } = {}): ParsedSpec {
   const blockMatch = text.match(FRONT_MATTER_BLOCK);
   if (!blockMatch) {
     return {
@@ -64,8 +71,8 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
   }
   const [, rawFrontMatter] = blockMatch;
 
-  const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
+  const errors: string[] = [];
+  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter ?? '');
   errors.push(...lineErrors.map((message) => withFile(file, message)));
 
   const parsed = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
@@ -82,10 +89,11 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
     }
   }
 
-  if (errors.length > 0) return { ok: false, errors };
+  // A refused parse always pushed at least one error, so `!parsed.success` adds no case.
+  if (errors.length > 0 || !parsed.success) return { ok: false, errors };
 
   const fm = parsed.data;
-  const record = {
+  const record: InboxItem = {
     prd: fm.prd,
     title: fm.title,
     blockedBy: fm['blocked-by'],
@@ -107,8 +115,8 @@ export function parseSpec(text: string, { file = null }: { file?: string | null 
  * @param {{ ctx: object }} options
  * @returns {{ prd: number, title: string, blockedBy: 'none'|number[], spec: 'file'|'issue', file: string, folder: string }[]}
  */
-export function readInbox({ ctx }) {
-  const records = [];
+export function readInbox({ ctx }: { ctx: Pick<Context, 'root' | 'layout'> }): InboxRecord[] {
+  const records: InboxRecord[] = [];
   for (const file of ctx.layout.specFiles()) {
     if (!existsSync(join(ctx.root, file))) {
       throw new Error(`readInbox: ${file}: spec.md is missing`);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `pnpm game:dossiers` run as a process: Supabase is the fake PostgREST behind a local server and gh
 // is the fake GitHub on PATH, so nothing here reaches GitHub or Supabase.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -8,8 +7,9 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { serveDossiers } from './fake-supabase.ts';
-import { ghScript } from './fake-github.ts';
+import { serveDossiers, type DossierCall } from './fake-supabase.ts';
+import { ghScript, type World } from './fake-github.ts';
+import type { Served } from '../test/fake-supabase.ts';
 
 const script = join(dirname(fileURLToPath(import.meta.url)), '../cli/dossiers.ts');
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
@@ -17,7 +17,7 @@ const BARE = 'c0000000-0000-4000-8000-000000000003';
 const COMMIT = 'c1000000000000000000000000000000000000c1';
 const SPEC = '---\nprd: 7\ntitle: Rockets\n---\n# Rockets\n';
 
-let server, tmp, world;
+let server: Served<DossierCall>, tmp: string, world: World;
 beforeEach(async () => {
   tmp = mkdtempSync(join(tmpdir(), 'omni-dossiers-'));
   writeFileSync(join(tmp, 'fake-gh.mjs'), ghScript());
@@ -49,7 +49,7 @@ afterEach(async () => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-async function dossiers(args, env = {}) {
+async function dossiers(args: string[], env: Record<string, string> = {}) {
   writeFileSync(join(tmp, 'world.json'), JSON.stringify(world));
   try {
     const { stdout, stderr } = await promisify(execFile)(process.execPath, [script, ...args], {
@@ -65,7 +65,8 @@ async function dossiers(args, env = {}) {
     });
     return { code: 0, stdout, stderr };
   } catch (err) {
-    return { code: err.code, stdout: err.stdout, stderr: err.stderr };
+    const failed = err as { code: number; stdout: string; stderr: string };
+    return { code: failed.code, stdout: failed.stdout, stderr: failed.stderr };
   }
 }
 const ghCalls = () => readFileSync(join(tmp, 'gh.log'), 'utf8').split('\n').filter(Boolean);

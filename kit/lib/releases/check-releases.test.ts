@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD 262, slice s1: the guard `omni check releases` runs — every release note in the inbox and the
 // shipped folders, graded, each failure naming the file and the rule.
 import { describe, expect, it } from 'vitest';
@@ -6,7 +5,7 @@ import { makeRepo } from '../../test/fixture.ts';
 import { findReleaseViolations, releaseNoteFiles, releaseNotePath } from './check-releases.ts';
 
 const D = '.omni-loop/delivery';
-const good = (prd, extra = '') => `---\nprd: ${prd}\ntitle: Jump between work and play in one tap\n${extra}---\nOne tap moves you between the reading pages and the game.\n`;
+const good = (prd: number, extra = '') => `---\nprd: ${prd}\ntitle: Jump between work and play in one tap\n${extra}---\nOne tap moves you between the reading pages and the game.\n`;
 
 describe('releaseNotePath', () => {
   it('is release.md in the folder it is given', () => {

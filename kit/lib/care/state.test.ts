@@ -1,12 +1,12 @@
-// @ts-nocheck
 // PRD 790, slice s1: a feature PR's GraphQL read, parsed into its care state.
 import { describe, expect, it } from 'vitest';
 import { careState } from './state.ts';
+import type { CareResponse } from './state.ts';
 
 const STATUS = '<!-- omni-outbox-status -->';
 const OPTIONS = { statusMarker: STATUS, needsFixLabel: 'omni:needs-fix', gateContexts: ['outbox', 'inbox'] };
 
-const comment = (login, body, at, extra = {}) => ({
+const comment = (login: string, body: string, at: string, extra: Record<string, unknown> = {}) => ({
   author: { login, avatarUrl: `https://avatars.example/${login}` },
   body,
   createdAt: at,
@@ -14,7 +14,7 @@ const comment = (login, body, at, extra = {}) => ({
   ...extra,
 });
 
-const thread = (id, comments, { isResolved = false } = {}) => ({
+const thread = (id: string, comments: object[], { isResolved = false } = {}) => ({
   id,
   isResolved,
   path: 'src/a.mjs',
@@ -23,7 +23,7 @@ const thread = (id, comments, { isResolved = false } = {}) => ({
 });
 
 /** A recorded-shape GraphQL response for one pull request, with `over` merged into it. */
-function response(over = {}) {
+function response(over: Record<string, unknown> = {}): CareResponse {
   return {
     data: {
       repository: {
@@ -43,10 +43,10 @@ function response(over = {}) {
         },
       },
     },
-  };
+  } as CareResponse;
 }
 
-const rollup = (state, contexts) => ({ nodes: [{ commit: { statusCheckRollup: { state, contexts: { nodes: contexts } } } }] });
+const rollup = (state: string, contexts: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { state, contexts: { nodes: contexts } } } }] });
 
 describe('careState — checks', () => {
   it('reads a green rollup', () => {
@@ -114,8 +114,8 @@ describe('careState — review threads', () => {
   it('lists an unresolved thread with no care reply as unhandled, to judge', () => {
     const [t] = careState(response({ reviewThreads: { nodes: [thread('T1', [ask])] } }), OPTIONS).threads;
     expect(t).toMatchObject({ id: 'T1', resolved: false, verdict: null, reason: null, needs: 'judge', path: 'src/a.mjs', line: 3 });
-    expect(t.url).toBe(ask.url);
-    expect(t.comments).toEqual([
+    expect(t!.url).toBe(ask.url);
+    expect(t!.comments).toEqual([
       { author: 'rev', avatarUrl: 'https://avatars.example/rev', body: ask.body, createdAt: ask.createdAt, url: ask.url, verdict: null },
     ]);
   });

@@ -1,11 +1,15 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { testContext } from '../../test/fixture.ts';
-import { flatCtx } from '../../test/flat-layout.ts';
+import type { Context } from '../context.ts';
+import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
+
+/** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
+const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
+  untypedFlatCtx(root, overrides) as unknown as Context;
 import { rangeChanges } from '../git.ts';
 import { riskyChanges } from './decision-coverage.ts';
 import {
@@ -16,7 +20,7 @@ import {
   parseNameStatus,
 } from './check-decision-coverage.ts';
 
-let root;
+let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'check-decision-coverage-'));
 });
@@ -24,13 +28,13 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-function accountText({ frontMatter = {}, body } = {}) {
+function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, string>; body?: string } = {}) {
   const fm = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
   const fmLines = Object.entries(fm).map(([key, value]) => `${key}: ${value}`);
   return ['---', ...fmLines, '---', '', body].join('\n');
 }
 
-function seedAccount(prd, slice, text) {
+function seedAccount(prd: string | number, slice: string, text: string) {
   const dir = join(root, 'docs/outbox', String(prd), 'accounts');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${slice}.md`), text);
@@ -106,7 +110,7 @@ describe('gradePrd', () => {
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toEqual([]);
 
-    const line = describeUnaccounted(1044, result.unaccounted[0]);
+    const line = describeUnaccounted(1044, result.unaccounted[0]!);
     expect(line).toContain('libs/vertuo-ai-credit/src/server/migrations.ts');
     expect(line).toContain('stored-shape');
   });
@@ -140,7 +144,7 @@ describe('gradePrd', () => {
     const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toHaveLength(1);
-    expect(result.stale[0].path).toBe('some/other/path.ts');
+    expect(result.stale[0]!.path).toBe('some/other/path.ts');
   });
 
   it('a malformed account is refused by name and never silently compared', () => {
@@ -169,24 +173,24 @@ describe('gradePrd', () => {
  * branch in must not widen what a branch's own range holds.
  */
 describe('rangeChanges, on a real repository', () => {
-  let repo;
-  let ctx;
-  const git = (args) =>
+  let repo: string;
+  let ctx: Context;
+  const git = (args: string[]) =>
     execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
-  function write(path, content) {
+  function write(path: string, content: string) {
     mkdirSync(dirname(join(repo, path)), { recursive: true });
     writeFileSync(join(repo, path), content);
   }
 
-  function commit(message) {
+  function commit(message: string) {
     git(['add', '-A']);
     git(['commit', '-q', '-m', message]);
   }
 
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), 'check-decision-coverage-repo-'));
-    ctx = testContext(repo);
+    ctx = testContext(repo) as unknown as Context;
     git(['init', '-q', '-b', 'main']);
     git(['config', 'user.email', 'test@example.com']);
     git(['config', 'user.name', 'Test']);

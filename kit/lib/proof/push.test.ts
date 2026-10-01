@@ -1,9 +1,10 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { AskCallError } from '../ask/client.ts';
 import { ProofReplyError, pushProof } from './push.ts';
+import type { ProofClient } from './push.ts';
+import type { ProofRun } from './run.ts';
 
-const RUN = {
+const RUN: ProofRun = {
   commit: 'abcdef1',
   url: 'https://preview.example',
   criteria: [{ text: 'It shows.', verdict: 'pass', video: '1.webm', script: '1.spec.ts' }],
@@ -19,21 +20,23 @@ const LINKS = [
 const TAB = 'https://omni.example/prd/d?tab=proof';
 
 /** A client that answers each call with `over[name]` or the happy reply, recording every call in order. */
-function fakeClient(over = {}) {
-  const calls = [];
-  const replies = {
+type Reply = (...args: never[]) => Promise<unknown>;
+
+function fakeClient(over: Record<string, Reply> = {}) {
+  const calls: [string, ...unknown[]][] = [];
+  const replies: Record<string, Reply> = {
     requestProofUploads: async () => ({ run: 'r-1', files: LINKS }),
     upload: async () => undefined,
     registerProof: async () => ({ url: TAB }),
     ...over,
   };
-  const client = Object.fromEntries(Object.entries(replies).map(([name, reply]) => [name, (...args) => {
+  const client = Object.fromEntries(Object.entries(replies).map(([name, reply]) => [name, (...args: never[]) => {
     calls.push([name, ...args]);
     return reply(...args);
-  }]));
+  }])) as ProofClient;
   return { client, calls };
 }
-const read = (path) => new TextEncoder().encode(`bytes of ${path}`);
+const read = (path: string) => new TextEncoder().encode(`bytes of ${path}`);
 
 describe('pushProof', () => {
   it('asks for links, puts each file to its own, then registers the run and hands back the tab', async () => {
@@ -51,28 +54,28 @@ describe('pushProof', () => {
     const { client } = fakeClient({
       requestProofUploads: async () => ({ run: 'r-1', files: [...LINKS, { name: 'preview.gif', path: 'd/r-1/preview.gif', url: 'https://files.example/3' }] }),
     });
-    const withGif = { ...RUN, files: [...RUN.files, { name: 'preview.gif', path: '/run/preview.gif', bytes: 5, type: 'image/gif' }] };
+    const withGif: ProofRun = { ...RUN, files: [...RUN.files, { name: 'preview.gif', path: '/run/preview.gif', bytes: 5, type: 'image/gif' }] };
     expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: withGif, read }))
       .toEqual({ tab: TAB, gif: 'https://omni.example/api/proofs/r-1/preview.gif' });
   });
 
   it('a run with no file asks for no link and registers straight away', async () => {
     const { client, calls } = fakeClient();
-    const bare = { ...RUN, criteria: [{ text: 'A key.', verdict: 'unfilmable' }], files: [] };
+    const bare: ProofRun = { ...RUN, criteria: [{ text: 'A key.', verdict: 'unfilmable' }], files: [] };
     const runId = '1b4e28ba-2fa1-11d2-883f-0016d3cca427';
     // No upload call means no run id from the app: one is minted here.
     expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: bare, read, newRunId: () => runId })).toEqual({ tab: TAB });
     expect(calls.map(([name]) => name)).toEqual(['registerProof']);
-    expect(calls[0][1].run).toBe(runId);
+    expect((calls[0]![1] as { run: string }).run).toBe(runId);
   });
 
   it('a refused call stops the push there, as the AskCallError it is', async () => {
-    const refused = new AskCallError('POST /api/proofs/uploads: 404', { status: 404 });
+    const refused = new AskCallError('POST /api/proofs/uploads: 404', { status: 404 } as never);
     const { client, calls } = fakeClient({ requestProofUploads: async () => { throw refused; } });
     await expect(pushProof({ client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toBe(refused);
     expect(calls).toHaveLength(1);
 
-    const upload = fakeClient({ upload: async () => { throw new AskCallError('PUT: 400', { status: 400 }); } });
+    const upload = fakeClient({ upload: async () => { throw new AskCallError('PUT: 400', { status: 400 } as never); } });
     await expect(pushProof({ client: upload.client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toMatchObject({ status: 400 });
     expect(upload.calls.map(([name]) => name)).toEqual(['requestProofUploads', 'upload']);
   });

@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { fetchedAgo, formatOverview, STAGE_ORDER, STAGE_WORDS } from './format.ts';
+import type { Overview, StagedPrd, YourRow, Yours } from './overview.ts';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -11,10 +11,10 @@ const DAY = 24 * HOUR;
 const ME = 'me@example.com';
 
 /** Yours as `overviewFor` returns it: known, with no PRD of yours unless given. */
-const known = ({ rows = [], shipped = [], email = ME } = {}) => ({ state: 'known', email, rows, shipped });
+const known = ({ rows = [], shipped = [], email = ME }: { rows?: YourRow[]; shipped?: StagedPrd[]; email?: string } = {}): Yours => ({ state: 'known', email, rows, shipped });
 
 /** An overview as `overviewFor` returns it. */
-function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0, shipped = 3, retro = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() } = {}) {
+function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0, shipped = 3, retro = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() }: { prd?: number; inbox?: number; building?: number; openItems?: number; outbox?: number; shipped?: number; retro?: number; slug?: string | null; base?: string; fetchedAt?: number | null; yours?: Yours } = {}): Overview {
   const delivered = shipped + retro;
   const inProgress = inbox + building + outbox;
   const total = delivered + inProgress;
@@ -38,7 +38,7 @@ function overview({ prd = 0, inbox = 2, building = 0, openItems = 0, outbox = 0,
 /** The two count lines of the default overview: three shipped, two in the inbox. */
 const COUNTS = ['  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0', '  SHIPPED 3     RETRO 0'];
 
-const lines = (text) => text.split('\n');
+const lines = (text: string) => text.split('\n');
 
 describe('formatOverview', () => {
   it('prints the header, the counts, the bar, yours and the pointer to help', () => {
@@ -152,11 +152,11 @@ describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
 });
 
 describe('formatOverview — yours (PRD 315, slice s3)', () => {
-  const row = (stage, prd, topic, more = {}) => ({ stage, prd, topic, ...more });
-  const entry = (prd, topic) => ({ prd, topic });
+  const row = (stage: YourRow['stage'], prd: number, topic: string, more: { openItems?: number } = {}): YourRow => ({ stage, prd, topic, ...more });
+  const entry = (prd: number, topic: string): StagedPrd => ({ prd, topic });
 
   /** The lines of the yours section: between the blank line after the bar and the one before help. */
-  function yoursLines(text) {
+  function yoursLines(text: string) {
     const all = lines(text);
     const end = all.lastIndexOf('');
     const start = all.lastIndexOf('', end - 1);
@@ -219,7 +219,7 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     const shipped = Array.from({ length: 40 }, (_, index) => entry(400 - index, `topic-number-${index}`));
     const list = yoursLines(formatOverview(overview({ yours: known({ shipped }) }), { now: NOW })).slice(1);
     expect(list.length).toBeGreaterThan(2);
-    expect(list[0].startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
+    expect(list[0]!.startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
     for (const line of list.slice(1)) expect(line).toMatch(/^ {13}#\d/);
     for (const line of list) {
       expect(line.length).toBeLessThanOrEqual(80);
@@ -238,7 +238,7 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
       `  building   #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
       `  PRD        #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
     ]);
-    expect(out[2].length).toBe(80);
+    expect(out[2]!.length).toBe(80);
   });
 
   it('cuts with … a shipped topic too long for a line of its own', () => {
@@ -261,10 +261,11 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
   });
 
   it('says one line without an email, and one in a shallow clone, the counts and the bar still shown', () => {
-    for (const [yours, line] of [
+    const cases: [Yours, string][] = [
       [{ state: 'no-email', email: null, rows: [], shipped: [] }, '  set git config user.email to see yours'],
       [{ state: 'shallow', email: ME, rows: [], shipped: [] }, '  this clone is shallow: git fetch --unshallow to see yours'],
-    ]) {
+    ];
+    for (const [yours, line] of cases) {
       const text = formatOverview(overview({ yours }), { now: NOW });
       expect(yoursLines(text)).toEqual([line]);
       expect(text).toContain(`\n${COUNTS.join('\n')}\n`);

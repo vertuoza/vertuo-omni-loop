@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Where truth lives.** Grades the knowledge folder (`ctx.layout.knowledgeRoot`) through the one
  * parser in `registers.mjs`. Every violation names the file the reader should open and the id (or
@@ -42,14 +41,32 @@ import {
   productDir,
   readKnowledge,
   servedBy,
+  type EntryKind,
+  type Knowledge,
+  type KnowledgeCtx,
+  type KnowledgeEntry,
 } from './registers.ts';
 
+/**
+ * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
+ * path, and — in an imported copy's context — the target it copies.
+ */
+export type CheckCtx = KnowledgeCtx & {
+  config: { paths: { glossary: string | null } };
+  copyOf?: string;
+};
+
+/** A violation: the file, the id and what is wrong — or a problem the parser already wrote. */
+export type Violation =
+  | { file: string; id: string; detail: string; text?: undefined }
+  | { text: string; file?: undefined; id?: undefined; detail?: undefined };
+
 /** One violation, always naming the file the reader should open and the id at fault. */
-function violation(file, id, detail) {
+function violation(file: string, id: string, detail: string): Violation {
   return { file, id, detail };
 }
 
-function formatViolation({ file, id, detail, text }) {
+function formatViolation({ file, id, detail, text }: Violation): string {
   return text ?? `${file}: ${id} — ${detail}`;
 }
 
@@ -62,7 +79,7 @@ const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
 const NUMBER_REFERENCE = /(^|\s)(PRD |issue |PR )?#\d+\b/i;
 
 /** The comma-separated parts of a line's value, backticks stripped. */
-function partsOf(value) {
+function partsOf(value: string): string[] {
   return value
     .split(',')
     .map((part) => part.replace(/`/g, '').trim())
@@ -70,11 +87,11 @@ function partsOf(value) {
 }
 
 /** The id prefix each layer's entries carry. */
-const PREFIX_OF_KIND = { principle: 'P', rule: 'BR', invariant: 'N' };
+const PREFIX_OF_KIND: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invariant: 'N' };
 
 /** Every library a domain README lists under "## Owning libraries" exists under `ctx.root`. */
-export function findOwningLibraryViolations(ctx, knowledge) {
-  const violations = [];
+export function findOwningLibraryViolations(ctx: CheckCtx, knowledge: Knowledge): Violation[] {
+  const violations: Violation[] = [];
   // An imported copy's libraries are its target's, never this disk's (PRD 522).
   if (ctx.copyOf) return violations;
   for (const domain of knowledge.domains) {
@@ -82,9 +99,9 @@ export function findOwningLibraryViolations(ctx, knowledge) {
     if (!existsSync(join(ctx.root, readme))) continue;
     const section = readFileSync(join(ctx.root, readme), 'utf8').split(/^## Owning libraries\s*$/m)[1];
     if (!section) continue;
-    const listed = section.split(/^## /m)[0];
+    const listed = section.split(/^## /m)[0] ?? '';
     for (const match of listed.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
-      const path = match[1].replace(/\/$/, '');
+      const path = (match[1] ?? '').replace(/\/$/, '');
       if (!existsSync(join(ctx.root, path))) {
         violations.push(
           violation(readme, domain.name, `names owning library ${path}, which does not exist.`),
@@ -96,8 +113,12 @@ export function findOwningLibraryViolations(ctx, knowledge) {
 }
 
 /** Product and every domain folder carry their files; a domain README names a glossary word. */
-export function findLayoutViolations(ctx, knowledge, { glossaryText = '' } = {}) {
-  const violations = [];
+export function findLayoutViolations(
+  ctx: CheckCtx,
+  knowledge: Knowledge,
+  { glossaryText = '' }: { glossaryText?: string } = {},
+): Violation[] {
+  const violations: Violation[] = [];
   for (const name of Object.keys(LAYER_FILES)) {
     if (!knowledge.productFiles.includes(name)) {
       violations.push(violation(`${productDir(ctx)}/${name}`, 'product', 'is missing.'));
@@ -131,21 +152,21 @@ export function findLayoutViolations(ctx, knowledge, { glossaryText = '' } = {})
   return violations;
 }
 
-function glossaryHolds(glossaryText, term) {
+function glossaryHolds(glossaryText: string, term: string): boolean {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(^|[^\\w])${escaped}([^\\w]|$)`, 'i').test(glossaryText);
 }
 
 /** A cross-domain file is `<a>--<b>.md`: two domains that exist, in alphabetical order. */
-export function findCrossDomainFileViolations(knowledge) {
+export function findCrossDomainFileViolations(knowledge: Pick<Knowledge, 'domains' | 'crossDomainFiles'>): Violation[] {
   const known = new Set(knowledge.domains.map((domain) => domain.name));
-  const violations = [];
+  const violations: Violation[] = [];
   for (const { file, name, pair } of knowledge.crossDomainFiles) {
     if (!pair) {
       violations.push(violation(file, name, 'is not named "<a>--<b>", two domains.'));
       continue;
     }
-    const [a, b] = pair;
+    const [a = '', b = ''] = pair;
     for (const half of pair) {
       if (!known.has(half)) {
         violations.push(violation(file, name, `names "${half}", which is not a domain folder.`));
@@ -165,9 +186,9 @@ export function findCrossDomainFileViolations(knowledge) {
 }
 
 /** An id is never reused: the SECOND (and any later) claim of an id already seen is refused. */
-export function findReusedIds(entries) {
-  const firstSeenIn = new Map();
-  const violations = [];
+export function findReusedIds(entries: readonly Pick<KnowledgeEntry, 'id' | 'file'>[]): Violation[] {
+  const firstSeenIn = new Map<string, string>();
+  const violations: Violation[] = [];
   for (const { id, file } of entries) {
     const seenIn = firstSeenIn.get(id);
     if (seenIn) {
@@ -180,8 +201,8 @@ export function findReusedIds(entries) {
 }
 
 /** The id's own shape: its prefix matches its layer and names its domain, or it is a kept id. */
-function idShapeViolations(entry) {
-  const parts = idParts(entry.id);
+function idShapeViolations(entry: KnowledgeEntry): Violation[] {
+  const parts = idParts(entry.id)!; // ts-allow: an entry's id is read off an id-shaped heading, so it always splits
   const where =
     entry.scope === 'cross-domain' ? `the pair ${entry.domain}` : `the ${entry.domain} folder`;
 
@@ -217,7 +238,7 @@ function idShapeViolations(entry) {
     ];
   }
 
-  const expected = PREFIX_OF_KIND[entry.kind];
+  const expected = entry.kind === null ? undefined : PREFIX_OF_KIND[entry.kind];
   if (parts.type !== expected) {
     return [
       violation(
@@ -238,15 +259,15 @@ function idShapeViolations(entry) {
 }
 
 /** The anchors GitHub gives a markdown file's headings: lowercased, punctuation dropped, each space a hyphen, a repeat suffixed. */
-export function headingAnchors(text) {
-  const anchors = new Set();
-  const seen = new Map();
+export function headingAnchors(text: string): Set<string> {
+  const anchors = new Set<string>();
+  const seen = new Map<string, number>();
   let fenced = false;
   for (const line of text.split('\n')) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
-    const base = match[1]
+    const base = (match[1] ?? '')
       .replace(/`/g, '')
       .toLowerCase()
       .replace(/[^\p{L}\p{N}\s_-]/gu, '')
@@ -259,13 +280,19 @@ export function headingAnchors(text) {
 }
 
 /** Paths a line names must exist under `ctx.root`: a wrong claim is worse than an honest `unenforced`. */
-function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
-  const violations = [];
+function missingPathViolations(
+  ctx: CheckCtx,
+  entry: KnowledgeEntry,
+  label: string,
+  value: string,
+  { onlyPathLike }: { onlyPathLike: boolean },
+): Violation[] {
+  const violations: Violation[] = [];
   // An imported copy's paths name files of its target, never of this disk (PRD 522).
   if (ctx.copyOf) return violations;
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
-    const [path, anchor] = part.split('#');
+    const [path = '', anchor] = part.split('#');
     if (anchor && existsSync(join(ctx.root, path)) && path.endsWith('.md')) {
       if (!headingAnchors(readFileSync(join(ctx.root, path), 'utf8')).has(anchor.toLowerCase())) {
         violations.push(
@@ -292,7 +319,7 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
 }
 
 /** A `Serves:` line: one id, a principle that exists, and — cross-domain — of the right domain. */
-function servesViolations(entry, principles) {
+function servesViolations(entry: KnowledgeEntry & { serves: string }, principles: readonly KnowledgeEntry[]): Violation[] {
   if ((entry.fieldCounts.serves ?? 0) > 1) {
     return [
       violation(
@@ -342,9 +369,9 @@ function servesViolations(entry, principles) {
 }
 
 /** Every entry's lines, by kind. */
-export function findEntryViolations(ctx, entries) {
+export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
   const principles = entries.filter((entry) => entry.kind === 'principle');
-  const violations = [];
+  const violations: Violation[] = [];
 
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
@@ -403,7 +430,7 @@ export function findEntryViolations(ctx, entries) {
         ),
       );
     }
-    if (entry.serves !== null) violations.push(...servesViolations(entry, principles));
+    if (entry.serves !== null) violations.push(...servesViolations({ ...entry, serves: entry.serves }, principles));
 
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
@@ -422,14 +449,14 @@ export function findEntryViolations(ctx, entries) {
 }
 
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
-export function findUnresolvedCitations(file, text, resolve) {
+export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
     .filter((id) => !resolve(id))
     .map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 
 /** Every principle no entry serves — a wish, reported and never failed. */
-export function findWishes(entries) {
+export function findWishes(entries: readonly KnowledgeEntry[]): Violation[] {
   return entries
     .filter((entry) => entry.kind === 'principle' && servedBy(entries, entry.id).length === 0)
     .map((entry) =>
@@ -438,14 +465,14 @@ export function findWishes(entries) {
 }
 
 /** Every proposed entry — not a law until a person removes its `Proposed:` line; reported, never failed. */
-export function findProposals(entries) {
+export function findProposals(entries: readonly KnowledgeEntry[]): Violation[] {
   return entries
     .filter((entry) => entry.proposed !== null && entry.proposed.by !== null)
     .map((entry) =>
       violation(
         entry.file,
         entry.id,
-        `is proposed by ${entry.proposed.by} on ${entry.proposed.on} — not a law until a person removes its "Proposed:" line.`,
+        `is proposed by ${entry.proposed?.by} on ${entry.proposed?.on} — not a law until a person removes its "Proposed:" line.`,
       ),
     );
 }
@@ -459,9 +486,17 @@ export function findProposals(entries) {
  * are). `glossaryText` lets a caller supply the glossary's text directly instead of having it read
  * from `ctx.config.paths.glossary`, which is `null` when the repository configures none.
  */
-export function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
+export function gradeKnowledge({
+  ctx,
+  files = [],
+  glossaryText,
+}: {
+  ctx: CheckCtx;
+  files?: readonly string[];
+  glossaryText?: string;
+}): { violations: string[]; wishes: string[]; proposals: string[] } {
   const knowledge = readKnowledge({ ctx });
-  const resolve = (id) => knowledge.entries.find((entry) => entry.id === id);
+  const resolve = (id: string) => knowledge.entries.find((entry) => entry.id === id);
   const text =
     glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : '');
 

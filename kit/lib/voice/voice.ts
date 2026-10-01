@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A PRD's `voice.json` (PRD 822): what the product's personas said of it, a round per stage. It sits
 // beside the spec in the PRD's folder; `omni check inbox` refuses one that does not read, and
 // `omni dossier push` sends it as the dossier's `voice` artifact. `example.json` beside this file is
@@ -19,8 +18,10 @@ export const VOICE_FILE = 'voice.json';
 
 const STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 const STAGES_SAID = 'design, spec, rework-<k>, shipped';
-const STANCES = ['excited', 'neutral', 'skeptical'];
-const SETTLED = ['accepted', 'saved-as-claim', 'just-this-run', 'none'];
+const STANCES = ['excited', 'neutral', 'skeptical'] as const;
+const SETTLED = ['accepted', 'saved-as-claim', 'just-this-run', 'none'] as const;
+const KNOWN_STANCES: readonly unknown[] = STANCES;
+const KNOWN_SETTLED: readonly unknown[] = SETTLED;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A persona (`persona:Marc`) or a claim id of one of the business's kinds (`size#2`). */
 const CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
@@ -29,18 +30,43 @@ const MAX_SENTENCES = 2;
 const TOP_FIELDS = ['rounds'];
 const ROUND_FIELDS = ['stage', 'date', 'personas', 'objection', 'fit'];
 
-const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
-const isText = (value) => typeof value === 'string' && value.trim().length > 0;
+/** One persona's say in a round. */
+export type VoicePersona = {
+  name: string;
+  stance: (typeof STANCES)[number];
+  score: number;
+  reaction: string;
+  citations: string[];
+};
+/** The objection a round raised, and how it was settled. */
+export type VoiceObjection = { persona: string; text: string; citations: string[]; settled: (typeof SETTLED)[number] };
+/** One round of a voice.json. */
+export type VoiceRound = {
+  stage: string;
+  date: string;
+  personas: VoicePersona[];
+  objection?: VoiceObjection | null;
+  fit?: string | null;
+};
+/** A voice.json, read. */
+export type Voice = { rounds: VoiceRound[] };
+
+export type VoiceParse = { ok: true; voice: Voice; errors: [] } | { ok: false; voice: null; errors: string[] };
+
+type Fields = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is Fields => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isText = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 
 /** How many sentences `text` holds: each ends at `.`, `!` or `?` before a space or the end. */
-export function countSentences(text) {
+export function countSentences(text: string): number {
   return text
     .split(/[.!?]+(?=\s|$)/)
     .filter((part) => part.trim().length > 0).length;
 }
 
 /** What is wrong with a list of citations at `field`. */
-function citationProblems(citations, field) {
+function citationProblems(citations: unknown, field: string): string[] {
   if (!Array.isArray(citations) || citations.length === 0) {
     return [`${field} must cite at least one persona:<name> or claim id.`];
   }
@@ -52,19 +78,20 @@ function citationProblems(citations, field) {
 }
 
 /** What is wrong with a line a persona says, at most two sentences, at `field`. */
-function lineProblems(text, field) {
+function lineProblems(text: unknown, field: string): string[] {
   if (!isText(text)) return [`${field} must be a sentence.`];
   const count = countSentences(text);
   return count > MAX_SENTENCES ? [`${field} holds ${count} sentences; two at most.`] : [];
 }
 
-function personaProblems(persona, i) {
+function personaProblems(persona: unknown, i: number): string[] {
   const at = `personas[${i}]`;
   if (!isRecord(persona)) return [`${at} must be an object.`];
-  const problems = [];
+  const problems: string[] = [];
   if (!isText(persona.name)) problems.push(`${at}.name must be a name.`);
-  if (!STANCES.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES.join(', ')}.`);
-  if (!Number.isInteger(persona.score) || persona.score < 1 || persona.score > 5) {
+  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES.join(', ')}.`);
+  const { score } = persona;
+  if (typeof score !== 'number' || !Number.isInteger(score) || score < 1 || score > 5) {
     problems.push(`${at}.score must be a whole number from 1 to 5.`);
   }
   problems.push(...lineProblems(persona.reaction, `${at}.reaction`));
@@ -72,52 +99,49 @@ function personaProblems(persona, i) {
   return problems;
 }
 
-function objectionProblems(objection, names) {
+function objectionProblems(objection: unknown, names: readonly unknown[]): string[] {
   if (objection === null) return [];
   if (!isRecord(objection)) return ['objection must be an object, or null when no persona objected.'];
-  const problems = [];
+  const problems: string[] = [];
   if (!isText(objection.persona)) problems.push('objection.persona must be a name.');
   else if (names.length > 0 && !names.includes(objection.persona)) {
     problems.push(`objection.persona ${JSON.stringify(objection.persona)} is not one of the round's personas.`);
   }
   problems.push(...lineProblems(objection.text, 'objection.text'));
   problems.push(...citationProblems(objection.citations, 'objection.citations'));
-  if (!SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(', ')}.`);
+  if (!KNOWN_SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(', ')}.`);
   return problems;
 }
 
 /** The fields of `value` that `known` does not name, one problem each. */
-const unknownFields = (value, known, where) =>
+const unknownFields = (value: Fields, known: readonly string[], where: string): string[] =>
   Object.keys(value)
     .filter((key) => !known.includes(key))
     .map((key) => `\`${key}\` is not a field of ${where}.`);
 
-const personasProblems = (personas) =>
+const personasProblems = (personas: unknown): string[] =>
   Array.isArray(personas) && personas.length > 0
     ? personas.flatMap(personaProblems)
     : ['personas must list at least one persona.'];
 
-const fitProblems = (fit) => (fit === undefined || fit === null || isText(fit) ? [] : ['fit must be one line, or null.']);
+const fitProblems = (fit: unknown): string[] => (fit === undefined || fit === null || isText(fit) ? [] : ['fit must be one line, or null.']);
 
 /** Every problem of one round, each without its round's name. */
-function roundProblems(round) {
+function roundProblems(round: unknown): string[] {
   if (!isRecord(round)) return ['must be an object.'];
-  const names = Array.isArray(round.personas) ? round.personas.map((p) => p?.name) : [];
+  const names: unknown[] = Array.isArray(round.personas) ? round.personas.map((p: unknown) => (isRecord(p) ? p.name : undefined)) : [];
   return [
     ...unknownFields(round, ROUND_FIELDS, 'a round'),
-    ...(DATE.test(round.date ?? '') ? [] : ['date must be YYYY-MM-DD.']),
+    ...(DATE.test(String(round.date ?? '')) ? [] : ['date must be YYYY-MM-DD.']),
     ...personasProblems(round.personas),
     ...objectionProblems(round.objection ?? null, names),
     ...fitProblems(round.fit),
   ];
 }
 
-/**
- * Reads a voice.json's text.
- * @returns {{ ok: boolean, voice: object | null, errors: string[] }}
- */
-export function parseVoice(text) {
-  let voice;
+/** Reads a voice.json's text. */
+export function parseVoice(text: string): VoiceParse {
+  let voice: unknown;
   try {
     voice = JSON.parse(text);
   } catch {
@@ -129,8 +153,8 @@ export function parseVoice(text) {
   const errors = unknownFields(voice, TOP_FIELDS, 'voice.json');
   if (voice.rounds.length === 0) errors.push('`rounds` holds no round.');
 
-  const seen = new Set();
-  voice.rounds.forEach((round, i) => {
+  const seen = new Set<string>();
+  voice.rounds.forEach((round: unknown, i: number) => {
     const stage = isRecord(round) ? round.stage : undefined;
     const known = typeof stage === 'string' && STAGE.test(stage);
     const name = known ? `round ${stage}` : `round ${i + 1}`;
@@ -140,5 +164,6 @@ export function parseVoice(text) {
     errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
   });
 
-  return errors.length ? { ok: false, voice: null, errors } : { ok: true, voice, errors: [] };
+  if (errors.length) return { ok: false, voice: null, errors };
+  return { ok: true, voice: voice as Voice, errors: [] }; // ts-allow: every field of every round was checked above
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,7 +23,7 @@ const ONLY_THE_KEY = [
 ].join('\n');
 
 /** A settings file's text as Claude Code's own files are laid out: two-space indentation, a final newline. */
-const settingsText = (value) => `${JSON.stringify(value, null, 2)}\n`;
+const settingsText = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 describe('writeStatusLine', () => {
   it('creates .claude/settings.json, and its folder, holding exactly the spec\'s key', () => {
