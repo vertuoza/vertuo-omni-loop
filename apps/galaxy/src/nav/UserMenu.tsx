@@ -40,7 +40,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) setOpen(false); // ts-allow: a pointer event's target is a DOM node
     };
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
@@ -55,7 +55,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
 
   const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const list = items();
-    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length);
+    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length); // ts-allow: indexOf only compares the element
     if (move.kind === 'none') return;
     if (move.kind === 'focus') {
       event.preventDefault();

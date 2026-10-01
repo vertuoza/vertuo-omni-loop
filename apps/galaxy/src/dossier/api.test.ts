@@ -376,7 +376,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
     w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
     await w.open({ title: 'A draft', repo: 'acme/widgets' });
     for (const [query, token] of [['?repo=acme/widgets&prd=8', 'ada-token'], ['?repo=acme/gadgets&prd=7', 'ada-token'], ['?repo=acme/widgets&prd=7', 'carl-token'], ['?repo=acme/widgets&prd=7', 'nell-token']]) {
-      const { status, body } = await w.find(query, { token });
+      const { status, body } = await w.find(query!, { token });
       expect(status, `${query} ${token}`).toBe(404);
       expect(body.error).toEqual(expect.any(String));
     }

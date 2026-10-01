@@ -7,7 +7,7 @@ import { StrategyGuide } from './StrategyGuide';
 // LOOP LINGO sidebar glossing the loop terms HOME uses, read from the lingo module.
 
 const levels = (markup: string) =>
-  [...markup.matchAll(/<li class="home-stage[^"]*">([\s\S]*?)<\/li>/g)].map(([, li]) => text(li));
+  [...markup.matchAll(/<li class="home-stage[^"]*">([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!));
 
 const sidebar = (markup: string) => {
   const aside = markup.match(/<aside\b[^>]*class="home-lingo"[^>]*>([\s\S]*?)<\/aside>/);
@@ -42,9 +42,9 @@ describe('the strategy guide', () => {
 
   it('holds a LOOP LINGO sidebar: its h3, then the five terms and their glosses, in the loop\'s order', () => {
     const aside = sidebar(html(StrategyGuide()));
-    expect(text(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)![1])).toBe('Loop lingo');
-    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(t));
-    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(d));
+    expect(text(aside!.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)![1]!)).toBe('Loop lingo');
+    const terms = [...aside!.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(t!));
+    const glosses = [...aside!.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(d!));
     expect(terms).toEqual(['HARNESS', 'PRD', 'SLICE', 'WAVE', 'OUTBOX']);
     expect(glosses).toEqual(LINGO.map((e) => e.gloss));
   });

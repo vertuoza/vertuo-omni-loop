@@ -39,9 +39,9 @@ export const ARTIFACT_MAX_BYTES = 512 * 1024;
 /** The longest title a dossier takes. */
 export const TITLE_MAX = 200;
 
-export const isPulseKind = (value: unknown): value is PulseKind => PULSE_KINDS.includes(value as PulseKind);
-export const isArtifactKind = (value: unknown): value is ArtifactKind => ARTIFACT_KINDS.includes(value as ArtifactKind);
-export const isWorkKind = (value: unknown): value is WorkKind => WORK_KINDS.includes(value as WorkKind);
+export const isPulseKind = (value: unknown): value is PulseKind => PULSE_KINDS.includes(value as PulseKind); // ts-allow: a guard: includes() only compares the value
+export const isArtifactKind = (value: unknown): value is ArtifactKind => ARTIFACT_KINDS.includes(value as ArtifactKind); // ts-allow: a guard: includes() only compares the value
+export const isWorkKind = (value: unknown): value is WorkKind => WORK_KINDS.includes(value as WorkKind); // ts-allow: a guard: includes() only compares the value
 
 export type DossierArtifact = { kind: ArtifactKind; content: string };
 

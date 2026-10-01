@@ -78,9 +78,9 @@ export const useAlerts = (): WaitingAlerts | undefined => useContext(AlertsConte
 
 const storage = (): Store => window.localStorage;
 const notifications = (): NotificationApi | null =>
-  typeof Notification === 'undefined' ? null : (Notification as unknown as NotificationApi);
+  typeof Notification === 'undefined' ? null : (Notification as unknown as NotificationApi); // ts-allow: the browser's Notification has every member NotificationApi names
 const audio = () =>
-  (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) ?? null;
+  (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) ?? null; // ts-allow: older Safari names its AudioContext webkitAudioContext
 /** A notification clicked: this tab in front, on the item's page. */
 const openFromAlert = (href: string) => {
   window.focus();

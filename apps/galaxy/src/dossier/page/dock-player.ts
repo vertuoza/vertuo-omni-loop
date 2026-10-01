@@ -28,7 +28,7 @@ async function readMe(db: Pick<SupabaseClient, 'from'>, workspace: string, userI
     console.error(`Supabase: could not read your player (${error.message})`);
     return null;
   }
-  return (data as Me | null) ?? null;
+  return (data as Me | null) ?? null; // ts-allow: the select names the columns of Me, for one row or none
 }
 
 export async function readDockPlayer(db: Pick<SupabaseClient, 'from'>, user: Pick<User, 'id' | 'identities'>, workspace: string): Promise<DockSetup> {

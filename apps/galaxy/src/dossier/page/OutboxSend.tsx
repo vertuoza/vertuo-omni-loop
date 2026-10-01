@@ -88,7 +88,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
     (async () => {
       try {
         const response = await fetch(`/api/outbox/send?id=${encodeURIComponent(back.send)}`, { cache: 'no-store' });
-        const sent = (await response.json().catch(() => null)) as SentView | { error?: string } | null;
+        const sent = (await response.json().catch(() => null)) as SentView | { error?: string } | null; // ts-allow: the outbox API answers one of these shapes, or nothing on a failed read
         if (!live) return;
         if (!response.ok || !sent || !('state' in sent)) {
           setState({ state: 'refused', error: `${(sent && 'error' in sent && sent.error) || 'What became of your answers could not be read.'} ${KEPT}` });
@@ -135,7 +135,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ dossier: dossierId, picks: given }),
       });
-      const body = (await response.json().catch(() => ({}))) as { send?: string; authorize?: string; dropped?: number[]; error?: string };
+      const body = (await response.json().catch(() => ({}))) as { send?: string; authorize?: string; dropped?: number[]; error?: string }; // ts-allow: the outbox API answers this shape, or nothing on a failed read
       const dropped = body.dropped ?? [];
       if (dropped.length > 0) onDrop(dropped);
       if (!response.ok || !body.authorize || !body.send) {

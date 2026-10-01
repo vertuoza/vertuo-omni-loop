@@ -20,7 +20,7 @@ describe('SIDEBAR', () => {
 
   it('gives every Dashboard and Work section and Settings its own 16 px sprite, and Docs and Release notes none (issue 653, PRD 733)', () => {
     const [dashboard, work] = SIDEBAR;
-    const drawn = [...dashboard.items, ...work.items, SETTINGS];
+    const drawn = [...dashboard!.items, ...work!.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
       ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
@@ -34,25 +34,25 @@ describe('SIDEBAR', () => {
 
   it('holds Home, Fleet, Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
     const [dashboard] = SIDEBAR;
-    expect(rows(dashboard.items)).toEqual([
+    expect(rows(dashboard!.items)).toEqual([
       ['home', 'Home', '/app', []],
       ['fleet', 'Fleet', '/app/fleet', []],
       ['workspace', 'Workspace', '/app/workspace', []],
       ['engineering', 'Engineering', '/app/engineering', []],
     ]);
-    expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
+    expect(dashboard!.items.some((i) => i.leavesApp)).toBe(false);
   });
 
   it('holds PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
-    expect(rows(work.items)).toEqual([
+    expect(rows(work!.items)).toEqual([
       ['prds', 'PRDs', '/prd', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
       ['questions', 'Questions', '/ask', [['Shared with me', '/ask/for-me'], ['History', '/ask/history']]],
       ['knowledge', 'Knowledge', '/knowledge', []],
     ]);
-    expect(work.items.some((i) => i.leavesApp)).toBe(false);
+    expect(work!.items.some((i) => i.leavesApp)).toBe(false);
   });
 
   it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business and Jev (PRD 733, PRD 748, PRD 812)', () => {
@@ -64,7 +64,7 @@ describe('SIDEBAR', () => {
 
   it('lands /app/settings on its Fleets page (PRD 733)', () => {
     expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
-    expect(SETTINGS.pages?.[0].path).toBe(SETTINGS_LANDING);
+    expect(SETTINGS.pages?.[0]!.path).toBe(SETTINGS_LANDING);
   });
 
   it('redirects /app/settings\' page to that landing (PRD 733)', async () => {

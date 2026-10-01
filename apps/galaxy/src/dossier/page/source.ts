@@ -78,7 +78,7 @@ export async function readDossier(db: Db, id: string, me: string | null = null):
   if (!dossier) return null;
   const [versions, members, rounds, repos, people] = await Promise.all([
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
-    loadPeople(db as SupabaseClient, dossier.workspace_id),
+    loadPeople(db as SupabaseClient, dossier.workspace_id), // ts-allow: loadPeople reads only `from` and `rpc`, the two members a Db has
   ]);
   return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me), people };
 }
@@ -96,7 +96,7 @@ export async function answerQuick(db: Pick<Db, 'from'>, roundId: string, questio
   if ((await sendAnswers(db, roundId, { [question]: value })) === 'answered') return { kind: 'answered' };
   const { data, error } = await db.from('ask_rounds').select('status, answered_by, answered_via').eq('id', roundId).maybeSingle();
   if (error) throw new Error(`read the round: ${error.message}`);
-  const row = data as Pick<DossierRoundRow, 'status' | 'answered_by' | 'answered_via'> | null;
+  const row = data as Pick<DossierRoundRow, 'status' | 'answered_by' | 'answered_via'> | null; // ts-allow: the select names exactly these columns of one round, or none
   return { kind: 'taken', by: row?.answered_by ?? null, via: row?.answered_via ?? null, moved: row?.status !== 'answered' };
 }
 

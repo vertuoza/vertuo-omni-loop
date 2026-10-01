@@ -87,7 +87,7 @@ const VERDICTS = new Set(['fixed', 'pushed-back', 'asked']);
 /** A comment's care verdict; null when it carries no marker, or an unknown one (then it is a person's). */
 export function careVerdictOf(body: string | null | undefined): Exclude<CareVerdict, 'open'> | null {
   const found = MARKER.exec(body ?? '')?.[1];
-  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null;
+  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null; // ts-allow: VERDICTS holds only these verdicts
 }
 
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);

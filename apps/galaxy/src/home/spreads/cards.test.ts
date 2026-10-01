@@ -39,9 +39,9 @@ describe('the trading cards', () => {
 
   it('never deals a rule by a fleet\'s name: a fleet named after a mascot, without it, takes its turn', () => {
     const [card] = cardsOf([fleet('octopod', { mascot: 'beaver' })]);
-    expect(card.rule).toBe(`A secured zone scores ${RULEBOOK.zoneSecured}.`);
+    expect(card!.rule).toBe(`A secured zone scores ${RULEBOOK.zoneSecured}.`);
     const [, second] = cardsOf([fleet('a'), fleet('beaver')]);
-    expect(second.rule).toBe(RULES[1].text);
+    expect(second!.rule).toBe(RULES[1]!.text);
   });
 
   it('states only numbers the rulebook holds, for a fleet it has no rule of its own for too', () => {

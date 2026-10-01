@@ -49,12 +49,12 @@ function withoutMedia(css: string): string {
 function declarations(css: string, selector: string): string[] {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rules = [...css.matchAll(new RegExp(`(?:^|[}{;])\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
-  return rules.flatMap(([, body]) => body.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
+  return rules.flatMap(([, body]) => body!.split(';').map((d) => d.trim().replace(/\s+/g, ' ')).filter(Boolean));
 }
 
 const valueIn = (css: string, selector: string, prop: string) =>
   declarations(css, selector)
-    .filter((d) => d.split(':')[0].trim() === prop)
+    .filter((d) => d.split(':')[0]!.trim() === prop)
     .map((d) => d.slice(d.indexOf(':') + 1).trim());
 
 const BASE = withoutMedia(CSS);

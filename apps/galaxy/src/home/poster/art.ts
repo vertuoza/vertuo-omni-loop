@@ -45,7 +45,7 @@ const hex = (v: number) => v.toString(16).padStart(2, '0');
  * server there is no canvas, so for the length of the call it is handed one that keeps the pixels.
  */
 export function planetPixels(progress: number): PixelGrid {
-  const g = globalThis as { OffscreenCanvas?: unknown };
+  const g = globalThis as { OffscreenCanvas?: unknown }; // ts-allow: globalThis is lent an OffscreenCanvas for the call, and given its own back after
   const had = Object.hasOwn(g, 'OffscreenCanvas');
   const before = g.OffscreenCanvas;
   class Keeper {
@@ -62,11 +62,11 @@ export function planetPixels(progress: number): PixelGrid {
   g.OffscreenCanvas = Keeper;
   try {
     const onto = { drawImage: (canvas: Keeper) => { drawn = canvas; } };
-    drawPlanet(onto as unknown as CanvasRenderingContext2D, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress });
+    drawPlanet(onto as unknown as CanvasRenderingContext2D, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress }); // ts-allow: drawPlanet calls only drawImage, which this stand-in has
   } finally {
     if (had) g.OffscreenCanvas = before; else delete g.OffscreenCanvas;
   }
-  const image = (drawn as Keeper | null)?.image;
+  const image = (drawn as Keeper | null)?.image; // ts-allow: TypeScript narrows drawn to null, but drawImage sets it during the call
   if (!image) throw new Error('planetPixels: drawPlanet drew nothing');
   const { width: w, height: h, data } = image;
   const pixels: (string | null)[] = [];
@@ -100,7 +100,7 @@ export function starfieldSvg(): string {
       paths.set(this.fillStyle, list);
     },
   };
-  drawStarfield(ctx as unknown as CanvasRenderingContext2D, makeStarfield(seed, w, h, count), 0, { w, h });
+  drawStarfield(ctx as unknown as CanvasRenderingContext2D, makeStarfield(seed, w, h, count), 0, { w, h }); // ts-allow: drawStarfield calls only what this stand-in has
   stars = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" aria-hidden="true">${
     [...paths].map(([fill, d]) => `<path fill="${fill}" d="${d.join('')}"/>`).join('')
   }</svg>`;

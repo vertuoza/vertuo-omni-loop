@@ -21,8 +21,8 @@ describe('the game', () => {
     const live = demoFleets().filter((f) => !f.retired);
     expect(cards).toHaveLength(live.length);
     live.forEach((f, i) => {
-      expect(text(cards[i])).toContain(f.label);
-      expect(text(cards[i])).toContain(f.motto);
+      expect(text(cards[i]!)).toContain(f.label);
+      expect(text(cards[i]!)).toContain(f.motto);
       expect(cards[i]).toMatch(/type="button"/);
       expect(cards[i]).toMatch(/aria-pressed="false"/);
       expect(cards[i]).toContain('data-flip=""');

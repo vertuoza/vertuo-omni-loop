@@ -18,9 +18,9 @@ type Row = { name?: unknown; trade?: unknown; avatar?: unknown };
 /** The workspace's personas, in its order, as far as their portraits need; none when they cannot be read. */
 export async function readVoiceCast(db: Pick<Db, 'from'>, workspace: string): Promise<VoiceCast[]> {
   try {
-    const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal');
-    if (error) throw new Error(`read the personas: ${(error as { message?: string }).message ?? 'failed'}`);
-    return ((data ?? []) as Row[]).flatMap((row) =>
+    const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal'); // ts-allow: the personas table is read through the narrow port it declares
+    if (error) throw new Error(`read the personas: ${(error as { message?: string }).message ?? 'failed'}`); // ts-allow: a PostgREST error is an object; the `??` covers one without a message
+    return ((data ?? []) as Row[]).flatMap((row) => // ts-allow: each row field is checked on the next line before use
       typeof row.name === 'string' && typeof row.trade === 'string' && validPersonaAvatar(row.avatar)
         ? [{ name: row.name, trade: row.trade, avatar: row.avatar }]
         : [],

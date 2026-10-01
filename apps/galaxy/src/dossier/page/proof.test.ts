@@ -90,7 +90,7 @@ describe('the run shown', () => {
     });
     // A clip whose link could not be signed says so; a script whose text could not be read keeps its link.
     expect(fail).toMatchObject({ verdict: 'fail', mark: '✗', note: 'expected ✗, got ✓', video: null, videoMissing: true });
-    expect(fail.script).toEqual({ name: '2-fail.spec.ts', text: null, href: `https://storage.test/sign/${NEW.id}/2-fail.spec.ts` });
+    expect(fail!.script).toEqual({ name: '2-fail.spec.ts', text: null, href: `https://storage.test/sign/${NEW.id}/2-fail.spec.ts` });
     // An unfilmable criterion has no clip and no script, and is not missing one.
     expect(unfilmable).toMatchObject({ verdict: 'unfilmable', mark: '—', note: 'a config key, not a screen', video: null, videoMissing: false, script: null });
   });

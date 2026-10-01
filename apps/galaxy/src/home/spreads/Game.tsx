@@ -25,7 +25,7 @@ export function Game({ fleets }: { fleets: readonly FleetRow[] }) {
             className="home-card"
             aria-pressed="false"
             aria-label={`${c.label} trading card, flip for its rule`}
-            style={{ '--fleet': c.color } as CSSProperties}
+            style={{ '--fleet': c.color } as CSSProperties} // ts-allow: React's style type has no custom properties
             {...{ [FLIP_ATTR]: '' }}
           >
             <span className="home-card-in">

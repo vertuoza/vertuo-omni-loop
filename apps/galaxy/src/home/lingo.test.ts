@@ -115,7 +115,7 @@ describe('HOME\'s prose', () => {
   it('is read from a render that has code, keys, fleet cards and the sidebar to leave out', () => {
     for (const part of [/<code\b/, /<kbd\b/, /class="home-card"/, /class="home-lingo"/]) expect(markup).toMatch(part);
     expect(page).not.toContain('Loop lingo');
-    expect(page).not.toContain(LINGO[0].gloss);
+    expect(page).not.toContain(LINGO[0]!.gloss);
     expect(page).toContain('AGENTS SHIP. YOU STEER.');
     expect(page).toContain('Join the loop!');
   });
