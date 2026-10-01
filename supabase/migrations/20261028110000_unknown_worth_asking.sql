@@ -9,6 +9,8 @@
 --   jev_decision_names()                    gains `unknown-worth-asking`
 --   agent_questions.set_aside_at            when Jev set the question aside, or null
 --   agent_questions.brought_back_at         when a member brought it back: Jev never sets it aside again
+--   agent_link_workspace(hash)              the link's own: the workspace a live link reports to, so galaxy
+--                                           runs the Jev step only when that workspace has its Jev key
 --   agent_question_for_jev(question)        the service role only: what Jev reads, and the workspace
 --   agent_question_set_aside(question)      the service role only: Jev's "no", on an open question
 --   agent_question_bring_back(workspace, question)   any member: a set-aside question open again
@@ -17,7 +19,7 @@
 --
 -- Refusals: 42501 (not a member), P0002 (a question the workspace does not hold set aside).
 -- Proven by supabase/checks/agent_questions.sql.
--- Rollback: a follow-up migration drops the two columns and the three functions, restores the list and
+-- Rollback: a follow-up migration drops the two columns and the four functions, restores the list and
 -- jev_decision_names(), and deletes the decision's jev_decisions rows; set-aside questions go back to open.
 
 create or replace function public.jev_decision_names() returns text[]
@@ -30,6 +32,17 @@ $$;
 alter table public.agent_questions
   add column set_aside_at timestamptz,
   add column brought_back_at timestamptz;
+
+-- The workspace a live link reports to (28000 otherwise), checked by the database as every link call is.
+-- Galaxy runs the Jev step after a report only when this workspace has its Jev key set up (Settings › Jev)
+-- and the decision is not Off; otherwise it reads nothing of the question and the question stays open.
+create function public.agent_link_workspace(p_hash text) returns uuid
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select (public.agent_token_of(p_hash)).workspace_id
+$$;
 
 -- What Jev reads of a question (decision 13: after the report has answered): the question, its repository
 -- and file, and the confirmed claims of its product (and the business's regions), as `<kind>#<seq>: value`.
@@ -117,6 +130,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.agent_link_workspace(text) from public;
+grant execute on function public.agent_link_workspace(text) to anon, authenticated;
 revoke execute on function public.agent_question_for_jev(uuid) from public, anon, authenticated;
 grant execute on function public.agent_question_for_jev(uuid) to service_role;
 revoke execute on function public.agent_question_set_aside(uuid) from public, anon, authenticated;

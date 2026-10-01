@@ -12,18 +12,22 @@ import type { McpDeps } from './server';
 // in the database. The token is never checked with a service key (ADR-0051). Without Supabase configured
 // (the demo galaxy, a closed build) every tool says the business is not available here.
 //
-// Jev's Unknown worth asking (PRD 855 s4) runs after the answer (Next's after()), as every Jev decision
-// runs: the service role reads its settings and key, what Jev reads of the question, and sets the question
-// aside on a counted "no" (../questions/jev.ts). Without SUPABASE_SERVICE_ROLE_KEY it never runs, and
-// every question waits for a person, as with the decision Off.
+// Jev's Unknown worth asking (PRD 855 s4) runs after the answer (Next's after()), and only when the link's
+// workspace has its Jev key set up on Settings › Jev and the decision is not Off (../questions/jev.ts): the
+// link names its workspace through the anon client, the service role reads only Jev's settings and key, and
+// without a key (or Off) nothing else runs and the question stays open for a person. Without
+// SUPABASE_SERVICE_ROLE_KEY no Jev decision runs at all, as for every Jev decision.
 export function mcpDeps(env: Record<string, string | undefined> = process.env): McpDeps {
   const supabase = supabaseEnv();
   if (!supabase) return { connect: null };
+  const connect = () => createClient(supabase.url, supabase.key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
   const jev = jevDecideDeps(env);
   return {
-    connect: () => createClient(supabase.url, supabase.key, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    }),
-    ...(jev ? { reported: (question: string) => after(() => judgeQuestion(questionJudge(serviceDb(), jev), question)) } : {}),
+    connect,
+    ...(jev ? {
+      reported: (question: string, link: string) => after(() => judgeQuestion(questionJudge(serviceDb(), connect(), jev), { question, link })),
+    } : {}),
   };
 }

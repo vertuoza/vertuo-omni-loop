@@ -27,9 +27,11 @@ export type McpDeps = {
   connect: (() => Rpc) | null;
   /**
    * Hands a question just stored for the first time to Jev's Unknown worth asking (PRD 855 s4), to run
-   * after report_unknown has answered (decision 13). Never awaited; a throw is only logged.
+   * after report_unknown has answered (decision 13), with the link's token hash: the Jev step looks up the
+   * link's workspace through it, and runs only when that workspace has its Jev key. Never awaited; a throw
+   * is only logged.
    */
-  reported?: (question: string) => void;
+  reported?: (question: string, link: string) => void;
 };
 
 export const LINK_REFUSED = 'This link does not work: make a new one on Settings › Business.';
@@ -102,7 +104,7 @@ function server(hash: string | null, deps: McpDeps): McpServer {
   /** A new question to Jev, after the answer; its failure never reaches the agent. */
   const judge = (question: string) => {
     try {
-      deps.reported?.(question);
+      if (hash) deps.reported?.(question, hash);
     } catch (error) {
       console.error(`mcp: Unknown worth asking was not run on ${question} (${error instanceof Error ? error.message : String(error)})`);
     }
