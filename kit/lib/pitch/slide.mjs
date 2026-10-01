@@ -62,6 +62,7 @@ const LOOK_CSS = {
   keynote: () => `
     body { background: linear-gradient(180deg, #fbfbfd 0%, #eef0f5 100%); color: #111; }
     .stars { display: none; }
+    .kicker-box { align-items: flex-start; }
     .kicker { display: inline-block; font-family: Inter, Arial, sans-serif; font-weight: 800; color: #fff; letter-spacing: 1px;
       background: linear-gradient(90deg, #6d28d9, #db2777, #f59e0b); border-radius: 999px; padding: 0.45em 1.1em; }
     .hook, .closing { font-family: Inter, Arial, sans-serif; font-weight: 900; color: #0b0b12; letter-spacing: -0.02em; line-height: 1.04; }
@@ -90,11 +91,11 @@ const LAYOUT = {
     .frame img { max-width: 100%; max-height: 100%; }`,
   'close/wide': `
     .card { display: flex; flex-direction: column; gap: 48px; padding: 160px; justify-content: center; align-items: center; text-align: center; }
-    .kicker-box { height: 72px; width: 1600px; } .kicker { font-size: 28px; }
+    .kicker-box { height: 72px; width: 1600px; align-items: center; } .kicker { font-size: 28px; }
     .closing-box { height: 420px; width: 1600px; } .closing { font-size: 104px; }`,
   'close/square': `
     .card { display: flex; flex-direction: column; gap: 40px; padding: 96px; justify-content: center; align-items: center; text-align: center; }
-    .kicker-box { height: 64px; width: 888px; } .kicker { font-size: 24px; }
+    .kicker-box { height: 64px; width: 888px; align-items: center; } .kicker { font-size: 24px; }
     .closing-box { height: 520px; width: 888px; } .closing { font-size: 92px; }`,
   'backdrop/wide': '',
   'backdrop/square': '',
@@ -104,7 +105,7 @@ const LAYOUT = {
 const FIT_SCRIPT = `
 (async () => {
   try { await document.fonts.ready; } catch {}
-  for (const box of document.querySelectorAll('[data-fit]')) {
+  for (const box of document.querySelectorAll('[data-box]')) {
     const text = box.firstElementChild;
     let size = parseFloat(getComputedStyle(text).fontSize);
     const fits = () => text.scrollWidth <= box.clientWidth && text.offsetHeight <= box.clientHeight;
@@ -115,7 +116,7 @@ const FIT_SCRIPT = `
   document.body.dataset.fit = 'done';
 })();`;
 
-const box = (name, text) => `<div class="${name}-box" data-fit><div class="${name}">${escape(text)}</div></div>`;
+const box = (name, text) => `<div class="${name}-box" data-box><div class="${name}">${escape(text)}</div></div>`;
 
 function body(card, shape, words) {
   if (card === 'backdrop') return '';
@@ -144,7 +145,7 @@ export function slideHtml({ look, card, shape, words }) {
   html, body { width: ${size.width}px; height: ${size.height}px; overflow: hidden; }
   body { position: relative; }
   .card { position: relative; width: ${size.width}px; height: ${size.height}px; }
-  [data-fit] { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+  [data-box] { overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
   ${LOOK_CSS[look](size)}
   ${LAYOUT[`${card}/${shape}`]}
 </style></head>
