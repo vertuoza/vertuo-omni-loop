@@ -33,7 +33,7 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** A request body, a round, a dossier: JSON the fake reads field by field and refuses as the server does. */
-type Json = any; // ts-allow: a test fake reads whatever JSON a test sends, as the real server's handlers do
+export type Json = any; // ts-allow: a test fake reads whatever JSON a test sends, as the real server's handlers do
 
 /** A handler's answer: its status (200 when not given) and its body. */
 type Reply = { status?: number; body: unknown };

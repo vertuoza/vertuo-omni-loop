@@ -31,16 +31,19 @@ function io() {
 function fakeExec({
   slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false,
   realCommit = false, pushFails = false, openPr = null, claude = 'ok',
+}: {
+  slug?: string; defaultBranch?: string; ghFails?: boolean; labels?: Record<string, string>[]; labelsFail?: boolean;
+  realCommit?: boolean; pushFails?: boolean; openPr?: { url: string; number: number } | null; claude?: string;
 } = {}) {
   const calls: any[] = [];
   // Every `claude` call, as `claude args…`: never a real one. `claude` is `ok`, `installed` (the plugin
   // is there already), `missing` (no binary) or `fails` (the install is refused).
   const plugin: string[] = [];
   // Every outward step of the install pull request, in the order it ran, as `cmd verb`.
-  const install = [];
-  const present = labels.map((label) => ({ description: '', ...label }));
+  const install: { cmd: string; args: readonly string[] }[] = [];
+  const present: Record<string, string | undefined>[] = labels.map((label) => ({ description: '', ...label }));
   const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
-    if (cmd === 'git' && ['switch', 'add', 'commit', 'push'].includes(args[0])) {
+    if (cmd === 'git' && ['switch', 'add', 'commit', 'push'].includes(String(args[0]))) {
       install.push({ cmd: `git ${args[0]}`, args });
       // The commit and the push are faked unless the test asks for a real commit: the footprint tests
       // read what init left in the working tree.
@@ -85,7 +88,7 @@ function fakeExec({
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept'];
 const labelCalls = (calls: any[], verb: string) => calls.filter((args: any[]) => args[0] === 'label' && args[1] === verb);
 const created = (calls: any[]) => labelCalls(calls, 'create').map((args: any[]) => args[2]);
-const edits = (calls: any[]) => calls.filter((args: string[]) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
+const edits = (calls: any[]) => calls.filter((args: string[]) => args[0] === 'label' && !['list', 'create'].includes(String(args[1])));
 
 /** A fake bundle file the tests inject as "the running bundle". */
 function fakeBundle() {
@@ -97,14 +100,17 @@ function fakeBundle() {
 /** A home folder of the test's own: the credentials init reads are never the person's. */
 const freshHome = () => mkdtempSync(join(tmpdir(), 'omni-home-'));
 
-async function init(root: string, argv = [], extra = {}) {
+/** What a test may hand `init()` beyond its arguments. */
+type InitExtra = { fake?: ReturnType<typeof fakeExec>; bundle?: string | null; options?: Record<string, unknown> };
+
+async function init(root: string, argv: string[] = [], extra: InitExtra = {}) {
   const s = io();
   const { exec, calls } = extra.fake ?? fakeExec();
   const code = await main(['init', ...argv], { cwd: root, ...s, exec, bundle: 'bundle' in extra ? extra.bundle : fakeBundle(), home: freshHome(), ...extra.options });
   return { code, out: s.out.join(''), err: s.err.join(''), calls };
 }
 
-const readConfig = (read) => parseConfig(read('.omni-loop/config.yml'));
+const readConfig = (read: (path: string) => string) => parseConfig(read('.omni-loop/config.yml'));
 
 const INSTALL_BLOCK = '\nInstall pull request:\n';
 const COMPUTER_BLOCK = '\nOn this computer:\n';
@@ -161,8 +167,8 @@ function gitStatus(root: string) {
 }
 
 /** Every file under `root`, as `{ <path>: text }`, `.git` left out. */
-function snapshot(root: string, dir = '') {
-  const out = {};
+function snapshot(root: string, dir = ''): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
     const path = dir ? `${dir}/${entry.name}` : entry.name;
     if (entry.name === '.git') continue;
@@ -282,7 +288,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const { root, read } = makeRepo({ git: true });
     await init(root);
     expect(read('.omni-loop/config.yml')).not.toMatch(/retro/);
-    for (const [key, value] of [['labels.retro', 'omni:retro'], ['branches.retro', 'docs/retro-{topic}']]) {
+    for (const [key, value] of [['labels.retro', 'omni:retro'], ['branches.retro', 'docs/retro-{topic}']] as const) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
@@ -293,7 +299,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const { root, read } = makeRepo({ git: true });
     await init(root);
     expect(read('.omni-loop/config.yml')).not.toMatch(/knowledge:/);
-    for (const [key, value] of [['labels.knowledge', 'omni:knowledge'], ['branches.knowledge', 'docs/knowledge-{topic}']]) {
+    for (const [key, value] of [['labels.knowledge', 'omni:knowledge'], ['branches.knowledge', 'docs/knowledge-{topic}']] as const) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
@@ -549,14 +555,14 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
   it('when one creation fails, the rest are still tried and the failed one is a human step, exit 0', async () => {
     const { root } = makeRepo({ git: true });
     const base = fakeExec({ labels: [{ name: 'omni:prd' }] });
-    const exec = (cmd: string, args: string[], options: any) => {
+    const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
       if (cmd === 'gh' && args[0] === 'label' && args[1] === 'create' && args[2] === 'omni:sub') {
         base.calls.push(args);
         throw new Error('gh: HTTP 403');
       }
       return base.exec(cmd, args, options);
     };
-    const { code, out } = await init(root, [], { fake: { exec, calls: base.calls } });
+    const { code, out } = await init(root, [], { fake: { ...base, exec } });
     expect(code).toBe(0);
     expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept']);
     expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low, omni:concept\s+\(already there: omni:prd\)\n/);
@@ -648,7 +654,7 @@ describe('omni init — the real bundle', () => {
     // plugin on this computer.
     const stubs = mkdtempSync(join(tmpdir(), 'no-claude-'));
     writeFileSync(join(stubs, 'claude'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
-    const env = { ...process.env, PATH: [stubs, dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
+    const env: Record<string, string | undefined> = { ...process.env, PATH: [stubs, dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
     for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_REPO', 'GH_HOST']) delete env[key];
     execFileSync('node', [dist, 'init'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
@@ -897,7 +903,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
   });
 
   it('reads knowledge from an entry in any register: a domain rule, a cross-domain invariant', async () => {
-    for (const [path, text] of [[`${KNOWLEDGE}/domains/billing/rules.md`, RULE], [`${KNOWLEDGE}/cross-domain/billing--quotes.md`, INVARIANT]]) {
+    for (const [path, text] of [[`${KNOWLEDGE}/domains/billing/rules.md`, RULE], [`${KNOWLEDGE}/cross-domain/billing--quotes.md`, INVARIANT]] as const) {
       const { root, read } = makeRepo({ git: true, files: { [path]: text } });
       await init(root);
       expect(readConfig(read).laws.source, path).toBe('knowledge');
@@ -948,7 +954,7 @@ describe('omni init — the status line (PRD 324)', () => {
     command: 'node "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.omni-loop/bin/omni.mjs" statusline',
     refreshInterval: 30,
   };
-  const settingsText = (value) => `${JSON.stringify(value, null, 2)}\n`;
+  const settingsText = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
   const THEIRS = settingsText({ model: 'opus', statusLine: { type: 'command', command: 'npx claude-hud' } });
   const ON = `\n${STATUS_LINE_STEPS.join('\n')}\n\n${REMOVAL.join('\n')}\n`;
 
@@ -986,7 +992,7 @@ describe('omni init — the status line (PRD 324)', () => {
   });
 
   it('never touches someone else\'s line, even with --force, and then claims no status line of its own', async () => {
-    for (const argv of [[], ['--force']]) {
+    for (const argv of [[], ['--force']] as string[][]) {
       const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: THEIRS } });
       const { code, out } = await init(root, argv);
       expect(code, argv.join(' ')).toBe(0);
@@ -1050,9 +1056,9 @@ describe('omni init — the install pull request (PRD 420)', () => {
     const { code, out } = await init(root, [], { fake });
     expect(code).toBe(0);
     expect(fake.install.map((step) => step.cmd)).toEqual(['git switch', 'git add', 'git commit', 'git push', 'gh pr list', 'gh pr create']);
-    expect(fake.install[0].args).toEqual(['switch', '-c', BRANCH]);
-    expect(fake.install[3].args).toEqual(['push', '-u', 'origin', BRANCH]);
-    expect(fake.install[5].args.slice(0, 8)).toEqual(['pr', 'create', '--base', 'trunk', '--head', BRANCH, '--title', 'chore: install the Omni Loop']);
+    expect(fake.install[0]!.args).toEqual(['switch', '-c', BRANCH]);
+    expect(fake.install[3]!.args).toEqual(['push', '-u', 'origin', BRANCH]);
+    expect(fake.install[5]!.args.slice(0, 8)).toEqual(['pr', 'create', '--base', 'trunk', '--head', BRANCH, '--title', 'chore: install the Omni Loop']);
     expect(git(root, 'branch', '--show-current')).toBe(BRANCH);
     expect(git(root, 'log', '-1', '--format=%s')).toBe('chore: install the Omni Loop');
     const committed = git(root, 'show', '--name-only', '--format=', 'HEAD').split('\n');
@@ -1137,9 +1143,12 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
   const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: null, email: 'ada@example.test' };
 
   /** A terminal: stdin and stdout are TTYs, and every command question is answered empty. */
-  async function onTerminal(root: string, { fake = fakeExec(), home = freshHome(), signIn } = {}) {
+  async function onTerminal(
+    root: string,
+    { fake = fakeExec(), home = freshHome(), signIn }: { fake?: ReturnType<typeof fakeExec>; home?: string; signIn?: () => Promise<unknown> } = {},
+  ) {
     const s = io();
-    s.stdout.isTTY = true;
+    Object.assign(s.stdout, { isTTY: true });
     const code = await main(['init'], { cwd: root, ...s, exec: fake.exec, bundle: fakeBundle(), home, signIn, stdin: { isTTY: true }, ask: async () => '' });
     return { code, out: s.out.join('') };
   }
@@ -1216,7 +1225,7 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
 
   it('a rerun on an installed repository prints "already" for each step that is done', async () => {
     const { root } = makeRepo({ git: true });
-    for (const [key, value] of [['user.email', 't@t'], ['user.name', 't']]) execFileSync('git', ['config', key, value], { cwd: root });
+    for (const [key, value] of [['user.email', 't@t'], ['user.name', 't']] as const) execFileSync('git', ['config', key, value], { cwd: root });
     const home = freshHome();
     await init(root, [], { fake: fakeExec({ realCommit: true }), options: { home } });
     credentials({ home }).write(ASK_HOST, ENTRY);
