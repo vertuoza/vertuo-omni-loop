@@ -1,13 +1,13 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { buildGalaxy } from './galaxy.ts';
+import type { Projects } from './types.ts';
 import { demoEvents, DEMO_PROJECTS } from './demo.ts';
 import { makeEvent } from '../../../game/events.ts';
 import { RULEBOOK } from '../../../game/rulebook.ts';
 
 const NOW = new Date('2026-09-23T14:00:00Z');
-const projects = { sectors: { core: { repos: ['core-repo'] }, ai: { repos: ['ai-repo'] } }, teams: { beaver: { home: 'core' }, octopod: { home: 'ai' } } };
-const ev = (id, at, type, planet, extra = {}) => makeEvent({ id, at, type, planet, data: {}, ...extra });
+const projects: Projects = { sectors: { core: { repos: ['core-repo'] }, ai: { repos: ['ai-repo'] } }, teams: { beaver: { home: 'core' }, octopod: { home: 'ai' } } };
+const ev = (id: string, at: string, type: string, planet: number, extra: Record<string, unknown> = {}) => makeEvent({ id, at, type, planet, data: {}, ...extra });
 
 const charted = ev('planet:7:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', 7, { data: { captain: 'pm', ownerTeam: 'beaver', title: 'Seven' } });
 
@@ -25,7 +25,7 @@ describe('buildGalaxy', () => {
       ev('fire:ai-repo:7/s2:opened', '2026-09-23T13:30:00Z', 'WOUND_OPENED', 7, { region: 'ai-repo', data: { kind: 'under-fire' } }),
       ev('outbox:core-repo:7/s1-01-x:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'beacon', rank: 'human-action' } }),
     ], { projects, now: NOW });
-    const p = g.planets[0];
+    const p = g.planets[0]!;
     expect(p).toMatchObject({ prd: 7, title: 'Seven', state: 'terraforming', class: 2, crossSector: true, secured: 1, progress: 0.5 });
     expect(p.zones.map((z) => [z.id, z.state, z.contributor])).toEqual([['s1', 'secured', 'alice'], ['s2', 'under-fire', 'bob']]);
     expect(p.openWounds.map((w) => w.kind)).toEqual(['beacon', 'under-fire']);
@@ -36,7 +36,7 @@ describe('buildGalaxy', () => {
 
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
-    expect(lost.planets[0].state).toBe('lost');
+    expect(lost.planets[0]!.state).toBe('lost');
     const locked = buildGalaxy([
       charted,
       ev('planet:7:locked:6', '2026-09-02T08:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: 6 } }),
@@ -63,8 +63,8 @@ describe('buildGalaxy', () => {
 });
 
 describe('planets keyed by their home (PRD 728)', () => {
-  const at = (home) => ({ home });
-  const twin = (home, owner, who) => [
+  const at = (home: string) => ({ home });
+  const twin = (home: string, owner: string, who: string) => [
     ev(`planet:${home}#88:charted`, '2026-09-01T08:00:00Z', 'PLANET_CHARTED', 88, { ...at(home), data: { captain: who, ownerTeam: owner, title: `88 of ${home}` } }),
     ev(`region:${home}:${home}#88:surveyed`, '2026-09-02T08:00:00Z', 'REGION_SURVEYED', 88, { ...at(home), region: home }),
     ev(`zone:${home}:${home}#88:s1:opened`, '2026-09-21T08:00:00Z', 'ZONE_OPENED', 88, { ...at(home), region: home, data: { wave: 1 } }),
@@ -135,7 +135,7 @@ describe('fleets', () => {
     expect(g.teams.map((t) => t.name).sort()).toEqual(['builders', 'coiners', 'corsairs', 'inklings', 'night-owls']);
     expect(g.teams.find((t) => t.name === 'corsairs')).toMatchObject({ label: 'CORSAIRS', mascot: 'pirate', color: '#35b89a' });
     expect(g.teams.find((t) => t.name === 'night-owls')).toMatchObject({ mascot: null });
-    expect(DEMO_PROJECTS.teams.capes.retired).toBe(true);
+    expect(DEMO_PROJECTS.teams.capes!.retired).toBe(true);
     const vertuoza = ['beaver', 'octopod', 'picsou', 'cia', 'pirates', 'invincible-team'];
     for (const name of Object.keys(DEMO_PROJECTS.teams)) expect(vertuoza).not.toContain(name);
   });

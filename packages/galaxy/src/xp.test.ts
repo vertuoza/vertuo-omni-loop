@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { borrowedXp, experience, levelFor, unlockedFor, xpForLevel, XP_RULES } from './index.ts';
 import { demoEvents } from './demo.ts';
@@ -6,7 +5,7 @@ import { RULEBOOK } from '../../../game/rulebook.ts';
 import { makeEvent } from '../../../game/events.ts';
 
 const NOW = new Date('2026-09-23T14:00:00Z');
-const secured = (login, zone, at = '2026-09-21T10:00:00Z') => makeEvent({
+const secured = (login: string, zone: string, at = '2026-09-21T10:00:00Z') => makeEvent({
   id: `zone:core-repo:7:${zone}:secured`, at, type: 'ZONE_SECURED', planet: 7, region: 'core-repo', contributor: login, team: 'beaver', data: {},
 });
 
@@ -44,6 +43,7 @@ describe('borrowedXp', () => {
   it('gives the demo guest a level and the first game, so the demo shows the game room lit', () => {
     const guest = borrowedXp(demoEvents(NOW), { now: NOW });
     expect(guest).not.toBeNull();
+    if (!guest) return;
     expect(guest.level).toBeGreaterThanOrEqual(1);
     expect(guest.unlocked).toContain('invaders');
     const everyone = Object.values(experience(demoEvents(NOW), { now: NOW }));

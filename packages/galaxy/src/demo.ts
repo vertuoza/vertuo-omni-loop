@@ -1,12 +1,14 @@
-// @ts-nocheck
 // A demo galaxy for local runs and previews, used whenever no Supabase project is configured.
 // It is built the honest way: a fictional GitHub snapshot goes through the real projector
 // (game/projector.ts), so the events are exactly what `pnpm game:project` would append.
 // Every PRD, repository and login below is invented. Every PRD lives in one invented home repository
 // (PRD 728: every event names its home).
-import { projectEvents } from 'vertuo-omni-plan/game/projector.ts';
+import { projectEvents, type Skip } from 'vertuo-omni-plan/game/projector.ts';
+import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
+import type { Bug, OutboxEntry, Planet, Snapshot, Zone, ZonePr } from 'vertuo-omni-plan/game/types.ts';
+import type { Projects } from './types.ts';
 
-export const DEMO_PROJECTS = Object.freeze({
+export const DEMO_PROJECTS: Projects = Object.freeze({
   sectors: {
     'core-belt': { repos: ['vertuo-core', 'vertuo-api'] },
     'ai-nebula': { repos: ['vertuo-ai-domain'] },
@@ -26,7 +28,7 @@ export const DEMO_PROJECTS = Object.freeze({
 
 const DEMO_HOME = 'demo-org/demo-plan';
 
-const DEMO_TEAMS = {
+const DEMO_TEAMS: Record<string, string> = {
   'pm-lina': 'builders', 'bo-builder': 'builders', 'dam-dev': 'builders',
   'pm-otto': 'inklings', inky: 'inklings', 'kraken-k': 'inklings',
   'pm-penny': 'coiners', dime: 'coiners', 'gold-rush': 'coiners',
@@ -34,33 +36,49 @@ const DEMO_TEAMS = {
   'pm-anne': 'corsairs', 'bonny-b': 'corsairs', 'long-john': 'corsairs',
 };
 
-const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+const iso = (d: Date): string => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-export function demoSnapshot(now = new Date()) {
-  const ago = (hours) => (hours === null || hours === undefined ? null : iso(new Date(now.getTime() - hours * 3600000)));
+// A region as the demo writes it: its repository, how many hours ago it was surveyed, its blockers.
+type RegionRow = [repo: string, surveyedH: number, blockedBy?: number[]];
+// A feature PR as the demo writes it: hours ago it was opened, made ready, merged, last touched.
+type FeatureRow = { created: number; ready?: number; merged?: number; activity?: number };
+// How an item was settled, hours ago.
+type SettledRow = { verdict: string; h: number; by: string; reworkH?: number; reworkBy?: string };
+type PlanetRow = {
+  prd: number; title: string; captain: string; created: number; regions?: RegionRow[]; feature?: FeatureRow | null;
+  zones?: Zone[]; outbox?: OutboxEntry[]; bugs?: Bug[]; closedH?: number | null;
+};
+
+export function demoSnapshot(now: Date = new Date()): Snapshot {
+  function ago(hours: number): string;
+  function ago(hours: number | null | undefined): string | null;
+  function ago(hours: number | null | undefined): string | null {
+    return hours === null || hours === undefined ? null : iso(new Date(now.getTime() - hours * 3600000));
+  }
   let prNo = 1000;
-  const sub = (author, claimedH, mergedH = null, fire = null) => ({
+  const sub = (author: string, claimedH: number, mergedH: number | null = null, fire: [number, number | null] | null = null): ZonePr => ({
     number: ++prNo, author, createdAt: ago(claimedH), mergedAt: ago(mergedH), revertedAt: null,
     labels: ['omni:sub', ...(mergedH === null ? ['omni:in-progress'] : []), ...(fire && fire[1] === null ? ['omni:needs-fix'] : [])],
     ...(fire ? { needsFix: { labeledAt: ago(fire[0]), unlabeledAt: ago(fire[1]) } } : {}),
   });
-  const zone = (id, repo, wave, blockedBy = [], pr = null) => ({ id, repo, wave, blockedBy, pr });
-  const item = (id, repo, rank, raisedH, settled = null) => ({
+  const zone = (id: string, repo: string, wave: number, blockedBy: string[] = [], pr: ZonePr | null = null): Zone => ({ id, repo, wave, blockedBy, pr });
+  const item = (id: string, repo: string, rank: string, raisedH: number, settled: SettledRow | null = null): OutboxEntry => ({
     id, repo, rank, raisedAt: ago(raisedH),
     settled: settled && { verdict: settled.verdict, at: ago(settled.h), by: settled.by, reworkMergedAt: ago(settled.reworkH ?? null), reworkBy: settled.reworkBy ?? null },
   });
-  const planet = ({ prd, title, captain, created, regions = [], feature = null, zones = [], outbox = [], bugs = [], closedH = null }) => ({
-    prd, home: DEMO_HOME, title, captain, ownerTeam: DEMO_TEAMS[captain],
+  const planet = ({ prd, title, captain, created, regions = [], feature = null, zones = [], outbox = [], bugs = [], closedH = null }: PlanetRow): Planet => ({
+    prd, home: DEMO_HOME, title, captain, ownerTeam: DEMO_TEAMS[captain] ?? null,
     issue: { createdAt: ago(created), closedAt: ago(closedH) },
-    regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy })),
+    // A region's own feature PR is left to the planet's (game/planet-state.ts falls back to it).
+    regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy, featurePr: null })),
     featurePr: feature && {
-      repo: regions[0][0], number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null),
+      repo: (regions[0] as RegionRow)[0], number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null), // ts-allow: a demo planet with a feature PR names its regions
       mergedAt: ago(feature.merged ?? null), lastActivityAt: ago(feature.activity ?? feature.created),
     },
     zones, outbox, bugs,
   });
 
-  const planets = [
+  const planets: Planet[] = [
     planet({
       prd: 985, title: 'Default Country per Company', captain: 'pm-otto', created: 400,
       regions: [['vertuo-core', 380]],
@@ -180,10 +198,10 @@ export function demoSnapshot(now = new Date()) {
   return { at: iso(now), teams: DEMO_TEAMS, planets };
 }
 
-export function demoEvents(now = new Date()) {
-  const repoSector = new Map(Object.entries(DEMO_PROJECTS.sectors).flatMap(([name, { repos }]) => repos.map((r) => [r, name])));
-  const config = { sectorOf: (repo) => repoSector.get(repo) ?? null };
-  const skipped = [];
+export function demoEvents(now: Date = new Date()): GameEvent[] {
+  const repoSector = new Map(Object.entries(DEMO_PROJECTS.sectors).flatMap(([name, { repos }]) => repos.map((r) => [r, name] as const)));
+  const config = { sectorOf: (repo: string | null | undefined): string | null => (repo === null || repo === undefined ? null : repoSector.get(repo) ?? null) };
+  const skipped: Skip[] = [];
   const events = projectEvents(demoSnapshot(now), { config, now, onSkip: (s) => skipped.push(s) });
   if (skipped.length) throw new Error(`demo world produced invalid events: ${JSON.stringify(skipped)}`);
   return events;

@@ -1,17 +1,26 @@
-// @ts-nocheck
 // Ledger events → the galaxy the arcade UI draws. Pure, and read-only like the rest of the game:
 // the same events come from game/ledger/*.jsonl, from Supabase, or from the demo world. Points
 // and rankings are never recomputed here; they come from game/economy.ts.
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
 import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { planetKeyOf } from 'vertuo-omni-plan/game/events.ts';
+import { planetKeyOf, type GameEvent } from 'vertuo-omni-plan/game/events.ts';
+import type {
+  Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
+} from './types.ts';
+
+// What an event's data carries, as game/projector.ts writes it: the fields the view reads.
+type EventData = {
+  captain?: string | null; ownerTeam?: string | null; title?: string; blocker: number; wave?: number | null;
+  kind: WoundKind; rank?: string | null; verdict?: string | null; reason?: string | null;
+};
+const dataOf = (e: LedgerEvent): EventData => e.data as EventData; // ts-allow: the projector writes each event type's data in this shape
 
 // A zone and a fire name their region, then their PRD: `<home>#<n>` since PRD 728, the number alone before.
 const ZONE_ID = /^zone:([^:]+):((?:[^:#]+#)?\d+):(.+):(opened|claimed|secured|reverted)$/;
 const FIRE_ID = /^fire:([^:]+):((?:[^:#]+#)?\d+)\/(.+)$/;
 
-export const WOUND_LABEL = Object.freeze({
+export const WOUND_LABEL: Readonly<Record<WoundKind, string>> = Object.freeze({
   transmission: 'Transmission',
   'unconfirmed-ground': 'Unconfirmed ground',
   beacon: 'Beacon',
@@ -20,7 +29,7 @@ export const WOUND_LABEL = Object.freeze({
   aftershock: 'Aftershock',
 });
 
-export const STATE_LABEL = Object.freeze({
+export const STATE_LABEL: Readonly<Record<PlanetState, string>> = Object.freeze({
   charted: 'Charted',
   locked: 'Locked',
   terraforming: 'Terraforming',
@@ -32,37 +41,41 @@ export const STATE_LABEL = Object.freeze({
   decommissioned: 'Decommissioned',
 });
 
-const woundKey = (id) => id.replace(/:(opened|closed)$/, '');
+// A wound kind's label, or the kind itself for one the view has no label for.
+const LABEL_OF: Readonly<Record<string, string | undefined>> = WOUND_LABEL;
 
-function logLine(e) {
+const woundKey = (id: string): string => id.replace(/:(opened|closed)$/, '');
+
+function logLine(e: LedgerEvent): string {
+  const data = dataOf(e);
   const who = e.contributor ? `@${e.contributor}` : null;
   const where = e.region ? ` in ${e.region}` : '';
   const zone = ZONE_ID.exec(e.id)?.[3];
-  const kind = WOUND_LABEL[e.data?.kind] ?? e.data?.kind;
+  const kind = LABEL_OF[data.kind] ?? data.kind;
   switch (e.type) {
-    case 'PLANET_CHARTED': return `Planet charted by @${e.data.captain ?? 'unknown'}`;
+    case 'PLANET_CHARTED': return `Planet charted by @${data.captain ?? 'unknown'}`;
     case 'REGION_SURVEYED': return `Region surveyed: ${e.region}`;
-    case 'PLANET_LOCKED': return `Locked behind planet #${e.data.blocker}`;
-    case 'PLANET_UNLOCKED': return `Unlocked: planet #${e.data.blocker} terraformed`;
+    case 'PLANET_LOCKED': return `Locked behind planet #${data.blocker}`;
+    case 'PLANET_UNLOCKED': return `Unlocked: planet #${data.blocker} terraformed`;
     case 'ZONE_OPENED': return `Zone ${zone} opened${where}`;
     case 'ZONE_CLAIMED': return `${who ?? 'Someone'} claimed zone ${zone}${where}`;
     case 'ZONE_SECURED': return `${who ?? 'Someone'} secured zone ${zone}${where}`;
     case 'ZONE_REVERTED': return `Zone ${zone} reverted${where}`;
     case 'WOUND_OPENED': return `Entropy landed: ${kind}${where}`;
-    case 'WOUND_CLOSED': return `${who ?? 'Someone'} cleared ${kind}${e.data.verdict ? ` (${e.data.verdict})` : ''}`;
+    case 'WOUND_CLOSED': return `${who ?? 'Someone'} cleared ${kind}${data.verdict ? ` (${data.verdict})` : ''}`;
     case 'DISTRESS': return 'Distress call: no claim for 8 working hours';
     case 'RESCUE': return `${who ?? 'Someone'} answered the distress call`;
     case 'PLANET_READY': return 'Every zone secured. Awaiting command';
     case 'PLANET_TERRAFORMED': return 'PLANET TERRAFORMED';
-    case 'PLANET_LOST': return e.data.reason === 'closed' ? 'Planet lost: PRD closed mid-terraform' : 'Planet lost: 10 working days of silence';
+    case 'PLANET_LOST': return data.reason === 'closed' ? 'Planet lost: PRD closed mid-terraform' : 'Planet lost: 10 working days of silence';
     case 'PLANET_DECOMMISSIONED': return 'Planet decommissioned';
     default: return e.type;
   }
 }
 
-const line = (e) => ({ at: e.at, type: e.type, planet: e.planet, text: logLine(e), contributor: e.contributor ?? null, team: e.team ?? null });
+const line = (e: LedgerEvent): LogLine => ({ at: e.at, type: e.type, planet: e.planet, text: logLine(e), contributor: e.contributor ?? null, team: e.team ?? null });
 
-function threatOf(openWounds, inDistress) {
+function threatOf(openWounds: readonly Wound[], inDistress: boolean): number {
   let s = inDistress ? RULEBOOK.threatWeights.distress : 0;
   for (const w of openWounds) s += RULEBOOK.threatWeights[w.kind] * (1 + w.ageTranches / 6);
   let level = 1;
@@ -70,31 +83,44 @@ function threatOf(openWounds, inDistress) {
   return level;
 }
 
-function derive(prd, home, events, { sectorOf, now }) {
+// A wound as the events build it, open or closed.
+type Scar = Omit<Wound, 'closedAt' | 'closedBy' | 'ageTranches' | 'ageHours' | 'decayPerTranche'> & { closedAt: string | null; closedBy: string | null };
+type OpenScar = Scar & { closedAt: null; closedBy: null };
+type SectorOf = (repo: string | null | undefined) => string | null;
+
+// A planet as its events alone make it, before buildGalaxy adds its home sector and its season's points.
+type Derived = Omit<Planet, 'sector' | 'earned'>;
+
+function derive(prd: number, home: string | null, events: readonly LedgerEvent[], { sectorOf, now }: { sectorOf: SectorOf; now: Date }): Derived {
   const p = {
-    prd, title: `PRD #${prd}`, captain: null, ownerTeam: null, chartedAt: null,
-    regions: [], blockers: new Set(), zones: new Map(), wounds: new Map(), distress: new Map(), rescues: new Set(),
-    ready: false, terraformedAt: null, lostAt: null, lostReason: null, decommissioned: false,
-    expeditions: new Set(), rescuers: new Map(),
+    prd, title: `PRD #${prd}`, captain: null as string | null, ownerTeam: null as string | null, chartedAt: null as string | null,
+    regions: [] as string[], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(),
+    distress: new Map<string, string>(), rescues: new Set<string>(),
+    ready: false, terraformedAt: null as string | null, lostAt: null as string | null, lostReason: null as string | null, decommissioned: false,
+    expeditions: new Set<string>(), rescuers: new Map<string, string | null>(),
   };
-  const zoneOf = (region, id) => {
+  const zoneOf = (region: string, id: string): Zone => {
     const key = `${region}:${id}`;
-    if (!p.zones.has(key)) p.zones.set(key, { id, region, wave: null, state: 'open', contributor: null, team: null, at: null });
-    return p.zones.get(key);
+    const found = p.zones.get(key);
+    if (found) return found;
+    const made: Zone = { id, region, wave: null, state: 'open', contributor: null, team: null, at: null };
+    p.zones.set(key, made);
+    return made;
   };
   for (const e of events) {
+    const data = dataOf(e);
     switch (e.type) {
       case 'PLANET_CHARTED':
-        p.title = e.data.title ?? p.title; p.captain = e.data.captain ?? null; p.ownerTeam = e.data.ownerTeam ?? null; p.chartedAt = e.at;
+        p.title = data.title ?? p.title; p.captain = data.captain ?? null; p.ownerTeam = data.ownerTeam ?? null; p.chartedAt = e.at;
         break;
-      case 'REGION_SURVEYED': if (!p.regions.includes(e.region)) p.regions.push(e.region); break;
-      case 'PLANET_LOCKED': p.blockers.add(e.data.blocker); break;
-      case 'PLANET_UNLOCKED': p.blockers.delete(e.data.blocker); break;
+      case 'REGION_SURVEYED': if (!p.regions.includes(e.region as string)) p.regions.push(e.region as string); break; // ts-allow: the projector names a surveyed event's region
+      case 'PLANET_LOCKED': p.blockers.add(data.blocker); break;
+      case 'PLANET_UNLOCKED': p.blockers.delete(data.blocker); break;
       case 'ZONE_OPENED': case 'ZONE_CLAIMED': case 'ZONE_SECURED': case 'ZONE_REVERTED': {
         const [, region, , id, step] = ZONE_ID.exec(e.id) ?? [];
-        if (!region) break;
+        if (!region || id === undefined) break;
         const z = zoneOf(region, id);
-        if (e.data.wave !== undefined) z.wave = e.data.wave;
+        if (data.wave !== undefined) z.wave = data.wave;
         z.at = e.at;
         if (step === 'claimed') { z.state = 'claimed'; z.contributor = e.contributor ?? null; z.team = e.team ?? null; }
         if (step === 'secured') { z.state = 'secured'; z.contributor = e.contributor ?? z.contributor; z.team = e.team ?? z.team; }
@@ -103,7 +129,7 @@ function derive(prd, home, events, { sectorOf, now }) {
         break;
       }
       case 'WOUND_OPENED':
-        p.wounds.set(woundKey(e.id), { id: woundKey(e.id), kind: e.data.kind, rank: e.data.rank ?? null, region: e.region ?? null, openedAt: e.at, closedAt: null, closedBy: null });
+        p.wounds.set(woundKey(e.id), { id: woundKey(e.id), kind: data.kind, rank: data.rank ?? null, region: e.region ?? null, openedAt: e.at, closedAt: null, closedBy: null });
         break;
       case 'WOUND_CLOSED': {
         const w = p.wounds.get(woundKey(e.id));
@@ -118,7 +144,7 @@ function derive(prd, home, events, { sectorOf, now }) {
         break;
       case 'PLANET_READY': p.ready = true; break;
       case 'PLANET_TERRAFORMED': p.terraformedAt = e.at; break;
-      case 'PLANET_LOST': p.lostAt = e.at; p.lostReason = e.data.reason ?? null; break;
+      case 'PLANET_LOST': p.lostAt = e.at; p.lostReason = data.reason ?? null; break;
       case 'PLANET_DECOMMISSIONED': p.decommissioned = true; break;
       default: break;
     }
@@ -131,16 +157,16 @@ function derive(prd, home, events, { sectorOf, now }) {
   }
 
   const zones = [...p.zones.values()].sort((a, b) => (a.wave ?? 99) - (b.wave ?? 99) || a.region.localeCompare(b.region) || a.id.localeCompare(b.id, 'en', { numeric: true }));
-  const openWounds = [...p.wounds.values()].filter((w) => !w.closedAt).map((w) => ({
+  const openWounds: Wound[] = [...p.wounds.values()].filter((w): w is OpenScar => !w.closedAt).map((w) => ({
     ...w,
     ageTranches: tranchesBetween(new Date(w.openedAt), now, RULEBOOK.trancheMinutes),
-    ageHours: Math.max(0, Math.round((now - new Date(w.openedAt)) / 3600000)),
+    ageHours: Math.max(0, Math.round((now.getTime() - new Date(w.openedAt).getTime()) / 3600000)),
     decayPerTranche: RULEBOOK.decayPerTranche[w.kind] ?? 0,
   })).sort((a, b) => b.decayPerTranche - a.decayPerTranche || a.openedAt.localeCompare(b.openedAt));
   const unanswered = [...p.distress.entries()].filter(([k]) => !p.rescues.has(k)).map(([, at]) => at).sort();
   const secured = zones.filter((z) => z.state === 'secured').length;
 
-  let state;
+  let state: PlanetState;
   if (p.decommissioned) state = 'decommissioned';
   else if (p.lostAt) state = 'lost';
   else if (p.terraformedAt) state = openWounds.some((w) => w.kind === 'aftershock') ? 'aftershock' : 'terraformed';
@@ -150,7 +176,7 @@ function derive(prd, home, events, { sectorOf, now }) {
   else if (zones.length) state = 'terraforming';
   else state = 'charted';
 
-  const sectors = [...new Set(p.regions.map(sectorOf).filter(Boolean))];
+  const sectors = [...new Set(p.regions.map(sectorOf).filter((s): s is string => Boolean(s)))];
   // A repository that no sector names counts as a sector of its own for the cross-sector bonus (PRD 728).
   const crossSector = new Set(p.regions.map((r) => sectorOf(r) ?? `repo:${r}`)).size > 1;
   return {
@@ -160,7 +186,7 @@ function derive(prd, home, events, { sectorOf, now }) {
     zones, secured, progress: state === 'terraformed' || state === 'aftershock' ? 1 : zones.length ? secured / zones.length : 0,
     openWounds, closedWounds: [...p.wounds.values()].filter((w) => w.closedAt).length,
     threat: threatOf(openWounds, state === 'distress'),
-    distressSince: state === 'distress' ? unanswered.at(-1) : null,
+    distressSince: state === 'distress' ? unanswered.at(-1) ?? null : null,
     expeditions: [...p.expeditions].sort(),
     rescuers: [...p.rescuers.entries()].map(([login, team]) => ({ login, team })),
     chartedAt: p.chartedAt, terraformedAt: p.terraformedAt, lostAt: p.lostAt, lostReason: p.lostReason,
@@ -170,7 +196,7 @@ function derive(prd, home, events, { sectorOf, now }) {
 }
 
 // A fleet's look, with plain defaults for a fleet that has none (a new row, or an old config).
-export function lookOf(name, fleet = {}) {
+export function lookOf(name: string, fleet: Partial<FleetConfig> = {}): FleetLook {
   return {
     home: fleet.home ?? null,
     label: fleet.label ?? name.toUpperCase().slice(0, 12),
@@ -186,35 +212,36 @@ export function lookOf(name, fleet = {}) {
  * @param events ledger events (any order)
  * @param o { projects: { sectors: {name: {repos}}, teams: {name: {home, label, color, motto, mascot, sort, retired}} }, now: Date, source: string }
  */
-export function buildGalaxy(events, { projects, now = new Date(), source = 'ledger' }) {
+export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = new Date(), source = 'ledger' }: { projects: Projects; now?: Date; source?: string }): GalaxyView {
   const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
-  const repoSector = new Map();
+  const repoSector = new Map<string, string>();
   for (const [name, { repos }] of Object.entries(projects.sectors)) for (const r of repos) repoSector.set(r, name);
   // A sector names a repository by its full name or its bare one.
-  const sectorOf = (repo) => (repo ? repoSector.get(repo) ?? repoSector.get(String(repo).split('/').pop()) ?? null : null);
+  const sectorOf: SectorOf = (repo) => (repo ? repoSector.get(repo) ?? repoSector.get(String(repo).split('/').pop() ?? '') ?? null : null);
 
-  const byPlanet = new Map();
+  const byPlanet = new Map<string, LedgerEvent[]>();
   // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 are two planets.
-  for (const e of sorted) { const k = planetKeyOf(e); (byPlanet.get(k) ?? byPlanet.set(k, []).get(k)).push(e); }
+  for (const e of sorted) { const k = planetKeyOf(e); const found = byPlanet.get(k); if (found) found.push(e); else byPlanet.set(k, [e]); }
   const season = now.toISOString().slice(0, 7);
-  const season_ = score(sorted, { season, now });
+  const season_ = score(sorted as GameEvent[], { season, now }); // ts-allow: a ledger row's type is one of the game's event types, which score() reads as a tag
 
-  const planets = [...byPlanet.entries()].map(([key, evs]) => {
-    const planet = derive(evs[0].planet, evs[0].home ?? null, evs, { sectorOf, now });
+  const planets: Planet[] = [...byPlanet.entries()].map(([key, evs]) => {
+    const first = evs[0] as LedgerEvent; // ts-allow: a planet is in the map only once it has an event
+    const planet = derive(first.planet, first.home ?? null, evs, { sectorOf, now });
     // Home sector: where most of its regions live, else its owning fleet's home.
-    const counts = new Map();
+    const counts = new Map<string, number>();
     for (const r of planet.regions) { const s = sectorOf(r); if (s) counts.set(s, (counts.get(s) ?? 0) + 1); }
     const home = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0]
-      ?? projects.teams[planet.ownerTeam]?.home ?? Object.keys(projects.sectors)[0] ?? null;
+      ?? projects.teams[String(planet.ownerTeam)]?.home ?? Object.keys(projects.sectors)[0] ?? null;
     return { ...planet, sector: home, earned: Math.round(season_.planets[key]?.earned ?? 0) };
   }).sort((a, b) => a.prd - b.prd || (a.home ?? '').localeCompare(b.home ?? ''));
 
-  const loginTeam = new Map();
+  const loginTeam = new Map<string, string>();
   for (const e of sorted) if (e.contributor && e.team) loginTeam.set(e.contributor, e.team);
 
-  const rank = (entries) => entries.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name)).map((x, i) => ({ ...x, rank: i + 1 }));
+  const rank = <T extends { name: string; points: number }>(entries: T[]): (T & { rank: number })[] => entries.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name)).map((x, i) => ({ ...x, rank: i + 1 }));
   // A retired fleet stays in the view only while this season still remembers it.
-  const teams = rank(Object.entries(projects.teams).map(([name, fleet]) => {
+  const teams: Fleet[] = rank(Object.entries(projects.teams).map(([name, fleet]) => {
     const owned = planets.filter((p) => p.ownerTeam === name);
     return {
       name, ...lookOf(name, fleet), points: Math.round(season_.teams[name] ?? 0),
@@ -226,7 +253,7 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
       members: [...loginTeam.entries()].filter(([, t]) => t === name).map(([l]) => l).sort(),
     };
   }).filter((t) => !t.retired || t.points || t.planets || t.members.length));
-  const heroes = rank(Object.entries(season_.individuals).map(([name, points]) => ({ name, team: loginTeam.get(name) ?? null, points: Math.round(points) })));
+  const heroes: Hero[] = rank(Object.entries(season_.individuals).map(([name, points]) => ({ name, team: loginTeam.get(name) ?? null, points: Math.round(points) })));
 
   return {
     generatedAt: now.toISOString(),
