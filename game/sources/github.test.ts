@@ -1,10 +1,12 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configFrom } from '../config.ts';
-import { buildSnapshot, toIso } from './github.ts';
+import { buildSnapshot, toIso, type Exec } from './github.ts';
+
+// A gh read the fake answers: the start of its joined arguments, and its output (an Error is thrown).
+type Fixture = readonly [string, unknown];
 import { projectEvents } from '../projector.ts';
 import { score } from '../economy.ts';
 
@@ -29,7 +31,7 @@ const FP = { number: 500, headRefName: 'feat/generic-import', createdAt: '2026-0
 // A fake gh: matched on the joined argument string. An `out` that is an Error is thrown, so a
 // test can simulate a real gh failure (a source that cannot be read) rather than a fixture gap. An
 // unfixtured call throws too: a soft read (a 404) then reads as empty, a hard one fails the test.
-function fakeExec(calls, seen = null) {
+function fakeExec(calls: readonly Fixture[], seen: string[] | null = null): Exec {
   return async (args) => {
     const key = args.join(' ');
     seen?.push(key);
@@ -43,7 +45,7 @@ function fakeExec(calls, seen = null) {
 }
 
 // One tracked repository's reads: its default branch, its config, its delivery folders.
-const repoCalls = (repo, { inbox = '', shipped = '', config: cfg = 'paths:\n  delivery: .omni-loop/delivery\n' } = {}) => [
+const repoCalls = (repo: string, { inbox = '', shipped = '', config: cfg = 'paths:\n  delivery: .omni-loop/delivery\n' } = {}): Fixture[] => [
   [`api repos/${repo} --jq`, 'main\n'],
   [`api repos/${repo}/contents/.omni-loop/config.yml`, cfg],
   [`api repos/${repo}/contents/.omni-loop/delivery/inbox --jq`, inbox],
@@ -53,7 +55,7 @@ const repoCalls = (repo, { inbox = '', shipped = '', config: cfg = 'paths:\n  de
 // One planet (#2332) in one repo, feature PR #500 open, sub-PR #501 merged on s1. `extra` calls are
 // matched first, so a test overrides any base read by listing the same prefix.
 const SUB_501 = { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332', state: 'MERGED' };
-function world(extra = []) {
+function world(extra: readonly Fixture[] = []): Fixture[] {
   return [
     ...extra,
     [`issue list -R ${R} --label omni:prd`, [ISSUE]],
@@ -68,25 +70,25 @@ function world(extra = []) {
   ];
 }
 const NOW = new Date('2026-09-23T14:00:00Z');
-const snap = (extra, over = {}) => buildSnapshot({ config, exec: fakeExec(world(extra)), now: NOW, ...over });
+const snap = (extra?: readonly Fixture[], over: Partial<Parameters<typeof buildSnapshot>[0]> = {}) => buildSnapshot({ config, exec: fakeExec(world(extra)), now: NOW, ...over });
 
 describe('buildSnapshot', () => {
   it('reads only the workspace\'s tracked repositories: an untracked one is never asked for', async () => {
     const acme = configFrom({ sectors: [], teams: [], roster: [], repositories: [{ full_name: 'acme-gh/acme-rockets', tracked: true }, { full_name: 'acme-gh/old-rockets', tracked: false }] });
-    const seen = [];
+    const seen: string[] = [];
     await buildSnapshot({ config: acme, exec: async (args) => { seen.push(args.join(' ')); return args[0] === 'issue' ? '[]' : ''; }, now: NOW });
     expect(seen).toEqual([expect.stringMatching(/^issue list -R acme-gh\/acme-rockets --label omni:prd /)]);
-    const none = [];
+    const none: string[][] = [];
     const empty = await buildSnapshot({ config: configFrom({}), exec: async (args) => { none.push(args); return '[]'; }, now: NOW });
     expect(empty.planets).toEqual([]);
     expect(none).toEqual([]);
   });
 
   it('reads the PRD folder in the kit layout, never docs/inbox', async () => {
-    const seen = [];
+    const seen: string[] = [];
     const p = (await buildSnapshot({ config, exec: fakeExec(world(), seen), now: NOW })).planets[0];
     expect(p).toMatchObject({ prd: 2332, home: R, regions: [{ repo: R, surveyedAt: '2026-09-02T08:00:00Z' }] });
-    expect(p.zones.map((z) => z.id)).toEqual(['s1', 's2']);
+    expect(p!.zones.map((z) => z.id)).toEqual(['s1', 's2']);
     expect(seen.filter((c) => c.includes('docs/inbox') || c.includes('docs/outbox'))).toEqual([]);
   });
 
@@ -100,15 +102,15 @@ describe('buildSnapshot', () => {
       [`pr list -R ${R} --search "Closes #2332" in:body --base trunk`, []],
     ]);
     const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
-    expect(p.regions).toEqual([{ repo: R, blockedBy: [2300], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
+    expect(p!.regions).toEqual([{ repo: R, blockedBy: [2300], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
   });
 
   it('takes the feature PR that says Closes #<n>, the omni:feature one first, never #<n>0', async () => {
-    const pr = (number, over) => ({ ...FP, number, labels: [], ...over });
+    const pr = (number: number, over?: Record<string, unknown>) => ({ ...FP, number, labels: [], ...over });
     const p = (await snap([[`pr list -R ${R} --search`, [pr(480, { body: 'Closes #23320' }), pr(490, { body: 'Closes #2332' }), pr(500, { labels: [{ name: 'omni:feature' }] })]]])).planets[0];
-    expect(p.featurePr.number).toBe(500);
+    expect(p!.featurePr!.number).toBe(500);
     const q = (await snap([[`pr list -R ${R} --search`, [pr(480, { body: 'Closes #23320' }), pr(495, { body: 'closes #2332.' }), pr(490, { body: 'Closes #2332' })]]])).planets[0];
-    expect(q.featurePr.number).toBe(490);
+    expect(q!.featurePr!.number).toBe(490);
   });
 
   it('gives the planet to the first assignee, else to the issue\'s author (PRD 728)', async () => {
@@ -128,18 +130,18 @@ describe('buildSnapshot', () => {
       [`pr list -R ${R} --base feat/generic-import`, subs],
       [`api repos/${R}/issues/501/timeline`, 'labeled 2026-09-21T10:00:00Z\nunlabeled 2026-09-21T15:00:00Z\n'],
       [`api repos/${R}/issues/502/timeline`, 'labeled 2026-09-22T10:00:00Z\nunlabeled 2026-09-22T11:00:00Z\nlabeled 2026-09-22T12:00:00Z\n'],
-    ])).planets[0].zones;
-    expect(s1.pr.needsFix).toEqual({ labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T15:00:00Z' });
-    expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null }); // labelled again: still under fire
+    ])).planets[0]!.zones;
+    expect(s1!.pr!.needsFix).toEqual({ labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T15:00:00Z' });
+    expect(s2!.pr!.needsFix).toEqual({ labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null }); // labelled again: still under fire
   });
 
   it('carries needsFix null for a never-labelled sub-PR, and labelled-since-creation when the timeline cannot be read (F1)', async () => {
     const [s1, s2] = (await snap([
       [`pr list -R ${R} --base feat/generic-import`, [{ ...SUB_501 }, { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:needs-fix' }] }]],
       [`api repos/${R}/issues/502/timeline`, new Error('gh: 502 Bad Gateway')],
-    ])).planets[0].zones;
-    expect(s1.pr.needsFix).toBeNull();
-    expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-21T09:00:00Z', unlabeledAt: null });
+    ])).planets[0]!.zones;
+    expect(s1!.pr!.needsFix).toBeNull();
+    expect(s2!.pr!.needsFix).toEqual({ labeledAt: '2026-09-21T09:00:00Z', unlabeledAt: null });
   });
 
   it('drops a closed unmerged sub-PR: the lowest live one becomes the zone pr (F2)', async () => {
@@ -147,19 +149,19 @@ describe('buildSnapshot', () => {
       { ...SUB_501, mergedAt: null, state: 'CLOSED' },
       { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T09:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] },
     ]]])).planets[0];
-    expect(p.zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null });
+    expect(p!.zones[0]!.pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null });
   });
 
   it('after a revert, the zone\'s next sub-PR opened after the revert becomes its pr (F2)', async () => {
     const revert = { ...SUB_501, number: 503, title: 'Revert "feat: a"', headRefName: 'revert-501', createdAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T09:00:00Z', body: 'Reverts #501' };
     const next = { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T10:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] };
-    expect((await snap([[`pr list -R ${R} --base feat/generic-import`, [SUB_501, revert, next]]])).planets[0].zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null, revertedAt: null });
+    expect((await snap([[`pr list -R ${R} --base feat/generic-import`, [SUB_501, revert, next]]])).planets[0]!.zones[0]!.pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null, revertedAt: null });
     // With no sub-PR after the revert, the zone keeps the reverted one (so ZONE_REVERTED is still told).
-    expect((await snap([[`pr list -R ${R} --base feat/generic-import`, [SUB_501, revert]]])).planets[0].zones[0].pr).toMatchObject({ number: 501, revertedAt: '2026-09-22T09:00:00Z' });
+    expect((await snap([[`pr list -R ${R} --base feat/generic-import`, [SUB_501, revert]]])).planets[0]!.zones[0]!.pr).toMatchObject({ number: 501, revertedAt: '2026-09-22T09:00:00Z' });
   });
 
   it('asks gh for the sub-PR state (F2)', async () => {
-    const seen = [];
+    const seen: string[] = [];
     await buildSnapshot({ config, exec: fakeExec(world(), seen), now: NOW });
     expect(seen.find((c) => c.includes('--base feat/generic-import'))).toMatch(/--json \S*\bstate\b/);
   });
@@ -182,7 +184,7 @@ describe('buildSnapshot', () => {
         [`api repos/${R}/contents/${OUT}?ref=feat/generic-import --jq`, 'settled.md\n'],
         [`api repos/${R}/contents/${OUT}/settled.md?ref=feat/generic-import`, SETTLED],
       ])).planets[0];
-      expect(p.outbox).toEqual([
+      expect(p!.outbox).toEqual([
         { id: 's1-01-a', repo: R, rank: 'high', raisedAt: '2026-09-22T00:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T00:00:00Z', by: 'pm', reworkMergedAt: null, reworkBy: null } },
       ]);
     });
@@ -194,8 +196,8 @@ describe('buildSnapshot', () => {
         [`api repos/${R}/contents/${OUT}/s1-01-a.md?ref=feat/generic-import`, ITEM],
         [`api repos/${R}/commits?path=${OUT}/s1-01-a.md`, 'null\n'],
       ])).planets[0];
-      expect(p.regions[0].surveyedAt).toBe('2026-09-01T08:00:00Z');
-      expect(p.outbox[0].raisedAt).toBe('2026-09-21T07:00:00Z');
+      expect(p!.regions[0]!.surveyedAt).toBe('2026-09-01T08:00:00Z');
+      expect(p!.outbox[0]!.raisedAt).toBe('2026-09-21T07:00:00Z');
     });
 
     it('skips an open item with neither a commit date nor a valid raised date', async () => {
@@ -204,12 +206,12 @@ describe('buildSnapshot', () => {
         [`api repos/${R}/contents/${OUT}/s1-01-a.md?ref=feat/generic-import`, ITEM.replace('raised: 2026-09-21', 'raised: someday')],
         [`api repos/${R}/commits?path=${OUT}/s1-01-a.md`, ''],
       ])).planets[0];
-      expect(p.outbox).toEqual([]);
+      expect(p!.outbox).toEqual([]);
     });
 
     it('normalises every GitHub timestamp it keeps', async () => {
       const p = (await snap([[`pr list -R ${R} --base feat/generic-import`, [{ ...SUB_501, createdAt: '2026-09-21T09:00:00.000Z', mergedAt: '2026-09-21T14:00:00+02:00' }]]])).planets[0];
-      expect(p.zones[0].pr).toMatchObject({ createdAt: '2026-09-21T09:00:00Z', mergedAt: '2026-09-21T12:00:00Z' });
+      expect(p!.zones[0]!.pr).toMatchObject({ createdAt: '2026-09-21T09:00:00Z', mergedAt: '2026-09-21T12:00:00Z' });
     });
   });
 
@@ -220,21 +222,21 @@ describe('buildSnapshot', () => {
       [`api repos/${R}/contents/${OUT}?ref=feat/generic-import --jq`, 'settled.md\n'],
       [`api repos/${R}/contents/${OUT}/settled.md?ref=feat/generic-import`, settled],
     ])).planets[0];
-    expect(p.outbox[0].settled).toEqual({ verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' });
+    expect(p!.outbox[0]!.settled).toEqual({ verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' });
   });
 
   describe('fleets come from the roster, not from GitHub', () => {
     it('never asks GitHub for team members', async () => {
-      const seen = [];
+      const seen: string[] = [];
       await buildSnapshot({ config, exec: fakeExec(world(), seen), now: NOW });
       expect(seen.filter((c) => c.includes('/teams/'))).toEqual([]);
     });
 
     it('gives the captain\'s fleet to the planet whatever the login\'s case, and none to an unlinked captain', async () => {
       const shouting = configFrom({ ...configRows(), roster: [{ github_login: 'PM', team: 'beaver' }] });
-      expect((await buildSnapshot({ config: shouting, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBe('beaver');
+      expect((await buildSnapshot({ config: shouting, exec: fakeExec(world()), now: NOW })).planets[0]!.ownerTeam).toBe('beaver');
       const nobody = configFrom({ ...configRows(), roster: [] });
-      expect((await buildSnapshot({ config: nobody, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBeNull();
+      expect((await buildSnapshot({ config: nobody, exec: fakeExec(world()), now: NOW })).planets[0]!.ownerTeam).toBeNull();
     });
 
     it('stamps each event with the contributor\'s fleet from the roster', async () => {
@@ -245,9 +247,9 @@ describe('buildSnapshot', () => {
   });
 
   describe('bug fixes (F5c)', () => {
-    const bug = (number) => ({ number, createdAt: '2026-09-22T09:00:00Z', closedAt: '2026-09-23T09:00:00Z', closedBy: { login: 'pm' } });
-    const bugsOf = async (extra) => (await snap(extra)).planets[0].bugs;
-    const ref = (number) => ({ number, url: `https://github.com/${R}/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'vertuoza' } } });
+    const bug = (number: number) => ({ number, createdAt: '2026-09-22T09:00:00Z', closedAt: '2026-09-23T09:00:00Z', closedBy: { login: 'pm' } });
+    const bugsOf = async (extra: readonly Fixture[]) => (await snap(extra)).planets[0]!.bugs;
+    const ref = (number: number) => ({ number, url: `https://github.com/${R}/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'vertuoza' } } });
 
     it('credits a closed bug to the author of a merged PR that closed it', async () => {
       const bugs = await bugsOf([
@@ -290,14 +292,14 @@ describe('buildSnapshot', () => {
     const p = s.planets[0];
     expect(p).toMatchObject({ prd: 2332, home: R, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver' });
     const fp = { repo: R, number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' };
-    expect(p.regions).toEqual([{ repo: R, blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: fp }]);
-    expect(p.featurePr).toEqual(fp);
-    expect(p.zones).toEqual([
+    expect(p!.regions).toEqual([{ repo: R, blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: fp }]);
+    expect(p!.featurePr).toEqual(fp);
+    expect(p!.zones).toEqual([
       { id: 's1', repo: R, wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: null } },
       { id: 's2', repo: R, wave: 2, blockedBy: ['s1'], pr: null },
     ]);
-    expect(p.outbox).toEqual([{ id: 's1-01-a', repo: R, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
-    expect(p.bugs).toEqual([]);
+    expect(p!.outbox).toEqual([{ id: 's1-01-a', repo: R, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
+    expect(p!.bugs).toEqual([]);
   });
 
   it('keeps a planet charted and unsurveyed when its home has no folder for it', async () => {
@@ -317,7 +319,7 @@ describe('buildSnapshot', () => {
       // broken.md has no front matter: no commits fixture for it — it is skipped before its raisedAt is asked.
       [`api repos/${R}/contents/${OUT}/broken.md?ref=feat/generic-import`, '## no front matter here\n'],
     ])).planets[0];
-    expect(p.outbox).toEqual([{ id: 's1-01-a', repo: R, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
+    expect(p!.outbox).toEqual([{ id: 's1-01-a', repo: R, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
   });
 
   it('falls back a region\'s surveyedAt to the PRD issue\'s createdAt when the spec commits read fails (spec §8)', async () => {
@@ -325,7 +327,7 @@ describe('buildSnapshot', () => {
       [`api repos/${R}/commits?path=${DIR}/spec.md`, new Error('gh: 502 Bad Gateway')],
       [`pr list -R ${R} --search`, []],
     ])).planets[0];
-    expect(p.regions).toEqual([{ repo: R, blockedBy: [], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
+    expect(p!.regions).toEqual([{ repo: R, blockedBy: [], surveyedAt: '2026-09-01T08:00:00Z', featurePr: null }]);
   });
 
   it('reads a repository that cannot be read as empty, and still reads the others (spec §8)', async () => {
@@ -355,8 +357,8 @@ describe('buildSnapshot', () => {
 
   it('reads docs/inbox nowhere in game/ (PRD 728)', () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-    const sources = [];
-    const walk = (dir) => {
+    const sources: string[] = [];
+    const walk = (dir: string) => {
       for (const name of readdirSync(dir)) {
         const path = join(dir, name);
         if (statSync(path).isDirectory()) walk(path);
@@ -389,7 +391,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'octopod' }, { github_login: 'pierre', team: 'beaver' }],
     repositories: [{ full_name: 'vertuoza/vertuo-omni-loop', tracked: true }, { full_name: PLAN_REPO, tracked: true }],
   });
-  const sub = (number, slice, author, mergedAt) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: 'Part of #88', state: 'MERGED' });
+  const sub = (number: number, slice: string, author: string, mergedAt: string | null) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: 'Part of #88', state: 'MERGED' });
   const SETTLED = [
     '<!-- omni-outbox-settled: s1-01-a -->', '', '## s1-01-a — agreed', '', '- Verdict: agreed', '- Approved by: pierre', '- Approved at: 2026-09-29T12:00:00Z', '- Rank: high', '- Slice: s1', '',
     '<!-- omni-outbox-settled: s2-01-b -->', '', '## s2-01-b — adopted', '', '- Verdict: adopted', '- Approved by: nobody', '- Approved at: 2026-09-29', '- Rank: medium', '- Slice: s2', '',
@@ -437,7 +439,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
       [`api repos/${other}/issues/`, ''],
       [`issue list -R ${other} --label bug`, []],
     ]);
-    const all = async (args) => (args.join(' ').includes(other) ? twin(args) : exec(args));
+    const all: Exec = async (args) => (args.join(' ').includes(other) ? twin(args) : exec(args));
     const s = await buildSnapshot({ config: both, exec: all, now });
     expect(s.planets.map((p) => [p.home, p.prd, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'beaver'], [other, 88, 'octopod']]);
     const events = projectEvents(s, { config: both, now });
@@ -473,10 +475,10 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     '| s1 | vertuo-backend-php | API | `src/` | — | 1 |',
     '| s2 | vertuo-apps | Screen | `apps/` | s1 | 2 |', '',
   ].join('\n');
-  const feature = (number, over = {}) => ({ number, headRefName: 'feat/points', createdAt: '2026-09-29T07:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-29T09:00:00Z', labels: [{ name: 'omni:feature' }], body: `Part of ${PLAN_REPO}#88\n\n## Slices`, ...over });
-  const sub = (number, slice, author, mergedAt) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: `Part of ${PLAN_REPO}#88 · slice ${slice}`, state: 'MERGED' });
+  const feature = (number: number, over: Record<string, unknown> = {}) => ({ number, headRefName: 'feat/points', createdAt: '2026-09-29T07:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-29T09:00:00Z', labels: [{ name: 'omni:feature' }], body: `Part of ${PLAN_REPO}#88\n\n## Slices`, ...over });
+  const sub = (number: number, slice: string, author: string, mergedAt: string | null) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: `Part of ${PLAN_REPO}#88 · slice ${slice}`, state: 'MERGED' });
   const now = new Date('2026-09-30T10:00:00Z');
-  const merged = (at) => ({ mergedAt: at, updatedAt: at });
+  const merged = (at: string) => ({ mergedAt: at, updatedAt: at });
   const world = ({ apps = [feature(284, merged('2026-09-29T15:00:00Z'))], php = [feature(40, merged('2026-09-29T12:00:00Z'))] } = {}, seen = null) => fakeExec([
     [`issue list -R ${PLAN_REPO} --label omni:prd`, [{ number: 88, title: 'Points', assignees: [], author: { login: 'paul' }, createdAt: '2026-09-28T08:00:00Z', closedAt: null }]],
     [`issue list -R ${APPS} --label omni:prd`, []],
@@ -502,9 +504,9 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
   it('makes each target a region whose sub-PRs secure zones for their authors', async () => {
     const s = await buildSnapshot({ config: cfg, exec: world(), now });
     const p = s.planets[0];
-    expect(p.regions.map((r) => [r.repo, r.featurePr?.number])).toEqual([[PLAN_REPO, 89], [APPS, 284], [PHP, 40]]);
-    expect(p.regions[1]).toMatchObject({ blockedBy: [], surveyedAt: '2026-09-29T07:00:00Z' });
-    expect(p.zones.map((z) => [z.id, z.repo, z.pr?.number, z.pr?.author])).toEqual([['s2', APPS, 285, 'alice'], ['s1', PHP, 41, 'bob']]);
+    expect(p!.regions.map((r) => [r.repo, r.featurePr?.number])).toEqual([[PLAN_REPO, 89], [APPS, 284], [PHP, 40]]);
+    expect(p!.regions[1]).toMatchObject({ blockedBy: [], surveyedAt: '2026-09-29T07:00:00Z' });
+    expect(p!.zones.map((z) => [z.id, z.repo, z.pr?.number, z.pr?.author])).toEqual([['s2', APPS, 285, 'alice'], ['s1', PHP, 41, 'bob']]);
     const events = projectEvents(s, { config: cfg, now });
     expect(events.filter((e) => e.type === 'ZONE_SECURED').map((e) => [e.id, e.contributor])).toEqual([
       [`zone:${PHP}:${PLAN_REPO}#88:s1:secured`, 'bob'],
@@ -517,19 +519,19 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
 
   it('terraforms only when every region\'s feature PR has merged', async () => {
     const s = await buildSnapshot({ config: cfg, exec: world({ apps: [feature(284)] }), now });
-    expect(s.planets[0].featurePr.mergedAt).toBeNull();
+    expect(s.planets[0]!.featurePr!.mergedAt).toBeNull();
     expect(projectEvents(s, { config: cfg, now }).filter((e) => e.type === 'PLANET_TERRAFORMED')).toEqual([]);
     // A target the plan gives slices, whose `Part of` PR is not open yet: its zone waits, and so does the terraform.
     const unopened = (await buildSnapshot({ config: cfg, exec: world({ apps: [] }), now })).planets[0];
-    expect(unopened.regions.map((r) => r.repo)).toEqual([PLAN_REPO, PHP]);
-    expect(unopened.zones.find((z) => z.id === 's2')).toMatchObject({ repo: APPS, pr: null });
-    expect(unopened.featurePr.mergedAt).toBeNull();
+    expect(unopened!.regions.map((r) => r.repo)).toEqual([PLAN_REPO, PHP]);
+    expect(unopened!.zones.find((z) => z.id === 's2')).toMatchObject({ repo: APPS, pr: null });
+    expect(unopened!.featurePr!.mergedAt).toBeNull();
   });
 
   it('ignores a `Part of` PR naming a PRD whose home is not tracked, and a sub-PR is never a region', async () => {
     const s = await buildSnapshot({ config: cfg, exec: world(), now });
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${PLAN_REPO}#88`]);
-    expect(s.planets[0].regions.map((r) => r.featurePr.number)).toEqual([89, 284, 40]);
+    expect(s.planets[0]!.regions.map((r) => r.featurePr!.number)).toEqual([89, 284, 40]);
     expect(projectEvents(s, { config: cfg, now }).filter((e) => JSON.stringify(e).includes('old-plan'))).toEqual([]);
   });
 });

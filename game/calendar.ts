@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Working calendar: Monday–Friday, 09:00–18:00, Europe/Brussels (spec §4).
 export const CALENDAR = Object.freeze({ tz: 'Europe/Brussels', startHour: 9, endHour: 18, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
 
@@ -7,17 +6,17 @@ const fmt = new Intl.DateTimeFormat('en-US', {
   timeZone: CALENDAR.tz, weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
 });
 
-function localParts(date) {
+function localParts(date: Date): { weekday: string | undefined; hour: number; minute: number } {
   const p = Object.fromEntries(fmt.formatToParts(date).map((x) => [x.type, x.value]));
   return { weekday: p.weekday, hour: Number(p.hour) % 24, minute: Number(p.minute) };
 }
 
-export function isWorkingTime(date) {
+export function isWorkingTime(date: Date): boolean {
   const { weekday, hour } = localParts(date);
-  return CALENDAR.days.includes(weekday) && hour >= CALENDAR.startHour && hour < CALENDAR.endHour;
+  return weekday !== undefined && CALENDAR.days.includes(weekday) && hour >= CALENDAR.startHour && hour < CALENDAR.endHour;
 }
 
-export function workingMinutesBetween(from, to) {
+export function workingMinutesBetween(from: Date, to: Date): number {
   let minutes = 0;
   for (let t = from.getTime(); t < to.getTime(); t += STEP_MS) {
     if (isWorkingTime(new Date(t))) minutes += 15;
@@ -25,7 +24,7 @@ export function workingMinutesBetween(from, to) {
   return minutes;
 }
 
-export function addWorkingMinutes(from, minutes) {
+export function addWorkingMinutes(from: Date, minutes: number): Date {
   let t = from.getTime();
   let left = minutes;
   while (left > 0) {
@@ -35,6 +34,6 @@ export function addWorkingMinutes(from, minutes) {
   return new Date(t);
 }
 
-export function tranchesBetween(from, to, trancheMinutes) {
+export function tranchesBetween(from: Date, to: Date, trancheMinutes: number): number {
   return Math.floor(workingMinutesBetween(from, to) / trancheMinutes);
 }

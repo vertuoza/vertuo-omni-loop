@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import { ARTIFACT_MAX_BYTES, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf } from './folders.ts';
 
-const blob = (path, sha, size = 100) => ({ path, mode: '100644', type: 'blob', sha, size });
+const blob = (path: string, sha: string, size = 100) => ({ path, mode: '100644', type: 'blob', sha, size });
 
 describe('dossierSwitch: the repository\'s own config decides', () => {
   const ON = 'kit: 1\nask:\n  url: https://ask.example.com\ndossier:\n  enabled: true\n';

@@ -1,11 +1,10 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readLedger, appendEvents, fileLedger, memoryLedger } from './ledger.ts';
 
-const ev = (id, at, type = 'ZONE_SECURED') => ({ id, at, type, planet: 2332, data: {} });
+const ev = (id: string, at: string, type = 'ZONE_SECURED') => ({ id, at, type, planet: 2332, data: {} });
 
 describe('ledger', () => {
   it('appends only unknown ids, one file per month, and reads back sorted', () => {

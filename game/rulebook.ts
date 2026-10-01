@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Every number the economy uses that is not a fact of the delivery layer (spec §6).
 export const RULEBOOK = Object.freeze({
   zoneSecured: 10,
@@ -10,7 +9,7 @@ export const RULEBOOK = Object.freeze({
     transmission: 1, 'unconfirmed-ground': 3, beacon: 5,
     'fault-line': 3, 'under-fire': 3, aftershock: 5,
   }),
-  classMultiplier: (regions) => regions >= 4 ? 2.5 : regions === 3 ? 2 : regions === 2 ? 1.5 : 1,
+  classMultiplier: (regions: number): number => regions >= 4 ? 2.5 : regions === 3 ? 2 : regions === 2 ? 1.5 : 1,
   crossSectorMultiplier: 1.25,
   terraformOwner: 100,
   terraformExpedition: 50,

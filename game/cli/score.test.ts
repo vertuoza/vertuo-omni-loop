@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm game:score, as a process, against the fake PostgREST behind a local server. Nothing here
 // reaches Supabase.
 import { describe, it, expect, afterEach } from 'vitest';
@@ -6,15 +5,15 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { serveFake } from '../test/fake-supabase.ts';
+import { serveFake, type Call, type Served } from '../test/fake-supabase.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
-const row = (id, at, type, over = {}) => ({ workspace_id: VERTUOZA, id, at, type, planet: 88, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
+const row = (id: string, at: string, type: string, over: Record<string, unknown> = {}) => ({ workspace_id: VERTUOZA, id, at, type, planet: 88, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
 
 describe('pnpm game:score, as a process', () => {
-  let server;
+  let server: Served<Call> | null = null;
   afterEach(async () => { await server?.close(); server = null; });
 
   it('counts no row without a home, for no hero and no fleet: the fresh start (PRD 728)', async () => {
