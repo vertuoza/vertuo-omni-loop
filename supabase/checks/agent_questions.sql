@@ -7,7 +7,10 @@
 -- answer is a confirmed claim (source `answer`) of the picked kind, on the question's product, that the
 -- next read through the link carries, and it closes the question linked to it; a dismissal closes it with
 -- no claim. Open questions are counted for the bell. A member of another workspace sees and does nothing
--- (42501), and nobody signed in reads the tables.
+-- (42501), and nobody signed in reads the tables. Jev's Unknown worth asking (PRD 855 s4,
+-- 20261028110000_unknown_worth_asking.sql): the service role alone reads what Jev reads and sets an open
+-- question aside; set aside, it is listed folded and not counted in the bell; a member brings it back, and
+-- Jev never sets it aside again.
 --
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
@@ -261,6 +264,112 @@ begin
     raise exception 'FAIL: dismiss left %', q;
   end if;
   perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('vertuoza'), q.id), 'P0002');
+end $$;
+reset role;
+
+-- ── Jev's Unknown worth asking (PRD 855 s4): set aside, out of the bell, brought back ──
+-- The owner can name the fourth decision; switching it on needs a key, so it is set Off here.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000086a1');
+select public.set_jev_decision(pg_temp.ws('vertuoza'), 'unknown-worth-asking', 'off', 0.5, 0.4);
+reset role;
+set local role anon;
+select pg_temp.sign_out();
+insert into kept select 'junk', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Is the sky blue?', 'vertuoza/vertuo-apps', 'src/Sky.tsx')->>'id')::uuid;
+do $$
+begin
+  -- Neither the link nor anybody signed in reads what Jev reads, or sets a question aside.
+  perform pg_temp.refused(format('select public.agent_question_for_jev(%L)', pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_set_aside(%L)', pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), '42501');
+end $$;
+reset role;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
+do $$
+begin
+  perform pg_temp.refused(format('select public.agent_question_for_jev(%L)', pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_set_aside(%L)', pg_temp.kept('junk')), '42501');
+end $$;
+reset role;
+
+-- What Jev reads: the question, its repository and file, the workspace and the confirmed claims.
+set local role service_role;
+do $$
+declare
+  ctx jsonb := public.agent_question_for_jev(pg_temp.kept('junk'));
+  verdict jsonb;
+begin
+  if ctx->>'question' <> 'Is the sky blue?' or ctx->>'repo' <> 'vertuoza/vertuo-apps' or ctx->>'file' <> 'src/Sky.tsx'
+     or (ctx->>'workspace')::uuid <> pg_temp.ws('vertuoza') or not exists (select 1 from jsonb_array_elements_text(ctx->'claims') c where c like 'region#%: Belgium') then
+    raise exception 'FAIL: Jev reads %', ctx;
+  end if;
+  -- Jev's counted "no": the open question is set aside.
+  verdict := public.agent_question_set_aside(pg_temp.kept('junk'));
+  if verdict->>'state' <> 'set-aside' then raise exception 'FAIL: the verdict left %', verdict; end if;
+  -- An answered question is never set aside.
+  verdict := public.agent_question_set_aside(pg_temp.kept('lux'));
+  if verdict->>'state' <> 'answered' then raise exception 'FAIL: an answered question became %', verdict; end if;
+end $$;
+reset role;
+do $$
+declare q public.agent_questions := pg_temp.question(pg_temp.kept('junk'));
+begin
+  if q.state <> 'set-aside' or q.set_aside_at is null then raise exception 'FAIL: set aside stored %', q; end if;
+end $$;
+
+-- The same question again bumps the set-aside row, which stays set aside.
+set local role anon;
+select pg_temp.sign_out();
+do $$
+declare again jsonb := public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'is the sky BLUE?');
+begin
+  if (again->>'id')::uuid <> pg_temp.kept('junk') or (again->>'asked')::integer <> 2 then
+    raise exception 'FAIL: the set-aside question asked again answered %', again;
+  end if;
+end $$;
+reset role;
+
+-- Members see it folded (setAside), the bell does not count it; only a member brings it back, once.
+set local role authenticated;
+do $$
+declare
+  open_before integer;
+  junk jsonb;
+begin
+  perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
+  select e into junk from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+   where (e->>'id')::uuid = pg_temp.kept('junk');
+  if junk is null or (junk->>'setAside')::boolean is not true then raise exception 'FAIL: the set-aside question listed as %', junk; end if;
+  if exists (select 1 from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+              where (e->>'setAside')::boolean and (e->>'id')::uuid <> pg_temp.kept('junk')) then
+    raise exception 'FAIL: an open question listed as set aside';
+  end if;
+  open_before := public.agent_questions_open(pg_temp.ws('vertuoza'));
+  if open_before <> (select count(*) from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+                      where not (e->>'setAside')::boolean) then
+    raise exception 'FAIL: the bell counts % with a set-aside question', open_before;
+  end if;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086c1');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('acme-asks'), pg_temp.kept('junk')), 'P0002');
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
+  perform public.agent_question_bring_back(pg_temp.ws('vertuoza'), pg_temp.kept('junk'));
+  if public.agent_questions_open(pg_temp.ws('vertuoza')) <> open_before + 1 then
+    raise exception 'FAIL: a question brought back is not counted in the bell';
+  end if;
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), 'P0002');
+end $$;
+reset role;
+
+-- Brought back, Jev never sets it aside again.
+set local role service_role;
+do $$
+declare verdict jsonb := public.agent_question_set_aside(pg_temp.kept('junk'));
+begin
+  if verdict->>'state' <> 'open' then raise exception 'FAIL: a question brought back was set aside again: %', verdict; end if;
 end $$;
 reset role;
 

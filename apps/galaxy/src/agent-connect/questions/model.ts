@@ -3,7 +3,8 @@ import { z } from 'zod';
 // Questions agents couldn't answer (PRD 855 s3): what Settings › Business shows of a question an editor's
 // agent reported through report_unknown, as agent_questions_list() answers it — the question, the link
 // that asked it last ("Tom's editor"), the repository and file it worked on, how often it was asked, when,
-// and the product an answer goes to when the database can tell (the repository's, or the only one).
+// and the product an answer goes to when the database can tell (the repository's, or the only one), and
+// whether Jev set it aside (PRD 855 s4).
 
 const agentQuestionSchema = z.object({
   id: z.string().min(1),
@@ -15,6 +16,8 @@ const agentQuestionSchema = z.object({
   firstAskedAt: z.string(),
   lastAskedAt: z.string(),
   product: z.string().nullable(),
+  /** Set aside by Jev's Unknown worth asking (PRD 855 s4): folded, with Bring back, not in the bell. */
+  setAside: z.boolean().optional(),
 });
 
 export type AgentQuestion = z.infer<typeof agentQuestionSchema>;

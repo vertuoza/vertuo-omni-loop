@@ -32,7 +32,7 @@ const NONE = { state: 'none', business: null, product: null, claims: [], persona
 
 type Call = { fn: string; args: Record<string, unknown> };
 
-async function world({ read = READ as unknown, products = 1, database = true, reported = 0 } = {}) {
+async function world({ read = READ as unknown, products = 1, database = true, reported = 0, judge = (_id: string): void => {} } = {}) {
   const live = await hashToken(LIVE);
   const revoked = await hashToken(REVOKED);
   const calls: Call[] = [];
@@ -56,7 +56,15 @@ async function world({ read = READ as unknown, products = 1, database = true, re
     }
     return fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null);
   };
-  const deps: McpDeps = { connect: database ? () => ({ rpc }) : null };
+  // Jev's Unknown worth asking (s4): the questions handed to it once reported.
+  const judged: string[] = [];
+  const deps: McpDeps = {
+    connect: database ? () => ({ rpc }) : null,
+    reported: (id) => {
+      judged.push(id);
+      judge(id);
+    },
+  };
 
   const connect = async (token: string | null) => {
     const client = new Client({ name: 'test-editor', version: '1.0.0' });
@@ -79,7 +87,7 @@ async function world({ read = READ as unknown, products = 1, database = true, re
     }
   };
 
-  return { calls, connect, call, rpc };
+  return { calls, connect, call, rpc, judged };
 }
 
 describe('/api/mcp, the MCP link', () => {
@@ -207,6 +215,24 @@ describe('/api/mcp, the MCP link', () => {
     const { text } = await w.call(LIVE, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
     expect(text).toMatch(/asked 2×/);
     expect(text).toMatch(/Settings › Business/);
+  });
+
+  it('a new question is handed to Jev\'s Unknown worth asking once stored; a repeat or a refusal is not (s4)', async () => {
+    const w = await world();
+    expect((await w.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' })).text).toBe(REPORTED);
+    expect(w.judged).toEqual(['q-1']);
+    const again = await world({ reported: 1 });
+    await again.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
+    const limit = await world({ reported: 30 });
+    await limit.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
+    expect([...again.judged, ...limit.judged]).toEqual([]);
+  });
+
+  it('a judge that throws never changes report_unknown\'s answer (s4)', async () => {
+    const w = await world({ judge: () => { throw new Error('jev down'); } });
+    const { isError, text } = await w.call(LIVE, 'report_unknown', { question: 'Is the sky blue?' });
+    expect(isError).toBe(false);
+    expect(text).toBe(REPORTED);
   });
 
   it('the 31st report of a link in 24 hours answers the limit\'s one line', async () => {

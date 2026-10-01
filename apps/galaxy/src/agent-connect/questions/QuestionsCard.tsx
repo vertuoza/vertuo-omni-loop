@@ -7,8 +7,9 @@ import type { Answering, QuestionsState } from './state';
 // Settings › Business › Questions agents couldn't answer, drawn from its state (PRD 855 s3). One row per
 // open question, the latest asked first: the question, the link that asked it, the repository and file,
 // when, and "asked N×" when it came again; each with Answer once (pick the kind, type the value, and the
-// product when the question names none and the business has several) and Dismiss. Drawn on the server
-// first; AgentQuestions.tsx wires the handlers.
+// product when the question names none and the business has several) and Dismiss. The questions Jev's
+// Unknown worth asking set aside (PRD 855 s4) are folded under "Jev set aside N" at the bottom, each with
+// Bring back. Drawn on the server first; AgentQuestions.tsx wires the handlers.
 
 export interface QuestionsHandlers {
   answer(question: AgentQuestion): void;
@@ -18,9 +19,10 @@ export interface QuestionsHandlers {
   save(): void;
   cancel(): void;
   dismiss(question: AgentQuestion): void;
+  bringBack(question: AgentQuestion): void;
 }
 
-const IDLE: QuestionsHandlers = { answer() {}, kind() {}, value() {}, product() {}, save() {}, cancel() {}, dismiss() {} };
+const IDLE: QuestionsHandlers = { answer() {}, kind() {}, value() {}, product() {}, save() {}, cancel() {}, dismiss() {}, bringBack() {} };
 
 export const QUESTIONS_TITLE = 'Questions agents couldn’t answer';
 const QUESTIONS_HINT = 'When no claim answers an agent, it sends its question here instead of guessing. Answer it once and every agent reads the answer.';
@@ -29,6 +31,10 @@ export const ANSWER_ONCE = 'Answer once';
 export const DISMISS = 'Dismiss';
 export const SAVE_ANSWER = 'Save the answer';
 const CANCEL = 'Cancel';
+export const BRING_BACK = 'Bring back';
+
+/** The fold's title (PRD 855 s4). */
+export const setAsideLabel = (n: number) => `Jev set aside ${n}`;
 const SIZE_HINT = 'From-to in people, like 2-50';
 
 /** "asked 2×" when a question came more than once. */
@@ -110,7 +116,34 @@ function QuestionRow({ question, state, products, on }: { question: AgentQuestio
   );
 }
 
+function SetAside({ questions, busy, on }: { questions: AgentQuestion[]; busy: boolean; on: QuestionsHandlers }) {
+  return (
+    <details className="agent-set-aside">
+      <summary>{setAsideLabel(questions.length)}</summary>
+      <ul className="agent-list" aria-label="Set aside by Jev">
+        {questions.map((q) => (
+          <li key={q.id} className="agent-question" data-question={q.id}>
+            <div className="agent-row">
+              <div className="agent-row-main">
+                <span>{q.question}</span>
+                <span className="agent-row-meta">
+                  <span>asked by {q.askedBy}</span>
+                  {q.repo && <span>{q.repo}</span>}
+                  <span>{dayLabel(q.lastAskedAt)}</span>
+                </span>
+              </div>
+              <button type="button" className="ask-button quiet" aria-label={`${BRING_BACK}: ${q.question}`} onClick={() => on.bringBack(q)} disabled={busy}>{BRING_BACK}</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function QuestionsCard({ state, products, demo = false, on = IDLE }: QuestionsCardProps) {
+  const open = state.questions.filter((q) => !q.setAside);
+  const setAside = state.questions.filter((q) => q.setAside);
   return (
     <section className="ask-card agent-connect agent-questions" aria-labelledby="agent-questions-title">
       <div className="agent-connect-head">
@@ -120,13 +153,14 @@ export function QuestionsCard({ state, products, demo = false, on = IDLE }: Ques
       <p className="ask-muted">{QUESTIONS_HINT}</p>
       {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
       {state.done && <p className="ask-muted" role="status">{state.done}</p>}
-      {state.questions.length === 0
+      {open.length === 0
         ? <p className="ask-muted agent-none">{NO_QUESTIONS}</p>
         : (
           <ul className="agent-list" aria-label="Open questions">
-            {state.questions.map((q) => <QuestionRow key={q.id} question={q} state={state} products={products} on={on} />)}
+            {open.map((q) => <QuestionRow key={q.id} question={q} state={state} products={products} on={on} />)}
           </ul>
         )}
+      {setAside.length > 0 && <SetAside questions={setAside} busy={state.busy} on={on} />}
     </section>
   );
 }

@@ -5,16 +5,20 @@ import type { AgentQuestion } from './model';
 // The questions' calls from the browser (PRD 855 s3). In production, the functions of
 // supabase/migrations/20261028100000_agent_questions.sql, called as the signed-in person like the rest of
 // Settings › Business: agent_question_answer() saves the answer as a confirmed claim (source `answer`) and
-// closes the question on it; agent_question_dismiss() closes it with no claim. In the demo, the same in
+// closes the question on it; agent_question_dismiss() closes it with no claim; agent_question_bring_back()
+// (PRD 855 s4) reopens one Jev set aside. In the demo, the same in
 // memory: an answer takes the business's next claim number.
 
 export type Answered = { ok: true; claim: string } | { ok: false; message: string };
 export type Dismissed = { ok: true } | { ok: false; message: string };
+export type BroughtBack = Dismissed;
 
 export interface QuestionsPort {
   /** Answers `question` once with `value` of `kind`, on `product` when the question names none. */
   answer(question: AgentQuestion, kind: ClaimKind, value: string, product: string | null): Promise<Answered>;
   dismiss(question: AgentQuestion): Promise<Dismissed>;
+  /** Reopens a question Jev set aside (PRD 855 s4): agent_question_bring_back(). */
+  bringBack(question: AgentQuestion): Promise<BroughtBack>;
 }
 
 export const PICK_PRODUCT = 'Pick the product this answer is about.';
@@ -48,6 +52,10 @@ export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
       const got = await call('agent_question_dismiss', { p_question: question.id }, null);
       return got.ok ? { ok: true } : got;
     },
+    async bringBack(question) {
+      const got = await call('agent_question_bring_back', { p_question: question.id }, null);
+      return got.ok ? { ok: true } : got;
+    },
   };
 }
 
@@ -61,6 +69,9 @@ export function demoQuestions(seq: number): QuestionsPort {
       return { ok: true, claim: `${kind}#${last}` };
     },
     async dismiss() {
+      return { ok: true };
+    },
+    async bringBack() {
       return { ok: true };
     },
   };
