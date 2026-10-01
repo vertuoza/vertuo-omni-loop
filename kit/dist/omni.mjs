@@ -12024,8 +12024,11 @@ function padPrd(prd2) {
 }
 function parseFolderName(name) {
   const match = FOLDER.exec(name);
-  return match ? { prd: Number(match[1]), topic: match[2] } : null;
+  if (!match) return null;
+  const [, prd2 = "", topic = ""] = match;
+  return { prd: Number(prd2), topic };
 }
+var prdOf = (name) => parseFolderName(name)?.prd ?? Number.NaN;
 function foldersLayout(root, paths) {
   const base = paths.delivery;
   const dirs = {
@@ -12042,7 +12045,7 @@ function foldersLayout(root, paths) {
   }
   function find(dir, prd2) {
     const wanted = Number(prd2);
-    return folders(dir).find((name) => parseFolderName(name).prd === wanted) ?? null;
+    return folders(dir).find((name) => prdOf(name) === wanted) ?? null;
   }
   function whereIs2(prd2) {
     const inbox = find(dirs.inbox, prd2);
@@ -12081,10 +12084,10 @@ function foldersLayout(root, paths) {
       return orphan ? `${dirs.outbox}/${orphan}` : null;
     },
     outboxDirs() {
-      const out = folders(dirs.outbox).map((name) => ({ prd: parseFolderName(name).prd, dir: `${dirs.outbox}/${name}`, shipped: false }));
+      const out = folders(dirs.outbox).map((name) => ({ prd: prdOf(name), dir: `${dirs.outbox}/${name}`, shipped: false }));
       for (const name of folders(dirs.shipped)) {
         const dir = `${dirs.shipped}/${name}/outbox`;
-        if (existsSync3(join3(root, dir))) out.push({ prd: parseFolderName(name).prd, dir, shipped: true });
+        if (existsSync3(join3(root, dir))) out.push({ prd: prdOf(name), dir, shipped: true });
       }
       return out;
     },
@@ -12122,10 +12125,11 @@ function makeMarkers(prefix) {
 
 // kit/lib/context.ts
 function createContext(root, config2) {
+  const { delivery, adr, knowledge: knowledge2, playbook } = config2.paths;
   return Object.freeze({
     root,
     config: config2,
-    layout: foldersLayout(root, config2.paths),
+    layout: foldersLayout(root, { delivery, adr, knowledge: knowledge2, playbook }),
     markers: makeMarkers(config2.markers.prefix)
   });
 }
@@ -12678,10 +12682,10 @@ function trailerLine(signature) {
 var PLACEHOLDER = /\{(name|home)\}/g;
 function footerLine(signature) {
   if (!signature) return null;
-  const footer = signature.footer.replace(
-    PLACEHOLDER,
-    (placeholder, key) => typeof signature[key] === "string" ? signature[key] : placeholder
-  );
+  const footer = signature.footer.replace(PLACEHOLDER, (placeholder, key) => {
+    const value = signature[key];
+    return typeof value === "string" ? value : placeholder;
+  });
   return `${footer} ${SIGNED_MARKER}`;
 }
 function isSignedBody(body) {
@@ -12694,7 +12698,7 @@ function carriesTrailer(message, signature) {
 }
 function botLogin(email) {
   const match = typeof email === "string" ? NOREPLY.exec(email.trim()) : null;
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 // kit/lib/update/release.ts
@@ -14488,17 +14492,18 @@ function git(args, cwd, exec) {
 }
 function parseNameStatus(nameStatus) {
   return nameStatus.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [status3, ...paths] = line.split("	");
-    return { status: status3[0], path: paths.at(-1) };
+    const [status3 = "", ...paths] = line.split("	");
+    return { status: status3[0] ?? "", path: paths.at(-1) ?? "" };
   });
 }
 function rangeChanges({ ctx, base, exec = execFileSync5 }) {
   try {
     git(["rev-parse", "--verify", "--quiet", `${base}^{commit}`], ctx.root, exec);
   } catch (error) {
+    const message = typeof error === "object" && error !== null && "message" in error ? error.message : void 0;
     throw new Error(
       `Cannot read ${base} \u2014 this guard cannot tell what this range changed. Fetch the base first (e.g. \`git fetch origin main\`).
-${error.message}`
+${message}`
     );
   }
   return parseNameStatus(git(["diff", "--name-status", "--no-renames", `${base}...HEAD`], ctx.root, exec));
@@ -16621,13 +16626,16 @@ function hasLabel(pr, name) {
 function matchesFeature(pr, { matchBy, featureBranch, subLabel }) {
   return matchBy === "label" ? hasLabel(pr, subLabel) : pr.baseRefName === featureBranch;
 }
+function timeOf(date) {
+  return date === void 0 ? Number.NaN : new Date(date ?? 0).getTime();
+}
 function pickPr(candidates) {
   if (candidates.length === 0) return null;
   const merged = candidates.filter(isMerged);
   const pool = merged.length > 0 ? merged : candidates;
   return pool.reduce((best, pr) => {
     if (!best) return pr;
-    return new Date(pr.updatedAt).getTime() > new Date(best.updatedAt).getTime() ? pr : best;
+    return timeOf(pr.updatedAt) > timeOf(best.updatedAt) ? pr : best;
   }, null);
 }
 function hasCommitBeyondClaim(pr) {
@@ -16637,10 +16645,16 @@ function hasCommitBeyondClaim(pr) {
 function isClaimedStale(pr, now, staleMinutes) {
   if (!pr.isDraft) return false;
   if (hasCommitBeyondClaim(pr)) return false;
-  const ageMs = now - new Date(pr.createdAt).getTime();
+  const ageMs = now - timeOf(pr.createdAt);
   return ageMs > staleMinutes * 60 * 1e3;
 }
-function stateFor({ pr, blockersMerged, now, limits, needsFixLabel }) {
+function stateFor({
+  pr,
+  blockersMerged,
+  now,
+  limits,
+  needsFixLabel
+}) {
   if (!pr) return blockersMerged ? "runnable" : "blocked";
   if (isMerged(pr)) return "merged";
   if (hasLabel(pr, needsFixLabel)) return "stuck";
@@ -16655,11 +16669,19 @@ function runnableFrontier(rows2) {
   const inWave = takeableRows.filter((row) => row.wave === wave);
   const collisions2 = sameWaveCollisions(inWave);
   const collidesWith = /* @__PURE__ */ new Map();
+  const rivalsOf = (id) => {
+    let rivals = collidesWith.get(id);
+    if (!rivals) {
+      rivals = /* @__PURE__ */ new Set();
+      collidesWith.set(id, rivals);
+    }
+    return rivals;
+  };
   for (const { left, right } of collisions2) {
-    if (!collidesWith.has(left)) collidesWith.set(left, /* @__PURE__ */ new Set());
-    if (!collidesWith.has(right)) collidesWith.set(right, /* @__PURE__ */ new Set());
-    collidesWith.get(left).add(right);
-    collidesWith.get(right).add(left);
+    const leftRivals = rivalsOf(left);
+    const rightRivals = rivalsOf(right);
+    leftRivals.add(right);
+    rightRivals.add(left);
   }
   const kept = [];
   const excluded = [];
@@ -16677,12 +16699,20 @@ function runnableFrontier(rows2) {
     collisions: collisions2
   };
 }
-function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2, prd: prd2, repos = null }) {
+function boardFor({
+  slices,
+  prs = [],
+  now = Date.now(),
+  limits,
+  config: config2,
+  prd: prd2,
+  repos = null
+}) {
   const { topic } = prd2;
   const featureBranch = fillBranch(config2.branches.feature, { topic });
   const live = prs.filter(isLive);
   const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
-  const repoOf = (slice) => acrossRepos ? repos?.[slice.repo] ?? { slug: null, readable: false } : null;
+  const repoOf = (slice) => acrossRepos ? repos?.[String(slice.repo)] ?? { slug: null, readable: false } : null;
   const matched = slices.map((slice) => {
     const repo = repoOf(slice);
     if (repo && !repo.readable) return null;
@@ -16692,12 +16722,16 @@ function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2,
     );
     return pickPr(candidates);
   });
-  const mergedById = new Map(slices.map((slice, index) => [slice.id, Boolean(matched[index] && isMerged(matched[index]))]));
+  const mergedById = new Map(
+    slices.map((slice, index) => {
+      const pr = matched[index];
+      return [slice.id, Boolean(pr && isMerged(pr))];
+    })
+  );
   const rows2 = slices.map((slice, index) => {
-    const pr = matched[index];
+    const pr = matched[index] ?? null;
     const repo = repoOf(slice);
-    const rest = { ...slice };
-    delete rest.repo;
+    const { repo: _repo, ...rest } = slice;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
       return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix }) };
@@ -17341,16 +17375,25 @@ function signatureViolations(ctx, commits) {
   if (trailer === null || commits === void 0) return [];
   return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
 }
-function fixVerdict({ ctx, issue, root, prefix, folders, grade, commits }) {
+function fixVerdict({
+  ctx,
+  issue,
+  root,
+  prefix,
+  folders,
+  grade,
+  commits
+}) {
   const failures = [];
   let folder = null;
-  if (folders.length === 0) {
+  const [only] = folders;
+  if (only === void 0) {
     failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue}.`);
   } else if (folders.length > 1) {
     failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
   } else {
-    [folder] = folders;
-    failures.push(...grade(folder));
+    folder = only;
+    failures.push(...grade(only));
   }
   failures.push(...signatureViolations(ctx, commits));
   return { ok: failures.length === 0, folder, failures };
@@ -18468,7 +18511,7 @@ function invariantAdrs(text4, heading) {
   const ids = /* @__PURE__ */ new Set();
   for (const line of lines.slice(start + 1)) {
     const next = line.match(/^(#+)\s/);
-    if (next && next[1].length <= level) break;
+    if (next?.[1] !== void 0 && next[1].length <= level) break;
     for (const match of line.matchAll(/ADR-\d{4}/g)) ids.add(match[0]);
   }
   return ids;
@@ -18479,7 +18522,8 @@ function adrFiles(ctx, number) {
   return readdirSync13(dir).filter((name) => name.startsWith(`${number}-`) && name.endsWith(".md")).sort();
 }
 function lawsFor(ctx) {
-  const { source, claudeMdHeading } = ctx.config.laws;
+  const source = ctx.config.laws.source;
+  const claudeMdHeading = ctx.config.laws.claudeMdHeading;
   let invariants = null;
   const invariantSet = () => {
     if (invariants === null) {
@@ -18492,7 +18536,8 @@ function lawsFor(ctx) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
-      const files = adrFiles(ctx, adr[1]);
+      const [, digits = ""] = adr;
+      const files = adrFiles(ctx, digits);
       if (files.length === 1) return { ok: true };
       if (files.length === 0) return { ok: false, reason: `no decision record ${bearsOn} in ${ctx.layout.adrDir}` };
       return { ok: false, reason: `${bearsOn} is ambiguous: ${files.join(", ")}` };
@@ -23455,7 +23500,7 @@ init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
 var KINDS5 = ["principle", "rule", "invariant"];
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
-function prdOf(source) {
+function prdOf2(source) {
   const match = PRD_IN_SOURCE.exec(source ?? "");
   return match ? Number(match[1]) : null;
 }
@@ -23472,7 +23517,7 @@ function graphEntry(entry, pairs) {
     serves: entry.serves,
     enforced: entry.enforced,
     enforcedBy: entry.enforcedBy,
-    prd: prdOf(entry.source),
+    prd: prdOf2(entry.source),
     file: entry.file
   };
 }
@@ -25455,7 +25500,7 @@ function buildingAndOutboxOf(inbox, features) {
   }
   return out;
 }
-function prdOf2(phase02, taken) {
+function prdOf3(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
   return stage(held, taken);
 }
@@ -25486,7 +25531,7 @@ function overviewFor(facts) {
   const { building, outbox } = buildingAndOutboxOf(onBase, facts.features);
   const past = new Set([...building, ...outbox].map(({ prd: prd3 }) => prd3));
   const inbox = onBase.filter(({ prd: prd3 }) => !past.has(prd3));
-  const prd2 = prdOf2(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
+  const prd2 = prdOf3(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
   const inProgress = inbox.length + building.length + outbox.length;
   const stages = { prd: prd2, inbox, building, outbox, shipped, retro };
   return {
