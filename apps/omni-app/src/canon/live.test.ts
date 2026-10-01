@@ -1,15 +1,16 @@
-// @ts-nocheck
 // The canon gate's live ports, against a recording fetch: nothing here calls Supabase or OpenRouter.
 import { describe, expect, it } from 'vitest';
 import { CANON_MODEL, businessReader, canonFromEnv } from './live.ts';
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+type Recorded = { url: URL; method: string; body: { model?: string } | null; headers: Headers };
 
-function recordingFetch(answer) {
-  const requests = [];
-  const fetch = async (input, init = {}) => {
-    const url = new URL(typeof input === 'string' ? input : input.url);
-    requests.push({ url, method: init.method ?? 'GET', body: init.body ? JSON.parse(init.body) : null, headers: new Headers(init.headers) });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+function recordingFetch(answer: (url: URL) => Response) {
+  const requests: Recorded[] = [];
+  const fetch: typeof globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    requests.push({ url, method: init.method ?? 'GET', body: init.body ? JSON.parse(String(init.body)) : null, headers: new Headers(init.headers) });
     return answer(url);
   };
   return { fetch, requests };
@@ -29,7 +30,7 @@ describe('businessReader — the service-role read by repository', () => {
     const db = recordingFetch(() => json(BUSINESS));
     const read = businessReader({ url: 'https://db.example', key: 'service-key', fetch: db.fetch });
     expect(await read('acme/widgets')).toEqual(BUSINESS);
-    const [request] = db.requests;
+    const request = db.requests[0]!;
     expect([request.method, request.url.pathname]).toEqual(['POST', '/rest/v1/rpc/business_for_repo_app']);
     expect(request.body).toEqual({ p_repo: 'acme/widgets' });
     expect(request.headers.get('apikey')).toBe('service-key');
@@ -67,7 +68,7 @@ describe('canonFromEnv — the gate bound to the environment', () => {
     const gate = await canonFromEnv(env, { fetch: calls.fetch }).grade({ repo: 'acme/widgets', spec: 'We build for groups of companies.' });
     expect(gate).toMatchObject({ ok: false, reason: 'canon ✗ 1' });
     const model = calls.requests.find((request) => request.url.hostname === 'openrouter.ai');
-    expect(model.body.model).toBe(CANON_MODEL);
-    expect(model.headers.get('authorization')).toBe('Bearer k');
+    expect(model?.body?.model).toBe(CANON_MODEL);
+    expect(model?.headers.get('authorization')).toBe('Bearer k');
   });
 });
