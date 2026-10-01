@@ -3211,3 +3211,631 @@ Cheap: add zod ^4 to apps/omni-app/package.json and the lockfile in one later ch
 ```
 
 <!-- /omni-outbox-settled: s22-03-app-imports-zod-through-the-root -->
+
+<!-- omni-outbox-settled: s23-01-galaxy-contract-kept-beside-typed-sources -->
+
+## s23-01-galaxy-contract-kept-beside-typed-sources — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s23
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s23-01-galaxy-contract-kept-beside-typed-sources
+prd: 725
+slice: s23
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+Should the arcade keep reading the galaxy package through its hand-written description, or read the typed code itself now that the code carries its own types?
+
+## The decision, in plain words
+
+The hand-written description stays as what the arcade reads, but its shapes now live in one shared place the code also uses, and a check fails the build when the code and the description drift apart.
+
+## The intro, for fun
+
+Two maps of the same galaxy, and somebody has to decide which one the pilots fly by.
+
+## The punchline, for fun
+
+For now the old map stays on the wall, stapled to the new one so they cannot disagree.
+
+## The options, in plain words
+
+A. Keep the hand-written description as what the arcade reads, its shapes shared with the code and a check that fails when they drift (built).
+B. Let the arcade read the typed code directly and drop the description, as the design package already does; the arcade then checks the game's code too.
+C. Keep the description but have it copy every signature from the code automatically, dropping the drift check.
+
+## What I had to decide
+
+Whether packages/galaxy keeps index.d.ts as the arcade's contract (types re-exported from types.ts, held to the sources by contract.test.ts), or points its package types at index.ts as packages/design does, which pulls the game's typed sources into the arcade's type check.
+
+## What I did meanwhile
+
+index.d.ts re-exports every shape from the new types.ts and declares the functions; contract.test.ts makes tsc check each source export against its declaration. LedgerEvent keeps type: string for the arcade, so buildGalaxy hands its rows to the game's score() through one marked cast.
+
+## What it costs to change later
+
+A constant: change the package.json types entry to ./src/index.ts and delete index.d.ts and contract.test.ts; no data or behaviour moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Not tried: whether the arcade's tsc stays green when it compiles game/ under its own looser config; option B needs that run.
+- (author) The declared XP functions take LedgerEvent while the game's take GameEvent; the contract check accepts them because declared functions compare bivariantly, so that one seam is not held strictly.
+
+```
+
+<!-- /omni-outbox-settled: s23-01-galaxy-contract-kept-beside-typed-sources -->
+
+<!-- omni-outbox-settled: s23-02-demo-regions-carry-no-feature-pr -->
+
+## s23-02-demo-regions-carry-no-feature-pr — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s23
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s23-02-demo-regions-carry-no-feature-pr
+prd: 725
+slice: s23
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The demo world's raw snapshot now says outright that each repository has no feature pull request of its own, where it used to leave that unsaid. Is that acceptable?
+
+## The decision, in plain words
+
+Yes for now: the game already reads a missing value and an empty one the same way, so the demo's events, galaxy and points are identical before and after.
+
+## The intro, for fun
+
+The demo planets filled in a blank on their paperwork that nobody ever read.
+
+## The punchline, for fun
+
+Same planets, same points, one extra 'none' in the margin.
+
+## The options, in plain words
+
+A. The demo says each repository has no feature pull request of its own, as the game's shape asks (built).
+B. Let the game's shape leave that value out, and leave the demo as it was.
+
+## What I had to decide
+
+Whether demoSnapshot's regions may carry featurePr: null, which the game's Snapshot type requires, or whether the game's Region type should make featurePr optional instead.
+
+## What I did meanwhile
+
+demoSnapshot writes featurePr: null on every region. Nothing outside the package reads demoSnapshot; demoEvents, buildGalaxy and borrowedXp were compared as JSON at three dates and are identical.
+
+## What it costs to change later
+
+A constant: drop the field from the demo and make Region.featurePr optional in game/types.ts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) demoSnapshot's JSON grows by the added field, about 300 bytes; no caller reads it today.
+
+```
+
+<!-- /omni-outbox-settled: s23-02-demo-regions-carry-no-feature-pr -->
+
+<!-- omni-outbox-settled: s24-01-arcade-malformed-reads-fall-back -->
+
+## s24-01-arcade-malformed-reads-fall-back — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s24
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s24-01-arcade-malformed-reads-fall-back
+prd: 725
+slice: s24
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+Three things the game screens read from outside are now checked before use: the team members list, a saved team, and the demo player kept in the browser. When one comes back in the wrong shape, what should happen?
+
+## The decision, in plain words
+
+Each falls back the way that screen already falls back when the read fails: the people list shows plain photos, the team form says it could not save, and the demo starts a fresh guest. A correct read behaves exactly as before.
+
+## The intro, for fun
+
+The game used to trust every parcel at the door, even the ones that rattled.
+
+## The punchline, for fun
+
+Now a rattling parcel gets the same polite shrug as a missing one.
+
+## The options, in plain words
+
+A. A: a read of the wrong shape falls back like a failed read, each screen as it already does
+B. B: a read of the wrong shape stops the screen with an error naming the field
+C. C: fall back, and also report the wrong shape to the error tracker
+
+## What I had to decide
+
+Whether a read of the wrong shape should fall back like a failed read, or stop the screen with an error.
+
+## What I did meanwhile
+
+apps/galaxy/src/people/load.ts parses workspace_roster and teams rows (RosterRowSchema, FleetLookRowSchema); a bad row logs 'people: ... could not be read' with the field, and the directory falls back. apps/galaxy/src/fleets/store.ts parses the row each fleet function answers; a bad one is the refusal COULD_NOT_SAVE. apps/galaxy/src/arcade/account-demo.ts parses the guest kept in localStorage with loose objects (unknown fields kept); a bad one is a fresh guest. A test covers each bad case.
+
+## What it costs to change later
+
+A constant per screen: throw instead of returning the fallback in three catch paths.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The generated database types say workspace_roster returns no nulls, yet a member with no name, login, avatar or fleet returns null; the schema keeps them nullable, as the code always read them (author)
+- (author) A demo guest saved by an older build with a field missing now restarts as a fresh guest; no such older shape is known (author)
+
+```
+
+<!-- /omni-outbox-settled: s24-01-arcade-malformed-reads-fall-back -->
+
+<!-- omni-outbox-settled: s24-02-arcade-style-variables-helper -->
+
+## s24-02-arcade-style-variables-helper — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s24
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s24-02-arcade-style-variables-helper
+prd: 725
+slice: s24
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The game screens colour many elements through style variables, which the typing rules only accept with a forced conversion on each line. Should each line carry its own marked conversion, or should one small shared helper do it once?
+
+## The decision, in plain words
+
+One small helper in the game's folder does the conversion once, and every screen in this slice uses it. The pages draw exactly the same.
+
+## The intro, for fun
+
+Eighteen screens each had to sign the same permission slip to wear a colour.
+
+## The punchline, for fun
+
+Now one slip sits at the front desk and everyone points at it.
+
+## The options, in plain words
+
+A. A: one helper in the game's folder, used by this slice's screens
+B. B: a marked conversion on every line that sets a style variable
+C. C: teach the typing rules about style variables once for the whole web app
+
+## What I had to decide
+
+How to type React styles that set CSS custom properties without a marked cast on every element.
+
+## What I did meanwhile
+
+Added apps/galaxy/src/arcade/css-vars.ts (cssVars, one `// ts-allow:` cast). It replaced 18 `['--x' as string]` keys in arcade/scenes and the `as CSSProperties` casts in fleets/FleetCard.tsx, people/FleetChip.tsx, design/DesignScreen.tsx and arcade/ArcadeApp.tsx. The non-null assertions the index checks needed are left unmarked, as builder.ts already had them: the guard names only `any` and `as`.
+
+## What it costs to change later
+
+Cheap: inline the casts back with a `// ts-allow:` each, or move the helper somewhere shared when the other arcade folders want it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) business/BusinessView.tsx and home/spreads/Game.tsx, in sibling slices, keep the same casts; whether s29 folds them onto this helper is not planned (author)
+- (author) Whether the ratchet will also count non-null assertions is not written down (author)
+
+```
+
+<!-- /omni-outbox-settled: s24-02-arcade-style-variables-helper -->
+
+<!-- omni-outbox-settled: s25-01-arcade-casts-and-reads-left-as-they-were -->
+
+## s25-01-arcade-casts-and-reads-left-as-they-were — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s25
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s25-01-arcade-casts-and-reads-left-as-they-were
+prd: 725
+slice: s25
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+In this part of the web app, should every shortcut the code takes with its types carry a written reason, and should every value it reads from outside be checked against a rule, as the rest of the repository now does?
+
+## The decision, in plain words
+
+Not in this step: the web app was changed only where the stricter list checks and the typed database needed it, as the design says. The shortcuts and the outside reads stay as they were, for the final tightening step to settle.
+
+## The intro, for fun
+
+Three hundred type shortcuts sat in a row, each waiting to explain itself.
+
+## The punchline, for fun
+
+They were told the explaining starts in the last chapter.
+
+## The options, in plain words
+
+A. A: leave the arcade's existing casts and outside reads as they were; the ratchet slice decides whether its guard covers the web app
+B. B: mark every existing cast in these folders with a written reason now, a comments-only change
+C. C: mark every cast and add schemas at every outside read in these folders now
+
+## What I had to decide
+
+Whether the arcade slices must mark every source `as`/`any` with `// ts-allow: <reason>` and parse every outside read through a Zod schema, when the spec's Out list says the arcade's code changes only for its index checks and the Database type.
+
+## What I did meanwhile
+
+apps/galaxy/src/{ask,dashboard,profile,signup,proxy,working} and apps/galaxy/proxy.ts pass `tsc -p apps/galaxy --noUncheckedIndexedAccess` and `--erasableSyntaxOnly` with no error; the Supabase clients the territory opens are created with `<Database>`. About 300 existing source casts are left unmarked, and outside reads (env, JSON bodies, OpenRouter, GitHub) keep their existing hand checks with no new Zod schema. The few new casts this slice wrote (a YYYY-MM-DD split read as three numbers) carry `// ts-allow:`.
+
+## What it costs to change later
+
+Comments only for the casts (one `// ts-allow: <reason>` per line, about 300 lines across the six folders), or a scope line in the s29 guard that leaves apps/galaxy out; Zod schemas at the arcade's outside reads would be a separate behaviour-neutral pass per folder.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the s29 guard is meant to scan apps/galaxy is not written: the plan's done-when asks every typing slice to mark casts, while the spec's Out list keeps the arcade's code unchanged beyond index checks and Database
+- (author) The sibling arcade slices (s24, s26 to s28) may have answered this differently in the same wave
+
+```
+
+<!-- /omni-outbox-settled: s25-01-arcade-casts-and-reads-left-as-they-were -->
+
+<!-- omni-outbox-settled: s26-01-arcade-iii-reads-keep-hand-checks -->
+
+## s26-01-arcade-iii-reads-keep-hand-checks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s26
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s26-01-arcade-iii-reads-keep-hand-checks
+prd: 725
+slice: s26
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The dossier pages, the home page and the waiting badges read data from the browser's storage, from our own web routes and from GitHub. Should those reads be rewritten to go through a formal schema now, or may they keep the checks they already make by hand?
+
+## The decision, in plain words
+
+They keep the checks they already make by hand, so nothing the pages show can change. Each spot where the code trusts the shape it was given now says why, in a short note on that line.
+
+## The intro, for fun
+
+Some doors already had a bouncer checking names by hand.
+
+## The punchline, for fun
+
+We gave each bouncer a name badge instead of hiring a new one.
+
+## The options, in plain words
+
+A. Keep the hand-written checks, and mark each cast with its reason: no output change.
+B. Replace each hand-written check with a folder-local Zod schema, at the risk of small changes in what a malformed value does.
+C. Leave it to a follow-up pull request after the ratchet: the same as A now, with a ticket for B.
+
+## What I had to decide
+
+Whether this slice should have replaced the existing hand-written checks on outside reads with schemas.
+
+## What I did meanwhile
+
+Every cast in the slice's source files carries a ts-allow reason, the hand-written checks stay as they were, and the index checks and the Database-typed clients are in place.
+
+## What it costs to change later
+
+Replacing a hand-written check with a schema later is a local change in one file per read, with its existing tests as the guard.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) I did not list every outside read in the territory one by one; the ones seen are the browser-storage reads in waiting/alerts, waiting/documents and dossier/page/outbox-picks, the route answers read in dossier/page/OutboxSend, waiting/outbox and waiting/business, and GitHub's answers in dossier/github/reader.
+- (author) The plan's done-when asks for a schema on every outside read; this slice meets it only where a schema already existed (dossier/page/voice).
+
+```
+
+<!-- /omni-outbox-settled: s26-01-arcade-iii-reads-keep-hand-checks -->
+
+<!-- omni-outbox-settled: s27-01-arcade-iv-casts-left-unmarked -->
+
+## s27-01-arcade-iv-casts-left-unmarked — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s27
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s27-01-arcade-iv-casts-left-unmarked
+prd: 725
+slice: s27
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+Should this part of the game site have every loose type shortcut labelled and every outside read checked now, or only what the stricter list checks and the database types need?
+
+## The decision, in plain words
+
+Only what the stricter list checks and the database types need was changed, as the spec's out-of-scope list asks. About 130 older type shortcuts stay unlabelled for the final clean-up step to decide.
+
+## The intro, for fun
+
+The plan said tidy the whole room; the spec said only touch the shelf.
+
+## The punchline, for fun
+
+So the shelf is spotless and the rest of the room waits for its turn.
+
+## The options, in plain words
+
+A. Leave the arcade's existing casts and reads as they are; s29 decides (what I built)
+B. Mark every arcade cast with ts-allow in a follow-up before s29
+C. Mark the casts and add Zod schemas at every outside read in the arcade
+
+## What I had to decide
+
+Whether the arcade's existing casts get a ts-allow mark (and its outside reads a Zod schema) in these slices, in the ratchet slice, or never.
+
+## What I did meanwhile
+
+apps/galaxy business, business-api, jev, proof, engineering and repositories now type-check with noUncheckedIndexedAccess (non-null assertions only, no output change) and the two pages that open a browser Supabase client pass Database to it; the four cast lines touched there carry a ts-allow mark. The other ~130 as/any lines in this territory's source, and its Supabase and fetch reads, are untouched.
+
+## What it costs to change later
+
+Cheap either way: adding a ts-allow comment to each line, or a schema at each read, changes no output and can be done by s29 or a follow-up in one pass.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s29's guard will scan apps/galaxy, where these unmarked casts would then fail it
+- (author) Whether the plan's per-slice 'casts marked' and 'outside reads parsed' rules were meant to bind the arcade slices, given the spec's out-of-scope line
+
+```
+
+<!-- /omni-outbox-settled: s27-01-arcade-iv-casts-left-unmarked -->
+
+<!-- omni-outbox-settled: s28-01-player-first-save-typing -->
+
+## s28-01-player-first-save-typing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s28
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s28-01-player-first-save-typing
+prd: 725
+slice: s28
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+When someone joins a fleet for the first time, the arcade may send their row without a name or a hero, and the database refuses a row missing either. Should the first save be made to always carry both?
+
+## The decision, in plain words
+
+The save that creates or changes a player stays as it was, untyped against the database, so nothing it does changes. Every other read and write in this slice is now checked against the database's own description.
+
+## The intro, for fun
+
+The types noticed a new player might arrive with no name and no face.
+
+## The punchline, for fun
+
+The database already turns such strangers away at the door; the question is who tells them first.
+
+## The options, in plain words
+
+A. Leave the save untyped against the database, and the database's refusal stands: what was built, with no behaviour change in this slice.
+B. Type the first save so it must carry a name and a hero: a later change to the save and the fleet screens that call it, after which the compiler refuses a first save missing either.
+
+## What I had to decide
+
+Whether the first save of a player must carry a name and a hero, checked before it reaches the database.
+
+## What I did meanwhile
+
+The save works as before: a first save without a name or a hero is refused by the database and the screen shows that refusal.
+
+## What it costs to change later
+
+A constant: typing the save against the database later is a change to one function and its callers' patch type.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether any screen ever creates a player without both a name and a hero was not traced through the arcade's fleet screens, which other slices own (author).
+
+```
+
+<!-- /omni-outbox-settled: s28-01-player-first-save-typing -->
