@@ -30815,9 +30815,9 @@ function plural2(count3, singular, pluralForm = `${singular}s`) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
-function slackOwner({ slackId, login } = {}) {
+function slackOwner({ slackId, login: login2 } = {}) {
   if (typeof slackId === "string" && SLACK_USER_ID.test(slackId)) return { slackId };
-  if (typeof login === "string" && login.trim() !== "") return { login: login.trim() };
+  if (typeof login2 === "string" && login2.trim() !== "") return { login: login2.trim() };
   return null;
 }
 function ownerText(owner) {
@@ -31921,22 +31921,22 @@ var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
 var isText3 = (value) => typeof value === "string" && value.length > 0;
 function tokenEntry(reply) {
   if (!reply || typeof reply !== "object" || Array.isArray(reply)) return null;
-  const { access_token, refresh_token, expires_at, email: email3, login } = reply;
+  const { access_token, refresh_token, expires_at, email: email3, login: login2 } = reply;
   if (!isText3(access_token) || !isText3(refresh_token)) return null;
   return {
     access_token,
     refresh_token,
     expires_at: typeof expires_at === "number" ? expires_at : null,
     ...isText3(email3) ? { email: email3 } : {},
-    ...isText3(login) ? { login } : {}
+    ...isText3(login2) ? { login: login2 } : {}
   };
 }
 function workspaceOf(value) {
   if (!value || typeof value !== "object" || !isText3(value.name)) return null;
   return { slug: isText3(value.slug) ? value.slug : null, name: value.name };
 }
-function signedInLine({ login, email: email3, repo, workspace, reason: reason2 } = {}) {
-  const who2 = isText3(login) ? login : isText3(email3) ? email3 : null;
+function signedInLine({ login: login2, email: email3, repo, workspace, reason: reason2 } = {}) {
+  const who2 = isText3(login2) ? login2 : isText3(email3) ? email3 : null;
   const head = who2 ? `signed in as ${who2}` : "signed in";
   if (!isText3(repo)) return head;
   if (workspace && isText3(workspace.name)) return `${head} \u2014 ${repo} goes to ${workspace.name}`;
@@ -33486,8 +33486,8 @@ function unrecognizedKeyMessage(key) {
   if (key === "plan") {
     return 'unexpected field "plan" \u2014 the plan is always the sibling plan.md, never a front-matter value';
   }
-  const named2 = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
-  return `unexpected field "${key}"${named2}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
+  const named3 = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
+  return `unexpected field "${key}"${named3}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas and proof`;
 }
 function parseSpec(text4, { file: file2 = null } = {}) {
   const blockMatch = text4.match(FRONT_MATTER_BLOCK4);
@@ -34985,11 +34985,11 @@ function parseConcept(text4) {
   const { areas, faults } = areasSection ? areasOf(areasSection.lines, front.scale) : { areas: [], faults: [] };
   errors.push(...faults);
   if (errors.length) return { ok: false, errors };
-  const named2 = /* @__PURE__ */ new Map();
-  for (const section4 of sections) if (!named2.has(section4.name)) named2.set(section4.name, section4.lines.join("\n").trim());
+  const named3 = /* @__PURE__ */ new Map();
+  for (const section4 of sections) if (!named3.has(section4.name)) named3.set(section4.name, section4.lines.join("\n").trim());
   return {
     ok: true,
-    record: { ...front.data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named2.get(name)])), areas }
+    record: { ...front.data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named3.get(name)])), areas }
   };
 }
 
@@ -35152,21 +35152,21 @@ var SIGNATURES = Object.freeze(["signed", "before signing", "missed"]);
 var BY_THE_APP = "by the app";
 var MERGED_PR = /\(#(\d+)\)\s*$/;
 function mergedPullRequest(message) {
-  const match = MERGED_PR.exec(String(message ?? "").split("\n")[0]);
+  const match = MERGED_PR.exec(String(message ?? "").split("\n")[0] ?? "");
   return match ? Number(match[1]) : null;
 }
 var keyOf = (repo, number4) => `${repo}#${number4}`;
-var time3 = (iso) => Date.parse(iso);
+var time3 = (iso) => Date.parse(String(iso));
 function kindOf(names, labels) {
   if (names.includes(labels.phase0)) return "phase-0";
   if (names.includes(labels.feature)) return "feature";
   if (names.includes(labels.sub)) return "slice";
   return "other";
 }
-function sameAccount(author, login) {
-  if (!author || !login) return false;
+function sameAccount(author, login2) {
+  if (!author || !login2) return false;
   const said = String(author).toLowerCase();
-  const wanted = login.toLowerCase();
+  const wanted = login2.toLowerCase();
   return said === wanted || wanted.endsWith("[bot]") && said === `app/${wanted.slice(0, -"[bot]".length)}`;
 }
 function withSignatures(items, signing) {
@@ -35243,11 +35243,14 @@ function creditCommits(commits) {
     repo: commit.repo,
     sha: commit.sha,
     date: commit.date,
-    subject: String(commit.message ?? "").split("\n")[0].trim(),
+    subject: (String(commit.message ?? "").split("\n")[0] ?? "").trim(),
     pullRequest: mergedPullRequest(commit.message)
   })).sort((a, b) => (time3(a.date) || 0) - (time3(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));
 }
 var zeros = (keys) => Object.fromEntries(keys.map((key) => [key, 0]));
+function bump(counts2, key) {
+  counts2[key] = (counts2[key] ?? 0) + 1;
+}
 function tally(items, keyFor) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const item2 of items) {
@@ -35268,10 +35271,10 @@ function summarize(items, { commits = null, app = false } = {}) {
     }
     const totals = item2.type === "pr" ? prs : prdIssues;
     totals.total += 1;
-    totals.states[item2.state] += 1;
-    if (item2.signature !== null) totals.signatures[item2.signature] += 1;
+    bump(totals.states, item2.state);
+    if (item2.signature !== null) bump(totals.signatures, item2.signature);
     if (item2.type !== "pr") continue;
-    prs.kinds[item2.kind] += 1;
+    bump(prs.kinds, item2.kind);
     counted3.push(item2);
   }
   return {
@@ -35287,6 +35290,42 @@ function summarize(items, { commits = null, app = false } = {}) {
 // kit/lib/credits/reader.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync10 } from "node:child_process";
+
+// kit/lib/credits/schema.ts
+init_define_OMNI_BUNDLE();
+var named2 = external_exports.object({ name: external_exports.string() });
+var login = external_exports.object({ login: external_exports.string().nullish() });
+var ViewedPullRequestSchema = external_exports.object({
+  number: external_exports.number(),
+  title: external_exports.string().nullish(),
+  state: external_exports.string().nullish(),
+  createdAt: external_exports.string().nullish(),
+  labels: external_exports.array(named2).nullish(),
+  body: external_exports.string().nullish(),
+  author: login.nullish()
+});
+var SearchedItemSchema = ViewedPullRequestSchema.extend({
+  repository: external_exports.object({ nameWithOwner: external_exports.string() })
+});
+var SearchedItemsSchema = external_exports.array(SearchedItemSchema);
+var SearchedCommitSchema = external_exports.object({
+  sha: external_exports.string(),
+  commit: external_exports.object({
+    message: external_exports.string().nullish(),
+    committer: external_exports.object({ date: external_exports.string().nullish() }).nullish()
+  }).nullish(),
+  repository: external_exports.object({ fullName: external_exports.string() })
+});
+var SearchedCommitsSchema = external_exports.array(SearchedCommitSchema);
+function parseGh(schema, value, what) {
+  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed.success) return parsed.data;
+  const issue2 = parsed.error.issues[0];
+  const field3 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
+  throw new Error(`${what} printed an unexpected shape: ${field3}${issue2?.message ?? "invalid"}`);
+}
+
+// kit/lib/credits/reader.ts
 var SEARCH_CAP = 1e3;
 var PR_FIELDS2 = "number,title,state,createdAt,labels,body,repository,author";
 var BOT_SUFFIX = "[bot]";
@@ -35294,6 +35333,7 @@ var VIEW_FIELDS = "number,title,state,createdAt,labels,body,author";
 var COMMIT_FIELDS = "sha,commit,repository";
 var MAX_BUFFER = 64 * 1024 * 1024;
 var GitHubUnreadable = class extends Error {
+  reason;
   constructor(reason2, message) {
     super(message);
     this.name = "GitHubUnreadable";
@@ -35301,7 +35341,8 @@ var GitHubUnreadable = class extends Error {
   }
 };
 var firstLine2 = (text4) => String(text4 ?? "").split("\n").map((line) => line.trim()).find(Boolean) ?? "";
-function unreadable(error62) {
+function unreadable(caught) {
+  const error62 = failureOf(caught);
   if (error62?.code === "ENOENT") {
     return new GitHubUnreadable("missing", "gh is not installed: install the GitHub CLI, then run gh auth login.");
   }
@@ -35315,12 +35356,15 @@ ${error62?.message ?? ""}`;
   }
   return new GitHubUnreadable("failed", `gh failed: ${firstLine2(error62?.stderr) || firstLine2(error62?.message)}`);
 }
+function failureOf(caught) {
+  return typeof caught === "object" && caught !== null ? caught : null;
+}
 function toIso(value) {
   const date5 = new Date(String(value ?? ""));
   return value && !Number.isNaN(date5.getTime()) ? date5.toISOString().replace(/\.\d{3}Z$/, "Z") : null;
 }
-function openedBy(login) {
-  return login.toLowerCase().endsWith(BOT_SUFFIX) ? ["--app", login.slice(0, -BOT_SUFFIX.length)] : ["--author", login];
+function openedBy(login2) {
+  return login2.toLowerCase().endsWith(BOT_SUFFIX) ? ["--app", login2.slice(0, -BOT_SUFFIX.length)] : ["--author", login2];
 }
 function pullRequest(raw, repo) {
   return {
@@ -35336,7 +35380,12 @@ function pullRequest(raw, repo) {
 }
 var shown2 = (arg) => /\s/.test(arg) ? JSON.stringify(arg) : arg;
 function readCredits({ owner, repo, since, labels, signature, exec = execFileSync10, env }) {
-  const options = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: MAX_BUFFER, ...env ? { env } : {} };
+  const options = {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: MAX_BUFFER,
+    ...env ? { env } : {}
+  };
   const gh = (args) => {
     try {
       return String(exec("gh", args, options));
@@ -35351,7 +35400,7 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
     const tail = keyword === null ? [] : ["--", keyword];
     const text4 = gh([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
     const rows2 = text4 ? JSON.parse(text4) : [];
-    if (rows2.length >= SEARCH_CAP) {
+    if (Array.isArray(rows2) && rows2.length >= SEARCH_CAP) {
       warnings.push(`gh ${[...query, ...tail].map(shown2).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
     }
     return rows2;
@@ -35360,13 +35409,14 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
   const issues = /* @__PURE__ */ new Map();
   const keeper = (into) => (item2) => {
     const key = `${item2.repo}#${item2.number}`;
-    if (item2.createdAt !== null && !into.has(key)) into.set(key, item2);
+    const { createdAt } = item2;
+    if (createdAt !== null && !into.has(key)) into.set(key, { ...item2, createdAt });
   };
   const keep = keeper(prs);
   const keepIssue = keeper(issues);
   const created = from ? ["--created", from] : [];
-  const searchItems = (type, narrowing, keyword) => search(["search", type, ...scope, ...narrowing, ...created], PR_FIELDS2, keyword).map(
-    (raw) => pullRequest(raw, raw.repository?.nameWithOwner)
+  const searchItems = (type, narrowing, keyword = null) => parseGh(SearchedItemsSchema, search(["search", type, ...scope, ...narrowing, ...created], PR_FIELDS2, keyword), `gh search ${type}`).map(
+    (raw) => pullRequest(raw, raw.repository.nameWithOwner)
   );
   const result = (commits2) => ({ prs: [...prs.values()], issues: [...issues.values()], commits: commits2, warnings });
   for (const label of /* @__PURE__ */ new Set([labels.phase0, labels.feature, labels.sub])) {
@@ -35377,24 +35427,24 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
   searchItems("prs", ["--match", "body"], signature.name).filter((pr) => isSignedBody(pr.body)).forEach(keep);
   searchItems("issues", ["--match", "body"], signature.name).filter((issue2) => isSignedBody(issue2.body)).forEach(keepIssue);
   const committed = from ? ["--committer-date", from] : [];
-  const commits = search(["search", "commits", ...scope, ...committed], COMMIT_FIELDS, signature.name).map((raw) => ({ repo: raw.repository?.fullName, sha: raw.sha, message: raw.commit?.message ?? "", date: toIso(raw.commit?.committer?.date) })).filter((commit) => carriesTrailer(commit.message, signature));
-  const login = botLogin(signature.email);
-  if (login !== null) {
-    searchItems("prs", openedBy(login)).forEach(keep);
-    searchItems("issues", openedBy(login)).forEach(keepIssue);
+  const commits = parseGh(SearchedCommitsSchema, search(["search", "commits", ...scope, ...committed], COMMIT_FIELDS, signature.name), "gh search commits").map((raw) => ({ repo: raw.repository.fullName, sha: raw.sha, message: raw.commit?.message ?? "", date: toIso(raw.commit?.committer?.date) })).filter((commit) => carriesTrailer(commit.message, signature));
+  const login2 = botLogin(signature.email);
+  if (login2 !== null) {
+    searchItems("prs", openedBy(login2)).forEach(keep);
+    searchItems("issues", openedBy(login2)).forEach(keepIssue);
   }
   for (const commit of commits) {
     const number4 = mergedPullRequest(commit.message);
     if (number4 === null || prs.has(`${commit.repo}#${number4}`)) continue;
-    let raw;
+    let text4;
     try {
-      raw = JSON.parse(gh(["pr", "view", String(number4), "--repo", commit.repo, "--json", VIEW_FIELDS]));
+      text4 = gh(["pr", "view", String(number4), "--repo", commit.repo, "--json", VIEW_FIELDS]);
     } catch (error62) {
       if (!(error62 instanceof GitHubUnreadable) || error62.reason !== "failed") throw error62;
       warnings.push(`${commit.repo}#${number4}, named by a signed commit, could not be read: ${error62.message.replace(/^gh failed: /, "")}`);
       continue;
     }
-    keep(pullRequest(raw, commit.repo));
+    keep(pullRequest(parseGh(ViewedPullRequestSchema, JSON.parse(text4), "gh pr view"), commit.repo));
   }
   return result(commits);
 }
@@ -35433,6 +35483,7 @@ function creditsReport({ name, scope, since, summary }) {
   );
   return lines;
 }
+var cellOf = (row, index) => row[index] ?? "";
 function creditsList(items) {
   const rows2 = items.map((item2) => [
     shortName2(item2.repo),
@@ -35443,8 +35494,8 @@ function creditsList(items) {
     item2.signature ?? "-",
     item2.title
   ]);
-  const widths = rows2.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
-  return rows2.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
+  const widths = rows2.reduce((max, row) => max.map((width, index) => Math.max(width, cellOf(row, index).length)), Array(6).fill(0));
+  return rows2.map((row) => [...widths.map((width, index) => cellOf(row, index).padEnd(width)), row[6]].join(" "));
 }
 
 // kit/bin/commands/credits.ts
@@ -36137,7 +36188,7 @@ import { join as join38 } from "node:path";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
 var MergeSchema = external_exports.object({
-  by: external_exports.string().trim().transform((login) => login.replace(/^@/, "")).pipe(external_exports.string().min(1, "merge.by is required \u2014 who merged")),
+  by: external_exports.string().trim().transform((login2) => login2.replace(/^@/, "")).pipe(external_exports.string().min(1, "merge.by is required \u2014 who merged")),
   at: external_exports.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
@@ -36551,14 +36602,14 @@ function sectionOf(candidate, key) {
 }
 function makeNumbering({ ctx, taken }) {
   const highest = /* @__PURE__ */ new Map();
-  const bump = (key, n) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
+  const bump2 = (key, n) => highest.set(key, Math.max(highest.get(key) ?? 0, Number(n)));
   for (const entry of readKnowledge({ ctx }).entries) {
     const parts = idParts(entry.id);
-    if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
+    if (parts && parts.codes.length === 1) bump2(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
   for (const id of taken.ids ?? []) {
     const parts = idParts(id);
-    if (parts && parts.codes.length === 1) bump(`${parts.type}-${parts.codes[0]}`, parts.n);
+    if (parts && parts.codes.length === 1) bump2(`${parts.type}-${parts.codes[0]}`, parts.n);
   }
   let record2 = Number(readDecisions({ ctx }).next) - 1;
   for (const number4 of taken.records ?? []) record2 = Math.max(record2, Number(String(number4).replace(/^ADR-/, "")));
@@ -37945,8 +37996,8 @@ function renderOverview(config3, { entries: entries3 = ENTRIES } = {}) {
   const commands = entries3.filter((e) => e.kind === "command" && e.who === "skills").map((e) => e.name);
   const skills = entries3.filter((e) => e.kind === "skill" && e.who === "skills").map((e) => `/omni:${e.name}`);
   if (commands.length || skills.length) {
-    const named2 = [commands.join(", "), skills.join(", ")].filter(Boolean).join("; and ");
-    lines.push("", ...wrapWords(`Run by the skills: ${named2}.`, { indent: HELP_INDENT }));
+    const named3 = [commands.join(", "), skills.join(", ")].filter(Boolean).join("; and ");
+    lines.push("", ...wrapWords(`Run by the skills: ${named3}.`, { indent: HELP_INDENT }));
   }
   lines.push("", HELP_CLOSING);
   return lines.join("\n");
@@ -38817,20 +38868,20 @@ function decideRecording({
   });
 }
 function conflictingPrinciples(ids, laws) {
-  const named2 = [...new Set((ids ?? []).map((id) => String(id).trim()).filter(Boolean))];
-  if (named2.length === 0 || laws.source !== "knowledge") return [];
-  const notPrinciples = named2.filter((id) => idParts(id)?.type !== "P");
+  const named3 = [...new Set((ids ?? []).map((id) => String(id).trim()).filter(Boolean))];
+  if (named3.length === 0 || laws.source !== "knowledge") return [];
+  const notPrinciples = named3.filter((id) => idParts(id)?.type !== "P");
   if (notPrinciples.length > 0) {
     throw new Error(
       `only principles can be in conflict \u2014 ${notPrinciples.join(", ")} is not a principle id (P-<CODE>-<n>); a rule or an invariant it would break is breaksNamedLaw`
     );
   }
-  if (named2.length < 2) {
+  if (named3.length < 2) {
     throw new Error(
-      `a conflict needs two principles pulling against each other \u2014 only ${named2[0]} was named`
+      `a conflict needs two principles pulling against each other \u2014 only ${named3[0]} was named`
     );
   }
-  return named2;
+  return named3;
 }
 function recordingDecision({
   outcome,
@@ -39757,8 +39808,8 @@ function unknownRepoViolations(slices, owners) {
 }
 function missingRowViolations(slices, repositories, owners) {
   const rows2 = new Set(repositories.map((row) => row.repo));
-  const named2 = new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)));
-  return [...named2].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
+  const named3 = new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)));
+  return [...named3].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
 }
 function repositoryRowViolations(slices, repositories, { owners, planName }) {
   const violations = [];
@@ -41773,9 +41824,9 @@ function folderOfNumber(folders, prd2) {
   return null;
 }
 function whichPrd({ branch, branches, folders, recorded = null }) {
-  const named2 = branchNames(branch, branches);
-  const fromBranch = named2 ? folderOfTopic(folders, named2.topic) : null;
-  if (fromBranch) return { ...fromBranch, slice: named2.slice };
+  const named3 = branchNames(branch, branches);
+  const fromBranch = named3 ? folderOfTopic(folders, named3.topic) : null;
+  if (fromBranch) return { ...fromBranch, slice: named3.slice };
   const fromRecord = recorded === null ? null : folderOfNumber(folders, recorded);
   return fromRecord ? { ...fromRecord, slice: null } : null;
 }
@@ -42303,13 +42354,13 @@ function prdNumber2(value) {
 }
 function prdNamedBy(argv) {
   const [name, ...rest] = argv;
-  const named2 = [];
+  const named3 = [];
   const subcommands = Object.hasOwn(PRD_BY_POSITION, name ?? "") ? PRD_BY_POSITION[name] : null;
-  if (subcommands && subcommands.every((sub, index) => rest[index] === sub)) named2.push(rest[subcommands.length]);
+  if (subcommands && subcommands.every((sub, index) => rest[index] === sub)) named3.push(rest[subcommands.length]);
   rest.forEach((arg, index) => {
-    if (arg === PRD_FLAG) named2.push(rest[index + 1]);
+    if (arg === PRD_FLAG) named3.push(rest[index + 1]);
   });
-  const numbers = new Set(named2.map(prdNumber2).filter((number4) => number4 !== null));
+  const numbers = new Set(named3.map(prdNumber2).filter((number4) => number4 !== null));
   return numbers.size === 1 ? [...numbers][0] : null;
 }
 function recordPrd(argv, { cwd, env, exec }) {
