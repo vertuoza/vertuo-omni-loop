@@ -14,6 +14,9 @@ import { MAX_QUOTE, verified, type Candidate } from './verify';
 // never a failure; only the store failing fails the run. With no model key nothing is read at all.
 //
 // The same run serves the weekly recheck (s4), started with kind `recheck`.
+//
+// Neither proposes a Never line (PRD 871): a candidate of kind `never` is dropped before it is counted
+// as kept, whatever the extractor answered, since claim_propose_evidence() refuses the kind.
 
 /** What a draft row says it read, by key (`business_drafts.counts`). */
 export interface DraftCounts {
@@ -171,7 +174,7 @@ async function mergeGroup(run: Run, group: Group, where: string, kind: Receipt['
 /** Reads one source's candidates into the store. */
 async function merge(run: Run, extract: Extractor, text: string, where: string, kind: Receipt['kind'], product: string | null) {
   const answered = await extract(text, where);
-  const kept = verified(text, answered);
+  const kept = verified(text, answered).filter((c) => c.kind !== 'never');
   run.counts.found += answered.length;
   run.counts.kept += kept.length;
   for (const group of grouped(kept)) await mergeGroup(run, group, where, kind, product);
