@@ -42,14 +42,14 @@ const RECORD_ID = /^ADR-(\d{4})$/;
 
 function capped(field, max) {
   return z
-    .string({ required_error: `${field} is required`, invalid_type_error: `${field} must be text` })
+    .string({ error: (issue) => (issue.input === undefined ? `${field} is required` : `${field} must be text`) })
     .trim()
     .min(1, `${field} is required`)
     .max(max, `${field} is over its cap of ${max} characters`);
 }
 
 const text = (field) =>
-  z.string({ required_error: `${field} is required`, invalid_type_error: `${field} must be text` }).trim().min(1, `${field} is required`);
+  z.string({ error: (issue) => (issue.input === undefined ? `${field} is required` : `${field} must be text`) }).trim().min(1, `${field} is required`);
 
 const statement = capped('statement', CAPS.statement);
 const reason = capped('reason', CAPS.reason);
@@ -88,7 +88,7 @@ export const ClassificationSchema = z
       z.object({ kind: z.literal('covered'), covers: text('covers'), reason }).strict(),
       z.object({ kind: z.literal('stays-here'), statement, reason }).strict(),
     ],
-    { errorMap: () => ({ message: `kind must be one of: ${CLASSIFICATION_KINDS.join(', ')}` }) },
+    { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(', ')}` },
   )
   .superRefine((reply, context) => {
     if (reply.kind !== 'rule') return;
