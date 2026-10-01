@@ -4,7 +4,8 @@
 //
 //   get_business   {repo?}         exactly the body GET /api/business?repo= answers (decision 8)
 //   get_claims     {kind?, repo?}  that body's claims, of one kind when given
-//   report_unknown {question, repo?, file?}   listed; takes no question until s3 stores them
+//   report_unknown {question, repo?, file?}   stores the question on Settings › Business (PRD 855 s3,
+//                                  agent_question_report(), 20261028100000_agent_questions.sql), and says so
 //
 // The token is checked by the database: galaxy hashes it and business_for_token() reads the business
 // for that hash (supabase/migrations/20261028090000_agent_tokens.sql), as nobody, with no service key
@@ -28,7 +29,8 @@ export type McpDeps = {
 export const LINK_REFUSED = 'This link does not work: make a new one on Settings › Business.';
 const NO_DATABASE = 'The business is not available here: this deployment has no database.';
 const FAILED = 'The business database could not answer. Try again.';
-const NOT_YET = 'Not yet: this link does not take questions yet. Tell your person this is not known, and do not guess.';
+/** What report_unknown answers once the question is stored. */
+export const REPORTED = 'Sent to Settings › Business, where a person will answer it. Tell your person this is not known yet, and do not guess.';
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const CLAIM_KINDS = ['region', 'offering', 'size', 'trade', 'rival', 'never'] as const;
@@ -54,7 +56,8 @@ const text = (body: string, isError = false) => ({ content: [{ type: 'text' as c
 function refused(error: unknown) {
   if (!(error instanceof BusinessStoreError)) throw error;
   if (error.code === '28000') return text(LINK_REFUSED, true);
-  if (error.code === '42501' || error.code === '22023') return text(error.reason, true);
+  // 54000: the link's 31st question in 24 hours (s3), its one line as the database wrote it.
+  if (error.code === '42501' || error.code === '22023' || error.code === '54000') return text(error.reason, true);
   console.error(`mcp: ${error.message}`);
   return text(FAILED, true);
 }
@@ -62,11 +65,15 @@ function refused(error: unknown) {
 function server(hash: string | null, deps: McpDeps): McpServer {
   const mcp = new McpServer({ name: 'omni-business', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
-  /** The read for `repo` (or the only product), as GET /api/business answers it. */
-  const read = async (repo: string | undefined) => {
+  /** The database as nobody, for a request carrying a link's token. */
+  const linked = () => {
     if (!deps.connect) throw new BusinessStoreError('no-database', NO_DATABASE);
     if (!hash) throw new BusinessStoreError('28000', LINK_REFUSED);
-    const db = deps.connect();
+    return deps.connect();
+  };
+  /** The read for `repo` (or the only product), as GET /api/business answers it. */
+  const read = async (repo: string | undefined) => {
+    const db = linked();
     // businessReader() asks for business_for_repo(); the link reads business_for_token(), same body.
     const reader = businessReader({
       rpc: ((_fn: string, args: { p_repo: string }) =>
@@ -112,7 +119,17 @@ function server(hash: string | null, deps: McpDeps): McpServer {
       repo: repoInput,
       file: z.string().max(300).optional().describe('The file you were working on, when it matters.'),
     },
-  }, async () => text(NOT_YET));
+  }, async ({ question, repo, file }) => answered(async () => {
+    const { data, error } = await linked().rpc('agent_question_report', {
+      p_hash: hash, p_question: question, p_repo: repo ?? null, p_file: file ?? null,
+    });
+    if (error) {
+      const e = error as { code?: string; message?: string };
+      throw new BusinessStoreError(e.code, e.message ?? 'no answer');
+    }
+    const asked = (data as { asked?: unknown } | null)?.asked;
+    return typeof asked === 'number' && asked > 1 ? `${REPORTED} It was asked ${asked}× so far.` : REPORTED;
+  }));
 
   return mcp;
 }

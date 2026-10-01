@@ -3,7 +3,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import { hashToken } from '../tokens/token';
-import { handleMcp, LINK_REFUSED, type McpDeps } from './server';
+import { handleMcp, LINK_REFUSED, REPORTED, type McpDeps } from './server';
 
 // The MCP link (PRD 855 s2) driven by the SDK's own client, against a fake store that plays
 // business_for_token() as supabase/migrations/20261028090000_agent_tokens.sql writes it: a live token's
@@ -32,16 +32,15 @@ const NONE = { state: 'none', business: null, product: null, claims: [], persona
 
 type Call = { fn: string; args: Record<string, unknown> };
 
-async function world({ read = READ as unknown, products = 1, database = true } = {}) {
+async function world({ read = READ as unknown, products = 1, database = true, reported = 0 } = {}) {
   const live = await hashToken(LIVE);
   const revoked = await hashToken(REVOKED);
   const calls: Call[] = [];
-  const rpc = async (fn: string, args: Record<string, unknown>) => {
-    calls.push({ fn, args });
-    if (args.p_hash !== live || args.p_hash === revoked) {
-      return { data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } };
-    }
-    const repo = args.p_repo as string | null;
+  // agent_question_report() (s3): stored, asked once more than before, or the limit's 54000.
+  const report = () => (reported >= 30
+    ? { data: null, error: { code: '54000', message: 'This link has sent 30 questions in 24 hours: tell your person this is not known yet, and do not guess.', hint: 'limit' } }
+    : { data: { id: 'q-1', asked: reported + 1 }, error: null });
+  const businessFor = (repo: string | null) => {
     if (repo && !repo.toLowerCase().startsWith('acme/')) {
       return { data: null, error: { code: '42501', message: `Repository: ${repo} is not one of this workspace's repositories.`, hint: 'repo' } };
     }
@@ -49,6 +48,13 @@ async function world({ read = READ as unknown, products = 1, database = true } =
       return { data: null, error: { code: '22023', message: 'Repository: this workspace sells several products, so name the repository you work in: acme/app, acme/site.', hint: 'repo' } };
     }
     return { data: read, error: null };
+  };
+  const rpc = async (fn: string, args: Record<string, unknown>) => {
+    calls.push({ fn, args });
+    if (args.p_hash !== live || args.p_hash === revoked) {
+      return { data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } };
+    }
+    return fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null);
   };
   const deps: McpDeps = { connect: database ? () => ({ rpc }) : null };
 
@@ -180,12 +186,46 @@ describe('/api/mcp, the MCP link', () => {
     expect(w.calls).toEqual([]);
   });
 
-  it('report_unknown is listed but takes no question yet, and says not to guess', async () => {
+  it('report_unknown stores the question with its repository and file, and says it was sent to Settings › Business', async () => {
     const w = await world();
-    const { isError, text } = await w.call(LIVE, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
+    const { isError, text } = await w.call(LIVE, 'report_unknown', {
+      question: 'Do we sell in Luxembourg?', repo: 'acme/widgets', file: 'src/NewQuoteForm.tsx',
+    });
     expect(isError).toBe(false);
-    expect(text).toMatch(/not yet/i);
-    expect(w.calls).toEqual([]);
+    expect(text).toBe(REPORTED);
+    expect(REPORTED).toMatch(/Settings › Business/);
+    expect(w.calls).toEqual([{ fn: 'agent_question_report', args: {
+      p_hash: await hashToken(LIVE), p_question: 'Do we sell in Luxembourg?', p_repo: 'acme/widgets', p_file: 'src/NewQuoteForm.tsx',
+    } }]);
+    const bare = await w.call(LIVE, 'report_unknown', { question: 'Who are our rivals?' });
+    expect(bare.text).toBe(REPORTED);
+    expect(w.calls[1].args).toEqual({ p_hash: await hashToken(LIVE), p_question: 'Who are our rivals?', p_repo: null, p_file: null });
+  });
+
+  it('report_unknown says it was asked before when the same question came again', async () => {
+    const w = await world({ reported: 1 });
+    const { text } = await w.call(LIVE, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
+    expect(text).toMatch(/asked 2×/);
+    expect(text).toMatch(/Settings › Business/);
+  });
+
+  it('the 31st report of a link in 24 hours answers the limit\'s one line', async () => {
+    const w = await world({ reported: 30 });
+    const { isError, text } = await w.call(LIVE, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
+    expect(isError).toBe(true);
+    expect(text).toBe('This link has sent 30 questions in 24 hours: tell your person this is not known yet, and do not guess.');
+  });
+
+  it('report_unknown with a link that does not work answers the one line, and a long question never reaches the database', async () => {
+    const w = await world();
+    for (const token of [null, UNKNOWN, REVOKED]) {
+      const { isError, text } = await w.call(token, 'report_unknown', { question: 'Do we sell in Luxembourg?' });
+      expect(isError).toBe(true);
+      expect(text).toBe(LINK_REFUSED);
+    }
+    const long = await w.call(LIVE, 'report_unknown', { question: 'q'.repeat(301) });
+    expect(long.isError).toBe(true);
+    expect(w.calls.every((c) => c.args.p_hash !== undefined && (c.args.p_question as string).length <= 300)).toBe(true);
   });
 
   it('without a database, every tool says the business is not available here', async () => {
