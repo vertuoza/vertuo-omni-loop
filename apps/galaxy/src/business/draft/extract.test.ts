@@ -27,9 +27,9 @@ describe('extractCandidates', () => {
       { kind: 'region', value: 'Belgium', quote: 'firms in Belgium' },
     ]);
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect(calls[0].auth).toBe('Bearer k');
-    expect(calls[0].body.messages[1].content).toContain('acme/app/README.md');
+    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(calls[0]!.auth).toBe('Bearer k');
+    expect(calls[0]!.body.messages[1]!.content).toContain('acme/app/README.md');
   });
 
   it('finds none when the model answers an error', async () => {
@@ -78,7 +78,7 @@ describe('readCandidates', () => {
   it('asks the model for what the company says it does not do', async () => {
     const { fetch, calls } = answering('[]');
     await extractCandidates('We don\'t answer public tenders.', 'x', { apiKey: 'k', fetch });
-    expect(calls[0].body.messages[0].content).toMatch(/"never"/);
+    expect(calls[0]!.body.messages[0]!.content).toMatch(/"never"/);
   });
 
   it('finds none in a reply that holds no JSON array', () => {

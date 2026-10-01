@@ -56,7 +56,7 @@ function db({
       calls.push(['rpc', fn, args]);
       return { data: open.data ?? null, error: open.error ?? null };
     },
-    from: (table: string) => { calls.push(['from', table]); return query(tables[table]); },
+    from: (table: string) => { calls.push(['from', table]); return query(tables[table]!); },
   };
 }
 

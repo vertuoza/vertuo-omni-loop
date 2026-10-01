@@ -32,7 +32,7 @@ const render = (personas: Persona[], { products = ONE, current = 'p-1', actions 
     state: actions.reduce(personasReducer, initialPersonasState(personas)), products, current,
   }));
 const text = (html: string) => html.replace(/<title>[\s\S]*?<\/title>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 const cards = (html: string) => [...html.matchAll(/data-persona="([^"]+)"/g)].map((m) => m[1]);
 const cardOf = (html: string, id: string) => {
   const from = html.indexOf(`data-persona="${id}"`);
@@ -96,8 +96,8 @@ describe('the drawer', () => {
     expect(open).toContain('aria-label="Add a persona"');
     const tag = (name: string) => [...open.matchAll(/<(?:input|textarea|select)\b[^>]*>/g)].map((m) => m[0]).find((t) => t.includes(`name="${name}"`)) ?? '';
     expect(tag('name')).toContain('maxLength="40"');
-    const stances = buttons(open).filter((b) => b.attrs.includes('data-stance'));
-    expect(stances.map((b) => [b.text, b.attrs.includes('aria-pressed="true"')])).toEqual([['Excited', false], ['Neutral', true], ['Skeptical', false]]);
+    const stances = buttons(open).filter((b) => b.attrs!.includes('data-stance'));
+    expect(stances.map((b) => [b.text, b.attrs!.includes('aria-pressed="true"')])).toEqual([['Excited', false], ['Neutral', true], ['Skeptical', false]]);
     const options = [...open.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]);
     expect(options).toEqual(PERSONA_TRADES.map((t) => t.id));
     expect(tag('who')).toContain('maxLength="400"');
@@ -113,12 +113,12 @@ describe('the drawer', () => {
   it('shows 24 variations of the chosen trade, and Shuffle shows 24 others', () => {
     const first = variations(open);
     expect(first).toHaveLength(24);
-    expect(first.every((v) => v.includes('aria-label="Builder, variation'))).toBe(true);
+    expect(first.every((v) => v!.includes('aria-label="Builder, variation'))).toBe(true);
     const shuffled = variations(render(CAST, { actions: [{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'shuffle' }] }));
     expect(shuffled).toHaveLength(24);
     expect(shuffled.some((v) => first.includes(v))).toBe(false);
     const plumber = variations(render(CAST, { actions: [{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: 'plumber' } }] }));
-    expect(plumber.every((v) => v.includes('aria-label="Plumber, variation'))).toBe(true);
+    expect(plumber.every((v) => v!.includes('aria-label="Plumber, variation'))).toBe(true);
   });
 
   it('outlines the chosen variation, and only it', () => {
@@ -145,14 +145,14 @@ describe('the drawer', () => {
 
 describe('delete and Undo', () => {
   it('removes the card at once and offers Undo', () => {
-    const html = render(CAST, { actions: [{ type: 'deleted', persona: CAST[0], at: 1 }] });
+    const html = render(CAST, { actions: [{ type: 'deleted', persona: CAST[0]!, at: 1 }] });
     expect(cards(html)).toEqual(['pe-2', 'pe-3']);
     expect(text(html)).toContain('Deleted Marc.');
     expect(buttons(html).map((b) => b.text)).toContain(UNDO);
   });
 
   it('brings the card back in its place', () => {
-    const html = render(CAST, { actions: [{ type: 'deleted', persona: CAST[0], at: 1 }, { type: 'restored', persona: CAST[0] }] });
+    const html = render(CAST, { actions: [{ type: 'deleted', persona: CAST[0]!, at: 1 }, { type: 'restored', persona: CAST[0]! }] });
     expect(cards(html)).toEqual(['pe-1', 'pe-2', 'pe-3']);
     expect(buttons(html).map((b) => b.text)).not.toContain(UNDO);
   });
@@ -196,7 +196,7 @@ describe('the demo', () => {
 
   it('holds a persona of every stance, of the demo\'s product, each on a trade the page draws', () => {
     expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['excited', 'neutral', 'skeptical']));
-    expect(DEMO_PERSONAS.every((p) => p.product === DEMO_PRODUCTS[0].id)).toBe(true);
+    expect(DEMO_PERSONAS.every((p) => p.product === DEMO_PRODUCTS[0]!.id)).toBe(true);
     expect(DEMO_PERSONAS.every((p) => PERSONA_TRADES.some((t) => t.id === p.trade))).toBe(true);
   });
 

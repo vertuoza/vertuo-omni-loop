@@ -104,8 +104,8 @@ describe('fading', () => {
   it('✓ Still true clears it', () => {
     const c = claim(1, 'rival', 'X', { receipts: [receipt(ago(9 * WEEK))], lastSeen: ago(9 * WEEK) });
     const after = stillTrue([c], 'c-1', new Date(NOW).toISOString());
-    expect(after[0].lastSeen).toBe(new Date(NOW).toISOString());
-    expect(isFaded(after[0], NOW)).toBe(false);
+    expect(after[0]!.lastSeen).toBe(new Date(NOW).toISOString());
+    expect(isFaded(after[0]!, NOW)).toBe(false);
   });
 
   it('reads last_seen from the stored row', () => {

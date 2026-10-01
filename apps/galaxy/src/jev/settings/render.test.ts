@@ -26,8 +26,8 @@ const render = (key: JevKeyStatus, options: { owner?: boolean; actions?: JevActi
   return html.slice(0, html.indexOf('<section class="ask-card jev-decisions"'));
 };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
-const theSwitch = (html: string) => buttons(html).find((b) => b.attrs.includes('role="switch"'));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
+const theSwitch = (html: string) => buttons(html).find((b) => b.attrs!.includes('role="switch"'));
 const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)\/?>/g)].map((m) => m[1]);
 
 describe('the owner\'s view, with no key', () => {
@@ -97,7 +97,7 @@ describe('a member\'s view', () => {
       expect(inputs(html)).toHaveLength(0);
       expect(text(html)).not.toContain('••••');
       expect(text(html)).toContain(ONLY_OWNER);
-      expect(buttons(html).filter((b) => !b.attrs.includes('disabled'))).toEqual([]);
+      expect(buttons(html).filter((b) => !b.attrs!.includes('disabled'))).toEqual([]);
       expect(buttons(html).map((b) => b.text)).not.toContain('Replace key');
     }
     expect(text(render(MEMBER_STORED, { owner: false }))).toContain('Jev is on for this workspace.');
@@ -118,24 +118,24 @@ describe('the decision rows (PRD 812 s2)', () => {
   it('lists the three decisions, each with what it sends, Off at the defaults', () => {
     const html = page(STORED);
     expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk']);
-    expect(text(row(html, 'question-category'))).toContain('Sends: The round’s questions, their options and descriptions (never a preview)');
-    expect(text(row(html, 'outbox-risk'))).toContain('Sends: The item’s decision text and options');
-    expect(text(row(html, 'bug-risk'))).toContain('Sends: The issue’s title and body');
+    expect(text(row(html, 'question-category')!)).toContain('Sends: The round’s questions, their options and descriptions (never a preview)');
+    expect(text(row(html, 'outbox-risk')!)).toContain('Sends: The item’s decision text and options');
+    expect(text(row(html, 'bug-risk')!)).toContain('Sends: The issue’s title and body');
     expect(row(html, 'question-category')).toMatch(/<option value="off" selected="">Off<\/option>/);
-    expect(valueOf(row(html, 'question-category'), 'threshold')).toBe('0.50');
-    expect(valueOf(row(html, 'question-category'), 'floor')).toBe('0.40');
+    expect(valueOf(row(html, 'question-category')!, 'threshold')).toBe('0.50');
+    expect(valueOf(row(html, 'question-category')!, 'floor')).toBe('0.40');
   });
 
   it('gives the owner a form for each decision, none of them coming any more (s5 registers bug-risk)', () => {
     const html = page(STORED, { decisions: [CATEGORY_ON] });
     const category = row(html, 'question-category');
     expect(category).toMatch(/<option value="on" selected="">On<\/option>/);
-    expect(valueOf(category, 'threshold')).toBe('0.65');
-    expect(valueOf(category, 'floor')).toBe('0.30');
-    expect(buttons(category).map((b) => b.text)).toEqual(['Save']);
+    expect(valueOf(category!, 'threshold')).toBe('0.65');
+    expect(valueOf(category!, 'floor')).toBe('0.30');
+    expect(buttons(category!).map((b) => b.text)).toEqual(['Save']);
     for (const name of ['outbox-risk', 'bug-risk']) {
-      expect(buttons(row(html, name)).map((b) => b.text)).toEqual(['Save']);
-      expect(text(row(html, name))).not.toContain('Coming in this PRD');
+      expect(buttons(row(html, name)!).map((b) => b.text)).toEqual(['Save']);
+      expect(text(row(html, name)!)).not.toContain('Coming in this PRD');
     }
   });
 
@@ -152,8 +152,8 @@ describe('the decision rows (PRD 812 s2)', () => {
     const html = page(MEMBER_STORED, { owner: false, decisions: [CATEGORY_ON] });
     expect(html).not.toContain('<select');
     expect(inputs(html)).toHaveLength(0);
-    expect(text(row(html, 'question-category'))).toContain('Mode On Threshold 0.65 Confidence floor 0.30');
-    expect(buttons(html).filter((b) => !b.attrs.includes('disabled'))).toEqual([]);
+    expect(text(row(html, 'question-category')!)).toContain('Mode On Threshold 0.65 Confidence floor 0.30');
+    expect(buttons(html).filter((b) => !b.attrs!.includes('disabled'))).toEqual([]);
   });
 
   it('moves only the saved decision, and says why a save was refused on its own row', () => {
@@ -168,15 +168,15 @@ describe('the decision rows (PRD 812 s2)', () => {
     expect(again.decisions.filter((d) => d.decision === 'question-category')).toEqual([{ ...CATEGORY_ON, mode: 'shadow' }]);
 
     const html = page(STORED, { actions: [{ type: 'decision-saving', decision: 'question-category' }, { type: 'decision-refused', decision: 'question-category', message: 'Mode: switch Jev on with a key first.' }] });
-    expect(/<p class="jev-refusal" role="alert">([^<]*)<\/p>/.exec(row(html, 'question-category'))?.[1]).toBe('Mode: switch Jev on with a key first.');
+    expect(/<p class="jev-refusal" role="alert">([^<]*)<\/p>/.exec(row(html, 'question-category')!)?.[1]).toBe('Mode: switch Jev on with a key first.');
     expect(row(html, 'outbox-risk')).not.toContain('jev-refusal');
   });
 
   it('waits on every row while one is saved', () => {
     const html = page(STORED, { actions: [{ type: 'decision-saving', decision: 'question-category' }] });
-    const b = buttons(row(html, 'question-category'))[0];
-    expect(b.text).toBe('Saving…');
-    expect(b.attrs).toContain('disabled');
+    const b = buttons(row(html, 'question-category')!)[0];
+    expect(b!.text).toBe('Saving…');
+    expect(b!.attrs).toContain('disabled');
   });
 
   it('sets every decision Off, tuning kept, once the key is removed', () => {
@@ -184,7 +184,7 @@ describe('the decision rows (PRD 812 s2)', () => {
     expect(removed.decisions).toEqual([]);
     const after = ([{ type: 'busy' }, { type: 'saved', key: NONE }] as JevAction[]).reduce(jevReducer, initialState(STORED, [CATEGORY_ON]));
     expect(after.decisions).toEqual([{ ...CATEGORY_ON, mode: 'off' }]);
-    expect(text(row(page(NONE, { decisions: after.decisions }), 'question-category'))).not.toContain('Mode On');
+    expect(text(row(page(NONE, { decisions: after.decisions }), 'question-category')!)).not.toContain('Mode On');
   });
 });
 
@@ -208,51 +208,51 @@ describe('each decision\'s record (PRD 812 s4)', () => {
   const SHADOW: JevDecisionSettings = { decision: 'question-category', mode: 'shadow', threshold: 0.5, floor: 0.4 };
 
   it('shows the calls, the agreement rate and the last disagreements, newest first, each with both answers and a link', () => {
-    const html = record(row(page(STORED, { decisions: [SHADOW], records: RECORDS }), 'question-category'));
+    const html = record(row(page(STORED, { decisions: [SHADOW], records: RECORDS }), 'question-category')!);
     expect(text(html)).toContain('Last 30 days: 5 calls · Jev agreed with today’s path 2 times out of 4 (50%)');
     const items = [...html.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
     expect(items).toHaveLength(2);
-    expect(text(items[0])).toBe('29 Sep 2026 · Jev business (0.91) · today’s path other · Jev decided · vertuoza/vertuo-omni-loop#812');
+    expect(text(items[0]!)).toBe('29 Sep 2026 · Jev business (0.91) · today’s path other · Jev decided · vertuoza/vertuo-omni-loop#812');
     expect(items[0]).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/issues/812"');
-    expect(text(items[1])).toBe('28 Sep 2026 · Jev ux (0.80) · today’s path product · the round');
+    expect(text(items[1]!)).toBe('28 Sep 2026 · Jev ux (0.80) · today’s path product · the round');
     expect(items[1]).toContain('href="/ask/q/r-1"');
   });
 
   it('shows a ref it cannot link as text', () => {
-    const html = record(row(page(STORED, { records: RECORDS }), 'outbox-risk'));
+    const html = record(row(page(STORED, { records: RECORDS }), 'outbox-risk')!);
     expect(text(html)).toContain('Jev true (0.80) · today’s path false · s3-01-some-item');
     expect(html).not.toContain('href=');
   });
 
   it('says an Off decision with no calls does not call Jev', () => {
-    expect(text(record(row(page(STORED, { records: RECORDS }), 'bug-risk')))).toBe('Off: Jev is not called');
-    expect(text(record(row(page(STORED), 'question-category')))).toBe('Off: Jev is not called');
+    expect(text(record(row(page(STORED, { records: RECORDS }), 'bug-risk')!))).toBe('Off: Jev is not called');
+    expect(text(record(row(page(STORED), 'question-category')!))).toBe('Off: Jev is not called');
   });
 
   it('shows the record of an Off decision that was called, and says so of a decision in Shadow or On with none', () => {
-    expect(text(record(row(page(STORED, { records: RECORDS }), 'question-category')))).toContain('Last 30 days: 5 calls');
+    expect(text(record(row(page(STORED, { records: RECORDS }), 'question-category')!))).toContain('Last 30 days: 5 calls');
     const idle = jevRecords([], NOW);
-    expect(text(record(row(page(STORED, { decisions: [SHADOW], records: idle }), 'question-category')))).toBe('No calls to Jev in the last 30 days.');
+    expect(text(record(row(page(STORED, { decisions: [SHADOW], records: idle }), 'question-category')!))).toBe('No calls to Jev in the last 30 days.');
   });
 
   it('has no rate when nothing could be compared', () => {
     const records = jevRecords([call({ outcome: 'no-key', jevAnswer: null, confidence: null })], NOW);
-    expect(text(record(row(page(STORED, { decisions: [SHADOW], records }), 'question-category')))).toBe('Last 30 days: 1 call · no answer to compare yet');
+    expect(text(record(row(page(STORED, { decisions: [SHADOW], records }), 'question-category')!))).toBe('Last 30 days: 1 call · no answer to compare yet');
   });
 
   it('says the record could not be read, and still shows the settings', () => {
     const html = row(page(STORED, { decisions: [SHADOW], records: null }), 'question-category');
-    expect(text(record(html))).toBe('The record could not be read. Reload in a moment.');
+    expect(text(record(html!))).toBe('The record could not be read. Reload in a moment.');
     expect(html).toContain('<select');
   });
 
   it('is handed from the page\'s view down to each row', () => {
     const html = renderToStaticMarkup(createElement(JevScreen, { view: { kind: 'jev', source: { kind: 'demo' }, owner: true, keyStatus: STORED, decisions: [SHADOW], records: RECORDS } }));
-    expect(text(record(row(html, 'question-category')))).toContain('Last 30 days: 5 calls');
+    expect(text(record(row(html, 'question-category')!))).toContain('Last 30 days: 5 calls');
   });
 
   it('shows a member the same record', () => {
-    const html = record(row(page(MEMBER_STORED, { owner: false, decisions: [SHADOW], records: RECORDS }), 'question-category'));
+    const html = record(row(page(MEMBER_STORED, { owner: false, decisions: [SHADOW], records: RECORDS }), 'question-category')!);
     expect(text(html)).toContain('Jev agreed with today’s path 2 times out of 4 (50%)');
     expect(html).toContain('href="/ask/q/r-1"');
   });

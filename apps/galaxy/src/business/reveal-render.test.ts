@@ -48,7 +48,7 @@ const render = (claims: Claim[], { draft = null as DraftView | null, pages = [] 
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims, [], { draft, pages })), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 const button = (html: string, label: string) => buttons(html).find((b) => b.text === label);
 const section = (html: string, cls: string) => {
   const from = html.indexOf(`class="${cls}`);
@@ -79,12 +79,12 @@ describe('+ add a web page', () => {
     expect(text(html)).toContain(`${ADD_PAGE} (1 of 3 left)`);
     const list = section(html, 'business-pages');
     expect(text(list)).toContain('example.com/pricing');
-    expect(buttons(list).filter((b) => b.attrs.includes('aria-label="Remove example.com/pricing"'))).toHaveLength(1);
+    expect(buttons(list).filter((b) => b.attrs!.includes('aria-label="Remove example.com/pricing"'))).toHaveLength(1);
   });
 
   it('opens one address field, the only thing typed', () => {
     const html = render([], { actions: [{ type: 'add-page' }] });
-    const fields = [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]).filter((i) => /type="(text|url)"/.test(i));
+    const fields = [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]).filter((i) => /type="(text|url)"/.test(i!));
     expect(fields).toHaveLength(1);
     expect(fields[0]).toContain('type="url"');
     expect(fields[0]).toContain('pattern="https://.*"');
@@ -139,7 +139,7 @@ describe('the reveal', () => {
     const marked = render(FOUND, { actions: [{ type: 'drafted', draft: DONE, claims: FOUND }, { type: 'mark', claim: 'c-4', mark: 'wrong' }] });
     const row = foundRow(marked, 'rival#4');
     expect(row).toContain('data-mark="wrong"');
-    expect(buttons(row)[1].attrs).toContain('aria-pressed="true"');
+    expect(buttons(row)[1]!.attrs).toContain('aria-pressed="true"');
     expect(h1(marked)).toBe('We think you sell an ERP to 2–50-person ___ in Belgium, up against ___.');
   });
 

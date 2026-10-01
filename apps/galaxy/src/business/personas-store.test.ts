@@ -43,9 +43,9 @@ describe('the persona functions', () => {
     await port.remove('pe-1');
     await port.restore('pe-1');
     expect(d.calls.map(([fn]) => fn)).toEqual(['persona_edit', 'persona_delete', 'persona_restore']);
-    expect(d.calls[0][1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
-    expect(d.calls[1][1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
-    expect(d.calls[2][1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(d.calls[0]![1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
+    expect(d.calls[1]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(d.calls[2]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
   });
 
   it('says each refusal plainly: not a member, gone, the invalid field, anything else', async () => {

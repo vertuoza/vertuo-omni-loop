@@ -45,15 +45,15 @@ describe('the request', () => {
     expect(calls).toHaveLength(1);
     const [call] = calls;
     expect(JEV_URL).toBe('https://api.typesafe.ai/v1/systemone');
-    expect(call.url).toBe(JEV_URL);
-    expect(call.init.method).toBe('POST');
-    const headers = new Headers(call.init.headers);
+    expect(call!.url).toBe(JEV_URL);
+    expect(call!.init.method).toBe('POST');
+    const headers = new Headers(call!.init.headers);
     expect(headers.get('authorization')).toBe(`Bearer ${KEY}`);
     expect(headers.get('content-type')).toBe('application/json');
     expect(JEV_MODEL).toBe('jev-1.13.0');
-    expect(call.body.model).toBe('jev-1.13.0');
-    expect(call.body.state).toEqual({ questions: ['What to build?'] });
-    expect(call.body.questions).toEqual({
+    expect(call!.body.model).toBe('jev-1.13.0');
+    expect(call!.body.state).toEqual({ questions: ['What to build?'] });
+    expect(call!.body.questions).toEqual({
       q: {
         type: 'choice',
         instructions: 'Which category does this question belong to?',
@@ -65,20 +65,20 @@ describe('the request', () => {
   it('sends a score\'s levels lowest first as criteria, and a noul\'s statement as its instructions', async () => {
     const a = stub(score(0));
     await askJev({ key: KEY, state: 'bug', question: SCORE, fetch: a.fetch });
-    expect(a.calls[0].body.questions).toEqual({
+    expect(a.calls[0]!.body.questions).toEqual({
       q: { type: 'score', instructions: 'How risky is this bug?', criteria: ['low: cosmetic', 'medium: annoying', 'high: data at risk'] },
     });
     const b = stub(noul(0.7));
     await askJev({ key: KEY, state: 'decision', question: NOUL, fetch: b.fetch });
-    expect(b.calls[0].body.questions).toEqual({ q: { type: 'noul', instructions: 'This decision is hard to revert.' } });
+    expect(b.calls[0]!.body.questions).toEqual({ q: { type: 'noul', instructions: 'This decision is hard to revert.' } });
   });
 
   it('masks every token in the state and the question before sending', async () => {
     const token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
     const { fetch, calls } = stub(noul(0.1));
     await askJev({ key: KEY, state: { body: `leaked ${token}` }, question: { type: 'noul', statement: `uses ${token}` }, fetch });
-    expect(String(calls[0].init.body)).not.toContain(token);
-    expect(calls[0].body.state).toEqual({ body: 'leaked [masked]' });
+    expect(String(calls[0]!.init.body)).not.toContain(token);
+    expect(calls[0]!.body.state).toEqual({ body: 'leaked [masked]' });
   });
 
   it('waits 5 s at most by default', () => {
