@@ -116,6 +116,13 @@ jobs:
         # learns only whether one is stored, the owner its last four. Removing the key sets every decision
         # Off; a decision stays Off without a key. Only the service role reads a key and appends a call.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql
+      - name: Who may read and change a product's pitch look
+        # Every product starts in arcade. Any member of a workspace (whoever may edit Business) changes
+        # one product's look to keynote or back through set_pitch_look(), and its other products keep
+        # theirs; another workspace's member, a stranger and anyone signed out are refused (42501), any
+        # other look is refused (22023). pitch_look_for_repo() reads the repository's product's look,
+        # arcade for a repository with no product. Nobody writes the column directly.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/products_pitch_look.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

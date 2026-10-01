@@ -55,9 +55,9 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business and Jev (PRD 733, PRD 748, PRD 812)', () => {
+  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Products and Jev (PRD 733, PRD 748, PRD 859, PRD 812)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev']]],
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Products', '/app/settings/products'], ['Jev', '/app/settings/jev']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
@@ -98,6 +98,8 @@ describe('currentItem and pageTrail', () => {
     ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
     ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
     ['/app/settings/business', 'settings', 'Settings › Business'],
+    ['/app/settings/products', 'settings', 'Settings › Products'],
+    ['/app/settings/products/p-1', 'settings', 'Settings › Products'],
     ['/app/settings/jev', 'settings', 'Settings › Jev'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/prd', 'prds', 'Work › PRDs'],
@@ -161,6 +163,15 @@ describe('currentItem and pageTrail', () => {
     expect(pageTrail('/app/settings/business')?.crumbs).toEqual([
       { label: 'Settings', path: '/app/settings' },
       { label: 'Business' },
+    ]);
+    expect(pageTrail('/app/settings/products')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Products' },
+    ]);
+    // A product's own page links back to the list (PRD 859).
+    expect(pageTrail('/app/settings/products/p-1')?.crumbs).toEqual([
+      { label: 'Settings', path: '/app/settings' },
+      { label: 'Products', path: '/app/settings/products' },
     ]);
   });
 
