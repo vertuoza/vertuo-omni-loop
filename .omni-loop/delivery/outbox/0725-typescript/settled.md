@@ -2274,3 +2274,940 @@ Cheap: add ".claude/hooks/**/*.ts" to the root include in s29, or leave it unche
 ```
 
 <!-- /omni-outbox-settled: s14-02-hooks-folder-unseen-by-typecheck -->
+
+<!-- omni-outbox-settled: s17-01-cli-gh-replies-parsed-by-name -->
+
+## s17-01-cli-gh-replies-parsed-by-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s17
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s17-01-cli-gh-replies-parsed-by-name
+prd: 725
+slice: s17
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The command line reads what GitHub's tool prints. Should a reply of the wrong shape now stop with a message naming the wrong field, rather than going on with a blank value?
+
+## The decision, in plain words
+
+Every GitHub reply the command line reads now goes through a check first. A well-formed reply works exactly as before; a malformed one stops at once and names the field that is wrong.
+
+## The intro, for fun
+
+GitHub's replies used to walk straight in; now there is a doorman with a clipboard.
+
+## The punchline, for fun
+
+Regulars get waved through; only the oddly dressed get asked their name.
+
+## The options, in plain words
+
+A. A: parse every gh reply the CLI reads through a schema, failing by field name on a malformed one
+B. B: keep the schemas but fall back to the old reading when a reply does not parse
+C. C: leave the gh reads unparsed, as typed values only
+
+## What I had to decide
+
+Whether the CLI's reads of `gh` JSON (issue comments, a pull request, `gh pr list`, `gh pr view --json commits`, the GraphQL answers of `omni care`) are parsed through Zod schemas, which turns a malformed reply from a later undefined into an immediate error naming the field.
+
+## What I did meanwhile
+
+kit/bin/schema.ts holds looseObject schemas for each of those replies; kit/bin/github.ts, commands/board.ts and commands/care.ts parse through them. The ask server's replies (business, decide, dossier, ask) keep the hand checks they had, read field by field with the ask module's own field() helper, as s16-01 settled for hand checks. The release script and the build parse package.json through a small schema of their own.
+
+## What it costs to change later
+
+Dropping a schema is one line per call site; the schemas keep every field GitHub sends, so no well-formed reply changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec forbids output changes; a reply GitHub never sends malformed now fails differently than before, and no test can show which old failure a real malformed reply produced
+
+```
+
+<!-- /omni-outbox-settled: s17-01-cli-gh-replies-parsed-by-name -->
+
+<!-- omni-outbox-settled: s17-02-cli-bridges-to-neighbour-types -->
+
+## s17-02-cli-bridges-to-neighbour-types — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s17
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s17-02-cli-bridges-to-neighbour-types
+prd: 725
+slice: s17
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+A few library parts the command line calls are typed a little narrower than what really reaches them. Should the command line bridge those gaps with marked shortcuts for now?
+
+## The decision, in plain words
+
+The command line bridges each gap with a shortcut marked on its own line and its reason, and nothing it does changes. Each shortcut becomes useless once the part it calls is typed or widened, and the final tightening can remove it.
+
+## The intro, for fun
+
+The new road reached the old bridge, and the old bridge is one lane narrower.
+
+## The punchline, for fun
+
+A cone and a sign do the job until the bridge crew arrives.
+
+## The options, in plain words
+
+A. A: keep the marked bridges now; the final tightening slice removes them
+B. B: widen the neighbouring library types in their own follow-up pull request before the ratchet
+C. C: have the command line refuse the values the library types leave out, such as a missing feature branch
+
+## What I had to decide
+
+How the typed CLI calls library functions whose types are narrower than the values they are handed today. The lib/update and lib/statusline bridges this slice first needed were dropped once s18 merged.
+
+## What I did meanwhile
+
+Marked casts (// ts-allow): commands/rework.ts passes a null feature branch to planRework, typed string; commands/proof.ts hands the ask client to pushProof, whose upload takes Uint8Array where the client's takes BodyInit; commands/board.ts reads plan slices whose wave may be null as the board's number; commands/plan.ts keeps the slug-less plan repository crash of s10-01; commands/replies.ts reads the posted comment readReplies types unknown.
+
+## What it costs to change later
+
+Each bridge is one line to delete once its neighbour is widened (policy/rework featureBranch, proof/push upload, board wave, replies posted).
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether planRework should take a null feature branch in its type, or the CLI should refuse one, is a behaviour question this slice may not settle
+
+```
+
+<!-- /omni-outbox-settled: s17-02-cli-bridges-to-neighbour-types -->
+
+<!-- omni-outbox-settled: s17-03-cli-tests-loosely-typed-fixtures -->
+
+## s17-03-cli-tests-loosely-typed-fixtures — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s17
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s17-03-cli-tests-loosely-typed-fixtures
+prd: 725
+slice: s17
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The command line's tests are now type-checked, but some test helpers still say 'anything goes' for a fixture value. Is that fine in tests, while the real code may not?
+
+## The decision, in plain words
+
+Tests keep a few 'anything goes' types for fixture values, as the plan lets tests cast fixtures freely. The real code never does without a marked reason.
+
+## The intro, for fun
+
+The test kitchen got a health inspector, but the tasting spoons are still allowed.
+
+## The punchline, for fun
+
+The menu is strict; the scraps bowl is not.
+
+## The options, in plain words
+
+A. A: tests may use any and as on fixtures; the guard checks source files only
+B. B: tests follow the source rule too, every any and as marked with ts-allow
+C. C: tests may cast with as but not annotate with any
+
+## What I had to decide
+
+How strictly the CLI's tests are typed: about forty test lines annotate a fixture parameter or a recorded call list as any, cast a fixture with as, or assert a value with !, with no ts-allow comment, while kit/test's helper files mark theirs.
+
+## What I did meanwhile
+
+Test files type their fakes through shared helpers in kit/test/fixture.ts (FakeExec, realExec, FetchInit, Repo, Files, Io) and kit/test/fake-ask-server.ts (FakeAskServer, Json); what inference could not settle in a test stays any or is cast. The helper files outside *.test.ts (fixture.ts, flat-layout.ts, fake-ask-server.ts) mark every any and as with ts-allow.
+
+## What it costs to change later
+
+If the ratchet's guard holds tests to the source rule, about forty test lines need a real type or a ts-allow comment.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan says tests may cast fixtures freely but does not say whether the ratchet's guard exempts test files from the any rule
+
+```
+
+<!-- /omni-outbox-settled: s17-03-cli-tests-loosely-typed-fixtures -->
+
+<!-- omni-outbox-settled: s18-01-lock-time-read-as-text-only -->
+
+## s18-01-lock-time-read-as-text-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s18
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s18-01-lock-time-read-as-text-only
+prd: 725
+slice: s18
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The status line keeps a small lock file while it refreshes the board in the background. When that file's time is written in an odd form, should it still be read, or count as unreadable?
+
+## The decision, in plain words
+
+Only a time written as text is read now; any other form counts as unreadable, so the file's own date on disk is used instead, as for a missing time. The tool only ever writes text, so nobody sees a difference in practice.
+
+## The intro, for fun
+
+A lock file with a strange clock walks into the status line.
+
+## The punchline, for fun
+
+It is told to use the date on its own envelope instead.
+
+## The options, in plain words
+
+A. A. Read only a time written as text; anything else falls back to the file's own date (built).
+B. B. Keep reading any value as a time, as the untyped code did.
+
+## What I had to decide
+
+Whether a lock file whose time is not text should still have that time read, as the old code did by accident, or count as having no readable time.
+
+## What I did meanwhile
+
+The lock file is now read through a shape description: a time that is not text is dropped, and the file's own modification time stands in, exactly as for a lock with no time at all. Every lock the tool writes holds its time as text, so every real lock reads as before.
+
+## What it costs to change later
+
+A constant: widening the time back to any value is one line in the status line's shape description.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) No lock with a non-text time has ever been seen; the old reading of one (a number taken as a year) was an accident of the language, not a rule anyone wrote.
+
+```
+
+<!-- /omni-outbox-settled: s18-01-lock-time-read-as-text-only -->
+
+<!-- omni-outbox-settled: s19-01-app-refuses-malformed-github-shapes-whole -->
+
+## s19-01-app-refuses-malformed-github-shapes-whole — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s19
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s19-01-app-refuses-malformed-github-shapes-whole
+prd: 725
+slice: s19
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+When GitHub sends the App something in a shape it never sends, should the App stop and say which part was wrong, or carry on part by part as it used to?
+
+## The decision, in plain words
+
+It stops: an answer from GitHub or an event missing a part fails naming that part, and a delivery of the wrong shape starts nothing. Every well-formed delivery and answer gives exactly the same result as before.
+
+## The intro, for fun
+
+GitHub once sent a pull request whose number was a word. Nobody believes it either.
+
+## The punchline, for fun
+
+Now the App says so at the door, instead of tripping three rooms later.
+
+## The options, in plain words
+
+A. A. A malformed answer or event fails naming its field; a malformed delivery starts nothing; well-formed ones behave as before
+B. B. Parse only for the types, and let malformed values pass through as before
+C. C. Fail on malformed answers, but keep reading malformed deliveries field by field
+
+## What I had to decide
+
+PRD 725 asks every value read from the network to pass a schema and fail naming its field, and asks for no output change. The App read webhook deliveries, GitHub's REST answers and Inngest event data field by field with fallbacks: a field of an unexpected type passed through until something downstream crashed or quietly used it.
+
+## What I did meanwhile
+
+src/outbox-check/github-schema.ts holds one schema per GitHub answer the App reads (pull request, issue, comments, compare, check runs, trees, blobs, refs, commits, pulls); each names only the fields read, with the fallbacks as before (nullish where the code had `??`). src/inngest-client.ts holds the event data schemas, which every function parses `event.data` through. The webhook (src/webhook/webhook.ts) and the stage events (src/stage-forward/stage-forward.ts) parse a delivery with safeParse: a delivery of another shape becomes no event and no stage, as a delivery missing those fields already did. All 635 tests pass unchanged; src/outbox-check/github-schema.test.ts adds five that show a refusal naming its field.
+
+## What it costs to change later
+
+Cheap: loosen a field to nullish or unknown in the schema file, or drop a parse; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether GitHub ever sends a delivery whose repository has no `name`, which the webhook schema now requires; every recorded delivery has one
+- (author) Whether a malformed event already sitting in Inngest's queue would now fail its run by name, where it used to fail later
+
+```
+
+<!-- /omni-outbox-settled: s19-01-app-refuses-malformed-github-shapes-whole -->
+
+<!-- omni-outbox-settled: s19-02-app-lists-its-own-schema-library -->
+
+## s19-02-app-lists-its-own-schema-library — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s19
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s19-02-app-lists-its-own-schema-library
+prd: 725
+slice: s19
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The GitHub App now checks what GitHub sends it with the same checking library the rest of the repository uses. Should the App name that library as its own dependency, which touches the shared list of installed versions?
+
+## The decision, in plain words
+
+The App names it, at the exact version already installed for the rest of the repository, so nothing new is downloaded and nothing else changes version.
+
+## The intro, for fun
+
+The App borrowed a library from its neighbours and never said thank you.
+
+## The punchline, for fun
+
+Now it is on the App's own shopping list, same brand, same price.
+
+## The options, in plain words
+
+A. A. The App names the library itself, at the version already installed; nothing else changes
+B. B. Leave the App's list alone and keep borrowing the library from the repository, with the audit warning left standing
+C. C. Check the App's data only through the kit's own checks, so the App never uses the library directly
+
+## What I had to decide
+
+PRD 725 asks every value the App reads from GitHub, Inngest or a webhook delivery to pass a Zod schema. apps/omni-app imported zod nowhere before this slice, and its package.json did not list it: the import resolved only because the root package lists zod and pnpm links it there. fallow's audit reports that as an unlisted dependency of apps/omni-app. package.json of the App and pnpm-lock.yaml are outside s19's territory.
+
+## What I did meanwhile
+
+apps/omni-app/package.json lists "zod": "^4.6.5", and pnpm-lock.yaml gains the three lines of that importer entry only, resolved to the zod 4.6.5 already locked for the root and the arcade. `pnpm install --frozen-lockfile` (pnpm 9, as CI runs it) accepts the lockfile, and no other version moves. A plain `pnpm install` was tried first and refused: it re-resolved inngest's TypeScript peer to 7.0.2.
+
+## What it costs to change later
+
+Cheap: drop the line from the App's package.json and the three lockfile lines, and leave the import resolving through the root as before.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s20, which also opens schemas in apps/omni-app, adds the same line, so the wave merge sees it twice
+- (author) Whether Vercel's build of the App installs with --frozen-lockfile, which would refuse a lockfile edited by hand if it were wrong
+
+```
+
+<!-- /omni-outbox-settled: s19-02-app-lists-its-own-schema-library -->
+
+<!-- omni-outbox-settled: s20-01-malformed-harvest-event-is-not-retried -->
+
+## s20-01-malformed-harvest-event-is-not-retried — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s20
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s20-01-malformed-harvest-event-is-not-retried
+prd: 725
+slice: s20
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+When the request to harvest knowledge from a merged change arrives incomplete, should the app try it again a few times, or give up at once and say which part was missing?
+
+## The decision, in plain words
+
+It gives up at once and leaves its usual failure note on the merged change, naming the missing part. Trying again could not help, since the same incomplete request would come back each time.
+
+## The intro, for fun
+
+A letter with no address on it will not find its way on the fourth try either.
+
+## The punchline, for fun
+
+So the app stops at the first try and says which line was left blank.
+
+## The options, in plain words
+
+A. Fail at once, naming the missing field (built).
+B. Retry three times like any other failure, then fail with the same message.
+
+## What I had to decide
+
+Whether a harvest request missing a field is retried three times before failing, or fails at once.
+
+## What I did meanwhile
+
+A malformed request fails at once with a message naming its missing field; the failure comment is posted as before.
+
+## What it costs to change later
+
+Changing it back is one line: throw a plain error instead of a non-retriable one.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) No harvest request has ever been seen arriving incomplete; the webhook always sends every field.
+
+```
+
+<!-- /omni-outbox-settled: s20-01-malformed-harvest-event-is-not-retried -->
+
+<!-- omni-outbox-settled: s21-01-retro-reads-check-github-answers -->
+
+## s21-01-retro-reads-check-github-answers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s21
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s21-01-retro-reads-check-github-answers
+prd: 725
+slice: s21
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+When GitHub answers one of the retro's questions in a shape it should never have, should the retro stop and say which part was wrong, or carry on as it used to?
+
+## The decision, in plain words
+
+It stops that read and names the part that was wrong, and the read is tried again later as any failed read is. Every answer GitHub has given so far reads exactly as before.
+
+## The intro, for fun
+
+The retro asks GitHub about every check that ran, and GitHub has always answered politely.
+
+## The punchline, for fun
+
+If it ever mumbles, the retro now asks it to repeat itself, by name.
+
+## The options, in plain words
+
+A. A. A malformed answer fails the read with an error naming the field, and the step is retried; well-formed answers read exactly as before
+B. B. Treat a malformed answer like an unreadable one: the section says it could not be read
+C. C. Keep passing malformed answers through as before, and describe their shape only for the compiler
+
+## What I had to decide
+
+PRD 725 asks every value read from the network to pass a schema and fail with an error naming its field. The retro's kinds of finding (apps/omni-app/src/retro/kinds/) read workflow runs, jobs, issues, pull requests, changed files, commits, comments, reviews, issue events and the review-threads GraphQL answer field by field, most with fallbacks, and passed anything else through: a job with no name would have been counted as a check called undefined.
+
+## What I did meanwhile
+
+apps/omni-app/src/retro/kinds/schema.ts holds one loose schema per answer, naming only the fields the kinds read. A field the kinds read with a fallback is nullish there, so it reads as before; the fields they cannot do without (a run's or a job's id, a job's name, an issue's number, link and opening time, a closed pull request's number and link, a file's name, a commit's sha, an issue event's kind and time) are required. A malformed answer throws a Zod error naming its path inside the gather step, which Inngest retries like any other failed read; the 403, 404 and 410 handling is unchanged.
+
+## What it costs to change later
+
+Cheap: make a field nullish in the folder's schema file, or drop one parse; no stored shape changes, and the records each kind keeps are the same.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether GitHub ever sends a job without its name, or an issue without its link; its REST answers always carry them so far (author)
+- Whether a step that now fails on a malformed answer should rather leave that section out of the retro, as an unreadable answer does (author)
+
+```
+
+<!-- /omni-outbox-settled: s21-01-retro-reads-check-github-answers -->
+
+<!-- omni-outbox-settled: s21-02-retro-kind-tests-bridge-untyped-helpers -->
+
+## s21-02-retro-kind-tests-bridge-untyped-helpers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s21
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s21-02-retro-kind-tests-bridge-untyped-helpers
+prd: 725
+slice: s21
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The retro's tests lean on shared test helpers that another part of this work types later. Should these tests wait for them, or bridge the gap now?
+
+## The decision, in plain words
+
+They bridge the gap now, through one small helper file that states what the tests hand in. Once the shared helpers are typed, the bridge can be removed by the final tightening step.
+
+## The intro, for fun
+
+The tests needed a fake GitHub, and the fake GitHub has not been to type school yet.
+
+## The punchline, for fun
+
+So the tests brought a translator, and promised to send it home later.
+
+## The options, in plain words
+
+A. A. One test-support file bridges the untyped helpers with marked casts, removable once they are typed
+B. B. Cast at every call site in each test file instead
+C. C. Leave the tests for the slice that types the shared helpers
+
+## What I had to decide
+
+The kinds' tests call the stubbed GitHub (apps/omni-app/test/github-replay.ts), the widget scenario (apps/omni-app/test/retro-scenario.ts) and the retro function (apps/omni-app/src/retro/retro.ts). Those belong to s19 and s22, still untyped in this wave, so their inferred option types accept only empty lists and maps; and the tests hand the kinds partial scopes and contexts.
+
+## What I did meanwhile
+
+apps/omni-app/src/retro/kinds/test-handles.ts gives the tests typed handles on each kind (gather, detect and section, taking any object and reading facts back as present) and three pass-throughs, replay, scenario and retroFunction, each a marked cast onto the untyped helper. The kinds themselves keep their strict types; no test assertion changed.
+
+## What it costs to change later
+
+Cheap: once s19 and s22 land, replace each pass-through with a direct import, or keep the handles; test support only, no output changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which shapes s19 gives the stubbed GitHub's options, so whether the pass-throughs become no-ops or need a tweak (author)
+
+```
+
+<!-- /omni-outbox-settled: s21-02-retro-kind-tests-bridge-untyped-helpers -->
+
+<!-- omni-outbox-settled: s22-01-model-reply-keeps-its-own-check -->
+
+## s22-01-model-reply-keeps-its-own-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s22
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s22-01-model-reply-keeps-its-own-check
+prd: 725
+slice: s22
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The retro already checks the model's answer field by field, and sends its sentences back to the model when the answer is wrong. Should that check become a schema, like every other answer read from outside?
+
+## The decision, in plain words
+
+The retro keeps its own check of the model's answer, now typed, because its sentences are what the model reads when it is asked to fix its answer. Turning it into a schema would change those sentences.
+
+## The intro, for fun
+
+The retro already marks the model's homework, line by line, in its own handwriting.
+
+## The punchline, for fun
+
+Swapping in a stamp would be tidier, but the model has learned to read the handwriting.
+
+## The options, in plain words
+
+A. Keep the retro's own check of the model's answer, typed, so the model is told the same thing as before
+B. Replace it with a schema now, and accept that the model is told what is wrong in other words
+C. Wrap the schema so it writes the same sentences as the check does today
+
+## What I had to decide
+
+PRD 725's done-when asks every value read from the network to pass a Zod schema, and forbids any output change. narrate.ts's checkReply is the model reply's validator: its error sentences go back to OpenRouter in the repair request (askModel), so a Zod schema would change the repair prompt the model is sent.
+
+## What I did meanwhile
+
+Kept checkReply hand-written, typed it (unknown in, ModelReply out), and said why in its doc comment. Every GitHub answer, the retro event and a retro.json read back from a branch go through Zod schemas in apps/omni-app/src/retro/github.schema.ts.
+
+## What it costs to change later
+
+Cheap: askModel already accepts a Zod schema as its check, so a later slice can swap checkReply for one and accept the new repair sentences.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the repair prompt's exact sentences matter to anyone beyond the tests that pin them (author)
+
+```
+
+<!-- /omni-outbox-settled: s22-01-model-reply-keeps-its-own-check -->
+
+<!-- omni-outbox-settled: s22-02-retro-shapes-beside-untyped-neighbours -->
+
+## s22-02-retro-shapes-beside-untyped-neighbours — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s22
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s22-02-retro-shapes-beside-untyped-neighbours
+prd: 725
+slice: s22
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The retro's main steps were typed while the parts they lean on were still being typed by other slices at the same time. Where should the shapes they share live?
+
+## The decision, in plain words
+
+The retro's steps describe the shapes they need in a file of their own beside them, written loosely enough that the other slices' shapes still fit. Where a helper was not typed yet, the retro names the shape that helper documents.
+
+## The intro, for fun
+
+Two crews built the two halves of a bridge at the same time, each from its own drawing.
+
+## The punchline, for fun
+
+The drawings agree on where the bridge meets; the bolts get compared once both halves are up.
+
+## The options, in plain words
+
+A. Keep the retro's own shapes beside it, loose enough to fit, and fold them into the neighbours' types after the wave
+B. Wait for the kinds and the app's helpers to be typed first, and type the retro's steps after them
+C. Move the shared shapes into one app-wide types file now, outside this slice's ground
+
+## What I had to decide
+
+s21 types apps/omni-app/src/retro/kinds/ and s19 types git-write, snapshot, outbox-check and the test helpers in the same wave; s22's territory holds neither. The kinds' registry exported its Kind type only as JSDoc, which a .ts file ignores, and git-write's addCommit and the kit's askModel still open with @ts-nocheck, so their parameters read as their defaults (files: never[]).
+
+## What I did meanwhile
+
+Wrote apps/omni-app/src/retro/retro.types.ts (Octokit, Kind with method signatures so a narrower kind still fits, the fact sheet, the prose, the run records). retro.ts filters kinds by run itself (kindsIn) rather than through kindsFor, whose parameter is typed by the registry's default. publish.ts and narrate.ts call addCommit and askModel through a typed view of what their doc comments say, each cast marked ts-allow. Tests reach the untyped scenario helpers through local loose wrappers.
+
+## What it costs to change later
+
+Cheap: once s19 and s21 merge, the wave check can point retro.types.ts at their exported types, drop kindsIn for kindsFor, and remove the two typed views; no output depends on any of it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which exported names s19 and s21 chose for the Octokit seam and the kind type (author)
+
+```
+
+<!-- /omni-outbox-settled: s22-02-retro-shapes-beside-untyped-neighbours -->
+
+<!-- omni-outbox-settled: s22-03-app-imports-zod-through-the-root -->
+
+## s22-03-app-imports-zod-through-the-root — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-01
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-01
+- Slice: s22
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s22-03-app-imports-zod-through-the-root
+prd: 725
+slice: s22
+rank: medium
+bears-on: none
+raised: 2026-10-01
+wave: 5
+---
+
+## The question, in plain words
+
+The app's retro now checks GitHub's answers with the tool's checking library, which the app's own list of dependencies does not name. Should that list name it?
+
+## The decision, in plain words
+
+The retro uses the library the tool already brings with it, found the same way the tool's own files the app runs find it, and the app's list of dependencies is left as it was, since changing it is outside this slice.
+
+## The intro, for fun
+
+The app borrowed the tool's tape measure without writing it on its own packing list.
+
+## The punchline, for fun
+
+It is in the same truck, so nothing is lost, yet a careful packer would add the line.
+
+## The options, in plain words
+
+A. Use the library through the root package, as the tool's own files the app runs already do
+B. Add the library to the app's own list of dependencies in a later change
+C. Re-export the library from the tool, and have the app import it from there
+
+## What I had to decide
+
+apps/omni-app/src/retro/github.schema.ts and retro.ts import 'zod'. apps/omni-app/package.json lists no zod; it resolves from the root package (vertuo-omni-plan), whose kit files the app already imports and which import zod themselves. The package.json is outside s22's territory.
+
+## What I did meanwhile
+
+Imported 'zod' directly, as the kit files the app runs do; the app's tests, typecheck and imports resolve it from the workspace root (Zod 4).
+
+## What it costs to change later
+
+Cheap: add zod ^4 to apps/omni-app/package.json and the lockfile in one later change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the App's Vercel build installs only the app's own dependencies, in which case the kit's zod imports would already fail today (author)
+
+```
+
+<!-- /omni-outbox-settled: s22-03-app-imports-zod-through-the-root -->
