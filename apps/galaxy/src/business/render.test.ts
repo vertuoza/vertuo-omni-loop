@@ -5,13 +5,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Claim, Product } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
-import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, type BusinessScreenView } from './BusinessScreen';
+import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, DEMO_TOKENS, type BusinessScreenView } from './BusinessScreen';
+import {
+  CONNECT_TITLE, ConnectAgentCard, DONE, MAKE_LINK, NO_LINKS, NOT_WORKING, REVOKE, SHOWN_ONCE,
+} from '../agent-connect/tokens/ConnectAgentCard';
+import { dayLabel, type AgentToken } from '../agent-connect/tokens/model';
+import { initialTokensState, tokensReducer, type TokensAction } from '../agent-connect/tokens/state';
 import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
 // blanks, the picks, Skip), a filled one (the sentence as the title, a row per claim with its id,
 // source, citations and ✓ / ✗, the claims marked wrong folded, the payoff card), the demo, the page's
-// situations under the Settings tabs, and a layout that holds at 393 px.
+// situations under the Settings tabs, and a layout that holds at 393 px. Connect an agent (PRD 855 s1):
+// empty, a token shown once, the list, Revoke on your own or on all for an owner, the demo, 393 px.
 
 const claim = (seq: number, kind: Claim['kind'], value: string, over: Partial<Claim> = {}): Claim =>
   ({ id: `c-${seq}`, seq, kind, value, source: 'pick', state: 'confirmed', cited: 0, lastBy: null, ...over });
@@ -33,6 +39,10 @@ const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)
 const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]);
 const rowOf = (html: string, id: string) => {
   const from = html.indexOf(`data-claim="${id}"`);
+  return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
+};
+const rowOfToken = (html: string, id: string) => {
+  const from = html.indexOf(`data-token="${id}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
 };
 const groupOf = (html: string, kind: string) => {
@@ -330,5 +340,106 @@ describe('the layout at 393 px', () => {
       expect(rule(selector), selector).toContain('overflow-wrap: anywhere');
     }
     expect(rule('.business-row-main')).toContain('min-width: 0');
+  });
+});
+
+describe('Connect an agent (PRD 855 s1)', () => {
+  const link = (over: Partial<AgentToken> = {}): AgentToken => ({
+    id: 't-1', name: 'Tom’s editor', lastFour: 'Zz09', createdAt: '2026-09-28T08:00:00Z', lastUsedAt: '2026-10-01T09:00:00Z',
+    maker: { id: 'u-tom', login: 'tom', name: 'Tom' }, mine: true, canRevoke: true, working: true, ...over,
+  });
+  const card = (tokens: AgentToken[], actions: TokensAction[] = [], demo = false) =>
+    renderToStaticMarkup(createElement(ConnectAgentCard, { state: actions.reduce(tokensReducer, initialTokensState(tokens)), demo }));
+  const TOKEN = `omb_${'k'.repeat(39)}W4x2`;
+  const made: TokensAction = { type: 'made', token: TOKEN, url: 'https://galaxy.example/api/mcp', listed: link({ id: 't-9', name: 'Laptop', lastFour: 'W4x2', lastUsedAt: null }) };
+
+  it('starts empty: a name field, Make link, and no link yet', () => {
+    const html = card([]);
+    expect(text(html)).toContain(CONNECT_TITLE);
+    expect(text(html)).toContain(NO_LINKS);
+    const fields = inputs(html).filter((i) => i.includes('type="text"'));
+    expect(fields).toHaveLength(1);
+    expect(fields[0]).toContain('maxLength="40"');
+    expect(buttons(html).map((b) => b.text)).toEqual([MAKE_LINK]);
+    expect(html).not.toContain('data-token-shown');
+  });
+
+  it('shows a made token once, with the setup for Cursor, Claude Code and any MCP client', () => {
+    const html = card([], [made]);
+    expect(text(html)).toContain(SHOWN_ONCE);
+    expect(html).toContain(`data-token-shown="true">${TOKEN}</code>`);
+    expect([...html.matchAll(/data-setup="([^"]+)"/g)].map((m) => m[1])).toEqual(['Cursor', 'Claude Code', 'Any MCP client']);
+    expect(text(html)).toContain('https://galaxy.example/api/mcp');
+    expect(text(html)).toContain(`Bearer ${TOKEN}`);
+    expect(buttons(html).map((b) => b.text)).toContain(DONE);
+  });
+
+  it('never shows the token again once Done', () => {
+    const html = card([], [made, { type: 'done' }]);
+    expect(html).not.toContain(TOKEN);
+    expect(html).not.toContain('data-token-shown');
+    expect(rowOfToken(html, 't-9')).toContain('…W4x2');
+  });
+
+  it('lists each link: name, maker, created, last used and last four', () => {
+    const html = card([link(), link({ id: 't-2', name: 'Sophie’s editor', mine: false, canRevoke: false, lastUsedAt: null, maker: { id: 'u-s', login: 'sophie', name: null } })]);
+    const tom = text(rowOfToken(html, 't-1'));
+    expect(tom).toContain('Tom’s editor');
+    expect(tom).toContain('made by you');
+    expect(tom).toContain(`created ${dayLabel('2026-09-28T08:00:00Z')}`);
+    expect(tom).toContain('last used 1 Oct 2026');
+    expect(tom).toContain('…Zz09');
+    const sophie = text(rowOfToken(html, 't-2'));
+    expect(sophie).toContain('made by @sophie');
+    expect(sophie).toContain('never used');
+  });
+
+  it('offers Revoke on your own links, and on every link for an owner', () => {
+    const member = card([link(), link({ id: 't-2', name: 'Other', mine: false, canRevoke: false })]);
+    expect(buttons(rowOfToken(member, 't-1')).map((b) => b.text)).toEqual([REVOKE]);
+    expect(buttons(rowOfToken(member, 't-2'))).toEqual([]);
+    const owner = card([link({ mine: false, canRevoke: true }), link({ id: 't-2', name: 'Left behind', mine: false, canRevoke: true, working: false })]);
+    expect(buttons(rowOfToken(owner, 't-1')).map((b) => b.text)).toEqual([REVOKE]);
+    expect(buttons(rowOfToken(owner, 't-2')).map((b) => b.text)).toEqual([REVOKE]);
+    expect(text(rowOfToken(owner, 't-2'))).toContain(NOT_WORKING);
+  });
+
+  it('says a refusal', () => {
+    const html = card([], [{ type: 'refused', message: 'You hold 20 links already: revoke one to make another.' }]);
+    expect(html).toContain('role="alert"');
+    expect(text(html)).toContain('You hold 20 links already');
+  });
+
+  it('draws in the demo, below the business, marked Demo', () => {
+    const html = renderToStaticMarkup(createElement(BusinessScreen, {
+      view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS, agents: { source: { kind: 'demo' }, tokens: DEMO_TOKENS } },
+    }));
+    const at = html.indexOf('class="ask-card agent-connect"');
+    expect(at).toBeGreaterThan(html.indexOf('<h1'));
+    expect(text(html.slice(at))).toContain('Demo');
+    expect(rowOfToken(html, DEMO_TOKENS[0].id)).toContain(DEMO_TOKENS[0].name);
+  });
+
+  it('is not drawn when the page has no links to show', () => {
+    const html = renderToStaticMarkup(createElement(BusinessScreen, { view: { kind: 'business', source: { kind: 'demo' }, claims: [], products: DEMO_PRODUCTS } }));
+    expect(html).not.toContain('agent-connect');
+  });
+
+  it('holds at 393 px: nothing wider, every row and setup wraps, the token breaks anywhere', () => {
+    const css = readFileSync(fileURLToPath(new URL('../agent-connect/tokens/connect.css', import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = (selector: string) => {
+      const at = css.lastIndexOf(`${selector} {`);
+      expect(at, selector).toBeGreaterThanOrEqual(0);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    const widths = [...css.matchAll(/(?:^|[;{\s])(?:min-)?(?:width|flex(?:-basis)?)\s*:[^;]*?(\d+)px/g)].map((m) => Number(m[1]));
+    expect(Math.max(...widths)).toBeLessThanOrEqual(393 - 2 * 16);
+    for (const selector of ['.agent-make', '.agent-row', '.agent-row-meta', '.agent-setup-head', '.agent-connect-head']) {
+      expect(rule(selector), selector).toContain('flex-wrap: wrap');
+    }
+    for (const selector of ['.agent-token', '.agent-setup pre', '.agent-row-main strong']) {
+      expect(rule(selector), selector).toContain('overflow-wrap: anywhere');
+    }
+    expect(rule('.agent-setup pre')).toContain('white-space: pre-wrap');
   });
 });
