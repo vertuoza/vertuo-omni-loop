@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slices s1 and s5: Claude Code's status line JSON, read with every field optional.
 import { describe, expect, it } from 'vitest';
 import { parseInput } from './input.ts';
@@ -38,7 +37,7 @@ describe('parseInput', () => {
   });
 
   it('reads a null used_percentage as no percentage', () => {
-    expect(parseInput(JSON.stringify({ ...FULL, context_window: { used_percentage: null } })).contextPercent).toBeNull();
+    expect(parseInput(JSON.stringify({ ...FULL, context_window: { used_percentage: null } }))?.contextPercent).toBeNull();
   });
 
   it('reads a field of the wrong type as missing', () => {
@@ -53,16 +52,16 @@ describe('parseInput', () => {
   });
 
   it('reads the session id as sent, whatever its characters: the record reader decides what is safe', () => {
-    expect(parseInput(JSON.stringify({ session_id: '../abc' })).sessionId).toBe('../abc');
-    expect(parseInput(JSON.stringify({ session_id: '' })).sessionId).toBeNull();
+    expect(parseInput(JSON.stringify({ session_id: '../abc' }))?.sessionId).toBe('../abc');
+    expect(parseInput(JSON.stringify({ session_id: '' }))?.sessionId).toBeNull();
   });
 
   it('falls back to cwd when workspace.current_dir is missing', () => {
-    expect(parseInput(JSON.stringify({ cwd: '/work/repo' })).currentDir).toBe('/work/repo');
+    expect(parseInput(JSON.stringify({ cwd: '/work/repo' }))?.currentDir).toBe('/work/repo');
   });
 
   it('reads resets_at as Unix seconds, or as a date', () => {
-    const at = (resets_at) => parseInput(JSON.stringify({ rate_limits: { five_hour: { used_percentage: 10, resets_at } } })).fiveHour;
+    const at = (resets_at: unknown) => parseInput(JSON.stringify({ rate_limits: { five_hour: { used_percentage: 10, resets_at } } }))?.fiveHour;
     expect(at(RESETS_AT / 1000)).toEqual({ percent: 10, resetsAt: RESETS_AT });
     expect(at('2026-09-28T13:30:00Z')).toEqual({ percent: 10, resetsAt: RESETS_AT });
     expect(at('soon')).toBeNull();
@@ -70,8 +69,8 @@ describe('parseInput', () => {
   });
 
   it('has no five-hour window without its percentage', () => {
-    expect(parseInput(JSON.stringify({ rate_limits: { five_hour: { resets_at: RESETS_AT / 1000 } } })).fiveHour).toBeNull();
-    expect(parseInput(JSON.stringify({ rate_limits: { seven_day: { used_percentage: 5, resets_at: 1 } } })).fiveHour).toBeNull();
+    expect(parseInput(JSON.stringify({ rate_limits: { five_hour: { resets_at: RESETS_AT / 1000 } } }))?.fiveHour).toBeNull();
+    expect(parseInput(JSON.stringify({ rate_limits: { seven_day: { used_percentage: 5, resets_at: 1 } } }))?.fiveHour).toBeNull();
   });
 
   it.each(['', 'not json at all', '{"model":', 'null', '42', '"text"', '[]', '[{}]'])('reads %j as unreadable', (text) => {

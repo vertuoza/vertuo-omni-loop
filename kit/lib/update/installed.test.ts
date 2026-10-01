@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The version a repository's bin carries, read from the marker its build wrote (PRD 347, s4).
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';

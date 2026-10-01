@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slice s5: the per-session record — the PRD a Claude session last worked on, written in
 // the repository's main checkout by the commands that name one, read back by the status line.
 import { execFileSync } from 'node:child_process';
@@ -6,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { ExecText } from '../context.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { readRecord, recordedPrd, recordSession, SESSIONS_DIR, writeRecord } from './sessions.ts';
 
@@ -13,11 +13,11 @@ const NOW = Date.parse('2026-09-28T12:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
 
 const tempRoot = () => mkdtempSync(join(tmpdir(), 'omni-sessions-'));
-const recordFile = (root, id) => join(root, SESSIONS_DIR, `${id}.json`);
-const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
+const recordFile = (root: string, id: string) => join(root, SESSIONS_DIR, `${id}.json`);
+const readJson = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 
 /** A record file written by hand, `at` the given instant. */
-function plant(root, id, at, prd = 3) {
+function plant(root: string, id: string, at: number, prd = 3) {
   mkdirSync(join(root, SESSIONS_DIR), { recursive: true });
   writeFileSync(recordFile(root, id), `${JSON.stringify({ prd, at: new Date(at).toISOString() })}\n`);
 }
@@ -129,8 +129,8 @@ describe('recordSession and recordedPrd: the main checkout', () => {
     expect(recordedPrd({ cwd: outside, exec: execFileSync, sessionId: 'abc' })).toBeNull();
     expect(existsSync(join(outside, '.omni-loop'))).toBe(false);
     const { root } = withWorktree();
-    const calls = [];
-    const exec = (...args) => {
+    const calls: unknown[][] = [];
+    const exec = (...args: Parameters<ExecText>) => {
       calls.push(args);
       return execFileSync(...args);
     };

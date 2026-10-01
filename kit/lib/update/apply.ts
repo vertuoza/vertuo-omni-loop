@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `omni update --apply` (PRD 347): what the new version's own code does to a repository. In a
 // worktree cut from the remote default branch, on the branch `branches.update` names, it writes this
 // bundle over the bin, checks `config.yml` under this version (after the migration step) and never
@@ -6,10 +5,12 @@
 // commits with the signature's trailer, pushes, and opens the pull request. The labels are
 // reconciled on GitHub, as `omni init` does. The person's checkout is never touched, and the
 // worktree is removed once the work is pushed or given up.
+import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from '../config.ts';
 import { createContext } from '../context.ts';
+import type { Config, ExecText } from '../context.ts';
 import { reconcileLabels } from '../init/labels.ts';
 import { readRepo } from '../init/repo.ts';
 import { writeForms } from '../playbook/write-forms.ts';
@@ -21,19 +22,22 @@ const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
 
 /** Whether `path` is the loop's folder or lies under it, however it is spelled. */
-function insideLoop(path) {
+function insideLoop(path: string): boolean {
   const clean = posix.normalize(path).replace(/\/+$/, '');
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
 }
 
+/** `value[key]` for an object `value`, else `undefined`. */
+const prop = (value: unknown, key: string): unknown => (typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined);
+
 /** The first line a failed command wrote, or its message. */
-function why(error) {
-  const text = String(error?.stderr ?? '').trim() || String(error?.message ?? error);
-  return text.split('\n')[0];
+function why(error: unknown): string {
+  const text = String(prop(error, 'stderr') ?? '').trim() || String(prop(error, 'message') ?? error);
+  return text.split('\n')[0] ?? '';
 }
 
 /** `config.yml` at `root`, checked under `version` after the migration step. Throws UpdateError naming the key. */
-export function checkConfig(root, version) {
+export function checkConfig(root: string, version: string): Config {
   const file = join(root, CONFIG_FILE);
   if (!existsSync(file)) throw new UpdateError(`omni update: ${CONFIG_FILE} is missing: this repository is not installed; run omni init.`);
   try {
@@ -44,24 +48,37 @@ export function checkConfig(root, version) {
   }
 }
 
+/** What `applyUpdate` is given: the repository, the bundle and its version, and how to run and print. */
+export type ApplyOptions = {
+  root: string;
+  /** The running bundle, the file written over the bin. */
+  bundle: string;
+  version: string;
+  /** The version the bin carried, `null` for an unversioned one. */
+  from: string | null;
+  /** The kit's home on GitHub, `owner/name`. */
+  home: string | null;
+  exec: ExecText;
+  println: (line: string) => void;
+};
+
 /**
  * Brings the repository at `root` to `version`, the running bundle's, from `from` (or `null` for an
  * unversioned bin). Prints what changed and the pull request's link. Throws UpdateError on anything
- * that stops it; nothing is committed before every check has passed.
- *
- * @returns {number} the exit code
+ * that stops it; nothing is committed before every check has passed. Returns the exit code.
  */
-export function applyUpdate({ root, bundle, version, from, home, exec, println }) {
-  const git = (args, cwd = root) => {
+export function applyUpdate({ root, bundle, version, from, home, exec, println }: ApplyOptions): number {
+  const quiet = (cwd: string): ExecFileSyncOptionsWithStringEncoding => ({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const git = (args: string[], cwd: string = root): string => {
     try {
-      return exec('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return exec('git', args, quiet(cwd));
     } catch (error) {
       throw new UpdateError(`omni update: git ${args[0]} failed: ${why(error)}`);
     }
   };
-  const gh = (args) => {
+  const gh = (args: string[]): string => {
     try {
-      return exec('gh', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return exec('gh', args, quiet(root));
     } catch (error) {
       throw new UpdateError(`omni update: gh ${args.slice(0, 2).join(' ')} failed: ${why(error)}`);
     }
@@ -102,7 +119,8 @@ export function applyUpdate({ root, bundle, version, from, home, exec, println }
     git(['add', '-A', '--', LOOP_DIR], worktree);
     let changed = true;
     try {
-      exec('git', ['diff', '--cached', '--quiet'], { cwd: worktree, stdio: 'ignore' });
+      // Its output is ignored: only the exit code says whether anything is staged.
+      exec('git', ['diff', '--cached', '--quiet'], { cwd: worktree, encoding: 'utf8', stdio: 'ignore' });
       changed = false;
     } catch {
       changed = true;
@@ -122,7 +140,7 @@ export function applyUpdate({ root, bundle, version, from, home, exec, println }
     return 0;
   } finally {
     try {
-      exec('git', ['worktree', 'remove', '--force', worktree], { cwd: root, stdio: 'ignore' });
+      exec('git', ['worktree', 'remove', '--force', worktree], { cwd: root, encoding: 'utf8', stdio: 'ignore' });
     } catch {
       // Left for `git worktree prune`: the work is already pushed, or was given up.
     }

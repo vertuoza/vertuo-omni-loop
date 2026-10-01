@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #324, slices s4 and s5: which PRD a session works on, read from its branch — the slice, feature
 // and phase-0 templates, a slice branch read as a slice first, and the topic to its folder — and,
 // when the branch names none, from the record of what the session last worked on.
@@ -15,24 +14,24 @@ const FOLDERS = ['0003-alpha', '0007-bravo', '0009-charlie', '0011-delta'];
 
 describe('templatePattern', () => {
   it('reads `{topic}` as one or more characters, the shortest that matches', () => {
-    expect(templatePattern('feat/{topic}--{slice}').exec('feat/a--b--c').groups).toEqual({ topic: 'a', slice: 'b--c' });
+    expect(templatePattern('feat/{topic}--{slice}').exec('feat/a--b--c')?.groups).toEqual({ topic: 'a', slice: 'b--c' });
     expect(templatePattern('feat/{topic}').exec('feat/')).toBeNull();
   });
 
   it('reads `{slice}` as one or more characters other than `/`', () => {
     expect(templatePattern('feat/{topic}--{slice}').exec('feat/x--s1/more')).toBeNull();
-    expect(templatePattern('feat/{topic}/{slice}').exec('feat/x/s1/more').groups).toEqual({ topic: 'x/s1', slice: 'more' });
+    expect(templatePattern('feat/{topic}/{slice}').exec('feat/x/s1/more')?.groups).toEqual({ topic: 'x/s1', slice: 'more' });
     expect(templatePattern('feat/{topic}--{slice}').exec('feat/x--')).toBeNull();
   });
 
   it('reads every other character literally, the whole branch and nothing less', () => {
-    expect(templatePattern('feat.{topic}+(x)').exec('feat.a+(x)').groups.topic).toBe('a');
+    expect(templatePattern('feat.{topic}+(x)').exec('feat.a+(x)')?.groups?.topic).toBe('a');
     expect(templatePattern('feat.{topic}+(x)').exec('featXa+(x)')).toBeNull();
     expect(templatePattern('feat/{topic}').exec('refs/feat/a')).toBeNull();
   });
 
   it('reads a second `{topic}` as the same topic', () => {
-    expect(templatePattern('{topic}/work-{topic}').exec('a/work-a').groups.topic).toBe('a');
+    expect(templatePattern('{topic}/work-{topic}').exec('a/work-a')?.groups?.topic).toBe('a');
     expect(templatePattern('{topic}/work-{topic}').exec('a/work-b')).toBeNull();
   });
 });
@@ -141,7 +140,7 @@ describe('folderOfNumber', () => {
 
   it('finds nothing for a number no folder carries, or no number', () => {
     expect(folderOfNumber(FOLDERS, 42)).toBeNull();
-    expect(folderOfNumber(FOLDERS, null)).toBeNull();
+    expect(folderOfNumber(FOLDERS, null as unknown as number)).toBeNull();
     expect(folderOfNumber(undefined, 7)).toBeNull();
   });
 
