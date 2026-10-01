@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import { dossierStore } from './store.ts';
@@ -10,9 +9,9 @@ const COMMIT = 'c0ffee0000000000000000000000000000000001';
 const BLOB = 'b10b000000000000000000000000000000000001';
 const HOME = 'vertuoza/vertuo-omni-loop';
 
-const sha256 = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
-const dossier = (id, over = {}) => ({ id, workspace_id: VERTUOZA, home_repo: HOME, prd: 216, title: 'PRD dossiers', opened_by: null, claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z', ...over });
-const version = (id, dossier_id, kind, content, created_at, over = {}) => ({ id, dossier_id, kind, content, sha256: sha256(content), bytes: Buffer.byteLength(content), source: 'kit', uploaded_by: 'u1', commit_sha: null, git_blob: null, created_at, ...over });
+const sha256 = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex');
+const dossier = (id: string, over: Record<string, unknown> = {}) => ({ id, workspace_id: VERTUOZA, home_repo: HOME, prd: 216, title: 'PRD dossiers', opened_by: null, claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z', ...over });
+const version = (id: string, dossier_id: string, kind: string, content: string, created_at: string, over: Record<string, unknown> = {}) => ({ id, dossier_id, kind, content, sha256: sha256(content), bytes: Buffer.byteLength(content), source: 'kit', uploaded_by: 'u1', commit_sha: null, git_blob: null, created_at, ...over });
 
 function world(tables = {}) {
   const fake = fakeDossiers(tables);
@@ -41,17 +40,17 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
       id: 'd-216', prd: 216, title: 'PRD dossiers',
       latest: { spec: { id: 'v2', gitBlob: BLOB, bytes: 8 }, plan: { id: 'v3', gitBlob: null, bytes: 8 } },
     });
-    expect(found.get(217).latest).toEqual({});
+    expect(found.get(217)!.latest).toEqual({});
     const read = fake.calls.find((c) => c.path === 'dossiers');
-    expect(read.headers.Authorization).toBe('Bearer service');
-    expect(read.url.searchParams.get('select')).not.toContain('content'); // versions are read without their content
-    expect((await store.dossiersOf(VERTUOZA, HOME, 217)).get(217).title).toBe('Another');
+    expect(read!.headers!.Authorization).toBe('Bearer service');
+    expect(read!.url.searchParams.get('select')).not.toContain('content'); // versions are read without their content
+    expect((await store.dossiersOf(VERTUOZA, HOME, 217)).get(217)!.title).toBe('Another');
   });
 
   it('refuses to read or write without a workspace, before any call', async () => {
     const { fake, store } = world();
     await expect(store.dossiersOf('', HOME)).rejects.toThrow(/workspace/);
-    await expect(store.open({ workspaceId: undefined, homeRepo: HOME, prd: 1, title: 't', at: '2026-09-27T09:00:00Z' })).rejects.toThrow(/workspace/);
+    await expect(store.open({ workspaceId: undefined as never, homeRepo: HOME, prd: 1, title: 't', at: '2026-09-27T09:00:00Z' })).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
   });
 
@@ -59,7 +58,7 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
     const { fake, store } = world();
     const opened = await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: 3, title: 'Ask mode', at: '2026-09-27T09:00:00Z' });
     expect(opened).toEqual({ id: expect.any(String), prd: 3, title: 'Ask mode', latest: {} });
-    expect(fake.tables.dossiers).toEqual([expect.objectContaining({ id: opened.id, workspace_id: VERTUOZA, home_repo: HOME, prd: 3, numbered_at: '2026-09-27T09:00:00Z', opened_by: null })]);
+    expect(fake.tables.dossiers).toEqual([expect.objectContaining({ id: opened!.id, workspace_id: VERTUOZA, home_repo: HOME, prd: 3, numbered_at: '2026-09-27T09:00:00Z', opened_by: null })]);
     expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: 3, title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
     expect(fake.tables.dossiers).toHaveLength(1);
   });
@@ -70,10 +69,10 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
     expect(opened).toEqual({ id: expect.any(String), prd: 216, title: 'Docs in a new tab', latest: {}, rounds: [] });
     expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: 216, title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
     const insert = fake.calls.find((c) => c.method === 'POST' && c.path === 'dossiers');
-    expect(insert.url.searchParams.get('on_conflict')).toBe('workspace_id,home_repo,kind,prd');
-    expect(fake.tables.dossiers.map((d) => [d.kind, d.prd])).toEqual([['prd', 216], ['visual', 216]]);
+    expect(insert!.url.searchParams.get('on_conflict')).toBe('workspace_id,home_repo,kind,prd');
+    expect(fake.tables.dossiers!.map((d) => [d.kind, d.prd])).toEqual([['prd', 216], ['visual', 216]]);
     expect([...(await store.dossiersOf(VERTUOZA, HOME)).values()].map((d) => d.id)).toEqual(['d-216']);
-    expect([...(await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).values()].map((d) => d.id)).toEqual([opened.id]);
+    expect([...(await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).values()].map((d) => d.id)).toEqual([opened!.id]);
     expect((await store.dossiersOf(VERTUOZA, HOME, 216, { kind: 'bug' })).size).toBe(0);
   });
 
@@ -87,10 +86,10 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
       ],
     });
     const found = (await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).get(548);
-    expect(found.latest['before-after']).toEqual({ id: 'v3', gitBlob: null, bytes: 4 });
-    expect(found.rounds).toEqual(expect.arrayContaining([{ id: 'v1', gitBlob: null, bytes: 9 }, { id: 'v2', gitBlob: BLOB, bytes: 9 }]));
-    expect(found.rounds).toHaveLength(2);
-    const add = (kind, content) => store.addVersion({ dossierId: 'd-548', kind, content, commitSha: COMMIT, gitBlob: BLOB });
+    expect(found!.latest['before-after']).toEqual({ id: 'v3', gitBlob: null, bytes: 4 });
+    expect(found!.rounds).toEqual(expect.arrayContaining([{ id: 'v1', gitBlob: null, bytes: 9 }, { id: 'v2', gitBlob: BLOB, bytes: 9 }]));
+    expect(found!.rounds).toHaveLength(2);
+    const add = (kind: string, content: string) => store.addVersion({ dossierId: 'd-548', kind, content, commitSha: COMMIT, gitBlob: BLOB });
     expect(await add('variations', 'round one')).toBeNull();
     expect(await add('variations', 'round three')).toBe(3);
     await expect(add('spec', 'a spec')).rejects.toThrow(/A visual dossier takes no spec version/);
@@ -99,16 +98,16 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
   it('retitles a dossier', async () => {
     const { fake, store } = world({ dossiers: [dossier('d-216')] });
     await store.retitle('d-216', 'PRD dossiers, renamed');
-    expect(fake.tables.dossiers[0].title).toBe('PRD dossiers, renamed');
+    expect(fake.tables.dossiers![0]!.title).toBe('PRD dossiers, renamed');
   });
 
   it('adds a version only through the version rule, from GitHub with the commit and the blob, and says when nothing was added', async () => {
     const { fake, store } = world({ dossiers: [dossier('d-216')] });
-    const add = (content) => store.addVersion({ dossierId: 'd-216', kind: 'spec', content, commitSha: COMMIT, gitBlob: BLOB });
+    const add = (content: string) => store.addVersion({ dossierId: 'd-216', kind: 'spec', content, commitSha: COMMIT, gitBlob: BLOB });
     expect(await add('spec one')).toBe(1);
     expect(await add('spec one')).toBeNull();
     expect(await add('spec two')).toBe(2);
-    expect(fake.tables.dossier_versions.map((v) => [v.content, v.source, v.commit_sha, v.git_blob, v.uploaded_by])).toEqual([
+    expect(fake.tables.dossier_versions!.map((v) => [v.content, v.source, v.commit_sha, v.git_blob, v.uploaded_by])).toEqual([
       ['spec one', 'github', COMMIT, BLOB, null],
       ['spec two', 'github', COMMIT, BLOB, null],
     ]);

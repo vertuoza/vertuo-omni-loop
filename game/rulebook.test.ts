@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { RULEBOOK } from './rulebook.ts';
 import { xpForLevel } from './experience.ts';

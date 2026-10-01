@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A release note is a typed thing** (PRD 262, slice s1) — the ONE parser for `release.md`, the file
  * beside a PRD's `spec.md` that says, for anyone outside, what the PRD shipped:
@@ -45,8 +44,17 @@ export const INITIAL_VERSION = '0.0.1';
 export const TITLE_MAX = 60;
 export const DESCRIPTION_MAX = 280;
 
-const FIELDS = ['prd', 'title', 'version'];
-const REQUIRED = ['prd', 'title'];
+const FIELDS: readonly string[] = ['prd', 'title', 'version'];
+const REQUIRED = ['prd', 'title'] as const;
+
+/** A release note, parsed: `version` is `null` when the note carries none. */
+export type ReleaseNote = { prd: number; title: string; version: string | null; description: string };
+
+/** What {@link parseReleaseNote} returns: the note, or one refusal per line. */
+export type ParsedReleaseNote = { ok: true; note: ReleaseNote; errors?: undefined } | { ok: false; errors: string[]; note?: undefined };
+
+/** One kind of text no note may hold, and how its refusal names a match. */
+type Forbidden = { pattern: RegExp; what: (match: string) => string };
 
 /** The kit's own folder, as a path prefix: the folder that holds its config. */
 const KIT_FOLDER = `${dirname(CONFIG_FILE)}/`;
@@ -57,16 +65,16 @@ const PRD_NUMBER = /^[1-9]\d*$/;
 const HEADING = /^#{1,6}(?:\s|$)/;
 const LIST_ITEM = /^(?:[-*+]|\d+[.)])\s/;
 const PRD_REFERENCE = /\bPRD\s*\d+/i;
-const FORBIDDEN = [
+const FORBIDDEN: readonly Forbidden[] = [
   { pattern: /https?:\/\/|www\./i, what: (match) => `a URL ("${match}")` },
   { pattern: /#\d+/, what: (match) => `a reference ("${match}")` },
   { pattern: /`/, what: () => 'a backtick' },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), what: () => `a path under ${KIT_FOLDER}` },
 ];
 
-const characters = (text) => [...text].length;
+const characters = (text: string): number => [...text].length;
 
-function unquote(value) {
+function unquote(value: string): string {
   const trimmed = value.trim();
   const first = trimmed[0];
   if (trimmed.length >= 2 && (first === '"' || first === "'") && trimmed.at(-1) === first) return trimmed.slice(1, -1);
@@ -74,20 +82,20 @@ function unquote(value) {
 }
 
 /** The front matter's fields, raw: `{ fields: { key: text }, errors }`, a continued line joined by `\n`. */
-function readFields(raw) {
-  const fields = {};
-  const errors = [];
-  let last = null;
+function readFields(raw: string): { fields: Record<string, string>; errors: string[] } {
+  const fields: Record<string, string> = {};
+  const errors: string[] = [];
+  let last: string | null = null;
   for (const line of raw.split('\n')) {
     if (line.trim() === '') continue;
     const match = /^\s/.test(line) ? null : line.match(FIELD_LINE);
     if (match) {
-      const [, key, value = ''] = match;
+      const [, key = '', value = ''] = match;
       if (Object.hasOwn(fields, key)) errors.push(`front matter holds ${key} twice`);
       fields[key] = value;
       last = key;
     } else if (last !== null && /^\s/.test(line)) {
-      fields[last] = `${fields[last]}\n${line.trim()}`;
+      fields[last] = `${fields[last] ?? ''}\n${line.trim()}`;
     } else {
       errors.push(`front matter line is not "key: value": "${line}"`);
     }
@@ -96,13 +104,13 @@ function readFields(raw) {
 }
 
 /** The text split at its front matter: `{ front, body }`, or `null` when it has none. */
-function splitNote(text) {
+function splitNote(text: string): { front: string; body: string } | null {
   const match = text.replace(/\r\n?/g, '\n').match(FRONT_MATTER_BLOCK);
-  return match ? { front: match[1], body: match[2] } : null;
+  return match ? { front: match[1] ?? '', body: match[2] ?? '' } : null;
 }
 
 /** The body's lines, blank lines at either end dropped. */
-function bodyLines(body) {
+function bodyLines(body: string): string[] {
   const lines = body.split('\n').map((line) => line.trim());
   while (lines.length && lines[0] === '') lines.shift();
   while (lines.length && lines.at(-1) === '') lines.pop();
@@ -115,7 +123,7 @@ function bodyLines(body) {
  * line that is not `key: value`, a field given twice, a field a note never carries (named), `prd` or
  * `title` missing, a `prd` that is not a number.
  */
-export function parseReleaseNote(text) {
+export function parseReleaseNote(text: string): ParsedReleaseNote {
   const parts = splitNote(text);
   if (!parts) return { ok: false, errors: ['no front matter — a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields(parts.front);
@@ -125,23 +133,23 @@ export function parseReleaseNote(text) {
   for (const key of REQUIRED) {
     if (!Object.hasOwn(fields, key)) errors.push(`front matter lacks ${key}`);
   }
-  const prd = Object.hasOwn(fields, 'prd') ? unquote(fields.prd) : null;
+  const prd = Object.hasOwn(fields, 'prd') ? unquote(fields.prd ?? '') : null;
   if (prd !== null && !PRD_NUMBER.test(prd)) errors.push(`prd "${prd}" is not a PRD number`);
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
     note: {
       prd: Number(prd),
-      title: fields.title.split('\n').map(unquote).join('\n'),
-      version: Object.hasOwn(fields, 'version') ? unquote(fields.version) : null,
+      title: (fields.title ?? '').split('\n').map(unquote).join('\n'),
+      version: Object.hasOwn(fields, 'version') ? unquote(fields.version ?? '') : null,
       description: bodyLines(parts.body).join(' '),
     },
   };
 }
 
-function titleViolations(title) {
+function titleViolations(title: string): string[] {
   if (title === '') return [`title is empty — 1 to ${TITLE_MAX} characters`];
-  const out = [];
+  const out: string[] = [];
   if (title.includes('\n')) out.push('title spans more than one line — one line');
   if (characters(title) > TITLE_MAX) out.push(`title is ${characters(title)} characters — ${TITLE_MAX} at most`);
   if (title.endsWith('.')) out.push('title ends with a full stop');
@@ -150,9 +158,9 @@ function titleViolations(title) {
   return out;
 }
 
-function descriptionViolations(lines, description) {
+function descriptionViolations(lines: readonly string[], description: string): string[] {
   if (description === '') return [`description is empty — one paragraph of 1 to ${DESCRIPTION_MAX} characters`];
-  const out = [];
+  const out: string[] = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters — ${DESCRIPTION_MAX} at most`);
   if (lines.includes('')) out.push('description holds a blank line — one paragraph');
   const heading = lines.find((line) => HEADING.test(line));
@@ -162,7 +170,7 @@ function descriptionViolations(lines, description) {
   return out;
 }
 
-function contentViolations(name, text) {
+function contentViolations(name: string, text: string): string[] {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
     const match = text.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
@@ -173,17 +181,17 @@ function contentViolations(name, text) {
  * Every rule the note `text` breaks, in the folder of PRD `prd`: one message per rule, `[]` when it
  * holds. A note that does not parse gives the parser's refusals and nothing more.
  */
-export function gradeReleaseNote(text, { prd }) {
+export function gradeReleaseNote(text: string, { prd }: { prd: number | string }): string[] {
   const parsed = parseReleaseNote(text);
   if (!parsed.ok) return parsed.errors;
   const { note } = parsed;
-  const out = [];
+  const out: string[] = [];
   if (note.prd !== Number(prd)) out.push(`prd ${note.prd} is not its folder's number, ${Number(prd)}`);
   if (note.version !== null && note.version !== INITIAL_VERSION) {
     out.push(`version ${note.version === '' ? '""' : note.version} is not ${INITIAL_VERSION} — only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text).body), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text)?.body ?? ''), note.description));
   out.push(...contentViolations('title', note.title), ...contentViolations('description', note.description));
   return out;
 }

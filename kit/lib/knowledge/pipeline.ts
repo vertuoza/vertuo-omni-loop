@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The harvest pipeline** (PRD #82, slice s7): the one sequence `omni harvest` and the app's
  * `knowledge-harvest` function share. It wires the harvest's units together and nothing else:
@@ -40,15 +39,80 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createContext } from '../context.ts';
-import { movedPath, planShip } from '../delivery/ship.ts';
-import { findOutboxViolations } from '../outbox/check-outbox.ts';
-import { settleAtMerge } from '../outbox/settle-merge.ts';
-import { askModel, NO_KEY, REFUSED } from '../openrouter.ts';
+import { createContext, type Context } from '../context.ts';
+import { movedPath as untypedMovedPath, planShip as untypedPlanShip } from '../delivery/ship.ts';
+import { findOutboxViolations as untypedFindOutboxViolations } from '../outbox/check-outbox.ts';
+import { settleAtMerge as untypedSettleAtMerge } from '../outbox/settle-merge.ts';
+import { askModel as untypedAskModel, NO_KEY, REFUSED } from '../openrouter.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
-import { allowedKinds, classificationJsonSchema, classificationPrompt, classificationSchema, knowledgeSummary } from './classify.ts';
-import { harvestCandidates } from './harvest.ts';
-import { writeKnowledge } from './write.ts';
+import {
+  allowedKinds,
+  classificationJsonSchema,
+  classificationPrompt,
+  classificationSchema,
+  knowledgeSummary,
+  type ClassificationReply,
+  type KnowledgeSummary,
+  type PromptCandidate,
+} from './classify.ts';
+import { harvestCandidates, type Candidate } from './harvest.ts';
+import { writeKnowledge, type Classified, type Merge, type Placed, type Taken, type WriteResult } from './write.ts';
+
+/** A move of one path to another, as the tree holds them before and after. */
+export type Move = { from: string; to: string };
+
+/** One file written, at its path once the moves have run. */
+export type Write = { path: string; text: string };
+
+/** An edit set: applied deletes first, then moves, then writes. */
+export type HarvestEdits = { deletes: string[]; moves: Move[]; writes: Write[] };
+
+/** What {@link prepareHarvest} returns. */
+export type Prepared =
+  | {
+      ok: true;
+      prd: number;
+      edits: HarvestEdits;
+      settled: { id: string; from: 'open' | 'drift' }[];
+      shipped: Move[];
+      candidates: Candidate[];
+      summary: KnowledgeSummary;
+    }
+  | { ok: false; errors: string[] };
+
+/** One candidate's classification: the reply the classifier's schema accepted, or why there is none. */
+export type Classification = { id: string; reply: ClassificationReply | null; reason: string | null; error: string | null };
+
+// ── The units this pipeline wires, as it calls them ───────────────────────────────────────────
+// Their modules are still untyped (PRD 725: settle-merge and check-outbox are typed by s8, ship by
+// s11, openrouter by the ratchet), so each is bound here once to the shape it already has. A typed
+// module that disagrees makes its line fail to compile, which is the point.
+
+type SettleAtMerge = (input: { ctx: Context; prd: number; merge: Merge }) =>
+  | { ok: true; settledFile: string; entries: { id: string; from: 'open' | 'drift'; entry: string }[]; append: string; text: string | null; deletes: string[] }
+  | { ok: false; errors: string[] };
+type PlanShip = (
+  ctx: Context,
+  prd: number,
+  source: { files: string[]; read: (file: string) => string },
+) => { ok: true; moves: Move[]; rewrites: { file: string; text: string }[] } | { ok: false; reasons: string[] };
+type MovedPath = (moves: readonly Move[], file: string) => string;
+type FindOutboxViolations = (input: { ctx: Context }) => string[];
+type AskModel = (input: {
+  system: string;
+  user: string;
+  check: { safeParse: (value: unknown, params?: object) => unknown };
+  schema?: { name: string; schema: object };
+  env?: Record<string, string | undefined>;
+  fetch?: typeof globalThis.fetch;
+  title?: string;
+}) => Promise<{ ok: boolean; error: string | null; model: string | null; reply: unknown; reason: string | null }>;
+
+const settleAtMerge = untypedSettleAtMerge as SettleAtMerge; // ts-allow: settle-merge is untyped until s8; this is the shape it returns
+const planShip = untypedPlanShip as PlanShip; // ts-allow: ship is untyped until s11; this is the shape it returns
+const movedPath = untypedMovedPath as MovedPath; // ts-allow: ship is untyped until s11; this is the shape it returns
+const findOutboxViolations = untypedFindOutboxViolations as FindOutboxViolations; // ts-allow: check-outbox is untyped until s8; this is the shape it returns
+const askModel = untypedAskModel as unknown as AskModel; // ts-allow: openrouter is untyped (its JSDoc is not read in a .ts file); this is the shape it takes and returns
 
 /** The reason a candidate is not placed when the model's reply was refused, then refused again. */
 export const REFUSED_TWICE = "the model's reply was refused twice";
@@ -63,10 +127,10 @@ export const CLASSIFY_SYSTEM =
 // ── The scratch tree ──────────────────────────────────────────────────────────────────────────
 
 /** The folders and files of the loop a harvest reads or changes, relative to the root. */
-function loopPaths(ctx) {
+function loopPaths(ctx: Context): string[] {
   const { paths } = ctx.config;
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary]
-    .filter((path) => typeof path === 'string' && path.length > 0)
+    .filter((path): path is string => typeof path === 'string' && path.length > 0)
     .map((path) => path.replace(/\/+$/, ''));
 }
 
@@ -74,9 +138,9 @@ function loopPaths(ctx) {
  * A scratch tree over `ctx.root`: every path of `keep` copied, every other entry linked in place,
  * `.git` left out. Returns its root.
  */
-function overlay(root, keep) {
+function overlay(root: string, keep: readonly string[]): string {
   const scratch = mkdtempSync(join(tmpdir(), 'omni-harvest-'));
-  const walk = (dir) => {
+  const walk = (dir: string): void => {
     for (const name of readdirSync(join(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === '.git') continue;
@@ -95,7 +159,7 @@ function overlay(root, keep) {
 }
 
 /** Runs `fn` with a context rooted at a scratch tree over `ctx`'s, removed afterwards. */
-function inScratch(ctx, fn) {
+function inScratch<T>(ctx: Context, fn: (scratch: Context) => T): T {
   const root = overlay(ctx.root, loopPaths(ctx));
   try {
     return fn(createContext(root, ctx.config));
@@ -105,10 +169,10 @@ function inScratch(ctx, fn) {
 }
 
 /** Every file under `dir` in the tree at `root`, relative to it; links are not followed. */
-function filesUnder(root, dir) {
+function filesUnder(root: string, dir: string): string[] {
   const absolute = join(root, dir);
   if (!existsSync(absolute)) return [];
-  const out = [];
+  const out: string[] = [];
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) out.push(...filesUnder(root, rel));
@@ -122,10 +186,8 @@ function filesUnder(root, dir) {
 /**
  * Applies an edit set to the tree at `root`: the deletes, then the moves, then the writes. Plain
  * file operations: nothing is staged, nothing committed.
- *
- * @param {{ root: string, edits: { deletes: string[], moves: { from: string, to: string }[], writes: { path: string, text: string }[] } }} input
  */
-export function applyHarvestEdits({ root, edits }) {
+export function applyHarvestEdits({ root, edits }: { root: string; edits: HarvestEdits }): void {
   for (const path of edits.deletes) rmSync(join(root, path), { force: true });
   for (const { from, to } of edits.moves) {
     mkdirSync(dirname(join(root, to)), { recursive: true });
@@ -138,48 +200,40 @@ export function applyHarvestEdits({ root, edits }) {
 }
 
 /** `writes` with one entry per path, the later text winning, in the order paths first appear. */
-function mergeWrites(writes) {
-  const byPath = new Map();
+function mergeWrites(writes: readonly Write[]): Write[] {
+  const byPath = new Map<string, string>();
   for (const write of writes) byPath.set(write.path, write.text);
   return [...byPath].map(([path, text]) => ({ path, text }));
 }
 
 // ── Prepare ───────────────────────────────────────────────────────────────────────────────────
 
-/**
- * The first half: settle at merge, plan the ship, list the candidates. Touches no file of `ctx`'s
- * tree.
- *
- * @param {{ ctx: object, prd: number | string, merge: { by: string, at: string, pr: number, url?: string } }} input
- * @returns {{ ok: true, prd: number, edits: { deletes: string[], moves: { from: string, to: string }[], writes: { path: string, text: string }[] },
- *   settled: { id: string, from: 'open' | 'drift' }[], shipped: { from: string, to: string }[],
- *   candidates: object[], summary: object } | { ok: false, errors: string[] }}
- */
-export function prepareHarvest({ ctx, prd, merge }) {
+/** The first half: settle at merge, plan the ship, list the candidates. Touches no file of `ctx`'s tree. */
+export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number | string; merge: Merge }): Prepared {
   const n = Number(prd);
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
-  return inScratch(ctx, (scratch) => {
+  return inScratch(ctx, (scratch): Prepared => {
     const settle = settleAtMerge({ ctx: scratch, prd: n, merge });
     if (!settle.ok) return { ok: false, errors: settle.errors };
-    const settleEdits = {
+    const settleEdits: HarvestEdits = {
       deletes: settle.deletes,
       moves: [],
       writes: settle.text === null ? [] : [{ path: settle.settledFile, text: settle.text }],
     };
     applyHarvestEdits({ root: scratch.root, edits: settleEdits });
 
-    let moves = [];
-    let rewrites = [];
-    if (scratch.layout.whereIs(n).state === 'inbox') {
+    let moves: Move[] = [];
+    let rewrites: Write[] = [];
+    if (scratch.layout.whereIs(n)!.state === 'inbox') { // ts-allow: the folder exists in `ctx`'s tree, checked above, and the scratch tree copies it
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
-      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync(join(scratch.root, file), 'utf8') });
+      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file: string) => readFileSync(join(scratch.root, file), 'utf8') });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text }) => ({ path: movedPath(moves, file), text }));
+      rewrites = plan.rewrites.map(({ file, text }: { file: string; text: string }) => ({ path: movedPath(moves, file), text }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
 
-    const edits = {
+    const edits: HarvestEdits = {
       deletes: settleEdits.deletes,
       moves,
       writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath(moves, w.path), text: w.text })), ...rewrites]),
@@ -188,7 +242,7 @@ export function prepareHarvest({ ctx, prd, merge }) {
       ok: true,
       prd: n,
       edits,
-      settled: settle.entries.map(({ id, from }) => ({ id, from })),
+      settled: settle.entries.map(({ id, from }: { id: string; from: 'open' | 'drift' }) => ({ id, from })),
       shipped: moves,
       candidates: harvestCandidates({ ctx: scratch, prd: n }),
       summary: knowledgeSummary({ ctx: scratch }),
@@ -198,13 +252,18 @@ export function prepareHarvest({ ctx, prd, merge }) {
 
 // ── Classify ──────────────────────────────────────────────────────────────────────────────────
 
-/**
- * Asks the model where one candidate belongs. Never throws.
- *
- * @returns {Promise<{ id: string, reply: object | null, reason: string | null, error: string | null }>}
- *   `reply` null means not placed, and `reason` says why.
- */
-export async function classifyCandidate({ candidate, summary, env, fetch }) {
+/** Asks the model where one candidate belongs. Never throws. `reply` null means not placed, and `reason` says why. */
+export async function classifyCandidate({
+  candidate,
+  summary,
+  env,
+  fetch,
+}: {
+  candidate: PromptCandidate;
+  summary: KnowledgeSummary;
+  env?: Record<string, string | undefined>;
+  fetch?: typeof globalThis.fetch;
+}): Promise<Classification> {
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
@@ -217,19 +276,22 @@ export async function classifyCandidate({ candidate, summary, env, fetch }) {
     fetch,
     title: 'omni harvest',
   });
-  if (answer.ok) return { id: candidate.id, reply: answer.reply, reason: null, error: null };
+  if (answer.ok) {
+    const reply = answer.reply as ClassificationReply; // ts-allow: askModel returns only a reply `check` (classificationSchema) accepted
+    return { id: candidate.id, reply, reason: null, error: null };
+  }
   const reason = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason, error: answer.error === NO_KEY ? NO_KEY : answer.error };
 }
 
 // ── Finish ────────────────────────────────────────────────────────────────────────────────────
 
-function knowledgeFiles(ctx) {
+function knowledgeFiles(ctx: Context): string[] {
   return filesUnder(ctx.root, ctx.layout.knowledgeRoot).filter((file) => file.endsWith('.md'));
 }
 
 /** Both checks' violations on the tree at `ctx`, each prefixed by the check that found it. */
-function runChecks(ctx) {
+function runChecks(ctx: Context): { knowledge: string[]; outbox: string[] } {
   const knowledge = existsSync(join(ctx.root, ctx.layout.knowledgeRoot))
     ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations
     : [];
@@ -237,42 +299,62 @@ function runChecks(ctx) {
   return { knowledge, outbox };
 }
 
-const newOnes = (after, before) => after.filter((line) => !before.includes(line));
+const newOnes = (after: readonly string[], before: readonly string[]): string[] => after.filter((line) => !before.includes(line));
 
 /** The kinds that make a candidate knowledge: a new register entry or a decision record. */
-export const PROMOTIONS = Object.freeze(['adr', 'rule', 'invariant']);
+export const PROMOTIONS: readonly string[] = Object.freeze(['adr', 'rule', 'invariant']);
 
 /**
  * The second half: apply what prepare planned, write the knowledge, run both checks, and drop every
- * entry that fails. Touches no file of `ctx`'s tree.
- *
- * @param {{ ctx: object, prepared: object, classified: { id: string, reply: object | null, reason?: string | null }[],
- *   merge: { by: string, at: string, pr: number, url?: string }, taken?: { records?: string[], ids?: string[] }, date: string }} input
- * @returns {{ edits: { deletes: string[], moves: object[], writes: object[] }, placed: object[],
- *   notPlaced: { id: string, reason: string }[], checks: { knowledge: string[], outbox: string[] } }}
- *   `checks` holds what still fails on the result; an entry of this run never does.
+ * entry that fails. Touches no file of `ctx`'s tree. `checks` holds what still fails on the result;
+ * an entry of this run never does.
  */
-export function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
+export function finishHarvest({
+  ctx,
+  prepared,
+  classified,
+  merge,
+  taken = {},
+  date,
+}: {
+  ctx: Context;
+  prepared: { prd: number; edits: HarvestEdits };
+  classified: readonly { id: string; reply?: ClassificationReply | null; reason?: string | null }[];
+  merge: Merge;
+  taken?: Taken;
+  date: string;
+}): {
+  edits: HarvestEdits;
+  placed: Placed[];
+  notPlaced: { id: string; reason: string }[];
+  checks: { knowledge: string[]; outbox: string[] };
+} {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
     const before = runChecks(scratch);
     const replies = new Map(classified.map((entry) => [entry.id, entry]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
-    const dropped = new Map();
+    const dropped = new Map<string, string>();
 
-    const attempt = (keep) => {
-      const input = candidates.map((candidate) => {
+    const attempt = (keep: string[] | null): WriteResult => {
+      const input = candidates.map((candidate): Classified | null => {
         const given = replies.get(candidate.id);
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
         if (!given) return { candidate, reply: null, reason: 'not classified' };
         if (keep && !keep.includes(candidate.id)) return null;
         return { candidate, reply: given.reply ?? null, reason: given.reason ?? undefined };
       });
-      return writeKnowledge({ ctx: scratch, classified: input.filter(Boolean), merge, taken, date });
+      return writeKnowledge({
+        ctx: scratch,
+        classified: input.filter((entry): entry is Classified => entry !== null),
+        merge,
+        taken,
+        date,
+      });
     };
 
     /** The violations a write adds to the tree, on a throwaway copy of the scratch tree. */
-    const failures = (result) =>
+    const failures = (result: WriteResult): string[] =>
       inScratch(scratch, (trial) => {
         applyHarvestEdits({ root: trial.root, edits: { deletes: [], moves: [], writes: result.writes } });
         const after = runChecks(trial);
@@ -282,7 +364,7 @@ export function finishHarvest({ ctx, prepared, classified, merge, taken = {}, da
     let result = attempt(null);
     if (failures(result).length > 0) {
       // One entry at a time, in ledger order: an entry whose own write adds a violation is dropped.
-      const kept = [];
+      const kept: string[] = [];
       for (const entry of result.placed) {
         const trial = attempt([...kept, entry.id]);
         const failed = failures(trial);
@@ -296,7 +378,7 @@ export function finishHarvest({ ctx, prepared, classified, merge, taken = {}, da
     const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
     applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
-    const edits = {
+    const edits: HarvestEdits = {
       deletes: prepared.edits.deletes,
       moves: prepared.edits.moves,
       writes: mergeWrites([...prepared.edits.writes, ...writes]),
@@ -306,6 +388,6 @@ export function finishHarvest({ ctx, prepared, classified, merge, taken = {}, da
 }
 
 /** Whether an edit set changes nothing. */
-export function noEdits(edits) {
+export function noEdits(edits: HarvestEdits): boolean {
   return edits.deletes.length === 0 && edits.moves.length === 0 && edits.writes.length === 0;
 }

@@ -1,6 +1,9 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
-import { AREA_COLUMNS, CONCEPT_KINDS, CONCEPT_SCALES, CONCEPT_SECTIONS, parseConcept } from './parse.ts';
+import { AREA_COLUMNS, CONCEPT_KINDS, CONCEPT_SCALES, CONCEPT_SECTIONS, parseConcept as parseConceptExactly } from './parse.ts';
+import type { ConceptRecord } from './parse.ts';
+
+/** The parse, read loosely: a test reads `errors` and `record` whichever way it went. */
+const parseConcept = (text: string) => parseConceptExactly(text) as { ok: boolean; errors: string[]; record: ConceptRecord };
 
 const FRONT = { concept: '712', title: 'One agenda for every employee', kind: 'product', scale: 'vast' };
 const AREAS = [
@@ -8,19 +11,23 @@ const AREAS = [
   '|---|---|---|---|',
   '| day-view | The living day view | One screen for the whole day | |',
   '| crew-sync | Crew sync | The crew sees the same day | #731 |',
-];
+] as const;
 
 /** A concept.md: front matter (a field set to `undefined` is left out), the six sections, the table. */
-function conceptText({ front = {}, sections = CONCEPT_SECTIONS, areas = AREAS } = {}) {
+function conceptText({
+  front = {},
+  sections = CONCEPT_SECTIONS,
+  areas = AREAS,
+}: { front?: Record<string, string | undefined>; sections?: readonly string[]; areas?: readonly string[] } = {}) {
   const fm = Object.entries({ ...FRONT, ...front }).filter(([, value]) => value !== undefined);
   const body = sections.flatMap((name) => [`## ${name}`, '', ...(name === 'Areas' ? areas : [`What ${name} says.`]), '']);
   return ['---', ...fm.map(([key, value]) => `${key}: ${value}`), '---', '', ...body].join('\n');
 }
 
-const row = (id, prd = '') => `| ${id} | Area ${id} | Brief of ${id} | ${prd} |`;
-const table = (...rows) => [AREAS[0], AREAS[1], ...rows];
+const row = (id: string, prd = '') => `| ${id} | Area ${id} | Brief of ${id} | ${prd} |`;
+const table = (...rows: string[]) => [AREAS[0], AREAS[1], ...rows];
 
-function errorsOf(text) {
+function errorsOf(text: string) {
   const parsed = parseConcept(text);
   expect(parsed.ok).toBe(false);
   return parsed.errors;
@@ -113,9 +120,9 @@ describe('parseConcept — each invalid case, refused by name', () => {
 
   it.each(AREA_COLUMNS)('an Areas table with no %s column', (column) => {
     const keep = AREA_COLUMNS.map((name) => name !== column);
-    const cut = (line) => {
+    const cut = (line: string) => {
       const cells = line.split('|').slice(1, -1);
-      return `|${cells.filter((_, index) => keep[index]).join('|')}|`;
+      return `|${cells.filter((_: string, index: number) => keep[index]).join('|')}|`;
     };
     expect(errorsOf(conceptText({ areas: AREAS.map(cut) }))).toEqual([`Areas: the table has no "${column}" column.`]);
   });

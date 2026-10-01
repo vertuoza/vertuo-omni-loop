@@ -1,4 +1,3 @@
-// @ts-nocheck
 // game/cli/contributions.ts --workspace <slug> — who authored each pull request merged into a sector
 // repository's default branch, who opened each omni:prd issue, and when each PRD started (its phase-0
 // PR merged) and shipped (its feature PR merged), over the last 40 days, upserted into
@@ -23,7 +22,8 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { configFrom } from '../config.ts';
-import { ghExec, toIso } from '../sources/github.ts';
+import { ghExec, toIso, type Exec } from '../sources/github.ts';
+import type { InsertRow, SupabaseRest } from '../sources/supabase.ts';
 import { ghWhy } from '../dossiers/github.ts';
 import { openWorkspace } from './workspace.ts';
 
@@ -42,11 +42,10 @@ const STAGES = [
 const KEY = 'workspace_id,kind,repo,number';
 
 /** The window's first instant: `WINDOW_DAYS` days before `now`. */
-export const windowStart = (now) => new Date(now.getTime() - WINDOW_DAYS * DAY);
+export const windowStart = (now: Date): Date => new Date(now.getTime() - WINDOW_DAYS * DAY);
 
 // What gh prints for `--json number,author,<time>`. A deleted account's author is null, or has no login.
 const Author = z.object({ login: z.string().nullish() }).passthrough().nullish();
-const itemsOf = (time) => z.array(z.object({ number: z.number().int().positive(), author: Author, [time]: z.string().nullish() }).passthrough());
 const Merged = z.array(z.object({
   number: z.number().int().positive(),
   author: Author,
@@ -55,16 +54,21 @@ const Merged = z.array(z.object({
   body: z.string().nullish(),
 }).passthrough());
 const Viewed = z.object({ author: Author }).passthrough();
-const Opened = itemsOf('createdAt');
+const Opened = z.array(z.object({ number: z.number().int().positive(), author: Author, createdAt: z.string().nullish() }).passthrough());
+
+type Author = z.infer<typeof Author>;
+/** A contributions row before it is given its workspace. */
+export type Contribution = Omit<InsertRow<'contributions'>, 'workspace_id'> & { kind: string; repo: string; number: number; login: string; at: string };
+type Log = (message: string) => void;
 
 // GitHub names a deleted account `ghost` where it names one at all.
-const loginOf = (author) => {
+const loginOf = (author: Author): string | null => {
   const login = author?.login?.trim().toLowerCase();
   return login && login !== 'ghost' ? login : null;
 };
 
 /** The PRD stage a merged pull request marks, as `{ kind, prd }`, or null: its label and its link both. */
-export function stageOf(pr) {
+export function stageOf(pr: { labels?: Array<{ name: string }> | null; body?: string | null }): { kind: string; prd: number } | null {
   const labels = new Set((pr.labels ?? []).map((l) => l.name));
   for (const { kind, label, link } of STAGES) {
     const prd = labels.has(label) ? link.exec(pr.body ?? '')?.[1] : undefined;
@@ -79,7 +83,7 @@ export function stageOf(pr) {
  * fails, or answers what does not parse, throws: the caller skips the whole repository. A PRD issue
  * that cannot be viewed skips that PRD's stages only, logged. Rows carry no workspace yet.
  */
-export async function readRepository(exec, org, repo, start, log = console.error) {
+export async function readRepository(exec: Exec, org: string, repo: string, start: Date, log: Log = console.error): Promise<Contribution[]> {
   const slug = `${org}/${repo}`;
   const branch = (await exec(['api', `repos/${slug}`, '--jq', '.default_branch'])).trim();
   if (!branch || branch === 'null') throw new Error(`${slug} names no default branch`);
@@ -91,20 +95,20 @@ export async function readRepository(exec, org, repo, start, log = console.error
   const opened = Opened.parse(JSON.parse(await exec([
     'issue', 'list', '-R', slug, '--label', PRD_LABEL, '--state', 'all', '--search', `created:>=${since}`, '--limit', LIMIT, '--json', 'number,author,createdAt',
   ])));
-  const rows = [];
-  const keep = (kind, item, time) => {
+  const rows: Contribution[] = [];
+  const keep = (kind: string, item: { number: number; author?: Author }, time: string | null | undefined) => {
     const login = loginOf(item.author);
-    const at = toIso(item[time]);
+    const at = toIso(time);
     if (!login || !at || Date.parse(at) < start.getTime()) return;
     rows.push({ kind, repo, number: item.number, login, at });
   };
-  for (const pr of merged) keep('pr-merged', pr, 'mergedAt');
-  for (const issue of opened) keep('prd-opened', issue, 'createdAt');
+  for (const pr of merged) keep('pr-merged', pr, pr.mergedAt);
+  for (const issue of opened) keep('prd-opened', issue, issue.createdAt);
 
   // Each PRD's author: the listed issues first, then one view per PRD older than the window.
-  const authors = new Map(opened.map((issue) => [issue.number, issue.author]));
-  const unreadable = new Set();
-  const authorOf = async (prd) => {
+  const authors = new Map<number, Author>(opened.map((issue) => [issue.number, issue.author]));
+  const unreadable = new Set<number>();
+  const authorOf = async (prd: number): Promise<Author | undefined> => {
     if (authors.has(prd)) return authors.get(prd);
     if (unreadable.has(prd)) return undefined;
     try {
@@ -124,18 +128,24 @@ export async function readRepository(exec, org, repo, start, log = console.error
     if (!at || Date.parse(at) < start.getTime()) continue;
     const author = await authorOf(stage.prd);
     if (author === undefined) continue;
-    keep(stage.kind, { number: stage.prd, author, at }, 'at');
+    keep(stage.kind, { number: stage.prd, author }, at);
   }
   return rows;
 }
 
-const order = (a, b) => a.kind.localeCompare(b.kind) || a.repo.localeCompare(b.repo) || a.number - b.number;
+const order = (a: Contribution, b: Contribution): number => a.kind.localeCompare(b.kind) || a.repo.localeCompare(b.repo) || a.number - b.number;
 
 /**
  * Reads the workspace's sectors, then each of their repositories under `org`, and upserts every row
  * in one request. Returns { rows: what was written, read: [{ repo, merged, opened }], skipped: [{ repo, why }] }.
  */
-export async function runContributions({ exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }) {
+export async function runContributions(
+  { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string; org: string | null | undefined; now?: Date; log?: Log },
+): Promise<{
+  rows: InsertRow<'contributions'>[];
+  read: Array<{ repo: string; merged: number; opened: number; started: number; shipped: number }>;
+  skipped: Array<{ repo: string; why: string }>;
+}> {
   if (typeof workspaceId !== 'string' || !workspaceId) {
     throw new Error('game:contributions: a workspace id is needed: every contributions row belongs to one workspace');
   }
@@ -144,11 +154,11 @@ export async function runContributions({ exec = ghExec, rest, workspaceId, org, 
   const { repos } = configFrom({ sectors });
   const start = windowStart(now);
 
-  const found = new Map();
-  const read = [];
-  const skipped = [];
+  const found = new Map<string, InsertRow<'contributions'> & Contribution>();
+  const read: Array<{ repo: string; merged: number; opened: number; started: number; shipped: number }> = [];
+  const skipped: Array<{ repo: string; why: string }> = [];
   for (const repo of repos) {
-    let rows;
+    let rows: Contribution[];
     try {
       rows = await readRepository(exec, org, repo, start, log);
     } catch (err) {
@@ -157,7 +167,7 @@ export async function runContributions({ exec = ghExec, rest, workspaceId, org, 
       log(`${org}/${repo} skipped: ${why}`);
       continue;
     }
-    const n = (kind) => rows.filter((r) => r.kind === kind).length;
+    const n = (kind: string): number => rows.filter((r) => r.kind === kind).length;
     read.push({ repo, merged: n('pr-merged'), opened: n('prd-opened'), started: n('prd-started'), shipped: n('prd-shipped') });
     for (const row of rows) found.set(`${row.kind} ${row.repo} ${row.number}`, { workspace_id: workspaceId, ...row });
   }
@@ -167,15 +177,15 @@ export async function runContributions({ exec = ghExec, rest, workspaceId, org, 
   return { rows, read, skipped };
 }
 
-const isMain = () => {
+const isMain = (): boolean => {
   try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync(process.argv[1] ?? '') === realpathSync(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
 };
 
-const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 if (isMain()) {
   const { rest, workspace } = await openWorkspace({ usage: 'game:contributions --workspace <slug>' });
@@ -195,7 +205,7 @@ if (isMain()) {
       rows.length ? 'written to contributions' : 'nothing to write',
     ].join(' · '));
   } catch (err) {
-    console.error(err.message);
+    console.error(err instanceof Error ? err.message : undefined);
     process.exit(1);
   }
 }

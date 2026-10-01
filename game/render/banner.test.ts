@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { renderBanner } from './banner.ts';
+import type { Credit, DerivedPlanet } from '../types.ts';
 
 const NOW = new Date('2026-09-23T14:00:00Z');
 const planet = {
@@ -16,7 +16,7 @@ const planet = {
     { id: 'b', kind: 'transmission', repo: 'core-repo', openedAt: '2026-09-23T12:00:00Z', closedAt: null },
     { id: 'c', kind: 'beacon', repo: 'core-repo', openedAt: '2026-09-20T10:00:00Z', closedAt: '2026-09-21T10:00:00Z' },
   ],
-};
+} as unknown as DerivedPlanet;
 const season = { individuals: { alice: 60 }, teams: { beaver: 10, octopod: 60 }, planets: {}, streaks: { beaver: 2 }, credits: [] };
 
 describe('renderBanner', () => {
@@ -38,7 +38,7 @@ describe('renderBanner', () => {
       { to: 'eve', team: 'octopod', planet: 2332, points: 20, reason: 'rescue' },
       { to: 'pm', team: 'beaver', planet: 2332, points: 25, reason: 'wound closed: beacon' },
       { to: 'zed', team: 'picsou', planet: 9999, points: 20, reason: 'rescue' },
-    ] };
+    ] as Credit[] };
     expect(renderBanner(planet, { season: withRescues, now: NOW }).split('\n')[3]).toBe('Captain: @pm · Crew: beaver 🔥2 · Expeditions: 2 (alice, bob) · Rescuers: 2 (octopod, cia)');
   });
 
@@ -47,7 +47,7 @@ describe('renderBanner', () => {
       prd: 4100, title: 'Solo Prototype', captain: 'freelancer', ownerTeam: null, state: 'charted',
       regions: [], class: 1, crossSector: false, threat: 1,
       zones: [], wounds: [],
-    };
+    } as unknown as DerivedPlanet;
     const uncrewedSeason = { individuals: {}, teams: {}, planets: {}, streaks: {}, credits: [] };
     expect(renderBanner(uncrewedPlanet, { season: uncrewedSeason, now: NOW })).toBe([
       'OMNI PLAN // PLANET 4100 — Solo Prototype',

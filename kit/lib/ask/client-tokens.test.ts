@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +6,7 @@ import { homeTokens } from './client-tokens.ts';
 
 const FILE = ['.config', 'omni', 'credentials.json'];
 
-function home(entries) {
+function home(entries?: unknown) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-home-'));
   if (entries !== undefined) {
     mkdirSync(join(dir, '.config', 'omni'), { recursive: true });

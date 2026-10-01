@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,6 +31,8 @@ import {
 } from './comment.ts';
 import { BANTER_POOL, assignBanter } from './banter.ts';
 import { adoptItem, parseSettledEntries, renderSettledEntry, settleItem } from './settle.ts';
+import type { OutboxItem, OutboxSections } from '../types.ts';
+import type { IssueComment, SettledEntryView } from './comment.ts';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
@@ -46,7 +47,7 @@ const ctx = flatCtx('/outbox-comment-fixture');
  * `maybeWriteSlackNote` cases ported from upstream, which all assume Slack is configured. */
 const slackCtx = flatCtx('/outbox-comment-fixture', { notify: { slack: {} } });
 
-function withFixtureRoot(run) {
+function withFixtureRoot<T>(run: (root: string) => T): T {
   const root = mkdtempSync(join(tmpdir(), 'outbox-comment-'));
   try {
     return run(root);
@@ -57,12 +58,19 @@ function withFixtureRoot(run) {
 
 /** A minimal knowledge folder — one invariants file, empty of entries (`riskyChanges` reads the
     folder for every change, regardless of which rule is under test, and finds no proof path here). */
-function seedInvariants(root) {
+function seedInvariants(root: string) {
   mkdirSync(join(root, 'docs/knowledge/product'), { recursive: true });
   writeFileSync(join(root, 'docs/knowledge/product/invariants.md'), '');
 }
 
-function writeAccount(root, prd, slice, { graded = '2026-09-22', entries = [] } = {}) {
+type FixtureEntry = { path: string; rule: string; account: string };
+
+function writeAccount(
+  root: string,
+  prd: number | string,
+  slice: string,
+  { graded = '2026-09-22', entries = [] }: { graded?: string; entries?: FixtureEntry[] } = {},
+) {
   const dir = join(root, 'docs/outbox', String(prd), 'accounts');
   mkdirSync(dir, { recursive: true });
   const lines = [
@@ -81,10 +89,21 @@ function writeAccount(root, prd, slice, { graded = '2026-09-22', entries = [] } 
   writeFileSync(join(dir, `${slice}.md`), lines.join('\n'));
 }
 
+/** What a fixture item file carries; every field but `id` has a default. */
+type ItemFixture = {
+  id: string;
+  rank?: string;
+  bearsOn?: string;
+  wave?: number;
+  questionPlain?: string;
+  decisionPlain?: string;
+  whatIHadToDecide?: string;
+};
+
 function writeItem(
-  root,
-  prd,
-  file,
+  root: string,
+  prd: number,
+  file: string,
   {
     id,
     rank = 'medium',
@@ -93,7 +112,7 @@ function writeItem(
     questionPlain = 'Should this ship as it is?',
     decisionPlain = 'Yes, this is the fixture answer.',
     whatIHadToDecide = 'x',
-  } = {},
+  }: ItemFixture,
 ) {
   const dir = join(root, 'docs/outbox', String(prd));
   mkdirSync(dir, { recursive: true });
@@ -136,8 +155,9 @@ function writeItem(
   writeFileSync(join(dir, file), text);
 }
 
-function item({ id, rank = 'medium', prd = 985, file }) {
-  return { id, rank, prd, file: file ?? `docs/outbox/${prd}/${id}.md` };
+/** An open item as the writers read it: only the fields a test names, cast to the full shape. */
+function item({ id, rank = 'medium', prd = 985, file }: { id: string; rank?: string; prd?: number; file?: string }) {
+  return { id, rank, prd, file: file ?? `docs/outbox/${prd}/${id}.md` } as OutboxItem;
 }
 
 describe('sortItems', () => {
@@ -331,7 +351,7 @@ describe('parseNameStatus (PRD #1044 s5)', () => {
 
 describe('unaccountedChanges (PRD #1044 s5)', () => {
   it('is empty when nothing in the range is risky', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       const changes = [{ path: 'scripts/ordinary.mjs', status: 'M' }];
       expect(unaccountedChanges(985, changes, { ctx: flatCtx(root) })).toEqual([]);
@@ -339,7 +359,7 @@ describe('unaccountedChanges (PRD #1044 s5)', () => {
   });
 
   it('lists a risky change no account names', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       const changes = [{ path: 'docs/adr/0099-example.md', status: 'M' }];
       const result = unaccountedChanges(985, changes, { ctx: flatCtx(root) });
@@ -348,7 +368,7 @@ describe('unaccountedChanges (PRD #1044 s5)', () => {
   });
 
   it('excludes a risky change an account names', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       writeAccount(root, 985, 's5', {
         entries: [
@@ -388,7 +408,7 @@ describe('findMarkerComment', () => {
 
 describe('openItemsForPrd', () => {
   it('reads only items under the given PRD, skipping settled.md and other PRDs', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       writeItem(root, 111, 's1-01-other-prd.md', { id: 's1-01-other-prd' });
@@ -401,19 +421,19 @@ describe('openItemsForPrd', () => {
   });
 
   it('returns an empty list when the PRD has no open items', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       expect(openItemsForPrd(985, { ctx: flatCtx(root) })).toEqual([]);
     });
   });
 });
 
-function fakeClient(initialComments = []) {
-  const comments = [...initialComments];
+function fakeClient(initialComments: IssueComment[] = []) {
+  const comments: IssueComment[] = [...initialComments];
   let nextId = comments.reduce((max, c) => Math.max(max, c.id), 0) + 1;
   return {
     comments,
     listComments: vi.fn(() => [...comments]),
-    createComment: vi.fn((body) => {
+    createComment: vi.fn((body: string) => {
       const created = {
         id: nextId++,
         body,
@@ -422,7 +442,7 @@ function fakeClient(initialComments = []) {
       comments.push(created);
       return created;
     }),
-    updateComment: vi.fn((id, body) => {
+    updateComment: vi.fn((id: number, body: string) => {
       const found = comments.find((c) => c.id === id);
       if (found) {
         found.body = body;
@@ -442,7 +462,7 @@ describe('upsertOutboxComment', () => {
   };
 
   it('creates the comment when none carries the marker yet', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
 
@@ -452,12 +472,12 @@ describe('upsertOutboxComment', () => {
       expect(client.updateComment).not.toHaveBeenCalled();
       expect(result.action).toBe('created');
       expect(client.comments).toHaveLength(1);
-      expect(client.comments[0].body).toContain(markers.comment);
+      expect(client.comments[0]?.body).toContain(markers.comment);
     });
   });
 
   it('rewrites the existing outbox comment in place instead of appending', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient([
         { id: 42, body: `${markers.comment}\nstale body` },
@@ -476,12 +496,12 @@ describe('upsertOutboxComment', () => {
       expect(result.id).toBe(42);
       // The unrelated human comment is left alone.
       expect(client.comments).toHaveLength(2);
-      expect(client.comments.find((c) => c.id === 43).body).toBe('a human reply, unrelated');
+      expect(client.comments.find((c) => c.id === 43)?.body).toBe('a human reply, unrelated');
     });
   });
 
   it('running the writer twice leaves exactly one outbox comment, listing every item raised across both waves', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
 
@@ -495,7 +515,7 @@ describe('upsertOutboxComment', () => {
       expect(client.comments).toHaveLength(1);
       expect(second.action).toBe('updated');
       expect(second.id).toBe(first.id);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
       expect(body).toContain('s2-01-a');
       expect(body).toContain('s3-01-b');
       expect(body.split(markers.comment)).toHaveLength(2);
@@ -503,27 +523,27 @@ describe('upsertOutboxComment', () => {
   });
 
   it('an item settled between two runs disappears from the comment', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       const client = fakeClient();
 
       upsertOutboxComment({ ...args, ctx: flatCtx(root) }, client);
-      expect(client.comments[0].body).toContain('s2-01-a');
-      expect(client.comments[0].body).toContain('s3-01-b');
+      expect(client.comments[0]?.body).toContain('s2-01-a');
+      expect(client.comments[0]?.body).toContain('s3-01-b');
 
       // s2-01-a settles: its open file is removed (moved into settled.md, s5's job).
       rmSync(join(root, 'docs/outbox/985/s2-01-a.md'));
 
       upsertOutboxComment({ ...args, ctx: flatCtx(root) }, client);
       expect(client.comments).toHaveLength(1);
-      expect(client.comments[0].body).not.toContain('s2-01-a');
-      expect(client.comments[0].body).toContain('s3-01-b');
+      expect(client.comments[0]?.body).not.toContain('s2-01-a');
+      expect(client.comments[0]?.body).toContain('s3-01-b');
     });
   });
 
   it('skips — no create call — when no marker comment exists and nothing is listed', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const client = fakeClient();
       const result = upsertOutboxComment({ ...args, ctx: flatCtx(root) }, client);
       expect(client.createComment).not.toHaveBeenCalled();
@@ -537,18 +557,18 @@ describe('upsertOutboxComment', () => {
   });
 
   it('still updates an existing marker comment down to "nothing open" when a run clears the last item', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const client = fakeClient([{ id: 42, body: `${markers.comment}\nstale body` }]);
       const result = upsertOutboxComment({ ...args, ctx: flatCtx(root) }, client);
       expect(client.updateComment).toHaveBeenCalledTimes(1);
       expect(client.createComment).not.toHaveBeenCalled();
       expect(result.action).toBe('updated');
-      expect(client.comments[0].body).toContain('No open items');
+      expect(client.comments[0]?.body).toContain('No open items');
     });
   });
 
   it('one open item and one unaccounted change produce one comment carrying both, the change under the item (PRD #1044 s5)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       writeItem(root, 985, 's7-01-default-country.md', {
         id: 's7-01-default-country',
@@ -560,8 +580,8 @@ describe('upsertOutboxComment', () => {
       const result = upsertOutboxComment({ ...args, ctx: flatCtx(root), changes }, client);
 
       expect(client.comments).toHaveLength(1);
-      expect(client.comments[0].body.split(markers.comment)).toHaveLength(2);
-      const body = client.comments[0].body;
+      expect(client.comments[0]?.body?.split(markers.comment)).toHaveLength(2);
+      const body = client.comments[0]?.body ?? '';
       expect(body).toContain('s7-01-default-country');
       expect(body).toContain('`docs/adr/0099-example.md`');
       expect(body).toContain('`law-text`');
@@ -573,7 +593,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('a PRD with neither an open item nor an unaccounted change is skipped, not created (PRD #1044 s5, PRD #1057 s1)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       const client = fakeClient();
 
@@ -587,7 +607,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('unaccounted changes with no open item still produce one comment naming them (PRD #1044 s5)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       seedInvariants(root);
       const client = fakeClient();
       const changes = [{ path: 'docs/adr/0099-example.md', status: 'M' }];
@@ -595,7 +615,7 @@ describe('upsertOutboxComment', () => {
       const result = upsertOutboxComment({ ...args, ctx: flatCtx(root), changes }, client);
 
       expect(client.comments).toHaveLength(1);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
       expect(body).toContain('No open items');
       expect(body).toContain('`docs/adr/0099-example.md`');
       expect(body).toContain('`law-text`');
@@ -605,7 +625,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('news is every key when the comment is created (PRD #1057 s1)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       const client = fakeClient();
@@ -618,7 +638,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('news is silent on an unchanged set (PRD #1057 s1)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
 
@@ -631,7 +651,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('news counts only the newly-appeared key when a second wave raises one more item (PRD #1057 s1)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
 
@@ -646,7 +666,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('an item settling between runs is not counted as news', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       const client = fakeClient();
@@ -660,17 +680,17 @@ describe('upsertOutboxComment', () => {
   });
 
   it('reports the comment html_url from the create response', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
       const result = upsertOutboxComment({ ...args, ctx: flatCtx(root) }, client);
-      expect(result.htmlUrl).toBe(client.comments[0].html_url);
+      expect(result.htmlUrl).toBe(client.comments[0]?.html_url);
       expect(result.htmlUrl).toContain('issuecomment');
     });
   });
 
   it('reports the comment html_url from the update response', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient([
         { id: 42, body: `${markers.comment}\nstale`, html_url: 'https://x/42' },
@@ -681,7 +701,7 @@ describe('upsertOutboxComment', () => {
   });
 
   it('reports counts by rank for the Slack line to consume', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       writeItem(root, 985, 's4-01-c.md', { id: 's4-01-c', rank: 'medium' });
@@ -880,7 +900,7 @@ describe('maybeWriteSlackNote', () => {
       write,
     });
     expect(write).toHaveBeenCalledTimes(1);
-    const [path, contents] = write.mock.calls[0];
+    const [path, contents] = write.mock.calls[0] ?? [];
     expect(path).toBe('/tmp/note.txt');
     expect(contents).toContain('*PRD #778 · Quote line components* — owner <@U123>');
     expect(contents.endsWith('\n')).toBe(true);
@@ -896,7 +916,7 @@ describe('maybeWriteSlackNote', () => {
       path: '/tmp/note.txt',
       write,
     });
-    expect(write.mock.calls[0][1]).toContain(`<${PR_COMMENT_URL}|Answer on pull request #1120 →>`);
+    expect(write.mock.calls[0]?.[1]).toContain(`<${PR_COMMENT_URL}|Answer on pull request #1120 →>`);
   });
 
   it('falls back to the PRD issue comment when the pull request comment has no url', () => {
@@ -909,7 +929,7 @@ describe('maybeWriteSlackNote', () => {
       path: '/tmp/note.txt',
       write,
     });
-    expect(write.mock.calls[0][1]).toContain(`<${ISSUE_COMMENT_URL}|Answer on the PRD issue →>`);
+    expect(write.mock.calls[0]?.[1]).toContain(`<${ISSUE_COMMENT_URL}|Answer on the PRD issue →>`);
   });
 
   it('counts the adopted items the PRD issue reader found', () => {
@@ -921,7 +941,7 @@ describe('maybeWriteSlackNote', () => {
       path: '/tmp/note.txt',
       write,
     });
-    expect(write.mock.calls[0][1]).toContain(
+    expect(write.mock.calls[0]?.[1]).toContain(
       '2 questions need a decision · 4 adopted unless someone objects',
     );
   });
@@ -937,7 +957,7 @@ describe('maybeWriteSlackNote', () => {
       write,
     });
     expect(write).toHaveBeenCalledTimes(1);
-    expect(write.mock.calls[0][1]).toContain('1 adopted unless someone objects');
+    expect(write.mock.calls[0]?.[1]).toContain('1 adopted unless someone objects');
   });
 
   it('writes nothing when there is no news', () => {
@@ -960,7 +980,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('writes nothing when the repository has not opted in to Slack notifications (notify.slack is null)', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const path = join(root, 'note.txt');
       maybeWriteSlackNote({
         ctx: flatCtx(root),
@@ -977,7 +997,7 @@ describe('maybeWriteSlackNote', () => {
 
 describe('readPrCommentResult (PRD #1166 s7)', () => {
   it('reads what the pull request step left behind', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const file = join(root, 'pr.json');
       writeFileSync(file, JSON.stringify({ htmlUrl: PR_COMMENT_URL, newAdoptedCount: 2 }));
       expect(readPrCommentResult(file)).toEqual({ htmlUrl: PR_COMMENT_URL, newAdoptedCount: 2 });
@@ -985,7 +1005,7 @@ describe('readPrCommentResult (PRD #1166 s7)', () => {
   });
 
   it('is null when the step left nothing, or something unreadable — the note still goes out', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       expect(readPrCommentResult(join(root, 'absent.json'))).toBeNull();
       const file = join(root, 'broken.json');
       writeFileSync(file, 'not json');
@@ -999,7 +1019,12 @@ describe('readPrCommentResult (PRD #1166 s7)', () => {
 
 /** A pre-s1 item, with neither plain section — the shape a settled entry written before PRD #1071
  * still embeds, forever, because `settled.md` is append-only. */
-function writeLegacyItem(root, prd, file, { id, rank = 'medium', whatIHadToDecide = 'x' } = {}) {
+function writeLegacyItem(
+  root: string,
+  prd: number,
+  file: string,
+  { id, rank = 'medium', whatIHadToDecide = 'x' }: { id: string; rank?: string; whatIHadToDecide?: string },
+) {
   const dir = join(root, 'docs/outbox', String(prd));
   mkdirSync(dir, { recursive: true });
   const text = [
@@ -1037,9 +1062,9 @@ function writeLegacyItem(root, prd, file, { id, rank = 'medium', whatIHadToDecid
  * fixture, produced the same way `/omni:yolo-fix` produces one, rather than hand-typed markdown
  * this test would have to keep in sync with the ledger's own format by hand. */
 function settle(
-  root,
-  file,
-  { text = 'ok', by = 'pierrederval', at = '2026-09-23T13:00:00Z' } = {},
+  root: string,
+  file: string,
+  { text = 'ok', by = 'pierrederval', at = '2026-09-23T13:00:00Z' }: { text?: string; by?: string; at?: string } = {},
 ) {
   const result = settleItem({
     ctx: flatCtx(root),
@@ -1052,12 +1077,12 @@ function settle(
       statedVerdict: /no\b/i.test(text) ? 'drifted' : 'agreed',
     },
   });
-  if (!result.ok) throw new Error(result.errors.join('; '));
+  if (!result.ok) throw new Error((result.errors ?? []).join('; '));
   return result;
 }
 
 /** `settled.md` for `prd`, read back through the ledger's own reader — never hand-parsed. */
-function parseSettledOf(root, prd) {
+function parseSettledOf(root: string, prd: number): SettledEntryView[] {
   const path = join(root, 'docs/outbox', String(prd), 'settled.md');
   return parseSettledEntries(readFileSync(path, 'utf8'), markers);
 }
@@ -1210,26 +1235,26 @@ describe('answeredOutcome', () => {
 
 describe('answeredQuestionText', () => {
   it('uses the embedded item’s plain question when it has one', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', {
         id: 's2-01-a',
         questionPlain: 'Should we ship the new page as it is?',
       });
       settle(root, 'docs/outbox/985/s2-01-a.md');
       const [entry] = parseSettledOf(root, 985);
-      expect(answeredQuestionText(entry)).toBe('Should we ship the new page as it is?');
+      expect(answeredQuestionText(entry as SettledEntryView)).toBe('Should we ship the new page as it is?');
     });
   });
 
   it('falls back to the first sentence of "What I had to decide" for a pre-s1 item', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeLegacyItem(root, 985, 's2-01-a.md', {
         id: 's2-01-a',
         whatIHadToDecide: 'The picker only sees the newest few. It could not reach the older ones.',
       });
       settle(root, 'docs/outbox/985/s2-01-a.md');
       const [entry] = parseSettledOf(root, 985);
-      expect(answeredQuestionText(entry)).toBe('The picker only sees the newest few.');
+      expect(answeredQuestionText(entry as SettledEntryView)).toBe('The picker only sees the newest few.');
     });
   });
 });
@@ -1267,7 +1292,7 @@ describe('formatOutboxPrComment', () => {
     expect(body).toContain('/omni:yolo-fix');
 
     // Needs-a-person first, medium last.
-    const at = (needle) => body.indexOf(needle);
+    const at = (needle: string) => body.indexOf(needle);
     expect(at('Question 1')).toBeGreaterThan(-1);
     expect(at('Question 1')).toBeLessThan(at('Question 2'));
     expect(at('Question 2')).toBeLessThan(at('Question 3'));
@@ -1314,6 +1339,7 @@ describe('formatOutboxPrComment', () => {
           Closed: 'yes',
         },
         answerText: 'approve all',
+        became: [],
         itemText: [
           '---',
           'id: s2-01-a',
@@ -1409,7 +1435,7 @@ describe('formatOutboxPrComment', () => {
 
 describe('upsertOutboxPrComment', () => {
   it('Scenario: every open question is asked in plain words, most urgent first', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'medium' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'high' });
       writeItem(root, 985, 's7-01-c.md', { id: 's7-01-c', rank: 'human-action' });
@@ -1419,7 +1445,7 @@ describe('upsertOutboxPrComment', () => {
 
       expect(result.action).toBe('created');
       expect(client.comments).toHaveLength(1);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
       expect(body).toContain(markers.prComment);
       expect(body).toContain('**3 questions need your decision**');
       expect(body.indexOf('needs a person')).toBeLessThan(body.indexOf('· high'));
@@ -1428,7 +1454,7 @@ describe('upsertOutboxPrComment', () => {
   });
 
   it('Scenario: a pull request with no open question gets no comment', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const client = fakeClient();
       const result = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
       expect(result.action).toBe('skipped');
@@ -1438,19 +1464,19 @@ describe('upsertOutboxPrComment', () => {
   });
 
   it('Scenario: the comment stays as the record', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
 
       const first = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
-      expect(client.comments[0].body).toMatch(/needs? your decision/);
+      expect(client.comments[0]?.body).toMatch(/needs? your decision/);
 
       settle(root, 'docs/outbox/985/s2-01-a.md', { text: 'ok' });
 
       const second = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
       expect(second.action).toBe('updated');
       expect(second.id).toBe(first.id);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
       expect(body).toContain('**Every question is answered**');
       expect(body).toContain('**Answered**');
       expect(body).toContain('kept as built');
@@ -1459,13 +1485,13 @@ describe('upsertOutboxPrComment', () => {
   });
 
   it('Scenario: numbers never move', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       const client = fakeClient();
 
       upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
-      const firstBody = client.comments[0].body;
+      const firstBody = client.comments[0]?.body;
       expect(firstBody).toContain('### Question 1 · high — needs your decision');
       expect(firstBody).toContain('### Question 2 · medium — needs your decision');
 
@@ -1475,7 +1501,7 @@ describe('upsertOutboxPrComment', () => {
       writeItem(root, 985, 's9-01-d.md', { id: 's9-01-d', rank: 'high' });
 
       upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
-      const secondBody = client.comments[0].body;
+      const secondBody = client.comments[0]?.body;
 
       // Question 2 (s3-01-b) is still question 2.
       expect(secondBody).toContain('### Question 2 · medium — needs your decision');
@@ -1488,7 +1514,7 @@ describe('upsertOutboxPrComment', () => {
   });
 
   it('finds an existing PR comment without confusing it for the PRD-issue one', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient([
         { id: 1, body: `${markers.comment}\nPRD issue comment, unrelated` },
@@ -1500,14 +1526,14 @@ describe('upsertOutboxPrComment', () => {
       expect(result.action).toBe('updated');
       expect(result.id).toBe(2);
       expect(client.comments).toHaveLength(2);
-      expect(client.comments.find((c) => c.id === 1).body).toBe(
+      expect(client.comments.find((c) => c.id === 1)?.body).toBe(
         `${markers.comment}\nPRD issue comment, unrelated`,
       );
     });
   });
 
   it('a question re-asked in a round comment is marked so, read off the pull request’s own comments', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       const client = fakeClient();
       const first = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
@@ -1517,7 +1543,7 @@ describe('upsertOutboxPrComment', () => {
 
       const second = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root) }, client);
       expect(second.id).toBe(first.id);
-      expect(client.comments.find((c) => c.id === first.id).body).toContain(
+      expect(client.comments.find((c) => c.id === first.id)?.body).toContain(
         '_Asked again in round 2._',
       );
     });
@@ -1530,6 +1556,20 @@ describe('upsertOutboxPrComment', () => {
  * person must take — the shape PRD #1166 slice s4 gave every item. `options: null` leaves both out,
  * the shape of an item raised before options existed. `introFun` and `punchlineFun`, given together,
  * add the intro and the punchline PRD #50 slice s1 lets an item carry. */
+/** What an optioned fixture item carries; every field but `id` has a default. */
+type OptionedSpec = {
+  id: string;
+  prd?: number;
+  rank?: string;
+  raised?: string;
+  questionPlain?: string;
+  decisionPlain?: string;
+  introFun?: string | null;
+  punchlineFun?: string | null;
+  options?: string[] | null;
+  personSteps?: string[] | null;
+};
+
 function optionedItemText({
   id,
   prd = 1166,
@@ -1541,11 +1581,11 @@ function optionedItemText({
   punchlineFun = null,
   options = ['Keep what was built', 'Change it'],
   personSteps = null,
-}) {
+}: OptionedSpec) {
   const fun = introFun
     ? ['## The intro, for fun', '', introFun, '', '## The punchline, for fun', '', punchlineFun, '']
     : [];
-  let choices = [];
+  let choices: (string | null)[] = [];
   if (personSteps) {
     choices = ['## What a person must do', '', ...personSteps, ''];
   } else if (options) {
@@ -1596,23 +1636,23 @@ function optionedItemText({
   ].join('\n');
 }
 
-function writeOptionedItem(root, spec) {
+function writeOptionedItem(root: string, spec: OptionedSpec) {
   const dir = join(root, 'docs/outbox', String(spec.prd ?? 1166));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${spec.id}.md`), optionedItemText(spec));
 }
 
-function adoptOptioned(root, spec) {
+function adoptOptioned(root: string, spec: OptionedSpec) {
   const result = adoptItem({
     ctx: flatCtx(root),
     itemText: optionedItemText({ rank: 'medium', ...spec }),
   });
-  if (!result.ok) throw new Error(result.errors.join('; '));
+  if (!result.ok) throw new Error((result.errors ?? []).join('; '));
 }
 
 /** Appends a `drifted` entry for an already-adopted id — an objection, the way the reply reader
  * records one: the ledger only grows, and the latest entry for an id wins. */
-function objectTo(root, spec, { text = 'B. Change it — because we need all of them' } = {}) {
+function objectTo(root: string, spec: OptionedSpec, { text = 'B. Change it — because we need all of them' } = {}) {
   const itemText = optionedItemText({ rank: 'medium', ...spec });
   const file = join(root, 'docs/outbox', String(spec.prd ?? 1166), 'settled.md');
   const entry = renderSettledEntry({
@@ -1641,7 +1681,7 @@ const PINNED = () => '2026-09-24T09:00:00.000Z';
 
 describe('the pull request comment sets each question apart (PRD #1166 s6)', () => {
   it('Scenario: A high question shows its options with the built one recommended', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, {
         id: 's2-01-cost',
         questionPlain: 'Should every read return the component cost?',
@@ -1654,7 +1694,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
       const client = fakeClient();
 
       upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
 
       // Set apart under its own heading, after a horizontal rule.
       expect(body).toContain('---\n\n### Question 1 · high — needs your decision');
@@ -1674,7 +1714,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
   });
 
   it('a human-action question lists the steps a person must take instead of options', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, {
         id: 's7-01-scopes',
         rank: 'human-action',
@@ -1684,7 +1724,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
       const client = fakeClient();
 
       upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
 
       expect(body).toContain('### Question 1 · human-action — needs a person');
       expect(body).toContain('**What a person must do:**');
@@ -1694,7 +1734,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
   });
 
   it('Scenario: An adopted item is still shown on the pull request', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       adoptOptioned(root, {
         id: 's3-01-components',
         questionPlain: 'Which components does a quote show when none are granted?',
@@ -1703,7 +1743,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
       const client = fakeClient();
 
       const result = upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
 
       expect(result.action).toBe('created');
       expect(body).toContain('<details><summary>Adopted unless you object · 1 medium</summary>');
@@ -1723,7 +1763,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
   });
 
   it('an adopted item later objected to leaves the adopted section and shows as answered', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const spec = { id: 's3-01-components', options: ['None', 'All of them'] };
       adoptOptioned(root, spec);
       const client = fakeClient();
@@ -1731,7 +1771,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
 
       objectTo(root, spec);
       upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
-      const body = client.comments[0].body;
+      const body = client.comments[0]?.body ?? '';
 
       expect(body).not.toContain('Adopted unless you object');
       expect(body).toContain('**Answered**');
@@ -1740,7 +1780,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
   });
 
   it('renders a PRD with one high, one human-action and two adopted items as the before/after page lays it out', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, {
         id: 's2-01-cost',
         questionPlain:
@@ -1780,7 +1820,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
       upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
 
       const since = '2026-09-24T09:00:00.000Z';
-      expect(client.comments[0].body).toBe(
+      expect(client.comments[0]?.body).toBe(
         [
           markers.prComment,
           '',
@@ -1893,7 +1933,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
               { letter: 'B', text: 'Other' },
             ],
           },
-        },
+        } as OutboxItem,
       ],
       numbering: [{ number: 1, id: 's2-01-a', since: 't' }],
       ctx,
@@ -1915,33 +1955,42 @@ function openItem({
   punchlineFun,
   options,
   personSteps,
+}: {
+  id: string;
+  rank?: string;
+  questionPlain?: string;
+  decisionPlain?: string;
+  introFun?: string;
+  punchlineFun?: string;
+  options?: string[];
+  personSteps?: string[];
 }) {
-  const sections = { questionPlain, decisionPlain };
+  const sections: OutboxSections = { questionPlain, decisionPlain };
   if (introFun) Object.assign(sections, { introFun, punchlineFun });
   if (options) {
-    sections.options = options.map((text, index) => ({ letter: 'ABCD'[index], text }));
+    sections.options = options.map((text, index) => ({ letter: 'ABCD'[index] as string, text }));
   }
   if (personSteps) sections.personSteps = personSteps.join('\n');
-  return { id, rank, prd: 50, file: `docs/outbox/50/${id}.md`, sections };
+  return { id, rank, prd: 50, file: `docs/outbox/50/${id}.md`, sections } as OutboxItem;
 }
 
 /** An adopted settled entry as `formatOutboxPrComment` takes it: the item it embeds, and its id. */
-function adoptedEntry(spec) {
+function adoptedEntry(spec: OptionedSpec) {
   return {
     id: spec.id,
     verdict: 'adopted',
     itemText: optionedItemText({ prd: 50, rank: 'medium', ...spec }),
-  };
+  } as SettledEntryView;
 }
 
 /** Question numbers 1, 2, 3… for `ids`, in order. */
-function numbered(ids) {
+function numbered(ids: string[]) {
   return ids.map((id, index) => ({ number: index + 1, id, since: '2026-09-25T00:00:00.000Z' }));
 }
 
 /** The intro and the punchline question `number` shows — the italic line right under its heading,
  * and the one right after its quoted question — or `null` when it shows none there. */
-function funLinesOf(body, number) {
+function funLinesOf(body: string, number: number) {
   const match = body.match(
     new RegExp(
       `### Question ${number} [^\\n]*\\n\\n_([^\\n]+)_\\n\\n(?:>[^\\n]*\\n)+\\n_([^\\n]+)_\\n`,
@@ -1951,12 +2000,12 @@ function funLinesOf(body, number) {
 }
 
 /** The pool intro `id` hashes to — the one it takes when no earlier question took it first. */
-function hashedIntro(id) {
-  return assignBanter([id]).get(id).intro;
+function hashedIntro(id: string) {
+  return assignBanter([id]).get(id)?.intro;
 }
 
 /** An id shaped `s9-NN-<stem>` whose pool intro hashes to the same line as `other`'s. */
-function idCollidingWith(other, stem = 'late') {
+function idCollidingWith(other: string, stem = 'late') {
   for (let n = 1; n < 5000; n += 1) {
     const id = `s9-${String(n).padStart(2, '0')}-${stem}`;
     if (id !== other && hashedIntro(id) === hashedIntro(other)) return id;
@@ -2132,8 +2181,8 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
 
     for (const number of [1, 2, 3, 4]) {
       const lines = funLinesOf(body, number);
-      expect(BANTER_POOL.intros).toContain(lines.intro);
-      expect(BANTER_POOL.punchlines).toContain(lines.punchline);
+      expect(BANTER_POOL.intros).toContain(lines?.intro);
+      expect(BANTER_POOL.punchlines).toContain(lines?.punchline);
     }
   });
 
@@ -2154,7 +2203,7 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
       punchline: 'Its own punchline.',
     });
     // The first question took no pool line, so the second keeps the one its id hashes to.
-    expect(funLinesOf(body, 2).intro).toBe(hashedIntro(other));
+    expect(funLinesOf(body, 2)?.intro).toBe(hashedIntro(other));
   });
 
   it('rendering the comment twice gives the same lines', () => {
@@ -2168,18 +2217,18 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
   });
 
   it('rewriting the comment in place keeps every question’s lines', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       writeItem(root, 985, 's4-01-c.md', { id: 's4-01-c', rank: 'human-action' });
       const client = fakeClient();
 
       upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
-      const first = client.comments[0].body;
+      const first = client.comments[0]?.body ?? '';
       const second = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
 
       expect(second.action).toBe('updated');
-      expect(client.comments[0].body).toBe(first);
+      expect(client.comments[0]?.body).toBe(first);
       expect(funLinesOf(first, 1)).not.toBeNull();
     });
   });
@@ -2193,9 +2242,9 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
       ctx,
     });
 
-    expect(funLinesOf(body, 1).intro).toBe(hashedIntro(first));
-    expect(funLinesOf(body, 2).intro).not.toBe(funLinesOf(body, 1).intro);
-    expect(BANTER_POOL.intros).toContain(funLinesOf(body, 2).intro);
+    expect(funLinesOf(body, 1)?.intro).toBe(hashedIntro(first));
+    expect(funLinesOf(body, 2)?.intro).not.toBe(funLinesOf(body, 1)?.intro);
+    expect(BANTER_POOL.intros).toContain(funLinesOf(body, 2)?.intro);
   });
 
   it('serves questions in number order, not in the order the comment lists them', () => {
@@ -2209,8 +2258,8 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
       ctx,
     });
     expect(byRank.indexOf('### Question 2 ')).toBeLessThan(byRank.indexOf('### Question 1 '));
-    expect(funLinesOf(byRank, 1).intro).toBe(hashedIntro(first));
-    expect(funLinesOf(byRank, 2).intro).not.toBe(hashedIntro(first));
+    expect(funLinesOf(byRank, 1)?.intro).toBe(hashedIntro(first));
+    expect(funLinesOf(byRank, 2)?.intro).not.toBe(hashedIntro(first));
 
     // Question 1 is adopted, so the comment lists it after question 2, an open one.
     const bySection = formatOutboxPrComment({
@@ -2220,29 +2269,29 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
       ctx,
     });
     expect(bySection.indexOf('### Question 2 ')).toBeLessThan(bySection.indexOf('### Question 1 '));
-    expect(funLinesOf(bySection, 1).intro).toBe(hashedIntro(first));
-    expect(funLinesOf(bySection, 2).intro).not.toBe(hashedIntro(first));
+    expect(funLinesOf(bySection, 1)?.intro).toBe(hashedIntro(first));
+    expect(funLinesOf(bySection, 2)?.intro).not.toBe(hashedIntro(first));
   });
 
   it('adding a question never changes an earlier question’s lines, even one hashing to the same line', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
       writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
       writeItem(root, 985, 's4-01-c.md', { id: 's4-01-c', rank: 'medium' });
       const client = fakeClient();
       upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
-      const before = client.comments[0].body;
+      const before = client.comments[0]?.body ?? '';
 
       // A new, more urgent question whose intro hashes to question 1's line.
       const late = idCollidingWith('s2-01-a');
       writeItem(root, 985, `${late}.md`, { id: late, rank: 'human-action' });
       upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
-      const after = client.comments[0].body;
+      const after = client.comments[0]?.body ?? '';
 
       for (const number of [1, 2, 3]) {
         expect(funLinesOf(after, number)).toEqual(funLinesOf(before, number));
       }
-      expect(funLinesOf(after, 4).intro).not.toBe(funLinesOf(after, 1).intro);
+      expect(funLinesOf(after, 4)?.intro).not.toBe(funLinesOf(after, 1)?.intro);
     });
   });
 
@@ -2255,8 +2304,8 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
     });
 
     const lines = ids.map((_, index) => funLinesOf(body, index + 1));
-    expect(new Set(lines.map((line) => line.intro)).size).toBe(ids.length);
-    expect(new Set(lines.map((line) => line.punchline)).size).toBe(ids.length);
+    expect(new Set(lines.map((line) => line?.intro)).size).toBe(ids.length);
+    expect(new Set(lines.map((line) => line?.punchline)).size).toBe(ids.length);
   });
 
   it('the Answered section carries no intro and no punchline', () => {
@@ -2269,6 +2318,7 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
           closed: true,
           fields: { 'Approved by': 'pierrederval', 'Approved at': '2026-09-25T10:00:00Z' },
           answerText: 'ok',
+          became: [],
           itemText: optionedItemText({
             id: 's2-01-a',
             prd: 50,
@@ -2292,7 +2342,7 @@ describe('an intro and a punchline around every question (PRD #50 s2)', () => {
 
 describe('the Slack note learns what the pull request comment holds (PRD #1166 s7)', () => {
   it('the PRD issue writer counts the adopted items, and a later objection takes one away', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, { id: 's2-01-cost' });
       adoptOptioned(root, { id: 's3-01-components' });
       adoptOptioned(root, { id: 's4-01-order' });
@@ -2313,7 +2363,7 @@ describe('the Slack note learns what the pull request comment holds (PRD #1166 s
   });
 
   it('the PRD issue writer counts adopted items even when it posts no comment of its own', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       adoptOptioned(root, { id: 's3-01-components' });
       const result = upsertOutboxComment(
         { prd: 1166, owner: 'o', repo: 'r', branch: 'feat/x', ctx: flatCtx(root) },
@@ -2325,7 +2375,7 @@ describe('the Slack note learns what the pull request comment holds (PRD #1166 s
   });
 
   it('the pull request writer names how many adopted items it numbered for the first time', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, { id: 's2-01-cost' });
       adoptOptioned(root, { id: 's3-01-components' });
       const client = fakeClient();
@@ -2345,7 +2395,7 @@ describe('the Slack note learns what the pull request comment holds (PRD #1166 s
   });
 
   it('a newly raised high question is not counted as newly adopted', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       adoptOptioned(root, { id: 's3-01-components' });
       const client = fakeClient();
       upsertOutboxPrComment({ prd: 1166, ctx: flatCtx(root), now: PINNED }, client);
@@ -2357,7 +2407,7 @@ describe('the Slack note learns what the pull request comment holds (PRD #1166 s
   });
 
   it('a skipped pull request comment adopted nothing', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       const result = upsertOutboxPrComment(
         { prd: 1166, ctx: flatCtx(root), now: PINNED },
         fakeClient(),
@@ -2429,7 +2479,7 @@ describe('the Omni page line (PRD 251, "The Outbox tab")', () => {
   });
 
   it('is written by upsertOutboxPrComment, which knows the PRD', () => {
-    withFixtureRoot((root) => {
+    withFixtureRoot((root: string) => {
       writeOptionedItem(root, { id: 's3-01-components' });
       const result = upsertOutboxPrComment(
         { prd: 1166, ctx: flatCtx(root, { ask: { url: ASK } }), now: PINNED },

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -72,8 +71,8 @@ describe('mainCheckout', () => {
     execFileSync('git', ['worktree', 'add', '-q', '-b', 'side', tree], { cwd: root, stdio: 'ignore' });
 
     expect(mainCheckout(tree)).toBe(realpathSync(root));
-    recordDraft(mainCheckout(tree), DRAFT);
-    expect(readDossiers(mainCheckout(root))).toEqual([DRAFT]);
+    recordDraft(mainCheckout(tree)!, DRAFT);
+    expect(readDossiers(mainCheckout(root)!)).toEqual([DRAFT]);
   });
 
   it('is null outside a repository', () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +9,7 @@ import { credentials, credentialsHost, exchangeCode, signedInLine, SignInError, 
 const FILE = ['.config', 'omni', 'credentials.json'];
 const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: 1790000000, email: 'ada@example.com' };
 
-function home(entries) {
+function home(entries?: unknown) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-home-'));
   if (entries !== undefined) {
     mkdirSync(join(dir, '.config', 'omni'), { recursive: true });
@@ -19,10 +18,13 @@ function home(entries) {
   return dir;
 }
 
-const onDisk = (dir) => JSON.parse(readFileSync(join(dir, ...FILE), 'utf8'));
-const modeOf = (dir) => statSync(join(dir, ...FILE)).mode & 0o777;
+const onDisk = (dir: string) => JSON.parse(readFileSync(join(dir, ...FILE), 'utf8'));
+const modeOf = (dir: string) => statSync(join(dir, ...FILE)).mode & 0o777;
 
-let server;
+/** The fake server, read loosely: a test reads its record of the calls as it expects. */
+type FakeServer = { url: string; host: string; calls: any[]; close(): Promise<void>; [key: string]: any };
+const startServer = startFakeAskServer as (options?: Record<string, unknown>) => Promise<FakeServer>;
+let server: FakeServer | undefined;
 afterEach(async () => {
   await server?.close();
   server = undefined;
@@ -129,7 +131,7 @@ describe('the line a sign-in ends on (PRD 459)', () => {
 
 describe('exchanging a one-time code', () => {
   it('posts {code} to <ask.url>/api/ask/token and returns the tokens', async () => {
-    server = await startFakeAskServer({ codes: ['code-1'], email: 'ada@example.com' });
+    server = await startServer({ codes: ['code-1'], email: 'ada@example.com' });
     const { entry, workspace, reason } = await exchangeCode({ askUrl: `${server.url}/`, code: 'code-1' });
     expect(entry).toMatchObject({ access_token: 'access-2', refresh_token: 'refresh-2', email: 'ada@example.com' });
     expect({ workspace, reason }).toEqual({ workspace: null, reason: null });
@@ -137,9 +139,9 @@ describe('exchanging a one-time code', () => {
   });
 
   it('sends the repository with the code, and returns where it goes (PRD 459)', async () => {
-    const sent = [];
-    const fetch = async (_url, init) => {
-      sent.push(JSON.parse(init.body));
+    const sent: unknown[] = [];
+    const fetch = async (_url: unknown, init: RequestInit) => {
+      sent.push(JSON.parse(String(init.body)));
       return Response.json({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned', workspace: { slug: 'acme', name: 'Acme', extra: 1 } });
     };
     const out = await exchangeCode({ askUrl: 'https://ask.example.com', code: 'c', repo: 'acme/api', fetch });
@@ -150,14 +152,14 @@ describe('exchanging a one-time code', () => {
   });
 
   it('is refused with the server\'s reason for a code it does not know, or knew once', async () => {
-    server = await startFakeAskServer({ codes: ['code-1'] });
+    server = await startServer({ codes: ['code-1'] });
     await exchangeCode({ askUrl: server.url, code: 'code-1' });
     await expect(exchangeCode({ askUrl: server.url, code: 'code-1' })).rejects.toThrow(/refused.*invalid grant/);
     await expect(exchangeCode({ askUrl: server.url, code: 'code-1' })).rejects.toBeInstanceOf(SignInError);
   });
 
   it('is refused when the server cannot be reached, or answers without tokens', async () => {
-    server = await startFakeAskServer();
+    server = await startServer();
     const { url } = server;
     await server.close();
     server = undefined;

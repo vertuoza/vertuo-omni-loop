@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **An outbox item is a typed thing** (PRD #985, slice s2). **Every open item also carries its
  * plain words** (PRD #1071, slice s1). **Every open question carries its options** (PRD #1166,
@@ -72,9 +71,14 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox.mjs — changes in kit/porting/outbox--outbox.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { z } from 'zod';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
+import type { PrdNumber } from '../layout.ts';
+import type { Laws, Resolution } from '../laws.ts';
+import type { makeMarkers } from '../markers.ts';
 import { OutboxItemFrontMatterSchema, RANK_VALUES } from '../schema/front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import type { OutboxItem, OutboxOption, OutboxSections, Rank } from '../types.ts';
 
 export { RANK_VALUES };
 
@@ -85,10 +89,10 @@ export const SETTLED_FILE = 'settled.md';
  * Severity order used only to decide whether `floorRank` would RAISE a proposed rank — never to
  * rank the ranks against each other for any other purpose. Higher means "harder to talk down."
  */
-export const RANK_ORDER = { medium: 0, high: 1, 'human-action': 2 };
+export const RANK_ORDER: Readonly<Record<Rank, number>> = { medium: 0, high: 1, 'human-action': 2 };
 
 /** The four section headings, in the exact order and spelling an item must carry. */
-export const REQUIRED_SECTIONS = [
+export const REQUIRED_SECTIONS: readonly [string, string, string, string] = [
   'What I had to decide',
   'What I did meanwhile',
   'What it costs to change later',
@@ -100,7 +104,7 @@ export const REQUIRED_SECTIONS = [
  * before {@link REQUIRED_SECTIONS} — together, or neither: see the module doc for why a settled
  * entry's embedded item may carry neither.
  */
-export const PLAIN_SECTIONS = ['The question, in plain words', 'The decision, in plain words'];
+export const PLAIN_SECTIONS: readonly [string, string] = ['The question, in plain words', 'The decision, in plain words'];
 
 /**
  * The intro and the punchline an item may carry (PRD #50, slice s1): two short lines about its
@@ -109,7 +113,7 @@ export const PLAIN_SECTIONS = ['The question, in plain words', 'The decision, in
  * parser's level and at the guard's: every item raised before PRD #50, and every settled entry's
  * embedded item (`settled.md` is append-only), carries neither, forever.
  */
-export const FUN_SECTIONS = ['The intro, for fun', 'The punchline, for fun'];
+export const FUN_SECTIONS: readonly [string, string] = ['The intro, for fun', 'The punchline, for fun'];
 
 /** The longest an intro or a punchline may be, in characters — see {@link funLineProblems}. */
 export const FUN_LINE_MAX_LENGTH = 120;
@@ -129,10 +133,19 @@ export const OPTIONS_HEADING = 'The options, in plain words';
 export const PERSON_STEPS_HEADING = 'What a person must do';
 
 /** The letters an options section may use, in the only order the guard accepts. */
-export const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
+export const OPTION_LETTERS: readonly string[] = ['A', 'B', 'C', 'D'];
+
+/** A text field of a parsed item's `sections` (every field but `options`). */
+type SectionTextField = Exclude<keyof OutboxSections, 'options'>;
+
+/** One `## Heading` of a body and its trimmed text. */
+type HeadingSection = { heading: string; content: string };
+
+/** The result of {@link parseOutboxItem}. */
+export type ParsedOutboxItem = { ok: true; item: OutboxItem } | { ok: false; errors: string[] };
 
 /** camelCase field name each heading maps to on a parsed item's `sections` object. */
-const SECTION_FIELD = {
+const SECTION_FIELD: Readonly<Record<string, SectionTextField>> = {
   'The question, in plain words': 'questionPlain',
   'The decision, in plain words': 'decisionPlain',
   'The intro, for fun': 'introFun',
@@ -148,14 +161,14 @@ const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const HEADING_LINE = /^##\s+(.+?)\s*$/;
 
 /** Every `## Heading` in `body`, in the order it appears, with its trimmed body text. */
-function parseHeadingSections(body) {
-  const sections = [];
-  let current = null;
+export function parseHeadingSections(body: string): HeadingSection[] {
+  const sections: { heading: string; lines: string[] }[] = [];
+  let current: { heading: string; lines: string[] } | null = null;
   for (const line of body.split('\n')) {
     const match = line.match(HEADING_LINE);
     if (match) {
       if (current) sections.push(current);
-      current = { heading: match[1], lines: [] };
+      current = { heading: match[1] ?? '', lines: [] };
     } else if (current) {
       current.lines.push(line);
     }
@@ -177,10 +190,10 @@ function parseHeadingSections(body) {
  * Returns `{ errors, sections }` — `sections` is a `{ heading: content }` map, populated even when
  * there are errors, so a caller can still report partial state if it wants to.
  */
-function validateSections(body) {
+function validateSections(body: string): { errors: string[]; sections: Record<string, string> } {
   const found = parseHeadingSections(body);
   const foundHeadings = found.map((section) => section.heading);
-  const errors = [];
+  const errors: string[] = [];
 
   const presentPlain = PLAIN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
   if (presentPlain.length === 1) {
@@ -263,7 +276,9 @@ function validateSections(body) {
     }
   }
 
-  const sections = Object.fromEntries(found.map((section) => [section.heading, section.content]));
+  const sections: Record<string, string> = Object.fromEntries(
+    found.map((section) => [section.heading, section.content]),
+  );
   return { errors, sections };
 }
 
@@ -275,43 +290,32 @@ function validateSections(body) {
  * @param {{ file?: string | null }} [options] `file` is only used to prefix error messages
  * @returns {{ ok: true, item: object } | { ok: false, errors: string[] }}
  */
-export function parseOutboxItem(text: string, { file = null }: { file?: string | null } = {}) {
-  const blockMatch = text.match(FRONT_MATTER_BLOCK);
-  if (!blockMatch) {
-    return {
-      ok: false,
-      errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')],
-    };
-  }
-  const [, rawFrontMatter, body] = blockMatch;
+export function parseOutboxItem(text: string, { file = null }: { file?: string | null } = {}): ParsedOutboxItem {
+  const read = readFrontMatterBlock(text, file, OutboxItemFrontMatterSchema);
+  if (read.body === null) return { ok: false, errors: read.errors };
+  const errors = [...read.errors];
 
-  const errors = [];
-
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
-  errors.push(...lineErrors.map((message) => withFile(file, message)));
-
-  const parsedFrontMatter = OutboxItemFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (!parsedFrontMatter.success) {
-    for (const issue of parsedFrontMatter.error.issues) {
-      const field = issue.path.length > 0 ? issue.path.join('.') : '(front matter)';
-      errors.push(withFile(file, `${field}: ${issue.message}`));
-    }
-  }
-
-  const { errors: sectionErrors, sections } = validateSections(body);
+  const { errors: sectionErrors, sections } = validateSections(read.body);
   errors.push(...sectionErrors.map((message) => withFile(file, message)));
 
-  let parsedOptions;
+  let parsedOptions: OutboxOption[] | undefined;
   if (OPTIONS_HEADING in sections) {
-    const { options, errors: optionErrors } = parseOutboxOptions(sections[OPTIONS_HEADING]);
+    const { options, errors: optionErrors } = parseOutboxOptions(sections[OPTIONS_HEADING] ?? '');
     parsedOptions = options;
     errors.push(...optionErrors.map((message) => withFile(file, message)));
   }
 
-  if (errors.length > 0) return { ok: false, errors };
+  // A front matter the schema refused always left at least one error above.
+  if (errors.length > 0 || read.data === null) return { ok: false, errors };
 
-  const fm = parsedFrontMatter.data;
-  const item = {
+  const fm = read.data;
+  const itemSections: OutboxSections = {};
+  for (const [heading, field] of Object.entries(SECTION_FIELD)) {
+    const content = sections[heading];
+    if (content !== undefined) itemSections[field] = content;
+  }
+  if (parsedOptions !== undefined) itemSections.options = parsedOptions;
+  const item: OutboxItem = {
     id: fm.id,
     prd: fm.prd,
     slice: fm.slice,
@@ -319,15 +323,40 @@ export function parseOutboxItem(text: string, { file = null }: { file?: string |
     bearsOn: fm['bears-on'],
     raised: fm.raised,
     wave: fm.wave,
-    sections: Object.fromEntries([
-      ...Object.entries(SECTION_FIELD)
-        .filter(([heading]) => heading in sections)
-        .map(([heading, field]) => [field, sections[heading]]),
-      ...(parsedOptions !== undefined ? [['options', parsedOptions]] : []),
-    ]),
+    sections: itemSections,
     file,
   };
   return { ok: true, item };
+}
+
+/**
+ * Splits `text`'s `---` fenced front matter from the body after it, and checks the front matter
+ * against `schema` — the first half {@link parseOutboxItem} and `parseAccount` (`account.ts`)
+ * share. `body` is `null` when `text` carries no front-matter block at all; `data` is `null` when
+ * the schema refused it. Every error names its field and is prefixed with `file`. Pure.
+ */
+export function readFrontMatterBlock<T>(
+  text: string,
+  file: string | null,
+  schema: z.ZodType<T>,
+): { body: string | null; errors: string[]; data: T | null } {
+  const blockMatch = text.match(FRONT_MATTER_BLOCK);
+  if (!blockMatch) {
+    return { body: null, errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
+  }
+  const [, rawFrontMatter = '', body = ''] = blockMatch;
+  const lines = parseFrontMatterLines(rawFrontMatter);
+  const checked = schema.safeParse(lines.data, { error: KIT_MESSAGES });
+  const refusals = checked.success
+    ? []
+    : checked.error.issues.map(
+        (issue) => `${issue.path.length > 0 ? issue.path.join('.') : '(front matter)'}: ${issue.message}`,
+      );
+  return {
+    body,
+    errors: [...lines.errors, ...refusals].map((message) => withFile(file, message)),
+    data: checked.success ? checked.data : null,
+  };
 }
 
 /** One `A. <sentence>` line of an options section. */
@@ -345,21 +374,21 @@ const OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
  * @param {string} content
  * @returns {{ options: { letter: string, text: string }[], errors: string[] }}
  */
-export function parseOutboxOptions(content) {
+export function parseOutboxOptions(content: string | null | undefined): { options: OutboxOption[]; errors: string[] } {
   const lines = (content ?? '')
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  const options = [];
-  const errors = [];
+  const options: OutboxOption[] = [];
+  const errors: string[] = [];
   for (const line of lines) {
     const match = line.match(OPTION_LINE);
     if (!match) {
       errors.push(`option line is not "<letter>. <sentence>": "${line}"`);
       continue;
     }
-    options.push({ letter: match[1].toUpperCase(), text: match[2].trim() });
+    options.push({ letter: (match[1] ?? '').toUpperCase(), text: (match[2] ?? '').trim() });
   }
   return { options, errors };
 }
@@ -371,7 +400,7 @@ export function parseOutboxOptions(content) {
  *
  * @param {{ letter: string }[]} options
  */
-export function optionLettersInOrder(options) {
+export function optionLettersInOrder(options: readonly { letter: string }[] | null | undefined): boolean {
   return (options ?? []).every((option, index) => option.letter === OPTION_LETTERS[index]);
 }
 
@@ -417,14 +446,14 @@ const BACKTICK_SPAN = /`[^`\n]+`/g;
  * enough to catch "explain it in two sentences, not five"; it does not understand abbreviations,
  * and the guard is not trying to (see {@link plainWordsProblems}'s own doc).
  */
-function countSentences(text) {
+function countSentences(text: string | null | undefined): number {
   const trimmed = (text ?? '').trim();
   if (!trimmed) return 0;
   const matches = trimmed.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence) => sentence.trim().length > 0).length;
 }
 
-function uniqueMatches(text, pattern) {
+function uniqueMatches(text: string, pattern: RegExp): string[] {
   return [...new Set(text.match(pattern) ?? [])];
 }
 
@@ -453,9 +482,9 @@ function uniqueMatches(text, pattern) {
  * @param {string} text
  * @returns {string[]}
  */
-export function plainWordsProblems(text) {
+export function plainWordsProblems(text: string | null | undefined): string[] {
   const value = text ?? '';
-  const problems = [];
+  const problems: string[] = [];
 
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -511,7 +540,7 @@ export function plainWordsProblems(text) {
  * @param {string} text
  * @returns {string[]}
  */
-export function funLineProblems(text) {
+export function funLineProblems(text: string | null | undefined): string[] {
   const value = (text ?? '').trim();
   const problems = plainWordsProblems(value);
   const length = [...value].length;
@@ -533,7 +562,7 @@ export function funLineProblems(text) {
  * @param {string} bearsOn
  * @param {{ floorsHigh(bearsOn: string): boolean }} laws
  */
-export function bearsOnFloorsHigh(bearsOn, laws) {
+export function bearsOnFloorsHigh(bearsOn: string, laws: Pick<Laws, 'floorsHigh'>): boolean {
   return laws.floorsHigh(bearsOn);
 }
 
@@ -552,13 +581,13 @@ export function bearsOnFloorsHigh(bearsOn, laws) {
  * @param {{ floorsHigh(bearsOn: string): boolean }} laws
  * @returns {'human-action' | 'high' | 'medium'}
  */
-export function floorRank(bearsOn, proposed, laws) {
-  const floor = bearsOnFloorsHigh(bearsOn, laws) ? 'high' : proposed;
+export function floorRank(bearsOn: string, proposed: Rank, laws: Pick<Laws, 'floorsHigh'>): Rank {
+  const floor: Rank = bearsOnFloorsHigh(bearsOn, laws) ? 'high' : proposed;
   return RANK_ORDER[proposed] >= RANK_ORDER[floor] ? proposed : floor;
 }
 
 /** True when `rank` sits below the floor `bearsOn` sets — the guard's rank-floor violation. */
-export function isBelowFloor(bearsOn, rank, laws) {
+export function isBelowFloor(bearsOn: string, rank: Rank, laws: Pick<Laws, 'floorsHigh'>): boolean {
   return floorRank(bearsOn, rank, laws) !== rank;
 }
 
@@ -571,16 +600,28 @@ export function isBelowFloor(bearsOn, rank, laws) {
  * @param {{ resolve(bearsOn: string): { ok: boolean, reason?: string } }} laws
  * @returns {{ ok: boolean, reason?: string }}
  */
-export function resolveBearsOn(bearsOn, laws) {
+export function resolveBearsOn(bearsOn: string, laws: Pick<Laws, 'resolve'>): Resolution {
   return laws.resolve(bearsOn);
 }
 
+/** The part of the context {@link outboxItemFiles} reads: the root and every outbox directory. */
+export type OutboxDirsContext = { root: string; layout: { outboxDirs(): readonly { dir: string }[] } };
+
+/** The part of a layout the outbox reads: one PRD's outbox directory, and every one of them. */
+export type OutboxLayout = {
+  outboxDir(prd: PrdNumber): string | null;
+  outboxDirs(): readonly { dir: string }[];
+};
+
+/** The part of the context the outbox modules read: the root, the outbox layout and the markers. */
+export type OutboxContext = { root: string; layout: OutboxLayout; markers: ReturnType<typeof makeMarkers> };
+
 /** Every `.md` file under `dir`, skipping `settled.md` and an `accounts/` subfolder entirely. */
-function itemFilesUnder(root, dir) {
+function itemFilesUnder(root: string, dir: string): string[] {
   const absolute = join(root, dir);
   if (!existsSync(absolute)) return [];
 
-  const files = [];
+  const files: string[] = [];
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (entry.name === 'accounts') continue;
@@ -601,8 +642,8 @@ function itemFilesUnder(root, dir) {
  * @param {{ ctx: { root: string, layout: { outboxDirs(): { dir: string }[] } } }} options
  * @returns {string[]}
  */
-export function outboxItemFiles({ ctx }) {
-  const files = [];
+export function outboxItemFiles({ ctx }: { ctx: OutboxDirsContext }): string[] {
+  const files: string[] = [];
   for (const { dir } of ctx.layout.outboxDirs()) {
     files.push(...itemFilesUnder(ctx.root, dir));
   }

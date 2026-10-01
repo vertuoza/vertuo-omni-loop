@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A brainstorm ends in a phase-0 pull request** (PRD #1015, slice s6).
  *
@@ -31,15 +30,54 @@
  */
 // Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/phase-0-policy.mjs — changes in kit/porting/policy--phase-0.md.
 import { carriesTrailer, trailerLine } from '../signature.ts';
+import type { TrailerSignature } from '../signature.ts';
+import type { Context } from '../context.ts';
+import type { PrdNumber } from '../layout.ts';
+
+/** What the phase-0 policy reads of the context: the config and the layout. */
+export type Phase0Ctx = Pick<Context, 'config' | 'layout'>;
+
+/** What one changed path is to a phase-0 pull request, for one PRD. */
+export type Phase0Kind = 'spec' | 'plan' | 'before-after' | 'pending-acceptance' | 'docs' | 'source';
+
+/** Where a PRD's phase-0 files sit; `acceptanceDir` is `null` when acceptance is not graded apart. */
+export type Phase0Paths = { spec: string | null; plan: string | null; beforeAfter: string | null; acceptanceDir: string | null };
+
+/** One commit of the range: its sha and its message. */
+export type Phase0Commit = { sha: string; message?: string | null };
+
+/** A commit without the signature's trailer: its sha and its subject line. */
+export type UnsignedCommit = { sha: string; subject: string };
+
+/** The verdict on a candidate phase-0 pull request. */
+export type Phase0Verdict = {
+  ok: boolean;
+  docsOnly: boolean;
+  label: string;
+  base: string;
+  carries: Record<Phase0Kind, string[]>;
+  sourceFiles: string[];
+  missing: Phase0RequiredKind[];
+  signed: boolean | null;
+  trailer: string | null;
+  unsigned: UnsignedCommit[];
+  reason: string;
+};
+
+/** The verdict on a Handoff's `Before/after:` line: the path it names, or `null`. */
+export type HandoffVerdict = { ok: boolean; path: string | null; reason: string };
 
 /**
  * The three things a phase-0 pull request exists to offer for review, in the order a reader wants
  * them: what was decided, how it will be built, and what it will look like.
  */
-export const PHASE_0_REQUIRED_KINDS = /** @type {const} */ (['spec', 'plan', 'before-after']);
+export const PHASE_0_REQUIRED_KINDS = ['spec', 'plan', 'before-after'] as const;
+
+/** One of {@link PHASE_0_REQUIRED_KINDS}. */
+export type Phase0RequiredKind = (typeof PHASE_0_REQUIRED_KINDS)[number];
 
 /** Repo-relative, no `./` and no leading slash — so `a/b.md` and `./a/b.md` classify alike. */
-function normalize(path) {
+function normalize(path: unknown): string {
   return String(path ?? '')
     .trim()
     .replace(/^\.\//, '')
@@ -50,12 +88,8 @@ function normalize(path) {
  * The three files a phase-0 pull request carries for one PRD, plus where a pending acceptance file
  * would sit — `null` when this repository does not grade acceptance separately
  * (`ctx.config.acceptance.enabled` is `false`).
- *
- * @param {number | string} prd
- * @param {{ ctx: object }} options
- * @returns {{ spec: string | null, plan: string | null, beforeAfter: string | null, acceptanceDir: string | null }}
  */
-export function phase0Paths(prd, { ctx }) {
+export function phase0Paths(prd: PrdNumber, { ctx }: { ctx: Phase0Ctx }): Phase0Paths {
   const { acceptance } = ctx.config;
   return {
     spec: ctx.layout.specPath(prd),
@@ -66,11 +100,11 @@ export function phase0Paths(prd, { ctx }) {
 }
 
 /** `.pending.feature`, or `ctx.config.acceptance.pendingSuffix` when this repository names its own. */
-function acceptanceSuffix(ctx) {
+function acceptanceSuffix(ctx: Phase0Ctx): string {
   return ctx.config.acceptance.pendingSuffix ?? '.feature';
 }
 
-function isPendingAcceptance(file, ctx) {
+function isPendingAcceptance(file: string, ctx: Phase0Ctx): boolean {
   const { acceptance } = ctx.config;
   if (!acceptance.enabled || !acceptance.dir) return false;
   return file.startsWith(`${acceptance.dir}/`) && file.endsWith(acceptanceSuffix(ctx));
@@ -87,7 +121,7 @@ function isPendingAcceptance(file, ctx) {
  * bare documentation prefix — so this never reclassifies a path {@link classifyPhase0Path} already
  * named `spec`/`plan`/`before-after`/`pending-acceptance`.
  */
-function isDocsPath(file, ctx) {
+function isDocsPath(file: string, ctx: Phase0Ctx): boolean {
   const { paths } = ctx.config;
   const prefixes = [paths.delivery, ctx.layout.knowledgeRoot, ctx.layout.adrDir].filter(Boolean);
   if (prefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))) return true;
@@ -102,12 +136,9 @@ function isDocsPath(file, ctx) {
  * DIFFERENT PRD's own folder is never `spec`/`plan`/`before-after` for THIS one — but it still
  * falls into `docs`, since it sits under the shared delivery tree, exactly as any other document
  * does. `source` is everything else — code, config, a test — the one thing a phase-0 pull request
- * may never carry.
- *
- * @param {string} path repo-relative
- * @param {{ ctx: object, prd: number | string }} options
+ * may never carry. `path` is repo-relative.
  */
-export function classifyPhase0Path(path, { ctx, prd }) {
+export function classifyPhase0Path(path: unknown, { ctx, prd }: { ctx: Phase0Ctx; prd: PrdNumber }): Phase0Kind {
   const file = normalize(path);
   const paths = phase0Paths(prd, { ctx });
   if (file === paths.spec) return 'spec';
@@ -119,7 +150,7 @@ export function classifyPhase0Path(path, { ctx, prd }) {
 }
 
 /** The paths that make a set not docs-only, in the order they were given. */
-function sourceFiles(paths, ctx) {
+function sourceFiles(paths: readonly unknown[] | null | undefined, ctx: Phase0Ctx): string[] {
   return (paths ?? [])
     .map(normalize)
     .filter((file) => file && !isPendingAcceptance(file, ctx) && !isDocsPath(file, ctx));
@@ -133,11 +164,8 @@ function sourceFiles(paths, ctx) {
  * document, just not one THIS PRD's own verdict ({@link phase0Verdict}) carries as required. An
  * empty set is docs-only and says nothing else; {@link phase0Verdict} is what refuses a pull
  * request carrying nothing for the one PRD it grades.
- *
- * @param {string[]} paths
- * @param {{ ctx: object }} options
  */
-export function isDocsOnly(paths, { ctx }) {
+export function isDocsOnly(paths: readonly unknown[] | null | undefined, { ctx }: { ctx: Phase0Ctx }): boolean {
   return sourceFiles(paths, ctx).length === 0;
 }
 
@@ -154,15 +182,15 @@ export function isDocsOnly(paths, { ctx }) {
  * `commits` are the range's commits, `{ sha, message }` each: every one must carry the signature's
  * trailer, or the verdict is not ok and names it in `unsigned`. `signed` is `true` or `false` once
  * graded, and `null` when nothing was graded — `signature: null` in the config, or no `commits`
- * given.
- *
- * @param {string[]} paths repo-relative changed paths
- * @param {{ ctx: object, prd: number | string, needsBeforeAfter?: boolean, commits?: { sha: string, message: string }[] }} options
+ * given. `paths` are the repo-relative changed paths.
  */
-export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commits } = {}) {
+export function phase0Verdict(
+  paths: readonly unknown[] | null | undefined,
+  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] },
+): Phase0Verdict {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
-  const carries = {
+  const carries: Record<Phase0Kind, string[]> = {
     spec: files.filter((_, index) => kinds[index] === 'spec'),
     plan: files.filter((_, index) => kinds[index] === 'plan'),
     'before-after': files.filter((_, index) => kinds[index] === 'before-after'),
@@ -172,7 +200,7 @@ export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commit
   };
 
   const offending = carries.source;
-  const required = PHASE_0_REQUIRED_KINDS.filter(
+  const required: Phase0RequiredKind[] = PHASE_0_REQUIRED_KINDS.filter(
     (kind) => kind !== 'before-after' || needsBeforeAfter,
   );
   const missing = required.filter((kind) => carries[kind].length === 0);
@@ -196,20 +224,30 @@ export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commit
 }
 
 /** The commits without the signature's trailer, as `{ sha, subject }`, in the order given. */
-function gradeSignature(commits, signature) {
+function gradeSignature(
+  commits: readonly Phase0Commit[] | undefined,
+  signature: TrailerSignature | null,
+): { signed: boolean | null; trailer: string | null; unsigned: UnsignedCommit[] } {
   const trailer = trailerLine(signature);
   if (trailer === null || commits === undefined) return { signed: null, trailer, unsigned: [] };
   const unsigned = commits
     .filter((commit) => !carriesTrailer(commit.message, signature))
-    .map((commit) => ({ sha: commit.sha, subject: String(commit.message ?? '').split('\n')[0].trim() }));
+    .map((commit) => ({ sha: commit.sha, subject: (String(commit.message ?? '').split('\n')[0] ?? '').trim() }));
   return { signed: unsigned.length === 0, trailer, unsigned };
 }
 
-function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }: {
+  ok: boolean;
+  docsOnly: boolean;
+  offending: readonly string[];
+  missing: readonly string[];
+  trailer: string | null;
+  unsigned: readonly UnsignedCommit[];
+}): string {
   if (ok) {
     return 'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve';
   }
-  const faults = [];
+  const faults: string[] = [];
   if (!docsOnly) {
     faults.push(
       `a phase-0 pull request carries no source file — ${offending.join(', ')} ${offending.length === 1 ? 'is' : 'are'} not a document`,
@@ -239,12 +277,9 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
  * `none` is accepted, because a change with nothing to show says so. Anything reachable only over
  * the network is refused, and a `claude.ai` artifact is refused in its own words: it is private to
  * its author, so the people the spec is written for cannot open it. That is the whole reason this
- * slice exists.
- *
- * @param {string} value the Handoff line's value
- * @param {{ ctx?: object, prd?: number | string }} [options]
+ * slice exists. `value` is the Handoff line's value.
  */
-export function beforeAfterHandoff(value, { ctx, prd } = {}) {
+export function beforeAfterHandoff(value: unknown, { ctx, prd }: { ctx?: Phase0Ctx; prd?: PrdNumber | null } = {}): HandoffVerdict {
   const stated = String(value ?? '').trim();
 
   if (stated === '') {
@@ -291,6 +326,6 @@ export function beforeAfterHandoff(value, { ctx, prd } = {}) {
   };
 }
 
-function refusal(value, reason) {
+function refusal(value: string, reason: string): HandoffVerdict {
   return { ok: false, path: null, reason: `${reason} (got "${value}")` };
 }

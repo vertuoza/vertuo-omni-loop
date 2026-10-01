@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
 
@@ -32,7 +31,7 @@ describe('config', () => {
     const c = configFrom(rows);
     expect(c.teams.beaver).toEqual({ home: 'core', label: 'BEAVER', color: '#d08a4a', motto: 'Dams.', mascot: 'beaver', sort: 10, retired: false });
     expect(c.teams.octopod).toEqual({ home: 'ai', retired: false });
-    expect(c.teams['invincible-team'].retired).toBe(true);
+    expect(c.teams['invincible-team']!.retired).toBe(true);
   });
 
   it('answers a login\'s fleet whatever its case, and leaves out retired or unknown fleets', () => {

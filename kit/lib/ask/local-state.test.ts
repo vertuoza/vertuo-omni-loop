@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
@@ -179,7 +178,7 @@ describe('a round\'s screenshots (PRD 620)', () => {
     writeShot(root, 'old', '1.png', Buffer.from('x'));
     writeShot(root, 'fresh', '1.png', Buffer.from('y'));
     const shots = join(root, LOCAL_DIR, 'ask', 'shots');
-    const at = (ms) => new Date(ms);
+    const at = (ms: number) => new Date(ms);
     utimesSync(join(shots, 'old'), at(now - 8 * DAY), at(now - 8 * DAY));
     utimesSync(join(shots, 'fresh'), at(now - 6 * DAY), at(now - 6 * DAY));
     expect(SHOTS_MAX_AGE_MS).toBe(7 * DAY);

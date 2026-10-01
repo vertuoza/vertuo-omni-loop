@@ -1,13 +1,15 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { BAR_CELLS, overviewFor } from './overview.ts';
+import type { OverviewFacts, Yours } from './overview.ts';
+
+type FeatureFacts = OverviewFacts['features'][number];
 
 /** One PRD folder as `readFacts` reads it: `n` becomes `{ prd: n, topic: 't<n>', name: '000n-t<n>' }`. */
-const folder = (prd) => ({ prd, topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
+const folder = (prd: number) => ({ prd, topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
 
 /** Facts as `readFacts` returns them, with a PRD per number, no feature or phase-0 branch, no
  * `user.email` and no commit touching a PRD folder. */
-function facts({ shipped = [], inbox = [], ...more } = {}) {
+function facts({ shipped = [], inbox = [], ...more }: Partial<Omit<OverviewFacts, 'shipped' | 'inbox'>> & { shipped?: number[]; inbox?: number[] } = {}): OverviewFacts {
   return {
     slug: 'acme/widgets',
     base: 'origin/main',
@@ -29,7 +31,7 @@ function facts({ shipped = [], inbox = [], ...more } = {}) {
  * (`differs`), every file under its PRD's outbox folder (`outbox`), whether it moved the PRD's
  * folder to the shipped folder (`ships`), the authors of its commits beyond the base (`authors`)
  * and the PRD folders those commits touched (`touched`). */
-const feature = (prd, { forked = [], differs = [], outbox = [], ships = false, authors = [], touched = [], topic = `t${prd}` } = {}) => ({
+const feature = (prd: number, { forked = [], differs = [], outbox = [], ships = false, authors = [], touched = [], topic = `t${prd}` }: Partial<Omit<FeatureFacts, 'branch'>> = {}): FeatureFacts => ({
   branch: `feat/${topic}`,
   topic,
   forked,
@@ -45,10 +47,10 @@ const CODE = { forked: ['src/widget.mjs'], differs: ['src/widget.mjs'] };
 
 /** A phase-0 branch cut for topic `t<prd>`, whose inbox holds the folders numbered `inbox`, and
  * whose commits beyond the base touched the PRD folders `touched`. */
-const phase0 = (prd, { inbox = [prd], topic = `t${prd}`, touched = [] } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder), touched });
+const phase0 = (prd: number, { inbox = [prd], topic = `t${prd}`, touched = [] }: { inbox?: number[]; topic?: string; touched?: OverviewFacts['touched'] } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder), touched });
 
 /** A commit by `email` touching PRD `prd`'s folder, as `touched` lists it. */
-const touch = (prd, email = ME) => ({ prd, email });
+const touch = (prd: number, email = ME) => ({ prd, email });
 
 const ME = 'me@example.com';
 const OTHER = 'other@example.com';
@@ -235,7 +237,7 @@ describe('overviewFor — PRD, a phase-0 PR in review (PRD 315 s2, PRD 587)', ()
 
 describe('overviewFor — yours (PRD 315, slice s3)', () => {
   /** The PRD numbers of each row of yours, and of your shipped list. */
-  const numbers = ({ rows, shipped }) => ({ rows: rows.map(({ stage, prd }) => `${stage} ${prd}`), shipped: shipped.map(({ prd }) => prd) });
+  const numbers = ({ rows, shipped }: Yours) => ({ rows: rows.map(({ stage, prd }) => `${stage} ${prd}`), shipped: shipped.map(({ prd }) => prd) });
 
   it('lists the PRDs whose folder a commit of yours touched on the base, and none of anyone else\'s', () => {
     const overview = overviewFor(facts({

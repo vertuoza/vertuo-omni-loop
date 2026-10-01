@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The ask contract, from the kit's side: one small client over `fetch` for the calls under
 // `<ask.url>/api/ask/*` (PRD 71's spec, "The contract"), and since PRD 216 the two dossier calls under
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
@@ -17,6 +16,26 @@
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
 // another terminal renewed meanwhile), keeps the new tokens and retries; a second 401 is an error. Every call has a timeout. Anything but a 2xx, a network
 // failure or a timeout is an `AskCallError`, whose `status` is the HTTP status or `null`.
+//
+// A reply's body is handed on as it came (`unknown`): the client reads only the fields it needs
+// itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
+import { jsonObject, TokenReplySchema } from './schema.ts';
+import type { JsonObject, Tokens } from './schema.ts';
+
+export type { Tokens } from './schema.ts';
+
+/** Where the sign-in of each host is kept: `homeTokens` (`./client-tokens.ts`), or a test's own. */
+export type TokenStore = { read(host: string): Tokens | null; write(host: string, tokens: Tokens): void };
+
+/** The `fetch` the client calls through: `globalThis.fetch`, or a test's own, always given a URL. */
+export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
+
+/** A request's JSON body. */
+type Body = Record<string, unknown>;
+
+/** Whether `error` is a timeout's, as `AbortSignal.timeout` throws it. */
+const timedOut = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError';
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
@@ -25,7 +44,10 @@ const UPLOAD_TIMEOUT_MS = 120_000;
 
 export class AskCallError extends Error {
   /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
-  constructor(message, { status = null, reason = null } = {}) {
+  status: number | null;
+  reason: string | null;
+
+  constructor(message: string, { status = null, reason = null }: { status?: number | null; reason?: string | null } = {}) {
     super(message);
     this.name = 'AskCallError';
     this.status = status;
@@ -34,8 +56,9 @@ export class AskCallError extends Error {
 }
 
 /** The server's `{error}` text, on one line, or null when the reply carries none. */
-const reasonOf = (body) => {
-  const text = typeof body?.error === 'string' ? body.error.replace(/\s+/g, ' ').trim() : '';
+const reasonOf = (body: unknown): string | null => {
+  const error = jsonObject(body)?.error;
+  const text = typeof error === 'string' ? error.replace(/\s+/g, ' ').trim() : '';
   return text || null;
 };
 
@@ -44,31 +67,35 @@ const reasonOf = (body) => {
 const SIGN_IN_FIELDS = ['access_token', 'refresh_token', 'expires_at', 'email', 'login'];
 
 /** `current` renewed by `fresh`, the token reply: only the sign-in's own fields are taken. */
-const renewed = (current, fresh) => ({
+const renewed = (current: Tokens, fresh: JsonObject): Tokens => ({
   ...current,
   ...Object.fromEntries(SIGN_IN_FIELDS.filter((key) => fresh[key] !== undefined).map((key) => [key, fresh[key]])),
 });
 
 /** `body` with `context` added only when there is one: an older server never sees the field. */
-const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
+const withContext = (body: Body, context: unknown): Body => (context && typeof context === 'object' ? { ...body, context } : body);
 
 /** `body` with `lead` added only when there is one (PRD 752): an older server never sees the field. */
-const withLead = (body, lead) => (typeof lead === 'string' && lead !== '' ? { ...body, lead } : body);
+const withLead = (body: Body, lead: unknown): Body => (typeof lead === 'string' && lead !== '' ? { ...body, lead } : body);
 
-/**
- * @typedef {{ access_token: string, refresh_token?: string, expires_at?: number, email?: string }} Tokens
- * @typedef {{ read(host: string): Tokens | null, write(host: string, tokens: Tokens): void }} TokenStore
- */
+/** The fresh access token's reply, or `null` when it carries none. */
+function freshTokens(body: unknown): JsonObject | null {
+  const fresh = jsonObject(body);
+  return fresh && TokenReplySchema.shape.access_token.safeParse(fresh.access_token).success ? fresh : null;
+}
 
-/**
- * @param {{ baseUrl: string, host: string, tokens: TokenStore, fetch?: typeof globalThis.fetch, callMs?: number }} options
- */
-export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
+export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }: {
+  baseUrl: string;
+  host: string;
+  tokens: TokenStore;
+  fetch?: Fetch;
+  callMs?: number;
+}) {
   const root = baseUrl.replace(/\/+$/, '');
-  const segment = (value) => encodeURIComponent(value);
+  const segment = (value: string | number): string => encodeURIComponent(value);
 
-  async function send(method, path, { body, token, timeoutMs }) {
-    const headers = { accept: 'application/json' };
+  async function send(method: string, path: string, { body, token, timeoutMs }: { body?: unknown; token?: string; timeoutMs: number }): Promise<Response> {
+    const headers: Record<string, string> = { accept: 'application/json' };
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (token) headers.authorization = `Bearer ${token}`;
     try {
@@ -79,11 +106,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      throw new AskCallError(`${method} ${path}: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+      throw new AskCallError(`${method} ${path}: ${timedOut(error) ? 'timed out' : 'unreachable'}`);
     }
   }
 
-  async function bodyOf(response) {
+  async function bodyOf(response: Response): Promise<unknown> {
     const text = await response.text().catch(() => '');
     if (!text) return {};
     try {
@@ -99,25 +126,25 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
    * read, its tokens are taken as they are. Replaying a refresh token that was already rotated makes
    * the sign-in server revoke the whole sign-in.
    */
-  async function refresh(current) {
+  async function refresh(current: Tokens): Promise<Tokens | null> {
     const stored = tokens.read(host);
     if (stored?.access_token && stored.access_token !== current.access_token) return stored;
     if (!current.refresh_token) return null;
-    let response;
+    let response: Response;
     try {
       response = await send('POST', '/api/ask/token', { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return null;
     }
     if (!response.ok) return null;
-    const fresh = await bodyOf(response);
-    if (typeof fresh.access_token !== 'string' || !fresh.access_token) return null;
+    const fresh = freshTokens(await bodyOf(response));
+    if (!fresh) return null;
     const kept = renewed(current, fresh);
     tokens.write(host, kept);
     return kept;
   }
 
-  async function call(method, path, { body, timeoutMs = callMs } = {}) {
+  async function call(method: string, path: string, { body, timeoutMs = callMs }: { body?: unknown; timeoutMs?: number } = {}): Promise<unknown> {
     const current = tokens.read(host);
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
     let response = await send(method, path, { body, token: current.access_token, timeoutMs });
@@ -136,12 +163,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   /**
    * Renews the stored sign-in now: `renewed` (the new tokens are kept), `refused` (the server no
    * longer honours it) or `unreachable`.
-   * @returns {Promise<'renewed' | 'refused' | 'unreachable'>}
    */
-  async function renew() {
+  async function renew(): Promise<'renewed' | 'refused' | 'unreachable'> {
     const current = tokens.read(host);
     if (!current?.refresh_token) return 'refused';
-    let response;
+    let response: Response;
     try {
       response = await send('POST', '/api/ask/token', { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
@@ -149,8 +175,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
     if (response.status === 401 || response.status === 403) return 'refused';
     if (!response.ok) return 'unreachable';
-    const fresh = await bodyOf(response);
-    if (typeof fresh.access_token !== 'string' || !fresh.access_token) return 'unreachable';
+    const fresh = freshTokens(await bodyOf(response));
+    if (!fresh) return 'unreachable';
     tokens.write(host, renewed(current, fresh));
     return 'renewed';
   }
@@ -158,14 +184,13 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   /**
    * The bytes a screenshot's signed link serves. The link is its own permission: no bearer token goes
    * with it. Anything but a 2xx, a network failure or a timeout is an `AskCallError`.
-   * @returns {Promise<Uint8Array>}
    */
-  async function download(url, { timeoutMs = callMs } = {}) {
-    let response;
+  async function download(url: string, { timeoutMs = callMs }: { timeoutMs?: number } = {}): Promise<Uint8Array> {
+    let response: Response;
     try {
       response = await fetch(url, { method: 'GET', headers: {}, signal: AbortSignal.timeout(timeoutMs) });
     } catch (error) {
-      throw new AskCallError(`GET a screenshot: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+      throw new AskCallError(`GET a screenshot: ${timedOut(error) ? 'timed out' : 'unreachable'}`);
     }
     if (!response.ok) throw new AskCallError(`GET a screenshot: ${response.status}`, { status: response.status });
     try {
@@ -179,12 +204,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
    * Puts `bytes` to a signed upload link as `type`. The link is its own permission: no bearer token
    * goes with it. Anything but a 2xx, a network failure or a timeout is an `AskCallError`.
    */
-  async function upload(url, bytes, type, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
-    let response;
+  async function upload(url: string, bytes: BodyInit, type: string, { timeoutMs = UPLOAD_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<void> {
+    let response: Response;
     try {
       response = await fetch(url, { method: 'PUT', headers: { 'content-type': type }, body: bytes, signal: AbortSignal.timeout(timeoutMs) });
     } catch (error) {
-      throw new AskCallError(`PUT a proof file: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+      throw new AskCallError(`PUT a proof file: ${timedOut(error) ? 'timed out' : 'unreachable'}`);
     }
     if (!response.ok) {
       const reason = reasonOf(await bodyOf(response));
@@ -198,32 +223,34 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     upload,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
-    openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
-    closeSession: (sessionId) => call('POST', `/api/ask/sessions/${segment(sessionId)}/close`),
+    openSession: (title: string, context?: unknown) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
+    closeSession: (sessionId: string) => call('POST', `/api/ask/sessions/${segment(sessionId)}/close`),
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
      * from and what it cost (`./context.ts`); `lead`, when given, is the text Claude wrote before
      * asking (`./lead.ts`, PRD 752). @returns {Promise<{ roundId: string }>} */
-    openRound: (sessionId, questions, context, lead) =>
+    openRound: (sessionId: string, questions: unknown, context?: unknown, lead?: unknown) =>
       call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withLead(withContext({ questions }, context), lead) }),
     /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
      * carries, per question, each one's name and a signed link (null when none could be made).
      * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
      *   attachments?: Record<string, Array<{ name: string, url: string | null }>> }>} */
-    wait: (roundId, { timeoutMs = callMs } = {}) => call('GET', `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
+    wait: (roundId: string, { timeoutMs = callMs }: { timeoutMs?: number } = {}) => call('GET', `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
     /** An answer given in the terminal. */
-    answer: (roundId, answers) => call('POST', `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: 'terminal' } }),
-    abandon: (roundId) => call('POST', `/api/ask/rounds/${segment(roundId)}/abandon`),
+    answer: (roundId: string, answers: unknown) => call('POST', `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: 'terminal' } }),
+    abandon: (roundId: string) => call('POST', `/api/ask/rounds/${segment(roundId)}/abandon`),
     /** PRD 459: where the caller's questions for `repo` (owner/name) land — a 404 from a server older
      * than the call. @returns {Promise<{ workspace: { slug: string, name: string } | null, reason: string | null }>} */
-    whereQuestionsGo: (repo) => call('GET', `/api/ask/workspace?${new URLSearchParams({ repo })}`),
+    whereQuestionsGo: (repo: string) => call('GET', `/api/ask/workspace?${new URLSearchParams({ repo })}`),
     /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
      * one. @returns {Promise<{ id: string, url: string }>} */
-    openDossier: ({ title, repo, claudeSessionId = null }) =>
+    openDossier: ({ title, repo, claudeSessionId = null }: { title: unknown; repo: unknown; claudeSessionId?: unknown }) =>
       call('POST', '/api/dossiers', { body: { title, repo, ...(claudeSessionId ? { claudeSessionId } : {}) } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
      * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, artifacts }) =>
+    pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, artifacts }: {
+      repo: unknown; prd: unknown; kind?: string | null; title: unknown; draftId?: unknown; artifacts: unknown;
+    }) =>
       call('POST', '/api/dossiers/push', {
         body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), artifacts },
       }),
@@ -231,32 +258,32 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
-    heartbeat: ({ claudeSessionId, repo, work, ended = false }) =>
+    heartbeat: ({ claudeSessionId, repo, work, ended = false }: { claudeSessionId: unknown; repo: unknown; work: unknown; ended?: boolean }) =>
       call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
-    findDossier: ({ repo, prd, kind = 'prd' }) =>
+    findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: number | string; kind?: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
-    requestProofUploads: ({ repo, prd, files }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
+    requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
     /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
      * @returns {Promise<{ url: string }>} */
-    registerProof: ({ repo, prd, run, commit, url, criteria }) =>
+    registerProof: ({ repo, prd, run, commit, url, criteria }: { repo: unknown; prd: unknown; run: unknown; commit: unknown; url: unknown; criteria: unknown }) =>
       call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
-    readBusiness: (repo) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
+    readBusiness: (repo: string) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
-    citeClaims: ({ repo, ids, by, ref = null }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
+    citeClaims: ({ repo, ids, by, ref = null }: { repo: unknown; ids: unknown; by: unknown; ref?: unknown }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),
     /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
      * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
      * @returns {Promise<{ id: string, state: string, added: boolean }>} */
-    addClaim: ({ repo, kind, value, state, ref }) => call('POST', '/api/business/claims', { body: { repo, kind, value, state, ref } }),
+    addClaim: ({ repo, kind, value, state, ref }: { repo: unknown; kind: unknown; value: unknown; state: unknown; ref: unknown }) => call('POST', '/api/business/claims', { body: { repo, kind, value, state, ref } }),
     /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
      * own answer (`old`); the ref is sent only when there is one.
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
-    decide: ({ decision, repo, state, old, ref = null }) =>
+    decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
   };
 }

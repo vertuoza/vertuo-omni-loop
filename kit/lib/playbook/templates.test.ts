@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,7 +17,7 @@ const PROVENANCE = /^<!-- Ported from vertuo-ai-domain@db67fd9da:(.+) — change
 /** The templates the kit wrote itself, with no upstream page to port from (PRD 790: the review form). */
 const KIT_ORIGINAL = new Set(['playbook/review.md']);
 
-const ALL = () => [...FORM_IDS.map((id) => [templatePath(id), formTemplate(id)]), [FRONT_DOOR_TEMPLATE, frontDoorTemplate()]];
+const ALL = (): [string, string][] => [...FORM_IDS.map((id): [string, string] => [templatePath(id), formTemplate(id)]), [FRONT_DOOR_TEMPLATE, frontDoorTemplate()]];
 
 describe('the kit’s templates folder', () => {
   it('holds one template per form and the front door’s README, and nothing else', () => {
@@ -39,14 +38,14 @@ describe('each form template — the forms table, as the one parser reads it', (
       const parsed = parseForm(formTemplate(form.id), { file: templatePath(form.id) });
       expect(parsed.errors ?? []).toEqual([]);
       expect(parsed.form).toMatchObject({ id: form.id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], invaded: null, oldSpellings: [], unmarked: [] });
-      expect(parsed.form.slots.map((slot) => ({ id: slot.id, required: slot.required }))).toEqual(
+      expect(parsed.form!.slots.map((slot) => ({ id: slot.id, required: slot.required }))).toEqual(
         form.slots.map((slot) => ({ id: slot.id, required: slot.required })),
       );
-      expect(parsed.form.slots.every((slot) => slot.by === null && slot.verified === null)).toBe(true);
+      expect(parsed.form!.slots.every((slot) => slot.by === null && slot.verified === null)).toBe(true);
     });
 
     it(`${form.id}: has a title and an opener, and a kit default in every slot`, () => {
-      const { form: parsed } = parseForm(formTemplate(form.id));
+      const parsed = parseForm(formTemplate(form.id)).form!;
       expect(parsed.title).toMatch(/\S/);
       expect(parsed.opener).toMatch(/^Use this page when /);
       for (const slot of parsed.slots) {
@@ -61,7 +60,7 @@ describe('every template — provenance, and the config it names', () => {
     for (const [path, text] of ALL().filter(([path]) => !KIT_ORIGINAL.has(path))) {
       const match = text.match(PROVENANCE);
       expect(match, `${path} has no provenance line`).not.toBeNull();
-      expect(existsSync(join(kitRoot, '..', match[2])), `${path}: ${match[2]} is missing`).toBe(true);
+      expect(existsSync(join(kitRoot, '..', match![2]!)), `${path}: ${match![2]} is missing`).toBe(true);
     }
   });
 
@@ -81,7 +80,7 @@ describe('every template — provenance, and the config it names', () => {
 
   it('the testing form’s commands default names the repository’s test command', () => {
     const config = ConfigSchema.parse({ kit: 1, commands: { test: 'make check' } });
-    const commands = parseForm(formTemplate('testing')).form.slots.find((slot) => slot.id === 'commands');
+    const commands = parseForm(formTemplate('testing')).form!.slots.find((slot) => slot.id === 'commands')!;
     expect(fillConfig(commands.body.text, config).text).toContain('make check');
   });
 

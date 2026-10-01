@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The blank forms** (PRD #45, slice s3) — what `omni kb init` lays down: every missing form, the
  * front door's page, and, when the front door is the knowledge folder, the empty `product/`
@@ -17,32 +16,36 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { stringify } from 'yaml';
+import type { Context } from '../context.ts';
 import { LAYER_FILES, productDir } from '../knowledge/registers.ts';
 import { DECISIONS_FORM, FORMS, parseForm } from './forms.ts';
 import { fillConfig } from './resolve.ts';
 import { formTemplate, frontDoorTemplate } from './templates.ts';
 
+/** What writing the forms reads of a context. */
+type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
+
 /** The kit's provenance line, and the blank lines after it. */
 const PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
 
 /** An empty register's title, by its file. */
-const REGISTER_TITLES = { 'principles.md': 'Product principles', 'rules.md': 'Product rules', 'invariants.md': 'Product invariants' };
+const REGISTER_TITLES: Record<string, string> = { 'principles.md': 'Product principles', 'rules.md': 'Product rules', 'invariants.md': 'Product invariants' };
 
 /** `path` without `./`, doubled or trailing slashes, so two spellings of one folder compare equal. */
-function samePath(a, b) {
-  const clean = (path) => posix.normalize(path).replace(/\/+$/, '');
+function samePath(a: string, b: string): boolean {
+  const clean = (path: string): string => posix.normalize(path).replace(/\/+$/, '');
   return clean(a) === clean(b);
 }
 
 /** The path form `id` is written to point at, or `null` when it is written blank. */
-function pointerTarget(id, ctx) {
+function pointerTarget(id: string, ctx: Ctx): string | null {
   if (id === DECISIONS_FORM && !samePath(ctx.config.paths.adr, `${ctx.layout.frontDoor}/adr`)) return ctx.config.paths.adr;
   if (id === 'glossary' && ctx.config.paths.glossary !== null) return ctx.config.paths.glossary;
   return null;
 }
 
 /** The text of form `id` as `omni kb init` writes it: blank, or a pointer (see the module note). */
-export function blankForm(id, { ctx }) {
+export function blankForm(id: string, { ctx }: { ctx: Ctx }): string {
   const kit = parseForm(formTemplate(id), { file: `kit template ${id}` });
   if (!kit.ok) throw new Error(`the kit's template for ${id} does not parse:\n${kit.errors.join('\n')}`);
   const { formVersion, title, opener, slots } = kit.form;
@@ -57,7 +60,7 @@ export function blankForm(id, { ctx }) {
 }
 
 /** The front door's page: the kit's, filled from the config. */
-function frontDoorPage(ctx) {
+function frontDoorPage(ctx: Ctx): string {
   return fillConfig(frontDoorTemplate().replace(PROVENANCE, ''), ctx.config).text;
 }
 
@@ -67,12 +70,12 @@ function frontDoorPage(ctx) {
  * knowledge folder. `[{ path, wrote }]`, one per file, in that order: `wrote` is `false` for a file
  * that was already there and was left exactly as it was.
  */
-export function writeForms({ ctx }) {
+export function writeForms({ ctx }: { ctx: Ctx }): { path: string; wrote: boolean }[] {
   const { frontDoor, knowledgeRoot } = ctx.layout;
   const byFolder = [...FORMS.filter(({ id }) => id !== DECISIONS_FORM), ...FORMS.filter(({ id }) => id === DECISIONS_FORM)];
-  const planned = [
+  const planned: { path: string; text: () => string }[] = [
     { path: `${frontDoor}/README.md`, text: () => frontDoorPage(ctx) },
-    ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id), text: () => blankForm(id, { ctx }) })),
+    ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id)!, text: () => blankForm(id, { ctx }) })), // ts-allow: every id of FORMS is a form the kit has, so formPath is never null
   ];
   if (samePath(frontDoor, knowledgeRoot)) {
     for (const name of Object.keys(LAYER_FILES)) {

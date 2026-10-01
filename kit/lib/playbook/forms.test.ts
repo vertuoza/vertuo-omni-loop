@@ -1,22 +1,30 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { main } from '../../bin/omni.ts';
 import { FORM_IDS, FORMS, parseForm, readForm, resolvePlaybookId } from './forms.ts';
+
+/** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
+type FormTextOptions = {
+  frontMatter?: Record<string, unknown>;
+  title?: string;
+  opener?: string | null;
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+};
+const formText = fixtureFormText as (options?: FormTextOptions) => string;
 
 const FILE = '.omni-loop/knowledge/playbook/testing.md';
 
 /** `parseForm`'s errors for `text`, or `[]` when it parses. */
-function errorsOf(text) {
+function errorsOf(text: string) {
   const parsed = parseForm(text, { file: FILE });
   return parsed.ok ? [] : parsed.errors;
 }
 
 /** The one slot `body` parses to, in an otherwise well-formed testing form. */
-function bodyOf(body) {
+function bodyOf(body: string | undefined) {
   const parsed = parseForm(formText({ slots: [{ id: 'data', body }] }), { file: FILE });
   expect(parsed.ok).toBe(true);
-  return parsed.form.slots[0].body;
+  return parsed.form!.slots[0]!.body;
 }
 
 describe('FORMS — the spec’s forms table, the contract with the templates and the commands', () => {
@@ -63,11 +71,12 @@ describe('the briefing — the links rule (PRD 413, Decision 7)', () => {
     'PRD has no page yet and give its GitHub issue instead.';
 
   /** `omni kb show briefing` run from the kit's source in a repository holding `files`. */
-  async function showBriefing(files) {
+  async function showBriefing(files: Record<string, string>) {
     const config = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
     const { root } = makeRepo({ git: true, files: { ...config, ...files } });
-    const out = [];
-    const code = await main(['kb', 'show', 'briefing'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } });
+    const out: string[] = [];
+    const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write() {} } };
+    const code = await main(['kb', 'show', 'briefing'], io as never);
     return { code, out: out.join('') };
   }
 
@@ -115,19 +124,19 @@ describe('parseForm — front matter', () => {
       { file: FILE },
     );
     expect(parsed.ok).toBe(true);
-    expect(parsed.form.evidence).toEqual([
+    expect(parsed.form!.evidence).toEqual([
       { path: 'package.json', hash: '50fa1bd' },
       { path: 'node_modules/@scope/x/a.md', hash: '1ed9907' },
     ]);
-    expect(parsed.form.invaded).toBe('2026-09-25');
+    expect(parsed.form!.invaded).toBe('2026-09-25');
   });
 
   it('still reads the old spelling of the invaded date, and lists it among the old spellings', () => {
     const parsed = parseForm(formText({ frontMatter: { state: 'filled', invaded: undefined, terraformed: '2026-09-25' } }), { file: FILE });
     expect(parsed.ok).toBe(true);
-    expect(parsed.form.invaded).toBe('2026-09-25');
-    expect(parsed.form.oldSpellings).toEqual([{ where: 'front matter', old: 'terraformed:', now: 'invaded:' }]);
-    expect(parseForm(formText({ frontMatter: { invaded: undefined, terraformed: null } }), { file: FILE }).form.invaded).toBeNull();
+    expect(parsed.form!.invaded).toBe('2026-09-25');
+    expect(parsed.form!.oldSpellings).toEqual([{ where: 'front matter', old: 'terraformed:', now: 'invaded:' }]);
+    expect(parseForm(formText({ frontMatter: { invaded: undefined, terraformed: null } }), { file: FILE }).form!.invaded).toBeNull();
   });
 
   it('refuses both spellings of the invaded date in one form', () => {
@@ -140,7 +149,7 @@ describe('parseForm — front matter', () => {
     const withIndex = parseForm(formText({ frontMatter: { ...pointer, index: 'records/index.md' }, slots: [] }), { file: FILE });
     expect(withIndex.ok).toBe(true);
     expect(withIndex.form).toMatchObject({ id: 'decisions', state: 'pointer', pointsTo: 'records/', index: 'records/index.md' });
-    expect(parseForm(formText({ frontMatter: pointer }), { file: FILE }).form.index).toBeNull();
+    expect(parseForm(formText({ frontMatter: pointer }), { file: FILE }).form!.index).toBeNull();
   });
 
   it('refuses index on a form that is not a pointer, naming the file', () => {
@@ -191,8 +200,8 @@ describe('parseForm — front matter', () => {
 describe('parseForm — title, opener and slots', () => {
   it('reads the title and the opener under it', () => {
     const { form } = parseForm(formText(), { file: FILE });
-    expect(form.title).toBe('Testing');
-    expect(form.opener).toBe('Use this page when adding, changing, or choosing tests.');
+    expect(form!.title).toBe('Testing');
+    expect(form!.opener).toBe('Use this page when adding, changing, or choosing tests.');
   });
 
   it('reads the slots in order, with their id, heading, required flag, by and verified', () => {
@@ -205,7 +214,7 @@ describe('parseForm — title, opener and slots', () => {
       ],
     });
     const { form } = parseForm(text, { file: FILE });
-    expect(form.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual([
+    expect(form!.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual([
       { id: 'commands', heading: 'Commands', required: true, by: 'invade', verified: '2026-09-25' },
       { id: 'layout', heading: 'Where tests live', required: true, by: 'invade', verified: null },
       { id: 'levels', heading: 'Choosing the level', required: false, by: null, verified: null },
@@ -218,8 +227,8 @@ describe('parseForm — title, opener and slots', () => {
       formText({ slots: [{ id: 'commands', required: true, by: 'terraform', verified: '2026-09-25' }, { id: 'never', required: true, by: 'human' }] }),
       { file: FILE },
     );
-    expect(form.slots.map((slot) => slot.by)).toEqual(['invade', 'human']);
-    expect(form.oldSpellings).toEqual([{ where: '"## Commands"', old: 'by: terraform', now: 'by: invade' }]);
+    expect(form!.slots.map((slot) => slot.by)).toEqual(['invade', 'human']);
+    expect(form!.oldSpellings).toEqual([{ where: '"## Commands"', old: 'by: terraform', now: 'by: invade' }]);
   });
 
   it('refuses a marker whose by: is neither invade nor human', () => {
@@ -239,16 +248,16 @@ describe('parseForm — title, opener and slots', () => {
 
   it('lists a heading with no marker apart, never as a slot', () => {
     const { form } = parseForm(formText({ slots: [{ id: 'levels' }, { id: 'notes', heading: 'Notes', marker: null, body: 'Free text.' }] }), { file: FILE });
-    expect(form.slots.map((slot) => slot.id)).toEqual(['levels']);
-    expect(form.unmarked).toEqual(['Notes']);
+    expect(form!.slots.map((slot) => slot.id)).toEqual(['levels']);
+    expect(form!.unmarked).toEqual(['Notes']);
   });
 
   it('never opens a slot on a heading inside a fenced block', () => {
     const body = ['```markdown', '## Not a heading', '```'].join('\n');
     const { form } = parseForm(formText({ slots: [{ id: 'data', body }, { id: 'levels' }] }), { file: FILE });
-    expect(form.slots.map((slot) => slot.id)).toEqual(['data', 'levels']);
-    expect(form.unmarked).toEqual([]);
-    expect(form.slots[0].body.text).toBe(body);
+    expect(form!.slots.map((slot) => slot.id)).toEqual(['data', 'levels']);
+    expect(form!.unmarked).toEqual([]);
+    expect(form!.slots[0]!.body.text).toBe(body);
   });
 });
 
@@ -307,7 +316,7 @@ describe('readForm', () => {
 });
 
 describe('resolvePlaybookId — a settled entry’s Became: playbook/<form>#<slot>', () => {
-  const never = (body) => formText({ slots: [{ id: 'never', required: true, by: 'human', body }] });
+  const never = (body: string) => formText({ slots: [{ id: 'never', required: true, by: 'human', body }] });
 
   it('resolves when the form’s file holds the slot and its body is not blank', () => {
     const { ctx } = makeRepo({ files: { [FILE]: never('- A test never calls the network.') } });

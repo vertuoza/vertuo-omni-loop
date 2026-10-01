@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The four game scripts, run as processes: Supabase is the fake PostgREST behind a local server and
 // gh is a shell script on PATH, so nothing here reaches GitHub or Supabase.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -8,14 +7,14 @@ import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { serveFake } from '../test/fake-supabase.ts';
+import { serveFake, type Call, type Row, type Served, type Tables } from '../test/fake-supabase.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const BARE = 'c0000000-0000-4000-8000-000000000003';
 
-let server, tmp, tables;
+let server: Served<Call>, tmp: string, tables: Tables;
 beforeEach(async () => {
   tmp = mkdtempSync(join(tmpdir(), 'omni-game-'));
   // gh logs each call and answers the PRD issue list; every other read is empty.
@@ -41,7 +40,7 @@ afterEach(async () => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-async function game(script, args, env = {}) {
+async function game(script: string, args: string[], env: Record<string, string> = {}) {
   try {
     const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, `${script}.ts`), ...args], {
       cwd: tmp, // a relative path a script writes lands here, never in the repository
@@ -56,11 +55,12 @@ async function game(script, args, env = {}) {
     });
     return { code: 0, stdout, stderr };
   } catch (err) {
-    return { code: err.code, stdout: err.stdout, stderr: err.stderr };
+    const failed = err as { code: number; stdout: string; stderr: string };
+    return { code: failed.code, stdout: failed.stdout, stderr: failed.stderr };
   }
 }
 const ghCalls = () => readFileSync(join(tmp, 'gh.log'), 'utf8').split('\n').filter(Boolean);
-const EVERY = [['project', []], ['score', []], ['banner', ['12']], ['export', ['backup']]];
+const EVERY: Array<[string, string[]]> = [['project', []], ['score', []], ['banner', ['12']], ['export', ['backup']]];
 
 describe('the game scripts name their workspace', () => {
   it('each one stops, naming both ways to name a workspace, when neither is set', async () => {
@@ -99,15 +99,15 @@ describe('the game scripts name their workspace', () => {
     expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
     const append = server.calls.find((c) => c.method === 'POST');
-    expect(append.table).toBe('ledger_events');
-    expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
-    expect(append.body.map((r) => r.workspace_id)).toEqual(append.body.map(() => ACME));
+    expect(append!.table).toBe('ledger_events');
+    expect(append!.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
+    expect((append!.body as Row[]).map((r) => r.workspace_id)).toEqual((append!.body as Row[]).map(() => ACME));
     // Acme's PRD 12 is named by its home; Vertuoza's old planet:12:charted stays as it was.
-    expect(tables.ledger_events.filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
+    expect(tables.ledger_events!.filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
   });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {
-    for (const [script, args] of [['project', []], ['banner', ['12']]]) {
+    for (const [script, args] of [['project', []], ['banner', ['12']]] as Array<[string, string[]]>) {
       const run = await game(script, [...args, '--workspace', 'bare']);
       expect(run.code).toBe(1);
       expect(run.stderr).toMatch(/workspace "bare" has no github_org/);
@@ -120,19 +120,19 @@ describe('the game scripts name their workspace', () => {
     const run = await game('score', ['2026-08'], { OMNI_LOOP_WORKSPACE: 'acme' });
     expect(run.code, run.stderr).toBe(0);
     const read = server.calls.find((c) => c.table === 'ledger_events');
-    expect(read.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
+    expect(read!.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
   });
 
   it('game:export writes one workspace: workspace.jsonl and its five tables, nothing of another', async () => {
-    tables.ledger_events.push({ ...tables.ledger_events[0], workspace_id: ACME });
-    tables.sectors.push({ workspace_id: ACME, name: 'rockets', repos: [] });
+    tables.ledger_events!.push({ ...tables.ledger_events![0], workspace_id: ACME });
+    tables.sectors!.push({ workspace_id: ACME, name: 'rockets', repos: [] });
     tables.arcade_scores = [VERTUOZA, ACME].map((workspace_id) => ({ workspace_id, user_id: 'u1', game: 'invaders', best: 1240, at: 'a' }));
     const dir = join(tmp, 'backup');
     const run = await game('export', [dir, '--workspace', 'vertuoza']);
     expect(run.code, run.stderr).toBe(0);
     expect(readdirSync(dir).sort()).toEqual(['arcade_scores.jsonl', 'ledger_events.jsonl', 'players.jsonl', 'sectors.jsonl', 'teams.jsonl', 'workspace.jsonl']);
-    const read = (file) => readFileSync(join(dir, file), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-    expect(read('workspace.jsonl')).toEqual([tables.workspaces[0]]);
+    const read = (file: string) => readFileSync(join(dir, file), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    expect(read('workspace.jsonl')).toEqual([tables.workspaces![0]]);
     for (const table of ['ledger_events', 'sectors', 'teams', 'players', 'arcade_scores']) {
       expect(read(`${table}.jsonl`).map((r) => r.workspace_id)).toEqual([VERTUOZA]);
     }

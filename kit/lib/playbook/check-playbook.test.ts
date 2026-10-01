@@ -1,20 +1,29 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import type { ExecText } from '../context.ts';
+import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { gradePlaybook } from './check-playbook.ts';
 import { staleEvidence } from './status.ts';
+
+/** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
+type FormTextOptions = {
+  frontMatter?: Record<string, unknown>;
+  title?: string;
+  opener?: string | null;
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+};
+const formText = fixtureFormText as (options?: FormTextOptions) => string;
 
 const FILE = '.omni-loop/knowledge/playbook/testing.md';
 const refuse = () => {
   throw new Error('git is not here');
 };
-const hashes = (map) => (command, args) => `${map[args.at(-1)]}\n`;
+const hashes = (map: Record<string, string>) => (_command: string, args: readonly string[]) => `${map[args.at(-1)!]}\n`;
 
 /** The grade's lines about `FILE` only: every other form is missing, which is not what these test. */
-function grade(files, exec = refuse) {
+function grade(files: Record<string, string>, exec: ExecText = refuse) {
   const { ctx } = makeRepo({ files });
   const result = gradePlaybook({ ctx, exec });
-  const mine = (line) => line.startsWith(`${FILE}:`);
+  const mine = (line: string) => line.startsWith(`${FILE}:`);
   return { ...result, violations: result.violations.filter(mine), warnings: result.warnings.filter(mine) };
 }
 
@@ -36,7 +45,7 @@ describe('gradePlaybook', () => {
     const { violations, warnings, forms } = grade({ [FILE]: text });
     expect(violations).toEqual([expect.stringMatching(new RegExp(`^${FILE}: "## Data": malformed slot marker`))]);
     expect(warnings).toEqual([]);
-    expect(forms.find((form) => form.form === 'testing').state).toBe('invalid');
+    expect(forms.find((form) => form.form === 'testing')!.state).toBe('invalid');
   });
 
   it('lists the questions of a pointer form, and asks it for no section', () => {

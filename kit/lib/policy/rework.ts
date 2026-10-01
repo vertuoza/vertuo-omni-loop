@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **`/omni:yolo-fix` brings a drifted feature back in line** (PRD #985, slice s9).
  *
@@ -38,6 +37,72 @@ import { parsePlanSlices, sharedGround } from '../inbox/territory.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { parseSettledEntries } from '../outbox/settle.ts';
 import { COMMANDS } from '../commands.ts';
+import type { Config } from '../context.ts';
+import type { makeMarkers } from '../markers.ts';
+import type { OutboxItem, OutboxOption } from '../types.ts';
+
+/** The markers this module reads: a settled entry's opening and closing lines. */
+export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' | 'settledOpenRe' | 'settledClose'>;
+
+/** The branch templates a rework is named from (`ctx.config.branches`). */
+export type ReworkBranches = Pick<Config['branches'], 'feature' | 'slice' | 'rework'>;
+
+/** One settled entry of the ledger, as `parseSettledEntries` reads it (`kit/lib/outbox/settle.ts`). */
+export type SettledEntry = {
+  id: string;
+  verdict?: string;
+  closed: boolean;
+  fields: Record<string, string | undefined>;
+  answerText: string;
+  itemText: string;
+};
+
+/** A plan slice a rework reads: its id, its repository and its territory. */
+export type ReworkPlanSlice = { id: string; repo?: string | null; territory: string[] };
+
+/** The option an answer chose, and the reason it gave; both `null` when it chose none. */
+export type ChosenOption = { chosenOption: OutboxOption | null; reason: string | null };
+
+/** One rework slice, derived from one drifted entry. */
+export type Rework = {
+  id: string;
+  itemId: string;
+  slice: OutboxItem['slice'];
+  rank: OutboxItem['rank'];
+  bearsOn: OutboxItem['bearsOn'];
+  question: string | undefined;
+  choice: string | undefined;
+  answer: string;
+  chosenOption: OutboxOption | null;
+  reason: string | null;
+  bound: string | undefined;
+  approvedBy: string | null;
+  channel: string | null;
+  territory: string[];
+  territoryKnown: boolean;
+  unknownPlanSlice: boolean;
+  wave: number;
+  repo?: string | null;
+  base?: string;
+  branch?: string;
+};
+
+/** What {@link planRework} returns: the reworks to run, and the report that names them. */
+export type ReworkPlan = {
+  prd: number;
+  featureBranch: string;
+  settledCount: number;
+  reworks: Rework[];
+  opensPullRequest: boolean;
+  mergesIntoMain: false;
+  raisesItems: false;
+  report: string[];
+};
+
+/** The ledger's entries, through its own reader. */
+function settledEntries(settledText: string, markers: ReworkMarkers): SettledEntry[] {
+  return parseSettledEntries(settledText, markers);
+}
 
 /** `#1001` or a pull-request URL, as the amended `Closed:` line carries it. */
 const REWORKED_BY = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
@@ -47,12 +112,9 @@ const REWORKED_BY = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
  *
  * Read through `parseSettledEntries` — the ledger's own reader, never a second parse of the same
  * markdown.
- *
- * @param {string} settledText
- * @param {object} markers
  */
-export function driftedEntries(settledText, markers) {
-  return parseSettledEntries(settledText ?? '', markers).filter(
+export function driftedEntries(settledText: string | null | undefined, markers: ReworkMarkers): SettledEntry[] {
+  return settledEntries(settledText ?? '', markers).filter(
     (entry) => entry.verdict === 'drifted' && !entry.closed,
   );
 }
@@ -61,8 +123,8 @@ export function driftedEntries(settledText, markers) {
  * The repo paths a piece of prose names in backticks. A path is a backticked token that carries a
  * `/` or an extension and is not a URL — anything vaguer is prose, and prose declares no ground.
  */
-export function namedPaths(text) {
-  const tokens = [...(text ?? '').matchAll(/`([^`\n]+)`/g)].map((match) => match[1].trim());
+export function namedPaths(text: string | null | undefined): string[] {
+  const tokens = [...(text ?? '').matchAll(/`([^`\n]+)`/g)].map((match) => (match[1] ?? '').trim());
   return tokens.filter(
     (token) =>
       !/^[a-z]+:\/\//.test(token) &&
@@ -80,14 +142,11 @@ const CHOSEN_OPTION_ANSWER = /^([A-D])\. ([\s\S]*?)(?: — because ([\s\S]*))?$/
  * (PRD #1166 s6). Read against the item's own options, so a prose answer that merely starts with a
  * capital letter and a full stop never passes for a choice. `{ chosenOption: null, reason: null }`
  * when the answer names no offered option: the rework then reads the answer itself, as before.
- *
- * @param {string} answerText
- * @param {{ letter: string, text: string }[] | undefined} options
  */
-export function chosenOptionOf(answerText, options) {
+export function chosenOptionOf(answerText: string | null | undefined, options: readonly OutboxOption[] | undefined): ChosenOption {
   const match = (answerText ?? '').trim().match(CHOSEN_OPTION_ANSWER);
   const option = match && (options ?? []).find((candidate) => candidate.letter === match[1]);
-  if (!option || option.text !== match[2].trim()) return { chosenOption: null, reason: null };
+  if (!match || !option || option.text !== (match[2] ?? '').trim()) return { chosenOption: null, reason: null };
   return {
     chosenOption: { letter: option.letter, text: option.text },
     reason: match[3]?.trim() || null,
@@ -95,15 +154,16 @@ export function chosenOptionOf(answerText, options) {
 }
 
 /** The branch templates when none are passed: config's own defaults, never restated here. */
-const DEFAULT_BRANCHES = Object.freeze(ConfigSchema.shape.branches.parse(undefined));
+const DEFAULT_BRANCHES: Readonly<ReworkBranches> = Object.freeze(ConfigSchema.shape.branches.parse(undefined));
 
-function fill(template, values) {
-  return template.replace(/\{(topic|slice|item)\}/g, (whole, key) => values[key] ?? whole);
+function fill(template: string, values: { topic?: string; slice?: string; item?: string }): string {
+  return template.replace(/\{(topic|slice|item)\}/g, (whole, key: 'topic' | 'slice' | 'item') => values[key] ?? whole);
 }
 
 /** The `{topic}` a feature branch was cut for, read back through the `branches.feature` template. */
-function topicOf(featureBranch, featureTemplate) {
-  const [head, tail = ''] = featureTemplate.split('{topic}');
+function topicOf(featureBranch: string, featureTemplate: string): string | null {
+  // A split always holds at least one part.
+  const [head = '', tail = ''] = featureTemplate.split('{topic}');
   if (!featureTemplate.includes('{topic}') || !featureBranch.startsWith(head) || !featureBranch.endsWith(tail)) return null;
   const topic = featureBranch.slice(head.length, featureBranch.length - tail.length);
   return topic || null;
@@ -111,13 +171,13 @@ function topicOf(featureBranch, featureTemplate) {
 
 /** `branches.rework` with `{item}` filled — `fix-<item id>` by default: one rework per drifted item,
  * and the id names the item it closes. */
-export function reworkSliceId(itemId, branches = DEFAULT_BRANCHES) {
+export function reworkSliceId(itemId: string, branches: ReworkBranches = DEFAULT_BRANCHES): string {
   return fill(branches.rework, { item: itemId });
 }
 
 /** The rework's own branch: `branches.slice` with the feature branch's `{topic}` and the rework id
  * as `{slice}` — `<feature branch>--fix-<item id>` by default. */
-export function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
+export function reworkBranch(featureBranch: string, sliceId: string, branches: ReworkBranches = DEFAULT_BRANCHES): string {
   const topic = topicOf(featureBranch, branches.feature);
   if (topic === null) {
     throw new Error(`feature branch "${featureBranch}" does not match branches.feature "${branches.feature}"`);
@@ -134,18 +194,24 @@ export function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES
  * cost is a rework the item never authorised. When the plan holds no such slice, `unknownPlanSlice`
  * says so and the declaration is whatever the bound named — never a guess.
  *
- * @param {{ id: string, itemText: string, answerText: string, fields: Record<string, string> }} entry
- * @param {{ planSlices?: Array<{ id: string, repo?: string | null, territory: string[] }>, featureBranch?: string, branches?: { feature: string, slice: string, rework: string }, planRepository?: boolean }} [context]
- *   `branches` is `ctx.config.branches` (config's defaults when omitted). `planRepository` (PRD
- *   563): in a plan repository the rework carries `repo`, the repository of the slice its item was
- *   raised on (`null` when the plan holds no such slice or names none), so it lands where the
- *   decision was taken; elsewhere the field is absent, and the rework reads exactly as before.
+ * `branches` is `ctx.config.branches` (config's defaults when omitted). `planRepository` (PRD
+ * 563): in a plan repository the rework carries `repo`, the repository of the slice its item was
+ * raised on (`null` when the plan holds no such slice or names none), so it lands where the
+ * decision was taken; elsewhere the field is absent, and the rework reads exactly as before.
  */
-export function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES, planRepository = false } = {}) {
-  const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
-  if (!parsed.ok) {
+export function deriveRework(
+  entry: Pick<SettledEntry, 'id' | 'itemText' | 'answerText' | 'fields'>,
+  {
+    planSlices = [],
+    featureBranch = null,
+    branches = DEFAULT_BRANCHES,
+    planRepository = false,
+  }: { planSlices?: readonly ReworkPlanSlice[]; featureBranch?: string | null; branches?: ReworkBranches; planRepository?: boolean } = {},
+): Rework {
+  const parsed: { ok: boolean; item?: OutboxItem; errors?: string[] } = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
+  if (!parsed.ok || !parsed.item) {
     throw new Error(
-      `the settled entry for ${entry.id} does not hold a well-formed item, so no rework can be derived from it:\n  - ${parsed.errors.join('\n  - ')}`,
+      `the settled entry for ${entry.id} does not hold a well-formed item, so no rework can be derived from it:\n  - ${(parsed.errors ?? []).join('\n  - ')}`,
     );
   }
   const { item } = parsed;
@@ -186,14 +252,14 @@ export function deriveRework(entry, { planSlices = [], featureBranch = null, bra
  * intersect may never share a wave, exactly as two slices of a plan may not. The first wave that
  * shares no ground with a rework takes it.
  */
-export function assignWaves(reworks) {
-  const waves = [];
+export function assignWaves<R extends { territory: string[] }>(reworks: readonly R[]): (R & { wave: number })[] {
+  const waves: R[][] = [];
   return reworks.map((rework) => {
     let index = waves.findIndex(
       (wave) => !wave.some((sibling) => sharedGround(sibling, rework).length > 0),
     );
     if (index === -1) index = waves.push([]) - 1;
-    waves[index].push(rework);
+    waves[index]?.push(rework);
     return { ...rework, wave: index + 1 };
   });
 }
@@ -204,14 +270,29 @@ export function assignWaves(reworks) {
  * With nothing drifted it returns no rework and a report that says so — the command opens no pull
  * request at all.
  *
- * @param {{ settledText?: string, planMarkdown?: string, prd: number, featureBranch: string, markers: object, branches?: object, planRepository?: boolean }} input
- *   `branches` is `ctx.config.branches`; omitted, config's defaults apply. `planRepository` is
- *   whether this runs in a plan repository (PRD 563): see {@link deriveRework}.
+ * `branches` is `ctx.config.branches`; omitted, config's defaults apply. `planRepository` is
+ * whether this runs in a plan repository (PRD 563): see {@link deriveRework}.
  */
-export function planRework({ settledText = '', planMarkdown = null, prd, featureBranch, markers, branches = DEFAULT_BRANCHES, planRepository = false }) {
-  const settledCount = parseSettledEntries(settledText, markers).length;
+export function planRework({
+  settledText = '',
+  planMarkdown = null,
+  prd,
+  featureBranch,
+  markers,
+  branches = DEFAULT_BRANCHES,
+  planRepository = false,
+}: {
+  settledText?: string;
+  planMarkdown?: string | null;
+  prd: number;
+  featureBranch: string;
+  markers: ReworkMarkers;
+  branches?: ReworkBranches;
+  planRepository?: boolean;
+}): ReworkPlan {
+  const settledCount = settledEntries(settledText, markers).length;
   const drifted = driftedEntries(settledText, markers);
-  const planSlices = planMarkdown ? parsePlanSlices(planMarkdown) : [];
+  const planSlices: ReworkPlanSlice[] = planMarkdown ? parsePlanSlices(planMarkdown) : [];
 
   const reworks = assignWaves(
     drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches, planRepository })),
@@ -229,7 +310,7 @@ export function planRework({ settledText = '', planMarkdown = null, prd, feature
   };
 }
 
-function reportLines({ prd, featureBranch, settledCount, reworks }) {
+function reportLines({ prd, featureBranch, settledCount, reworks }: Pick<ReworkPlan, 'prd' | 'featureBranch' | 'settledCount' | 'reworks'>): string[] {
   const settled = `${settledCount} settled item${settledCount === 1 ? '' : 's'}`;
   if (reworks.length === 0) {
     return [
@@ -258,7 +339,7 @@ function reportLines({ prd, featureBranch, settledCount, reworks }) {
  * declares its ground like any other slice, and that is what makes it true rather than a claim in
  * prose.
  */
-export function renderReworkPlan({ prd, featureBranch, reworks }) {
+export function renderReworkPlan({ prd, featureBranch, reworks }: Pick<ReworkPlan, 'prd' | 'featureBranch' | 'reworks'>): string {
   return [
     `# Rework plan — PRD ${prd}`,
     '',
@@ -289,11 +370,11 @@ export function renderReworkPlan({ prd, featureBranch, reworks }) {
  *
  * Refuses, rather than guesses, when the id is not in the ledger, when its entry agreed, when it is
  * already closed, or when no pull request is named — a closure nobody can follow is not a closure.
- *
- * @param {string} settledText
- * @param {{ id: string, pullRequest: string, markers: object }} closure
  */
-export function closeDriftedEntry(settledText, { id, pullRequest, markers }) {
+export function closeDriftedEntry(
+  settledText: string,
+  { id, pullRequest, markers }: { id: string; pullRequest: string | null | undefined; markers: ReworkMarkers },
+): string {
   const reference = (pullRequest ?? '').trim();
   if (!reference) {
     throw new Error(
@@ -301,7 +382,7 @@ export function closeDriftedEntry(settledText, { id, pullRequest, markers }) {
     );
   }
 
-  const entry = parseSettledEntries(settledText, markers).find((candidate) => candidate.id === id);
+  const entry = settledEntries(settledText, markers).find((candidate) => candidate.id === id);
   if (!entry) {
     throw new Error(`${id}: this ledger holds no settled entry with that id.`);
   }
@@ -336,6 +417,6 @@ export function closeDriftedEntry(settledText, { id, pullRequest, markers }) {
 }
 
 /** The rework sub-PR a closed entry names, or `null` — the reader half of {@link closeDriftedEntry}. */
-export function reworkPullRequest(entry) {
+export function reworkPullRequest(entry: { fields?: Record<string, string | undefined> } | null | undefined): string | null {
   return (entry?.fields?.Closed ?? '').match(REWORKED_BY)?.[1] ?? null;
 }

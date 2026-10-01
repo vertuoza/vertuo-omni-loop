@@ -1,32 +1,41 @@
-// @ts-nocheck
 // PRD 262, slice s1: the `releasing` form's optional `notes` slot — the voice of a release note. Its
 // kit default states the note's rules and shows three example notes, each one a note the check
 // passes; `omni kb show releasing` prints it wherever a repository leaves the slot out or blank.
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { DESCRIPTION_MAX, gradeReleaseNote, INITIAL_VERSION, parseReleaseNote, TITLE_MAX } from '../releases/note.ts';
 import { FORMS, parseForm } from './forms.ts';
 import { formTemplate } from './templates.ts';
 
+/** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
+type FormTextOptions = {
+  frontMatter?: Record<string, unknown>;
+  title?: string;
+  opener?: string | null;
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+};
+const formText = fixtureFormText as (options?: FormTextOptions) => string;
+
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 const RELEASING = '.omni-loop/knowledge/playbook/releasing.md';
 
-const notesSlot = () => parseForm(formTemplate('releasing')).form.slots.find((slot) => slot.id === 'notes');
+const notesSlot = () => parseForm(formTemplate('releasing')).form!.slots.find((slot) => slot.id === 'notes')!;
 
 /** Every fenced block of `text`, as its inner text. */
-const fencedBlocks = (text) => [...text.matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm)].map(([, inner]) => inner);
+const fencedBlocks = (text: string) => [...text.matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm)].map(([, inner]) => inner!);
 
-async function omni(root, argv) {
-  const out = [];
-  const err = [];
-  const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+async function omni(root: string, argv: string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
+  const code = await main(argv, io as never);
   return { code, out: out.join(''), err: err.join('') };
 }
 
 describe('the releasing form’s notes slot', () => {
   it('is the form’s last slot, optional', () => {
-    expect(FORMS.find((form) => form.id === 'releasing').slots.at(-1)).toEqual({ id: 'notes', required: false });
+    expect(FORMS.find((form) => form.id === 'releasing')!.slots.at(-1)).toEqual({ id: 'notes', required: false });
     expect(notesSlot()).toMatchObject({ id: 'notes', heading: 'Release notes', required: false });
   });
 
@@ -43,8 +52,8 @@ describe('the releasing form’s notes slot', () => {
     for (const example of examples) {
       const parsed = parseReleaseNote(example);
       expect(parsed.ok, example).toBe(true);
-      expect(parsed.note.version, example).toBeNull();
-      expect(gradeReleaseNote(example, { prd: parsed.note.prd }), example).toEqual([]);
+      expect(parsed.note!.version, example).toBeNull();
+      expect(gradeReleaseNote(example, { prd: parsed.note!.prd }), example).toEqual([]);
     }
   });
 });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from '../config.ts';
 import { gradePlan } from './plan-grade.ts';
@@ -8,7 +7,7 @@ const PLAN_REPO = parseConfig(
   'kit: 1\nrepo:\n  slug: acme/plan\nplan:\n  targets:\n    - repo: acme/api\n      role: back-end\n      knowledge: none\n',
 );
 
-function planMd(rows, header = '| id | slice | territory | blocked by | wave |') {
+function planMd(rows: string[], header = '| id | slice | territory | blocked by | wave |') {
   return ['# A plan', '', header, `|${' --- |'.repeat(header.split('|').length - 2)}`, ...rows, ''].join('\n');
 }
 

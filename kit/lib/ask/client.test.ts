@@ -1,28 +1,42 @@
-// @ts-nocheck
 import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../../test/fake-ask-server.ts';
-import { askClient, AskCallError } from './client.ts';
+import { askClient as typedClient, AskCallError } from './client.ts';
+import type { Tokens } from './client.ts';
+
+/** A client's methods with their replies read loosely: a test reads the fields it expects. */
+type Loose<C> = { [K in keyof C]: C[K] extends (...args: infer A) => Promise<unknown> ? (...args: A) => Promise<any> : C[K] };
+
+/** A request as the client builds it: its headers a plain object, its body JSON text. */
+type Init = { method: string; headers: Record<string, string>; body?: any; signal?: AbortSignal };
+
+/** A fake `fetch`: it answers from what it is given, and may throw as a network failure does. */
+type FakeFetch = (url: string, init: Init) => Response | Promise<Response>;
+
+const askClient = (options: Omit<Parameters<typeof typedClient>[0], 'fetch'> & { fetch?: FakeFetch }) =>
+  typedClient(options as Parameters<typeof typedClient>[0]) as unknown as Loose<ReturnType<typeof typedClient>>;
 
 /** A token store held in memory, keyed by host like the real one. */
-function memoryTokens(entries = {}) {
-  const store = { ...entries };
+function memoryTokens(entries: Record<string, Tokens> = {}) {
+  const store: Record<string, Tokens> = { ...entries };
   return {
     store,
-    read: (host) => store[host] ?? null,
-    write: (host, tokens) => { store[host] = tokens; },
+    read: (host: string) => store[host] ?? null,
+    write: (host: string, tokens: Tokens) => { store[host] = tokens; },
   };
 }
 
 const QUESTIONS = [{ question: 'Which colour?', header: 'Colour', multiSelect: false, options: [{ label: 'Red', description: 'warm' }, { label: 'Blue', description: 'cool' }] }];
 
-let server;
+/** The fake server, read loosely: a test reads its record of the calls as it expects. */
+type FakeServer = { url: string; host: string; calls: any[]; [key: string]: any };
+let server!: FakeServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined!;
 });
 
-async function setUp(options = {}, signedIn = { access_token: 'access-1', refresh_token: 'refresh-1' }) {
-  server = await startFakeAskServer(options);
+async function setUp(options: Record<string, unknown> = {}, signedIn: Tokens | null = { access_token: 'access-1', refresh_token: 'refresh-1' }) {
+  server = await (startFakeAskServer as (options: unknown) => Promise<FakeServer>)(options);
   const tokens = memoryTokens(signedIn ? { [server.host]: signedIn } : {});
   const client = askClient({ baseUrl: server.url, host: server.host, tokens });
   return { client, tokens };
@@ -112,7 +126,7 @@ describe('the ask contract client', () => {
     await a.openRound(id, QUESTIONS);
     const stale = { access_token: 'access-1', refresh_token: 'refresh-1' };
     let first = true;
-    const behind = { read: (host) => (first ? ((first = false), stale) : tokens.read(host)), write: tokens.write };
+    const behind = { read: (host: string) => (first ? ((first = false), stale) : tokens.read(host)), write: tokens.write };
     const b = askClient({ baseUrl: server.url, host: server.host, tokens: behind });
     server.calls.length = 0;
 
@@ -176,7 +190,7 @@ describe('the ask contract client', () => {
 
   it('a refused call keeps the server\'s reason, and none when the reply carries none (PRD 459)', async () => {
     const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
-    const reply = (status, body) => async () => new Response(body, { status });
+    const reply = (status: number, body: string) => async () => new Response(body, { status });
     const reason = 'you are not a member of Globex, which owns globex/web';
     const refused = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, JSON.stringify({ error: reason })) });
     await expect(refused.openSession('t')).rejects.toMatchObject({ name: 'AskCallError', status: 403, reason });
@@ -222,9 +236,9 @@ describe('the dossier calls (PRD 216)', () => {
 
 describe('the dossier lookup (PRD 413)', () => {
   /** A client over a stubbed fetch that records each call and answers with `reply`. */
-  function stubbed(reply) {
-    const calls = [];
-    const fetch = async (url, init) => {
+  function stubbed(reply: (url: string) => Response) {
+    const calls: any[] = [];
+    const fetch = async (url: string, init: Init) => {
       calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body });
       return reply(String(url));
     };
@@ -271,15 +285,15 @@ describe('where a repository\'s questions land (PRD 459)', () => {
   const ACME = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
 
   it('asks GET /api/ask/workspace with the repository, and answers the page\'s reply', async () => {
-    const { client } = await setUp({ place: (repo) => (repo === 'acme/widgets' ? ACME : { workspace: null, reason: 'no' }) });
+    const { client } = await setUp({ place: (repo: string) => (repo === 'acme/widgets' ? ACME : { workspace: null, reason: 'no' }) });
     expect(await client.whereQuestionsGo('acme/widgets')).toEqual(ACME);
     expect(server.calls.map((call) => `${call.method} ${call.path} ${call.authorization}`)).toEqual(['GET /api/ask/workspace Bearer access-1']);
   });
 
   it('sends the repository encoded as a query', async () => {
-    const seen = [];
+    const seen: string[] = [];
     const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1' } });
-    const fetch = async (url) => { seen.push(url); return new Response(JSON.stringify(ACME), { status: 200 }); };
+    const fetch = async (url: string) => { seen.push(url); return new Response(JSON.stringify(ACME), { status: 200 }); };
     await askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch }).whereQuestionsGo('acme/web.site');
     expect(seen).toEqual(['https://omni.example/api/ask/workspace?repo=acme%2Fweb.site']);
   });
@@ -314,14 +328,14 @@ describe('a renewed sign-in keeps only the sign-in', () => {
 
 describe('downloading a screenshot (PRD 620)', () => {
   /** A client whose every request is answered by `answer`, each one recorded. */
-  function stubbed(answer) {
-    const requests = [];
+  function stubbed(answer: FakeFetch) {
+    const requests: { url: string; init: Init }[] = [];
     const tokens = memoryTokens({ 'ask.example': { access_token: 'access-1' } });
     const client = askClient({
       baseUrl: 'https://ask.example',
       host: 'ask.example',
       tokens,
-      fetch: async (url, init) => {
+      fetch: async (url: string, init: Init) => {
         requests.push({ url, init });
         return answer(url, init);
       },
@@ -335,9 +349,9 @@ describe('downloading a screenshot (PRD 620)', () => {
     const bytes = await client.download(link, { timeoutMs: 30_000 });
     expect([...bytes]).toEqual([137, 80, 78, 71]);
     expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe(link);
-    expect(requests[0].init.headers?.authorization).toBeUndefined();
-    expect(requests[0].init.signal).toBeInstanceOf(AbortSignal);
+    expect(requests[0]!.url).toBe(link);
+    expect(requests[0]!.init.headers?.authorization).toBeUndefined();
+    expect(requests[0]!.init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('is an AskCallError for a refused link or one it cannot reach', async () => {
@@ -349,21 +363,21 @@ describe('downloading a screenshot (PRD 620)', () => {
 });
 
 describe('the proof calls (PRD 798)', () => {
-  function stubbed(answer) {
-    const requests = [];
+  function stubbed(answer: FakeFetch) {
+    const requests: any[] = [];
     const tokens = memoryTokens({ 'ask.example': { access_token: 'access-1' } });
     const client = askClient({
       baseUrl: 'https://ask.example',
       host: 'ask.example',
       tokens,
-      fetch: async (url, init) => {
+      fetch: async (url: string, init: Init) => {
         requests.push({ url, method: init.method, headers: init.headers, body: init.body });
         return answer(url, init);
       },
     });
     return { client, requests };
   }
-  const json = (status, body) => new Response(JSON.stringify(body), { status });
+  const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 
   it('asks for upload links and registers the run with the bearer token, sending the bodies as given', async () => {
     const { client, requests } = stubbed((url) =>

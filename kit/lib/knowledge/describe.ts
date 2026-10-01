@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Prints one entry of the knowledge folder and every entry that serves it.
  *
@@ -7,9 +6,10 @@
  * or an invariant, the print also names the principle it serves.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/knowledge.mjs — changes in kit/porting/knowledge--describe.md.
-import { servedBy } from './registers.ts';
+import { servedBy, type KnowledgeEntry } from './registers.ts';
 
-const LINES = [
+/** The entry fields printed as lines, each with its label. */
+const LINES: [keyof KnowledgeEntry & ('why' | 'decided' | 'kindLine' | 'serves' | 'source' | 'enforcedBy' | 'stated' | 'keptId'), string][] = [
   ['why', 'Why'],
   ['decided', 'Decided'],
   ['kindLine', 'Kind'],
@@ -20,18 +20,12 @@ const LINES = [
   ['keptId', 'Kept id'],
 ];
 
-function oneLine(entry) {
+function oneLine(entry: KnowledgeEntry): string {
   return `  ${entry.id} (${entry.kind ?? 'unknown kind'}, ${entry.file}) — ${entry.statement}`;
 }
 
-/**
- * The text printed for `id`, or `null` when nothing claims it.
- *
- * @param {{ entries: object[] }} knowledge what `readKnowledge` returned
- * @param {string} id
- * @returns {string | null}
- */
-export function describeEntry(knowledge, id) {
+/** The text printed for `id`, or `null` when nothing claims it; `knowledge` is what `readKnowledge` returned. */
+export function describeEntry(knowledge: { entries: readonly KnowledgeEntry[] }, id: string): string | null {
   const entry = knowledge.entries.find((candidate) => candidate.id === id);
   if (!entry) return null;
 

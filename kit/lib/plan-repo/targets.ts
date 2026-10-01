@@ -1,4 +1,3 @@
-// @ts-nocheck
 // A plan repository's targets, as `omni targets` reports them (PRD 522, s1). Each target of the
 // config's `plan.targets` is read through `gh api` only, never cloned, and gets one row:
 // `{ repo, role, knowledge, loop, state, detail }`.
@@ -14,11 +13,53 @@
 // "A filled form" is a Markdown file under the target's `paths.playbook` (read from its own config,
 // the kit's default layout when unset) whose front matter says `state: filled`.
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptions } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
+import type { z } from 'zod';
+import type { Context } from '../context.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
+import {
+  firstIssue,
+  FormStateSchema,
+  GhCompareSchema,
+  GhContentEntrySchema,
+  GhRepositorySchema,
+  TargetConfigSchema,
+} from './gh-schema.ts';
+import type { GhCompare, GhContentEntry, GhRepository } from './gh-schema.ts';
+
+/** How `gh` is run: `execFileSync`, or a fake of it. */
+export type Exec = (file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer;
+
+/** One target of a config's `plan.targets`, as the reader needs it. */
+export type Target = { repo: string; role: string; knowledge: string; readAt?: string | null };
+
+/** The kinds of row a target can read as. */
+export type TargetState = 'ok' | 'drifted' | 'stale' | 'unreachable';
+
+/** One target's row, as `omni targets` prints it. */
+export type TargetRow = {
+  repo: string;
+  role: string;
+  knowledge: string;
+  loop: string;
+  state: TargetState;
+  detail: string | null;
+};
+
+/** The `gh api` readings one target needs (`ghReader`). */
+export type GhReader = {
+  repository(repo: string): GhRepository;
+  file(repo: string, path: string, ref: string): string | null;
+  dir(repo: string, path: string, ref: string): GhContentEntry[] | null;
+  compare(repo: string, base: string, head: string): GhCompare | null;
+};
+
+/** What a failed `gh` call carries: its stderr, when it ran. */
+type GhError = { stderr?: unknown; message?: unknown } | null | undefined;
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';
@@ -26,82 +67,93 @@ const DEFAULT_PLAYBOOK = '.omni-loop/knowledge/playbook';
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 /** The error `gh` raised, as its one telling line. */
-function ghLine(error) {
+function ghLine(error: GhError): string {
   const text = `${error?.stderr ?? ''}\n${error?.message ?? ''}`;
   const line = text.split('\n').map((l) => l.trim()).find((l) => l.startsWith('gh:')) ?? text.split('\n').map((l) => l.trim()).find(Boolean);
   return line ?? 'gh could not read it';
 }
 
-const isNotFound = (error) => /HTTP 404/.test(`${error?.stderr ?? ''}\n${error?.message ?? ''}`);
+const isNotFound = (error: GhError): boolean => /HTTP 404/.test(`${error?.stderr ?? ''}\n${error?.message ?? ''}`);
 
 export class Unreachable extends Error {}
 
 /** The `gh api` readings one target needs. A missing file or directory is `null`; any other failure throws
  * `Unreachable`. Shared with `omni plan moved` (`./moved.ts`). */
-export function ghReader({ exec, env }) {
-  const api = (args) => String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env } : {}) }));
-  const call = (args) => {
+export function ghReader({ exec, env }: { exec: Exec; env?: NodeJS.ProcessEnv | undefined }): GhReader {
+  const api = (args: string[]): string => String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env } : {}) }));
+  const call = (args: string[]): string | null => {
     try {
       return api(args);
     } catch (error) {
-      if (isNotFound(error)) return null;
-      throw new Unreachable(ghLine(error));
+      if (isNotFound(error as GhError)) return null; // ts-allow: whatever exec threw is read only for its stderr and message
+      throw new Unreachable(ghLine(error as GhError)); // ts-allow: whatever exec threw is read only for its stderr and message
     }
   };
-  const contents = (repo, path, ref) => `repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`;
+  const contents = (repo: string, path: string, ref: string): string => `repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`;
   return {
     // The repository itself: any failure, a 404 included, means gh cannot read it.
     repository(repo) {
+      let answer: unknown;
       try {
-        return JSON.parse(api([`repos/${repo}`]));
+        answer = JSON.parse(api([`repos/${repo}`]));
       } catch (error) {
-        throw new Unreachable(ghLine(error));
+        throw new Unreachable(ghLine(error as GhError)); // ts-allow: whatever exec or JSON.parse threw is read only for its stderr and message
       }
+      return answerOf(GhRepositorySchema, answer, `repos/${repo}`);
     },
     file: (repo, path, ref) => call(['-H', 'Accept: application/vnd.github.raw', contents(repo, path, ref)]),
     dir(repo, path, ref) {
       const out = call([contents(repo, path, ref)]);
       if (out === null) return null;
-      const listed = JSON.parse(out);
-      return Array.isArray(listed) ? listed : null;
+      const listed: unknown = JSON.parse(out);
+      return Array.isArray(listed) ? answerOf(GhContentEntrySchema.array(), listed, `${repo}:${path}`) : null;
     },
     compare(repo, base, head) {
       const out = call([`repos/${repo}/compare/${base}...${encodeURIComponent(head)}`]);
-      return out === null ? null : JSON.parse(out);
+      return out === null ? null : answerOf(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
     },
   };
 }
 
+/** A `gh api` answer read through its schema: one it refuses makes the target unreachable, naming the field. */
+function answerOf<S extends z.ZodType>(schema: S, answer: unknown, what: string): z.infer<S> {
+  const parsed = schema.safeParse(answer);
+  if (!parsed.success) throw new Unreachable(`gh answered ${what} without what it needs — ${firstIssue(parsed.error)}`);
+  return parsed.data;
+}
+
 /** The playbook folder a target's config names, the default layout's when it names none. */
-function playbookOf(configText) {
+function playbookOf(configText: string): string {
   try {
-    const playbook = parse(configText)?.paths?.playbook;
+    const read = TargetConfigSchema.safeParse(parse(configText));
+    const playbook = read.success ? read.data.paths?.playbook : undefined;
     return typeof playbook === 'string' && playbook.trim() ? playbook.replace(/\/+$/, '') : DEFAULT_PLAYBOOK;
   } catch {
     return DEFAULT_PLAYBOOK;
   }
 }
 
-function isFilled(text) {
+function isFilled(text: string | null): boolean {
   const block = FRONT_MATTER.exec(text ?? '');
   if (!block) return false;
   try {
-    return parse(block[1])?.state === 'filled';
+    const read = FormStateSchema.safeParse(parse(block[1] ?? ''));
+    return read.success && read.data.state === 'filled';
   } catch {
     return false;
   }
 }
 
-function hasFilledForm(gh, repo, playbook, ref) {
+function hasFilledForm(gh: GhReader, repo: string, playbook: string, ref: string): boolean {
   const listed = gh.dir(repo, playbook, ref) ?? [];
   return listed
     .filter((entry) => entry.type === 'file' && entry.name.endsWith('.md'))
     .some((entry) => isFilled(gh.file(repo, entry.path, ref)));
 }
 
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-function staleness(gh, { repo, readAt }, branch, evidence) {
+function staleness(gh: GhReader, { repo, readAt }: { repo: string; readAt: string }, branch: string, evidence: ReadonlySet<string>): string | null {
   const compared = gh.compare(repo, readAt, branch);
   if (compared === null) return `readAt ${readAt.slice(0, 7)} cannot be compared with the default branch`;
   const ahead = compared.ahead_by ?? 0;
@@ -116,9 +168,16 @@ function staleness(gh, { repo, readAt }, branch, evidence) {
  * One target's row. `evidence` is the set of target paths the imported copy was drawn from (empty
  * for any other target). Never throws for what GitHub answers: a repository it cannot read is a row.
  */
-export function readTarget(target, { exec = execFileSync, env, evidence = new Set() } = {}) {
+export function readTarget(
+  target: Target,
+  {
+    exec = execFileSync,
+    env,
+    evidence = new Set(),
+  }: { exec?: Exec; env?: NodeJS.ProcessEnv | undefined; evidence?: ReadonlySet<string> } = {},
+): TargetRow {
   const { repo, role, knowledge } = target;
-  const row = (loop, state, detail = null) => ({ repo, role, knowledge, loop, state, detail });
+  const row = (loop: string, state: TargetState, detail: string | null = null): TargetRow => ({ repo, role, knowledge, loop, state, detail });
   const gh = ghReader({ exec, env });
   try {
     const branch = gh.repository(repo).default_branch;
@@ -135,7 +194,7 @@ export function readTarget(target, { exec = execFileSync, env, evidence = new Se
     }
     if (installed && filled) return row(loop, 'drifted', `the config says ${knowledge}, but it has the loop and a filled form`);
     if (knowledge === 'imported') {
-      const stale = staleness(gh, target, branch, evidence);
+      const stale = staleness(gh, { repo, readAt: target.readAt! }, branch, evidence); // ts-allow: an imported target always has a readAt (the config refuses one without)
       if (stale) return row(loop, 'stale', stale);
     }
     return row(loop, 'ok');
@@ -146,14 +205,14 @@ export function readTarget(target, { exec = execFileSync, env, evidence = new Se
 }
 
 /** The folder holding a target's imported copy: `<paths.knowledge>/repos/<name>`. */
-export function copyFolder(repo, { ctx }) {
-  return join(ctx.config.paths.knowledge, 'repos', repo.split('/')[1]);
+export function copyFolder(repo: string, { ctx }: { ctx: { config: { paths: { knowledge: string } } } }): string {
+  return join(ctx.config.paths.knowledge, 'repos', repo.split('/')[1]!); // ts-allow: a target's repo is an owner/name slug (the config checks it)
 }
 
 /** Every target path the evidence of a copy's forms names; empty when the target has no copy. */
-export function copyEvidence(repo, { ctx }) {
+export function copyEvidence(repo: string, { ctx }: { ctx: Pick<Context, 'root' | 'config'> }): Set<string> {
   const dir = join(ctx.root, copyFolder(repo, { ctx }), 'playbook');
-  const paths = new Set();
+  const paths = new Set<string>();
   if (!existsSync(dir)) return paths;
   for (const name of readdirSync(dir).filter((n) => n.endsWith('.md')).sort()) {
     const parsed = parseForm(readFileSync(join(dir, name), 'utf8'), { file: name });
@@ -164,7 +223,10 @@ export function copyEvidence(repo, { ctx }) {
 }
 
 /** Every target's row, in config order. */
-export function readTargets(targets, { ctx, exec = execFileSync, env } = {}) {
+export function readTargets(
+  targets: readonly Target[],
+  { ctx, exec = execFileSync, env }: { ctx: Pick<Context, 'root' | 'config'>; exec?: Exec; env?: NodeJS.ProcessEnv | undefined },
+): TargetRow[] {
   return targets.map((target) =>
     readTarget(target, { exec, env, evidence: target.knowledge === 'imported' ? copyEvidence(target.repo, { ctx }) : new Set() }),
   );
@@ -173,8 +235,8 @@ export function readTargets(targets, { ctx, exec = execFileSync, env } = {}) {
 const COLUMNS = ['repo', 'role', 'knowledge', 'loop', 'state'];
 
 /** The rows as the lines of a table, a header first; a state that is not ok carries its detail. */
-export function targetsTable(rows) {
-  const cells = [COLUMNS, ...rows.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
-  const widths = COLUMNS.map((_, i) => Math.max(...cells.map((line) => line[i].length)));
-  return cells.map((line) => line.map((cell, i) => (i === line.length - 1 ? cell : cell.padEnd(widths[i]))).join('  '));
+export function targetsTable(rows: readonly TargetRow[]): string[] {
+  const cells: string[][] = [COLUMNS, ...rows.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
+  const widths = COLUMNS.map((_, i) => Math.max(...cells.map((line) => (line[i] ?? '').length)));
+  return cells.map((line) => line.map((cell, i) => (i === line.length - 1 ? cell : cell.padEnd(widths[i] ?? 0))).join('  '));
 }
