@@ -1,4 +1,3 @@
-// @ts-nocheck
 // `visualVerdict` on the working tree (PRD 627, s4): a visual fix's folder may hold its rounds of
 // variations, `variations-r<k>.html`, each checked like the before/after page, and nothing else.
 import { describe, expect, it } from 'vitest';
@@ -9,7 +8,7 @@ const DIR = '.omni-loop/delivery/visual/0012-sidebar-darker';
 const PAGE = '<!doctype html><title>Sidebar</title><svg viewBox="0 0 1 1"></svg>\n';
 const RASTER = '<!doctype html><img src="data:image/png;base64,iVBORw0KGgo=">\n';
 
-function verdict(files, { cap } = {}) {
+function verdict(files: Record<string, string>, { cap }: { cap?: number } = {}) {
   const { root } = makeRepo({ files: Object.fromEntries(Object.entries(files).map(([name, text]) => [`${DIR}/${name}`, text])) });
   const ctx = testContext(root, { signature: null, ...(cap ? { limits: { beforeAfterMaxBytes: cap } } : {}) });
   return visualVerdict({ ctx, issue: 12 });

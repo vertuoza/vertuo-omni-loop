@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A visual fix can be proven** (PRD #541, slice s1).
  *
@@ -22,6 +21,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.ts';
 import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.ts';
+import type { Commit } from '../fix-verdict.ts';
+import type { TrailerSignature } from '../signature.ts';
+
+/** What a visual verdict reads of the context: the root, the delivery path, the page cap and the signature. */
+type VisualContext = {
+  root: string;
+  config: { paths: { delivery: string }; limits: { beforeAfterMaxBytes: number }; signature: TrailerSignature | null };
+};
 
 const PAGE = 'before-after.html';
 
@@ -31,18 +38,18 @@ const ROUND = /^variations-r([1-9]\d*)\.html$/;
 const ROUND_LIKE = /^variations/i;
 
 /** Where every visual fix's folder lives. */
-export function visualRoot(ctx) {
+export function visualRoot(ctx: { config: { paths: { delivery: string } } }): string {
   return `${ctx.config.paths.delivery}/visual`;
 }
 
 /** The folder name prefix of an issue's visual fix: its number, zero-padded to four digits, then `-`. */
-export function folderPrefix(issue) {
+export function folderPrefix(issue: number | string): string {
   return `${String(issue).padStart(4, '0')}-`;
 }
 
-function pageViolations(ctx, page) {
+function pageViolations(ctx: VisualContext, page: string): string[] {
   if (!existsSync(join(ctx.root, page))) return [`${page}: missing.`];
-  const violations = [];
+  const violations: string[] = [];
   const size = beforeAfterViolation(page, ctx);
   if (size) violations.push(size);
   violations.push(...rasterFaults(page, readFileSync(join(ctx.root, page), 'utf8')));
@@ -50,10 +57,10 @@ function pageViolations(ctx, page) {
 }
 
 /** The rounds, misnamed rounds and other entries of a fix's folder, beside its page. */
-function folderViolations(ctx, folder) {
-  const rounds = [];
-  const misnamed = [];
-  const others = [];
+function folderViolations(ctx: VisualContext, folder: string): string[] {
+  const rounds: { name: string; k: number }[] = [];
+  const misnamed: string[] = [];
+  const others: string[] = [];
   for (const entry of readdirSync(join(ctx.root, folder), { withFileTypes: true })) {
     const { name } = entry;
     const round = entry.isFile() ? ROUND.exec(name) : null;
@@ -62,7 +69,7 @@ function folderViolations(ctx, folder) {
     else if (entry.isFile() && ROUND_LIKE.test(name)) misnamed.push(name);
     else others.push(name);
   }
-  const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
   return [
     ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name }) => pageViolations(ctx, `${folder}/${name}`)),
     ...misnamed.sort(byName).map((name) => `${folder}/${name}: a round of variations is named variations-r<k>.html, k from 1.`),
@@ -72,11 +79,12 @@ function folderViolations(ctx, folder) {
 
 /**
  * Grades one issue's visual fix on the working tree, and the branch's commits when given.
- *
- * @param {{ ctx: object, issue: number, commits?: { sha: string, message: string }[] }} options
- * @returns {{ ok: boolean, folder: string | null, failures: string[] }}
  */
-export function visualVerdict({ ctx, issue, commits }) {
+export function visualVerdict({ ctx, issue, commits }: {
+  ctx: VisualContext;
+  issue: number;
+  commits?: readonly Commit[];
+}): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), folderPrefix(issue)),
     grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
