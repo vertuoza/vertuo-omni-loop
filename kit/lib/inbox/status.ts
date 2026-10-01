@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **Status is derived, never written** (PRD #1015, slice s2).
  *
@@ -19,7 +18,22 @@
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox-status.mjs — changes in kit/porting/inbox--status.md.
 
-function escapeRegExp(text) {
+/** What the rule reads of one pull request, in whichever shape its list payload carries. */
+export type StatusPr = {
+  body?: string | null;
+  isDraft?: boolean;
+  state?: string;
+  mergedAt?: string | null;
+  merged?: boolean;
+};
+
+/** The two `{prd}` link templates a feature and a sub pull request's body carry. */
+export type PrLinks = { feature: string; sub: string };
+
+/** A PRD's derived status. */
+export type PrdStatus = 'unplanned' | 'planned' | 'in-flight' | 'stalled' | 'done';
+
+function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -28,32 +42,32 @@ function escapeRegExp(text) {
  * text around `{prd}` is escaped, the number is substituted verbatim, and a word boundary sits
  * right after it so a longer PRD number can never falsely match a shorter one.
  */
-function prLinkPattern(template, prd) {
-  const [before, after = ''] = template.split('{prd}');
+function prLinkPattern(template: string, prd: string | number): RegExp {
+  const [before = '', after = ''] = template.split('{prd}');
   return new RegExp(`${escapeRegExp(before)}${Number(prd)}\\b${escapeRegExp(after)}`);
 }
 
 /** Whether a pull request's body names this PRD through the given link template. */
-function refersTo(template, body, prd) {
+function refersTo(template: string, body: string | null | undefined, prd: string | number): boolean {
   return prLinkPattern(template, prd).test(body ?? '');
 }
 
 /** Merged, by whichever shape a pull-request-list payload happens to carry. */
-function isMerged(pr) {
+function isMerged(pr: StatusPr): boolean {
   return pr.state === 'MERGED' || Boolean(pr.mergedAt) || pr.merged === true;
 }
 
 /** The one pull request that closes this PRD — `null` when none does. Matched by body, not branch. */
-export function findFeaturePr(prd, prs, prLinks) {
+export function findFeaturePr<P extends StatusPr>(prd: string | number, prs: readonly P[], prLinks: PrLinks): P | null {
   return prs.find((pr) => refersTo(prLinks.feature, pr.body, prd)) ?? null;
 }
 
 /** Every pull request that declares itself part of this PRD. Matched by body, not branch. */
-export function findSubPrs(prd, prs, prLinks) {
+export function findSubPrs<P extends StatusPr>(prd: string | number, prs: readonly P[], prLinks: PrLinks): P[] {
   return prs.filter((pr) => refersTo(prLinks.sub, pr.body, prd));
 }
 
-function daysSince(date, now) {
+function daysSince(date: string | number | Date, now: number): number {
   return (now - new Date(date).getTime()) / (24 * 60 * 60 * 1000);
 }
 
@@ -84,7 +98,21 @@ function daysSince(date, now) {
  * @param {{ feature: string, sub: string }} input.prLinks - the two `{prd}` link templates.
  * @returns {'unplanned' | 'planned' | 'in-flight' | 'stalled' | 'done'}
  */
-export function deriveStatus({ prd, featurePrs, lastCommit = null, now = Date.now(), stallDays, prLinks }) {
+export function deriveStatus({
+  prd,
+  featurePrs,
+  lastCommit = null,
+  now = Date.now(),
+  stallDays,
+  prLinks,
+}: {
+  prd: string | number;
+  featurePrs: readonly StatusPr[] | null | undefined;
+  lastCommit?: string | number | Date | null;
+  now?: number;
+  stallDays: number;
+  prLinks: PrLinks;
+}): PrdStatus {
   const prs = featurePrs ?? [];
 
   const featurePr = findFeaturePr(prd, prs, prLinks);

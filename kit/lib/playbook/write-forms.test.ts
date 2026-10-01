@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { parseForm } from './forms.ts';
@@ -8,7 +7,7 @@ describe('blankForm', () => {
   it('writes decisions blank whatever the spelling of the front door’s adr/ folder', () => {
     for (const adr of ['.omni-loop/knowledge/adr', '.omni-loop/knowledge/adr/', './.omni-loop/knowledge//adr']) {
       const { ctx } = makeRepo({ config: { paths: { adr } } });
-      expect(parseForm(blankForm('decisions', { ctx })).form.state, adr).toBe('blank');
+      expect(parseForm(blankForm('decisions', { ctx })).form!.state, adr).toBe('blank');
     }
   });
 
@@ -44,6 +43,6 @@ describe('writeForms', () => {
     expect(paths).toContain('handbook/adr/README.md');
     expect(paths).toContain('handbook/product/rules.md');
     // The decision records stay at the default, outside this front door: the decisions form points there.
-    expect(parseForm(read('handbook/adr/README.md')).form.pointsTo).toBe('.omni-loop/knowledge/adr');
+    expect(parseForm(read('handbook/adr/README.md')).form!.pointsTo).toBe('.omni-loop/knowledge/adr');
   });
 });

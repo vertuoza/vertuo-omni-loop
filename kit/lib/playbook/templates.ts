@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The kit defaults** (PRD #45, slice s2) — the one loader for the kit's templates. The templates
  * folder mirrors the front door: its `README.md` is the front door's page, which `omni kb init`
@@ -19,24 +18,30 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { z } from 'zod';
 import { FORM_IDS } from './forms.ts';
 
-/* global __OMNI_TEMPLATES__ */
-const BUNDLED = typeof __OMNI_TEMPLATES__ === 'undefined' ? null : JSON.parse(__OMNI_TEMPLATES__);
+/** Defined by `kit/build.ts` in the bundle only: the templates as JSON text. */
+declare const __OMNI_TEMPLATES__: string | undefined;
+
+/** The bundle's templates: `{ <path under the templates folder>: text }`. */
+const BundledTemplatesSchema = z.record(z.string(), z.string());
+
+const BUNDLED = typeof __OMNI_TEMPLATES__ === 'undefined' ? null : BundledTemplatesSchema.parse(JSON.parse(__OMNI_TEMPLATES__));
 
 /** The front door's page, under the templates folder. */
 export const FRONT_DOOR_TEMPLATE = 'README.md';
 
 /** The kit's templates folder, when running from source. */
-function templatesDir() {
+function templatesDir(): string {
   return fileURLToPath(new URL('../../templates/', import.meta.url));
 }
 
 /** Every file under `dir`, as `{ <posix path under dir>: text }`, in code-point order of the
  * names, so a build is the same on every machine. */
-export function readTemplates(dir = templatesDir()) {
-  const out = {};
-  const walk = (sub) => {
+export function readTemplates(dir: string = templatesDir()): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (sub: string): void => {
     const entries = readdirSync(join(dir, sub), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
       const path = sub ? posix.join(sub, entry.name) : entry.name;
@@ -49,26 +54,26 @@ export function readTemplates(dir = templatesDir()) {
 }
 
 /** One template's text, by its path under the templates folder: the bundle's copy, else the file. */
-function templateText(path) {
+function templateText(path: string): string {
   if (BUNDLED) {
     if (!Object.hasOwn(BUNDLED, path)) throw new Error(`the bundle carries no template ${path}`);
-    return BUNDLED[path];
+    return BUNDLED[path] ?? '';
   }
   return readFileSync(join(templatesDir(), path), 'utf8');
 }
 
 /** The path of form `id`'s template under the templates folder. */
-export function templatePath(id) {
+export function templatePath(id: string): string {
   if (!FORM_IDS.includes(id)) throw new Error(`the kit has no form "${id}"`);
   return `playbook/${id}.md`;
 }
 
 /** The text of the kit's template for form `id`: what `resolveForm` takes as `template`. */
-export function formTemplate(id) {
+export function formTemplate(id: string): string {
   return templateText(templatePath(id));
 }
 
 /** The text of the front door's page, `{config:<key>}` placeholders unfilled. */
-export function frontDoorTemplate() {
+export function frontDoorTemplate(): string {
   return templateText(FRONT_DOOR_TEMPLATE);
 }

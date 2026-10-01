@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
@@ -32,7 +31,7 @@ describe('checkSpecText', () => {
     const text = specText({ frontMatter: { spec: 'wiki' } });
     const violations = checkSpecText(`${IN}/0042-a/spec.md`, text, { ctx });
     expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0].startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
+    expect(violations[0]!.startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
     expect(violations[0]).toMatch(/spec/);
   });
 
@@ -209,7 +208,7 @@ describe('inboxViolationsFor (PRD 675)', () => {
   it("reports exactly the violations findInboxViolations reports for that folder", () => {
     const { ctx } = makeRepo({ files: broken });
     const all = findInboxViolations({ ctx });
-    for (const [prd, folder] of [[42, '0042-good'], [43, '0043-bad'], [45, '0045-missing']]) {
+    for (const [prd, folder] of [[42, '0042-good'], [43, '0043-bad'], [45, '0045-missing']] as const) {
       const own = all.filter((v) => v.startsWith(`${IN}/${folder}/`));
       expect(inboxViolationsFor({ ctx, prd })).toEqual(own);
     }
@@ -229,11 +228,11 @@ describe('inboxViolationsFor (PRD 675)', () => {
 });
 
 // Task 12's own new cases (task-12-brief.md, Step 3), verbatim.
-const spec = (fields) =>
+const spec = (fields: Record<string, unknown>) =>
   `---\n${Object.entries({ prd: 42, title: 'A', 'blocked-by': 'none', spec: 'file', ...fields })
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.join(', ')}]` : v}`)
     .join('\n')}\n---\n\n## Problem\n\nx\n`;
-const violations = (files, config = {}) =>
+const violations = (files: Record<string, string>, config: Record<string, unknown> = {}) =>
   findInboxViolations({ ctx: makeRepo({ files, config }).ctx }).join('\n');
 
 it('accepts a well-formed spec', () => {
