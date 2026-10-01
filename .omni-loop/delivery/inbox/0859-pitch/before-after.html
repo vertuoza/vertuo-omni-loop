@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pitch a shipped PRD</title>
+<style>
+/* Layout: four today-beside-after rows (Settings, a shipped PRD's header, its tabs, the terminal), stacked on a phone. Look: the galaxy's own tokens; the slide thumbnails draw the two pitch looks. */
+:root{
+  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--lineStrong:#85819f;
+  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;--onPlasma:#ffffff;
+  --red:#b3122f;--redSoft:#fbe8ec;--green:#15703f;--greenSoft:#e4f4ea;
+  --term:#0b0a26;--termBar:#1a1845;--termInk:#e6e8ff;--termMuted:#8a90d6;--termY:#ffd84a;--termG:#4ee08a;--termP:#c9a2ff;
+  --shadow:0 1px 0 rgba(23,21,61,.04),0 14px 36px -18px rgba(23,21,61,.35);
+  --display:"Anton","Impact","Arial Narrow Bold",sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+    --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+    --red:#ff6b86;--redSoft:#3a1633;--green:#4ee08a;--greenSoft:#133b3c;
+    --term:#07061c;--termBar:#141238;--shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--lineStrong:#6d6acc;
+  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--onPlasma:#0e0d33;
+  --red:#ff6b86;--redSoft:#3a1633;--green:#4ee08a;--greenSoft:#133b3c;
+  --term:#07061c;--termBar:#141238;--shadow:0 1px 0 rgba(0,0,0,.2),0 16px 40px -18px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:28px 48px;overflow-x:hidden}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:36px}
+header{display:grid;gap:8px}
+.eyebrow{font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--plasma)}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+h2{font:400 24px/1.1 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h3{font-size:16px;margin:0}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+section{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:820px){.pair{grid-template-columns:1fr}}
+.side{display:grid;gap:8px;min-width:0}
+.tag{justify-self:start;font:700 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:6px 9px;border-radius:999px}
+.tag.today{background:var(--sunk);color:var(--muted)}
+.tag.after{background:var(--plasma);color:var(--onPlasma)}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
+.pill{font:700 11px/1 var(--mono);padding:4px 8px;border-radius:999px;background:var(--plasmaSoft);color:var(--plasma);margin-left:auto}
+.pill.g{background:var(--greenSoft);color:var(--green)}
+.pill.r{background:var(--redSoft);color:var(--red)}
+.body{padding:14px;display:grid;gap:12px}
+.msg{padding:10px 12px;border-radius:12px;max-width:92%;font-size:14px}
+.msg.me{justify-self:end;background:var(--plasma);color:var(--onPlasma)}
+.msg.bot{background:var(--sunk)}
+.tool{font:12px/1.4 var(--mono);color:var(--muted);margin-bottom:4px}
+.cid{font:700 11px/1 var(--mono);padding:2px 6px;border-radius:6px;background:var(--plasmaSoft);color:var(--plasma);white-space:nowrap}
+.hint{color:var(--muted);font-size:13px}
+.code{background:var(--term);color:var(--termInk);font:12.5px/1.6 var(--mono);padding:12px 14px;overflow-x:auto;white-space:pre;border-radius:10px}
+.code .k{color:var(--termP)}.code .s{color:var(--termG)}.code .c{color:var(--termMuted)}.code .y{color:var(--termY)}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px;background:var(--surface)}
+.card.new{border-color:var(--plasma);box-shadow:0 0 0 3px var(--plasmaSoft)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.input{flex:1;min-width:0;border:1px solid var(--lineStrong);border-radius:8px;padding:7px 10px;background:var(--surface);font-size:14px}
+.btn{border:0;border-radius:8px;padding:7px 12px;font:700 13px/1 var(--body);background:var(--plasma);color:var(--onPlasma)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--lineStrong)}
+.btn.sm{padding:5px 9px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font:700 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 6px 8px}
+td{border-top:1px solid var(--line);padding:8px 6px;vertical-align:middle}
+.tbl{overflow-x:auto}
+.num{font-variant-numeric:tabular-nums}
+.unk{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.unk:first-of-type{border-top:0;padding-top:0}
+.unk small{display:block;color:var(--muted);font-size:12.5px}
+.fold{font:700 13px/1.3 var(--body);color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;background:var(--surface)}
+.chip.on{border-color:var(--plasma);background:var(--plasmaSoft);color:var(--plasma);font-weight:700}
+.sentence{font:400 22px/1.2 var(--display);letter-spacing:.01em}
+.sentence b{color:var(--plasma);font-weight:400}
+.empty{border:1px dashed var(--lineStrong);border-radius:12px;padding:14px;color:var(--muted);font-size:14px;text-align:center}
+.dec{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;border-top:1px solid var(--line);padding-top:10px}
+.dec:first-child{border-top:0;padding-top:0}
+.dec p{grid-column:1;color:var(--muted);font-size:13px}
+.seg{display:flex;border:1px solid var(--lineStrong);border-radius:8px;overflow:hidden;font:700 12px/1 var(--mono)}
+.seg span{padding:6px 9px}
+.seg span.on{background:var(--plasma);color:var(--onPlasma)}
+.same{border-left:3px solid var(--line);padding-left:12px;color:var(--muted);font-size:14px}
+ul.keeps{margin:0;padding-left:18px;color:var(--muted);font-size:14px;display:grid;gap:4px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);padding:0 14px}
+.tabs span{padding:9px 10px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--ink);font-weight:700;border-color:var(--plasma)}
+.tabs span.new{color:var(--plasma);font-weight:700}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px}
+.head h3{font:400 22px/1.1 var(--display);letter-spacing:.01em}
+.track{font:700 11px/1 var(--mono);color:var(--muted);letter-spacing:.04em}
+.track b{color:var(--green)}
+.panel{border:1px solid var(--plasma);border-radius:12px;padding:12px;display:grid;gap:10px;margin:0 14px 14px;background:var(--surface)}
+.select{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--lineStrong);border-radius:8px;padding:7px 10px;font-size:14px;background:var(--surface)}
+.slide{aspect-ratio:16/9;max-width:100%;border-radius:8px;overflow:hidden;position:relative;container-type:inline-size}
+.slide.arcade{background:radial-gradient(circle at 75% 40%,#2a1d78 0,#07061c 60%);color:#f2f4ff}
+.slide.keynote{background:#f7f7fb;color:#111;border:1px solid var(--line)}
+.slide .k{position:absolute;left:6cqw;top:8cqw;font:700 2.6cqw/1 var(--mono);letter-spacing:.1em}
+.slide.arcade .k{color:#6ff0ff}.slide.keynote .k{color:#6a2fd0}
+.slide .h{position:absolute;left:6cqw;top:15cqw;width:46cqw;font:400 6.6cqw/1 var(--display);text-transform:uppercase}
+.slide.arcade .h{font-style:italic;color:#ffd84a;text-shadow:.4cqw .4cqw 0 #ff3b5c}
+.slide.keynote .h{font:800 5.4cqw/1.05 var(--body);text-transform:none;letter-spacing:-.1cqw}
+.slide .s{position:absolute;right:5cqw;top:14cqw;width:38cqw;aspect-ratio:4/3;background:#16144a;border-radius:1cqw}
+.slide.arcade .s{border:.6cqw solid #ffd84a;box-shadow:1.2cqw 1.2cqw 0 #ff3b5c;border-radius:0}
+.slide.keynote .s{box-shadow:0 3cqw 6cqw rgba(47,63,196,.25)}
+.slide .s::after{content:"real frame of the walk-through";position:absolute;inset:0;display:grid;place-items:center;font:600 2.2cqw var(--mono);color:#8a90d6}
+.looks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.looks figure{margin:0;display:grid;gap:6px;font-size:12.5px;color:var(--muted)}
+.dl{display:flex;flex-wrap:wrap;gap:6px}
+.dl span{font:600 12px/1 var(--mono);border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--sunk)}
+.player{position:relative}
+.player::after{content:"▶ 0:24";position:absolute;left:10px;bottom:10px;font:700 12px/1 var(--mono);background:rgba(7,6,28,.8);color:#f2f4ff;padding:6px 8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="eyebrow">PRD 859 · before / after</span>
+  <h1>Pitch a shipped PRD</h1>
+  <p class="lede">A shipped PRD gets a Pitch button. One command on your computer films the feature on production and makes a wedge slide, a 20–30 s video with music in 16:9 and 1:1, and a GIF, in the look its product chose. The pitch shows on the PRD's new Pitch tab.</p>
+</header>
+
+<section>
+  <h2>1 · Settings › Products</h2>
+  <div class="pair">
+    <div class="side"><span class="tag today">Today</span>
+      <div class="frame">
+        <div class="tabs"><span>Fleets</span><span>Repositories</span><span class="on">Business</span><span>Jev</span></div>
+        <div class="body">
+          <p class="hint">Products live inside Settings › Business, as names with their claims and repositories. A product has no page of its own and no settings of its own.</p>
+          <div class="card"><div class="row"><strong>omni-loop</strong><span class="pill">3 repositories</span></div><p class="hint">Claims: offering, size, trade, rival</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="side"><span class="tag after">After</span>
+      <div class="frame">
+        <div class="tabs"><span>Fleets</span><span>Repositories</span><span>Business</span><span class="new on">Products</span><span>Jev</span></div>
+        <div class="body">
+          <p class="hint">Settings › Products › <strong>omni-loop</strong></p>
+          <div class="card new">
+            <h3>Pitch look</h3>
+            <label class="select" for="look">Arcade poster <span class="hint">▾ Arcade poster · Clean keynote</span></label>
+            <div class="looks">
+              <figure><div class="slide arcade"><span class="k">NEW IN OMNI LOOP</span><span class="h">One switch at a time.</span><span class="s"></span></div><figcaption>Arcade poster (default)</figcaption></figure>
+              <figure><div class="slide keynote"><span class="k">NEW IN OMNI LOOP</span><span class="h">One switch at a time.</span><span class="s"></span></div><figcaption>Clean keynote</figcaption></figure>
+            </div>
+            <p class="hint">Per product: another product of this workspace keeps its own look. Members who may not edit Business read it, with no dropdown. Voices come in the next PRD, on this page.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · A shipped PRD's header</h2>
+  <div class="pair">
+    <div class="side"><span class="tag today">Today</span>
+      <div class="frame">
+        <div class="head"><h3>Let Jev make three decisions</h3><span class="btn ghost sm">Copy link</span></div>
+        <div class="body"><p class="track">idea · PRD · inbox · building · outbox · <b>shipped</b> · retro</p><p class="hint">Shipped: the header has no action. Announcing it means a hand-made slide, a screen recording and an afternoon.</p></div>
+      </div>
+    </div>
+    <div class="side"><span class="tag after">After</span>
+      <div class="frame">
+        <div class="head"><h3>Let Jev make three decisions</h3><span class="btn sm">Pitch</span><span class="btn ghost sm">Copy link</span></div>
+        <div class="panel">
+          <div class="chips"><span class="chip on">Customers</span><span class="chip">Inside</span></div>
+          <div class="code">/omni:pitch 812 --for customers</div>
+          <div class="row"><span class="btn sm">Copy</span><span class="hint">Run it in Claude Code, in this repository. The pitch shows on the Pitch tab.</span></div>
+        </div>
+        <div class="body"><p class="hint">Only at shipped and retro. Inbox, building and outbox show no Pitch button.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · The Pitch tab</h2>
+  <div class="pair">
+    <div class="side"><span class="tag today">Today</span>
+      <div class="frame">
+        <div class="tabs"><span>Spec</span><span>Plan</span><span>Before/after</span><span>User voice</span><span>Outbox</span><span class="on">Proof</span></div>
+        <div class="body"><p class="hint">Proof holds one 3-second test clip per criterion: evidence for a reviewer, not something to show a customer.</p></div>
+      </div>
+    </div>
+    <div class="side"><span class="tag after">After</span>
+      <div class="frame">
+        <div class="tabs"><span>Spec</span><span>Plan</span><span>Proof</span><span class="new on">Pitch</span></div>
+        <div class="body">
+          <div class="row"><h3>Customers</h3><span class="pill">1 Oct · Arcade poster</span></div>
+          <div class="player"><div class="slide arcade"><span class="k">NEW IN OMNI LOOP</span><span class="h">Hand a decision to AI. One switch at a time.</span><span class="s"></span></div></div>
+          <div class="dl"><span>slide.png</span><span>slide-square.png</span><span>pitch.mp4</span><span>pitch-square.mp4</span><span>pitch.gif</span></div>
+          <div class="row"><span class="btn ghost sm">Copy GIF link</span><span class="hint">Opens without signing in.</span></div>
+          <p class="fold">Inside · 1 pitch ▸ &nbsp; Earlier pitches ▾</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4 · The run, in the terminal</h2>
+  <div class="pair">
+    <div class="side"><span class="tag today">Today</span>
+      <div class="code"><span class="c"># no command makes a launch video</span>
+<span class="k">/omni:prove</span> 812
+<span class="c">  ✓ 2  — 8   clips for the reviewer, no music</span></div>
+    </div>
+    <div class="side"><span class="tag after">After</span>
+      <div class="code"><span class="k">/omni:pitch</span> 812 <span class="y">--for customers</span>
+<span class="c">  words    hook 9 words · benefit 21 words (spec + release note)</span>
+<span class="c">  filmed   walk-through 13 s on production, nothing saved</span>
+<span class="c">  slide    Arcade poster · 1920×1080 · 1080×1080</span>
+<span class="c">  music    default voice · upbeat (generated)</span>
+<span class="s">  video    pitch.mp4 0:24 · pitch-square.mp4 · pitch.gif</span>
+<span class="s">  Pitch tab</span> https://…/prd/…?tab=pitch</div>
+      <p class="hint">Refuses with one line, writing nothing, when the PRD is not shipped, ffmpeg is missing, proof.url is not a fixed address, or there is no sign-in.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <ul class="keeps">
+    <li>PRDs not yet shipped: no button, no tab, nothing new.</li>
+    <li>/omni:prove and the Proof tab are unchanged. A pitch posts no comment and changes no PR, issue or label.</li>
+    <li>Settings › Business keeps its products, claims and personas; Products only adds a page per product.</li>
+    <li>Nothing runs on the server: no renderer, no model key, no queue.</li>
+  </ul>
+</section>
+</div>
+</body>
+</html>
