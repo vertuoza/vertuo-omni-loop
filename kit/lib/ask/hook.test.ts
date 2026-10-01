@@ -1,10 +1,10 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../../test/fake-ask-server.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import { askClient } from './client.ts';
+import { askClient as typedClient } from './client.ts';
+import type { Tokens } from './client.ts';
 import { activeMode, endHook, postHook, preHook, PROMPT_CONTEXT, promptOutput, toolAnswers, WAIT_LIMITS } from './hook.ts';
 import { LOCAL_DIR, readMode, readRound, readTerminal, writeMode, writeRound, writeShot, writeTerminal } from './local-state.ts';
 
@@ -24,33 +24,48 @@ const PLACES = {
 const TERMINAL = 'term-a';
 const TITLE = 'acme/widgets · main';
 
-function preInput(questions, toolUseId = 'toolu_01', terminalId = TERMINAL) {
+/** A client's methods with their replies read loosely: a test reads the fields it expects. */
+type Loose<C> = { [K in keyof C]: C[K] extends (...args: infer A) => Promise<unknown> ? (...args: A) => Promise<any> : C[K] };
+type Client = ReturnType<typeof typedClient>;
+const askClient = (options: Parameters<typeof typedClient>[0]) => typedClient(options) as unknown as Loose<Client> & Client;
+
+/** The fake server, read loosely: a test reads its record of the calls and rounds as it expects. */
+type FakeServer = { url: string; host: string; calls: any[]; rounds: Map<string, any>; sessions: Map<string, any>; [key: string]: any };
+type ServerOptions = { answer?: (round: any) => unknown; [key: string]: unknown };
+const startServer = startFakeAskServer as (options: ServerOptions) => Promise<FakeServer>;
+
+/** The input a `pre` hook is given, its tool input open to more fields. */
+type PreInput = { hook_event_name: string; session_id: string; tool_name: string; tool_input: Record<string, unknown>; tool_use_id: string | null };
+
+function preInput(questions: unknown[], toolUseId: string | null = 'toolu_01', terminalId: string = TERMINAL): PreInput {
   return { hook_event_name: 'PreToolUse', session_id: terminalId, tool_name: 'AskUserQuestion', tool_input: { questions }, tool_use_id: toolUseId };
 }
 
-function memoryTokens(entries) {
-  const store = { ...entries };
-  return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
+function memoryTokens(entries: Record<string, Tokens>) {
+  const store: Record<string, Tokens> = { ...entries };
+  return { store, read: (host: string) => store[host] ?? null, write: (host: string, tokens: Tokens) => { store[host] = tokens; } };
 }
 
 // A test that expects the page's answer waits long enough for it on a loaded machine: the fake server
 // answers at once, so a quiet machine never waits. A test of giving up passes its own short total (#570).
 const ROOMY = { totalMs: 30_000, callMs: 10_000 };
 
-let server;
+let server!: FakeServer;
 afterEach(async () => {
   await server?.close();
-  server = undefined;
+  server = undefined!;
 });
 
 /** A checkout with ask mode on against a fake server, and no terminal's session opened yet. */
-async function modeOn(options = {}) {
-  server = await startFakeAskServer({ holdMs: 50, ...options });
+async function modeOn(options: ServerOptions = {}) {
+  server = await startServer({ holdMs: 50, ...options });
   const { root, write } = makeRepo({ files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${server.url}\n` } });
   writeMode(root, { host: server.host });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
   const client = askClient({ baseUrl: server.url, host: server.host, tokens });
-  const pre = (input, limits = ROOMY, more = {}) => preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
+  // The output is read loosely: a test reads the fields it expects of it.
+  const pre = (input: unknown, limits = ROOMY, more: Partial<Parameters<typeof preHook>[0]> = {}): Promise<any> =>
+    preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
   return { root, write, client, tokens, pre };
 }
 
@@ -114,7 +129,7 @@ describe('the pre hook', () => {
     const session = onlySession();
     expect([...server.rounds.values()].map((round) => round.sessionId)).toEqual([session.id, session.id]);
     expect(server.calls.filter((call) => call.path === '/api/ask/sessions')).toHaveLength(1);
-    expect(readTerminal(root, TERMINAL).sessionId).toBe(session.id);
+    expect(readTerminal(root, TERMINAL)!.sessionId).toBe(session.id);
   });
 
   it('opens one session per terminal, and two questions in flight together each get their own answer', async () => {
@@ -133,8 +148,8 @@ describe('the pre hook', () => {
     expect((await a).hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
     expect((await b).hookSpecificOutput.updatedInput.answers).toEqual({ [PLACES.question]: 'Footer' });
     expect(server.sessions.size).toBe(2);
-    expect(readTerminal(root, 'term-a').sessionId).toBe(colour.sessionId);
-    expect(readTerminal(root, 'term-b').sessionId).toBe(places.sessionId);
+    expect(readTerminal(root, 'term-a')!.sessionId).toBe(colour.sessionId);
+    expect(readTerminal(root, 'term-b')!.sessionId).toBe(places.sessionId);
   });
 
   it('sends the round\'s context with the questions', async () => {
@@ -191,7 +206,7 @@ describe('the pre hook', () => {
   it('waits across several waits for an answer given later on the page', async () => {
     // The page answers as the third wait comes in: two waits have come back `open` by then.
     let waits = 0;
-    const onCall = (call) => {
+    const onCall = (call: { path: string }) => {
       if (!call.path.endsWith('/wait') || (waits += 1) < 3) return;
       const [round] = server.rounds.values();
       server.answerRound(round.id, { [COLOUR.question]: 'Cyan' });
@@ -245,12 +260,12 @@ describe('the pre hook', () => {
     const output = await pre(preInput([COLOUR]));
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
     expect(server.calls.filter((call) => call.path === '/api/ask/token')).toHaveLength(1);
-    expect(tokens.store[server.host].access_token).toBe('access-2');
+    expect(tokens.store[server.host]!.access_token).toBe('access-2');
   });
 
   it('when its session is closed, deletes only this terminal\'s files, keeps the mode on, and the next question opens a new session', async () => {
     let closeNext = true;
-    const answer = (round) => {
+    const answer = (round: any) => {
       if (closeNext) {
         closeNext = false;
         // The session closes while the hook waits on its round, the moment that round is posted.
@@ -274,7 +289,7 @@ describe('the pre hook', () => {
 
     const next = await pre(preInput([COLOUR], 'toolu_02'));
     expect(next.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    const second = readTerminal(root, TERMINAL);
+    const second = readTerminal(root, TERMINAL)!;
     expect(second.sessionId).not.toBe(first.id);
     expect(server.sessions.get(second.sessionId).status).toBe('open');
   });
@@ -290,7 +305,7 @@ describe('the pre hook', () => {
     expect(server.rounds.size).toBe(0);
 
     expect((await pre(preInput([COLOUR], 'toolu_02'))).hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    expect(readTerminal(root, TERMINAL).sessionId).not.toBe(gone.id);
+    expect(readTerminal(root, TERMINAL)!.sessionId).not.toBe(gone.id);
   });
 
   it('opens a new session when this terminal\'s was opened on another host', async () => {
@@ -340,19 +355,19 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
   const PNG = new Uint8Array([137, 80, 78, 71]);
 
   /** A client that answers the round at once with `answer`, and serves each link through `serve`. */
-  function stubbed(answer, serve = () => PNG) {
-    const calls = [];
+  function stubbed(answer: Record<string, unknown>, serve: (url: string) => Uint8Array = () => PNG) {
+    const calls: unknown[][] = [];
     const client = {
       openSession: async () => ({ id: 'sess-1' }),
       openRound: async () => { calls.push(['openRound']); return { roundId: ROUND }; },
       wait: async () => ({ status: 'answered', ...answer }),
       abandon: async () => { calls.push(['abandon']); },
-      download: async (url, options) => { calls.push(['download', url, options]); return serve(url); },
-    };
+      download: async (url: string, options: unknown) => { calls.push(['download', url, options]); return serve(url); },
+    } as unknown as Client;
     const { root } = makeRepo({ files: { '.omni-loop/config.yml': 'kit: 1\n' } });
-    const pre = (questions = [COLOUR, PLACES], more = {}) =>
+    const pre = (questions: unknown[] = [COLOUR, PLACES], more: Partial<Parameters<typeof preHook>[0]> = {}): Promise<any> =>
       preHook({ root, host: 'ask.example', client, input: preInput(questions), title: () => TITLE, limits: ROOMY, ...more });
-    const shot = (name) => join(root, LOCAL_DIR, 'ask', 'shots', ROUND, name);
+    const shot = (name: string) => join(root, LOCAL_DIR, 'ask', 'shots', ROUND, name);
     return { root, calls, pre, shot };
   }
 
@@ -371,7 +386,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
     const downloads = calls.filter(([what]) => what === 'download');
     expect(downloads.map(([, url]) => url)).toEqual(['https://files.example/1', 'https://files.example/2']);
     // 30 s a file at most, inside the hook's own total.
-    expect(downloads.every(([, , options]) => options.timeoutMs === 30_000)).toBe(true);
+    expect(downloads.every(([, , options]) => (options as { timeoutMs: number }).timeoutMs === 30_000)).toBe(true);
   });
 
   it('names a screenshot it could not download, and the answer still goes through', async () => {
@@ -383,7 +398,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
         { name: '3.png', url: 'https://files.example/fine' },
         { name: '../4.png', url: 'https://files.example/escape' },
       ] },
-    }, (url) => { if (url.endsWith('broken')) throw new Error('403'); return PNG; });
+    }, (url: string) => { if (url.endsWith('broken')) throw new Error('403'); return PNG; });
     const output = await pre([COLOUR]);
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({
       [COLOUR.question]: [
@@ -408,7 +423,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
     }, () => { clock += 12_000; return PNG; });
     const output = await pre([COLOUR], { limits: { totalMs: 12_000, callMs: 5_000 }, now: () => clock });
     expect(output.hookSpecificOutput.updatedInput.answers[COLOUR.question]).toMatch(/1\.png\n- Screenshot 2 could not be downloaded$/);
-    expect(calls.filter(([what]) => what === 'download').map(([, , options]) => options.timeoutMs)).toEqual([12_000]);
+    expect(calls.filter(([what]) => what === 'download').map(([, , options]) => (options as { timeoutMs: number }).timeoutMs)).toEqual([12_000]);
   });
 
   it('removes screenshot folders older than 7 days before it opens a new round, and keeps the others', async () => {
@@ -464,7 +479,7 @@ describe('toolAnswers', () => {
 });
 
 describe('the post hook', () => {
-  const postInput = (answers, toolUseId = 'toolu_01') => ({
+  const postInput = (answers: unknown, toolUseId: string | null = 'toolu_01') => ({
     hook_event_name: 'PostToolUse',
     session_id: TERMINAL,
     tool_name: 'AskUserQuestion',
@@ -474,7 +489,7 @@ describe('the post hook', () => {
   });
 
   /** A round on the server, in a session of its own, abandoned as a terminal takes it. */
-  async function abandonedRound(client) {
+  async function abandonedRound(client: Loose<Client>) {
     const { id } = server.openSession(TITLE);
     const { roundId } = await client.openRound(id, [COLOUR]);
     await client.abandon(roundId);

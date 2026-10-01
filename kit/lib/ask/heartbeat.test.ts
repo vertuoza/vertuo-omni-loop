@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The heartbeat's pure parts (PRD 757): the work finder and the throttle's window.
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
@@ -11,8 +10,8 @@ const FOLDERS = {
   visual: ['0653-menu-sprites'],
   bugs: ['0674-fix-lists-mine'],
 };
-const draft = (over) => ({ id: 'draft-1', url: 'https://x/prd/draft-1', claudeSessionId: 'claude-a', prd: null, openedAt: '2026-09-30T10:00:00Z', ...over });
-const find = (over) => findWork({ claudeSessionId: 'claude-a', drafts: [], branch: null, branches: BRANCHES, folders: FOLDERS, ...over });
+const draft = (over: Record<string, unknown> = {}) => ({ id: 'draft-1', url: 'https://x/prd/draft-1', claudeSessionId: 'claude-a', prd: null, openedAt: '2026-09-30T10:00:00Z', ...over });
+const find = (over: Record<string, unknown> = {}) => findWork({ claudeSessionId: 'claude-a', drafts: [], branch: null, branches: BRANCHES, folders: FOLDERS, ...over });
 
 describe('findWork', () => {
   it("names this session's draft first, whatever the branch", () => {
