@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The collection behind the Engineering board (PRD 612): every tracked repository of every workspace
 // with an installation of the app, read from GitHub and written to the store.
 //
@@ -15,7 +14,9 @@
 // The installation's GitHub budget is shared with the outbox check (bug 638): every read goes through
 // GraphQL, and once a budget would drop under half, the run ends for every repository of that
 // installation, each cursor at what was written and no error recorded; the next run carries on.
-import { BudgetLow, affords, pullsUpdatedAfter, readPullRecords } from './github.ts';
+import { type Budget, BudgetLow, type GraphqlOctokit, type ListedPull, affords, pullsUpdatedAfter, readPullRecords } from './github.ts';
+import { FailureSchema } from './schema.ts';
+import type { PrStatsStore, TrackedRepository } from './supabase-store.ts';
 
 export const BACKFILL_DAYS = 90;
 /**
@@ -28,22 +29,44 @@ const MAX_BATCHES = 20;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * @param {{
- *   store: { trackedRepositories: Function, savePull: Function, updateRepository: Function },
- *   octokitFor: (installationId: number) => Promise<{ graphql: Function }> | { graphql: Function },
- *   step: { run: (id: string, fn: () => unknown) => Promise<any> },
- *   now: number,
- * }} deps
- */
-export async function collectAll({ store, octokitFor, step, now }) {
+/** The installation's GraphQL client, for its id. */
+export type OctokitFor = (installationId: number) => Promise<GraphqlOctokit> | GraphqlOctokit;
+
+/** The part of an Inngest step the collector runs: one memoized, retried unit, its output as JSON. */
+export type CollectStep = { run: <T>(id: string, fn: () => T | Promise<T>) => Promise<T> };
+
+/** What a run did: repositories by how their collection ended, and pull requests saved. */
+export type CollectSummary = { repositories: number; saved: number } & Record<Outcome, number>;
+
+type Outcome = 'collected' | 'failed' | 'unfinished' | 'paused';
+
+/** What one batch did, and where the repository's cursor and its installation's budget stand. */
+type BatchOut = { saved: number; cursor: string; more: boolean; paused?: true; error?: string; budget: Budget };
+
+type RepositoryRun = {
+  store: PrStatsStore;
+  octokitFor: OctokitFor;
+  step: CollectStep;
+  repository: TrackedRepository;
+  budgets: Map<number, Budget>;
+  backfillFrom: string;
+  nowIso: string;
+};
+
+/** Every tracked repository collected, a step per batch; `now` is the run's clock, in ms. */
+export async function collectAll({ store, octokitFor, step, now }: {
+  store: PrStatsStore;
+  octokitFor: OctokitFor;
+  step: CollectStep;
+  now: number;
+}): Promise<CollectSummary> {
   const nowIso = new Date(now).toISOString();
   const backfillFrom = new Date(now - BACKFILL_DAYS * DAY_MS).toISOString();
   const repositories = await step.run('list-repositories', () => store.trackedRepositories());
 
-  const summary = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
+  const summary: CollectSummary = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
   /** Each installation's budget, as its last query answered it; `{}` until its first. */
-  const budgets = new Map();
+  const budgets = new Map<number, Budget>();
   for (const repository of repositories) {
     const { outcome, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
     summary[outcome] += 1;
@@ -57,7 +80,7 @@ export async function collectAll({ store, octokitFor, step, now }) {
  * installation's budget is down to half; a budget already there reads nothing.
  * @returns {Promise<{ outcome: 'collected' | 'failed' | 'unfinished' | 'paused', saved: number }>}
  */
-async function collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso }) {
+async function collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso }: RepositoryRun): Promise<{ outcome: Outcome; saved: number }> {
   const { installationId, workspaceId, fullName } = repository;
   let saved = 0;
   let cursor = repository.collectedUntil ?? backfillFrom;
@@ -76,7 +99,7 @@ async function collectRepository({ store, octokitFor, step, repository, budgets,
 }
 
 /** How a repository's collection ends after its `n`th batch, or nothing when it goes on. */
-function outcomeOf(out, n) {
+function outcomeOf(out: BatchOut, n: number): Outcome | null {
   if (out.paused) return 'paused';
   if (out.error) return 'failed';
   if (!out.more) return 'collected';
@@ -84,7 +107,7 @@ function outcomeOf(out, n) {
 }
 
 /** One step of one repository: at most one batch of pull requests, then its row updated. */
-async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before }) {
+async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before }: Omit<RepositoryRun, 'step' | 'budgets' | 'backfillFrom'> & { cursor: string; budget: Budget }): Promise<BatchOut> {
   const { workspaceId, fullName, installationId } = repository;
   const [owner, repo] = fullName.split('/');
   let reached = cursor;
@@ -125,15 +148,18 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
 }
 
 /** The first `BATCH` pull requests, and every one after them updated at the same instant as the last. */
-function batchOf(listed) {
+function batchOf(listed: ListedPull[]): ListedPull[] {
   let end = Math.min(BATCH, listed.length);
-  while (end < listed.length && listed[end].updatedAt === listed[end - 1].updatedAt) end += 1;
+  while (end < listed.length && listed[end]?.updatedAt === listed[end - 1]?.updatedAt) end += 1;
   return listed.slice(0, end);
 }
 
-function describe(error) {
-  const graphqlError = error?.errors?.[0];
+/** What a failed GitHub call says: GraphQL's first error, or the HTTP status and the first line. */
+function describe(error: unknown): string {
+  const failure = FailureSchema.safeParse(error);
+  const { errors, message: said, status } = failure.success ? failure.data : {};
+  const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(': ');
-  const message = String(error?.message ?? error ?? 'unknown error').split('\n')[0];
-  return error?.status ? `HTTP ${error.status}: ${message}` : message;
+  const message = String(said ?? error ?? 'unknown error').split('\n')[0] ?? '';
+  return status ? `HTTP ${status}: ${message}` : message;
 }

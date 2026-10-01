@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Test support for `pr-stats`: a stubbed GitHub holding pull requests per repository, and a fake store
 // holding the rows the collector writes. Nothing in the app imports it.
 //
@@ -8,29 +7,63 @@
 // one of the GraphQL budget and answering `rateLimit` when asked. The two budgets are separate, as on
 // GitHub; a spent budget answers 403 (REST) or RATE_LIMITED (GraphQL).
 
+import type { PrStatsStore, RepositoryPatch } from './supabase-store.ts';
+
+/** A user as GitHub's REST API names it. */
+export type FakeUser = { login: string; type?: string };
+
 /**
- * @param {Record<string, {
- *   pulls?: object[],          each: number, user, created_at, updated_at, merged_at, closed_at, merged_by,
- *                              base, head, draft, labels, commits, additions, deletions, body, reviews?,
- *                              commitMessages?, commit_dates? (each commit's committed date, the pull
- *                              request's created_at when left out), comments? (each comment's body, oldest first),
- *                              label_events? (each label added, `{ name, created_at }`, oldest first)
- *   fail?: { status: number, message: string, after?: number },  fail every request, or every pull detail read
- *                              once `after` of them were answered (REST: one per pull request; GraphQL: one
- *                              per details query)
- * }>} repos  keyed by `owner/name`
- * @param {{ core?: { limit: number, remaining: number }, graphql?: { limit: number, remaining: number } }} [budgets]
+ * A pull request as GitHub's REST API returns it, with what the stub answers beside it: its reviews,
+ * its commit messages, `commit_dates` (each commit's committed date, the pull request's `created_at`
+ * when left out), `comments` (each comment's body, oldest first) and `label_events` (each label
+ * added, oldest first).
  */
-export function fakeGitHub(repos, budgets = {}) {
-  const requests = [];
-  const queries = [];
-  const details = new Map();
+export type FakePull = {
+  number: number;
+  user: FakeUser | null;
+  created_at: string;
+  updated_at: string;
+  merged_at: string | null;
+  closed_at: string | null;
+  merged_by: FakeUser | null;
+  base?: { ref: string } | null;
+  head?: { ref: string } | null;
+  draft: boolean;
+  labels: { name: string }[];
+  commits: number;
+  additions: number;
+  deletions: number;
+  body: string | null;
+  reviews?: { user: FakeUser | null; submitted_at?: string | null; state?: string }[];
+  commitMessages?: string[];
+  commit_dates?: string[];
+  comments?: string[];
+  label_events?: { name: string; created_at: string }[];
+};
+
+/**
+ * A repository the stub holds: its pull requests, and `fail` to fail every request, or every pull
+ * detail read once `after` of them were answered (REST: one per pull request; GraphQL: one per
+ * details query).
+ */
+export type FakeRepo = { pulls?: FakePull[]; fail?: { status: number; message: string; after?: number } };
+
+type Limit = { limit: number; remaining: number };
+type Params = { owner: string; repo: string; pull_number?: number; per_page?: number; page?: number };
+type Variables = { owner: string; repo: string; first?: number; after?: string | null };
+type Query = { operation: string | undefined; numbers?: number[] } & Partial<Variables>;
+
+/** A stubbed GitHub holding `repos`, keyed by `owner/name`. */
+export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Limit; graphql?: Limit } = {}) {
+  const requests: ({ route: string } & Params)[] = [];
+  const queries: Query[] = [];
+  const details = new Map<string, number>();
   const budget = {
     core: { limit: 5000, remaining: 5000, ...budgets.core },
     graphql: { limit: 5000, remaining: 5000, ...budgets.graphql },
   };
 
-  function repoOf({ owner, repo }, detail = false) {
+  function repoOf({ owner, repo }: { owner: string; repo: string }, detail = false): FakeRepo {
     const key = `${owner}/${repo}`;
     const found = repos[key];
     if (!found) throw httpError(404, `Not Found: ${key}`);
@@ -42,16 +75,16 @@ export function fakeGitHub(repos, budgets = {}) {
     return found;
   }
 
-  function pullOf(params, detail = false) {
+  function pullOf(params: Params, detail = false): FakePull {
     const pull = (repoOf(params, detail).pulls ?? []).find((candidate) => candidate.number === params.pull_number);
     if (!pull) throw httpError(404, 'Not Found');
     return pull;
   }
 
-  const page = (items, { per_page = 30, page = 1 }) => items.slice((page - 1) * per_page, page * per_page);
-  const newestFirst = (pulls) => [...(pulls ?? [])].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  const page = <T>(items: T[], { per_page = 30, page = 1 }: Params): T[] => items.slice((page - 1) * per_page, page * per_page);
+  const newestFirst = (pulls: FakePull[] | undefined) => [...(pulls ?? [])].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
 
-  function spend(kind) {
+  function spend(kind: 'core' | 'graphql') {
     const left = budget[kind];
     if (left.remaining <= 0) {
       if (kind === 'core') throw httpError(403, 'API rate limit exceeded for installation');
@@ -69,7 +102,7 @@ export function fakeGitHub(repos, budgets = {}) {
   const rateLimit = () => ({ limit: budget.graphql.limit, remaining: budget.graphql.remaining, cost: 1, resetAt: '2026-09-29T13:23:00Z' });
 
   const octokit = {
-    async request(route, params) {
+    async request(route: string, params: Params) {
       requests.push({ route, ...params });
       spend('core');
       switch (route) {
@@ -82,18 +115,18 @@ export function fakeGitHub(repos, budgets = {}) {
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews':
           return { headers: headers(), data: page(pullOf(params).reviews ?? [], params) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits':
-          return { headers: headers(), data: page((pullOf(params).commitMessages ?? []).map((message) => ({ commit: { message } })), params) };
+          return { headers: headers(), data: page((pullOf(params).commitMessages ?? []).map((message: string) => ({ commit: { message } })), params) };
         default:
           throw new Error(`fake GitHub: unexpected ${route}`);
       }
     },
 
-    async graphql(query, variables = {}) {
+    async graphql(query: string, variables: Partial<Variables> = {}): Promise<Record<string, unknown>> {
       const operation = /query\s+(\w+)/.exec(query)?.[1];
       const numbers = [...query.matchAll(/pullRequest\(number:\s*(\d+)\)/g)].map((match) => Number(match[1]));
       queries.push({ operation, ...variables, ...(numbers.length ? { numbers } : {}) });
       spend('graphql');
-      const answer = answers[operation];
+      const answer = operation === 'Budget' || operation === 'PullsUpdated' || operation === 'PullDetails' || operation === 'PullStatus' ? answers[operation] : undefined;
       if (!answer) throw new Error(`fake GitHub: unexpected GraphQL query ${operation}`);
       return { ...(/\brateLimit\b/.test(query) ? { rateLimit: rateLimit() } : {}), ...answer(variables, numbers) };
     },
@@ -101,26 +134,26 @@ export function fakeGitHub(repos, budgets = {}) {
 
   /** What each of the collector's GraphQL queries answers, besides `rateLimit`. */
   const answers = {
-    Budget: () => ({}),
-    PullsUpdated(variables) {
+    Budget: (_variables: Partial<Variables>, _numbers: number[]) => ({}),
+    PullsUpdated(variables: Partial<Variables>, _numbers: number[]) {
       const sorted = newestFirst(graphqlRepo(variables).pulls);
       const from = variables.after ? Number(variables.after) : 0;
       const nodes = sorted.slice(from, from + (variables.first ?? 100)).map((pull) => ({ number: pull.number, updatedAt: pull.updated_at }));
       const end = from + nodes.length;
       return { repository: { pullRequests: { pageInfo: { hasNextPage: end < sorted.length, endCursor: String(end) }, nodes } } };
     },
-    PullDetails(variables, numbers) {
+    PullDetails(variables: Partial<Variables>, numbers: number[]) {
       const pulls = graphqlRepo(variables, true).pulls ?? [];
-      const repository = {};
+      const repository: Record<string, unknown> = {};
       for (const number of numbers) {
         const pull = pulls.find((candidate) => candidate.number === number);
         repository[`p${number}`] = pull ? asGraphql(pull) : null;
       }
       return { repository };
     },
-    PullStatus(variables, numbers) {
+    PullStatus(variables: Partial<Variables>, numbers: number[]) {
       const pulls = graphqlRepo(variables).pulls ?? [];
-      const repository = {};
+      const repository: Record<string, unknown> = {};
       for (const number of numbers) {
         const pull = pulls.find((candidate) => candidate.number === number);
         repository[`p${number}`] = pull ? { comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } } : null;
@@ -129,9 +162,9 @@ export function fakeGitHub(repos, budgets = {}) {
     },
   };
 
-  function graphqlRepo({ owner, repo }, detail = false) {
+  function graphqlRepo({ owner, repo }: Partial<Variables>, detail = false): FakeRepo {
     const key = `${owner}/${repo}`;
-    if (!repos[key]) {
+    if (!repos[key] || owner === undefined || repo === undefined) {
       throw graphqlError('NOT_FOUND', `Could not resolve to a Repository with the name '${key}'.`);
     }
     return repoOf({ owner, repo }, detail);
@@ -141,8 +174,8 @@ export function fakeGitHub(repos, budgets = {}) {
 }
 
 /** A pull request of the REST shape `pull()` builds, as GitHub's GraphQL API answers it. */
-function asGraphql(pull) {
-  const actor = (user) => (user ? { login: user.type === 'Bot' ? user.login.replace(/\[bot\]$/, '') : user.login, __typename: user.type === 'Bot' ? 'Bot' : 'User' } : null);
+function asGraphql(pull: FakePull) {
+  const actor = (user: FakeUser | null) => (user ? { login: user.type === 'Bot' ? user.login.replace(/\[bot\]$/, '') : user.login, __typename: user.type === 'Bot' ? 'Bot' : 'User' } : null);
   const messages = pull.commitMessages ?? [];
   const dates = pull.commit_dates ?? [];
   return {
@@ -162,7 +195,7 @@ function asGraphql(pull) {
 }
 
 /** The branches, draft, labels and label events of a REST-shaped pull request, as GraphQL answers them. */
-function loopFactsOf(pull) {
+function loopFactsOf(pull: FakePull) {
   return {
     baseRefName: pull.base?.ref ?? null,
     headRefName: pull.head?.ref ?? null,
@@ -172,57 +205,73 @@ function loopFactsOf(pull) {
   };
 }
 
-function graphqlError(type, message) {
+function graphqlError(type: string, message: string): Error {
   return Object.assign(new Error(`Request failed due to following response errors:\n - ${message}`), { errors: [{ type, message }] });
 }
 
-function httpError(status, message) {
+function httpError(status: number, message: string): Error {
   return Object.assign(new Error(message), { status });
 }
 
-/**
- * A store in memory, the shape `supabase-store.mjs` gives the collector.
- * @param {{ workspaceId: string, installationId: number | null, fullName: string, tracked?: boolean, collectedUntil?: string | null }[]} repositories
- */
-export function fakeStore(repositories) {
+/** A repository the fake store holds, as a test names it. */
+export type FakeRepository = {
+  workspaceId: string;
+  installationId: number | null;
+  fullName: string;
+  tracked?: boolean;
+  collectedAt?: string | null;
+  collectedUntil?: string | null;
+  collectError?: string | null;
+};
+
+type StoredRepository = FakeRepository & {
+  tracked: boolean;
+  collectedAt: string | null | undefined;
+  collectedUntil: string | null | undefined;
+  collectError: string | null | undefined;
+};
+
+/** A store in memory, the shape `supabase-store.ts` gives the collector. */
+export function fakeStore(repositories: FakeRepository[]) {
   const state = {
-    repositories: repositories.map((repository) => ({
+    repositories: repositories.map((repository): StoredRepository => ({
       tracked: true,
       collectedAt: null,
       collectedUntil: null,
       collectError: null,
       ...repository,
     })),
-    pulls: new Map(),
-    reviews: new Map(),
+    pulls: new Map<string, Parameters<PrStatsStore['savePull']>[0]>(),
+    reviews: new Map<string, Parameters<PrStatsStore['savePull']>[1][number]>(),
     writes: 0,
   };
 
-  return {
-    state,
+  const store = {
     async trackedRepositories() {
-      return state.repositories
-        .filter((repository) => repository.tracked && repository.installationId)
-        .map(({ workspaceId, installationId, fullName, collectedUntil }) => ({ workspaceId, installationId, fullName, collectedUntil }));
+      return state.repositories.flatMap(({ tracked, workspaceId, installationId, fullName, collectedUntil }) =>
+        tracked && installationId ? [{ workspaceId, installationId, fullName, collectedUntil: collectedUntil ?? null }] : [],
+      );
     },
-    async savePull(row, reviews) {
+    async savePull(...[row, reviews]: Parameters<PrStatsStore['savePull']>) {
       state.writes += 1;
       state.pulls.set(`${row.workspace_id}|${row.repo}|${row.number}`, structuredClone(row));
       for (const review of reviews) {
         state.reviews.set(`${review.workspace_id}|${review.repo}|${review.number}|${review.reviewer}`, structuredClone(review));
       }
     },
-    async updateRepository(workspaceId, fullName, patch) {
+    async updateRepository(workspaceId: string, fullName: string, patch: RepositoryPatch) {
       const repository = state.repositories.find((candidate) => candidate.workspaceId === workspaceId && candidate.fullName === fullName);
+      if (!repository) throw new Error(`fake store: no repository ${workspaceId}/${fullName}`);
       if ('collected_at' in patch) repository.collectedAt = patch.collected_at;
       if ('collected_until' in patch) repository.collectedUntil = patch.collected_until;
       if ('collect_error' in patch) repository.collectError = patch.collect_error;
     },
-  };
+  } satisfies PrStatsStore;
+  return { state, ...store };
 }
 
 /** A pull request as GitHub's REST API returns it, with its reviews and commit messages beside it. */
-export function pull(number, fields = {}) {
+export function pull(number: number, fields: Partial<FakePull> = {}): FakePull {
   const created = fields.created_at ?? '2026-09-20T10:00:00Z';
   return {
     number,

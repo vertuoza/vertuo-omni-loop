@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { InngestTestEngine } from '@inngest/test';
 import { internalEvents } from 'inngest';
 import { describe, expect, it, vi } from 'vitest';
@@ -10,7 +9,7 @@ const NOW = Date.parse('2026-09-29T12:00:00Z');
 const tick = { name: internalEvents.ScheduledTimer, data: { cron: EVERY_15_MINUTES } };
 const ENV = { SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'service-key' };
 
-function engine(fn) {
+function engine(fn: ConstructorParameters<typeof InngestTestEngine>[0]["function"]) {
   return new InngestTestEngine({ function: fn, events: [tick] });
 }
 
@@ -27,7 +26,7 @@ describe('prStats — the Inngest function', () => {
       { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'vertuoza/apps' },
       { workspaceId: 'ws-acme', installationId: 9, fullName: 'acme/web' },
     ]);
-    const octokitFor = vi.fn(async () => github.octokit);
+    const octokitFor = vi.fn(async (_installationId: number) => github.octokit);
     const storeFor = vi.fn(() => store);
     const fn = createPrStats({ client: inngest, octokitFor, env: ENV, storeFor, clock: () => NOW });
 
@@ -51,7 +50,7 @@ describe('prStats — the Inngest function', () => {
 
       expect(error).toBeUndefined();
       expect(log).toHaveBeenCalledTimes(1);
-      expect(log.mock.calls[0][0]).toMatch(/SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/);
+      expect(log.mock.calls[0]![0]).toMatch(/SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/);
       expect(storeFor).not.toHaveBeenCalled();
       expect(octokitFor).not.toHaveBeenCalled();
       expect(result).toEqual({ skipped: 'no store' });
