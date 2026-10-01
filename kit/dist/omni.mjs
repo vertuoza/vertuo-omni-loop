@@ -27696,7 +27696,7 @@ function splitSections(lines) {
     const heading = fenced ? null : line.match(HEADING);
     if (FENCE.test(line)) fenced = !fenced;
     if (heading) {
-      current = { heading: heading[1], lines: [] };
+      current = { heading: heading[1] ?? "", lines: [] };
       sections.push(current);
     } else {
       (current ? current.lines : head).push(line);
@@ -27708,58 +27708,70 @@ function readHead(head) {
   const at = head.findIndex((line) => TITLE.test(line));
   if (at === -1) return { title: null, opener: null };
   const opener = head.slice(at + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
-  return { title: head[at].match(TITLE)[1], opener: opener ?? null };
+  return { title: head[at]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
   const text4 = raw.replace(COMMENT, "").trim();
   const lines = text4.split("\n").map((line) => line.trim()).filter(Boolean);
-  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter(Boolean);
+  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
   if (questions.length === lines.length) return { kind: "holes", text: text4, see: null, questions };
-  const see = lines.length === 1 ? lines[0].match(SEE) : null;
-  if (see) return { kind: "pointer", text: text4, see: { path: see[1], anchor: see[2] ?? null }, questions: [] };
+  const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
+  if (see) return { kind: "pointer", text: text4, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
   return { kind: "text", text: text4, see: null, questions };
+}
+function readSection(heading, lines) {
+  const at = lines.findIndex((line) => line.trim() !== "");
+  const first = at === -1 ? "" : (lines[at] ?? "").trim();
+  if (!MARKER_START.test(first)) return { kind: "unmarked" };
+  const marker = first.match(MARKER);
+  if (!marker) return { kind: "malformed", first };
+  const [, id = "", need, by, verified] = marker;
+  const slot = {
+    id,
+    heading,
+    required: need === "required",
+    by: by === OLD_BY ? "invade" : by ?? null,
+    verified: verified ?? null,
+    body: readBody(lines.slice(at + 1).join("\n"))
+  };
+  return { kind: "slot", slot, oldBy: by === OLD_BY };
+}
+function readSlots(sections, { file: file2, errors, oldSpellings }) {
+  const slots = [];
+  const unmarked = [];
+  for (const { heading, lines } of sections) {
+    const read2 = readSection(heading, lines);
+    if (read2.kind === "unmarked") {
+      unmarked.push(heading);
+      continue;
+    }
+    if (read2.kind === "malformed") {
+      errors.push(withFile(file2, `"## ${heading}": malformed slot marker ${read2.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
+      continue;
+    }
+    const { slot, oldBy } = read2;
+    if (slots.some((known) => known.id === slot.id)) {
+      errors.push(withFile(file2, `slot "${slot.id}" appears twice`));
+      continue;
+    }
+    if (oldBy) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
+    slots.push(slot);
+  }
+  return { slots, unmarked };
 }
 function parseForm(text4, { file: file2 = null } = {}) {
   const block = text4.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file2, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
-  const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter);
+  const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter ?? "");
   errors.push(...frontMatterErrors.map((message) => withFile(file2, message)));
-  const { head, sections } = splitSections(body.split(/\r?\n/));
-  const slots = [];
-  const unmarked = [];
+  const { head, sections } = splitSections((body ?? "").split(/\r?\n/));
   const oldSpellings = [];
   if (data?.[OLD_DATE_KEY] !== void 0) oldSpellings.push({ where: "front matter", old: `${OLD_DATE_KEY}:`, now: "invaded:" });
-  for (const { heading, lines } of sections) {
-    const at = lines.findIndex((line) => line.trim() !== "");
-    const first = at === -1 ? "" : lines[at].trim();
-    if (!MARKER_START.test(first)) {
-      unmarked.push(heading);
-      continue;
-    }
-    const marker = first.match(MARKER);
-    if (!marker) {
-      errors.push(withFile(file2, `"## ${heading}": malformed slot marker ${first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
-      continue;
-    }
-    const [, id, need, by, verified] = marker;
-    if (slots.some((slot) => slot.id === id)) {
-      errors.push(withFile(file2, `slot "${id}" appears twice`));
-      continue;
-    }
-    if (by === OLD_BY) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
-    slots.push({
-      id,
-      heading,
-      required: need === "required",
-      by: by === OLD_BY ? "invade" : by ?? null,
-      verified: verified ?? null,
-      body: readBody(lines.slice(at + 1).join("\n"))
-    });
-  }
-  if (errors.length > 0) return { ok: false, errors };
+  const { slots, unmarked } = readSlots(sections, { file: file2, errors, oldSpellings });
+  if (errors.length > 0 || data === void 0) return { ok: false, errors };
   return {
     ok: true,
     form: {
@@ -27769,7 +27781,7 @@ function parseForm(text4, { file: file2 = null } = {}) {
       pointsTo: data["points-to"],
       index: data.index ?? null,
       evidence: (data.evidence ?? []).map((entry) => {
-        const [, path, hash2] = entry.match(EVIDENCE);
+        const [, path = "", hash2 = ""] = entry.match(EVIDENCE) ?? [];
         return { path, hash: hash2 };
       }),
       invaded: data.invaded !== void 0 ? data.invaded : data[OLD_DATE_KEY],
@@ -27794,7 +27806,7 @@ function isPlaybookId(id) {
 function resolvePlaybookId(id, { ctx }) {
   const match = id.match(PLAYBOOK_ID);
   if (!match) return { ok: false, reason: `${id}: not playbook/<form>#<slot>` };
-  const [, formId, slotId] = match;
+  const [, formId = "", slotId = ""] = match;
   if (!FORM_IDS.includes(formId)) return { ok: false, reason: `the kit has no form "${formId}"` };
   const read2 = readForm(formId, { ctx });
   if (!read2.exists) return { ok: false, reason: `no form file at ${read2.file}` };
@@ -27959,6 +27971,27 @@ import { dirname as dirname2, join as join9, posix as posix4 } from "node:path";
 
 // kit/lib/init/labels.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/init/schema.ts
+init_define_OMNI_BUNDLE();
+var JsonObjectSchema = external_exports.record(external_exports.string(), external_exports.unknown());
+var ScriptsFileSchema = external_exports.looseObject({ scripts: JsonObjectSchema.optional() });
+var KitPackageSchema = external_exports.looseObject({
+  version: external_exports.unknown().optional().transform((value) => typeof value === "string" && value ? value : null)
+});
+var GhRepoSchema = external_exports.looseObject({
+  nameWithOwner: external_exports.string().nullish(),
+  defaultBranchRef: external_exports.looseObject({ name: external_exports.string().nullish() }).nullish()
+});
+var GhLabelsSchema = external_exports.array(external_exports.looseObject({ name: external_exports.string() }));
+var GhPullRequestsSchema = external_exports.array(
+  external_exports.looseObject({ url: external_exports.string().nullish(), number: external_exports.number().nullish() })
+);
+var ClaudePluginsSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown() }).nullable().catch(null));
+var ClaudeMarketplacesSchema = external_exports.array(external_exports.looseObject({ name: external_exports.unknown() }).nullable().catch(null));
+var CommandStatusLineSchema = external_exports.looseObject({ command: external_exports.string() });
+
+// kit/lib/init/labels.ts
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var LIST_LIMIT = 1e3;
 var LABEL_STYLES = {
@@ -27995,7 +28028,7 @@ function reconcileLabels(root, { exec, labels }) {
   const wanted = loopLabels(labels);
   let existing;
   try {
-    const listed2 = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET }));
+    const listed2 = GhLabelsSchema.parse(JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET })));
     existing = new Set(listed2.map((label) => String(label.name).toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
@@ -28033,7 +28066,7 @@ function findRoot(cwd, exec) {
   return realpathSync2(root);
 }
 function readRepo(root, { exec, remote }) {
-  const gh = attempt(() => JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 })));
+  const gh = attempt(() => GhRepoSchema.parse(JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 }))));
   const slug = gh?.nameWithOwner || attempt(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET2 })));
   const head = attempt(() => exec("git", ["symbolic-ref", `refs/remotes/${remote}/HEAD`], { cwd: root, ...QUIET2 }).trim());
   const prefix = `refs/remotes/${remote}/`;
@@ -28085,9 +28118,9 @@ function codeOf(name) {
 function idParts(id) {
   if (!ID_SHAPE.test(id)) return null;
   const core = id.match(/^N(\d+)$/);
-  if (core) return { type: "CORE", codes: [], n: core[1] };
+  if (core) return { type: "CORE", codes: [], n: core[1] ?? "" };
   const parts = id.split("-");
-  return { type: parts[0], codes: parts.slice(1, -1), n: parts.at(-1) };
+  return { type: parts[0] ?? "", codes: parts.slice(1, -1), n: parts.at(-1) ?? "" };
 }
 function readFields(lines) {
   const fields = {};
@@ -28101,7 +28134,7 @@ function readFields(lines) {
       const key = FIELD_KEY[match[1]];
       counts2[key] = (counts2[key] ?? 0) + 1;
       if (counts2[key] === 1) {
-        fields[key] = match[2].trim();
+        fields[key] = (match[2] ?? "").trim();
         open3 = key;
       } else {
         open3 = null;
@@ -28120,8 +28153,9 @@ var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
 function readProposed(file2, id, value) {
   if (value === void 0) return { proposed: null, problems: [] };
   const match = value.match(PROPOSED_VALUE);
-  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
-    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  const [, by = "", on = ""] = match ?? [];
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(by)) {
+    return { proposed: { by, on }, problems: [] };
   }
   return {
     proposed: { by: null, on: null },
@@ -28135,7 +28169,7 @@ function splitEntries(text4) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries3.push(current);
-      current = { id: match[1], lines: [] };
+      current = { id: match[1] ?? "", lines: [] };
     } else if (ANY_H2.test(line)) {
       if (current) entries3.push(current);
       current = null;
@@ -28296,7 +28330,8 @@ function configValue(config3, key) {
     if (value === null || typeof value !== "object" || !Object.hasOwn(value, part)) {
       return { ok: false, reason: "names no config key" };
     }
-    value = value[part];
+    const next = Reflect.get(value, part);
+    value = next;
   }
   if (["string", "number", "boolean"].includes(typeof value)) return { ok: true, text: String(value) };
   if (value === null) return { ok: false, reason: "is not set in the config" };
@@ -28330,10 +28365,10 @@ function repoLabel(slot) {
 function resolveSlot(kitSlot, repoSlot, { ctx, formId, file: file2, problems }) {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
   const body = repoSlot?.body ?? null;
-  if (body?.kind === "text") {
+  if (repoSlot !== null && body?.kind === "text") {
     return { ...base, source: "repo", label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
-  if (body?.kind === "pointer") {
+  if (repoSlot !== null && body?.kind === "pointer") {
     const { path, anchor: anchor2 } = body.see;
     const target2 = readTarget(path, null, { ctx });
     if (target2.missing) problems.push(`${file2}: "## ${repoSlot.heading}" See: ${path} does not exist`);
@@ -28384,7 +28419,8 @@ init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync4, readFileSync as readFileSync5 } from "node:fs";
 import { join as join6, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
-var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
+var BundledTemplatesSchema = external_exports.record(external_exports.string(), external_exports.string());
+var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}'));
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -28392,7 +28428,7 @@ function templatesDir() {
 function templateText(path) {
   if (BUNDLED) {
     if (!Object.hasOwn(BUNDLED, path)) throw new Error(`the bundle carries no template ${path}`);
-    return BUNDLED[path];
+    return BUNDLED[path] ?? "";
   }
   return readFileSync5(join6(templatesDir(), path), "utf8");
 }
@@ -28442,6 +28478,7 @@ function writeForms({ ctx }) {
   const planned = [
     { path: `${frontDoor}/README.md`, text: () => frontDoorPage(ctx) },
     ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id), text: () => blankForm(id, { ctx }) }))
+    // ts-allow: every id of FORMS is a form the kit has, so formPath is never null
   ];
   if (samePath(frontDoor, knowledgeRoot)) {
     for (const name of Object.keys(LAYER_FILES)) {
@@ -29494,16 +29531,13 @@ var COMMANDS = Object.freeze({
 });
 
 // kit/lib/outbox/settle.ts
-var VERDICTS = (
-  /** @type {const} */
-  ["agreed", "drifted"]
-);
+function parseItem(text4, file2) {
+  return parseOutboxItem(text4, { file: file2 });
+}
+var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
 var ADOPTED_ANSWER_TEXT = "Adopted the moment it was raised \u2014 nobody approved it, and it stands unless someone objects.";
-var CHANNEL_KINDS = (
-  /** @type {const} */
-  ["prd-issue", "feature-pull-request"]
-);
+var CHANNEL_KINDS = ["prd-issue", "feature-pull-request"];
 var CHANNEL_LABEL = {
   "prd-issue": "PRD issue",
   "feature-pull-request": "feature pull request"
@@ -29590,8 +29624,13 @@ function markerFound(haystack, marker) {
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9'])${escaped}([^a-z0-9']|$)`).test(haystack);
 }
-function judgeAnswer({ choice, answer, statedVerdict = null }) {
-  const stated = statedVerdict ?? answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase() ?? null;
+function judgeAnswer({
+  choice,
+  answer,
+  statedVerdict = null
+}) {
+  const statedWord = answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase();
+  const stated = statedVerdict ?? VERDICTS.find((verdict) => verdict === statedWord) ?? null;
   if (stated) {
     return {
       verdict: stated,
@@ -29658,7 +29697,14 @@ function settledHeader(prd2, { ctx }) {
     ""
   ].join("\n");
 }
-function renderSettledEntry({ item: item2, itemText, answer, judgement, markers, closed = null }) {
+function renderSettledEntry({
+  item: item2,
+  itemText,
+  answer,
+  judgement,
+  markers,
+  closed = null
+}) {
   const lines = [
     markers.settledOpen(item2.id),
     "",
@@ -29707,13 +29753,14 @@ function rawSettledEntries(text4, markers) {
   const entries3 = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
-    const openMatch = lines[index].match(markers.settledOpenRe);
+    const line = lines[index] ?? "";
+    const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1], fields: {}, blocks: [] };
+      current = { id: openMatch[1] ?? "", fields: {}, blocks: [] };
       continue;
     }
     if (!current) continue;
-    if (lines[index] === markers.settledClose(current.id)) {
+    if (line === markers.settledClose(current.id)) {
       const [answerText = "", itemText = ""] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? "");
       const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
@@ -29729,7 +29776,7 @@ function rawSettledEntries(text4, markers) {
       current = null;
       continue;
     }
-    const fenceMatch = lines[index].match(/^(`{3,})text$/);
+    const fenceMatch = line.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
       const start = index + 1;
@@ -29739,8 +29786,8 @@ function rawSettledEntries(text4, markers) {
       index = end;
       continue;
     }
-    const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
-    if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
+    const fieldMatch = line.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
+    if (fieldMatch) current.fields[fieldMatch[1] ?? ""] = fieldMatch[2] ?? "";
   }
   return entries3;
 }
@@ -29748,7 +29795,11 @@ function locate(root, file2) {
   const absoluteFile = isAbsolute2(file2) ? file2 : join16(root, file2);
   return { absoluteFile, relativeFile: relative(root, absoluteFile) };
 }
-function settleItem({ ctx, file: file2, answer }) {
+function settleItem({
+  ctx,
+  file: file2,
+  answer
+}) {
   const { absoluteFile, relativeFile } = locate(ctx.root, file2);
   const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
   if (!parsedAnswer.success) {
@@ -29763,7 +29814,7 @@ function settleItem({ ctx, file: file2, answer }) {
     return { ok: false, errors: [`${relativeFile}: no such open item.`] };
   }
   const itemText = readFileSync11(absoluteFile, "utf8");
-  const parsedItem = parseOutboxItem(itemText, { file: relativeFile });
+  const parsedItem = parseItem(itemText, relativeFile);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   const outboxDir = ctx.layout.outboxDir(item2.prd);
@@ -29810,7 +29861,11 @@ function adoptedJudgement() {
     reason: "a medium item is adopted the moment it is raised \u2014 nobody approves it, and it stands unless someone later objects"
   };
 }
-function renderAdoptedEntry({ item: item2, itemText, markers }) {
+function renderAdoptedEntry({
+  item: item2,
+  itemText,
+  markers
+}) {
   return renderSettledEntry({
     item: item2,
     itemText,
@@ -29824,8 +29879,11 @@ function renderAdoptedEntry({ item: item2, itemText, markers }) {
     markers
   });
 }
-function adoptItem({ ctx, itemText }) {
-  const parsedItem = parseOutboxItem(itemText, { file: null });
+function adoptItem({
+  ctx,
+  itemText
+}) {
+  const parsedItem = parseItem(itemText, null);
   if (!parsedItem.ok) return { ok: false, errors: parsedItem.errors };
   const { item: item2 } = parsedItem;
   if (item2.rank !== "medium") {
@@ -30990,6 +31048,7 @@ function cleanLine(text4) {
   return line.replace(/\s+/g, " ").trim().slice(0, REASON_MAX_LENGTH).trim();
 }
 function describeIssue2(issue2) {
+  if (issue2 === void 0) return "picks: invalid";
   const path = issue2.path.length ? `pick ${issue2.path.map(String).join(".")}` : "picks";
   return `${path}: ${issue2.message}`;
 }
@@ -31020,7 +31079,12 @@ function lineFor(question, pick2) {
   }
   return { reason: `question ${number4}: "${kind}" is not a pick \u2014 a letter, done, not-done or prose` };
 }
-function writeReply({ prd: prd2, door, questions, picks }) {
+function writeReply({
+  prd: prd2,
+  door,
+  questions,
+  picks
+}) {
   if (!Object.hasOwn(DOORS, door)) return { ok: false, reason: `unknown door "${door}": terminal or page` };
   const parsed = PicksSchema.safeParse(picks, { error: KIT_MESSAGES });
   if (!parsed.success) return { ok: false, reason: describeIssue2(parsed.error.issues[0]) };
@@ -31035,15 +31099,19 @@ function writeReply({ prd: prd2, door, questions, picks }) {
     if (!question) return { ok: false, reason: `question ${pick2.number} is not open on this pull request` };
     const result = lineFor(question, pick2);
     if (result.reason) return { ok: false, reason: result.reason };
-    lines.push(result.line);
+    lines.push(result.line ?? "");
   }
   return { ok: true, reply: [...lines, "", `_${DOORS[door]} \xB7 PRD ${prd2}_`].join("\n") };
 }
-function answerableQuestions({ numbering, items, adopted = [] }) {
+function answerableQuestions({
+  numbering,
+  items,
+  adopted = []
+}) {
   const open3 = new Map(items.map((item2) => [item2.id, item2]));
   const kept = /* @__PURE__ */ new Map();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) kept.set(entry.id, parsed.item);
   }
   const questions = [];
@@ -31063,7 +31131,7 @@ function answerableQuestions({ numbering, items, adopted = [] }) {
 }
 function askedText(item2) {
   const sections = item2.sections ?? {};
-  return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain].filter(Boolean).map((part) => part.replace(/\s+/g, " ").trim()).join(" ");
+  return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain].filter((part) => Boolean(part)).map((part) => part.replace(/\s+/g, " ").trim()).join(" ");
 }
 function askBatches({ numbering, items }) {
   const asked = answerableQuestions({ numbering, items }).filter((question) => !question.adopted && (question.rank === HUMAN_ACTION || question.rank === "high")).sort((a, b) => Number(b.rank === HUMAN_ACTION) - Number(a.rank === HUMAN_ACTION) || a.number - b.number).map(({ number: number4, id, rank, options, item: item2 }) => {
@@ -32327,7 +32395,7 @@ function blockedByCell(cell2) {
 function territoryPrefixes(cell2) {
   const text4 = (cell2 ?? "").trim();
   if (NOTHING.test(text4)) return [];
-  return [...text4.matchAll(/`([^`]+)`/g)].map((match) => match[1].trim()).filter(Boolean);
+  return [...text4.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -32336,10 +32404,20 @@ function cells(line) {
   return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell2) => cell2.trim());
 }
 function isTableRow(line) {
-  return line.trim().startsWith("|");
+  return line !== void 0 && line.trim().startsWith("|");
 }
 function isSeparatorRow(line) {
   return /^\|[\s:|-]+\|$/.test(line.trim());
+}
+function bodyRows(lines, headerIndex) {
+  const rows2 = [];
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isTableRow(line)) break;
+    if (isSeparatorRow(line)) continue;
+    rows2.push(cells(line));
+  }
+  return rows2;
 }
 function parsePlanSlices(markdown) {
   const lines = markdown.split("\n");
@@ -32364,14 +32442,10 @@ function parsePlanSlices(markdown) {
     }
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
-  const header2 = cells(lines[headerIndex]).map((name) => name.toLowerCase());
+  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
   const column = (name) => header2.indexOf(name);
   const slices = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
+  for (const row of bodyRows(lines, headerIndex)) {
     const id = row[column("id")];
     if (!id) continue;
     slices.push({
@@ -32397,21 +32471,18 @@ function parsePlanRepositories(markdown) {
   if (heading === -1) return [];
   let headerIndex = -1;
   for (let i = heading + 1; i < lines.length; i += 1) {
-    if (/^#{1,2}\s/.test(lines[i].trim())) break;
-    if (isTableRow(lines[i])) {
+    const line = lines[i] ?? "";
+    if (/^#{1,2}\s/.test(line.trim())) break;
+    if (isTableRow(line)) {
       headerIndex = i;
       break;
     }
   }
   if (headerIndex === -1) return [];
-  const header2 = cells(lines[headerIndex]).map((name) => name.toLowerCase());
+  const header2 = cells(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
   const at = (row, name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)]);
   const rows2 = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
+  for (const row of bodyRows(lines, headerIndex)) {
     const repo = at(row, "repo");
     if (!repo) continue;
     rows2.push({ repo, role: at(row, "role"), readAt: at(row, "read at"), knowledge: at(row, "knowledge") });
@@ -32434,11 +32505,11 @@ function sharedGround(left, right) {
 }
 function collisions(slices) {
   const pairs = [];
-  for (let i = 0; i < slices.length; i += 1) {
-    for (let j = i + 1; j < slices.length; j += 1) {
-      if ((slices[i].repo ?? null) !== (slices[j].repo ?? null)) continue;
-      const shared = sharedGround(slices[i], slices[j]);
-      if (shared.length > 0) pairs.push({ left: slices[i].id, right: slices[j].id, shared });
+  for (const [i, a] of slices.entries()) {
+    for (const b of slices.slice(i + 1)) {
+      if ((a.repo ?? null) !== (b.repo ?? null)) continue;
+      const shared = sharedGround(a, b);
+      if (shared.length > 0) pairs.push({ left: a.id, right: b.id, shared });
     }
   }
   return pairs;
@@ -32771,10 +32842,12 @@ function decideRound(state) {
 // kit/lib/care/marker.ts
 init_define_OMNI_BUNDLE();
 var CARE_VERDICTS = Object.freeze(["fixed", "pushed-back", "asked"]);
+var KNOWN_VERDICTS = CARE_VERDICTS;
+var isVerdict = (value) => KNOWN_VERDICTS.includes(value);
 var MARKER_RE = /<!-- omni-care: ([\w-]+) -->/g;
 var TRAILING_MARKER_RE = /\s*<!-- omni-care: [\w-]+ -->\s*$/;
 function careMarker(verdict) {
-  if (!CARE_VERDICTS.includes(verdict)) {
+  if (!isVerdict(verdict)) {
     throw new Error(`unknown PR care verdict "${verdict}": one of ${CARE_VERDICTS.join(", ")}`);
   }
   return `<!-- omni-care: ${verdict} -->`;
@@ -32790,7 +32863,7 @@ ${marker}`;
 function readCareVerdict(body) {
   const found = [...String(body ?? "").matchAll(MARKER_RE)];
   const last = found.at(-1)?.[1];
-  return CARE_VERDICTS.includes(last) ? last : null;
+  return isVerdict(last) ? last : null;
 }
 
 // kit/lib/care/state.ts
@@ -32819,8 +32892,8 @@ function failedContexts(contexts) {
   const failed2 = [];
   for (const node2 of contexts) {
     if (node2?.__typename === "StatusContext") {
-      if (FAILED_STATUS.has(node2.state)) failed2.push({ name: node2.context, url: node2.targetUrl ?? null });
-    } else if (FAILED_RUN.has(node2?.conclusion)) {
+      if (FAILED_STATUS.has(node2.state ?? "")) failed2.push({ name: node2.context, url: node2.targetUrl ?? null });
+    } else if (node2 && FAILED_RUN.has(node2.conclusion ?? "")) {
       failed2.push({ name: node2.name, url: node2.detailsUrl ?? null });
     }
   }
@@ -32836,10 +32909,10 @@ function isFixable(state, failed2, gateContexts) {
 }
 function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
   const rollup = rollupOf(pr);
-  const state = rollup ? ROLLUP[rollup.state] ?? "running" : "none";
-  const failed2 = state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
+  const state = rollup ? ROLLUP[rollup.state ?? ""] ?? "running" : "none";
+  const failed2 = rollup && state === "red" ? failedContexts(rollup.contexts?.nodes ?? []) : [];
   const fixable = isFixable(state, failed2, gateContexts);
-  return { state, failed: failed2, stuck: Boolean(needsFixLabel) && labels.includes(needsFixLabel), fixable };
+  return { state, failed: failed2, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
 function readComment(node2) {
   return {
@@ -32895,7 +32968,7 @@ function careState(response, { statusMarker, needsFixLabel, gateContexts = [] })
     },
     checks: readChecks(pr, labels, { needsFixLabel, gateContexts }),
     mergeable: pr.mergeable ?? "UNKNOWN",
-    threads: (pr.reviewThreads?.nodes ?? []).map(readThread).filter(Boolean),
+    threads: (pr.reviewThreads?.nodes ?? []).map(readThread).filter((thread) => thread !== null),
     status: readStatus(pr.comments?.nodes ?? [], statusMarker)
   };
 }
@@ -33409,6 +33482,8 @@ var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 var STAGES_SAID = "design, spec, rework-<k>, shipped";
 var STANCES2 = ["excited", "neutral", "skeptical"];
 var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
+var KNOWN_STANCES = STANCES2;
+var KNOWN_SETTLED = SETTLED;
 var DATE3 = /^\d{4}-\d{2}-\d{2}$/;
 var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
 var MAX_SENTENCES = 2;
@@ -33437,8 +33512,9 @@ function personaProblems(persona, i) {
   if (!isRecord2(persona)) return [`${at} must be an object.`];
   const problems = [];
   if (!isText5(persona.name)) problems.push(`${at}.name must be a name.`);
-  if (!STANCES2.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES2.join(", ")}.`);
-  if (!Number.isInteger(persona.score) || persona.score < 1 || persona.score > 5) {
+  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at}.stance must be one of ${STANCES2.join(", ")}.`);
+  const { score } = persona;
+  if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 5) {
     problems.push(`${at}.score must be a whole number from 1 to 5.`);
   }
   problems.push(...lineProblems(persona.reaction, `${at}.reaction`));
@@ -33455,7 +33531,7 @@ function objectionProblems(objection, names) {
   }
   problems.push(...lineProblems(objection.text, "objection.text"));
   problems.push(...citationProblems(objection.citations, "objection.citations"));
-  if (!SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
+  if (!KNOWN_SETTLED.includes(objection.settled)) problems.push(`objection.settled must be one of ${SETTLED.join(", ")}.`);
   return problems;
 }
 var unknownFields = (value, known, where) => Object.keys(value).filter((key) => !known.includes(key)).map((key) => `\`${key}\` is not a field of ${where}.`);
@@ -33463,10 +33539,10 @@ var personasProblems = (personas) => Array.isArray(personas) && personas.length 
 var fitProblems = (fit2) => fit2 === void 0 || fit2 === null || isText5(fit2) ? [] : ["fit must be one line, or null."];
 function roundProblems(round) {
   if (!isRecord2(round)) return ["must be an object."];
-  const names = Array.isArray(round.personas) ? round.personas.map((p) => p?.name) : [];
+  const names = Array.isArray(round.personas) ? round.personas.map((p) => isRecord2(p) ? p.name : void 0) : [];
   return [
     ...unknownFields(round, ROUND_FIELDS, "a round"),
-    ...DATE3.test(round.date ?? "") ? [] : ["date must be YYYY-MM-DD."],
+    ...DATE3.test(String(round.date ?? "")) ? [] : ["date must be YYYY-MM-DD."],
     ...personasProblems(round.personas),
     ...objectionProblems(round.objection ?? null, names),
     ...fitProblems(round.fit)
@@ -33494,7 +33570,8 @@ function parseVoice(text4) {
     if (known) seen.add(stage2);
     errors.push(...roundProblems(round).map((problem) => `${name}: ${problem}`));
   });
-  return errors.length ? { ok: false, voice: null, errors } : { ok: true, voice, errors: [] };
+  if (errors.length) return { ok: false, voice: null, errors };
+  return { ok: true, voice, errors: [] };
 }
 
 // kit/lib/inbox/inbox.ts
@@ -33518,7 +33595,7 @@ function parseSpec(text4, { file: file2 = null } = {}) {
   }
   const [, rawFrontMatter] = blockMatch;
   const errors = [];
-  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter);
+  const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter ?? "");
   errors.push(...lineErrors.map((message) => withFile2(file2, message)));
   const parsed = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
   if (!parsed.success) {
@@ -33533,7 +33610,7 @@ function parseSpec(text4, { file: file2 = null } = {}) {
       errors.push(withFile2(file2, `${field3}: ${issue2.message}`));
     }
   }
-  if (errors.length > 0) return { ok: false, errors };
+  if (errors.length > 0 || !parsed.success) return { ok: false, errors };
   const fm = parsed.data;
   const record2 = {
     prd: fm.prd,
@@ -33657,9 +33734,9 @@ function findOwningLibraryViolations(ctx, knowledge2) {
     if (!existsSync19(join25(ctx.root, readme))) continue;
     const section4 = readFileSync20(join25(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed2 = section4.split(/^## /m)[0];
+    const listed2 = section4.split(/^## /m)[0] ?? "";
     for (const match of listed2.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
-      const path = match[1].replace(/\/$/, "");
+      const path = (match[1] ?? "").replace(/\/$/, "");
       if (!existsSync19(join25(ctx.root, path))) {
         violations.push(
           violation(readme, domain2.name, `names owning library ${path}, which does not exist.`)
@@ -33712,7 +33789,7 @@ function findCrossDomainFileViolations(knowledge2) {
       violations.push(violation(file2, name, 'is not named "<a>--<b>", two domains.'));
       continue;
     }
-    const [a, b] = pair;
+    const [a = "", b = ""] = pair;
     for (const half of pair) {
       if (!known.has(half)) {
         violations.push(violation(file2, name, `names "${half}", which is not a domain folder.`));
@@ -33772,7 +33849,7 @@ function idShapeViolations(entry) {
       )
     ];
   }
-  const expected = PREFIX_OF_KIND[entry.kind];
+  const expected = entry.kind === null ? void 0 : PREFIX_OF_KIND[entry.kind];
   if (parts.type !== expected) {
     return [
       violation(
@@ -33799,7 +33876,7 @@ function headingAnchors(text4) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
-    const base = match[1].replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+    const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
     const count3 = seen.get(base) ?? 0;
     seen.set(base, count3 + 1);
     anchors.add(count3 === 0 ? base : `${base}-${count3}`);
@@ -33811,7 +33888,7 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
   if (ctx.copyOf) return violations;
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
-    const [path, anchor2] = part.split("#");
+    const [path = "", anchor2] = part.split("#");
     if (anchor2 && existsSync19(join25(ctx.root, path)) && path.endsWith(".md")) {
       if (!headingAnchors(readFileSync20(join25(ctx.root, path), "utf8")).has(anchor2.toLowerCase())) {
         violations.push(
@@ -33935,7 +34012,7 @@ function findEntryViolations(ctx, entries3) {
         )
       );
     }
-    if (entry.serves !== null) violations.push(...servesViolations(entry, principles));
+    if (entry.serves !== null) violations.push(...servesViolations({ ...entry, serves: entry.serves }, principles));
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
@@ -33964,11 +34041,15 @@ function findProposals(entries3) {
     (entry) => violation(
       entry.file,
       entry.id,
-      `is proposed by ${entry.proposed.by} on ${entry.proposed.on} \u2014 not a law until a person removes its "Proposed:" line.`
+      `is proposed by ${entry.proposed?.by} on ${entry.proposed?.on} \u2014 not a law until a person removes its "Proposed:" line.`
     )
   );
 }
-function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
+function gradeKnowledge({
+  ctx,
+  files = [],
+  glossaryText
+}) {
   const knowledge2 = readKnowledge({ ctx });
   const resolve5 = (id) => knowledge2.entries.find((entry) => entry.id === id);
   const text4 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
@@ -34016,6 +34097,27 @@ function installedVersion({ root, running, bundle }) {
   return bundleVersion(text4.toString("utf8"));
 }
 
+// kit/lib/plan-repo/gh-schema.ts
+init_define_OMNI_BUNDLE();
+var GhRepositorySchema = external_exports.looseObject({ default_branch: external_exports.string() });
+var GhContentEntrySchema = external_exports.looseObject({ type: external_exports.string(), name: external_exports.string(), path: external_exports.string() });
+var GhCompareFileSchema = external_exports.looseObject({
+  filename: external_exports.string(),
+  previous_filename: external_exports.string().optional()
+});
+var GhCompareSchema = external_exports.looseObject({
+  ahead_by: external_exports.number().optional(),
+  files: external_exports.array(GhCompareFileSchema).optional()
+});
+var TargetConfigSchema = external_exports.looseObject({ paths: external_exports.looseObject({ playbook: external_exports.unknown() }).nullish() });
+var FormStateSchema = external_exports.looseObject({ state: external_exports.unknown() });
+function firstIssue(error62) {
+  const [issue2] = error62.issues;
+  if (issue2 === void 0) return error62.message;
+  const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(answer)";
+  return `${field3}: ${issue2.message}`;
+}
+
 // kit/lib/plan-repo/targets.ts
 var CONFIG_PATH = ".omni-loop/config.yml";
 var BIN_PATH = ".omni-loop/bin/omni.mjs";
@@ -34045,28 +34147,36 @@ function ghReader({ exec, env }) {
   return {
     // The repository itself: any failure, a 404 included, means gh cannot read it.
     repository(repo) {
+      let answer;
       try {
-        return JSON.parse(api([`repos/${repo}`]));
+        answer = JSON.parse(api([`repos/${repo}`]));
       } catch (error62) {
         throw new Unreachable(ghLine(error62));
       }
+      return answerOf2(GhRepositorySchema, answer, `repos/${repo}`);
     },
     file: (repo, path, ref) => call(["-H", "Accept: application/vnd.github.raw", contents(repo, path, ref)]),
     dir(repo, path, ref) {
       const out = call([contents(repo, path, ref)]);
       if (out === null) return null;
       const listed2 = JSON.parse(out);
-      return Array.isArray(listed2) ? listed2 : null;
+      return Array.isArray(listed2) ? answerOf2(GhContentEntrySchema.array(), listed2, `${repo}:${path}`) : null;
     },
     compare(repo, base, head) {
       const out = call([`repos/${repo}/compare/${base}...${encodeURIComponent(head)}`]);
-      return out === null ? null : JSON.parse(out);
+      return out === null ? null : answerOf2(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
     }
   };
 }
+function answerOf2(schema, answer, what) {
+  const parsed = schema.safeParse(answer);
+  if (!parsed.success) throw new Unreachable(`gh answered ${what} without what it needs \u2014 ${firstIssue(parsed.error)}`);
+  return parsed.data;
+}
 function playbookOf(configText) {
   try {
-    const playbook = (0, import_yaml4.parse)(configText)?.paths?.playbook;
+    const read2 = TargetConfigSchema.safeParse((0, import_yaml4.parse)(configText));
+    const playbook = read2.success ? read2.data.paths?.playbook : void 0;
     return typeof playbook === "string" && playbook.trim() ? playbook.replace(/\/+$/, "") : DEFAULT_PLAYBOOK;
   } catch {
     return DEFAULT_PLAYBOOK;
@@ -34076,7 +34186,8 @@ function isFilled(text4) {
   const block = FRONT_MATTER.exec(text4 ?? "");
   if (!block) return false;
   try {
-    return (0, import_yaml4.parse)(block[1])?.state === "filled";
+    const read2 = FormStateSchema.safeParse((0, import_yaml4.parse)(block[1] ?? ""));
+    return read2.success && read2.data.state === "filled";
   } catch {
     return false;
   }
@@ -34096,7 +34207,11 @@ function staleness(gh, { repo, readAt }, branch, evidence) {
   if (changed === 0) return null;
   return `${plural3(ahead, "commit", "commits")}, ${plural3(changed, "evidence file", "evidence files")} changed`;
 }
-function readTarget2(target2, { exec = execFileSync9, env, evidence = /* @__PURE__ */ new Set() } = {}) {
+function readTarget2(target2, {
+  exec = execFileSync9,
+  env,
+  evidence = /* @__PURE__ */ new Set()
+} = {}) {
   const { repo, role, knowledge: knowledge2 } = target2;
   const row = (loop, state, detail = null) => ({ repo, role, knowledge: knowledge2, loop, state, detail });
   const gh = ghReader({ exec, env });
@@ -34114,7 +34229,7 @@ function readTarget2(target2, { exec = execFileSync9, env, evidence = /* @__PURE
     }
     if (installed && filled) return row(loop, "drifted", `the config says ${knowledge2}, but it has the loop and a filled form`);
     if (knowledge2 === "imported") {
-      const stale = staleness(gh, target2, branch, evidence);
+      const stale = staleness(gh, { repo, readAt: target2.readAt }, branch, evidence);
       if (stale) return row(loop, "stale", stale);
     }
     return row(loop, "ok");
@@ -34137,7 +34252,7 @@ function copyEvidence(repo, { ctx }) {
   }
   return paths;
 }
-function readTargets(targets2, { ctx, exec = execFileSync9, env } = {}) {
+function readTargets(targets2, { ctx, exec = execFileSync9, env }) {
   return targets2.map(
     (target2) => readTarget2(target2, { exec, env, evidence: target2.knowledge === "imported" ? copyEvidence(target2.repo, { ctx }) : /* @__PURE__ */ new Set() })
   );
@@ -34145,8 +34260,8 @@ function readTargets(targets2, { ctx, exec = execFileSync9, env } = {}) {
 var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
 function targetsTable(rows2) {
   const cells3 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
-  const widths = COLUMNS.map((_, i) => Math.max(...cells3.map((line) => line[i].length)));
-  return cells3.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i])).join("  "));
+  const widths = COLUMNS.map((_, i) => Math.max(...cells3.map((line) => (line[i] ?? "").length)));
+  return cells3.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
 }
 
 // kit/lib/playbook/check-playbook.ts
@@ -34373,8 +34488,8 @@ var FUN_SECTION_FIELDS = [
 function describe3(file2, detail) {
   return `${file2}: ${detail}`;
 }
-function checkItemText(file2, text4, { ctx, laws } = {}) {
-  const parsed = parseOutboxItem(text4, { file: file2 });
+function checkItemText(file2, text4, { laws } = {}) {
+  const parsed = parseItem(text4, file2);
   if (!parsed.ok) return parsed.errors;
   const { item: item2 } = parsed;
   const violations = [];
@@ -34479,13 +34594,13 @@ function discoveredPrds({ ctx }) {
 }
 function findFormatViolations({ ctx }) {
   return discoveredPrds({ ctx }).flatMap(
-    (prd2) => readAccounts(prd2, { ctx }).filter((result) => !result.ok).flatMap((result) => result.errors)
+    (prd2) => readAccounts(prd2, { ctx }).flatMap((result) => result.ok ? [] : result.errors ?? [])
   );
 }
 function gradePrd(prd2, risky, { ctx }) {
   const results = readAccounts(prd2, { ctx });
-  const malformed = results.filter((result) => !result.ok).flatMap((result) => result.errors);
-  const accounts = results.filter((result) => result.ok).map((result) => result.account);
+  const malformed = results.flatMap((result) => result.ok ? [] : result.errors ?? []);
+  const accounts = results.flatMap((result) => result.ok && result.account ? [result.account] : []);
   const { accounted, unaccounted, stale } = compare(risky, accounts);
   return { prd: prd2, malformed, accounted, unaccounted, stale };
 }
@@ -34858,22 +34973,12 @@ import { join as join35 } from "node:path";
 
 // kit/lib/concept/parse.ts
 init_define_OMNI_BUNDLE();
-var CONCEPT_KINDS = (
-  /** @type {const} */
-  ["product", "identity", "platform"]
-);
-var CONCEPT_SCALES = (
-  /** @type {const} */
-  ["vast", "lite"]
-);
-var CONCEPT_SECTIONS = (
-  /** @type {const} */
-  ["The brief", "The vision", "Why this one", "Killed and why", "Fuel", "Areas"]
-);
-var AREA_COLUMNS = (
-  /** @type {const} */
-  ["id", "area", "brief", "PRD"]
-);
+var CONCEPT_KINDS = ["product", "identity", "platform"];
+var CONCEPT_SCALES = ["vast", "lite"];
+var CONCEPT_SECTIONS = ["The brief", "The vision", "Why this one", "Killed and why", "Fuel", "Areas"];
+var AREA_COLUMNS = ["id", "area", "brief", "PRD"];
+var KNOWN_SCALES = CONCEPT_SCALES;
+var isScale = (value) => KNOWN_SCALES.includes(value);
 var AREA_ROWS = { vast: { min: 2, max: 6, words: "two to six" }, lite: { min: 1, max: 1, words: "exactly one" } };
 var FRONT_FIELDS = ["concept", "title", "kind", "scale"];
 var FRONT_MATTER_BLOCK5 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
@@ -34896,7 +35001,7 @@ function fieldFault(field3, value) {
 function frontMatter(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const scale = CONCEPT_SCALES.includes(data.scale) ? data.scale : null;
+  const scale = isScale(data.scale) ? data.scale : null;
   const parsed = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
   if (parsed.success) return { data: parsed.data, errors, scale };
   for (const issue2 of parsed.error.issues) {
@@ -34953,7 +35058,7 @@ function firstTable(lines) {
     if (!line.trim().startsWith("|")) break;
     block.push(line.trim());
   }
-  const [header2, ...rest] = block;
+  const [header2 = "", ...rest] = block;
   return { header: cells2(header2), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells2) };
 }
 function idFaults(ids) {
@@ -34986,7 +35091,7 @@ function areasOf(lines, scale) {
     return { id, area: cell2(row, "area"), brief: cell2(row, "brief"), prd: filled ? Number(filled[1]) : null };
   });
   faults.push(...idFaults(areas.map((area) => area.id)));
-  const allowed = AREA_ROWS[scale];
+  const allowed = scale ? AREA_ROWS[scale] : void 0;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
     const count3 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
     faults.push(`Areas: ${count3}; a ${scale} concept has ${allowed.words}.`);
@@ -34996,7 +35101,7 @@ function areasOf(lines, scale) {
 function parseConcept(text4) {
   const block = FRONT_MATTER_BLOCK5.exec(text4);
   if (!block) return { ok: false, errors: ['no front matter: a concept.md opens with a "---" fenced header.'] };
-  const [, raw, body] = block;
+  const [, raw = "", body = ""] = block;
   const front = frontMatter(raw);
   const sections = sectionsOf(body);
   const errors = [...front.errors, ...sectionFaults(sections)];
@@ -35006,9 +35111,11 @@ function parseConcept(text4) {
   if (errors.length) return { ok: false, errors };
   const named2 = /* @__PURE__ */ new Map();
   for (const section4 of sections) if (!named2.has(section4.name)) named2.set(section4.name, section4.lines.join("\n").trim());
+  const data = front.data;
   return {
     ok: true,
-    record: { ...front.data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named2.get(name)])), areas }
+    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named2.get(name) ?? ""])), areas }
+    // ts-allow: with every column present, each cell is a string
   };
 }
 
@@ -35042,11 +35149,11 @@ function textLoads(texts, patterns) {
   return patterns.flatMap(([what, pattern]) => texts.flatMap((text4) => [...text4.matchAll(pattern)].map((match) => `${what} ${match[1]}`)));
 }
 function attributeUrls(attribute, value) {
-  return attribute === "srcset" ? value.split(",").map((candidate) => candidate.trim().split(/\s+/)[0]) : [value];
+  return attribute === "srcset" ? value.split(",").map((candidate) => candidate.trim().split(/\s+/)[0] ?? "") : [value];
 }
 function tagLoads(name, attributes, styles) {
   const loads = [];
-  for (const [, attr, ...values] of attributes.matchAll(ATTRIBUTE)) {
+  for (const [, attr = "", ...values] of attributes.matchAll(ATTRIBUTE)) {
     const attribute = attr.toLowerCase();
     const value = values.find((v) => v !== void 0) ?? "";
     if (attribute === "style") styles.push(value);
@@ -35057,9 +35164,9 @@ function tagLoads(name, attributes, styles) {
   return loads;
 }
 function networkLoads(html) {
-  const styles = [...html.matchAll(STYLE_BLOCK)].map((match) => match[1]);
-  const loads = [...html.matchAll(TAG)].flatMap(([, tag, attributes]) => tagLoads(tag.toLowerCase(), attributes, styles));
-  const scripts = [...html.matchAll(SCRIPT_BLOCK)].map((match) => match[1]);
+  const styles = [...html.matchAll(STYLE_BLOCK)].map((match) => match[1] ?? "");
+  const loads = [...html.matchAll(TAG)].flatMap(([, tag = "", attributes = ""]) => tagLoads(tag.toLowerCase(), attributes, styles));
+  const scripts = [...html.matchAll(SCRIPT_BLOCK)].map((match) => match[1] ?? "");
   return [...loads, ...textLoads(styles, CSS_LOADS), ...textLoads(scripts, SCRIPT_LOADS)];
 }
 function pageFaults(ctx, page2) {
@@ -35091,8 +35198,9 @@ function entryKind(entry) {
 function folderEntries(ctx, folder) {
   const sorted = { present: /* @__PURE__ */ new Set(), rounds: [], misnamed: [], others: [] };
   for (const entry of readdirSync15(join35(ctx.root, folder), { withFileTypes: true })) {
-    const { kind, k } = entryKind(entry);
-    if (kind === "round") sorted.rounds.push({ name: entry.name, k });
+    const found = entryKind(entry);
+    const { kind } = found;
+    if (found.kind === "round") sorted.rounds.push({ name: entry.name, k: found.k });
     else if (kind === "present") sorted.present.add(entry.name);
     else if (kind === "misnamed") sorted.misnamed.push(entry.name);
     else sorted.others.push(entry.name);
@@ -35121,7 +35229,12 @@ function folderFaults(ctx, folder, concept2) {
 function outsideFaults(folder, changed = []) {
   return [...new Set(changed)].filter((path) => !path.startsWith(`${folder}/`)).sort().map((path) => `${path}: changed outside ${folder}/; a concept branch changes its own folder only.`);
 }
-function conceptVerdict({ ctx, concept: concept2, changed, commits }) {
+function conceptVerdict({
+  ctx,
+  concept: concept2,
+  changed,
+  commits
+}) {
   return fixVerdict({
     ctx,
     issue: concept2,
@@ -36192,7 +36305,11 @@ function itemFromEntry(entry) {
     wave: fields.Wave
   };
 }
-function settleAtMerge({ ctx, prd: prd2, merge: merge2 }) {
+function settleAtMerge({
+  ctx,
+  prd: prd2,
+  merge: merge2
+}) {
   const parsedMerge = MergeSchema.safeParse(merge2, { error: KIT_MESSAGES });
   if (!parsedMerge.success) {
     return { ok: false, errors: parsedMerge.error.issues.map((issue2) => issue2.message) };
@@ -36210,7 +36327,7 @@ function settleAtMerge({ ctx, prd: prd2, merge: merge2 }) {
   const deletes = [];
   for (const file2 of openItemFiles(prd2, { ctx })) {
     const itemText = readRepoFile(ctx, file2);
-    const parsed = parseOutboxItem(itemText, { file: file2 });
+    const parsed = parseItem(itemText, file2);
     if (!parsed.ok) {
       errors.push(...parsed.errors);
       continue;
@@ -36267,7 +36384,7 @@ function readDecisions({ ctx }) {
   const records = names.map((name) => {
     const file2 = `${dir}/${name}`;
     const title = readFileSync28(join39(ctx.root, file2), "utf8").match(TITLE2)?.[1] ?? null;
-    return { number: name.match(RECORD3)[1], file: file2, title };
+    return { number: name.match(RECORD3)?.[1] ?? "", file: file2, title };
   });
   const byNumber = /* @__PURE__ */ new Map();
   for (const record2 of records) byNumber.set(record2.number, [...byNumber.get(record2.number) ?? [], record2.file]);
@@ -36281,10 +36398,7 @@ init_define_OMNI_BUNDLE();
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
 // kit/lib/knowledge/classify.ts
-var CLASSIFICATION_KINDS = (
-  /** @type {const} */
-  ["adr", "invariant", "rule", "covered", "stays-here"]
-);
+var CLASSIFICATION_KINDS = ["adr", "invariant", "rule", "covered", "stays-here"];
 var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
@@ -36342,7 +36456,7 @@ function knowledgeSummary({ ctx }) {
   });
   const principles = knowledge2.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf2(entry), statement: entry.statement }));
   const laws = knowledge2.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf2(entry), statement: entry.statement }));
-  const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number, title: record2.title })) : [];
+  const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number ?? "", title: record2.title })) : [];
   return { places, domains, principles, decisions, laws };
 }
 function allowedKinds(places) {
@@ -36381,7 +36495,7 @@ function classificationSchema(summary) {
     }
     if (reply.kind === "covered") {
       const record2 = reply.covers.match(RECORD_ID);
-      const known = record2 ? records.has(record2[1]) : entryIds.has(reply.covers);
+      const known = record2 ? records.has(record2[1] ?? "") : entryIds.has(reply.covers);
       if (!known) issue2(["covers"], `covers "${reply.covers}", which names no existing entry or decision record`);
     }
   });
@@ -36498,7 +36612,7 @@ function toCandidate(entry, ledgerFile) {
   return {
     id: entry.id,
     ledgerFile,
-    item: parsed.ok ? parsed.item : null,
+    item: parsed.ok ? parsed.item ?? null : null,
     itemText: entry.itemText,
     answer: entry.answerText,
     verdict: entry.verdict ?? null,
@@ -36511,7 +36625,8 @@ function toCandidate(entry, ledgerFile) {
   };
 }
 function candidatesFromLedger(text4, { markers, ledgerFile = null }) {
-  return parseSettledEntries(text4, markers).filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
+  const entries3 = parseSettledEntries(text4, markers);
+  return entries3.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd: prd2 }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
@@ -36607,7 +36722,7 @@ function makeFiles(ctx) {
         const absolute = join42(ctx.root, path);
         texts.set(path, existsSync35(absolute) ? readFileSync31(absolute, "utf8") : null);
       }
-      return texts.get(path);
+      return texts.get(path) ?? null;
     },
     write(path, text4) {
       texts.set(path, text4);
@@ -36615,7 +36730,7 @@ function makeFiles(ctx) {
     },
     changed: /* @__PURE__ */ new Set(),
     writes() {
-      return [...this.changed].map((path) => ({ path, text: texts.get(path) }));
+      return [...this.changed].map((path) => ({ path, text: texts.get(path) ?? "" }));
     }
   };
 }
@@ -36627,7 +36742,7 @@ function appendEntry(text4, entry, { heading }) {
     const start = lines.findIndex((line) => NONE_YET.test(line));
     if (start !== -1) {
       let end = start;
-      while (end < lines.length && lines[end].trim() !== "") end += 1;
+      while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
       lines.splice(start, end - start);
       base = lines.join("\n");
     }
@@ -36643,7 +36758,17 @@ function sourceLine(candidate, ledgerFile, prd2) {
 function renderRegisterEntry({ id, statement: statement2, fields }) {
   return [`## ${id}`, "", oneLine(statement2), "", ...fields.map(([key, value]) => `${key}: ${value}`), ""].join("\n");
 }
-function renderRecord({ number: number4, reply, candidate, status: status3, decided, merged, merge: merge2, prd: prd2, ledgerFile }) {
+function renderRecord({
+  number: number4,
+  reply,
+  candidate,
+  status: status3,
+  decided,
+  merged,
+  merge: merge2,
+  prd: prd2,
+  ledgerFile
+}) {
   const option = chosenOption(candidate);
   return [
     `# ADR-${number4} \u2014 ${oneLine(reply.title)}`,
@@ -36677,14 +36802,20 @@ function addLedgerLine(text4, { id, line, markers }) {
   const end = close === -1 ? lines.length : close;
   let at = -1;
   for (let index = open3 + 1; index < end; index += 1) {
-    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index])) at = index;
+    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? "")) at = index;
     else if (at !== -1) break;
   }
   if (at === -1) return null;
   lines.splice(at + 1, 0, line);
   return lines.join("\n");
 }
-function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date5 }) {
+function writeKnowledge({
+  ctx,
+  classified,
+  merge: merge2,
+  taken = {},
+  date: date5
+}) {
   const files = makeFiles(ctx);
   const numbering = makeNumbering({ ctx, taken });
   const merged = mergedLine(merge2);
@@ -36715,7 +36846,7 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
       const place = placeOf(ctx, reply.place);
       const source = sourceLine(candidate, ledgerFile, prd2);
       const id = numbering.entry(reply.kind, place.code);
-      let serves = reply.serves ?? null;
+      let serves = reply.kind === "rule" ? reply.serves : null;
       let principleId = null;
       if (reply.kind === "rule" && serves === NEW_PRINCIPLE) {
         principleId = numbering.entry("principle", place.code);
@@ -36739,13 +36870,14 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
       );
       touched.push(path);
       landedAs = [id];
-      if (principleId) {
+      if (principleId && reply.kind === "rule") {
+        const proposal = reply.principle;
         const principlePath = `${place.dir}/${LAYER.principle}`;
         const principle = renderRegisterEntry({
           id: principleId,
-          statement: reply.principle.statement,
+          statement: proposal.statement,
           fields: [
-            ["Why", oneLine(reply.principle.why)],
+            ["Why", oneLine(proposal.why)],
             ["Source", source],
             ["Merged", merged],
             ["Proposed", proposedLine]
@@ -36783,6 +36915,11 @@ function writeKnowledge({ ctx, classified, merge: merge2, taken = {}, date: date
 }
 
 // kit/lib/knowledge/pipeline.ts
+var settleAtMerge2 = settleAtMerge;
+var planShip2 = planShip;
+var movedPath2 = movedPath;
+var findOutboxViolations2 = findOutboxViolations;
+var askModel2 = askModel;
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -36848,7 +36985,7 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
   const n = Number(prd2);
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge: merge2 });
+    const settle3 = settleAtMerge2({ ctx: scratch, prd: n, merge: merge2 });
     if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
       deletes: settle3.deletes,
@@ -36860,16 +36997,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     let rewrites = [];
     if (scratch.layout.whereIs(n).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
-      const plan2 = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync32(join43(scratch.root, file2), "utf8") });
+      const plan2 = planShip2(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync32(join43(scratch.root, file2), "utf8") });
       if (!plan2.ok) return { ok: false, errors: plan2.reasons };
       moves = plan2.moves;
-      rewrites = plan2.rewrites.map(({ file: file2, text: text4 }) => ({ path: movedPath(moves, file2), text: text4 }));
+      rewrites = plan2.rewrites.map(({ file: file2, text: text4 }) => ({ path: movedPath2(moves, file2), text: text4 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
       deletes: settleEdits.deletes,
       moves,
-      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath(moves, w.path), text: w.text })), ...rewrites])
+      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath2(moves, w.path), text: w.text })), ...rewrites])
     };
     return {
       ok: true,
@@ -36882,11 +37019,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     };
   });
 }
-async function classifyCandidate({ candidate, summary, env, fetch }) {
+async function classifyCandidate({
+  candidate,
+  summary,
+  env,
+  fetch
+}) {
   if (allowedKinds(summary.places).every((kind) => kind === "covered" || kind === "stays-here")) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
-  const answer = await askModel({
+  const answer = await askModel2({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
     check: classificationSchema(summary),
@@ -36895,7 +37037,10 @@ async function classifyCandidate({ candidate, summary, env, fetch }) {
     fetch,
     title: "omni harvest"
   });
-  if (answer.ok) return { id: candidate.id, reply: answer.reply, reason: null, error: null };
+  if (answer.ok) {
+    const reply = answer.reply;
+    return { id: candidate.id, reply, reason: null, error: null };
+  }
   const reason2 = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason: reason2, error: answer.error === NO_KEY ? NO_KEY : answer.error };
 }
@@ -36904,12 +37049,19 @@ function knowledgeFiles(ctx) {
 }
 function runChecks(ctx) {
   const knowledge2 = existsSync36(join43(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
-  const outbox = findOutboxViolations({ ctx });
+  const outbox = findOutboxViolations2({ ctx });
   return { knowledge: knowledge2, outbox };
 }
 var newOnes = (after, before) => after.filter((line) => !before.includes(line));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
-function finishHarvest({ ctx, prepared, classified, merge: merge2, taken = {}, date: date5 }) {
+function finishHarvest({
+  ctx,
+  prepared,
+  classified,
+  merge: merge2,
+  taken = {},
+  date: date5
+}) {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
     const before = runChecks(scratch);
@@ -36924,7 +37076,13 @@ function finishHarvest({ ctx, prepared, classified, merge: merge2, taken = {}, d
         if (keep && !keep.includes(candidate.id)) return null;
         return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0 };
       });
-      return writeKnowledge({ ctx: scratch, classified: input2.filter(Boolean), merge: merge2, taken, date: date5 });
+      return writeKnowledge({
+        ctx: scratch,
+        classified: input2.filter((entry) => entry !== null),
+        merge: merge2,
+        taken,
+        date: date5
+      });
     };
     const failures = (result2) => inScratch(scratch, (trial) => {
       applyHarvestEdits({ root: trial.root, edits: { deletes: [], moves: [], writes: result2.writes } });
@@ -37167,13 +37325,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/help/entries.ts
 init_define_OMNI_BUNDLE();
-var deepFreeze = (value) => {
+function deepFreeze(value) {
   if (value && typeof value === "object") {
     for (const inner of Object.values(value)) deepFreeze(inner);
     Object.freeze(value);
   }
   return value;
-};
+}
 var STAGES = deepFreeze([
   { name: "idea", line: "talked through with /omni:brainstorm, or /omni:think-big if vast" },
   { name: "PRD", line: "spec, plan and before/after, in a phase-0 PR a person reviews" },
@@ -37899,6 +38057,7 @@ var ENTRIES = deepFreeze([
 ]);
 
 // kit/lib/help/render.ts
+var hasLabel2 = (entry) => Boolean(entry.label);
 var HELP_WIDTH = 78;
 var HELP_INDENT = "  ";
 var LABEL_COLUMN = 24;
@@ -37916,7 +38075,7 @@ function repositoryWords(config3) {
     defaultBranch: config3.repo.defaultBranch
   };
 }
-var fillerFor = (words) => (text4) => text4.replace(/\{(\w+)\}/g, (whole, key) => Object.hasOwn(words, key) ? words[key] : whole);
+var fillerFor = (words) => (text4) => text4.replace(/\{(\w+)\}/g, (whole, key) => Object.hasOwn(words, key) ? words[key] ?? whole : whole);
 function wrapWords(text4, { width = HELP_WIDTH, indent = "" } = {}) {
   const lines = [];
   let line = "";
@@ -37951,11 +38110,11 @@ function renderOverview(config3, { entries: entries3 = ENTRIES } = {}) {
   lines.push("", ...wrapWords(PRINCIPLES.map(fill2).join(" "), { indent: HELP_INDENT }), "");
   lines.push("IN CLAUDE (type these)");
   for (const entry of entries3.filter((e) => e.kind === "skill" && e.who === "you")) {
-    lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
+    lines.push(overviewRow(fill2(entry.label ?? ""), fill2(entry.summary)));
   }
   lines.push("", "IN THE TERMINAL");
   const yours2 = entries3.filter((e) => e.kind === "command" && e.who === "you");
-  for (const entry of yours2.filter((e) => e.label)) {
+  for (const entry of yours2.filter(hasLabel2)) {
     lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
     for (const [label, text4] of entry.also ?? []) lines.push(overviewRow(fill2(label), fill2(text4)));
   }
@@ -37987,7 +38146,7 @@ function docsLines(entry, fill2) {
   ];
 }
 function entryLines(entry, fill2) {
-  const [first, ...more] = entry.usage.map(fill2);
+  const [first = "", ...more] = entry.usage.map(fill2);
   const who2 = WHO_RUNS[entry.who];
   const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
   const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill2(paragraph)));
@@ -38055,8 +38214,8 @@ function runningKit({ exec }) {
   if (MARKER2) return { home: MARKER2.home ?? null, version: MARKER2.version ?? null, source: false };
   let version3 = null;
   try {
-    const pkg = JSON.parse(readFileSync34(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8"));
-    version3 = typeof pkg.version === "string" && pkg.version ? pkg.version : null;
+    const text4 = readFileSync34(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8");
+    version3 = KitPackageSchema.parse(JSON.parse(text4)).version;
   } catch {
     version3 = null;
   }
@@ -38091,7 +38250,7 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     section3("laws", { source: lawsSource }),
     "",
     "# The Omni page ask mode's questions and the dossiers go to. null: ask mode and dossiers off.",
-    section3("ask", { url: signature.home }),
+    section3("ask", { url: signature?.home ?? null }),
     "",
     "# Whether omni dossier sends this repository's PRD folders to ask.url.",
     section3("dossier", { enabled: true }),
@@ -38112,12 +38271,15 @@ import { existsSync as existsSync38, readFileSync as readFileSync35 } from "node
 import { join as join45 } from "node:path";
 var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
 var NONE2 = Object.freeze({ test: null, preflight: null, preflightFull: null });
-function readJson2(file2) {
+function readScripts(file2) {
+  let value;
   try {
-    return JSON.parse(readFileSync35(file2, "utf8"));
+    value = JSON.parse(readFileSync35(file2, "utf8"));
   } catch {
     return {};
   }
+  const parsed = ScriptsFileSchema.safeParse(value);
+  return parsed.success ? parsed.data.scripts ?? {} : {};
 }
 function packageManager(root) {
   if (existsSync38(join45(root, "pnpm-lock.yaml"))) return "pnpm";
@@ -38126,7 +38288,7 @@ function packageManager(root) {
   return "npm";
 }
 function fromPackageJson(root) {
-  const scripts = readJson2(join45(root, "package.json")).scripts ?? {};
+  const scripts = readScripts(join45(root, "package.json"));
   const pm = packageManager(root);
   const has = (name) => Object.hasOwn(scripts, name);
   const test = has("test") ? `${pm} test` : null;
@@ -38136,7 +38298,7 @@ function fromPackageJson(root) {
   return { test, preflight, preflightFull };
 }
 function fromComposer(root) {
-  const scripts = readJson2(join45(root, "composer.json")).scripts ?? {};
+  const scripts = readScripts(join45(root, "composer.json"));
   const test = Object.hasOwn(scripts, "test") ? "composer test" : null;
   const preflight = Object.hasOwn(scripts, "preflight") ? "composer preflight" : test;
   return { test, preflight, preflightFull: preflight };
@@ -38213,7 +38375,7 @@ function formatterToExclude(root, dir) {
   const pkg = read(root, "package.json");
   let prettierInPackage = false;
   try {
-    prettierInPackage = pkg !== null && Object.hasOwn(JSON.parse(pkg), "prettier");
+    prettierInPackage = pkg !== null && Object.hasOwn(JsonObjectSchema.parse(JSON.parse(pkg)), "prettier");
   } catch {
     prettierInPackage = false;
   }
@@ -38247,19 +38409,20 @@ function statusLineSetting(bin) {
   };
 }
 function isKitStatusLine(value, bin) {
-  return typeof value?.command === "string" && value.command.includes(`${commandPath(bin)}" statusline`);
+  const parsed = CommandStatusLineSchema.safeParse(value);
+  return parsed.success && parsed.data.command.includes(`${commandPath(bin)}" statusline`);
 }
 function readSettings(file2) {
   try {
     return readFileSync37(file2, "utf8");
   } catch (error62) {
-    return error62?.code === "ENOENT" ? null : void 0;
+    return typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT" ? null : void 0;
   }
 }
 function parseSettings(text4) {
   try {
-    const value = JSON.parse(text4);
-    return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+    const parsed = JsonObjectSchema.safeParse(JSON.parse(text4));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -38400,19 +38563,19 @@ init_define_OMNI_BUNDLE();
 var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 var ID = `${PLUGIN}@${MARKETPLACE}`;
 var PLACEHOLDER_HOME = "<owner>/<kit repository>";
-function listed(exec, args) {
+function listed(exec, args, schema) {
   try {
-    const value = JSON.parse(exec("claude", [...args, "--json"], QUIET8));
-    return Array.isArray(value) ? value : null;
+    const parsed = schema.safeParse(JSON.parse(exec("claude", [...args, "--json"], QUIET8)));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 }
 function installPlugin({ exec, kitHome: kitHome2 }) {
-  if (listed(exec, ["plugin", "list"])?.some((plugin) => plugin?.id === ID)) return { outcome: "already" };
+  if (listed(exec, ["plugin", "list"], ClaudePluginsSchema)?.some((plugin) => plugin?.id === ID)) return { outcome: "already" };
   if (!kitHome2) return { outcome: "failed" };
   try {
-    const marketplaces = listed(exec, ["plugin", "marketplace", "list"]);
+    const marketplaces = listed(exec, ["plugin", "marketplace", "list"], ClaudeMarketplacesSchema);
     if (!marketplaces?.some((marketplace) => marketplace?.name === MARKETPLACE)) {
       exec("claude", ["plugin", "marketplace", "add", kitHome2], QUIET8);
     }
@@ -38493,8 +38656,8 @@ function switchToInstallBranch(root, { exec }) {
   return { outcome: exists ? "switched" : "created", branch };
 }
 function findPr(root, exec) {
-  const listed2 = attempt5(() => JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET9 })));
-  if (!listed2.ok || !Array.isArray(listed2.value)) return void 0;
+  const listed2 = attempt5(() => GhPullRequestsSchema.parse(JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET9 }))));
+  if (!listed2.ok) return void 0;
   const [pr] = listed2.value;
   return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
 }
@@ -39322,6 +39485,9 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
 var KINDS5 = ["principle", "rule", "invariant"];
+function hasKind(entry) {
+  return KINDS5.includes(entry.kind);
+}
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 function prdOf2(source) {
   const match = PRD_IN_SOURCE.exec(source ?? "");
@@ -39347,14 +39513,15 @@ function graphEntry(entry, pairs) {
 function countsOf(entries3) {
   const counts2 = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
   for (const entry of entries3) {
-    counts2[`${entry.kind}s`] += 1;
+    const kindKey = `${entry.kind}s`;
+    counts2[kindKey] += 1;
     counts2[entry.status === "law" ? "laws" : "proposed"] += 1;
   }
   return counts2;
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file: file2, pair }) => [file2, pair ?? []]));
-  const entries3 = knowledge2.entries.filter((entry) => KINDS5.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const entries3 = knowledge2.entries.filter(hasKind).map((entry) => graphEntry(entry, pairs));
   const byId = new Map(entries3.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
@@ -39363,7 +39530,7 @@ function buildGraph(knowledge2, { repo }) {
   const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries3.filter((entry) => entry.domain === row.name)) }));
   const links = [];
   for (const entry of entries3) {
-    const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
+    const served2 = entry.kind === "principle" || entry.serves === null ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
     const cited2 = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
     for (const id of cited2) {
@@ -39755,7 +39922,7 @@ function blockedByViolations2(slices) {
         continue;
       }
       const blockerWave = waveOf.get(blocker);
-      if (blockerWave >= slice.wave) {
+      if (Number(blockerWave) >= Number(slice.wave)) {
         violations.push(
           `${slice.id} (wave ${slice.wave}) is blocked by ${blocker} (wave ${blockerWave}) \u2014 a blocker must sit in an earlier wave.`
         );
@@ -39791,13 +39958,13 @@ function shortNameClashes(owners) {
   return [...owners].filter(([, slugs]) => slugs.length > 1).map(([name, slugs]) => `repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
 }
 function unknownRepoViolations(slices, owners) {
-  return slices.filter((slice) => !owners.has(slice.repo)).map(
+  return slices.filter((slice) => slice.repo === null || !owners.has(slice.repo)).map(
     (slice) => `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
   );
 }
 function missingRowViolations(slices, repositories, owners) {
   const rows2 = new Set(repositories.map((row) => row.repo));
-  const named2 = new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)));
+  const named2 = new Set(slices.map((slice) => slice.repo).filter((name) => name !== null && owners.has(name)));
   return [...named2].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
 }
 function repositoryRowViolations(slices, repositories, { owners, planName }) {
@@ -39844,7 +40011,9 @@ function gradePlan(markdown, { config: config3 }) {
       collisions: [],
       matrices: [],
       violations: [error62.message],
+      // ts-allow: parsePlanSlices throws only Error
       parseError: error62.message
+      // ts-allow: parsePlanSlices throws only Error
     };
   }
   const repositories = parsePlanRepositories(markdown);
@@ -39854,13 +40023,14 @@ function gradePlan(markdown, { config: config3 }) {
   const collisions2 = sameWaveCollisions(slices);
   const violations = [
     ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: config3.repo.slug, targets: planSection2.targets }),
+    // ts-allow: a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...blockedByViolations2(slices),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
-  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => a - b);
+  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
   const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
   return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
@@ -39869,7 +40039,7 @@ function gradePlan(markdown, { config: config3 }) {
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
 var shortName4 = (slug) => slug.slice(slug.indexOf("/") + 1);
-var pathsOf = (file2) => [file2.filename, file2.previous_filename].filter(Boolean);
+var pathsOf = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
 function compareRow(gh, { slug, readAt, slices }) {
   const branch = gh.repository(slug).default_branch;
   const compared = gh.compare(slug, readAt, branch);
@@ -39886,7 +40056,12 @@ function compareRow(gh, { slug, readAt, slices }) {
   if (files.length === 0) return { state: "ok" };
   return { state: "moved", files, slices: slices.map((slice) => slice.id).filter((id) => hit.has(id)) };
 }
-function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync13, env } = {}) {
+function planMoved({
+  slices,
+  repositories,
+  planSlug,
+  targets: targets2
+}, { exec = execFileSync13, env } = {}) {
   const gh = ghReader({ exec, env });
   const slugOf2 = new Map(targets2.map((target2) => [shortName4(target2.repo), target2.repo]));
   return repositories.filter((row) => row.repo !== shortName4(planSlug)).map((row) => {
@@ -39915,9 +40090,10 @@ function detailOf(row) {
 }
 function movedTable(rows2) {
   const cells3 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
-  const widths = [0, 1].map((i) => Math.max(0, ...cells3.map((line) => line[i].length)));
+  const widths = [0, 1].map((i) => Math.max(0, ...cells3.map((line) => (line[i] ?? "").length)));
+  const [repoWidth = 0, stateWidth = 0] = widths;
   return cells3.map(
-    ([repo, state, detail]) => detail ? `${repo.padEnd(widths[0])}   ${state.padEnd(widths[1])}   ${detail}` : `${repo.padEnd(widths[0])}   ${state}`
+    ([repo, state, detail]) => detail ? `${repo.padEnd(repoWidth)}   ${state.padEnd(stateWidth)}   ${detail}` : `${repo.padEnd(repoWidth)}   ${state}`
   );
 }
 
@@ -40089,6 +40265,7 @@ import { isAbsolute as isAbsolute5, resolve as resolve3 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
 import { readFileSync as readFileSync43 } from "node:fs";
+var isRecord3 = (value) => typeof value === "object" && value !== null;
 var GIF = "preview.gif";
 var ProofReplyError = class extends Error {
   constructor(message) {
@@ -40098,16 +40275,25 @@ var ProofReplyError = class extends Error {
 };
 var isText7 = (value) => typeof value === "string" && value.length > 0;
 function linksOf(reply, files) {
-  if (!isText7(reply?.run)) throw new ProofReplyError("no run in the reply");
+  const run = isRecord3(reply) ? reply.run : void 0;
+  if (!isRecord3(reply) || !isText7(run)) throw new ProofReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
   const links = files.map(({ name }) => {
-    const url2 = given.find((file2) => file2?.name === name)?.url;
+    const found = given.find((file2) => isRecord3(file2) && file2.name === name);
+    const url2 = isRecord3(found) ? found.url : void 0;
     if (!isText7(url2)) throw new ProofReplyError(`no upload link for ${name} in the reply`);
     return url2;
   });
-  return { runId: reply.run, links };
+  return { runId: run, links };
 }
-async function pushProof({ client, repo, prd: prd2, run, read: read2 = readFileSync43, newRunId = randomUUID }) {
+async function pushProof({
+  client,
+  repo,
+  prd: prd2,
+  run,
+  read: read2 = readFileSync43,
+  newRunId = randomUUID
+}) {
   let runId;
   if (run.files.length) {
     const reply = await client.requestProofUploads({ repo, prd: prd2, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
@@ -40118,8 +40304,8 @@ async function pushProof({ client, repo, prd: prd2, run, read: read2 = readFileS
     runId = newRunId();
   }
   const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
-  if (!isText7(registered?.url)) throw new ProofReplyError("no link in the reply");
-  const tab = registered.url;
+  const tab = isRecord3(registered) ? registered.url : void 0;
+  if (!isText7(tab)) throw new ProofReplyError("no link in the reply");
   if (!run.files.some(({ name }) => name === GIF)) return { tab };
   return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
 }
@@ -40141,6 +40327,7 @@ var TEXT_MAX = 2e3;
 var NOTE_MAX = 1e3;
 var URL_MAX = 2e3;
 var ProofRunRefused = class extends Error {
+  status;
   constructor(status3, message) {
     super(message);
     this.name = "ProofRunRefused";
@@ -40150,7 +40337,7 @@ var ProofRunRefused = class extends Error {
 var refuse = (message, status3 = 400) => {
   throw new ProofRunRefused(status3, message);
 };
-var isRecord3 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isRecord4 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function isHttpUrl(value) {
   if (typeof value !== "string" || value.length > URL_MAX) return false;
   try {
@@ -40159,39 +40346,44 @@ function isHttpUrl(value) {
     return false;
   }
 }
+var KNOWN_VERDICTS2 = VERDICTS2;
+var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
 function textOf2(item2, at) {
-  const valid = isRecord3(item2) && typeof item2.text === "string" && item2.text.trim() && item2.text.length <= TEXT_MAX;
-  if (!valid) refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
-  return item2.text.trim();
+  const text4 = isRecord4(item2) ? item2.text : void 0;
+  const valid = isRecord4(item2) && typeof text4 === "string" && text4.trim() && text4.length <= TEXT_MAX;
+  if (!valid) return refuse(`${at}: its text is 1 to ${TEXT_MAX} characters`);
+  return { text: text4.trim(), sent: item2 };
 }
 function verdictOf(item2, at) {
-  if (!VERDICTS2.includes(item2.verdict)) refuse(`${at}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
-  return item2.verdict;
+  const { verdict } = item2;
+  if (!isVerdict2(verdict)) return refuse(`${at}: a verdict is ${VERDICTS2.slice(0, -1).join(", ")} or ${VERDICTS2.at(-1)}, not ${String(item2.verdict)}`);
+  return verdict;
 }
 function extrasOf(item2, at, criterion) {
-  if (!isBlank(item2.note)) {
-    if (typeof item2.note !== "string" || item2.note.length > NOTE_MAX) refuse(`${at}: its note is at most ${NOTE_MAX} characters`);
-    criterion.note = item2.note;
+  const { note } = item2;
+  if (!isBlank(note)) {
+    if (typeof note !== "string" || note.length > NOTE_MAX) return refuse(`${at}: its note is at most ${NOTE_MAX} characters`);
+    criterion.note = note;
   }
   for (const key of ["video", "script"]) {
     const name = item2[key];
     if (isBlank(name)) continue;
-    if (typeof name !== "string" || !FILE_NAME.test(name)) refuse(`${at}: its ${key} is a file name in the run folder`);
+    if (typeof name !== "string" || !FILE_NAME.test(name)) return refuse(`${at}: its ${key} is a file name in the run folder`);
     criterion[key] = name;
   }
   return criterion;
 }
 function criterionOf(item2, index) {
   const at = `criterion ${index + 1}`;
-  const text4 = textOf2(item2, at);
-  return extrasOf(item2, at, { text: text4, verdict: verdictOf(item2, at) });
+  const { text: text4, sent } = textOf2(item2, at);
+  return extrasOf(sent, at, { text: text4, verdict: verdictOf(sent, at) });
 }
 function fileOf(dir, name) {
   const path = join54(dir, name);
   if (!existsSync45(path) || !statSync9(path).isFile()) refuse(`${name}: not in the run folder`);
   const type = TYPES[name.slice(name.lastIndexOf(".") + 1).toLowerCase()];
-  if (!type) refuse(`${name}: a proof takes .webm, .gif, .ts or .txt files`);
+  if (!type) return refuse(`${name}: a proof takes .webm, .gif, .ts or .txt files`);
   const { size } = statSync9(path);
   if (size > PROOF_FILE_MAX_BYTES) refuse(`${name}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name, path, bytes: size, type };
@@ -40205,18 +40397,19 @@ function readRun(dir) {
   } catch {
     sent = null;
   }
-  if (!isRecord3(sent)) refuse(`${RUN_FILE} is not a JSON object`);
-  if (typeof sent.commit !== "string" || !COMMIT2.test(sent.commit)) refuse(`${RUN_FILE}: commit is the hash of the commit the run proved`);
-  if (!isHttpUrl(sent.url)) refuse(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
-  if (!Array.isArray(sent.criteria) || sent.criteria.length === 0 || sent.criteria.length > PROOF_CRITERIA_MAX) {
-    refuse(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
+  if (!isRecord4(sent)) return refuse(`${RUN_FILE} is not a JSON object`);
+  const { commit, url: url2, criteria: given } = sent;
+  if (typeof commit !== "string" || !COMMIT2.test(commit)) return refuse(`${RUN_FILE}: commit is the hash of the commit the run proved`);
+  if (!isHttpUrl(url2)) return refuse(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
+  if (!Array.isArray(given) || given.length === 0 || given.length > PROOF_CRITERIA_MAX) {
+    return refuse(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
   }
-  const criteria = sent.criteria.map(criterionOf);
-  const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter(Boolean))];
+  const criteria = given.map(criterionOf);
+  const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name) => Boolean(name)))];
   if (existsSync45(join54(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
   if (names.length > PROOF_FILES_MAX) refuse(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
   const files = names.map((name) => fileOf(dir, name));
-  return { commit: sent.commit, url: sent.url, criteria, files };
+  return { commit, url: url2, criteria, files };
 }
 
 // kit/lib/proof/session.ts
@@ -40228,15 +40421,15 @@ function claimsOf2(token) {
   const parts = typeof token === "string" ? token.split(".") : [];
   if (parts.length !== 3) return null;
   try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    return JSON.parse(Buffer.from(parts[1] ?? "", "base64url").toString());
   } catch {
     return null;
   }
 }
 function projectRef(claims) {
   try {
-    const { hostname: hostname3, pathname } = new URL(claims.iss);
-    return pathname.startsWith("/auth/v1") ? hostname3.split(".")[0] : null;
+    const { hostname: hostname3, pathname } = new URL(String(claims.iss));
+    return pathname.startsWith("/auth/v1") ? hostname3.split(".")[0] ?? null : null;
   } catch {
     return null;
   }
@@ -40412,18 +40605,21 @@ function parseReplyLines(body) {
       continue;
     }
     const match = line.match(NUMBERED_LINE);
-    if (match) lines.push({ kind: "numbered", number: Number(match[1]), text: match[2].trim() });
+    if (match) lines.push({ kind: "numbered", number: Number(match[1]), text: (match[2] ?? "").trim() });
   }
   return lines;
 }
-function interpretAnswer({ text: text4, options }) {
+function interpretAnswer({
+  text: text4,
+  options
+}) {
   const trimmed = String(text4 ?? "").trim();
   if (RECOMMENDATION_RE.test(trimmed)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
   const match = trimmed.match(LETTER_ANSWER);
   if (!match) return { statedVerdict: null, recorded: trimmed };
-  const letter = match[1].toUpperCase();
+  const letter = (match[1] ?? "").toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
   if (!option) return { undetermined: true, recorded: trimmed };
   const reason2 = (match[2] ?? "").trim();
@@ -40433,10 +40629,10 @@ function interpretAnswer({ text: text4, options }) {
   };
 }
 function isCountedReply(comment2, markers) {
-  return typeof comment2?.body === "string" && !comment2.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment2.author_association);
+  return typeof comment2?.body === "string" && !comment2.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment2.author_association ?? "");
 }
 function time4(iso) {
-  const value = Date.parse(iso);
+  const value = Date.parse(String(iso));
   return Number.isNaN(value) ? 0 : value;
 }
 function chronological(comments) {
@@ -40450,7 +40646,8 @@ function lastReaskedAt(comments, markers) {
     for (const [number4, round] of rounds) {
       highestRound = Math.max(highestRound, round);
       const when = time4(comment2.created_at);
-      if (!at.has(number4) || when > at.get(number4)) at.set(number4, when);
+      const previous = at.get(number4);
+      if (previous === void 0 || when > previous) at.set(number4, when);
     }
   }
   return { at, highestRound };
@@ -40459,21 +40656,24 @@ function answerableQuestions2(numbering, items, adopted) {
   const itemsById = new Map(items.map((item2) => [item2.id, item2]));
   const adoptedById = /* @__PURE__ */ new Map();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
   const questions = [];
   for (const entry of numbering) {
-    if (itemsById.has(entry.id)) {
-      questions.push({ ...entry, item: itemsById.get(entry.id), adoptedEntry: null });
-    } else if (adoptedById.has(entry.id)) {
-      const { entry: adoptedEntry, item: item2 } = adoptedById.get(entry.id);
+    const open3 = itemsById.get(entry.id);
+    const kept = adoptedById.get(entry.id);
+    if (open3 !== void 0) {
+      questions.push({ ...entry, item: open3, adoptedEntry: null });
+    } else if (kept !== void 0) {
+      const { entry: adoptedEntry, item: item2 } = kept;
       questions.push({ ...entry, item: item2, adoptedEntry });
     }
   }
   return questions.sort((a, b) => a.number - b.number);
 }
-function planReplies({ comments, items, adopted = [], markers }) {
+function planReplies(args) {
+  const { comments, items, adopted = [], markers } = args;
   const all = Array.isArray(comments) ? comments : [];
   const prComment = findPrMarkerComment(all, markers);
   const numbering = prComment ? parseNumbersMarker(prComment.body, markers) : [];
@@ -40543,7 +40743,11 @@ function planReplies({ comments, items, adopted = [], markers }) {
   };
   return { settle: settle3, held, round };
 }
-function formatRoundComment({ round, questions, markers }) {
+function formatRoundComment({
+  round,
+  questions,
+  markers
+}) {
   const ordered = [...questions].sort((a, b) => a.number - b.number);
   const lines = [
     markers.round(round, ordered.map((question) => question.number)),
@@ -40567,7 +40771,14 @@ function formatRoundComment({ round, questions, markers }) {
   }
   return lines.join("\n");
 }
-function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, judgement }) {
+function appendObjection({
+  ctx,
+  prd: prd2,
+  adoptedEntry,
+  item: item2,
+  answer,
+  judgement
+}) {
   const parsedAnswer = AnswerSchema.safeParse(answer);
   if (!parsedAnswer.success) {
     return {

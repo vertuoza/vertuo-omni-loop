@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The reply writer** (PRD 251): every door that answers an outbox — the terminal at the end of
  * `/omni:yolo`, the Omni page, a person typing on the pull request — ends as one reply on the feature
@@ -18,8 +17,9 @@
  * this writes, `planReplies` reads back as the same answer.
  */
 import { z } from 'zod';
-import { parseOutboxItem } from './outbox.ts';
+import type { OutboxItem, OutboxOption } from '../types.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { parseItem } from './settle.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -47,14 +47,35 @@ export const PickSchema = z
 
 const PicksSchema = z.array(PickSchema);
 
+type Pick = z.infer<typeof PickSchema>;
+
+/** A door a reply is written through. */
+export type Door = keyof typeof DOORS;
+
+/** A question a reply may answer: its number, its rank, and the options it offers. */
+export type ReplyQuestion = { number: number; rank: string; options?: readonly { letter: string }[] };
+
+/** A question {@link answerableQuestions} reads off the numbering. */
+export type AnswerableQuestion = {
+  number: number;
+  id: string;
+  rank: string;
+  options: OutboxOption[];
+  adopted: boolean;
+  item: OutboxItem;
+};
+
+/** The numbering the pull request comment carries: which item each question number names. */
+export type Numbering = readonly { number: number; id: string; since?: string }[];
+
 /**
  * A reason or a prose answer as one clean line: every run of whitespace (newlines included) becomes
  * one space, every `<!--` and `-->` is removed — until none is left, so removing one cannot join
  * two halves into another — and the rest is cut to {@link REASON_MAX_LENGTH} characters.
  */
-export function cleanLine(text) {
+export function cleanLine(text: unknown): string {
   let line = String(text ?? '');
-  let previous;
+  let previous: string;
   do {
     previous = line;
     line = line.replace(/<!--|-->/g, '');
@@ -62,13 +83,15 @@ export function cleanLine(text) {
   return line.replace(/\s+/g, ' ').trim().slice(0, REASON_MAX_LENGTH).trim();
 }
 
-function describeIssue(issue) {
+/** A failed parse always carries at least one issue; `undefined` only satisfies the index type. */
+function describeIssue(issue: z.core.$ZodIssue | undefined): string {
+  if (issue === undefined) return 'picks: invalid';
   const path = issue.path.length ? `pick ${issue.path.map(String).join('.')}` : 'picks';
   return `${path}: ${issue.message}`;
 }
 
 /** The line one pick writes, or the reason it is refused. */
-function lineFor(question, pick) {
+function lineFor(question: ReplyQuestion, pick: Pick): { line: string; reason?: undefined } | { reason: string; line?: undefined } {
   const { number } = question;
   const kind = pick.pick.trim();
   const lower = kind.toLowerCase();
@@ -106,15 +129,25 @@ function lineFor(question, pick) {
  *   `questions` is every question the reply may answer (see {@link answerableQuestions}).
  * @returns {{ ok: true, reply: string } | { ok: false, reason: string }}
  */
-export function writeReply({ prd, door, questions, picks }) {
+export function writeReply({
+  prd,
+  door,
+  questions,
+  picks,
+}: {
+  prd: number;
+  door: Door;
+  questions: readonly ReplyQuestion[] | null | undefined;
+  picks: unknown;
+}): { ok: true; reply: string } | { ok: false; reason: string } {
   if (!Object.hasOwn(DOORS, door)) return { ok: false, reason: `unknown door "${door}": terminal or page` };
   const parsed = PicksSchema.safeParse(picks, { error: KIT_MESSAGES });
   if (!parsed.success) return { ok: false, reason: describeIssue(parsed.error.issues[0]) };
   if (parsed.data.length === 0) return { ok: false, reason: 'no answer to write' };
 
   const byNumber = new Map((questions ?? []).map((question) => [question.number, question]));
-  const seen = new Set();
-  const lines = [];
+  const seen = new Set<number>();
+  const lines: string[] = [];
   for (const pick of [...parsed.data].sort((a, b) => a.number - b.number)) {
     if (seen.has(pick.number)) return { ok: false, reason: `question ${pick.number} is answered twice` };
     seen.add(pick.number);
@@ -122,7 +155,7 @@ export function writeReply({ prd, door, questions, picks }) {
     if (!question) return { ok: false, reason: `question ${pick.number} is not open on this pull request` };
     const result = lineFor(question, pick);
     if (result.reason) return { ok: false, reason: result.reason };
-    lines.push(result.line);
+    lines.push(result.line ?? '');
   }
   return { ok: true, reply: [...lines, '', `_${DOORS[door]} · PRD ${prd}_`].join('\n') };
 }
@@ -134,14 +167,22 @@ export function writeReply({ prd, door, questions, picks }) {
  * @param {{ numbering: { number: number, id: string }[], items: object[], adopted?: { id: string, itemText: string }[] }} args
  * @returns {Array<{ number: number, id: string, rank: string, options: { letter: string, text: string }[], adopted: boolean, item: object }>}
  */
-export function answerableQuestions({ numbering, items, adopted = [] }) {
+export function answerableQuestions({
+  numbering,
+  items,
+  adopted = [],
+}: {
+  numbering: Numbering;
+  items: readonly OutboxItem[];
+  adopted?: readonly { id: string; itemText: string }[];
+}): AnswerableQuestion[] {
   const open = new Map(items.map((item) => [item.id, item]));
-  const kept = new Map();
+  const kept = new Map<string, OutboxItem>();
   for (const entry of adopted) {
-    const parsed = parseOutboxItem(entry.itemText, { file: null });
+    const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) kept.set(entry.id, parsed.item);
   }
-  const questions = [];
+  const questions: AnswerableQuestion[] = [];
   for (const { number, id } of numbering) {
     const item = open.get(id) ?? kept.get(id);
     if (!item) continue;
@@ -158,10 +199,10 @@ export function answerableQuestions({ numbering, items, adopted = [] }) {
 }
 
 /** The text a question is asked with: the question and the decision, in plain words. */
-function askedText(item) {
+function askedText(item: OutboxItem): string {
   const sections = item.sections ?? {};
   return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain]
-    .filter(Boolean)
+    .filter((part): part is string => Boolean(part))
     .map((part) => part.replace(/\s+/g, ' ').trim())
     .join(' ');
 }
@@ -174,7 +215,7 @@ function askedText(item) {
  *
  * @param {{ numbering: { number: number, id: string }[], items: object[] }} args
  */
-export function askBatches({ numbering, items }) {
+export function askBatches({ numbering, items }: { numbering: Numbering; items: readonly OutboxItem[] }) {
   const asked = answerableQuestions({ numbering, items })
     .filter((question) => !question.adopted && (question.rank === HUMAN_ACTION || question.rank === 'high'))
     .sort((a, b) => Number(b.rank === HUMAN_ACTION) - Number(a.rank === HUMAN_ACTION) || a.number - b.number)
@@ -199,7 +240,7 @@ export function askBatches({ numbering, items }) {
             })),
       };
     });
-  const batches = [];
+  const batches: (typeof asked)[] = [];
   for (let start = 0; start < asked.length; start += ASK_BATCH_SIZE) {
     batches.push(asked.slice(start, start + ASK_BATCH_SIZE));
   }

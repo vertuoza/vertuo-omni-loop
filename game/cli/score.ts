@@ -1,4 +1,3 @@
-// @ts-nocheck
 // game/cli/score.ts [YYYY-MM] [--rankings <file>] --workspace <slug> — fold one workspace's ledger
 // (Supabase) into season scores. With no season it folds the current month, and in the first 7 days
 // of a month also the previous one, whose final standings become the rankings page (see

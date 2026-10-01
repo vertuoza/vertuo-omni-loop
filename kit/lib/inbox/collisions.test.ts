@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { planCollisions, planFromMarkdown } from './collisions.ts';
 
@@ -7,7 +6,7 @@ import { planCollisions, planFromMarkdown } from './collisions.ts';
  * `territory` column. Only the columns these fixtures need are filled in; the others are
  * irrelevant to a collision check.
  */
-function plan(rows) {
+function plan(rows: string[]) {
   return `## Slices
 
 | id  | slice | scenarios | territory | blocked by | wave | tier |
@@ -16,7 +15,7 @@ ${rows.join('\n')}
 `;
 }
 
-function row(id, territory) {
+function row(id: string, territory: string) {
   return `| ${id}  | …     | …         | ${territory} | —          | 1    | mid  |`;
 }
 

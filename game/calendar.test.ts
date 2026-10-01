@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { isWorkingTime, workingMinutesBetween, addWorkingMinutes, tranchesBetween } from './calendar.ts';
 
 // September 2026: Brussels is CEST, UTC+2. Wed 2026-09-23.
-const d = (s) => new Date(s);
+const d = (s: string): Date => new Date(s);
 
 describe('calendar', () => {
   it('knows a Wednesday noon is working time and a Saturday is not', () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { makeMarkers } from '../markers.ts';
@@ -16,6 +15,13 @@ import {
 } from './classify.ts';
 import { candidatesFromLedger } from './harvest.ts';
 import { LOOK_RULE } from './look-rule.ts';
+
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
 
 const K = '.omni-loop/knowledge';
 
@@ -77,7 +83,7 @@ const KNOWLEDGE_FILES = {
   [`${K}/adr/0001-outbox-check-as-app.md`]: '# ADR-0001 — The outbox check runs as an app\n\nBody.\n',
 };
 
-function summaryOf(files = KNOWLEDGE_FILES) {
+function summaryOf(files: Record<string, string> = KNOWLEDGE_FILES) {
   const { ctx } = makeRepo({ files });
   return knowledgeSummary({ ctx });
 }
@@ -128,7 +134,7 @@ const ITEM_TEXT = [
 
 function candidate() {
   const markers = makeMarkers('omni-outbox');
-  const { item } = parseOutboxItem(ITEM_TEXT);
+  const item = itemOf(ITEM_TEXT);
   const entry = renderSettledEntry({
     item,
     itemText: ITEM_TEXT,
@@ -143,7 +149,7 @@ function candidate() {
   });
   const ctx = { config: { paths: { delivery: '.omni-loop/delivery' } } };
   const text = `${settledHeader(28, { ctx })}\n${entry}`;
-  return candidatesFromLedger(text, { markers, ledgerFile: 'shipped/0028/outbox/settled.md' })[0];
+  return candidatesFromLedger(text, { markers, ledgerFile: 'shipped/0028/outbox/settled.md' })[0]!;
 }
 
 describe('knowledgeSummary', () => {
@@ -216,13 +222,13 @@ describe('classificationPrompt', () => {
 
 describe('classificationSchema', () => {
   const schema = classificationSchema(SUMMARY);
-  const accepts = (reply) => schema.safeParse(reply).success;
-  const refusal = (reply, bound = schema) => {
+  const accepts = (reply: unknown) => schema.safeParse(reply).success;
+  const refusal = (reply: unknown, bound = schema) => {
     const result = bound.safeParse(reply);
     expect(result.success).toBe(false);
-    return result.error.issues.map((issue) => issue.message).join(' | ');
+    return result.error!.issues.map((issue) => issue.message).join(' | ');
   };
-  const long = (n) => 'x'.repeat(n + 1);
+  const long = (n: number) => 'x'.repeat(n + 1);
 
   const VALID = {
     adr: { kind: 'adr', title: 'The check reads two snapshots', statement: 'Settings come from the base.', reason: 'how it is built' },

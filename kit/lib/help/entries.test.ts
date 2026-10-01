@@ -1,4 +1,3 @@
-// @ts-nocheck
 // The help table's guard (PRD 315, D4): the help text is written by hand, so this test holds it to
 // the CLI's command table and the plugin's skill folders. A command or a skill with no entry of its
 // kind fails, and so does an entry naming one that does not exist. Each rule runs on the live table,
@@ -10,18 +9,21 @@ import { COMMAND_TABLE } from '../../bin/commands/index.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../status/format.ts';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.ts';
 
+/** An entry as the guard reads it: the live table's, or a fixture broken on purpose, field by field. */
+type Fixture = Record<string, any>; // ts-allow: a fixture entry may carry any field of any type, to break a rule
+
 const SKILLS_DIR = fileURLToPath(new URL('../../plugin/skills', import.meta.url));
 const skillFolders = () => readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 const KINDS = ['command', 'skill'];
 const WHO = ['you', 'skills'];
-const isText = (value) => typeof value === 'string' && value.trim() !== '';
-const oneLine = (value) => isText(value) && !value.includes('\n');
+const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
+const oneLine = (value: unknown): value is string => isText(value) && !value.includes('\n');
 const GROUP_IDS = SKILL_GROUPS.map((group) => group.id);
 const DOCS_FIELDS = ['group', 'when', 'example'];
-const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Every way a skill entry fails its docs fields (PRD 580), or a command entry carries one. */
-function docsViolations(entry, what) {
+function docsViolations(entry: Fixture, what: string): string[] {
   if (entry.kind === 'command') {
     const carried = DOCS_FIELDS.filter((field) => entry[field] !== undefined);
     return carried.length ? [`${what}: a command has no ${carried.join(', ')}`] : [];
@@ -37,8 +39,8 @@ function docsViolations(entry, what) {
 }
 
 /** Every way one entry's own fields fail, whatever the table holds. */
-function fieldViolations(entry, what) {
-  const out = [];
+function fieldViolations(entry: Fixture, what: string): string[] {
+  const out: string[] = [];
   if (!WHO.includes(entry.who)) out.push(`${what}: who is "${entry.who}", not you or skills`);
   if (!Array.isArray(entry.usage) || entry.usage.length === 0 || !entry.usage.every(oneLine)) out.push(`${what}: no usage`);
   if (!oneLine(entry.summary)) out.push(`${what}: its summary is not one line`);
@@ -47,19 +49,19 @@ function fieldViolations(entry, what) {
 }
 
 /** Every way an entry fails the row rules: a skill for you needs its label, one run by the skills has no row. */
-function rowViolations(entry, what) {
-  const out = [];
+function rowViolations(entry: Fixture, what: string): string[] {
+  const out: string[] = [];
   if (entry.kind === 'skill' && entry.who === 'you' && !oneLine(entry.label)) out.push(`${what}: a skill for you needs its label`);
   if (entry.who === 'skills' && (entry.label !== undefined || entry.also !== undefined)) out.push(`${what}: run by the skills, it has no row`);
   return out;
 }
 
 /** Every command or skill with no entry, or with more than one. */
-function countViolations(known, seen) {
-  const out = [];
+function countViolations(known: Record<string, Set<string>>, seen: Record<string, Map<string, number>>): string[] {
+  const out: string[] = [];
   for (const kind of KINDS) {
-    for (const name of known[kind]) {
-      const count = seen[kind].get(name) ?? 0;
+    for (const name of known[kind]!) {
+      const count = seen[kind]!.get(name) ?? 0;
       if (count === 0) out.push(`${kind} ${name}: no entry`);
       if (count > 1) out.push(`${kind} ${name}: ${count} entries`);
     }
@@ -68,25 +70,25 @@ function countViolations(known, seen) {
 }
 
 /** Every way `entries` fails the command table and the skill folders, as one line each. */
-function entryViolations(entries, { commands, skills }) {
-  const out = [];
-  const known = { command: new Set(commands), skill: new Set(skills) };
-  const seen = { command: new Map(), skill: new Map() };
+function entryViolations(entries: readonly Fixture[], { commands, skills }: { commands: string[]; skills: string[] }): string[] {
+  const out: string[] = [];
+  const known: Record<string, Set<string>> = { command: new Set(commands), skill: new Set(skills) };
+  const seen: Record<string, Map<string, number>> = { command: new Map(), skill: new Map() };
   for (const entry of entries) {
     const what = `${entry.kind} ${entry.name}`;
     if (!KINDS.includes(entry.kind)) {
       out.push(`${entry.name}: kind "${entry.kind}" is neither command nor skill`);
       continue;
     }
-    seen[entry.kind].set(entry.name, (seen[entry.kind].get(entry.name) ?? 0) + 1);
-    if (!known[entry.kind].has(entry.name)) out.push(`${what}: no such ${entry.kind}`);
+    seen[entry.kind]!.set(entry.name, (seen[entry.kind]!.get(entry.name) ?? 0) + 1);
+    if (!known[entry.kind]!.has(entry.name)) out.push(`${what}: no such ${entry.kind}`);
     out.push(...fieldViolations(entry, what), ...rowViolations(entry, what), ...docsViolations(entry, what));
   }
   return [...out, ...countViolations(known, seen)];
 }
 
 const EXAMPLE = { type: '/omni:s', result: 'does s' };
-const entry = (over) => ({ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'does x', detail: 'Does x.', ...over });
+const entry = (over: Fixture): Fixture => ({ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'does x', detail: 'Does x.', ...over });
 
 describe('the help table in this repository', () => {
   it('has one entry per command and per skill, and none for anything else', () => {
@@ -102,7 +104,7 @@ describe('the help table in this repository', () => {
 
   it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const prCare = skills.find((e) => e.name === 'pr-care');
+    const prCare = skills.find((e) => e.name === 'pr-care')!;
     expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
     expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
     expect(prCare.when).toMatch(/^Use it when\b/);
@@ -114,7 +116,7 @@ describe('the help table in this repository', () => {
 
   it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const thinkBig = skills.find((e) => e.name === 'think-big');
+    const thinkBig = skills.find((e) => e.name === 'think-big')!;
     expect(thinkBig).toMatchObject({ who: 'you', usage: ['/omni:think-big <brief or n>'], label: '/omni:think-big', group: 'start' });
     expect(skills.indexOf(thinkBig)).toBe(skills.findIndex((e) => e.name === 'brainstorm') - 1);
     expect(thinkBig.detail).toMatch(/\bvast idea\b/);
@@ -125,22 +127,22 @@ describe('the help table in this repository', () => {
   });
 
   it("gives /omni:brainstorm's usage --concept <n> <area>, and names /omni:think-big on the idea stage's line (PRD 686)", () => {
-    const brainstorm = ENTRIES.find((e) => e.name === 'brainstorm' && e.kind === 'skill');
+    const brainstorm = ENTRIES.find((e) => e.name === 'brainstorm' && e.kind === 'skill')!;
     expect(brainstorm.usage).toEqual(['/omni:brainstorm', '/omni:brainstorm --concept <n> <area>']);
     expect(brainstorm.label).toBe('/omni:brainstorm');
-    const idea = STAGES.find((stage) => stage.name === 'idea');
+    const idea = STAGES.find((stage) => stage.name === 'idea')!;
     expect(idea.line).toMatch(/\/omni:brainstorm\b/);
     expect(idea.line).toMatch(/\/omni:think-big\b/);
   });
 
   it('says /omni:think-big runs /omni:dossier-open, as /omni:brainstorm does (PRD 686)', () => {
-    const dossierOpen = ENTRIES.find((e) => e.name === 'dossier-open' && e.kind === 'skill');
+    const dossierOpen = ENTRIES.find((e) => e.name === 'dossier-open' && e.kind === 'skill')!;
     expect(dossierOpen.detail).toMatch(/\/omni:brainstorm\b.*\/omni:think-big\b/);
   });
 
   it('lists omni concept for skills, after omni bug, with its usage and what it checks (PRD 686)', () => {
     const commands = ENTRIES.filter((e) => e.kind === 'command');
-    const concept = commands.find((e) => e.name === 'concept');
+    const concept = commands.find((e) => e.name === 'concept')!;
     expect(concept).toMatchObject({ who: 'skills', usage: ['omni concept <n> [--base <ref>]'] });
     expect(commands.indexOf(concept)).toBe(commands.findIndex((e) => e.name === 'bug') + 1);
     expect(concept.detail).toMatch(/\bconcept\.md\b/);
@@ -150,14 +152,14 @@ describe('the help table in this repository', () => {
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
-    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
+    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command')!;
     expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]'] });
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
 
   it('lists /omni:bug-fix for you, after /omni:visual-fix, with its usage and when to use it (PRD 556)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const bugFix = skills.find((e) => e.name === 'bug-fix');
+    const bugFix = skills.find((e) => e.name === 'bug-fix')!;
     expect(bugFix).toMatchObject({ who: 'you', usage: ['/omni:bug-fix <line or n>'], label: '/omni:bug-fix' });
     expect(skills.indexOf(bugFix)).toBe(skills.findIndex((e) => e.name === 'visual-fix') + 1);
     expect(bugFix.detail).toMatch(/\bbug\b/);
@@ -166,7 +168,7 @@ describe('the help table in this repository', () => {
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
-    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill');
+    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill')!;
     expect(visualFix).toMatchObject({ who: 'you', usage: ['/omni:visual-fix <line or n>'], label: '/omni:visual-fix' });
     expect(visualFix.detail).toMatch(/\bsmall visual change\b/);
     expect(visualFix.detail).toMatch(/\/omni:brainstorm\b/);
@@ -174,7 +176,7 @@ describe('the help table in this repository', () => {
 
   it('has /omni:mega-invade for you, with --sync, after /omni:invade (PRD 522)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const mega = skills.find((e) => e.name === 'mega-invade');
+    const mega = skills.find((e) => e.name === 'mega-invade')!;
     expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-invade [--sync]'], label: '/omni:mega-invade' });
     expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'invade') + 1);
     expect(mega.detail).toMatch(/\bplan repository\b/);
@@ -184,7 +186,7 @@ describe('the help table in this repository', () => {
 
   it('has /omni:mega-brainstorm for you, after /omni:brainstorm, naming the plan repository and ultra-yolo (PRD 549)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const mega = skills.find((e) => e.name === 'mega-brainstorm');
+    const mega = skills.find((e) => e.name === 'mega-brainstorm')!;
     expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-brainstorm'], label: '/omni:mega-brainstorm' });
     expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'brainstorm') + 1);
     expect(mega.detail).toMatch(/\bplan repository\b/);
@@ -201,7 +203,7 @@ describe('the help table in this repository', () => {
       ['ultra-yolo-fix', 'yolo-fix', '/omni:ultra-yolo-fix <n>', '/omni:ultra-yolo-fix'],
       ['ultra-wave', 'wave', '/omni:ultra-wave <n>', '/omni:ultra-wave <n>'],
     ]) {
-      const ultra = skills.find((e) => e.name === name);
+      const ultra = skills.find((e) => e.name === name)!;
       expect(ultra, name).toMatchObject({ who: 'you', usage: [usage], label });
       expect(skills.indexOf(ultra), name).toBe(skills.findIndex((e) => e.name === twin) + 1);
       expect(ultra.detail, name).toMatch(/\bplan repository\b/);
@@ -232,13 +234,13 @@ describe('the help table in this repository', () => {
 
   it('names the seven stages of the loop in order, in the kit\'s stage words, each with one line, and three principles', () => {
     expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
-    expect(STAGES.map((stage) => stage.name)).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
+    expect(STAGES.map((stage) => stage.name)).toEqual(STAGE_ORDER.map((stage: string) => STAGE_WORDS[stage as keyof typeof STAGE_WORDS]));
     for (const stage of STAGES) expect(oneLine(stage.line), stage.name).toBe(true);
     expect(PRINCIPLES).toHaveLength(3);
   });
 
   it('shows omni item new --out and omni item relay (PRD 563)', () => {
-    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command')!;
     expect(item.usage.join(' ')).toMatch(/--out <dir>/);
     expect(item.usage).toContain('omni item relay <dir> --prd <n>');
     expect(item.detail).toMatch(/\bnever adopts\b/);
@@ -246,13 +248,13 @@ describe('the help table in this repository', () => {
   });
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
-    const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
+    const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command')!;
     expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status']);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
   });
 
   it('names --kind on dossier push, /omni:dossier-push and both fix skills (PRD 627)', () => {
-    const find = (name, kind) => ENTRIES.find((e) => e.name === name && e.kind === kind);
+    const find = (name: string, kind: string) => ENTRIES.find((e) => e.name === name && e.kind === kind)!;
     expect(find('dossier', 'command').detail).toMatch(/--kind visual or --kind bug\b.*\bissue n's fix\b/);
     expect(find('dossier-push', 'skill').usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug]']);
     expect(find('dossier-push', 'skill').detail).toMatch(/\/omni:visual-fix\b.*\/omni:bug-fix\b.*--kind/);
@@ -262,7 +264,7 @@ describe('the help table in this repository', () => {
   });
 
   it('says omni visual checks the rounds of variations (PRD 627)', () => {
-    const visual = ENTRIES.find((e) => e.name === 'visual' && e.kind === 'command');
+    const visual = ENTRIES.find((e) => e.name === 'visual' && e.kind === 'command')!;
     expect(visual.detail).toMatch(/\bvariations-r<k>\.html\b/);
     expect(visual.detail).toMatch(/\bno other file\b/);
   });
@@ -276,11 +278,11 @@ describe('the help table in this repository', () => {
   });
 });
 
-const skill = (over) => entry({ kind: 'skill', usage: ['/omni:s'], label: '/omni:s', group: 'build', when: 'Use it when s.', example: EXAMPLE, ...over });
+const skill = (over: Fixture): Fixture => entry({ kind: 'skill', usage: ['/omni:s'], label: '/omni:s', group: 'build', when: 'Use it when s.', example: EXAMPLE, ...over });
 
 describe('the help table guard catches what it is for', () => {
   const live = { commands: ['x', 'y'], skills: ['s'] };
-  const good = [entry({ name: 'x' }), entry({ name: 'y', who: 'skills' }), skill({ name: 's' })];
+  const good: [Fixture, Fixture, Fixture] = [entry({ name: 'x' }), entry({ name: 'y', who: 'skills' }), skill({ name: 's' })];
 
   it('passes a table that matches', () => {
     expect(entryViolations(good, live)).toEqual([]);
@@ -323,7 +325,7 @@ describe('the help table guard catches what it is for', () => {
       ['group', 'skill s: group "undefined" is not one of SKILL_GROUPS'],
       ['when', 'skill s: its when is not one line starting "Use it when"'],
       ['example', 'skill s: its example type is not one line starting /omni:s'],
-    ]) {
+    ] as [string, string][]) {
       const table = [good[0], good[1], skill({ name: 's', [field]: undefined })];
       expect(entryViolations(table, live), field).toContain(message);
     }
@@ -337,7 +339,7 @@ describe('the help table guard catches what it is for', () => {
   });
 
   it('flags an example typed as another skill, and a result not on one line', () => {
-    const typedAs = (type) => entryViolations([good[0], good[1], skill({ name: 's', example: { type, result: 'r' } })], live);
+    const typedAs = (type: string) => entryViolations([good[0], good[1], skill({ name: 's', example: { type, result: 'r' } })], live);
     expect(typedAs('/omni:yolo 7')).toEqual(['skill s: its example type is not one line starting /omni:s']);
     expect(typedAs('/omni:s-fix 7')).toEqual(['skill s: its example type is not one line starting /omni:s']);
     expect(typedAs('/omni:s 7')).toEqual([]);

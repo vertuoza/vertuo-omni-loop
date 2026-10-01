@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,8 +12,8 @@ const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: null, email: 
 const freshHome = () => mkdtempSync(join(tmpdir(), 'omni-home-'));
 
 /** A sign-in flow that keeps an entry for the host, as `omni signin` does, and exits with `code`. */
-function flow(home, code = 0) {
-  const calls = [];
+function flow(home: string, code = 0) {
+  const calls: string[] = [];
   const signIn = async () => {
     calls.push('signin');
     if (code === 0) credentials({ home }).write(HOST, ENTRY);

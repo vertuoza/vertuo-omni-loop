@@ -1,16 +1,18 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { countSentences, parseVoice, VOICE_FILE } from './voice.ts';
 
 /** The example voice.json every reader of the shape tests against (the PRD 822 plan's shared ground). */
-const EXAMPLE_VOICE = JSON.parse(readFileSync(new URL('./example.json', import.meta.url), 'utf8'));
+/** A voice.json fixture, read and edited loosely. */
+type Fixture = any;
 
-const clone = (value) => JSON.parse(JSON.stringify(value));
-const text = (value) => JSON.stringify(value, null, 2);
+const EXAMPLE_VOICE: Fixture = JSON.parse(readFileSync(new URL('./example.json', import.meta.url), 'utf8'));
+
+const clone = (value: unknown): Fixture => JSON.parse(JSON.stringify(value));
+const text = (value: unknown) => JSON.stringify(value, null, 2);
 
 /** The example, changed by `edit`, as the text of a voice.json. */
-function edited(edit) {
+function edited(edit: (voice: Fixture) => void) {
   const voice = clone(EXAMPLE_VOICE);
   edit(voice);
   return text(voice);
@@ -24,7 +26,7 @@ describe('parseVoice', () => {
   it('accepts a valid file, every stage and every settlement', () => {
     const parsed = parseVoice(text(EXAMPLE_VOICE));
     expect(parsed).toEqual({ ok: true, voice: EXAMPLE_VOICE, errors: [] });
-    expect(EXAMPLE_VOICE.rounds.map((r) => r.stage)).toEqual(['design', 'spec', 'rework-1', 'shipped']);
+    expect(EXAMPLE_VOICE.rounds.map((r: Fixture) => r.stage)).toEqual(['design', 'spec', 'rework-1', 'shipped']);
   });
 
   it('accepts a round without an objection and without a fit line', () => {

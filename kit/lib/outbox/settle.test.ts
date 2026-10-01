@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, assert, describe, expect, it } from 'vitest';
 import { makeMarkers } from '../markers.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
@@ -21,6 +20,7 @@ import {
   settleItem,
   settledHeader,
 } from './settle.ts';
+import type { AnswerChannel } from './settle.ts';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
@@ -63,12 +63,12 @@ const ITEM_TEXT = [
 const CHOICE =
   "I default to the tenant's own country, because a constant is the most reversible option.";
 
-const ISSUE_CHANNEL = { kind: 'prd-issue', number: 985, url: 'https://github.com/o/r/issues/985' };
-const PR_CHANNEL = { kind: 'feature-pull-request', number: 986 };
+const ISSUE_CHANNEL: AnswerChannel = { kind: 'prd-issue', number: 985, url: 'https://github.com/o/r/issues/985' };
+const PR_CHANNEL: AnswerChannel = { kind: 'feature-pull-request', number: 986 };
 
-const roots = [];
+const roots: string[] = [];
 
-function makeRoot({ item = ITEM_TEXT, settled = null } = {}) {
+function makeRoot({ item = ITEM_TEXT, settled = null }: { item?: string; settled?: string | null } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'outbox-settle-'));
   roots.push(root);
   const dir = join(root, 'docs/outbox/985');
@@ -78,7 +78,7 @@ function makeRoot({ item = ITEM_TEXT, settled = null } = {}) {
   return root;
 }
 
-function answer(overrides = {}) {
+function answer(overrides: Record<string, unknown> = {}) {
   return {
     text: 'Yes, keep it as is.',
     approvedBy: 'pierrederval',
@@ -88,7 +88,10 @@ function answer(overrides = {}) {
   };
 }
 
-function settle(overrides = {}, rootOptions = {}) {
+function settle(
+  overrides: Record<string, unknown> = {},
+  rootOptions: { root?: string; item?: string; settled?: string | null } = {},
+) {
   const root = rootOptions.root ?? makeRoot(rootOptions);
   const result = settleItem({
     ctx: flatCtx(root),
@@ -151,7 +154,7 @@ function makeEmptyRoot() {
 }
 
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
 describe('the settled shapes', () => {
@@ -237,7 +240,7 @@ describe('an answer is transcribed, not merged into the question', () => {
   it('holds the original question unchanged, and names who approved it, when, and where', () => {
     const { result, settledPath } = settle();
 
-    expect(result.ok).toBe(true);
+    assert(result.ok);
     const settled = readFileSync(settledPath, 'utf8');
     expect(settled).toContain(ITEM_TEXT);
     expect(settled).toContain('- Approved by: pierrederval');
@@ -252,12 +255,12 @@ describe('an answer is transcribed, not merged into the question', () => {
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
     expect(entries).toHaveLength(1);
 
-    const roundTripped = parseOutboxItem(entries[0].itemText);
+    const roundTripped = parseOutboxItem(entries[0]!.itemText);
     const original = parseOutboxItem(ITEM_TEXT);
-    expect(roundTripped.ok).toBe(true);
-    expect(original.ok).toBe(true);
-    expect(roundTripped.item.sections).toEqual(original.item.sections);
-    expect(entries[0].itemText).toBe(ITEM_TEXT);
+    assert(roundTripped.ok);
+    assert(original.ok);
+    expect(roundTripped.item!.sections).toEqual(original.item!.sections);
+    expect(entries[0]!.itemText).toBe(ITEM_TEXT);
   });
 
   it('records the answer exactly as it was given', () => {
@@ -265,7 +268,7 @@ describe('an answer is transcribed, not merged into the question', () => {
       'No.\n\n  Two spaces, a blank line, and a ``` fence inside:\n```js\nconst a = 1;\n```';
     const { settledPath } = settle({ text });
 
-    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0].answerText).toBe(
+    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]!.answerText).toBe(
       text,
     );
   });
@@ -274,6 +277,7 @@ describe('an answer is transcribed, not merged into the question', () => {
     const { root, result } = settle();
 
     expect(existsSync(join(root, 'docs/outbox/985/s5-01-default-country.md'))).toBe(false);
+    assert(result.ok);
     expect(result.removedFile).toBe('docs/outbox/985/s5-01-default-country.md');
   });
 
@@ -297,7 +301,7 @@ describe('an answer given on the pull request', () => {
     const { settledPath } = settle({ channel: PR_CHANNEL });
 
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
-    expect(entries[0].fields.Channel).toBe('feature pull request #986');
+    expect(entries[0]!.fields.Channel).toBe('feature pull request #986');
   });
 });
 
@@ -305,12 +309,13 @@ describe('an answer that agrees with what was built', () => {
   it('settles as agreed, and nothing is reworked', () => {
     const { result, settledPath } = settle({ text: 'Yes, keep it as is.' });
 
+    assert(result.ok);
     expect(result.verdict).toBe('agreed');
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    expect(entry.verdict).toBe('agreed');
-    expect(entry.closed).toBe(true);
-    expect(entry.fields.Closed).toMatch(/^yes\b/);
-    expect(entry.fields.Closed).toContain('nothing to rework');
+    expect(entry!.verdict).toBe('agreed');
+    expect(entry!.closed).toBe(true);
+    expect(entry!.fields.Closed).toMatch(/^yes\b/);
+    expect(entry!.fields.Closed).toContain('nothing to rework');
   });
 });
 
@@ -320,19 +325,20 @@ describe('an answer that contradicts what was built', () => {
       text: "No — use the contact's own country instead.",
     });
 
+    assert(result.ok);
     expect(result.verdict).toBe('drifted');
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    expect(entry.verdict).toBe('drifted');
-    expect(entry.closed).toBe(false);
-    expect(entry.fields.Closed).toMatch(/^no\b/);
+    expect(entry!.verdict).toBe('drifted');
+    expect(entry!.closed).toBe(false);
+    expect(entry!.fields.Closed).toMatch(/^no\b/);
   });
 
   it('keeps what a different answer would cost addressable, for the rework to be derived from', () => {
     const { settledPath } = settle({ text: "No — use the contact's own country instead." });
 
     const entry = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0];
-    const item = parseOutboxItem(entry.itemText);
-    expect(item.item.sections.whatItCostsToChangeLater).toBe(
+    const item = parseOutboxItem(entry!.itemText);
+    expect(item.item!.sections.whatItCostsToChangeLater).toBe(
       'One constant, and a migration over contacts already created with the default.',
     );
   });
@@ -343,7 +349,7 @@ describe('what settling refuses', () => {
     const root = makeRoot();
     const { result } = settle({ text: 'Ask Sophie about the Belgian entities.' }, { root });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(result.errors.join(' ')).toMatch(/undetermined/);
     expect(existsSync(join(root, 'docs/outbox/985/s5-01-default-country.md'))).toBe(true);
     expect(existsSync(join(root, 'docs/outbox/985/settled.md'))).toBe(false);
@@ -355,7 +361,7 @@ describe('what settling refuses', () => {
     });
     const { result } = settle({}, { root });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(result.errors.join(' ')).toMatch(/missing section/);
     expect(existsSync(join(root, 'docs/outbox/985/settled.md'))).toBe(false);
   });
@@ -368,7 +374,7 @@ describe('what settling refuses', () => {
       answer: answer(),
     });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(result.errors.join(' ')).toMatch(/no such open item/);
   });
 
@@ -380,7 +386,7 @@ describe('what settling refuses', () => {
       answer: answer({ approvedAt: 'yesterday' }),
     });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(result.errors.join(' ')).toMatch(/approvedAt/);
   });
 });
@@ -401,7 +407,7 @@ describe('settled.md as a ledger', () => {
       answer: answer({ text: 'No, it should be the quote instead.', channel: PR_CHANNEL }),
     });
 
-    expect(second.ok).toBe(true);
+    assert(second.ok);
     const settled = readFileSync(join(dir, 'settled.md'), 'utf8');
     expect(settled.split('\n')[0]).toBe('# Settled outbox items — PRD 985');
     const entries = parseSettledEntries(settled, markers);
@@ -424,7 +430,7 @@ describe('a medium item is adopted the moment it is raised', () => {
     const root = makeEmptyRoot();
     const result = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
 
-    expect(result.ok).toBe(true);
+    assert(result.ok);
     expect(result.item.rank).toBe('medium');
     expect(result.settledFile).toBe('docs/outbox/985/settled.md');
 
@@ -440,6 +446,7 @@ describe('a medium item is adopted the moment it is raised', () => {
     const root = makeEmptyRoot();
     const result = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
 
+    assert(result.ok);
     const settled = readFileSync(join(root, result.settledFile), 'utf8');
     expect(settled).not.toContain('- Channel:');
     expect(settled).not.toContain('- Channel URL:');
@@ -449,6 +456,7 @@ describe('a medium item is adopted the moment it is raised', () => {
     const root = makeEmptyRoot();
     const result = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
 
+    assert(result.ok);
     const entries = parseSettledEntries(
       readFileSync(join(root, result.settledFile), 'utf8'),
       markers,
@@ -475,7 +483,7 @@ describe('a medium item is adopted the moment it is raised', () => {
     const highItem = MEDIUM_ITEM_TEXT.replace('rank: medium', 'rank: high');
     const result = adoptItem({ ctx: flatCtx(root), itemText: highItem });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(result.errors.join(' ')).toMatch(/only a "medium" item is adopted/);
     expect(existsSync(join(root, 'docs/outbox/985/settled.md'))).toBe(false);
   });
@@ -487,7 +495,7 @@ describe('a medium item is adopted the moment it is raised', () => {
       itemText: '---\nid: broken\n---\n\nnothing here\n',
     });
 
-    expect(result.ok).toBe(false);
+    assert(!result.ok);
     expect(existsSync(join(root, 'docs/outbox/985/settled.md'))).toBe(false);
   });
 
@@ -498,7 +506,7 @@ describe('a medium item is adopted the moment it is raised', () => {
     const second = MEDIUM_ITEM_TEXT.replace('id: s7-01-default-timeout', 'id: s7-02-retry-count');
     const result = adoptItem({ ctx: flatCtx(root), itemText: second });
 
-    expect(result.ok).toBe(true);
+    assert(result.ok);
     const entries = parseSettledEntries(
       readFileSync(join(root, result.settledFile), 'utf8'),
       markers,
@@ -514,7 +522,7 @@ describe("the ledger's readers take the latest entry for an id", () => {
   it('a later drifted entry for the same id wins over an earlier adopted one', () => {
     const root = makeEmptyRoot();
     const adopted = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
-    expect(adopted.ok).toBe(true);
+    assert(adopted.ok);
 
     // An objection appends a `drifted` entry for the SAME id, exactly as `/omni:yolo-fix` will do
     // once a later slice wires the reply that reads it — simulated directly here, since reading
@@ -541,8 +549,8 @@ describe("the ledger's readers take the latest entry for an id", () => {
     const entries = parseSettledEntries(readFileSync(settledPath, 'utf8'), markers);
     const forThisId = entries.filter((entry) => entry.id === adopted.item.id);
     expect(forThisId).toHaveLength(1);
-    expect(forThisId[0].verdict).toBe('drifted');
-    expect(forThisId[0].closed).toBe(false);
+    expect(forThisId[0]!.verdict).toBe('drifted');
+    expect(forThisId[0]!.closed).toBe(false);
   });
 
   it('keeps an id at its first position, so unrelated entries still read in raised order', () => {
@@ -553,6 +561,7 @@ describe("the ledger's readers take the latest entry for an id", () => {
       'id: s7-02-retry-count',
     );
     adoptItem({ ctx: flatCtx(root), itemText: secondText });
+    assert(first.ok);
 
     const objection = renderSettledEntry({
       item: first.item,
@@ -574,19 +583,20 @@ describe("the ledger's readers take the latest entry for an id", () => {
       's7-01-default-timeout',
       's7-02-retry-count',
     ]);
-    expect(entries[0].verdict).toBe('drifted');
+    expect(entries[0]!.verdict).toBe('drifted');
   });
 });
 
 describe('renderAdoptedEntry — the pure renderer behind adoptItem', () => {
   it('is what adoptItem appends, byte for byte', () => {
     const parsed = parseOutboxItem(MEDIUM_ITEM_TEXT);
-    expect(parsed.ok).toBe(true);
+    assert(parsed.ok);
 
-    const rendered = renderAdoptedEntry({ item: parsed.item, itemText: MEDIUM_ITEM_TEXT, markers });
+    const rendered = renderAdoptedEntry({ item: parsed.item!, itemText: MEDIUM_ITEM_TEXT, markers });
     const root = makeEmptyRoot();
     const result = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
 
+    assert(result.ok);
     expect(result.entry).toBe(rendered);
   });
 });
@@ -603,12 +613,12 @@ describe('Became: is parsed as a list of ids', () => {
       '- Became: N-PRODUCT-1, N-PRODUCT-2',
       markers.settledClose('s1-01-x'),
     ].join('\n');
-    expect(parseSettledEntries(text, markers)[0].became).toEqual(['N-PRODUCT-1', 'N-PRODUCT-2']);
+    expect(parseSettledEntries(text, markers)[0]!.became).toEqual(['N-PRODUCT-1', 'N-PRODUCT-2']);
   });
 
   it('is an empty list when the entry carries no Became: field', () => {
     const { settledPath } = settle();
-    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0].became).toEqual([]);
+    expect(parseSettledEntries(readFileSync(settledPath, 'utf8'), markers)[0]!.became).toEqual([]);
   });
 });
 
@@ -633,7 +643,7 @@ describe('settleItem against the folders layout', () => {
       answer: answer(),
     });
 
-    expect(result.ok).toBe(true);
+    assert(result.ok);
     expect(result.settledFile).toBe('.omni-loop/delivery/outbox/0042-a/settled.md');
     expect(result.entry.startsWith('<!-- omni-outbox-settled: s1-01-x -->')).toBe(true);
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s1-01-x.md'))).toBe(false);

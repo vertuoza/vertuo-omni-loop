@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { supabaseRest, supabaseFromEnv, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace } from './supabase.ts';
-import { fakeSupabase } from '../test/fake-supabase.ts';
+import { fakeSupabase, type Init, type Reply } from '../test/fake-supabase.ts';
 
-const ev = (id, at, extra = {}) => ({ id, at, type: 'ZONE_SECURED', planet: 2332, data: {}, ...extra });
+const ev = (id: string, at: string, extra: Record<string, unknown> = {}) => ({ id, at, type: 'ZONE_SECURED', planet: 2332, data: {}, ...extra });
 
 // Two workspaces share every table: whatever the game reads or writes for one must never touch the other.
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
@@ -12,7 +11,7 @@ const workspaces = () => [
   { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
   { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', theme: { plasma: '#2fc6a4' }, created_at: '2026-09-27T12:00:00+00:00' },
 ];
-const restOn = (fake) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
+const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
 
 describe('supabaseRest', () => {
   it('sends the key on every call and pages past the row limit', async () => {
@@ -20,8 +19,8 @@ describe('supabaseRest', () => {
     const rest = supabaseRest({ url: 'https://ref.supabase.co/', key: 'secret', fetch: fake.fetch });
     expect(await rest.select('ledger_events', 'select=id')).toHaveLength(1500);
     expect(fake.calls).toHaveLength(2);
-    expect(fake.calls[0].url.origin + fake.calls[0].url.pathname).toBe('https://ref.supabase.co/rest/v1/ledger_events');
-    expect(fake.calls[0].headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
+    expect(fake.calls[0]!.url.origin + fake.calls[0]!.url.pathname).toBe('https://ref.supabase.co/rest/v1/ledger_events');
+    expect(fake.calls[0]!.headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
   });
 
   it('names the table and the status when a read fails', async () => {
@@ -33,24 +32,24 @@ describe('supabaseRest', () => {
     const unreachable = async () => { throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }); };
     const rest = supabaseRest({ url: 'http://127.0.0.1:9', key: 'k', fetch: unreachable });
     await expect(rest.select('workspaces', 'select=id')).rejects.toThrow('Supabase: read workspaces failed (ECONNREFUSED at http://127.0.0.1:9)');
-    await expect(rest.insertNew('ledger_events', [{ id: 'a' }], 'id')).rejects.toThrow(/write ledger_events 0–1 failed \(ECONNREFUSED/);
+    await expect(rest.insertNew('ledger_events', [{ id: 'a' }] as never, 'id')).rejects.toThrow(/write ledger_events 0–1 failed \(ECONNREFUSED/);
   });
 
   it('upserts every row in one request, updating the rows its key already names', async () => {
     const fake = fakeSupabase({ player_xp: [{ k: 'a', xp: 1 }] });
     const rest = supabaseRest({ url: 'https://ref.supabase.co', key: 'k', fetch: fake.fetch });
     const rows = Array.from({ length: 1200 }, (_, i) => ({ k: i ? `n${i}` : 'a', xp: 2 }));
-    await rest.upsert('player_xp', rows, 'k');
+    await rest.upsert('player_xp', rows as never, 'k');
     expect(fake.calls).toHaveLength(1);
-    expect(fake.calls[0].url.searchParams.get('on_conflict')).toBe('k');
-    expect(fake.calls[0].headers.Prefer).toBe('resolution=merge-duplicates,return=minimal');
+    expect(fake.calls[0]!.url.searchParams.get('on_conflict')).toBe('k');
+    expect(fake.calls[0]!.headers!.Prefer).toBe('resolution=merge-duplicates,return=minimal');
     expect(fake.tables.player_xp).toHaveLength(1200);
-    expect(fake.tables.player_xp[0]).toEqual({ k: 'a', xp: 2 });
+    expect(fake.tables.player_xp![0]).toEqual({ k: 'a', xp: 2 });
   });
 
   it('names the table and the status when an upsert fails', async () => {
     const rest = supabaseRest({ url: 'https://ref.supabase.co', key: 'k', fetch: fakeSupabase({}, { failOn: 'player_xp' }).fetch });
-    await expect(rest.upsert('player_xp', [{ k: 'a' }], 'k')).rejects.toThrow(/write player_xp failed \(503/);
+    await expect(rest.upsert('player_xp', [{ k: 'a' }] as never, 'k')).rejects.toThrow(/write player_xp failed \(503/);
   });
 });
 
@@ -66,7 +65,7 @@ describe('loadWorkspace', () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     const w = await loadWorkspace(restOn(fake), 'acme');
     expect(w).toMatchObject({ id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan' });
-    expect(fake.calls[0].url.searchParams.get('slug')).toBe('eq.acme');
+    expect(fake.calls[0]!.url.searchParams.get('slug')).toBe('eq.acme');
   });
 
   it('keeps a workspace that names no GitHub organisation yet: the commands that need one refuse it', async () => {
@@ -81,8 +80,8 @@ describe('loadWorkspace', () => {
   it('sends a slug as a value, never as more of the query', async () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     await expect(loadWorkspace(restOn(fake), 'acme&id=not.is.null')).rejects.toThrow(/no workspace "acme&id=not.is.null"/);
-    expect(fake.calls[0].url.searchParams.get('slug')).toBe('eq.acme&id=not.is.null');
-    expect(fake.calls[0].url.searchParams.has('id')).toBe(false);
+    expect(fake.calls[0]!.url.searchParams.get('slug')).toBe('eq.acme&id=not.is.null');
+    expect(fake.calls[0]!.url.searchParams.has('id')).toBe(false);
   });
 });
 
@@ -124,7 +123,7 @@ describe('loadConfig', () => {
 
   it('refuses to read without a workspace, before any call', async () => {
     const fake = fakeSupabase(tables());
-    await expect(loadConfig(restOn(fake))).rejects.toThrow(/workspace/);
+    await expect((loadConfig as (rest: unknown) => Promise<unknown>)(restOn(fake))).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
   });
 
@@ -140,33 +139,33 @@ describe('supabaseLedger', () => {
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     const first = await ledger.append([ev('b', '2026-09-02T10:00:00Z', { contributor: 'alice', team: 'beaver' }), ev('a', '2026-09-01T10:00:00Z')]);
     expect(first.map((e) => e.id)).toEqual(['b', 'a']);
-    expect(fake.tables.ledger_events.find((r) => r.id === 'a')).toMatchObject({ region: null, contributor: null, team: null });
+    expect(fake.tables.ledger_events!.find((r) => r.id === 'a')).toMatchObject({ region: null, contributor: null, team: null });
     expect((await ledger.append([ev('a', '2026-09-01T10:00:00Z'), ev('a', '2026-09-01T10:00:00Z')])).map((e) => e.id)).toEqual([]);
     // PostgREST returns timestamptz as +00:00; the ledger speaks Z.
-    fake.tables.ledger_events.forEach((r) => { r.at = r.at.replace('Z', '+00:00'); });
+    fake.tables.ledger_events!.forEach((r) => { r.at = String(r.at).replace('Z', '+00:00'); });
     const back = await ledger.read();
     expect(back.map((e) => [e.id, e.at])).toEqual([['a', '2026-09-01T10:00:00Z'], ['b', '2026-09-02T10:00:00Z']]);
     expect(back[1]).toMatchObject({ contributor: 'alice', team: 'beaver' });
-    expect(back[0].contributor).toBeUndefined();
-    expect(back[0].workspace_id).toBeUndefined(); // a storage column, never an event field
+    expect(back[0]!.contributor).toBeUndefined();
+    expect((back[0] as Record<string, unknown>).workspace_id).toBeUndefined(); // a storage column, never an event field
   });
 
   it('writes and reads back each event\'s home, and an old row without one reads without it (PRD 728)', async () => {
     const fake = fakeSupabase({ workspaces: workspaces(), ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:88:charted', at: '2026-09-01T10:00:00+00:00', type: 'PLANET_CHARTED', planet: 88, region: null, contributor: null, team: null, data: {}, home: null }] });
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     await ledger.append([ev('planet:acme/plan#88:charted', '2026-09-02T10:00:00Z', { type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' })]);
-    expect(fake.tables.ledger_events.find((r) => r.id === 'planet:acme/plan#88:charted').home).toBe('acme/plan');
+    expect(fake.tables.ledger_events!.find((r) => r.id === 'planet:acme/plan#88:charted')!.home).toBe('acme/plan');
     const back = await ledger.read();
     expect(back.map((e) => [e.id, e.home])).toEqual([['planet:88:charted', undefined], ['planet:acme/plan#88:charted', 'acme/plan']]);
-    expect('home' in back[0]).toBe(false);
+    expect('home' in back[0]!).toBe(false);
   });
 
   it('appends each row with its workspace, keyed by workspace and id', async () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     await supabaseLedger(restOn(fake), VERTUOZA).append([ev('a', '2026-09-01T10:00:00Z')]);
     const post = fake.calls.find((c) => c.method === 'POST');
-    expect(post.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
-    expect(post.body).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, id: 'a' })]);
+    expect(post!.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
+    expect(post!.body).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, id: 'a' })]);
   });
 
   it('holds one id in two workspaces, and reads back only its own', async () => {
@@ -189,9 +188,9 @@ describe('supabaseLedger', () => {
       ev('after', '2026-09-30T08:00:01Z'),
     ]);
     expect(appended.map((e) => e.id)).toEqual(['after']);
-    expect(fake.tables.ledger_events.map((r) => r.id)).toEqual(['after']);
+    expect(fake.tables.ledger_events!.map((r) => r.id)).toEqual(['after']);
     const read = fake.calls.find((c) => c.table === 'workspaces');
-    expect(read.url.searchParams.get('id')).toBe(`eq.${VERTUOZA}`);
+    expect(read!.url.searchParams.get('id')).toBe(`eq.${VERTUOZA}`);
   });
 
   it('writes nothing when every event is before game_since', async () => {
@@ -210,7 +209,7 @@ describe('supabaseLedger', () => {
   });
 
   it('refuses a ledger without a workspace', () => {
-    expect(() => supabaseLedger(restOn(fakeSupabase({ workspaces: workspaces() })))).toThrow(/workspace/);
+    expect(() => (supabaseLedger as (rest: unknown) => unknown)(restOn(fakeSupabase({ workspaces: workspaces() })))).toThrow(/workspace/);
   });
 
   it('refuses a malformed batch before writing any of it', async () => {
@@ -246,15 +245,15 @@ describe('exportWorkspace', () => {
     expect(out.workspace).toEqual([workspaces()[0]]);
     for (const table of ['ledger_events', 'sectors', 'teams', 'players']) {
       expect(out[table]).toHaveLength(1);
-      expect(out[table][0].workspace_id).toBe(VERTUOZA);
+      expect((out[table]![0] as Record<string, unknown>).workspace_id).toBe(VERTUOZA);
     }
-    expect(out.players[0]).toMatchObject({ user_id: 'u1', display_name: 'ALICE', github_login: 'alice' });
+    expect(out.players![0]).toMatchObject({ user_id: 'u1', display_name: 'ALICE', github_login: 'alice' });
     expect(JSON.stringify(out)).not.toContain(ACME);
   });
 
   it('refuses to export without a workspace, before any call', async () => {
     const fake = fakeSupabase(tables());
-    await expect(exportWorkspace(restOn(fake))).rejects.toThrow(/workspace/);
+    await expect((exportWorkspace as (rest: unknown) => Promise<unknown>)(restOn(fake))).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
   });
 });

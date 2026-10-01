@@ -1,9 +1,13 @@
-// @ts-nocheck
 // The targets reader (PRD 522, s1): each target's row read from faked `gh api` answers. No test calls
 // GitHub: `fakeGh` answers each call by its endpoint, and a missing file is GitHub's 404.
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
 import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
+import type { Exec, Target, TargetRow } from './targets.ts';
+
+/** One faked repository: `null` for one gh cannot read. */
+type FakeRepo = { branch?: string; files?: Record<string, string>; compare?: { ahead: number; files: string[] } };
+type World = Record<string, FakeRepo | null>;
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const BUNDLE = 'var define_OMNI_BUNDLE_default = { home: "acme/kit", version: "0.0.40" };\n';
@@ -17,13 +21,13 @@ const notFound = () => Object.assign(new Error('Command failed: gh api …\ngh: 
  * cannot read, else `{ branch, files: { path: text }, compare: { ahead, files } }`: a file absent
  * from `files` is a 404, and a directory lists the files under it.
  */
-function fakeGh(world) {
-  const calls = [];
-  const exec = (file, args) => {
+function fakeGh(world: World): { exec: Exec; calls: string[] } {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[]): string => {
     if (file !== 'gh' || args[0] !== 'api') throw new Error(`unexpected ${file} ${args.join(' ')}`);
-    const endpoint = args[args.length - 1];
+    const endpoint = args[args.length - 1]!;
     calls.push(endpoint);
-    const [, owner, name, kind, ...rest] = endpoint.split('?')[0].split('/');
+    const [, owner, name, kind, ...rest] = endpoint.split('?')[0]!.split('/');
     const repo = world[`${owner}/${name}`];
     if (!repo) {
       throw Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
@@ -39,7 +43,7 @@ function fakeGh(world) {
       });
     }
     const path = rest.map(decodeURIComponent).join('/');
-    if (Object.hasOwn(repo.files ?? {}, path)) return repo.files[path];
+    if (Object.hasOwn(repo.files ?? {}, path)) return repo.files![path]!;
     const under = Object.keys(repo.files ?? {}).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
     if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
     throw notFound();
@@ -58,7 +62,7 @@ const OWN = { repo: 'acme/front', role: 'front-end', knowledge: 'own', readAt: n
 const NONE = { repo: 'acme/legacy', role: 'legacy', knowledge: 'none', readAt: null };
 const IMPORTED = { repo: 'acme/back', role: 'back-end', knowledge: 'imported', readAt: SHA };
 
-const read = (target, world, evidence = []) => readTarget(target, { exec: fakeGh(world).exec, evidence: new Set(evidence) });
+const read = (target: Target, world: World, evidence: string[] = []) => readTarget(target, { exec: fakeGh(world).exec, evidence: new Set(evidence) });
 
 describe('readTarget', () => {
   it('reads an own target with the loop and a filled form as ok, its loop as the installed version', () => {
@@ -192,7 +196,7 @@ describe('copyEvidence', () => {
 
 describe('targetsTable', () => {
   it('lays the rows out in columns, the detail beside a state that is not ok', () => {
-    const rows = [
+    const rows: TargetRow[] = [
       { repo: 'acme/back', role: 'back-end', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '12 commits, 4 evidence files changed' },
       { repo: 'acme/front', role: 'front-end', knowledge: 'own', loop: 'v0.0.40', state: 'ok', detail: null },
     ];

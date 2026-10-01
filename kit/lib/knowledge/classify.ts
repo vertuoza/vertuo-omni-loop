@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **What to ask** (PRD #82, slice s3). The harvest asks a model one question per candidate: where
  * does this decision belong in the knowledge base? This module is that question's contract, and
@@ -24,10 +23,48 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { readDecisions } from '../playbook/decisions.ts';
 import { LOOK_RULE } from './look-rule.ts';
-import { PRODUCT_CODE, domainsDir, readKnowledge } from './registers.ts';
+import { PRODUCT_CODE, domainsDir, readKnowledge, type EntryKind, type KnowledgeCtx, type KnowledgeEntry } from './registers.ts';
+
+/** A kind a reply may name. */
+export type ClassificationKind = 'adr' | 'invariant' | 'rule' | 'covered' | 'stays-here';
 
 /** Every kind a reply may name, in the order the prompt lists them. */
-export const CLASSIFICATION_KINDS = /** @type {const} */ (['adr', 'invariant', 'rule', 'covered', 'stays-here']);
+export const CLASSIFICATION_KINDS: readonly ClassificationKind[] = ['adr', 'invariant', 'rule', 'covered', 'stays-here'];
+
+/** Which of the two folders a reply's kinds need sit on disk. */
+export type Places = { adr: boolean; knowledge: boolean };
+
+/** What the prompt and the schema need of the knowledge base (see {@link knowledgeSummary}). */
+export type KnowledgeSummary = {
+  places: Places;
+  domains: { name: string; firstLine: string | null }[];
+  principles: { id: string; place: string; statement: string }[];
+  decisions: { number: string; title: string | null }[];
+  laws: { id: string; kind: EntryKind | null; place: string; statement: string }[];
+};
+
+/** The sections of a candidate's embedded item the harvest quotes; any of them may be absent. */
+export type ItemSections = {
+  questionPlain?: string | null;
+  decisionPlain?: string | null;
+  options?: readonly { letter: string; text: string }[] | null;
+  personSteps?: string | null;
+  whatIHadToDecide?: string | null;
+  whatIDidMeanwhile?: string | null;
+  whatItCostsToChangeLater?: string | null;
+};
+
+/** What the prompt reads of a candidate (a `harvestCandidates` entry). */
+export type PromptCandidate = {
+  id: string;
+  verdict?: string | null;
+  answer?: string | null;
+  itemText?: string | null;
+  item?: { sections?: ItemSections | null } | null;
+};
+
+/** A reply {@link ClassificationSchema} accepted. */
+export type ClassificationReply = z.infer<typeof ClassificationSchema>;
 
 /** The place a product-wide entry goes: the `product/` folder. */
 export const PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
@@ -40,7 +77,7 @@ export const CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 
 
 const RECORD_ID = /^ADR-(\d{4})$/;
 
-function capped(field, max) {
+function capped(field: string, max: number) {
   return z
     .string({ error: (issue) => (issue.input === undefined ? `${field} is required` : `${field} must be text`) })
     .trim()
@@ -48,7 +85,7 @@ function capped(field, max) {
     .max(max, `${field} is over its cap of ${max} characters`);
 }
 
-const text = (field) =>
+const text = (field: string) =>
   z.string({ error: (issue) => (issue.input === undefined ? `${field} is required` : `${field} must be text`) }).trim().min(1, `${field} is required`);
 
 const statement = capped('statement', CAPS.statement);
@@ -101,7 +138,7 @@ export const ClassificationSchema = z
   });
 
 /** The first non-blank line of a text, as written; `null` when there is none. */
-function firstLine(value) {
+function firstLine(value: string): string | null {
   return value.split('\n').find((line) => line.trim().length > 0)?.trim() ?? null;
 }
 
@@ -114,13 +151,13 @@ function firstLine(value) {
  * `laws` are the rules and invariants of `product/` and the domains; cross-domain entries are left
  * out, as the harvest never writes one.
  */
-export function knowledgeSummary({ ctx }) {
+export function knowledgeSummary({ ctx }: { ctx: KnowledgeCtx & { layout: { adrDir: string } } }): KnowledgeSummary {
   const places = {
     adr: existsSync(join(ctx.root, ctx.layout.adrDir)),
     knowledge: existsSync(join(ctx.root, ctx.layout.knowledgeRoot)),
   };
   const knowledge = readKnowledge({ ctx });
-  const placeOf = (entry) => (entry.scope === 'product' ? PRODUCT_PLACE : entry.domain);
+  const placeOf = (entry: KnowledgeEntry) => (entry.scope === 'product' ? PRODUCT_PLACE : entry.domain);
   const domains = knowledge.domains.map((domain) => {
     const readme = join(ctx.root, domainsDir(ctx), domain.name, 'README.md');
     return { name: domain.name, firstLine: existsSync(readme) ? firstLine(readFileSync(readme, 'utf8')) : null };
@@ -132,13 +169,13 @@ export function knowledgeSummary({ ctx }) {
     .filter((entry) => (entry.kind === 'rule' || entry.kind === 'invariant') && entry.scope !== 'cross-domain')
     .map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf(entry), statement: entry.statement }));
   const decisions = places.adr
-    ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title }))
+    ? readDecisions({ ctx }).records.map((record) => ({ number: record.number ?? '', title: record.title }))
     : [];
   return { places, domains, principles, decisions, laws };
 }
 
 /** The kinds a repository with `places` has room for, in {@link CLASSIFICATION_KINDS}' order. */
-export function allowedKinds(places) {
+export function allowedKinds(places: Places): ClassificationKind[] {
   return CLASSIFICATION_KINDS.filter((kind) => {
     if (kind === 'adr') return places.adr;
     if (kind === 'rule' || kind === 'invariant') return places.knowledge;
@@ -147,7 +184,7 @@ export function allowedKinds(places) {
 }
 
 /** Every place a rule or an invariant may name: `product`, then the domains. */
-export function placesOf(summary) {
+export function placesOf(summary: Pick<KnowledgeSummary, 'domains'>): string[] {
   return [PRODUCT_PLACE, ...summary.domains.map((domain) => domain.name)];
 }
 
@@ -155,7 +192,7 @@ export function placesOf(summary) {
  * The reply's schema bound to one repository's knowledge base (a {@link knowledgeSummary}): the
  * shape of {@link ClassificationSchema}, and every name in it pointing at something that exists.
  */
-export function classificationSchema(summary) {
+export function classificationSchema(summary: KnowledgeSummary) {
   const kinds = allowedKinds(summary.places);
   const places = placesOf(summary);
   const principles = new Map(summary.principles.map((principle) => [principle.id, principle]));
@@ -163,7 +200,7 @@ export function classificationSchema(summary) {
   const records = new Set(summary.decisions.map((record) => record.number));
 
   return ClassificationSchema.superRefine((reply, context) => {
-    const issue = (path, message) => context.addIssue({ code: 'custom', path, message });
+    const issue = (path: string[], message: string) => context.addIssue({ code: 'custom', path, message });
     if (!kinds.includes(reply.kind)) {
       const missing = reply.kind === 'adr' ? 'no decision-record folder' : 'no knowledge folder';
       issue(['kind'], `kind "${reply.kind}" has no place here: this repository has ${missing} — one of: ${kinds.join(', ')}`);
@@ -182,7 +219,7 @@ export function classificationSchema(summary) {
     }
     if (reply.kind === 'covered') {
       const record = reply.covers.match(RECORD_ID);
-      const known = record ? records.has(record[1]) : entryIds.has(reply.covers);
+      const known = record ? records.has(record[1] ?? '') : entryIds.has(reply.covers);
       if (!known) issue(['covers'], `covers "${reply.covers}", which names no existing entry or decision record`);
     }
   });
@@ -193,8 +230,8 @@ export function classificationSchema(summary) {
  * repository allows and the places that exist. Looser than {@link classificationSchema}, which
  * stays the judge: a reply this accepts may still be refused there.
  */
-export function classificationJsonSchema(summary) {
-  const string = (maxLength) => (maxLength ? { type: 'string', maxLength } : { type: 'string' });
+export function classificationJsonSchema(summary: KnowledgeSummary) {
+  const string = (maxLength?: number) => (maxLength ? { type: 'string', maxLength } : { type: 'string' });
   return {
     type: 'object',
     additionalProperties: false,
@@ -218,12 +255,12 @@ export function classificationJsonSchema(summary) {
 }
 
 /** One `### heading` and its text, or nothing when the text is absent. */
-function section(heading, body) {
+function section(heading: string, body: unknown): string[] {
   if (body === undefined || body === null || String(body).trim() === '') return [];
   return [`### ${heading}`, '', String(body).trim(), ''];
 }
 
-function itemSections(candidate) {
+function itemSections(candidate: PromptCandidate): string[] {
   const sections = candidate.item?.sections;
   if (!sections) return section('The item, as it was raised', candidate.itemText);
   const options = sections.options?.map((option) => `${option.letter}. ${option.text}`).join('\n');
@@ -238,12 +275,12 @@ function itemSections(candidate) {
   ];
 }
 
-function list(items, render, empty = '(none)') {
+function list<T>(items: readonly T[], render: (item: T) => string, empty = '(none)'): string[] {
   return items.length > 0 ? items.map(render) : [empty];
 }
 
-function kindLines(kinds) {
-  const meaning = {
+function kindLines(kinds: readonly ClassificationKind[]): string[] {
+  const meaning: Record<ClassificationKind, string> = {
     adr: '- `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.',
     invariant:
       '- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `reason`.',
@@ -260,7 +297,7 @@ function kindLines(kinds) {
  * The prompt for one candidate (a `harvestCandidates` entry) against a {@link knowledgeSummary}.
  * Pure: the same candidate and summary give the same text, byte for byte.
  */
-export function classificationPrompt({ candidate, summary }) {
+export function classificationPrompt({ candidate, summary }: { candidate: PromptCandidate; summary: KnowledgeSummary }): string {
   const kinds = allowedKinds(summary.places);
   return [
     'You classify one settled decision of a software delivery loop: where, if anywhere, it belongs in the',

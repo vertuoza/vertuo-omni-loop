@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **The map of the playbook, derived every time** (PRD #45, slice s3) — what `omni kb status`
  * prints: each form, its state, its open questions, its stale evidence and where it reads from.
@@ -15,13 +14,37 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Context, ExecText } from '../context.ts';
 import { registerCounts } from '../knowledge/registers.ts';
 import { FORMS, readForm } from './forms.ts';
+import type { FormSpec } from './forms.ts';
 import { resolveForm } from './resolve.ts';
+import type { ResolvedForm, SectionSource } from './resolve.ts';
+
+/** What the playbook's map reads of a context: an imported copy's carries `copyOf` (PRD 522). */
+export type PlaybookCtx = Pick<Context, 'root' | 'layout' | 'config'> & { copyOf?: string };
+
+/** One stale evidence entry: `now` is the file's hash today, `null` when gone or unhashable. */
+export type StaleEvidence = { path: string; hash: string; now: string | null; exists: boolean };
+
+/** Where a form reads from, as a whole. */
+type FormSource = 'pointer' | 'repo' | 'kit';
+
+/** One form's row of the map. */
+type FormStatus = {
+  form: string;
+  kind: FormSpec['kind'];
+  file: string;
+  state: ResolvedForm['state'];
+  source: FormSource;
+  sections: { slot: string | null; source: SectionSource }[];
+  questions: { slot: string; question: string }[];
+  stale: { path: string; hash: string; now: string | null }[];
+};
 import { formTemplate } from './templates.ts';
 
 /** `path`'s `git hash-object`, or `null` when git cannot hash it. */
-function blobHash(path, { ctx, exec }) {
+function blobHash(path: string, { ctx, exec }: { ctx: Pick<Context, 'root'>; exec: ExecText }): string | null {
   try {
     return exec('git', ['hash-object', '--', path], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
@@ -34,8 +57,11 @@ function blobHash(path, { ctx, exec }) {
  * `[{ path, hash, now, exists }]`, `now` the file's hash today (`null` when it is gone or git could
  * not hash it).
  */
-export function staleEvidence(evidence, { ctx, exec }) {
-  const out = [];
+export function staleEvidence(
+  evidence: readonly { path: string; hash: string }[],
+  { ctx, exec }: { ctx: Pick<PlaybookCtx, 'root' | 'copyOf'>; exec: ExecText },
+): StaleEvidence[] {
+  const out: StaleEvidence[] = [];
   // An imported copy's evidence names files of its target, never of this disk (PRD 522).
   if (ctx.copyOf) return out;
   for (const { path, hash } of evidence) {
@@ -47,7 +73,7 @@ export function staleEvidence(evidence, { ctx, exec }) {
 }
 
 /** `pointer`, `repo` or `kit`: see the module note. */
-function formSource(resolved) {
+function formSource(resolved: ResolvedForm): FormSource {
   if (resolved.state === 'pointer') return 'pointer';
   const sources = resolved.sections.map((section) => section.source);
   if (sources.includes('repo')) return 'repo';
@@ -63,8 +89,8 @@ function formSource(resolved) {
  * `state` is the form's own, or `missing`, or `invalid` when its file does not parse; a question is
  * every `TODO(human)` line the form holds, in any section.
  */
-export function playbookStatus({ ctx, exec }) {
-  const forms = FORMS.map(({ id, kind }) => {
+export function playbookStatus({ ctx, exec }: { ctx: PlaybookCtx; exec: ExecText }) {
+  const forms = FORMS.map(({ id, kind }): FormStatus => {
     const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
     const read = readForm(id, { ctx });
     const form = read.exists && read.ok ? read.form : null;

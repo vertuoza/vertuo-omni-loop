@@ -1,4 +1,3 @@
-// @ts-nocheck
 // pnpm game:contributions (PRD 328): its run, with gh and the REST client injected — gh answers from a
 // small world of repositories, as game/dossiers/fake-github.ts does, and Supabase is the fake
 // PostgREST; then the script itself, as a process, with the same fake gh on PATH and the fake
@@ -12,7 +11,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runContributions, windowStart, WINDOW_DAYS } from './contributions.ts';
 import { supabaseRest } from '../sources/supabase.ts';
-import { fakeSupabase, serveFake } from '../test/fake-supabase.ts';
+import { fakeSupabase, serveFake, type Call, type Init, type Reply, type Row, type Served } from '../test/fake-supabase.ts';
+import type { Exec } from '../sources/github.ts';
+
+type Person = { id: string; is_bot: boolean; login: string; name: string } | null;
+type MergedPr = { number: number; author: Person; mergedAt: string; base?: string; labels?: string[]; body?: string | null };
+type PrdIssue = { number: number; author: Person; createdAt: string; labels?: string[] };
+type FakeRepo = { branch?: string; merged?: MergedPr[]; issues?: PrdIssue[]; older?: PrdIssue[]; unreadable?: boolean; unreadableIssues?: boolean; unreadablePrds?: number[] };
+type GhWorld = Record<string, FakeRepo>;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
@@ -35,17 +41,17 @@ const KEY = 'workspace_id,kind,repo,number';
  *          issues?: [{ number, author, createdAt, labels? }], older?: [{ number, author, createdAt }],
  *          unreadable?: true, unreadableIssues?: true, unreadablePrds?: [number] } }
  */
-function answerGh(world, args) {
-  const notFound = (what) => Object.assign(new Error(`Command failed: gh ${what}\ngh: Not Found (HTTP 404)`), { stderr: 'gh: Not Found (HTTP 404)\n' });
+function answerGh(world: GhWorld, args: string[]): string {
+  const notFound = (what: string) => Object.assign(new Error(`Command failed: gh ${what}\ngh: Not Found (HTTP 404)`), { stderr: 'gh: Not Found (HTTP 404)\n' });
   const unknown = () => new Error(`the fake gh does not know: ${args.join(' ')}`);
-  const flag = (name) => {
+  const flag = (name: string) => {
     const at = args.indexOf(name);
     return at < 0 ? undefined : args[at + 1];
   };
-  const onOrAfter = (qualifier, search, at) => {
+  const onOrAfter = (qualifier: string, search: string | undefined, at: string) => {
     const day = new RegExp(`^${qualifier}:>=(\\d{4}-\\d{2}-\\d{2})$`).exec(search ?? '');
     if (!day) throw unknown();
-    return String(at).slice(0, 10) >= day[1];
+    return String(at).slice(0, 10) >= day[1]!;
   };
   const [verb, sub] = args;
   if (verb === 'api') {
@@ -56,7 +62,7 @@ function answerGh(world, args) {
     return `${repo.branch ?? 'main'}\n`;
   }
   const slug = flag('-R');
-  const repo = world[slug];
+  const repo = world[slug ?? ''];
   if (verb === 'pr' && sub === 'list' && flag('--state') === 'merged' && flag('--json') === 'number,author,mergedAt,labels,body' && flag('--base')) {
     if (!repo || repo.unreadable) throw notFound(`pr list -R ${slug}`);
     const base = flag('--base');
@@ -74,25 +80,25 @@ function answerGh(world, args) {
   if (verb === 'issue' && sub === 'list' && flag('--state') === 'all' && flag('--json') === 'number,author,createdAt' && flag('--label')) {
     if (!repo || repo.unreadable || repo.unreadableIssues) throw notFound(`issue list -R ${slug}`);
     const label = flag('--label');
-    const issues = (repo.issues ?? []).filter((i) => (i.labels ?? ['omni:prd']).includes(label) && onOrAfter('created', flag('--search'), i.createdAt));
+    const issues = (repo.issues ?? []).filter((i) => (i.labels ?? ['omni:prd']).includes(label ?? '') && onOrAfter('created', flag('--search'), i.createdAt));
     return JSON.stringify(issues.map(({ number, author, createdAt }) => ({ number, author, createdAt })));
   }
   throw unknown();
 }
 
-function fakeGh(world) {
-  const calls = [];
-  const exec = async (args) => {
+function fakeGh(world: GhWorld): { exec: Exec; calls: string[] } {
+  const calls: string[] = [];
+  const exec: Exec = async (args) => {
     calls.push(args.join(' '));
     return answerGh(world, args);
   };
   return { exec, calls };
 }
 
-const person = (login) => ({ id: `U_${login}`, is_bot: false, login, name: '' });
+const person = (login: string): Person => ({ id: `U_${login}`, is_bot: false, login, name: '' });
 
 // Vertuoza's sectors hold three repositories: vertuo-core and vertuo-flow read, vertuo-api does not.
-const world = () => ({
+const world = (): GhWorld => ({
   'vertuoza/vertuo-core': {
     branch: 'main',
     merged: [
@@ -139,13 +145,13 @@ const EXPECTED = [
   { workspace_id: VERTUOZA, kind: 'prd-opened', repo: 'vertuo-flow', number: 3, login: 'carol', at: '2026-09-05T12:00:00Z' },
 ];
 
-const restOn = (fake) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
-const posts = (fake) => fake.calls.filter((c) => c.method === 'POST');
+const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
+const posts = (fake: { calls: Call[] }) => fake.calls.filter((c) => c.method === 'POST');
 const quiet = () => {
-  const lines = [];
-  return { log: (line) => lines.push(line), lines };
+  const lines: string[] = [];
+  return { log: (line: string) => lines.push(line), lines };
 };
-const run = (fake, gh, over = {}) => runContributions({ exec: gh.exec, rest: restOn(fake), workspaceId: VERTUOZA, org: 'vertuoza', now: NOW, log: quiet().log, ...over });
+const run = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }, gh: { exec: Exec }, over: Partial<Parameters<typeof runContributions>[0]> = {}) => runContributions({ exec: gh.exec, rest: restOn(fake), workspaceId: VERTUOZA, org: 'vertuoza', now: NOW, log: quiet().log, ...over });
 
 describe('the window', () => {
   it('opens 40 days before now', () => {
@@ -158,7 +164,7 @@ describe('runContributions', () => {
   it('reads each repository of the workspace\'s sectors under its GitHub organisation: its default branch, its pull requests merged into it and its omni:prd issues, since the window opened', async () => {
     const gh = fakeGh(world());
     await run(fakeSupabase(tablesOf()), gh);
-    const reads = (repo, branch) => [
+    const reads = (repo: string, branch: string) => [
       `api repos/vertuoza/${repo} --jq .default_branch`,
       `pr list -R vertuoza/${repo} --base ${branch} --state merged --search merged:>=2026-08-19 --limit 1000 --json number,author,mergedAt,labels,body`,
       `issue list -R vertuoza/${repo} --label omni:prd --state all --search created:>=2026-08-19 --limit 1000 --json number,author,createdAt`,
@@ -177,17 +183,17 @@ describe('runContributions', () => {
     expect(report.rows).toEqual(EXPECTED);
     expect(posts(fake)).toHaveLength(1);
     const [write] = posts(fake);
-    expect(write.table).toBe('contributions');
-    expect(write.url.searchParams.get('on_conflict')).toBe(KEY);
-    expect(write.headers.Prefer).toMatch(/resolution=merge-duplicates/);
-    expect(write.body).toEqual(EXPECTED);
+    expect(write!.table).toBe('contributions');
+    expect(write!.url.searchParams.get('on_conflict')).toBe(KEY);
+    expect(write!.headers!.Prefer).toMatch(/resolution=merge-duplicates/);
+    expect(write!.body).toEqual(EXPECTED);
     expect(fake.tables.contributions).toEqual(EXPECTED);
   });
 
   it('never writes a sub-PR, an issue without the label, an item with no author, or one merged or opened before the window', async () => {
     const fake = fakeSupabase(tablesOf());
     await run(fake, fakeGh(world()));
-    const keys = fake.tables.contributions.map((r) => `${r.repo}#${r.number}`);
+    const keys = fake.tables.contributions!.map((r) => `${r.repo}#${r.number}`);
     for (const left of ['vertuo-core#38', 'vertuo-core#330', 'vertuo-core#39', 'vertuo-flow#4', 'vertuo-core#12', 'vertuo-core#5']) {
       expect(keys).not.toContain(left);
     }
@@ -216,10 +222,10 @@ describe('runContributions', () => {
 
   it('skips a repository whose answer does not read, rather than guess', async () => {
     const fake = fakeSupabase(tablesOf());
-    const exec = async (args) => (args[0] === 'pr' && args.includes('vertuoza/vertuo-flow') ? 'not json' : answerGh(world(), args));
+    const exec: Exec = async (args) => (args[0] === 'pr' && args.includes('vertuoza/vertuo-flow') ? 'not json' : answerGh(world(), args));
     const report = await run(fake, { exec });
     expect(report.skipped.map((s) => s.repo)).toEqual(['vertuo-api', 'vertuo-flow']);
-    expect(fake.tables.contributions.map((r) => r.repo)).not.toContain('vertuo-flow');
+    expect(fake.tables.contributions!.map((r) => r.repo)).not.toContain('vertuo-flow');
   });
 
   it('writes identical rows when run again on the same outputs, and leaves a row outside the window as it is', async () => {
@@ -230,7 +236,7 @@ describe('runContributions', () => {
     await run(fake, fakeGh(world()));
 
     const [one, two] = posts(fake);
-    expect(two.body).toEqual(one.body);
+    expect(two!.body).toEqual(one!.body);
     expect(fake.tables.contributions).toEqual(first);
     expect(fake.tables.contributions).toEqual([old, ...EXPECTED]);
   });
@@ -244,8 +250,8 @@ describe('runContributions', () => {
       expect(read.url.searchParams.get('workspace_id'), read.table).toBe(`eq.${VERTUOZA}`);
     }
     expect(gh.calls.join('\n')).not.toContain('acme');
-    expect(posts(fake)[0].body.every((r) => r.workspace_id === VERTUOZA)).toBe(true);
-    expect(fake.tables.contributions.find((r) => r.workspace_id === ACME)).toEqual(theirs);
+    expect((posts(fake)[0]!.body as Row[]).every((r) => r.workspace_id === VERTUOZA)).toBe(true);
+    expect(fake.tables.contributions!.find((r) => r.workspace_id === ACME)).toEqual(theirs);
   });
 
   it('writes nothing when no repository holds anything within the window', async () => {
@@ -281,7 +287,7 @@ describe('runContributions', () => {
 
 describe('PRD stages', () => {
   // vertuo-core's PRD 328 was opened in the window; PRD 12 before it, so only `gh issue view` knows its author.
-  const stages = () => ({
+  const stages = (): GhWorld => ({
     'vertuoza/vertuo-core': {
       merged: [
         { number: 50, author: person('Bob'), mergedAt: '2026-09-20T10:00:00Z', labels: ['omni:phase-0'], body: 'The spec and the plan.\n\nRefs #328\n' },
@@ -297,7 +303,7 @@ describe('PRD stages', () => {
     },
   });
   const oneRepo = () => ({ ...tablesOf(), sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] }] });
-  const stageRows = (rows) => rows.filter((r) => r.kind === 'prd-started' || r.kind === 'prd-shipped').map((r) => [r.kind, r.repo, r.number, r.login, r.at]);
+  const stageRows = (rows: Row[] | undefined) => rows! .filter((r) => r.kind === 'prd-started' || r.kind === 'prd-shipped').map((r) => [r.kind, r.repo, r.number, r.login, r.at]);
 
   it('writes prd-started for a merged omni:phase-0 PR that refs a PRD, and prd-shipped for a merged omni:feature PR that closes one, credited to the PRD issue\'s author at the merge', async () => {
     const fake = fakeSupabase(oneRepo());
@@ -321,9 +327,9 @@ describe('PRD stages', () => {
   it('writes no stage for a labelled PR with no link, nor for a linked PR with no stage label, and keeps every merge a pr-merged row', async () => {
     const fake = fakeSupabase(oneRepo());
     await run(fake, fakeGh(stages()));
-    const merged = fake.tables.contributions.filter((r) => r.kind === 'pr-merged').map((r) => r.number);
+    const merged = fake.tables.contributions!.filter((r) => r.kind === 'pr-merged').map((r) => r.number);
     expect(merged).toEqual([50, 51, 52, 53, 54, 55, 56]);
-    expect(fake.tables.contributions.filter((r) => r.kind === 'prd-opened').map((r) => r.number)).toEqual([328]);
+    expect(fake.tables.contributions!.filter((r) => r.kind === 'prd-opened').map((r) => r.number)).toEqual([328]);
     expect(stageRows(fake.tables.contributions).map((r) => r[2])).not.toContain(54);
   });
 
@@ -335,12 +341,12 @@ describe('PRD stages', () => {
     expect(lines).toEqual(['vertuoza/vertuo-core PRD #12 skipped: gh: Not Found (HTTP 404)']);
     expect(report.skipped).toEqual([]);
     expect(stageRows(fake.tables.contributions).map((r) => [r[0], r[2]])).toEqual([['prd-shipped', 328], ['prd-started', 328]]);
-    expect(fake.tables.contributions.filter((r) => r.kind === 'pr-merged')).toHaveLength(7);
+    expect(fake.tables.contributions!.filter((r) => r.kind === 'pr-merged')).toHaveLength(7);
   });
 
   it('writes no stage for a PRD whose author is a deleted account', async () => {
     const world = stages();
-    world['vertuoza/vertuo-core'].older = [{ number: 12, author: null, createdAt: '2026-07-01T07:00:00Z' }];
+    world['vertuoza/vertuo-core']!.older = [{ number: 12, author: null, createdAt: '2026-07-01T07:00:00Z' }];
     const fake = fakeSupabase(oneRepo());
     await run(fake, fakeGh(world));
     expect(stageRows(fake.tables.contributions).map((r) => r[2])).toEqual([328, 328]);
@@ -348,7 +354,7 @@ describe('PRD stages', () => {
 });
 
 describe('pnpm game:contributions, as a process', () => {
-  let server, tmp;
+  let server: Served<Call> | null = null, tmp: string;
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), 'omni-contributions-'));
   });
@@ -363,8 +369,8 @@ describe('pnpm game:contributions, as a process', () => {
     { id: ACME, slug: 'acme', name: 'Acme', github_org: null, plan_repo: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
   ];
   // The process reads the clock: its world is dated from now.
-  const ago = (hours) => new Date(Date.now() - hours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const liveWorld = () => ({
+  const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const liveWorld = (): GhWorld => ({
     'vertuoza/vertuo-core': {
       merged: [{ number: 41, author: person('Alice'), mergedAt: ago(3) }],
       issues: [{ number: 328, author: person('Pierre-D'), createdAt: ago(30) }],
@@ -372,7 +378,7 @@ describe('pnpm game:contributions, as a process', () => {
     'vertuoza/vertuo-api': { unreadable: true },
   });
 
-  async function contributions(args, { env = {}, gh = liveWorld() } = {}) {
+  async function contributions(args: string[], { env = {}, gh = liveWorld() }: { env?: Record<string, string>; gh?: GhWorld } = {}) {
     writeFileSync(join(tmp, 'gh'), `#!/usr/bin/env node
 const answer = ${answerGh.toString()};
 try {
@@ -386,11 +392,12 @@ try {
     try {
       const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, 'contributions.ts'), ...args], {
         cwd: tmp,
-        env: { PATH: `${tmp}:${dirname(process.execPath)}:${process.env.PATH}`, SUPABASE_URL: server.url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
+        env: { PATH: `${tmp}:${dirname(process.execPath)}:${process.env.PATH}`, SUPABASE_URL: server!.url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
       });
       return { code: 0, stdout, stderr };
     } catch (err) {
-      return { code: err.code, stdout: err.stdout, stderr: err.stderr };
+      const failed = err as { code: number; stdout: string; stderr: string };
+      return { code: failed.code, stdout: failed.stdout, stderr: failed.stderr };
     }
   }
 
@@ -400,7 +407,7 @@ try {
     expect(done.code, done.stderr).toBe(0);
     expect(done.stderr).toContain('vertuoza/vertuo-api skipped: gh: Not Found (HTTP 404)');
     expect(done.stdout).toMatch(/vertuoza: 1 of 2 repositories read · 1 merged pull request · 1 PRD issue · 0 PRD stages · written to contributions/);
-    expect(server.tables.contributions.map((r) => [r.kind, r.repo, r.number, r.login])).toEqual([
+    expect(server.tables.contributions!.map((r) => [r.kind, r.repo, r.number, r.login])).toEqual([
       ['pr-merged', 'vertuo-core', 41, 'alice'],
       ['prd-opened', 'vertuo-core', 328, 'pierre-d'],
     ]);

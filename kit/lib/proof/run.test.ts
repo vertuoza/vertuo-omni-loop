@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { mkdirSync, mkdtempSync, truncateSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +8,7 @@ const COMMIT = '8775008c0a1b';
 const URL = 'https://preview.example/prd/7';
 
 /** A run folder holding `run.json` (as given) and each named file with its text. */
-function runDir(run, files = {}) {
+function runDir(run: unknown, files: Record<string, string> = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-proof-'));
   mkdirSync(dir, { recursive: true });
   if (run !== undefined) writeFileSync(join(dir, 'run.json'), typeof run === 'string' ? run : JSON.stringify(run));
@@ -28,7 +27,7 @@ const RUN = {
 };
 const FILES = { '1-tab.webm': 'webm-1', '1-tab.spec.ts': 'test(1)', '2-fail.webm': 'webm-2', '2-fail.spec.ts': 'test(2)' };
 
-function refusal(dir) {
+function refusal(dir: string) {
   try {
     readRun(dir);
   } catch (error) {
@@ -41,7 +40,7 @@ function refusal(dir) {
 describe('readRun', () => {
   it('reads the commit, the URL, the criteria and every file they name, with its size and type', () => {
     const dir = runDir(RUN, FILES);
-    const run = readRun(dir);
+    const run = readRun(dir)!;
     expect(run.commit).toBe(COMMIT);
     expect(run.url).toBe(URL);
     expect(run.criteria).toEqual(RUN.criteria);
@@ -55,13 +54,13 @@ describe('readRun', () => {
 
   it('adds preview.gif when the folder holds one, and only then', () => {
     const dir = runDir(RUN, { ...FILES, 'preview.gif': 'GIF89a' });
-    expect(readRun(dir).files.at(-1)).toEqual({ name: 'preview.gif', path: join(dir, 'preview.gif'), bytes: 6, type: 'image/gif' });
-    expect(readRun(runDir(RUN, FILES)).files.map((f) => f.name)).not.toContain('preview.gif');
+    expect(readRun(dir)!.files.at(-1)).toEqual({ name: 'preview.gif', path: join(dir, 'preview.gif'), bytes: 6, type: 'image/gif' });
+    expect(readRun(runDir(RUN, FILES))!.files.map((f) => f.name)).not.toContain('preview.gif');
   });
 
   it('keeps only the fields the register call takes, and a note only when there is one', () => {
     const run = { ...RUN, criteria: [{ text: ' Trimmed. ', verdict: 'unfilmable', extra: 'dropped', note: null }] };
-    expect(readRun(runDir(run)).criteria).toEqual([{ text: 'Trimmed.', verdict: 'unfilmable' }]);
+    expect(readRun(runDir(run))!.criteria).toEqual([{ text: 'Trimmed.', verdict: 'unfilmable' }]);
   });
 
   it('a folder without run.json is null', () => {
@@ -74,7 +73,7 @@ describe('readRun', () => {
   });
 
   it('refuses a file a criterion names that the folder does not hold (400)', () => {
-    const files = { ...FILES };
+    const files: Record<string, string> = { ...FILES };
     delete files['2-fail.webm'];
     expect(refusal(runDir(RUN, files))).toEqual({ status: 400, message: '2-fail.webm: not in the run folder' });
   });

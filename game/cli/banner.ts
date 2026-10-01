@@ -1,4 +1,3 @@
-// @ts-nocheck
 // game/cli/banner.ts <prd> --workspace <slug> — print one planet's banner from the workspace's live
 // GitHub and this season's ledger. Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY: the workspace,
 // its repositories, fleets and ledger live there.
@@ -9,7 +8,7 @@ import { score } from '../economy.ts';
 import { renderBanner } from '../render/banner.ts';
 import { openWorkspace } from './workspace.ts';
 
-function bannerArgs([prd, ...extra]) {
+function bannerArgs([prd, ...extra]: string[]): { prd: number } {
   if (!/^\d+$/.test(prd ?? '')) throw new Error(prd === undefined ? 'name a PRD by its number' : `"${prd}" is not a PRD number`);
   if (extra.length) throw new Error(`unexpected argument "${extra[0]}"`);
   return { prd: Number(prd) };

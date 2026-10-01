@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **How a section is resolved** (PRD #45, slice s1). Three layers per slot, top wins: a pointer,
  * then the repository's section, then the kit default. Each section says where it came from:
@@ -27,18 +26,53 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Context } from '../context.ts';
 import { parseForm, readForm } from './forms.ts';
+import type { Form, FormState, Slot } from './forms.ts';
+
+/** A config value by its key: its text, or why it holds none. */
+type ConfigValue = { ok: true; text: string } | { ok: false; reason: string };
+
+/** A `{config:<key>}` placeholder left as written, and why. */
+export type Unresolved = { key: string; reason: string };
+
+/** Where a resolved section came from. */
+export type SectionSource = 'repo' | 'pointer' | 'kit' | 'hole';
+
+/** One resolved section: `slot` is `null` for a pointer form's one section. */
+export type Section = {
+  slot: string | null;
+  heading: string | null;
+  source: SectionSource;
+  label: string;
+  text: string;
+  questions: string[];
+};
+
+/** A form resolved over its template, as `omni kb show` prints it. */
+export type ResolvedForm = {
+  form: string;
+  file: string;
+  state: FormState | 'missing' | 'invalid';
+  title: string | null;
+  sections: Section[];
+  problems: string[];
+};
+
+/** What resolving reads of a context. */
+type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
 
 const CONFIG_PLACEHOLDER = /\{config:([^{}\s]+)\}/g;
 
 /** One config value by its dotted key, walked as `omni config <key>` walks it. */
-function configValue(config, key) {
-  let value = config;
+function configValue(config: unknown, key: string): ConfigValue {
+  let value: unknown = config;
   for (const part of key.split('.')) {
     if (value === null || typeof value !== 'object' || !Object.hasOwn(value, part)) {
       return { ok: false, reason: 'names no config key' };
     }
-    value = value[part];
+    const next: unknown = Reflect.get(value, part);
+    value = next;
   }
   if (['string', 'number', 'boolean'].includes(typeof value)) return { ok: true, text: String(value) };
   if (value === null) return { ok: false, reason: 'is not set in the config' };
@@ -49,9 +83,9 @@ function configValue(config, key) {
  * Fills every `{config:<key>}` in `text` from `config`. `{ text, unresolved: [{ key, reason }] }`:
  * a placeholder that cannot be filled stays in `text` exactly as written.
  */
-export function fillConfig(text, config) {
-  const unresolved = [];
-  const filled = text.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
+export function fillConfig(text: string, config: unknown): { text: string; unresolved: Unresolved[] } {
+  const unresolved: Unresolved[] = [];
+  const filled = text.replace(CONFIG_PLACEHOLDER, (placeholder: string, key: string) => {
     const value = configValue(config, key);
     if (value.ok) return value.text;
     unresolved.push({ key, reason: value.reason });
@@ -65,7 +99,7 @@ export function fillConfig(text, config) {
  * folder's Markdown files, one path a line. `{ text, missing }`, `missing` naming the path that
  * does not exist.
  */
-function readTarget(path, index, { ctx }) {
+function readTarget(path: string, index: string | null, { ctx }: { ctx: Pick<Context, 'root'> }): { text: string; missing: string | null } {
   const absolute = join(ctx.root, path);
   if (!existsSync(absolute)) return { text: '', missing: path };
   if (!statSync(absolute).isDirectory()) return { text: readFileSync(absolute, 'utf8').trim(), missing: null };
@@ -79,7 +113,7 @@ function readTarget(path, index, { ctx }) {
 }
 
 /** `[repo]`, `[repo · by human]`, `[repo · verified <date>]`, or both. */
-function repoLabel(slot) {
+function repoLabel(slot: Slot): string {
   const parts = ['repo'];
   if (slot.by === 'human') parts.push('by human');
   if (slot.verified) parts.push(`verified ${slot.verified}`);
@@ -87,14 +121,18 @@ function repoLabel(slot) {
 }
 
 /** One slot, resolved from the repository's slot (or `null`) over the template's. */
-function resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems }) {
+function resolveSlot(
+  kitSlot: Slot,
+  repoSlot: Slot | null,
+  { ctx, formId, file, problems }: { ctx: Ctx; formId: string; file: string; problems: string[] },
+): Section {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
   const body = repoSlot?.body ?? null;
 
-  if (body?.kind === 'text') {
+  if (repoSlot !== null && body?.kind === 'text') {
     return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
   }
-  if (body?.kind === 'pointer') {
+  if (repoSlot !== null && body?.kind === 'pointer') {
     const { path, anchor } = body.see;
     const target = readTarget(path, null, { ctx });
     if (target.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
@@ -121,15 +159,15 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems }) {
  * is not there, or `invalid` when it does not parse; `source` is `repo`, `pointer`, `kit` or
  * `hole`. A pointer form resolves to one section, its whole target, with `slot: null`.
  */
-export function resolveForm(formId, { ctx, template }) {
+export function resolveForm(formId: string, { ctx, template }: { ctx: Ctx; template: string }): ResolvedForm {
   const kit = parseForm(template, { file: `kit template ${formId}` });
   if (!kit.ok) throw new Error(`the kit's template for ${formId} does not parse:\n${kit.errors.join('\n')}`);
 
   const read = readForm(formId, { ctx });
   const { file } = read;
-  const problems = [];
-  let repo = null;
-  let state = 'missing';
+  const problems: string[] = [];
+  let repo: Form | null = null;
+  let state: ResolvedForm['state'] = 'missing';
   if (read.exists && read.ok) {
     repo = read.form;
     state = repo.state;
@@ -140,9 +178,9 @@ export function resolveForm(formId, { ctx, template }) {
   const title = repo?.title ?? kit.form.title;
 
   if (repo?.state === 'pointer') {
-    const target = readTarget(repo.pointsTo, repo.index, { ctx });
+    const target = readTarget(repo.pointsTo!, repo.index, { ctx }); // ts-allow: a pointer form always names points-to (its schema refuses one without)
     if (target.missing) problems.push(`${file}: ${target.missing === repo.pointsTo ? 'points-to' : 'index'} ${target.missing} does not exist`);
-    const section = { slot: null, heading: title, source: 'pointer', label: `[→ ${repo.pointsTo}]`, text: target.text, questions: [] };
+    const section: Section = { slot: null, heading: title, source: 'pointer', label: `[→ ${repo.pointsTo}]`, text: target.text, questions: [] };
     return { form: formId, file, state, title, sections: [section], problems };
   }
 

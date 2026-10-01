@@ -1,4 +1,3 @@
-// @ts-nocheck
 // PRD #149, slice s1: the knowledge graph, built from what `readKnowledge` returns, on a fixture
 // knowledge folder with a product folder, two domains and one cross-domain file.
 import { describe, expect, it } from 'vitest';
@@ -9,9 +8,9 @@ import { readKnowledge } from './registers.ts';
 const K = '.omni-loop/knowledge';
 
 /** One register entry: its heading, its statement, then its field lines. */
-const entry = (id, statement, fields = {}) =>
+const entry = (id: string, statement: string, fields: Record<string, string> = {}) =>
   `## ${id}\n\n${statement}\n\n${Object.entries(fields).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\n`;
-const register = (title, ...entries) => `# ${title}\n\n${entries.join('')}`;
+const register = (title: string, ...entries: string[]) => `# ${title}\n\n${entries.join('')}`;
 
 const FILES = {
   [`${K}/README.md`]: '# Knowledge\n\nNever parsed for entries: P-PRODUCT-2 is only named here.\n',

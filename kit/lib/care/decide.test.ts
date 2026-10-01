@@ -1,9 +1,9 @@
-// @ts-nocheck
 // PRD 790, slice s1: the pure decision that turns a feature PR's care state into a round's actions.
 import { describe, expect, it } from 'vitest';
 import { decideRound } from './decide.ts';
+import type { Round, RoundState } from './decide.ts';
 
-function state(over = {}) {
+function state(over: Record<string, unknown> = {}): RoundState {
   return {
     pr: { number: 9, url: 'u', state: 'OPEN', isDraft: false, base: 'main', head: 'feat/widgets', labels: [] },
     checks: { state: 'green', failed: [], stuck: false, fixable: false },
@@ -12,12 +12,12 @@ function state(over = {}) {
     status: null,
     wave: { holdsClaims: false, claimed: [] },
     ...over,
-  };
+  } as RoundState;
 }
 
 const RED = { state: 'red', failed: [{ name: 'test', url: 'https://ci/1' }], stuck: false, fixable: true };
-const thread = (id, over = {}) => ({ id, resolved: false, verdict: null, reason: null, needs: 'judge', comments: [], ...over });
-const kinds = (round) => round.actions.map((action) => action.kind);
+const thread = (id: string, over: Record<string, unknown> = {}) => ({ id, resolved: false, verdict: null, reason: null, needs: 'judge', comments: [], ...over });
+const kinds = (round: Round) => round.actions.map((action) => action.kind);
 
 describe('decideRound', () => {
   it('only reports on a green, conflict-free PR with nothing to handle', () => {

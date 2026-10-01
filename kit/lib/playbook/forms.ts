@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **A form is a typed thing the kit reads** (PRD #45, slice s1) — the ONE parser for the playbook:
  * one form per question an agent asks while delivering, each a Markdown file under
@@ -49,15 +48,22 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import type { Context } from '../context.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
-const req = (id) => Object.freeze({ id, required: true });
-const opt = (id) => Object.freeze({ id, required: false });
-const form = (id, kind, slots, { pointerOnly = false } = {}) =>
+/** One slot of a form's template: its id, and whether a filled form must carry it. */
+export type SlotSpec = Readonly<{ id: string; required: boolean }>;
+
+/** One row of the spec's forms table. */
+export type FormSpec = Readonly<{ id: string; kind: 'core' | 'extended'; pointerOnly: boolean; slots: readonly SlotSpec[] }>;
+
+const req = (id: string): SlotSpec => Object.freeze({ id, required: true });
+const opt = (id: string): SlotSpec => Object.freeze({ id, required: false });
+const form = (id: string, kind: FormSpec['kind'], slots: SlotSpec[], { pointerOnly = false } = {}): FormSpec =>
   Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
 
 /** The fourteen forms, in the spec's order: eight core, then six extended. */
-export const FORMS = Object.freeze([
+export const FORMS: readonly FormSpec[] = Object.freeze([
   form('briefing', 'core', [req('never'), opt('hooks'), opt('links'), opt('next')]),
   form('setup', 'core', [req('prerequisites'), req('install'), opt('run'), opt('env')]),
   form('architecture', 'core', [req('layout'), req('boundaries'), opt('patterns')]),
@@ -74,12 +80,12 @@ export const FORMS = Object.freeze([
   form('glossary', 'extended', [req('where')], { pointerOnly: true }),
 ]);
 
-export const FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
+export const FORM_IDS: readonly string[] = Object.freeze(FORMS.map((entry) => entry.id));
 
 /** The form that lives beside the decision records, under the front door, not in the playbook. */
 export const DECISIONS_FORM = 'decisions';
 
-const FORM_STATES = ['blank', 'filled', 'pointer'];
+const FORM_STATES: readonly ['blank', 'filled', 'pointer'] = ['blank', 'filled', 'pointer'];
 
 /** What a form written before PRD #68 may say, and what it says now. */
 const OLD_DATE_KEY = 'terraformed';
@@ -119,6 +125,55 @@ const FrontMatterSchema = z
     }
   });
 
+/** A form's front matter, checked. */
+export type FormFrontMatter = z.infer<typeof FrontMatterSchema>;
+
+/** A form's state: blank, filled, or a pointer to a page elsewhere. */
+export type FormState = FormFrontMatter['state'];
+
+/** A slot's body, read as one of four kinds. */
+export type SlotBody =
+  | { kind: 'empty' | 'holes' | 'text'; text: string; see: null; questions: string[] }
+  | { kind: 'pointer'; text: string; see: { path: string; anchor: string | null }; questions: string[] };
+
+/** One slot of a parsed form, in file order. */
+export type Slot = {
+  id: string;
+  heading: string;
+  required: boolean;
+  by: string | null;
+  verified: string | null;
+  body: SlotBody;
+};
+
+/** An old spelling met while parsing, and the new one it was read as. */
+export type OldSpelling = { where: string; old: string; now: string };
+
+/** One form file, parsed. */
+export type Form = {
+  id: string;
+  formVersion: number;
+  state: FormState;
+  pointsTo: string | null;
+  index: string | null;
+  evidence: { path: string; hash: string }[];
+  invaded: string | null | undefined;
+  oldSpellings: OldSpelling[];
+  title: string | null;
+  opener: string | null;
+  slots: Slot[];
+  unmarked: string[];
+  file: string | null;
+};
+
+/** `parseForm`'s answer: the form, or every line saying why not. */
+export type ParsedForm = { ok: true; form: Form; errors?: undefined } | { ok: false; errors: string[]; form?: undefined };
+
+/** `readForm`'s answer: the form's file, whether it exists, and when it does, the parse. */
+export type ReadForm =
+  | { file: string; exists: false; ok?: undefined; form?: undefined; errors?: undefined }
+  | ({ file: string; exists: true } & ParsedForm);
+
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const TITLE = /^#\s+(.+?)\s*$/;
 const HEADING = /^##\s+(.+?)\s*$/;
@@ -130,17 +185,17 @@ const COMMENT = /<!--[\s\S]*?-->/g;
 const SEE = /^See:\s+([^\s#]+)(?:#(\S+))?$/;
 const HOLE = /^(?:[-*]\s+)?TODO\(human\):\s*(.*\S)\s*$/;
 
-function withFile(file, message) {
+function withFile(file: string | null, message: string): string {
   return file ? `${file}: ${message}` : message;
 }
 
 /** The front matter, checked: `{ data }` or `{ errors }`, each error one line without the file. */
-function readFrontMatter(raw) {
-  let data;
+function readFrontMatter(raw: string): { data: FormFrontMatter; errors?: undefined } | { errors: string[]; data?: undefined } {
+  let data: unknown;
   try {
     data = parse(raw);
   } catch (error) {
-    return { errors: [`front matter is not YAML — ${error.message.split('\n')[0]}`] };
+    return { errors: [`front matter is not YAML — ${(error as Error).message.split('\n')[0]}`] }; // ts-allow: the yaml parser throws only Error
   }
   if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     return { errors: ['front matter is not a set of keys'] };
@@ -158,16 +213,16 @@ function readFrontMatter(raw) {
 
 /** The lines before the first `##` heading, and one `{ heading, lines }` per heading after it. A
  * heading inside a fenced block is body. */
-function splitSections(lines) {
-  const head = [];
-  const sections = [];
-  let current = null;
+function splitSections(lines: readonly string[]): { head: string[]; sections: { heading: string; lines: string[] }[] } {
+  const head: string[] = [];
+  const sections: { heading: string; lines: string[] }[] = [];
+  let current: { heading: string; lines: string[] } | null = null;
   let fenced = false;
   for (const line of lines) {
     const heading = fenced ? null : line.match(HEADING);
     if (FENCE.test(line)) fenced = !fenced;
     if (heading) {
-      current = { heading: heading[1], lines: [] };
+      current = { heading: heading[1] ?? '', lines: [] };
       sections.push(current);
     } else {
       (current ? current.lines : head).push(line);
@@ -177,26 +232,76 @@ function splitSections(lines) {
 }
 
 /** The title (`# …`) and the first line of prose under it. */
-function readHead(head) {
+function readHead(head: readonly string[]): { title: string | null; opener: string | null } {
   const at = head.findIndex((line) => TITLE.test(line));
   if (at === -1) return { title: null, opener: null };
   const opener = head
     .slice(at + 1)
     .map((line) => line.trim())
     .find((line) => line !== '' && !line.startsWith('<!--'));
-  return { title: head[at].match(TITLE)[1], opener: opener ?? null };
+  return { title: head[at]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 
 /** A section body, read as `text`, `pointer`, `empty` or `holes`. */
-function readBody(raw) {
+function readBody(raw: string): SlotBody {
   const text = raw.replace(COMMENT, '').trim();
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
-  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter(Boolean);
+  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question): question is string => Boolean(question));
   if (lines.length === 0) return { kind: 'empty', text: '', see: null, questions: [] };
   if (questions.length === lines.length) return { kind: 'holes', text, see: null, questions };
-  const see = lines.length === 1 ? lines[0].match(SEE) : null;
-  if (see) return { kind: 'pointer', text, see: { path: see[1], anchor: see[2] ?? null }, questions: [] };
+  const see = lines.length === 1 ? (lines[0]?.match(SEE) ?? null) : null;
+  if (see) return { kind: 'pointer', text, see: { path: see[1] ?? '', anchor: see[2] ?? null }, questions: [] };
   return { kind: 'text', text, see: null, questions };
+}
+
+/** One section read as a slot: no marker, a malformed one, or the slot it opens. */
+type SectionRead = { kind: 'unmarked' } | { kind: 'malformed'; first: string } | { kind: 'slot'; slot: Slot; oldBy: boolean };
+
+function readSection(heading: string, lines: readonly string[]): SectionRead {
+  const at = lines.findIndex((line) => line.trim() !== '');
+  const first = at === -1 ? '' : (lines[at] ?? '').trim();
+  if (!MARKER_START.test(first)) return { kind: 'unmarked' };
+  const marker = first.match(MARKER);
+  if (!marker) return { kind: 'malformed', first };
+  const [, id = '', need, by, verified] = marker;
+  const slot: Slot = {
+    id,
+    heading,
+    required: need === 'required',
+    by: by === OLD_BY ? 'invade' : (by ?? null),
+    verified: verified ?? null,
+    body: readBody(lines.slice(at + 1).join('\n')),
+  };
+  return { kind: 'slot', slot, oldBy: by === OLD_BY };
+}
+
+/** The slots of `sections`, in file order, and the headings with no marker. A malformed marker or
+ * a slot used twice is pushed onto `errors`; an old `by:` spelling onto `oldSpellings`. */
+function readSlots(
+  sections: readonly { heading: string; lines: string[] }[],
+  { file, errors, oldSpellings }: { file: string | null; errors: string[]; oldSpellings: OldSpelling[] },
+): { slots: Slot[]; unmarked: string[] } {
+  const slots: Slot[] = [];
+  const unmarked: string[] = [];
+  for (const { heading, lines } of sections) {
+    const read = readSection(heading, lines);
+    if (read.kind === 'unmarked') {
+      unmarked.push(heading);
+      continue;
+    }
+    if (read.kind === 'malformed') {
+      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${read.first} — want <!-- slot: <id> · required|optional[ · by: invade|human][ · verified: YYYY-MM-DD] -->`));
+      continue;
+    }
+    const { slot, oldBy } = read;
+    if (slots.some((known) => known.id === slot.id)) {
+      errors.push(withFile(file, `slot "${slot.id}" appears twice`));
+      continue;
+    }
+    if (oldBy) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: 'by: invade' });
+    slots.push(slot);
+  }
+  return { slots, unmarked };
 }
 
 /**
@@ -209,49 +314,22 @@ function readBody(raw) {
  * body }], unmarked, file }`, the slots in file order, `body` as {@link readBody} reads it, an old
  * spelling read as the new one and listed in `oldSpellings` (see the module note).
  */
-export function parseForm(text, { file = null } = {}) {
+export function parseForm(text: string, { file = null }: { file?: string | null } = {}): ParsedForm {
   const block = text.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
 
-  const errors = [];
-  const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter);
+  const errors: string[] = [];
+  const { data, errors: frontMatterErrors = [] } = readFrontMatter(rawFrontMatter ?? '');
   errors.push(...frontMatterErrors.map((message) => withFile(file, message)));
 
-  const { head, sections } = splitSections(body.split(/\r?\n/));
-  const slots = [];
-  const unmarked = [];
-  const oldSpellings = [];
+  const { head, sections } = splitSections((body ?? '').split(/\r?\n/));
+  const oldSpellings: OldSpelling[] = [];
   if (data?.[OLD_DATE_KEY] !== undefined) oldSpellings.push({ where: 'front matter', old: `${OLD_DATE_KEY}:`, now: 'invaded:' });
-  for (const { heading, lines } of sections) {
-    const at = lines.findIndex((line) => line.trim() !== '');
-    const first = at === -1 ? '' : lines[at].trim();
-    if (!MARKER_START.test(first)) {
-      unmarked.push(heading);
-      continue;
-    }
-    const marker = first.match(MARKER);
-    if (!marker) {
-      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${first} — want <!-- slot: <id> · required|optional[ · by: invade|human][ · verified: YYYY-MM-DD] -->`));
-      continue;
-    }
-    const [, id, need, by, verified] = marker;
-    if (slots.some((slot) => slot.id === id)) {
-      errors.push(withFile(file, `slot "${id}" appears twice`));
-      continue;
-    }
-    if (by === OLD_BY) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: 'by: invade' });
-    slots.push({
-      id,
-      heading,
-      required: need === 'required',
-      by: by === OLD_BY ? 'invade' : (by ?? null),
-      verified: verified ?? null,
-      body: readBody(lines.slice(at + 1).join('\n')),
-    });
-  }
+  const { slots, unmarked } = readSlots(sections, { file, errors, oldSpellings });
 
-  if (errors.length > 0) return { ok: false, errors };
+  // Front matter that did not read always left an error, so `data === undefined` adds no case.
+  if (errors.length > 0 || data === undefined) return { ok: false, errors };
   return {
     ok: true,
     form: {
@@ -261,7 +339,7 @@ export function parseForm(text, { file = null } = {}) {
       pointsTo: data['points-to'],
       index: data.index ?? null,
       evidence: (data.evidence ?? []).map((entry) => {
-        const [, path, hash] = entry.match(EVIDENCE);
+        const [, path = '', hash = ''] = entry.match(EVIDENCE) ?? [];
         return { path, hash };
       }),
       invaded: data.invaded !== undefined ? data.invaded : data[OLD_DATE_KEY],
@@ -279,7 +357,7 @@ export function parseForm(text, { file = null } = {}) {
  * missing, else `{ file, exists: true, ...parseForm(text) }`. A form the kit does not have is a
  * caller's mistake, and throws.
  */
-export function readForm(id, { ctx }) {
+export function readForm(id: string, { ctx }: { ctx: Pick<Context, 'root' | 'layout'> }): ReadForm {
   const file = ctx.layout.formPath(id);
   if (file === null) throw new Error(`the kit has no form "${id}"`);
   if (!existsSync(join(ctx.root, file))) return { file, exists: false };
@@ -290,7 +368,7 @@ export function readForm(id, { ctx }) {
 const PLAYBOOK_ID = /^playbook\/([^#\s]+)#([^#\s]+)$/;
 
 /** Whether a `Became:` id names a playbook section rather than a law. */
-export function isPlaybookId(id) {
+export function isPlaybookId(id: string): boolean {
   return id.startsWith('playbook/');
 }
 
@@ -299,10 +377,10 @@ export function isPlaybookId(id) {
  * not blank, else `{ ok: false, reason }` naming what is missing: the form, its file, the slot or
  * the slot's body.
  */
-export function resolvePlaybookId(id, { ctx }) {
+export function resolvePlaybookId(id: string, { ctx }: { ctx: Pick<Context, 'root' | 'layout'> }): { ok: true; reason?: undefined } | { ok: false; reason: string } {
   const match = id.match(PLAYBOOK_ID);
   if (!match) return { ok: false, reason: `${id}: not playbook/<form>#<slot>` };
-  const [, formId, slotId] = match;
+  const [, formId = '', slotId = ''] = match;
   if (!FORM_IDS.includes(formId)) return { ok: false, reason: `the kit has no form "${formId}"` };
   const read = readForm(formId, { ctx });
   if (!read.exists) return { ok: false, reason: `no form file at ${read.file}` };

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **`omni check kb`** (PRD #45, slice s3) — grades the playbook's forms. A form that points at
  * nothing, or claims a shape the kit does not have, fails; a form that is only unfinished warns,
@@ -26,23 +25,32 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ExecText } from '../context.ts';
 import { FORMS, parseForm, readForm } from './forms.ts';
+import type { FormSpec, FormState } from './forms.ts';
 import { staleEvidence } from './status.ts';
+import type { PlaybookCtx } from './status.ts';
 import { formTemplate } from './templates.ts';
 
 /** One form's grade: `{ state, violations, warnings }`, each line naming `file`. */
-function gradeForm({ id, kind }, { ctx, exec }) {
+/** One form's state in the grade: its own, or `missing` or `invalid`. */
+export type GradedState = FormState | 'missing' | 'invalid';
+
+/** One form's grade. */
+type FormGrade = { state: GradedState; violations: string[]; warnings: string[] };
+
+function gradeForm({ id, kind }: FormSpec, { ctx, exec }: { ctx: PlaybookCtx; exec: ExecText }): FormGrade {
   const read = readForm(id, { ctx });
   const { file } = read;
   if (!read.exists) return { state: 'missing', violations: [], warnings: [`${file}: missing — the kit defaults apply; \`omni kb init\` writes it`] };
   if (!read.ok) return { state: 'invalid', violations: read.errors, warnings: [] };
 
   const { form } = read;
-  const kit = parseForm(formTemplate(id)).form;
+  const kit = parseForm(formTemplate(id)).form!; // ts-allow: the kit's own templates always parse (templates.test.ts proves each one)
   // An imported copy's paths name files of its target, never of this disk (PRD 522).
-  const gone = (path) => !ctx.copyOf && !existsSync(join(ctx.root, path));
-  const violations = [];
-  const warnings = [];
+  const gone = (path: string): boolean => !ctx.copyOf && !existsSync(join(ctx.root, path));
+  const violations: string[] = [];
+  const warnings: string[] = [];
 
   if (form.id !== id) violations.push(`${file}: front matter says form: ${form.id}, but this is the ${id} form's file`);
   if (form.formVersion > kit.formVersion) {
@@ -83,9 +91,13 @@ function gradeForm({ id, kind }, { ctx, exec }) {
  * the forms in the kit's order, `state` `missing` or `invalid` when the file is not there or does
  * not parse. `exec` runs `git hash-object` for the evidence.
  */
-export function gradePlaybook({ ctx, exec }) {
-  const violations = [];
-  const warnings = [];
+export function gradePlaybook({ ctx, exec }: { ctx: PlaybookCtx; exec: ExecText }): {
+  violations: string[];
+  warnings: string[];
+  forms: { form: string; state: GradedState }[];
+} {
+  const violations: string[] = [];
+  const warnings: string[] = [];
   const forms = FORMS.map((entry) => {
     const grade = gradeForm(entry, { ctx, exec });
     violations.push(...grade.violations);

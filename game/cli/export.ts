@@ -1,4 +1,3 @@
-// @ts-nocheck
 // game/cli/export.ts <dir> --workspace <slug> — write one workspace of the game's database as
 // JSONL: `workspace.jsonl` (its row) beside its `ledger_events`, `sectors`, `teams`, `players` and
 // `arcade_scores`, one file per table. The backup the weekly workflow keeps as an artifact. The
@@ -7,14 +6,14 @@
 // left out: the next `pnpm game:xp` rebuilds it from the ledger.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { exportWorkspace } from '../sources/supabase.ts';
+import { exportWorkspace, type SupabaseRest } from '../sources/supabase.ts';
 import { openWorkspace, runByPath } from './workspace.ts';
 
 /**
  * One workspace's backup, as file name → rows: its row, ledger, sectors, fleets and players, then
  * every player's best score at each arcade game. Every row carries its workspace_id.
  */
-export async function backupFiles(rest, workspaceId) {
+export async function backupFiles(rest: SupabaseRest, workspaceId: string): Promise<Record<string, unknown[]>> {
   const files = await exportWorkspace(rest, workspaceId); // throws, before any read, without a workspace id
   const arcadeScores = await rest.select(
     'arcade_scores', `select=workspace_id,user_id,game,best,at&workspace_id=eq.${encodeURIComponent(workspaceId)}&order=game,best.desc,at`,
@@ -22,7 +21,7 @@ export async function backupFiles(rest, workspaceId) {
   return { ...files, arcade_scores: arcadeScores };
 }
 
-function exportArgs([dir, ...extra]) {
+function exportArgs([dir, ...extra]: string[]): { dir: string } {
   if (!dir) throw new Error('name the directory to write');
   if (extra.length) throw new Error(`unexpected argument "${extra[0]}"`);
   return { dir };

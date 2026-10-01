@@ -1,4 +1,3 @@
-// @ts-nocheck
 // What `omni init` prints. First what it wrote or kept (`setupLines`); then, after the install pull
 // request's block (install-pr.mjs), what it did on this computer — the plugin and the sign-in, each with
 // the lines left to type when it could not (`computerLines`); last the closing steps only a person can
@@ -8,7 +7,12 @@
 // (`omni update`), and how to remove it again (`closingSteps`). Only the repository's slug, its default
 // branch and the install pull request vary from one repository to the next.
 import { dirname } from 'node:path';
+import type { InstallPr } from './install-pr.ts';
+import type { LabelsResult } from './labels.ts';
+import type { FormatterNotice } from './notices.ts';
+import type { StepLines } from './plugin.ts';
 import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.ts';
+import type { StatusLineOutcome } from './settings.ts';
 
 // The App a person installs, and the marketplace and plugin init installs (and omni update updates), named once.
 export const APP = { name: 'omni-loop', slug: 'omni-loop-invader' };
@@ -20,34 +24,34 @@ const PLACEHOLDER_SLUG = '<owner>/<repository>';
 
 // What became of the status line (settings.mjs's outcomes), one line each; `wrote` and `kept` leave
 // the kit's own line in place.
-const STATUS_LINE = {
+const STATUS_LINE: Record<StatusLineOutcome, (path: string) => string> = {
   wrote: (path) => `  wrote   ${path}  (${STATUS_LINE_KEY})`,
   kept: (path) => `  kept    ${path}  (${STATUS_LINE_KEY})`,
   foreign: (path) => `  kept    ${path}  (its ${STATUS_LINE_KEY} is not the kit's)`,
   invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`,
 };
-const KIT_LINE_IN_PLACE = new Set(['wrote', 'kept']);
+const KIT_LINE_IN_PLACE: ReadonlySet<string> = new Set(['wrote', 'kept']);
 
 // The closing steps' numbers: the App, then the merge, then the labels step when there is one.
 const LABELS_STEP = 3;
-const formsStep = (labels) => (labels.byHand.length ? 5 : 4);
+const formsStep = (labels: Pick<LabelsResult, 'byHand'>): number => (labels.byHand.length ? 5 : 4);
 
 /**
- * The first lines: what init wrote or kept.
- *
- * @param {object} s
- * @param {string|null} s.slug              the repository's `owner/name`, `null` when nothing could say
- * @param {{ path: string, wrote: boolean }[]} s.files   each file init owns, and whether this run wrote it
- * @param {{ dir: string, wrote: string[], outside: boolean }} s.forms   the forms' front door, and each
- *   file of it this run wrote — a form is never overwritten, so one already there is not listed;
- *   `outside` when the front door lies outside init's folder, and so nothing was written there
- * @param {{ path: string, outcome: 'wrote' | 'kept' | 'foreign' | 'invalid' }} s.settings   the settings
- *   file the status line goes in, and what this run did with it (see settings.mjs)
- * @param {{ created: string[], present: string[], byHand: string[] }} s.labels
- * @returns {string[]}
+ * The first lines: what init wrote or kept. `slug` is the repository's `owner/name`, `null` when
+ * nothing could say; `files` each file init owns, and whether this run wrote it; `forms` the forms'
+ * front door, and each file of it this run wrote — a form is never overwritten, so one already there
+ * is not listed — `outside` when the front door lies outside init's folder, and so nothing was
+ * written there; `settings` the settings file the status line goes in, and what this run did with
+ * it (see settings.ts).
  */
-export function setupLines({ slug, files, forms, settings, labels }) {
-  const dir = dirname(files[0].path);
+export function setupLines({ slug, files, forms, settings, labels }: {
+  slug: string | null;
+  files: { path: string; wrote: boolean }[];
+  forms: { dir: string; wrote: string[]; outside: boolean };
+  settings: { path: string; outcome: StatusLineOutcome };
+  labels: LabelsResult;
+}): string[] {
+  const dir = dirname(files[0]!.path); // ts-allow: init passes its files, never none
   const lines = [`omni init — ${slug ?? 'this repository'} is set up.`];
   const width = Math.max(...files.map((file) => file.path.length));
   for (const { path, wrote } of files) {
@@ -69,13 +73,9 @@ export function setupLines({ slug, files, forms, settings, labels }) {
 
 /**
  * What init did on this computer — the plugin, then the sign-in — each a status line, then the lines
- * left to type for any step it could not do (plugin.mjs, signin-step.mjs).
- *
- * @param {{ status: string[], todo: string[] }} plugin
- * @param {{ status: string[], todo: string[] }} signin
- * @returns {string[]}
+ * left to type for any step it could not do (plugin.ts, signin-step.ts).
  */
-export function computerLines(plugin, signin) {
+export function computerLines(plugin: StepLines, signin: StepLines): string[] {
   const lines = ['On this computer:', ...plugin.status, ...signin.status];
   if (plugin.todo.length) lines.push('', 'Type these in Claude Code to install the plugin:', ...plugin.todo.map((line) => `     ${line}`));
   if (signin.todo.length) lines.push('', 'Type this in a terminal to sign in later:', ...signin.todo.map((line) => `     ${line}`));
@@ -84,28 +84,30 @@ export function computerLines(plugin, signin) {
 
 /**
  * The closing lines: the heads-up, the steps only a person can take, the commands left unfilled, how
- * to update the loop and how to remove it.
- *
- * @param {object} s
- * @param {string|null} s.slug
- * @param {string} s.defaultBranch          the branch the config names (the schema default when unknown)
- * @param {string} s.configPath             the config file: its folder is the loop's
- * @param {string} s.outboxCheck            the check the omni-loop App posts (`ci.outboxContext`)
- * @param {{ url: string, number: number|null } | null} s.pr   the install pull request, when init found or opened it
- * @param {{ dir: string }} s.forms         the forms' front door
- * @param {{ path: string, outcome: string }} s.settings
- * @param {{ byHand: string[] }} s.labels
- * @param {{ key: string, flag: string }[]} s.unfilled   each `commands.*` left null, with its flag
- * @param {{ legacyWorkflows?: string[], formatter?: { tool: string, file: string } | null }} [s.notices]
- *   an older loop's workflows found in the repository, and a formatter that would check the bin
- * @returns {string[]}
+ * to update the loop and how to remove it. `defaultBranch` is the branch the config names (the
+ * schema default when unknown); `configPath` the config file, whose folder is the loop's;
+ * `outboxCheck` the check the omni-loop App posts (`ci.outboxContext`); `pr` the install pull
+ * request, when init found or opened it; `forms` the forms' front door; `unfilled` each
+ * `commands.*` left null, with its flag; `notices` an older loop's workflows found in the
+ * repository, and a formatter that would check the bin.
  */
-export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms, settings, labels, unfilled, notices = {} }) {
+export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms, settings, labels, unfilled, notices = {} }: {
+  slug: string | null;
+  defaultBranch: string;
+  configPath: string;
+  outboxCheck: string;
+  pr: Pick<InstallPr, 'url' | 'number'> | null;
+  forms: { dir: string };
+  settings: { path: string; outcome: string };
+  labels: Pick<LabelsResult, 'byHand'>;
+  unfilled: { key: string; flag: string }[];
+  notices?: { legacyWorkflows?: string[]; formatter?: FormatterNotice | null };
+}): string[] {
   const repo = slug ?? PLACEHOLDER_SLUG;
   const dir = dirname(configPath);
-  const lines = [];
+  const lines: string[] = [];
 
-  const headsUp = [];
+  const headsUp: string[] = [];
   if (notices.legacyWorkflows?.length) {
     headsUp.push(
       `An older copy of the loop already runs here (${notices.legacyWorkflows.join(', ')}). Two loops mean`,
@@ -123,7 +125,7 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
     for (const line of headsUp) lines.push(line.startsWith('  ') ? `  ${line}` : `  - ${line}`);
   }
 
-  const steps = [
+  const steps: [string, ...string[]][] = [
     [
       `Install the ${APP.name} GitHub App on ${slug ?? 'this repository'}:`,
       `     ${GITHUB}/apps/${APP.slug}/installations/new`,

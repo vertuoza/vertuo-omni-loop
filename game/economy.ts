@@ -1,41 +1,54 @@
-// @ts-nocheck
 // Ledger events + rulebook + calendar + season → credits and rankings (spec §6). Pure.
 import { RULEBOOK } from './rulebook.ts';
 import { isWorkingTime, tranchesBetween } from './calendar.ts';
-import { planetKeyOf } from './events.ts';
+import { planetKeyOf, textOf, type GameEvent } from './events.ts';
+import type { Credit, PlanetSeason, Season } from './types.ts';
 
-function seasonBounds(season) {
-  const [y, m] = season.split('-').map(Number);
+// A rulebook table's number for a key read off an event's data, or undefined.
+const lookup = (table: Readonly<Record<string, number>>, key: unknown): number | undefined =>
+  (typeof key === 'string' ? table[key] : undefined);
+
+// The set a map holds under a key, put there first when there is none.
+function setOf<K, V>(map: Map<K, Set<V>>, key: K): Set<V> {
+  const found = map.get(key);
+  if (found) return found;
+  const made = new Set<V>();
+  map.set(key, made);
+  return made;
+}
+
+function seasonBounds(season: string): { start: Date; end: Date } {
+  const [y = NaN, m = NaN] = season.split('-').map(Number);
   return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) };
 }
 
-export function score(events, { season, now }) {
+export function score(events: readonly GameEvent[], { season, now }: { season: string; now: Date }): Season {
   const { start, end } = seasonBounds(season);
-  const inSeason = (at) => at.slice(0, 7) === season;
+  const inSeason = (at: string): boolean => at.slice(0, 7) === season;
   const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 never share an owner, a
   // crew, a terraform or a clawback. Each credit keeps the PRD's number, its home and that key.
-  const ownerOf = new Map();
-  for (const e of sorted) if (e.type === 'PLANET_CHARTED') ownerOf.set(planetKeyOf(e), e.data.ownerTeam ?? null);
-  const ownerFor = (e) => e.data.ownerTeam ?? ownerOf.get(planetKeyOf(e)) ?? null;
-  const where = (e) => ({ planet: e.planet, home: e.home ?? null, key: planetKeyOf(e) });
+  const ownerOf = new Map<string, string | null>();
+  for (const e of sorted) if (e.type === 'PLANET_CHARTED') ownerOf.set(planetKeyOf(e), textOf(e.data, 'ownerTeam') ?? null);
+  const ownerFor = (e: GameEvent): string | null => textOf(e.data, 'ownerTeam') ?? ownerOf.get(planetKeyOf(e)) ?? null;
+  const where = (e: GameEvent) => ({ planet: e.planet, home: e.home ?? null, key: planetKeyOf(e) });
 
-  const credits = [];
-  const credit = (e, points, reason, to = e.contributor ?? null, team = e.team ?? null, extra = {}) => {
+  const credits: Credit[] = [];
+  const credit = (e: GameEvent, points: number, reason: string, to: string | null = e.contributor ?? null, team: string | null = e.team ?? null, extra: { crossTeam?: boolean } = {}) => {
     if (points === 0 || !inSeason(e.at)) return;
     credits.push({ at: e.at, to, team, ...where(e), points, reason, clawed: false, ...extra });
   };
-  const SETTLE_VERDICTS = new Set(['agreed', 'drifted']);
+  const SETTLE_VERDICTS = new Set<unknown>(['agreed', 'drifted']);
 
-  const securedPoints = new Map(); // zone key → { points, at } of its ZONE_SECURED
-  const streak = new Map();        // team → consecutive terraforms
-  const expeditions = new Map();   // planet key → Set(login)
-  const closers = new Map();       // planet key → Set(login)
-  const teamOfLogin = new Map();
-  const lostPlanets = new Set();   // planet keys whose PLANET_LOST fell within the season
-  const lostAtOf = new Map();      // planet key → its PLANET_LOST `at`, any season
-  const planets = {};              // planet key → its season
-  const planetOf = (key) => (planets[key] ??= { ownerTeam: ownerOf.get(key) ?? null, terraformed: false, lost: false, earned: 0 });
+  const securedPoints = new Map<string, { points: number; at: string }>(); // zone key → { points, at } of its ZONE_SECURED
+  const streak = new Map<string, number>();        // team → consecutive terraforms
+  const expeditions = new Map<string, Set<string>>();   // planet key → Set(login)
+  const closers = new Map<string, Set<string>>();       // planet key → Set(login)
+  const teamOfLogin = new Map<string, string>();
+  const lostPlanets = new Set<string>();   // planet keys whose PLANET_LOST fell within the season
+  const lostAtOf = new Map<string, string>();      // planet key → its PLANET_LOST `at`, any season
+  const planets: Record<string, PlanetSeason> = {};              // planet key → its season
+  const planetOf = (key: string): PlanetSeason => (planets[key] ??= { ownerTeam: ownerOf.get(key) ?? null, terraformed: false, lost: false, earned: 0 });
 
   for (const e of sorted) {
     if (e.contributor && e.team) teamOfLogin.set(e.contributor, e.team);
@@ -45,7 +58,7 @@ export function score(events, { season, now }) {
       case 'ZONE_SECURED': {
         const points = RULEBOOK.zoneSecured * (isWorkingTime(new Date(e.at)) ? 1 : RULEBOOK.nightShiftMultiplier);
         securedPoints.set(e.id.replace(/:secured$/, ''), { points, at: e.at });
-        if (e.contributor) (expeditions.get(key) ?? expeditions.set(key, new Set()).get(key)).add(e.contributor);
+        if (e.contributor) setOf(expeditions, key).add(e.contributor);
         credit(e, points, 'zone secured');
         break;
       }
@@ -61,9 +74,9 @@ export function score(events, { season, now }) {
         // score worse than a rubber-stamp `agreed`; the fault line a drift opens still decays the
         // owner until reworked. Any other verdict (e.g. `undetermined`) scores nothing.
         if (e.data.verdict !== undefined && !SETTLE_VERDICTS.has(e.data.verdict)) break;
-        const base = RULEBOOK.woundClose[e.data.kind] ?? 0;
+        const base = lookup(RULEBOOK.woundClose, e.data.kind) ?? 0;
         const crossTeam = Boolean(e.team && ownerFor(e) && e.team !== ownerFor(e));
-        if (e.contributor && base) (closers.get(key) ?? closers.set(key, new Set()).get(key)).add(e.contributor);
+        if (e.contributor && base) setOf(closers, key).add(e.contributor);
         credit(e, base * (crossTeam ? RULEBOOK.crossTeamMultiplier : 1), `wound closed: ${e.data.kind}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
         break;
       }
@@ -73,8 +86,9 @@ export function score(events, { season, now }) {
         break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
-        const prior = streak.get(team) ?? 0;
-        const mult = RULEBOOK.classMultiplier(e.data.class ?? 1)
+        const prior = (team ? streak.get(team) : undefined) ?? 0;
+        const regions = e.data.class ?? 1;
+        const mult = RULEBOOK.classMultiplier(typeof regions === 'number' ? regions : Number.NaN)
           * (e.data.crossSector ? RULEBOOK.crossSectorMultiplier : 1)
           * (1 + Math.min(RULEBOOK.streakCap, RULEBOOK.streakStep * prior));
         if (team) {
@@ -82,13 +96,14 @@ export function score(events, { season, now }) {
           if (inSeason(e.at)) streak.set(team, prior + 1); // season streak (§6.1): only this season's terraforms count
         }
         planetOf(key).terraformed = true;
-        const crew = expeditions.get(key) ?? new Set();
+        const crew = expeditions.get(key) ?? new Set<string>();
         for (const login of crew) credit(e, RULEBOOK.terraformExpedition, 'expedition bonus', login, teamOfLogin.get(login) ?? null);
         for (const login of closers.get(key) ?? []) if (!crew.has(login)) credit(e, RULEBOOK.terraformCloser, 'closer bonus', login, teamOfLogin.get(login) ?? null);
         break;
       }
       case 'PLANET_LOST': {
-        if (ownerFor(e) && inSeason(e.at)) streak.set(ownerFor(e), 0);
+        const owner = ownerFor(e);
+        if (owner && inSeason(e.at)) streak.set(owner, 0);
         planetOf(key).lost = true;
         lostAtOf.set(key, e.at);
         if (inSeason(e.at)) lostPlanets.add(key);
@@ -104,12 +119,12 @@ export function score(events, { season, now }) {
   for (const e of sorted.filter((e) => e.type === 'WOUND_OPENED')) {
     const team = ownerFor(e);
     if (!team) continue;
-    const from = new Date(Math.max(new Date(e.at), start));
+    const from = new Date(Math.max(new Date(e.at).getTime(), start.getTime()));
     const closed = closedAt.get(e.id.replace(/:opened$/, ''));
     const lostAt = lostAtOf.get(planetKeyOf(e));
-    const to = new Date(Math.min(closed ? new Date(closed) : now, end, now, lostAt ? new Date(lostAt) : Infinity));
+    const to = new Date(Math.min(closed ? new Date(closed).getTime() : now.getTime(), end.getTime(), now.getTime(), lostAt ? new Date(lostAt).getTime() : Infinity));
     const tranches = tranchesBetween(from, to, RULEBOOK.trancheMinutes);
-    const points = -tranches * (RULEBOOK.decayPerTranche[e.data.kind] ?? 0);
+    const points = -tranches * (lookup(RULEBOOK.decayPerTranche, e.data.kind) ?? 0);
     if (points !== 0) credits.push({ at: from.toISOString(), to: null, team, ...where(e), points, reason: `decay: ${e.data.kind}`, clawed: false });
   }
 
@@ -119,8 +134,8 @@ export function score(events, { season, now }) {
   // must not pay, so decay credits (reason `decay: …`) are never clawed back.
   for (const c of credits) if (lostPlanets.has(c.key) && !c.reason.startsWith('decay:')) c.clawed = true;
 
-  const individuals = {};
-  const teams = {};
+  const individuals: Record<string, number> = {};
+  const teams: Record<string, number> = {};
   for (const c of credits) {
     const p = c.clawed ? 0 : c.points;
     if (c.to) individuals[c.to] = (individuals[c.to] ?? 0) + p;
@@ -133,7 +148,7 @@ export function score(events, { season, now }) {
 // Which seasons `game:score` folds, and which one's rankings it posts. With no argument: the
 // current season (UTC month); on the 1st–7th also the previous one, and the posted rankings are the
 // previous season's final standings. With an explicit season: that one only.
-export function seasonsToScore(now, season) {
+export function seasonsToScore(now: Date, season?: string | null): { seasons: string[]; rankings: string } {
   if (season) return { seasons: [season], rankings: season };
   const current = now.toISOString().slice(0, 7);
   if (now.getUTCDate() > 7) return { seasons: [current], rankings: current };

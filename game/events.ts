@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { z } from 'zod';
 
 export const EVENT_TYPES = Object.freeze([
@@ -6,9 +5,9 @@ export const EVENT_TYPES = Object.freeze([
   'ZONE_OPENED', 'ZONE_CLAIMED', 'ZONE_SECURED', 'ZONE_REVERTED',
   'WOUND_OPENED', 'WOUND_CLOSED', 'DISTRESS', 'RESCUE',
   'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
-]);
+] as const);
 
-export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock']);
+export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock'] as const);
 
 // A PRD's home: the repository of its issue, `owner/name` in lower case, as public.repositories
 // spells it (PRD 728).
@@ -27,20 +26,30 @@ export const EventSchema = z.object({
   data: z.record(z.string(), z.unknown()).default({}),
 }).strict();
 
-export function eventId(source, identity, state) {
+export type EventType = (typeof EVENT_TYPES)[number];
+/** One ledger event, as the schema parses it. */
+export type GameEvent = z.infer<typeof EventSchema>;
+
+export function eventId(source: string, identity: string | number, state: string | number): string {
   return `${source}:${identity}:${state}`;
 }
 
-export function makeEvent(fields) {
+/** A field of an event's data when it holds text, else undefined. */
+export function textOf(data: Readonly<Record<string, unknown>>, key: string): string | undefined {
+  const value = data[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+export function makeEvent(fields: unknown): GameEvent {
   return EventSchema.parse(fields);
 }
 
 // A planet's key: `<home>#<n>` (PRD 728), so two repositories' PRD 88 are two planets. A PRD with no
 // home (an event written before PRD 728, a fixture) is keyed by its number alone.
-export function planetKey(home, prd) {
+export function planetKey(home: string | null | undefined, prd: number | string): string {
   return home ? `${home}#${prd}` : String(prd);
 }
 
-export function planetKeyOf(event) {
+export function planetKeyOf(event: { home?: string | null | undefined; planet: number }): string {
   return planetKey(event.home, event.planet);
 }

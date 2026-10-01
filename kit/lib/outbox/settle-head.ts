@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Pure decision behind the `settle` job in the CI workflow: has the pull request this run belongs
  * to already moved past the commit this run is grading?
@@ -25,7 +24,7 @@
  * @param {string} apiError - non-empty when the live read failed.
  * @returns {'stale' | 'fresh'}
  */
-export function decideStale(runSha, headSha, apiError) {
+export function decideStale(runSha: string, headSha: string, apiError: string): 'stale' | 'fresh' {
   if (apiError) return 'fresh';
   if (!headSha) return 'fresh';
   if (headSha === runSha) return 'fresh';

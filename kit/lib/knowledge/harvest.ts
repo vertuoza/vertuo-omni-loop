@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * **What to harvest** (PRD #82, slice s3). A PRD's ledger, `settled.md` in its outbox directory,
  * holds every decision the PRD took. The harvest writes back the ones not written back yet: for
@@ -13,13 +12,46 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SETTLED_FILE, parseOutboxItem } from '../outbox/outbox.ts';
 import { parseSettledEntries } from '../outbox/settle.ts';
+import type { Context } from '../context.ts';
+
+/** A ledger's markers, as the context carries them. */
+type Markers = Context['markers'];
+
+/** What the harvest reads of one settled entry (`parseSettledEntries`). */
+export type SettledEntry = {
+  id: string;
+  verdict?: string | null;
+  fields: Record<string, string | undefined>;
+  answerText: string;
+  itemText: string;
+  became: string[];
+};
+
+/** The embedded outbox item, parsed: the harvest reads its sections, its PRD and its rank. */
+export type CandidateItem = NonNullable<Extract<ReturnType<typeof parseOutboxItem>, { item: unknown }>['item']>;
+
+/** One settled entry not written back yet, as the harvest carries it. */
+export type Candidate = {
+  id: string;
+  ledgerFile: string | null;
+  item: CandidateItem | null;
+  itemText: string;
+  answer: string;
+  verdict: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  channel: string | null;
+  channelUrl: string | null;
+  closed: string | null;
+  rank: string | null;
+};
 
 /** The two ledger lines that say an entry was written back already. */
 export const BECAME_FIELD = 'Became';
 export const STAYS_HERE_FIELD = 'Stays here';
 
 /** Whether a parsed settled entry was already written back: a `Became:` or a `Stays here:` line. */
-export function writtenBack(entry) {
+export function writtenBack(entry: Pick<SettledEntry, 'became' | 'fields'>): boolean {
   return entry.became.length > 0 || (entry.fields[STAYS_HERE_FIELD] ?? '').trim().length > 0;
 }
 
@@ -29,12 +61,12 @@ export function writtenBack(entry) {
  * sections, its PRD), `null` when the embedded text no longer parses: the candidate is still listed,
  * its text still carried, so no decision is dropped silently.
  */
-function toCandidate(entry, ledgerFile) {
+function toCandidate(entry: SettledEntry, ledgerFile: string | null): Candidate {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   return {
     id: entry.id,
     ledgerFile,
-    item: parsed.ok ? parsed.item : null,
+    item: parsed.ok ? (parsed.item ?? null) : null,
     itemText: entry.itemText,
     answer: entry.answerText,
     verdict: entry.verdict ?? null,
@@ -49,23 +81,21 @@ function toCandidate(entry, ledgerFile) {
 
 /**
  * The candidates in a ledger's text, in ledger order: the latest entry per id that was not written
- * back. Pure.
- *
- * @param {string} text the ledger's text
- * @param {{ markers: object, ledgerFile?: string | null }} options `ledgerFile` is carried on every
- *   candidate, for its `Source:` line
+ * back. Pure. `ledgerFile` is carried on every candidate, for its `Source:` line.
  */
-export function candidatesFromLedger(text, { markers, ledgerFile = null }) {
-  return parseSettledEntries(text, markers)
-    .filter((entry) => !writtenBack(entry))
-    .map((entry) => toCandidate(entry, ledgerFile));
+export function candidatesFromLedger(
+  text: string,
+  { markers, ledgerFile = null }: { markers: Markers; ledgerFile?: string | null },
+): Candidate[] {
+  const entries: SettledEntry[] = parseSettledEntries(text, markers);
+  return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 
 /**
  * The candidates of PRD `prd`, read from the working tree: `[]` when the PRD has no outbox
  * directory or no ledger yet.
  */
-export function harvestCandidates({ ctx, prd }) {
+export function harvestCandidates({ ctx, prd }: { ctx: Context; prd: number | string }): Candidate[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const ledgerFile = `${outboxDir}/${SETTLED_FILE}`;

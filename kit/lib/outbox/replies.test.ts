@@ -1,9 +1,9 @@
-// @ts-nocheck
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { flatCtx } from '../../test/flat-layout.ts';
+import type { Context } from '../context.ts';
+import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 import { makeMarkers } from '../markers.ts';
 import { formatNumbersMarker } from './comment.ts';
 import { adoptItem, parseSettledEntries } from './settle.ts';
@@ -16,6 +16,11 @@ import {
   WRITER_ASSOCIATIONS,
 } from './replies.ts';
 
+/** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
+const flatCtx = (root: string): Context => untypedFlatCtx(root) as unknown as Context;
+
+type OptionedSpec = { rank?: string; options?: string[] };
+
 const PRD = 1071;
 const PR = 1080;
 
@@ -23,7 +28,7 @@ const PR = 1080;
 // upstream hard-coded — so every marker literal below reproduces upstream's own text byte for byte.
 const markers = makeMarkers('vertuo-outbox');
 
-function withFixtureRoot(run) {
+function withFixtureRoot<T>(run: (root: string) => T): T {
   const root = mkdtempSync(join(tmpdir(), 'outbox-replies-'));
   try {
     return run(root);
@@ -33,13 +38,13 @@ function withFixtureRoot(run) {
 }
 
 function writeItem(
-  root,
-  id,
+  root: string,
+  id: string,
   {
     rank = 'medium',
     questionPlain = `Is ${id} the right call?`,
     choice = 'Kept the default country.',
-  } = {},
+  }: { rank?: string; questionPlain?: string; choice?: string } = {},
 ) {
   const dir = join(root, 'docs/outbox', String(PRD));
   mkdirSync(dir, { recursive: true });
@@ -84,7 +89,7 @@ function writeItem(
 }
 
 /** The pull request comment s2 writes, carrying only what s3 reads off it: the numbering. */
-function prComment(numbering, { id = 1 } = {}) {
+function prComment(numbering: { number: number; id: string; since: string }[], { id = 1 }: { id?: number } = {}) {
   return {
     id,
     body: `${markers.prComment}\n${formatNumbersMarker(numbering, markers)}\n\n## Outbox questions`,
@@ -97,8 +102,12 @@ function prComment(numbering, { id = 1 } = {}) {
 
 let nextReplyId = 100;
 function reply(
-  body,
-  { at = '2026-09-23T10:00:00Z', login = 'pierre', association = 'MEMBER' } = {},
+  body: string,
+  {
+    at = '2026-09-23T10:00:00Z',
+    login = 'pierre',
+    association = 'MEMBER',
+  }: { at?: string; login?: string; association?: string } = {},
 ) {
   const id = nextReplyId++;
   return {
@@ -111,7 +120,7 @@ function reply(
   };
 }
 
-function roundComment(round, numbers, { at }) {
+function roundComment(round: number, numbers: number[], { at }: { at: string }) {
   return {
     id: nextReplyId++,
     body: `${markers.round(round, numbers)}\n**Outbox round ${round}**`,
@@ -124,15 +133,15 @@ function roundComment(round, numbers, { at }) {
 
 const EARLY = '2026-09-23T07:00:00.000Z';
 
-function numbering(...ids) {
+function numbering(...ids: string[]) {
   return ids.map((id, index) => ({ number: index + 1, id, since: EARLY }));
 }
 
-function fakeClient(comments) {
-  const all = [...comments];
+function fakeClient(comments: object[]) {
+  const all: object[] = [...comments];
   return {
     listComments: vi.fn(() => [...all]),
-    createComment: vi.fn((body) => {
+    createComment: vi.fn((body: string) => {
       const created = { id: 9999, body, html_url: 'https://github.com/o/r/pull/1#new' };
       all.push(created);
       return created;
@@ -141,7 +150,7 @@ function fakeClient(comments) {
   };
 }
 
-function settledOf(root) {
+function settledOf(root: string) {
   const file = join(root, 'docs/outbox', String(PRD), 'settled.md');
   return existsSync(file) ? parseSettledEntries(readFileSync(file, 'utf8'), markers) : [];
 }
@@ -185,11 +194,11 @@ describe('readReplies — one reply answers several questions', () => {
         ['s1-01-country', 'agreed'],
         ['s2-01-currency', 'drifted'],
       ]);
-      expect(entries[0].fields.Channel).toMatch(/feature pull request #1080/);
-      expect(entries[0].fields['Approved by']).toBe('pierre');
-      expect(entries[0].fields['Approved at']).toBe('2026-09-23T10:00:00Z');
-      expect(entries[0].answerText).toBe('ok');
-      expect(entries[1].answerText).toBe('no, because the quote should decide');
+      expect(entries[0]!.fields.Channel).toMatch(/feature pull request #1080/);
+      expect(entries[0]!.fields['Approved by']).toBe('pierre');
+      expect(entries[0]!.fields['Approved at']).toBe('2026-09-23T10:00:00Z');
+      expect(entries[0]!.answerText).toBe('ok');
+      expect(entries[1]!.answerText).toBe('no, because the quote should decide');
       expect(result.round).toBeNull();
       expect(client.createComment).not.toHaveBeenCalled();
     });
@@ -244,8 +253,8 @@ describe('readReplies — a numbered answer beats approve all', () => {
       writeItem(root, 's2-01-currency');
       const client = fakeClient([
         prComment(numbering('s1-01-country', 's2-01-currency')),
-        reply(firstBody, { at: '2026-09-23T10:00:00Z' }),
-        reply(secondBody, { at: '2026-09-23T10:05:00Z' }),
+        reply(firstBody!, { at: '2026-09-23T10:00:00Z' }),
+        reply(secondBody!, { at: '2026-09-23T10:05:00Z' }),
       ]);
 
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
@@ -291,8 +300,8 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
       expect(existsSync(join(root, file))).toBe(true);
       expect(settledOf(root)).toEqual([]);
       expect(result.round).not.toBeNull();
-      expect(result.round.number).toBe(2);
-      const body = result.round.body;
+      expect(result.round!.number).toBe(2);
+      const body = result.round!.body;
       expect(body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
       expect(body).toContain('**Outbox round 2**');
       expect(body).toContain('**Question 1** · needs a person');
@@ -314,7 +323,7 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR, post: true }, client);
 
       expect(client.createComment).toHaveBeenCalledTimes(1);
-      expect(client.createComment).toHaveBeenCalledWith(result.round.body);
+      expect(client.createComment).toHaveBeenCalledWith(result.round!.body);
       expect(client.updateComment).not.toHaveBeenCalled();
     });
   });
@@ -332,9 +341,9 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
 
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
 
-      expect(result.round.number).toBe(4);
-      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 4 1 -->');
-      expect(result.round.body).toContain('You answered: “still unsure”');
+      expect(result.round!.number).toBe(4);
+      expect(result.round!.body.split('\n')[0]!).toBe('<!-- vertuo-outbox-round: 4 1 -->');
+      expect(result.round!.body).toContain('You answered: “still unsure”');
     });
   });
 
@@ -489,7 +498,7 @@ describe('formatRoundComment', () => {
 // ---- Options, recommendation and objections ----
 
 /** An item with its options — A is the one built. */
-function optionedText(id, { rank = 'high', options = ['Keep what was built', 'Change it'] } = {}) {
+function optionedText(id: string, { rank = 'high', options = ['Keep what was built', 'Change it'] }: OptionedSpec = {}) {
   return [
     '---',
     `id: ${id}`,
@@ -532,14 +541,14 @@ function optionedText(id, { rank = 'high', options = ['Keep what was built', 'Ch
   ].join('\n');
 }
 
-function writeOptioned(root, id, spec) {
+function writeOptioned(root: string, id: string, spec?: OptionedSpec) {
   const dir = join(root, 'docs/outbox', String(PRD));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${id}.md`), optionedText(id, spec));
   return `docs/outbox/${PRD}/${id}.md`;
 }
 
-function adopt(root, id, spec = {}) {
+function adopt(root: string, id: string, spec: OptionedSpec = {}) {
   const result = adoptItem({
     ctx: flatCtx(root),
     itemText: optionedText(id, { rank: 'medium', ...spec }),
@@ -547,12 +556,12 @@ function adopt(root, id, spec = {}) {
   if (!result.ok) throw new Error(result.errors.join('; '));
 }
 
-function settledText(root) {
+function settledText(root: string) {
   return readFileSync(join(root, 'docs/outbox', String(PRD), 'settled.md'), 'utf8');
 }
 
 /** Every entry the ledger holds, repeats included — `parseSettledEntries` keeps only the latest. */
-function rawEntryCount(root) {
+function rawEntryCount(root: string) {
   return settledText(root).match(/^<!-- vertuo-outbox-settled: /gm)?.length ?? 0;
 }
 
@@ -708,9 +717,9 @@ describe('readReplies — options and recommendation', () => {
 
       expect(result.settled.map((s) => [s.number, s.verdict])).toEqual([[2, 'drifted']]);
       const [entry] = settledOf(root);
-      expect(entry.id).toBe('s2-01-cost');
-      expect(entry.verdict).toBe('drifted');
-      expect(entry.answerText).toBe('B. Always return it — because the cost is confidential');
+      expect(entry!.id).toBe('s2-01-cost');
+      expect(entry!.verdict).toBe('drifted');
+      expect(entry!.answerText).toBe('B. Always return it — because the cost is confidential');
     });
   });
 
@@ -724,7 +733,7 @@ describe('readReplies — options and recommendation', () => {
       expect(result.settled).toEqual([]);
       expect(existsSync(join(root, file))).toBe(true);
       expect(result.held.map((h) => [h.number, h.answer, h.due])).toEqual([[1, 'D', true]]);
-      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
+      expect(result.round!.body.split('\n')[0]!).toBe('<!-- vertuo-outbox-round: 2 1 -->');
     });
   });
 });
@@ -753,12 +762,12 @@ describe('readReplies — an adopted item', () => {
       expect(after.startsWith(before)).toBe(true);
       expect(rawEntryCount(root)).toBe(2);
       const [entry] = settledOf(root);
-      expect(entry.verdict).toBe('drifted');
-      expect(entry.closed).toBe(false);
-      expect(entry.answerText).toBe('B. All of them, costs hidden — because we need all of them');
-      expect(entry.fields['Approved by']).toBe('pierre');
-      expect(entry.fields.Channel).toMatch(/feature pull request #1080/);
-      expect(entry.itemText).toBe(
+      expect(entry!.verdict).toBe('drifted');
+      expect(entry!.closed).toBe(false);
+      expect(entry!.answerText).toBe('B. All of them, costs hidden — because we need all of them');
+      expect(entry!.fields['Approved by']).toBe('pierre');
+      expect(entry!.fields.Channel).toMatch(/feature pull request #1080/);
+      expect(entry!.itemText).toBe(
         optionedText('s3-01-components', {
           rank: 'medium',
           options: ['None, and it says so', 'All of them, costs hidden'],
@@ -790,7 +799,7 @@ describe('readReplies — an adopted item', () => {
         expect(result.round).toBeNull();
         const after = settledText(root);
         expect(after.slice(0, before.length)).toBe(before);
-        expect(settledOf(root).find((e) => e.id === 's3-01-components').verdict).toBe('adopted');
+        expect(settledOf(root).find((e) => e.id === 's3-01-components')!.verdict).toBe('adopted');
       });
     },
   );
@@ -805,7 +814,7 @@ describe('readReplies — an adopted item', () => {
       expect(result.settled).toEqual([]);
       expect(rawEntryCount(root)).toBe(1);
       expect(result.held.map((h) => [h.number, h.due])).toEqual([[1, true]]);
-      expect(result.round.body).toContain('**Question 1** · medium');
+      expect(result.round!.body).toContain('**Question 1** · medium');
     });
   });
 });

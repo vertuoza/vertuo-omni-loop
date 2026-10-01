@@ -1,15 +1,21 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { makeMarkers } from '../markers.ts';
 import { renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox/settle.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
-import { candidatesFromLedger, harvestCandidates, writtenBack } from './harvest.ts';
+import { candidatesFromLedger, harvestCandidates, writtenBack, type Candidate } from './harvest.ts';
+
+/** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
+function itemOf(text: string) {
+  const { item } = parseOutboxItem(text);
+  if (!item) throw new Error('fixture outbox item does not parse');
+  return item;
+}
 
 const markers = makeMarkers('omni-outbox');
 
 /** One item's text, as a slice raised it. */
-function itemText({ id, rank = 'medium', slice = 's1', prd = 7 }) {
+function itemText({ id, rank = 'medium', slice = 's1', prd = 7 }: { id: string; rank?: string; slice?: string; prd?: number }): string {
   return [
     '---',
     `id: ${id}`,
@@ -53,15 +59,15 @@ function itemText({ id, rank = 'medium', slice = 's1', prd = 7 }) {
   ].join('\n');
 }
 
-function adopted(id) {
+function adopted(id: string): string {
   const text = itemText({ id });
-  const { item } = parseOutboxItem(text);
+  const item = itemOf(text);
   return renderAdoptedEntry({ item, itemText: text, markers });
 }
 
-function drifted(id, { answer = 'No, it should read two files instead.' } = {}) {
+function drifted(id: string, { answer = 'No, it should read two files instead.' }: { answer?: string } = {}): string {
   const text = itemText({ id });
-  const { item } = parseOutboxItem(text);
+  const item = itemOf(text);
   return renderSettledEntry({
     item,
     itemText: text,
@@ -77,11 +83,11 @@ function drifted(id, { answer = 'No, it should read two files instead.' } = {}) 
 }
 
 /** Adds a ledger line to a rendered entry, right after its `- Wave:` line, as write-back does. */
-function withLine(entry, line) {
+function withLine(entry: string, line: string): string {
   return entry.replace(/^(- Wave: .*)$/m, `$1\n${line}`);
 }
 
-function ledger(...entries) {
+function ledger(...entries: string[]): string {
   const ctx = { config: { paths: { delivery: '.omni-loop/delivery' } } };
   return [settledHeader(7, { ctx }), ...entries].join('\n');
 }
@@ -104,7 +110,7 @@ describe('candidatesFromLedger', () => {
   });
 
   it('carries the item text, the answer, the verdict, the approver, the time and the channel', () => {
-    const [twice, plain] = candidatesFromLedger(LEDGER, { markers, ledgerFile: 'x/settled.md' });
+    const [twice, plain] = candidatesFromLedger(LEDGER, { markers, ledgerFile: 'x/settled.md' }) as [Candidate, Candidate];
     expect(twice).toMatchObject({
       id: 's1-03-twice',
       ledgerFile: 'x/settled.md',
@@ -117,7 +123,7 @@ describe('candidatesFromLedger', () => {
       channelUrl: 'https://github.com/acme/widgets/pull/12',
       rank: 'medium',
     });
-    expect(twice.item.sections.whatIHadToDecide).toBe('Whether s1-03-twice reads one file or two.');
+    expect(twice.item!.sections.whatIHadToDecide).toBe('Whether s1-03-twice reads one file or two.');
     expect(plain).toMatchObject({
       verdict: 'adopted',
       approvedBy: 'nobody',
@@ -157,7 +163,7 @@ describe('harvestCandidates', () => {
     });
     const candidates = harvestCandidates({ ctx, prd: 7 });
     expect(candidates.map((candidate) => candidate.id)).toEqual(['s1-03-twice', 's1-04-plain']);
-    expect(candidates[0].ledgerFile).toBe('.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md');
+    expect(candidates[0]!.ledgerFile).toBe('.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md');
   });
 
   it('is empty for a PRD with no folder or no ledger', () => {
