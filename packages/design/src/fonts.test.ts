@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,8 +8,8 @@ const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const committed = readFileSync(join(pkg, 'fonts.css'), 'utf8');
 
 /** Every @font-face rule of a stylesheet: its family and the file its src points to. */
-function declaredFaces(css) {
-  return [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map(([, body]) => ({
+function declaredFaces(css: string): { family: string | undefined; url: string | undefined }[] {
+  return [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map(([, body = '']) => ({
     family: body.match(/font-family:\s*'([^']+)'/)?.[1],
     url: body.match(/src:\s*url\('([^']+)'\)\s*format\('woff2'\)/)?.[1],
   }));
@@ -34,12 +33,12 @@ describe('fonts', () => {
     expect(faces.length).toBeGreaterThan(0);
     for (const { family, url } of faces) {
       expect(url, family).toMatch(/^\.\/fonts\/[a-z0-9-]+\.woff2$/);
-      expect(existsSync(join(pkg, url)), url).toBe(true);
+      expect(existsSync(join(pkg, url!)), url).toBe(true);
     }
   });
 
   it('ships no woff2 file it does not declare', () => {
-    const declared = new Set(declaredFaces(committed).map((f) => f.url.replace('./fonts/', '')));
+    const declared = new Set(declaredFaces(committed).map((f) => f.url!.replace('./fonts/', '')));
     const shipped = readdirSync(join(pkg, 'fonts')).filter((f) => f.endsWith('.woff2'));
     expect(shipped.sort()).toEqual([...declared].sort());
   });

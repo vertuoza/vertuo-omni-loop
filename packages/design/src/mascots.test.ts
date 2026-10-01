@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { MASCOTS, SPRITE_DEFS } from './sprites.ts';
@@ -14,15 +13,15 @@ const DEFINES = /create\s+(?:or\s+replace\s+)?function\s+public\.fleet_mascots\s
 
 // The keys a migration's fleet_mascots() returns, in its order: the quoted strings of the first
 // array[…] after the function's definition. Null when the text defines no fleet_mascots().
-function mascotKeys(sql) {
+function mascotKeys(sql: string): string[] | null {
   const at = sql.search(DEFINES);
   if (at < 0) return null;
   const list = /array\s*\[([^\]]*)\]/i.exec(sql.slice(at));
-  return list ? [...list[1].matchAll(/'([^']*)'/g)].map((m) => m[1]) : [];
+  return list ? [...list[1]!.matchAll(/'([^']*)'/g)].map((m) => m[1]!) : [];
 }
 
 // What differs between a fleet_mascots() definition and the library: [] when they agree, key for key.
-function drift(sql, library = MASCOTS) {
+function drift(sql: string, library: readonly string[] = MASCOTS): string[] {
   const keys = mascotKeys(sql) ?? [];
   return [
     ...library.filter((k) => !keys.includes(k)).map((k) => `missing ${k}`),
@@ -35,7 +34,7 @@ function drift(sql, library = MASCOTS) {
 function newestDefinition() {
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
   const defining = files.filter((f) => DEFINES.test(readFileSync(new URL(f, MIGRATIONS), 'utf8')));
-  const file = defining.at(-1);
+  const file = defining.at(-1)!;
   return { file, sql: readFileSync(new URL(file, MIGRATIONS), 'utf8') };
 }
 
@@ -49,7 +48,7 @@ describe('the mascot library', () => {
     for (const key of MASCOTS) {
       const def = SPRITE_DEFS[key];
       expect(def, key).toBeDefined();
-      expect([def.w, def.h], key).toEqual([32, 32]);
+      expect([def!.w, def!.h], key).toEqual([32, 32]);
       const [a, b] = [0, 1].map((frame) => spritePixels(key, { frame }).pixels.join());
       expect(a === b, `${key}: both frames are the same`).toBe(false);
     }
@@ -72,7 +71,7 @@ describe('the library and the database', () => {
   });
 
   it('tell a definition missing one key, one extra or one out of order apart from the library', () => {
-    const define = (keys) => `create or replace function public.fleet_mascots() returns text[]
+    const define = (keys: readonly string[]): string => `create or replace function public.fleet_mascots() returns text[]
 language sql immutable
 set search_path = ''
 as $$
@@ -81,7 +80,7 @@ $$;`;
     expect(drift(define(LIBRARY), LIBRARY)).toEqual([]);
     expect(drift(define(LIBRARY.filter((k) => k !== 'turtle')), LIBRARY)).toEqual(['missing turtle']);
     expect(drift(define([...LIBRARY, 'dragon']), LIBRARY)).toEqual(['extra dragon']);
-    expect(drift(define([...LIBRARY.slice(1), LIBRARY[0]]), LIBRARY)).toEqual(['another order']);
+    expect(drift(define([...LIBRARY.slice(1), LIBRARY[0]!]), LIBRARY)).toEqual(['another order']);
     expect(drift('select 1;', LIBRARY)).toHaveLength(LIBRARY.length);
   });
 });

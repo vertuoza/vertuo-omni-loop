@@ -1,8 +1,8 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { INK, PALETTE } from './palette.ts';
 import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS, COLOURS, contrast, cssName, tokensCss } from './tokens.ts';
+import type { AskTheme } from './tokens.ts';
 
 const committed = () => readFileSync(new URL('../tokens.css', import.meta.url), 'utf8');
 
@@ -29,7 +29,8 @@ describe('INK', () => {
   it('gives a colour the pixel palette names that character\'s value', () => {
     const named = { navy: 'n', navyDark: 'N', white: 'w', plasma: 'p', plasmaDark: 'P', yellow: 'y', gold: 'Y',
       red: 'r', redDark: 'R', cyan: 'c', green: 'z', greenDark: 'Z', slate: 'A', orange: 'o' };
-    for (const [name, ch] of Object.entries(named)) expect(INK[name], name).toBe(PALETTE[ch]);
+    const ink: Record<string, string> = INK, palette: Record<string, string> = PALETTE;
+    for (const [name, ch] of Object.entries(named)) expect(ink[name], name).toBe(palette[ch]);
   });
 
   it('holds lowercase #rrggbb colours only', () => {
@@ -85,7 +86,7 @@ describe('contrast', () => {
 });
 
 describe('Ask\'s tokens', () => {
-  const themes = Object.keys(ASK);
+  const themes = Object.keys(ASK) as AskTheme[];
 
   it('have three themes, Omni, light and dark, with the same tokens', () => {
     expect([...themes].sort()).toEqual(['dark', 'light', 'omni']);
@@ -130,7 +131,7 @@ describe('Ask\'s tokens', () => {
   });
 
   it('pass WCAG AA for every text colour pair, in all three themes', () => {
-    const failures = [];
+    const failures: string[] = [];
     for (const theme of themes) {
       for (const { text, on, where } of ASK_TEXT_PAIRS) {
         const ratio = contrast(ASK[theme][text], ASK[theme][on]);
@@ -141,7 +142,7 @@ describe('Ask\'s tokens', () => {
   });
 
   it('give focus rings and the selected option\'s edge 3:1 against what they sit on, in all three themes', () => {
-    const failures = [];
+    const failures: string[] = [];
     for (const theme of themes) {
       for (const { text, on, where } of ASK_UI_PAIRS) {
         const ratio = contrast(ASK[theme][text], ASK[theme][on]);

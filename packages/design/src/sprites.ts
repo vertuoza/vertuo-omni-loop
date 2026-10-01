@@ -1,16 +1,24 @@
-// @ts-nocheck
 // The cast and the icons, laid out as material shapes and finished by the forge (forge.mjs).
 // Heroes are 32×32 (OmniMan and his poses 32×48), Entropy 24×24, icons 16×16. Every sprite has two
 // frames (`f` is 0 or 1): breathing, tentacles, a coin flip, a flicker, a stride.
 // Materials: see RAMPS and FLAT in forge.mjs; 'k' is an inner line.
 
 import { RAMPS } from './forge.ts';
+import type { Painter, Tint } from './forge.ts';
 
-const SUIT_STRIPES = (d, x, y, w = 7) => {
+/** A sprite's recipe: its size, how to paint frame `f` (0 or 1), and whether the forge outlines it. */
+export interface SpriteDef { w: number; h: number; draw(d: Painter, f: number): void; outline?: boolean }
+type Point = [number, number];
+
+// A gear's teeth: four straight, four diagonal.
+const TEETH: readonly Point[] = [[7, 1], [7, 13], [1, 7], [13, 7]];
+const COGS: readonly Point[] = [[3, 3], [11, 3], [3, 11], [11, 11]];
+
+const SUIT_STRIPES = (d: Painter, x: number, y: number, w = 7): void => {
   d.rect(x, y, w, 1, '1').rect(x + 2, y + 2, w - 1, 1, '2').rect(x, y + 4, w, 1, '3').rect(x + 2, y + 6, w - 2, 1, '4');
 };
 
-function heroDraw(girl, cape) {
+function heroDraw(girl: boolean, cape: boolean): SpriteDef['draw'] {
   return (d, f) => {
     const b = f; // breathing
     if (cape) {
@@ -63,7 +71,7 @@ function heroDraw(girl, cape) {
 }
 
 // The commander's neck and head: grey streak, stern brows, the mustache.
-function omniHead(d) {
+function omniHead(d: Painter): void {
   d.rect(13, 14, 6, 5, 'S');
   d.ellipse(16, 9, 6.5, 7.5, 'S');
   d.ellipse(16, 4.5, 7, 4, 'H').rect(9, 4, 3, 5, 'H').rect(20, 4, 3, 5, 'H');
@@ -79,7 +87,7 @@ function omniHead(d) {
 // OmniMan's poses, on the idle body: `point` (arm out to his left, the ad's spokesperson), `cheer`
 // (a fist raised, thumb up) and `run` (two strides). With `cape`, the plasma cape heroes wear, so a
 // hero's cape recolours it (heroes.mjs › heroPose). Points and cheers breathe as the idle body does.
-function omniPose(pose, cape) {
+function omniPose(pose: 'point' | 'cheer' | 'run', cape: boolean): SpriteDef['draw'] {
   return (d, f) => {
     const run = pose === 'run';
     const b = run ? 0 : f;
@@ -97,7 +105,8 @@ function omniPose(pose, cape) {
     if (!run) d.mirror(); // a running cape streams to one side, so it is not mirrored
     if (run) {
       // A stride: one leg thrown back, the other reaching forward; the second frame swaps them.
-      const [back, fore] = f ? [[19, 25, 39, 26.5, 42], [13, 10, 42, 9.5, 44.5]] : [[13, 7, 39, 5.5, 42], [19, 22, 42, 22.5, 44.5]];
+      type Stride = [number, number, number, number, number];
+      const [back, fore]: [Stride, Stride] = f ? [[19, 25, 39, 26.5, 42], [13, 10, 42, 9.5, 44.5]] : [[13, 7, 39, 5.5, 42], [19, 22, 42, 22.5, 44.5]];
       for (const [hx, fx, fy, bx, by] of [back, fore]) {
         d.line(hx, 32, fx, fy, 'W', 4).line(hx - 1.5, 32, fx - 1.5, fy, 'N', 1.2);
         d.ellipse(bx, by, 3, 2, 'n');
@@ -126,7 +135,7 @@ function omniPose(pose, cape) {
   };
 }
 
-export const SPRITE_DEFS = Object.freeze({
+export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
   // The commander, as in the key art: navy-and-white suit, the four Vertuoza stripes on the chest,
   // black hair with a grey streak, the mustache, clenched fists.
   omni: {
@@ -190,9 +199,9 @@ export const SPRITE_DEFS = Object.freeze({
     draw(d, f) {
       for (let i = 0; i < 6; i++) {
         const x0 = 7 + i * 3.6, dir = i < 3 ? -1 : 1, ph = f * 1.2 + i;
-        const pts = Array.from({ length: 6 }, (_, k) => [x0 + dir * k * 0.9 + Math.sin(ph + k * 0.9) * 1.2, 19 + k * 2]);
-        for (let k = 1; k < pts.length; k++) d.line(pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 'V', 3.2 - k * 0.35);
-        d.px(pts[3][0] + 0.5, pts[3][1] + 1, 'M', 1).px(pts[4][0] + 0.5, pts[4][1] + 1, 'M', 1);
+        const pts = Array.from({ length: 6 }, (_, k): Point => [x0 + dir * k * 0.9 + Math.sin(ph + k * 0.9) * 1.2, 19 + k * 2]);
+        for (let k = 1; k < pts.length; k++) d.line(pts[k - 1]![0], pts[k - 1]![1], pts[k]![0], pts[k]![1], 'V', 3.2 - k * 0.35);
+        d.px(pts[3]![0] + 0.5, pts[3]![1] + 1, 'M', 1).px(pts[4]![0] + 0.5, pts[4]![1] + 1, 'M', 1);
       }
       d.rect(9, 17, 14, 4, 'N').rect(11, 17, 10, 4, 'W').px(15, 18, 'C').px(16, 18, 'C');
       d.ellipse(16, 10, 11, 9.5 - f * 0.5, 'V');
@@ -493,7 +502,8 @@ export const SPRITE_DEFS = Object.freeze({
     w: 16, h: 16,
     draw(d, f) {
       const o = f;
-      for (const [x, y, dx, dy] of [[1, 1, 1, 1], [14, 1, -1, 1], [1, 14, 1, -1], [14, 14, -1, -1]]) {
+      const corners: [number, number, number, number][] = [[1, 1, 1, 1], [14, 1, -1, 1], [1, 14, 1, -1], [14, 14, -1, -1]];
+      for (const [x, y, dx, dy] of corners) {
         d.rect(Math.min(x, x + dx * (3 - o)), y + (dy < 0 ? -0 : 0), 4 - o, 1, 'Y', 1);
         d.rect(x, Math.min(y, y + dy * (3 - o)), 1, 4 - o, 'Y', 1);
       }
@@ -529,8 +539,8 @@ export const SPRITE_DEFS = Object.freeze({
   } },
   'menu-engineering': { w: 16, h: 16, draw(d, f) { // a gear with a glowing core
     d.ellipse(8, 8, 5, 5, 'L');
-    for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7]]) d.rect(x, y, 2, 2, 'L');
-    for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) d.rect(x, y, 2, 2, 'L');
+    for (const [x, y] of TEETH) d.rect(x, y, 2, 2, 'L');
+    for (const [x, y] of COGS) d.rect(x, y, 2, 2, 'L');
     d.ellipse(8, 8, 2.2, 2.2, f ? 'C' : 'O');
   } },
   'menu-prds': { w: 16, h: 16, draw(d, f) { // a rocket, flame flickering
@@ -551,7 +561,7 @@ export const SPRITE_DEFS = Object.freeze({
     d.px(1, 15 - f, '1').px(4, 15, '3');
   } },
   'menu-questions': { w: 16, h: 16, draw(d, f) { // the ? block, its question mark casting a shadow
-    const mark = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
+    const mark: Point[] = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
     d.rect(1, 1, 14, 14, 'Y').pxs([[2, 2], [13, 2], [2, 13], [13, 13]], 'D');
     d.pxs(mark.map(([x, y]) => [x + 1, y + 1]), 'X').pxs(mark, 'Q');
     if (f) d.rect(1, 1, 14, 1, 'Y', 0);
@@ -564,8 +574,8 @@ export const SPRITE_DEFS = Object.freeze({
   // The foot's Settings entry (PRD 733): a gold cog, its hub a dark hole, a spark turning on its rim.
   'menu-settings': { w: 16, h: 16, draw(d, f) {
     d.ellipse(8, 8, 5, 5, 'Y');
-    for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7]]) d.rect(x, y, 2, 2, 'Y');
-    for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) d.rect(x, y, 2, 2, 'Y');
+    for (const [x, y] of TEETH) d.rect(x, y, 2, 2, 'Y');
+    for (const [x, y] of COGS) d.rect(x, y, 2, 2, 'Y');
     d.ellipse(8, 8, 1.8, 1.8, 'X');
     d.px(f ? 11 : 5, f ? 6 : 5, 'y');
   } },
@@ -587,7 +597,7 @@ export const SPRITE_DEFS = Object.freeze({
     }
   } },
   'tile-block': { w: 16, h: 16, outline: false, draw(d, f) { // the ? block, its mark catching the light
-    const mark = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
+    const mark: Point[] = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
     blockFrame(d, 'Y');
     d.pxs(mark.map(([x, y]) => [x + 1, y + 1]), 'X').pxs(mark, 'Q');
     if (f) d.rect(2, 1, 12, 1, 'Y', 0);
@@ -609,18 +619,18 @@ export const SPRITE_DEFS = Object.freeze({
 });
 
 // The tiles' shared parts: the soil under the grass, a block's riveted frame, a pipe's half.
-function soil(d) {
+function soil(d: Painter): void {
   d.rect(0, 0, 16, 16, 'B', 1);
   d.pxs([[3, 7], [12, 6], [7, 11], [1, 13], [13, 14]], 'B', 2).pxs([[4, 7], [8, 11], [14, 14]], 'B', 3).pxs([[11, 9], [5, 14]], 'B', 0);
 }
 
-function blockFrame(d, m) {
+function blockFrame(d: Painter, m: string): void {
   d.rect(0, 0, 16, 16, 'D', 3).rect(1, 1, 14, 14, m, 1);
   d.rect(1, 1, 14, 1, m, 0).rect(1, 1, 1, 14, m, 0).rect(1, 14, 14, 1, m, 2).rect(14, 1, 1, 14, m, 2);
   d.pxs([[2, 2], [13, 2], [2, 13], [13, 13]], 'D', 3);
 }
 
-function pipe(d, side, top) {
+function pipe(d: Painter, side: 'l' | 'r', top: boolean): void {
   const left = side === 'l';
   d.rect(0, 0, 16, 16, 'g', 1);
   if (left) d.rect(0, 0, 1, 16, 'g', 3).rect(1, 0, 3, 16, 'g', 0);
@@ -629,7 +639,7 @@ function pipe(d, side, top) {
 }
 
 /** Super Omni World's tiles, in the order its tileset lays them out (PRD 817). */
-export const TILES = Object.freeze([
+export const TILES: readonly string[] = Object.freeze([
   'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
   'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',
 ]);
@@ -640,12 +650,12 @@ export const TILES = Object.freeze([
  * bricks (`O`, and `D`, their joints and the blocks' frames) and castle stone (`A`), from the forge's
  * own ramps. The ? block's gold (`Y`) is never recoloured: it reads the same in every stage.
  */
-export const STAGE_PALETTES = Object.freeze({
+export const STAGE_PALETTES: Readonly<Record<string, Tint>> = Object.freeze({
   grass: Object.freeze({}),
   // 1-2: cave moss and teal pipes over blue-grey rock, bricks in cold slate.
-  underground: Object.freeze({ g: RAMPS.K, B: RAMPS.n, O: RAMPS.J, D: RAMPS.H, A: RAMPS.J }),
+  underground: Object.freeze({ g: RAMPS.K!, B: RAMPS.n!, O: RAMPS.J!, D: RAMPS.H!, A: RAMPS.J! }),
   // 1-3: steel-grey battlements over dark stone, bricks in castle red, stone in the castle's grey.
-  castle: Object.freeze({ g: RAMPS.L, B: RAMPS.H, O: RAMPS.R, D: RAMPS.H }),
+  castle: Object.freeze({ g: RAMPS.L!, B: RAMPS.H!, O: RAMPS.R!, D: RAMPS.H! }),
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the
@@ -653,14 +663,16 @@ export const STAGE_PALETTES = Object.freeze({
 // accepts the keys public.fleet_mascots() returns: mascots.test.mjs fails when the newest migration
 // defining it lists other keys, or another order. A fleet with none is drawn as a hero in its colour
 // (heroes.mjs › fleetSprite).
-export const MASCOTS = Object.freeze([
+export const MASCOTS: readonly string[] = Object.freeze([
   'beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible',
   'atom-eve', 'shark', 'turtle', 'allen', 'robot', // PRD 517
 ]);
 
 // Entropy recoloured per wound kind (spec §5.3): the shape is the enemy, the colour says which one.
 // `ramp` replaces the Entropy material; `p` is the bright tone for map specks and labels.
-export const WOUND_TINT = Object.freeze({
+export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'fault-line' | 'under-fire' | 'aftershock';
+
+export const WOUND_TINT: Readonly<Record<WoundKind, { p: string; ramp: readonly string[] }>> = Object.freeze({
   transmission: { p: '#6ff0ff', ramp: ['#c8fbff', '#3fb8d8', '#1f6f98', '#0e3a5c'] },
   'unconfirmed-ground': { p: '#ffb347', ramp: ['#ffe0a8', '#f08a2a', '#b0540e', '#5e2a06'] },
   beacon: { p: '#ff3b5c', ramp: ['#ffb0bc', '#e8284c', '#a0122e', '#5a0818'] },
@@ -669,4 +681,4 @@ export const WOUND_TINT = Object.freeze({
   aftershock: { p: '#ff3b5c', ramp: ['#e080a0', '#9a1440', '#5e0a28', '#300414'] },
 });
 
-export const woundTint = (kind) => ({ Z: WOUND_TINT[kind].ramp });
+export const woundTint = (kind: WoundKind): Tint => ({ Z: WOUND_TINT[kind].ramp });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { OMNI_LOOP } from './brand.ts';
 import { LOGO_DRAWINGS, LOGO_FORMS } from './logo.ts';
