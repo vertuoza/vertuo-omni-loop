@@ -41,7 +41,7 @@ ul.same{margin:0;padding-left:20px;display:grid;gap:4px}
 <main>
 <header>
 <h1>Strict TypeScript across the kit, game and omni-app</h1>
-<p>PRD 725. About 460 files and 83 000 lines of plain JavaScript become strict TypeScript. Nothing a person sees changes: the same commands, the same output, the same bundle. What changes is what an agent learns while it edits.</p>
+<p>PRD 725. About 510 files and 93 000 lines of plain JavaScript become strict TypeScript. Nothing a person sees changes: the same commands, the same output, the same bundle. What changes is what an agent learns while it edits.</p>
 </header>
 
 <section>
@@ -76,7 +76,7 @@ does not exist on type 'OutboxItem'.</span></pre>
 <div class="side"><span class="tag">Today</span>
 <pre>const cfg = YAML.parse(read('.omni-loop/config.yml'));
 const limit = cfg.limits.stallDays;   <span class="dim">// trusted as is</span></pre>
-<p class="note">A missing or mistyped field flows on as <code>undefined</code>. Only 29 files import Zod.</p>
+<p class="note">A missing or mistyped field flows on as <code>undefined</code>. Only 38 files import Zod.</p>
 </div>
 <div class="side"><span class="tag after">After</span>
 <pre>const cfg = ConfigSchema.parse(YAML.parse(read(path)));

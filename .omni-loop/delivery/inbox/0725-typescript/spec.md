@@ -8,7 +8,7 @@ spec: file
 # Strict TypeScript across the kit, game and omni-app
 
 **Date:** 2026-09-30 · **PRD:** #725 · **Touches:** every `.mjs` file outside `kit/dist/` and
-`.omni-loop/bin/` (456 files, 207 of them tests, about 83 000 lines): `kit/`, `game/`,
+`.omni-loop/bin/` (509 files, 234 of them tests, about 93 000 lines, plus one hand-written `.d.mts`): `kit/`, `game/`,
 `apps/omni-app/`, `apps/galaxy/scripts/`, `packages/design/`, `packages/galaxy/`, `scripts/`,
 `.claude/hooks/`, `vitest.config.mjs`; the root `package.json`, a new root `tsconfig.base.json` and
 `tsconfig.json`, `apps/galaxy/tsconfig.json`, `.github/workflows/`, `apps/omni-app/vercel.json`.
@@ -17,12 +17,12 @@ name and shape.
 
 ## Problem
 
-About 460 files, the whole kit, the game, the GitHub App and two shared packages, are plain
+About 510 files, the whole kit, the game, the GitHub App and two shared packages, are plain
 JavaScript with no type checking at all. The arcade (`apps/galaxy`) is TypeScript, but CI never runs
 `tsc` on it either: only Vercel's build does, after merge. So an agent editing `kit/lib/outbox/`
 learns it passed the wrong shape only when a test happens to cover that path, and learns nothing
 when none does. Data read from outside (config YAML, front matter, `gh` JSON, OpenRouter, env,
-Supabase rows) is mostly trusted as it comes: only 29 files, across the kit and the arcade, import
+Supabase rows) is mostly trusted as it comes: only 38 files, across the kit, the game and the arcade, import
 Zod.
 
 Agents write most of this repository's code. The cheapest check they can get on every edit is a
@@ -76,9 +76,9 @@ Taken in the brainstorm on 2026-09-30, with the person who asked for this PRD.
   reads. The allow-list lives on the lines themselves, not in one shared file, so parallel slices
   never edit the same file for it.
 - **The arcade gets index checks too.** It already builds strict, but turning on
-  `noUncheckedIndexedAccess` there raises 836 errors across about 20 folders. It keeps the flag off
-  until four arcade slices clear their folders, then the ratchet turns it on. The arcade also fails
-  `tsc` today on 4 errors, all from the docs index fumadocs generates at build time; the
+  `noUncheckedIndexedAccess` there raises about 1 180 errors across about 30 folders. It keeps the flag off
+  until five arcade slices clear their folders, then the ratchet turns it on. On a fresh checkout the arcade
+  also fails `tsc` until fumadocs generates its docs index, which only the build does today; the
   typecheck generates it first.
 - **The database's types are generated,** by `supabase gen types --local` from the migrations, and
   committed as `supabase/database.types.ts`; CI fails when they drift. Each folder that opens a
@@ -116,6 +116,7 @@ In:
   own `.omni-loop/bin/omni.mjs` shim onto the source (it stays `.mjs`, and imports the `.ts` entry), `kit/build`,
   `kit/release`, the workflows, `apps/omni-app/vercel.json`, the Claude hooks, and every test that
   names a `.mjs` path.
+- `packages/design/src/personas.d.mts` replaced by the typed `personas.ts` it describes.
 - `kit/lib/types.ts`, `kit/lib/schema/`, Zod 3 → 4 in every file that imports it (kit and arcade).
 - The generated `Database` type, its script, its drift check in `.github/workflows/supabase.yml`,
   and every Supabase client (arcade, App, game) typed with it.
@@ -148,7 +149,7 @@ Supabase).
 - **s3:** unit tests for each new schema, with a valid and an invalid input each; the invalid one
   names its field.
 - **s5:** the drift check fails on a fixture where the committed type misses a column.
-- **s27:** the guard test, on fixtures: a file with `@ts-nocheck`, a `.mjs` source file, and an
+- **s29:** the guard test, on fixtures: a file with `@ts-nocheck`, a `.mjs` source file, and an
   `any` with no `// ts-allow:` comment each fail it; a line with one passes.
 
 ## Risks
