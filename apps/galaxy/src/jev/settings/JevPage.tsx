@@ -36,8 +36,8 @@ export function JevPage({ source, owner, keyStatus, decisions, records }: JevPag
   };
 
   const on: JevHandlers = {
-    edit: () => dispatch({ type: 'edit' }),
-    cancel: () => dispatch({ type: 'cancel' }),
+    edit: () => { dispatch({ type: 'edit' }); },
+    cancel: () => { dispatch({ type: 'cancel' }); },
     save: (key) => void run((p) => p.saveKey(key)),
     remove: () => {
       if (window.confirm(`${SWITCH_OFF} Switch Jev off?`)) void run((p) => p.removeKey());
@@ -45,8 +45,7 @@ export function JevPage({ source, owner, keyStatus, decisions, records }: JevPag
     saveDecision: (settings) => {
       if (state.savingDecision) return;
       dispatch({ type: 'decision-saving', decision: settings.decision });
-      void getPort().saveDecision(settings).then((saved) =>
-        dispatch(saved.ok ? { type: 'decision-saved', settings: saved.settings } : { type: 'decision-refused', decision: settings.decision, message: saved.message }));
+      void getPort().saveDecision(settings).then((saved) => { dispatch(saved.ok ? { type: 'decision-saved', settings: saved.settings } : { type: 'decision-refused', decision: settings.decision, message: saved.message }); });
     },
   };
 

@@ -3,8 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { PLAYER_COLUMNS } from './players';
 import { liveSeason, seasonKey, type Newest, type SeasonDeps } from './season-cache';
+import { listOf } from './unparsed';
 
 // Every loader reads one workspace, as the signed-in member: row-level security already hides every
 // workspace they do not belong to, and the filter keeps a member of several to the one shown.
@@ -35,7 +37,7 @@ const TEAM_COLUMNS = 'name, home, label, color, motto, mascot, sort, retired_at'
 export async function loadFleets(db: SupabaseClient<Database>, workspace: string): Promise<FleetRow[]> {
   const { data, error } = await db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the fleets (${error.message})`);
-  return fleetsFrom(data ?? []);
+  return fleetsFrom(listOf(data));
 }
 
 /**
@@ -67,7 +69,7 @@ async function readNewest(db: SupabaseClient<Database>, workspace: string): Prom
     .order('id', { ascending: false })
     .limit(1);
   if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-  const row = (data ?? [])[0];
+  const row = listOf(data)[0];
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
@@ -99,7 +101,7 @@ async function ledgerPage(db: SupabaseClient<Database>, workspace: string, from:
     .order('id', { ascending: true })
     .range(from, from + PAGE - 1);
   if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-  return (data ?? []) as LedgerRow[]; // ts-allow: the type and data columns hold the events the ledger projection wrote
+  return listOf(data) as LedgerRow[]; // ts-allow: the type and data columns hold the events the ledger projection wrote
 }
 
 /** Every event of the workspace's ledger, oldest first, a page at a time. */
@@ -118,10 +120,10 @@ async function readProjects(db: SupabaseClient<Database>, workspace: string): Pr
     db.from('sectors').select('name, repos').eq('workspace_id', workspace),
     db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace),
   ]);
-  if (sectors.error || teams.error) throw new Error(`Supabase: could not read sectors/teams (${(sectors.error ?? teams.error)!.message})`);
+  if (sectors.error || teams.error) throw new Error(`Supabase: could not read sectors/teams (${defined(sectors.error ?? teams.error, 'the refusal').message})`);
   return {
-    sectors: Object.fromEntries((sectors.data ?? []).map((s) => [s.name, { repos: s.repos ?? [] }])),
-    teams: Object.fromEntries((teams.data ?? []).map((t): [string, FleetConfig] => [t.name, {
+    sectors: Object.fromEntries(listOf(sectors.data).map((s) => [s.name, { repos: listOf(s.repos) }])),
+    teams: Object.fromEntries(listOf(teams.data).map((t): [string, FleetConfig] => [t.name, {
       home: t.home, label: t.label, color: t.color, motto: t.motto, mascot: t.mascot, sort: t.sort, retired: Boolean(t.retired_at),
     }])),
   };
@@ -131,7 +133,7 @@ async function readProjects(db: SupabaseClient<Database>, workspace: string): Pr
 export async function loadCrew(db: SupabaseClient<Database>, workspace: string): Promise<Player[]> {
   const { data, error } = await db.from('players').select(PLAYER_COLUMNS).eq('workspace_id', workspace).order('display_name');
   if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
-  return (data ?? []) as unknown as Player[]; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
+  return listOf(data) as unknown as Player[]; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }
 
 /** The signed-in person's own player row in the workspace, or null before they pick a fleet. */

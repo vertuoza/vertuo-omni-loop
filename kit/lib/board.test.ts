@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { boardFor, fillBranch, isClaimedStale, runnableFrontier } from './board.ts';
 import type { BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
+import { assertDefined } from '../test/assert.ts';
+
+/** The board's first row, proved present. */
+function firstRow<R>(result: { slices: readonly R[] }): NonNullable<R> {
+  const [row] = result.slices;
+  assertDefined(row, 'the first row');
+  return row;
+}
+
+/** The board's row `id`, proved present. */
+function rowOf<R extends { id: string }>(result: { slices: readonly R[] }, id: string): R {
+  const row = result.slices.find((candidate) => candidate.id === id);
+  assertDefined(row, `row ${id}`);
+  return row;
+}
+
+/** A row's matched pull request, proved present. */
+function prOf<P>(row: { pr: P | null }): NonNullable<P> {
+  const { pr } = row;
+  assertDefined(pr, 'the matched pull request');
+  return pr;
+}
 
 const NOW = new Date('2026-09-25T12:00:00Z').getTime();
 
@@ -68,22 +90,22 @@ describe('isClaimedStale — the stale-claim rule, exported for the Engineering 
 describe('boardFor — states', () => {
   it('is merged when the matched pull request is merged', () => {
     const result = board([slice()], [pr({ state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' })]);
-    expect(result.slices[0]!.state).toBe('merged');
+    expect(firstRow(result).state).toBe('merged');
   });
 
   it('is merged when only mergedAt says so (state shape varies by payload)', () => {
     const result = board([slice()], [pr({ mergedAt: '2026-09-25T11:30:00Z' })]);
-    expect(result.slices[0]!.state).toBe('merged');
+    expect(firstRow(result).state).toBe('merged');
   });
 
   it('is in-flight when an open, non-draft pull request is matched', () => {
     const result = board([slice()], [pr({ isDraft: false })]);
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 
   it('is in-flight when a draft pull request was claimed recently', () => {
     const result = board([slice()], [pr({ isDraft: true, createdAt: '2026-09-25T11:55:00Z', headCommitDate: '2026-09-25T11:55:00Z' })]);
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 
   it('is in-flight when an old draft has moved past its claim commit, even though the claim itself is old', () => {
@@ -97,7 +119,7 @@ describe('boardFor — states', () => {
         }),
       ],
     );
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 
   it('is in-flight — never excused into claimed-stale — when the head commit date is unknown', () => {
@@ -105,7 +127,7 @@ describe('boardFor — states', () => {
       [slice()],
       [pr({ isDraft: true, createdAt: '2026-09-25T08:00:00Z', headCommitDate: null })],
     );
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 
   it('is stuck when the needs-fix label is set, even over a stale draft', () => {
@@ -120,12 +142,12 @@ describe('boardFor — states', () => {
         }),
       ],
     );
-    expect(result.slices[0]!.state).toBe('stuck');
+    expect(firstRow(result).state).toBe('stuck');
   });
 
   it('accepts labels as plain strings too', () => {
     const result = board([slice()], [pr({ labels: ['omni:needs-fix'] })]);
-    expect(result.slices[0]!.state).toBe('stuck');
+    expect(firstRow(result).state).toBe('stuck');
   });
 
   it('is claimed-stale when a draft has moved no further than its claim and the claim is older than the limit', () => {
@@ -139,7 +161,7 @@ describe('boardFor — states', () => {
         }),
       ],
     );
-    expect(result.slices[0]!.state).toBe('claimed-stale');
+    expect(firstRow(result).state).toBe('claimed-stale');
   });
 
   it('is claimed-stale even when the pull request was updated recently — staleness reads createdAt, never updatedAt', () => {
@@ -154,12 +176,12 @@ describe('boardFor — states', () => {
         }),
       ],
     );
-    expect(result.slices[0]!.state).toBe('claimed-stale');
+    expect(firstRow(result).state).toBe('claimed-stale');
   });
 
   it('is runnable when nothing blocks it and no pull request exists', () => {
     const result = board([slice({ blockedBy: [] })], []);
-    expect(result.slices[0]!.state).toBe('runnable');
+    expect(firstRow(result).state).toBe('runnable');
   });
 
   it('is runnable once every blocker is merged', () => {
@@ -169,7 +191,7 @@ describe('boardFor — states', () => {
     ];
     const prs = [pr({ headRefName: 'feat/widgets--s1', mergedAt: '2026-09-25T11:00:00Z' })];
     const result = board(slices, prs);
-    expect(result.slices.find((row) => row.id === 's2')!.state).toBe('runnable');
+    expect(rowOf(result, 's2').state).toBe('runnable');
   });
 
   it('is blocked when a blocker is not merged', () => {
@@ -178,31 +200,31 @@ describe('boardFor — states', () => {
       slice({ id: 's2', wave: 2, blockedBy: ['s1'] }),
     ];
     const result = board(slices, []);
-    expect(result.slices.find((row) => row.id === 's2')!.state).toBe('blocked');
+    expect(rowOf(result, 's2').state).toBe('blocked');
   });
 
   it('is blocked when the blocker id names no slice at all — never guessed runnable', () => {
     const result = board([slice({ blockedBy: ['ghost'] })], []);
-    expect(result.slices[0]!.state).toBe('blocked');
+    expect(firstRow(result).state).toBe('blocked');
   });
 
   it('treats a closed, never-merged pull request as a dropped claim — the slice reads as if none existed', () => {
     const result = board([slice()], [pr({ state: 'CLOSED', mergedAt: null })]);
-    expect(result.slices[0]!.state).toBe('runnable');
-    expect(result.slices[0]!.pr).toBeNull();
+    expect(firstRow(result).state).toBe('runnable');
+    expect(firstRow(result).pr).toBeNull();
   });
 });
 
 describe('boardFor — matching', () => {
   it('does not match a pull request on a different head branch', () => {
     const result = board([slice()], [pr({ headRefName: 'feat/widgets--s2' })]);
-    expect(result.slices[0]!.state).toBe('runnable');
-    expect(result.slices[0]!.pr).toBeNull();
+    expect(firstRow(result).state).toBe('runnable');
+    expect(firstRow(result).pr).toBeNull();
   });
 
   it('matchBy "base": ignores a same-named branch whose base is not the feature branch', () => {
     const result = board([slice()], [pr({ baseRefName: 'main' })]);
-    expect(result.slices[0]!.state).toBe('runnable');
+    expect(firstRow(result).state).toBe('runnable');
   });
 
   it('matchBy "label": matches by labels.sub instead of the base branch', () => {
@@ -215,7 +237,7 @@ describe('boardFor — matching', () => {
       config,
       prd: PRD,
     });
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 
   it('matchBy "label": a same-named branch with no sub label is not matched', () => {
@@ -228,7 +250,7 @@ describe('boardFor — matching', () => {
       config,
       prd: PRD,
     });
-    expect(result.slices[0]!.state).toBe('runnable');
+    expect(firstRow(result).state).toBe('runnable');
   });
 
   it('prefers a merged candidate over an open one for the same slice', () => {
@@ -237,8 +259,8 @@ describe('boardFor — matching', () => {
       pr({ number: 2, mergedAt: '2026-09-25T10:00:00Z', updatedAt: '2026-09-25T10:05:00Z' }),
     ];
     const result = board([slice()], prs);
-    expect(result.slices[0]!.state).toBe('merged');
-    expect(result.slices[0]!.pr!.number).toBe(2);
+    expect(firstRow(result).state).toBe('merged');
+    expect(prOf(firstRow(result)).number).toBe(2);
   });
 
   it('prefers the most recently updated candidate among ties', () => {
@@ -247,7 +269,7 @@ describe('boardFor — matching', () => {
       pr({ number: 2, state: 'OPEN', updatedAt: '2026-09-25T11:00:00Z' }),
     ];
     const result = board([slice()], prs);
-    expect(result.slices[0]!.pr!.number).toBe(2);
+    expect(prOf(firstRow(result)).number).toBe(2);
   });
 });
 
@@ -369,7 +391,7 @@ describe('boardFor — a plan repository (PRD 563)', () => {
       pr({ number: 10, slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
       pr({ number: 20, slug: 'acme/frontend' }),
     ]);
-    expect(result.slices.map((row) => [row.repo, row.state, row.pr!.number])).toEqual([
+    expect(result.slices.map((row) => [row.repo, row.state, prOf(row).number])).toEqual([
       ['backend', 'merged', 10],
       ['frontend', 'in-flight', 20],
     ]);
@@ -415,6 +437,6 @@ describe('boardFor — a plan repository (PRD 563)', () => {
     const result = board([slice({ repo: null })], [pr()]);
     expect(result.slices[0]).not.toHaveProperty('repo');
     expect(result.slices[0]).not.toHaveProperty('slug');
-    expect(result.slices[0]!.state).toBe('in-flight');
+    expect(firstRow(result).state).toBe('in-flight');
   });
 });

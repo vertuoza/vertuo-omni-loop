@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { dig } from '../../bin/dig.ts';
 
 const IN = '.omni-loop/delivery/inbox';
 const SHIPPED = '.omni-loop/delivery/shipped';
 
-function specText({ frontMatter = {} } = {}) {
+function specText({ frontMatter = {} }: { frontMatter?: Record<string, unknown> } = {}) {
   const fm = {
     prd: 42,
     title: 'The inbox, and a planner that ranks it',
@@ -14,9 +16,9 @@ function specText({ frontMatter = {} } = {}) {
     spec: 'file',
     ...frontMatter,
   };
-  const fmLines = Object.entries(fm)
+  const fmLines = Object.entries<unknown>(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : String(value)}`);
   return ['---', ...fmLines, '---', ''].join('\n');
 }
 
@@ -31,7 +33,8 @@ describe('checkSpecText', () => {
     const text = specText({ frontMatter: { spec: 'wiki' } });
     const violations = checkSpecText(`${IN}/0042-a/spec.md`, text, { ctx });
     expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0]!.startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
+    assertDefined(violations[0], 'violations[0]');
+    expect(violations[0].startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
     expect(violations[0]).toMatch(/spec/);
   });
 
@@ -295,7 +298,7 @@ it('still refuses status, branch, value and priority by name', () => {
 });
 
 describe('voice.json (PRD 822)', () => {
-  const VOICE = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
+  const VOICE: unknown = JSON.parse(readFileSync(new URL('../voice/example.json', import.meta.url), 'utf8'));
   const folder = `${IN}/0042-inbox-and-planner`;
 
   it('passes a valid voice.json beside the spec', () => {
@@ -307,8 +310,10 @@ describe('voice.json (PRD 822)', () => {
   });
 
   it('refuses an invalid voice.json, naming the file, the round and the field', () => {
-    const bad = JSON.parse(JSON.stringify(VOICE));
-    bad.rounds[1].personas[0].score = 9;
+    const bad: unknown = JSON.parse(JSON.stringify(VOICE));
+    const persona = dig(bad, 'rounds', 1, 'personas', 0);
+    if (typeof persona !== 'object' || persona === null) throw new Error('the example has no persona in its spec round');
+    Reflect.set(persona, 'score', 9);
     const { ctx } = makeRepo({
       files: { [`${folder}/spec.md`]: specText(), [`${folder}/voice.json`]: JSON.stringify(bad) },
     });

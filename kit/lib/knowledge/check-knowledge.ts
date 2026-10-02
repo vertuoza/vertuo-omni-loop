@@ -33,6 +33,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
+import { defined } from '../narrow.ts';
 import {
   LAYER_FILES,
   domainsDir,
@@ -202,7 +203,7 @@ export function findReusedIds(entries: readonly Pick<KnowledgeEntry, 'id' | 'fil
 
 /** The id's own shape: its prefix matches its layer and names its domain, or it is a kept id. */
 function idShapeViolations(entry: KnowledgeEntry): Violation[] {
-  const parts = idParts(entry.id)!; // ts-allow: an entry's id is read off an id-shaped heading, so it always splits
+  const parts = defined(idParts(entry.id), `the parts of the id ${entry.id}`); // an entry's id is read off an id-shaped heading, so it always splits
   const where =
     entry.scope === 'cross-domain' ? `the pair ${entry.domain}` : `the ${entry.domain} folder`;
 
@@ -375,7 +376,7 @@ export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEn
 
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
-    violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
+    violations.push(...entry.problems.map((problem) => ({ text: problem })));
 
     if (entry.scope === 'cross-domain' && !entry.kind) {
       violations.push(

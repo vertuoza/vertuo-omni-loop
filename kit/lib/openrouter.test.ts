@@ -12,6 +12,8 @@ import {
   askModel,
   maskSecrets,
 } from './openrouter.ts';
+import { assertDefined } from '../test/assert.ts';
+import { dig } from '../bin/dig.ts';
 
 const KEY = { OPENROUTER_API_KEY: 'sk-or-v1-test-key-not-real-0000000000' };
 const REPLY = { kind: 'adr', statement: 'The outbox check reads two snapshots.' };
@@ -38,7 +40,7 @@ function check(input: unknown) {
 }
 
 /** OpenRouter's streamed reply: a keep-alive comment, the content in pieces, split mid-line, then [DONE]. */
-function streamed(content: string, { error = null as unknown } = {}) {
+function streamed(content: string, { error = null }: { error?: unknown } = {}) {
   const pieces = [content.slice(0, 10), content.slice(10, 25), content.slice(25)];
   const events = [
     ': OPENROUTER PROCESSING\n\n',
@@ -64,20 +66,23 @@ const failed = (status: number) => new Response(JSON.stringify({ error: { code: 
 /** A stubbed fetch answering each call with the next response (the last one repeats). */
 type Answer = Response | Error | ((init: RequestInit) => Response | Promise<Response>);
 function stubFetch(...answers: Answer[]) {
-  // A test may cast its fixtures freely: each recorded call is read as the test needs it.
-  const calls: any[] = [];
+  // Each recorded call keeps the JSON body it sent as `unknown`, read with `dig`.
+  const calls: { url: string; init: RequestInit; body: unknown }[] = [];
   const fn = vi.fn(async (url: string, init: RequestInit): Promise<Response> => {
-    calls.push({ url, init, body: JSON.parse(String(init.body)) });
-    const answer = answers[Math.min(calls.length, answers.length) - 1]!;
+    const sent = init.body;
+    if (typeof sent !== 'string') throw new Error('the request carries no text body');
+    calls.push({ url, init, body: JSON.parse(sent) });
+    const answer = answers[Math.min(calls.length, answers.length) - 1];
+    assertDefined(answer, 'answer');
     if (answer instanceof Error) throw answer;
     return typeof answer === 'function' ? answer(init) : answer.clone();
   });
   return Object.assign(fn, { calls });
 }
 
-const noSleep = vi.fn(async (_ms: number) => {});
+const noSleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
 const ask = (fetch: unknown, over: Partial<AskInput> = {}) =>
-  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, env: KEY, fetch: fetch as unknown as typeof globalThis.fetch, sleep: noSleep, ...over });
+  askModel({ system: 'You classify.', user: 'The item.', check, schema: SCHEMA, env: KEY, fetch: fetch as typeof globalThis.fetch, sleep: noSleep, ...over });
 
 describe('askModel — no key', () => {
   it('returns an error naming OPENROUTER_API_KEY, before any request', async () => {
@@ -101,11 +106,13 @@ describe('askModel — the request', () => {
     expect(out).toEqual({ ok: true, error: null, model: DEFAULT_MODEL, reply: REPLY, reason: null });
     expect(DEFAULT_MODEL).toBe('anthropic/claude-opus-5.5');
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [{ url, init, body }] = fetch.calls;
+    const [first] = fetch.calls;
+    assertDefined(first, 'the request');
+    const { url, init, body } = first;
     expect(url).toBe(OPENROUTER_URL);
     expect(OPENROUTER_URL).toBe('https://openrouter.ai/api/v1/chat/completions');
     expect(init.method).toBe('POST');
-    expect(init.headers.authorization).toBe(`Bearer ${KEY.OPENROUTER_API_KEY}`);
+    expect(dig(init.headers, 'authorization')).toBe(`Bearer ${KEY.OPENROUTER_API_KEY}`);
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(body).toMatchObject({
       model: DEFAULT_MODEL,
@@ -113,7 +120,7 @@ describe('askModel — the request', () => {
       max_tokens: MODEL_CALL.maxTokens,
       response_format: { type: 'json_schema', json_schema: { name: SCHEMA.name, strict: true, schema: SCHEMA.schema } },
     });
-    expect(body.messages).toEqual([
+    expect(dig(body, 'messages')).toEqual([
       { role: 'system', content: 'You classify.' },
       { role: 'user', content: 'The item.' },
     ]);
@@ -123,20 +130,20 @@ describe('askModel — the request', () => {
     const fetch = stubFetch(plain(JSON.stringify(REPLY)));
     const out = await ask(fetch, { env: { ...KEY, OPENROUTER_MODEL: 'anthropic/claude-sonnet-5' } });
     expect(out.model).toBe('anthropic/claude-sonnet-5');
-    expect(fetch.calls[0].body.model).toBe('anthropic/claude-sonnet-5');
+    expect(dig(fetch.calls, 0, 'body', 'model')).toBe('anthropic/claude-sonnet-5');
   });
 
   it('sends no response format when no schema is given, and names its caller in x-title', async () => {
     const fetch = stubFetch(plain(JSON.stringify(REPLY)));
     await ask(fetch, { schema: undefined, title: 'omni loop harvest' });
-    expect(fetch.calls[0].body).not.toHaveProperty('response_format');
-    expect(fetch.calls[0].init.headers['x-title']).toBe('omni loop harvest');
+    expect(dig(fetch.calls, 0, 'body')).not.toHaveProperty('response_format');
+    expect(dig(fetch.calls, 0, 'init', 'headers', 'x-title')).toBe('omni loop harvest');
   });
 
   it('streams when asked, and reads the streamed reply', async () => {
     const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
     expect((await ask(fetch, { stream: true })).reply).toEqual(REPLY);
-    expect(fetch.calls[0].body.stream).toBe(true);
+    expect(dig(fetch.calls, 0, 'body', 'stream')).toBe(true);
   });
 
   it('reads a reply fenced as a code block', async () => {
@@ -159,7 +166,7 @@ describe('askModel — the request', () => {
       system: `system ${secrets[0]}`,
       user: `curl -H "Authorization: Bearer abc.def-ghi" ${secrets.join(' ')}`,
     });
-    const sent = fetch.calls[0].init.body;
+    const sent = dig(fetch.calls, 0, 'init', 'body');
     for (const secret of [...secrets, 'abc.def-ghi']) expect(sent).not.toContain(secret);
     expect(sent).toContain(`Bearer ${MASK}`);
     expect(maskSecrets('a task-list and sk-short stay')).toBe('a task-list and sk-short stay');
@@ -173,10 +180,11 @@ describe('askModel — a reply the schema refuses', () => {
     const fetch = stubFetch(plain(broken), plain(JSON.stringify(REPLY)));
     expect((await ask(fetch)).reply).toEqual(REPLY);
     expect(fetch).toHaveBeenCalledTimes(2);
-    const repair = fetch.calls[1].body.messages;
-    expect(repair.map((message: { role: string }) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
-    expect(repair[2].content).toBe(broken);
-    expect(repair[3].content).toContain('kind must be a string');
+    const repair = dig(fetch.calls, 1, 'body', 'messages');
+    expect(repair).toHaveLength(4);
+    expect([0, 1, 2, 3].map((index) => dig(repair, index, 'role'))).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(dig(repair, 2, 'content')).toBe(broken);
+    expect(dig(repair, 3, 'content')).toContain('kind must be a string');
   });
 
   it('failing again returns a refusal with its reason, and never throws', async () => {
@@ -197,7 +205,7 @@ describe('askModel — a reply the schema refuses', () => {
     const fetch = stubFetch(plain('{"kind": "poem", "statement": "x"}'), plain(JSON.stringify(REPLY)));
     const out = await ask(fetch, { check: Reply });
     expect(out.reply).toEqual(REPLY);
-    expect(fetch.calls[1].body.messages[3].content).toContain('kind:');
+    expect(dig(fetch.calls, 1, 'body', 'messages', 3, 'content')).toContain('kind:');
   });
 
   it('a check that throws is a refusal, not a throw', async () => {
@@ -212,7 +220,7 @@ describe('askModel — a reply the schema refuses', () => {
 
 describe('askModel — the model unavailable', () => {
   it('tries a 500 again, and after its retries says so', async () => {
-    const sleep = vi.fn(async (_ms: number) => {});
+    const sleep = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
     const fetch = stubFetch(failed(500));
     const out = await ask(fetch, { sleep });
     expect(out).toEqual({ ok: false, error: UNAVAILABLE, model: DEFAULT_MODEL, reply: null, reason: 'model unavailable (500)' });
@@ -240,7 +248,15 @@ describe('askModel — the model unavailable', () => {
   });
 
   it('gives up when the call outlasts its time budget', async () => {
-    const hang = (init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)));
+    const hang = (init: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        const { signal } = init;
+        assertDefined(signal, 'the abort signal');
+        signal.addEventListener('abort', () => {
+          const reason: unknown = signal.reason;
+          reject(reason instanceof Error ? reason : new Error(String(reason)));
+        });
+      });
     const out = await ask(stubFetch(hang), { call: { ...MODEL_CALL, budgetMs: 20 } });
     expect(out.reason).toBe('model unavailable (timeout)');
   });

@@ -49,14 +49,14 @@ describe('the saved pick', () => {
 
   it('reads storage that throws as no pick, and saves or clears nothing, without throwing', () => {
     expect(readChoice(refusing)).toBeNull();
-    expect(() => saveChoice(refusing, 'app')).not.toThrow();
-    expect(() => clearChoice(refusing)).not.toThrow();
+    expect(() => { saveChoice(refusing, 'app'); }).not.toThrow();
+    expect(() => { clearChoice(refusing); }).not.toThrow();
   });
 
   it('reads no storage at all as no pick, and saves nothing', () => {
     expect(readChoice(null)).toBeNull();
-    expect(() => saveChoice(null, 'arcade')).not.toThrow();
-    expect(() => clearChoice(null)).not.toThrow();
+    expect(() => { saveChoice(null, 'arcade'); }).not.toThrow();
+    expect(() => { clearChoice(null); }).not.toThrow();
   });
 });
 
@@ -125,7 +125,7 @@ describe('a click on SIGN UP WITH GITHUB', () => {
 
   it('change with storage that refuses still opens the overlay, without throwing', () => {
     const p = ports(refusing);
-    expect(() => changeChoice(p)).not.toThrow();
+    expect(() => { changeChoice(p); }).not.toThrow();
     expect(p.opened).toBe(1);
   });
 });

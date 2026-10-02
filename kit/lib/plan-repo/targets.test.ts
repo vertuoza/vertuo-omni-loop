@@ -5,6 +5,8 @@ import { formText, makeRepo } from '../../test/fixture.ts';
 import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
 import type { ExecRaw } from '../context.ts';
 import type { Target, TargetRow } from './targets.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { firstPart } from '../narrow.ts';
 
 /** One faked repository: `null` for one gh cannot read. */
 type FakeRepo = { branch?: string; files?: Record<string, string>; compare?: { ahead: number; files: string[] } };
@@ -26,9 +28,10 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
   const calls: string[] = [];
   const exec = (file: string, args: readonly string[]): string => {
     if (file !== 'gh' || args[0] !== 'api') throw new Error(`unexpected ${file} ${args.join(' ')}`);
-    const endpoint = args[args.length - 1]!;
+    const endpoint = args[args.length - 1];
+    assertDefined(endpoint, 'endpoint');
     calls.push(endpoint);
-    const [, owner, name, kind, ...rest] = endpoint.split('?')[0]!.split('/');
+    const [, owner, name, kind, ...rest] = firstPart(endpoint, '?').split('/');
     const repo = world[`${owner}/${name}`];
     if (!repo) {
       throw Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
@@ -44,7 +47,8 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
       });
     }
     const path = rest.map(decodeURIComponent).join('/');
-    if (Object.hasOwn(repo.files ?? {}, path)) return repo.files![path]!;
+    const content = repo.files?.[path];
+    if (content !== undefined && Object.hasOwn(repo.files ?? {}, path)) return content;
     const under = Object.keys(repo.files ?? {}).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
     if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
     throw notFound();
@@ -79,7 +83,8 @@ describe('readTarget', () => {
   it('reads the loop as installed when the bin carries no version, or is missing', () => {
     const noStamp = { ...WITH_LOOP, '.omni-loop/bin/omni.mjs': 'console.log(1);\n' };
     expect(read(OWN, { 'acme/front': { files: noStamp } }).loop).toBe('installed');
-    const { '.omni-loop/bin/omni.mjs': _, ...noBin } = WITH_LOOP;
+    const noBin: Record<string, string> = { ...WITH_LOOP };
+    delete noBin['.omni-loop/bin/omni.mjs'];
     expect(read(OWN, { 'acme/front': { files: noBin } }).loop).toBe('installed');
   });
 

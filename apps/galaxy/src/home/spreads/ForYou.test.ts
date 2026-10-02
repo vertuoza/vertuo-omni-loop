@@ -2,16 +2,20 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ForYou } from './ForYou';
 import { heading, html, text } from './render';
+import { item } from '../../ask/test-item';
 
 describe('What\'s in it for you?', () => {
   const markup = html(ForYou());
 
   // Each card as a visitor reads it: its h3, its promise and its three proofs.
-  const cards = [...markup.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/g)].map(([, card]) => ({
-    role: text(card!.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? ''),
-    promise: text(card!.match(/<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ''),
-    proofs: [...card!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!)),
-  }));
+  const cards = [...markup.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/g)].map((m) => {
+    const card = item(m, 1);
+    return {
+      role: text(card.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? ''),
+      promise: text(card.match(/<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ''),
+      proofs: [...card.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((li) => text(item(li, 1))),
+    };
+  });
 
   it('opens on its own h2', () => {
     expect(heading(markup)).toBe('What\'s in it for you?');

@@ -3,6 +3,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { release } from './release.ts';
+import { dig } from '../bin/dig.ts';
+
+/** A JSON file the release wrote, as `unknown`. */
+const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));
 
 const TRAILER = 'Co-authored-by: Omni-man <1+omni[bot]@users.noreply.github.com>';
 const PLUGIN = 'kit/plugin/.claude-plugin/plugin.json';
@@ -62,11 +66,11 @@ describe('release', () => {
     const { root, calls, code } = run();
 
     expect(code).toBe(0);
-    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.0.10');
-    expect(Object.keys(pkg).slice(0, 2)).toEqual(['name', 'version']);
-    expect(pkg.scripts).toEqual({ test: 'vitest run' });
-    expect(JSON.parse(readFileSync(join(root, PLUGIN), 'utf8')).version).toBe('0.0.10');
+    const pkg = readJson(join(root, 'package.json'));
+    expect(dig(pkg, 'version')).toBe('0.0.10');
+    expect(typeof pkg === 'object' && pkg !== null ? Object.keys(pkg).slice(0, 2) : []).toEqual(['name', 'version']);
+    expect(dig(pkg, 'scripts')).toEqual({ test: 'vitest run' });
+    expect(dig(readJson(join(root, PLUGIN)), 'version')).toBe('0.0.10');
     expect(readFileSync(join(root, PLUGIN), 'utf8').endsWith('}\n')).toBe(true);
 
     const build = calls.indexOf('pnpm kit:build');
@@ -92,7 +96,7 @@ describe('release', () => {
 
   it('starts at v0.0.1 when no release tag exists', () => {
     const { root, calls } = run({ 'git tag --list': 'release-3\nv0.1.0\n' });
-    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version).toBe('0.0.1');
+    expect(dig(readJson(join(root, 'package.json')), 'version')).toBe('0.0.1');
     expect(calls).toContain('git tag -a v0.0.1 -m v0.0.1');
   });
 
@@ -100,7 +104,7 @@ describe('release', () => {
     const { root, calls, out, code } = run({ 'git log -1 --format=%s': 'chore(release): v0.0.9\n' });
     expect(code).toBe(0);
     expect(calls).toEqual(['git log -1 --format=%s']);
-    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version).toBeUndefined();
+    expect(dig(readJson(join(root, 'package.json')), 'version')).toBeUndefined();
     expect(out.join('\n')).toMatch(/nothing to release/);
   });
 
