@@ -98,7 +98,7 @@ describe('the rows', () => {
   it('lists every dossier newest activity first, each opening its page', () => {
     const items = historyItems(ROWS, ALL, 'u-pierre');
     expect(items.map((i) => i.title)).toEqual(['Offline quotes on the site app', 'PRD dossiers', 'Ask mode — questions on a page']);
-    expect(items[1]!.href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
+    expect(items[1]?.href).toBe('/prd/00000000-0000-4000-8000-0000000000d1');
   });
 
   it('shows #n or DRAFT, the repository chips, which artifacts it has with how many versions, and answered out of asked', () => {
@@ -321,10 +321,10 @@ describe('the stages (PRD 587)', () => {
     const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: 7, workspace_id: 'w2', home_repo: 'Acme/Tool' });
     const asked: [string, unknown][] = [];
     const read = await readCurrentStages([...rows, OTHER], {
-      currentStages: async (workspace, prds) => {
+      currentStages: (workspace, prds) => {
         asked.push([workspace, prds]);
-        if (workspace === 'w2') throw new Error('boom');
-        return new Map([['vertuoza/vertuo-omni-loop#216', 'building' as const]]);
+        if (workspace === 'w2') return Promise.reject(new Error('boom'));
+        return Promise.resolve(new Map([['vertuoza/vertuo-omni-loop#216', 'building' as const]]));
       },
     });
     expect(asked).toEqual([
@@ -336,7 +336,7 @@ describe('the stages (PRD 587)', () => {
     ]);
     expect([...read]).toEqual([[stageKeyOf(DOSSIERS), 'building']]);
     expect((await readCurrentStages(rows, null)).size).toBe(0);
-    expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: async () => { throw new Error('never asked'); } })).size).toBe(0);
+    expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: () => Promise.reject(new Error('never asked')) })).size).toBe(0);
   });
 });
 
@@ -363,11 +363,11 @@ describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
   });
 
   it('reads the account ids a login holds in each workspace once, ignoring case; a roster that fails adds none', async () => {
-    const roster = vi.fn(async (workspace: string) => {
-      if (workspace === 'w3') throw new Error('down');
-      return workspace === 'w1'
+    const roster = vi.fn((workspace: string) => {
+      if (workspace === 'w3') return Promise.reject(new Error('down'));
+      return Promise.resolve(workspace === 'w1'
         ? [{ user_id: 'u-ada', github_login: 'Ada-GH' }, { user_id: 'u-bob', github_login: 'bob' }]
-        : [{ user_id: 'u-ada-2', github_login: 'ada-gh' }, { user_id: 'u-none', github_login: null }];
+        : [{ user_id: 'u-ada-2', github_login: 'ada-gh' }, { user_id: 'u-none', github_login: null }]);
     });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const rows = [row('a'), row('b'), row('c', { workspace_id: 'w2' }), row('d', { workspace_id: 'w3' })];

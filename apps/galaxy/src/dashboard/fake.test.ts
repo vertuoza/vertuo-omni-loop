@@ -8,7 +8,8 @@ import { ACME, contribution, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA } fro
 
 const world = () => fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
 type Rows = Array<Record<string, unknown>>;
-const numbers = (rows: unknown) => (rows as Rows).map((r) => `${r.repo}#${r.number}`);
+const A_KIND: unknown = expect.stringMatching(/^(pr-merged|prd-opened)$/);
+const numbers = (rows: unknown) => (rows as Array<{ repo: string; number: number }>).map((r) => `${r.repo}#${r.number}`);
 
 describe('the fake\'s contributions', () => {
   it('holds each workspace\'s rows, as the game workflow writes them: a kind, a repository, a number, a lower-cased login and when', async () => {
@@ -16,7 +17,7 @@ describe('the fake\'s contributions', () => {
     expect(error).toBeNull();
     expect((data as Rows).length).toBeGreaterThan(0);
     for (const row of data as Rows) {
-      expect(row).toMatchObject({ workspace_id: VERTUOZA, kind: expect.stringMatching(/^(pr-merged|prd-opened)$/) });
+      expect(row).toMatchObject({ workspace_id: VERTUOZA, kind: A_KIND });
       expect(row.login).toBe(String(row.login).toLowerCase());
       expect(Number.isNaN(Date.parse(String(row.at)))).toBe(false);
     }

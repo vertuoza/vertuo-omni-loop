@@ -5,6 +5,7 @@ import type { Context, ExecText } from '../lib/context.ts';
 import type { Commit } from '../lib/fix-verdict.ts';
 import { parseArgs, positiveInt, println, usageError } from './args.ts';
 import type { Command } from './io.ts';
+import { synchronous } from './synchronous.ts';
 
 /** What the range helpers read of the context: the root and the default remote branch. */
 type RangeContext = { root: string; config: { repo: { remote: string; defaultBranch: string } } };
@@ -79,7 +80,7 @@ export function branchVerdictCommand({
 }): Command {
   const usage = `usage: omni ${verb} <n> [--base <ref>]`;
   return {
-    async run(args, { ctx, stdout, exec }) {
+    run: synchronous((args, { ctx, stdout, exec }): number => {
       const { positional, flags } = parseArgs(verb, args, { values: ['base'] });
       if (positional.length !== 1) throw usageError(usage);
       const number = positiveInt(verb, '<n>', positional[0]);
@@ -90,6 +91,6 @@ export function branchVerdictCommand({
       println(stdout, verdict.ok ? 'ok' : 'not ok');
       for (const failure of verdict.failures) println(stdout, `- ${failure}`);
       return verdict.ok ? 0 : 1;
-    },
+    }),
   };
 }

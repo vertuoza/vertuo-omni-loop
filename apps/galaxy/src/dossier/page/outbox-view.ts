@@ -181,7 +181,7 @@ function cardOf(item: OutboxItem, number: number | null, adopted: boolean, pendi
     options: action ? [] : item.options.map((o) => ({ letter: o.letter, text: o.text, built: o.letter === 'A' })),
     steps: action ? item.personSteps : null,
     bearsOn: chips(item.bearsOn),
-    details: DETAILS.flatMap(([key, label]) => (item.details?.[key]?.trim() ? [{ label, text: item.details[key]! }] : [])),
+    details: DETAILS.flatMap(([key, label]) => (item.details?.[key]?.trim() ? [{ label, text: item.details[key] }] : [])),
     pending: pending
       ? { text: pending.text, by: pending.by, where: WHERE[pending.door], when: when(pending.at), url: pending.url, counted: pending.counted, face: faceOf(pending.by) }
       : null,

@@ -140,6 +140,10 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
       setSending(false);
     }
   }, [round, answers, sending, getPort, clock]);
+  // What RoundForm calls, stable while onSend is: its keyboard effect runs on the same changes as before.
+  const send = useCallback(() => {
+    void onSend();
+  }, [onSend]);
 
   const onDelete = useCallback(async () => {
     if (deleting || !window.confirm('Delete this session and every question in it, for good?')) return;
@@ -218,7 +222,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
           onDraft={onDraft}
           canSend={answers !== null}
           sending={sending}
-          onSend={onSend}
+          onSend={send}
           minutesLeft={minutesLeft(view.movesAt, now)}
         />
       )}
@@ -283,7 +287,7 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
 
       {owner && (
         <p>
-          <button type="button" className="ask-button quiet" disabled={deleting} onClick={onDelete}>
+          <button type="button" className="ask-button quiet" disabled={deleting} onClick={() => void onDelete()}>
             {deleting ? 'Deleting…' : 'Delete this session'}
           </button>
         </p>

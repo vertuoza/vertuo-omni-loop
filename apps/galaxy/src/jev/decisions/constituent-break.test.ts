@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { constituentBreak, constituentBreakInput, constituentBreakOld } from './constituent-break';
 import { JEV_DECISIONS, jevEntry } from './index';
+import { sure } from '../../arcade/sure';
 
 // The constituent break's registry entry (PRD 871 s4): a Noul "does this spec break the Statement or a
 // Never line?", mapped with the decision's threshold; what it sends Jev (the spec, the constituents and
@@ -40,7 +41,7 @@ describe('constituent-break', () => {
   });
 
   it('gives Jev the Statement, the Never lines, today’s verdict and the spec', () => {
-    const state = constituentBreak.state(constituentBreakInput(STATE)!);
+    const state = constituentBreak.state(sure(constituentBreakInput(STATE), 'constituentBreakInput(STATE)'));
     expect(state).toContain('Statement: The component workshop, shown with fixtures.');
     expect(state).toContain('- never#1: calls real Vertuoza data or real Vertuoza APIs');
     expect(state).toContain("Today's verdict: broken");

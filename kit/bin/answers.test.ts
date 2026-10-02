@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { makeMarkers } from '../lib/markers.ts';
 import { formatNumbersMarker } from '../lib/outbox/comment.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
@@ -70,14 +70,14 @@ const PR_COMMENT = {
 /** A fake `gh`: lists `comments`, records every comment posted, and fails to post when told to. */
 function fakeGh({ comments = [PR_COMMENT], failPost = false } = {}) {
   const posted: unknown[] = [];
-  const calls: any[] = [];
+  const calls: (readonly string[])[] = [];
   const exec = (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
     if (cmd !== 'gh') return realExec(cmd, args, options);
     calls.push(args);
     if (args.includes('--paginate')) return JSON.stringify(comments);
     if (args.includes('--input')) {
       if (failPost) throw new Error('HTTP 403: Resource not accessible');
-      posted.push(JSON.parse(String(options?.input)).body);
+      posted.push(dig(JSON.parse(typeof options?.input === 'string' ? options.input : ''), 'body'));
       return JSON.stringify({ id: 77, html_url: 'https://github.com/acme/widgets/pull/9#issuecomment-77' });
     }
     throw new Error(`unexpected gh call: ${args.join(' ')}`);
@@ -92,7 +92,7 @@ function repo(options?: Parameters<typeof files>[0]) {
   return r;
 }
 afterEach(() => {
-  while (repos.length) rmSync(repos.pop()!.root, { recursive: true, force: true });
+  for (const made of repos.splice(0)) rmSync(made.root, { recursive: true, force: true });
 });
 
 async function omni(r: Repo, args: string[], gh = fakeGh()) {
@@ -114,16 +114,16 @@ describe('omni answers ask (PRD 251)', () => {
     const { code, out, err } = await omni(r, ['ask', '42', '--pr', '9', '--json']);
     expect(err).toBe('');
     expect(code).toBe(0);
-    const printed = JSON.parse(out);
+    const printed = JSON.parse(out) as { batches: { number: number }[][] };
     expect(printed).toMatchObject({ prd: 42, pr: 9 });
-    expect(printed.batches.map((batch: any[]) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
-    expect(printed.batches[0][0]).toMatchObject({
+    expect(printed.batches.map((batch) => batch.map((question) => question.number))).toEqual([[19, 1, 2, 3], [4, 6]]);
+    expect(printed.batches[0]?.[0]).toMatchObject({
       number: 19,
       id: 's2-01-secret',
       header: 'Q19 · action',
       options: [{ pick: 'done', label: 'Done' }, { pick: 'not-done', label: 'Not done' }],
     });
-    expect(printed.batches[0][1]).toMatchObject({
+    expect(printed.batches[0]?.[1]).toMatchObject({
       number: 1,
       header: 'Q1 · high',
       text: 'Which way for s1-01-list? We kept the first way.',

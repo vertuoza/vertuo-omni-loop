@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { makeMarkers } from '../markers.ts';
 import {
@@ -889,7 +890,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('writes the slack line to the given path when there is news', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -901,13 +902,14 @@ describe('maybeWriteSlackNote', () => {
     });
     expect(write).toHaveBeenCalledTimes(1);
     const [path, contents] = write.mock.calls[0] ?? [];
+    assertDefined(contents, 'the note written');
     expect(path).toBe('/tmp/note.txt');
     expect(contents).toContain('*PRD #778 · Quote line components* — owner <@U123>');
     expect(contents.endsWith('\n')).toBe(true);
   });
 
   it('links to the pull request comment when the pull request step left one', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -920,7 +922,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('falls back to the PRD issue comment when the pull request comment has no url', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -933,7 +935,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('counts the adopted items the PRD issue reader found', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -947,7 +949,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('treats a newly adopted item as news, even when nothing else changed', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -961,7 +963,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('writes nothing when there is no news', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({
       ctx: slackCtx,
       prd: 778,
@@ -974,7 +976,7 @@ describe('maybeWriteSlackNote', () => {
   });
 
   it('writes nothing when no path is given', () => {
-    const write = vi.fn();
+    const write = vi.fn<(path: string, data: string) => void>();
     maybeWriteSlackNote({ ctx: slackCtx, prd: 778, result: result(), path: null, write });
     expect(write).not.toHaveBeenCalled();
   });
@@ -1077,7 +1079,7 @@ function settle(
       statedVerdict: /no\b/i.test(text) ? 'drifted' : 'agreed',
     },
   });
-  if (!result.ok) throw new Error((result.errors ?? []).join('; '));
+  if (!result.ok) throw new Error(result.errors.join('; '));
   return result;
 }
 
@@ -1647,7 +1649,7 @@ function adoptOptioned(root: string, spec: OptionedSpec) {
     ctx: flatCtx(root),
     itemText: optionedItemText({ rank: 'medium', ...spec }),
   });
-  if (!result.ok) throw new Error((result.errors ?? []).join('; '));
+  if (!result.ok) throw new Error(result.errors.join('; '));
 }
 
 /** Appends a `drifted` entry for an already-adopted id — an objection, the way the reply reader

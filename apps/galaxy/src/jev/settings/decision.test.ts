@@ -14,10 +14,10 @@ function store({ refuse }: { refuse?: string } = {}) {
   return {
     set,
     store: {
-      async setDecision(workspace: string, settings: JevDecisionSettings) {
-        if (refuse) throw new JevStoreError('save the Jev decision', refuse, 'Mode: switch Jev on with a key first.');
+      setDecision(workspace: string, settings: JevDecisionSettings) {
+        if (refuse) return Promise.reject(new JevStoreError('save the Jev decision', refuse, 'Mode: switch Jev on with a key first.'));
         set.push([workspace, settings]);
-        return settings;
+        return Promise.resolve(settings);
       },
     },
   };

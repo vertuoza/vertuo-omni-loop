@@ -9,10 +9,10 @@ const STORED = { stored: true, lastFour: '1a2b', setAt: '2026-09-30T10:00:00Z' }
 
 function stub(res: Response | Error) {
   const calls: Array<{ url: string; method: string; body: unknown }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
-    calls.push({ url, method: String(init.method), body: JSON.parse(String(init.body)) });
-    if (res instanceof Error) throw res;
-    return res;
+  const fetch = ((url: string, init: RequestInit) => {
+    calls.push({ url, method: String(init.method), body: JSON.parse(typeof init.body === 'string' ? init.body : '') as unknown });
+    if (res instanceof Error) return Promise.reject(res);
+    return Promise.resolve(res);
   }) as unknown as typeof globalThis.fetch;
   return { fetch, calls };
 }
@@ -57,13 +57,13 @@ describe('a decision\'s settings, from the browser (PRD 812 s2)', () => {
 
   it('goes through the page\'s server action with the workspace, and answers what it answered', async () => {
     const sent: unknown[] = [];
-    const port = httpJevPort(W, globalThis.fetch, async (workspace, settings) => { sent.push([workspace, settings]); return { ok: true, settings }; });
+    const port = httpJevPort(W, globalThis.fetch, (workspace, settings) => { sent.push([workspace, settings]); return Promise.resolve({ ok: true, settings }); });
     expect(await port.saveDecision(ON)).toEqual({ ok: true, settings: ON });
     expect(sent).toEqual([[W, ON]]);
   });
 
   it('says it could not save when the action throws, or when there is none', async () => {
-    expect(await httpJevPort(W, globalThis.fetch, async () => { throw new Error('offline'); }).saveDecision(ON)).toEqual({ ok: false, message: COULD_NOT_SAVE_DECISION });
+    expect(await httpJevPort(W, globalThis.fetch, () => Promise.reject(new Error('offline'))).saveDecision(ON)).toEqual({ ok: false, message: COULD_NOT_SAVE_DECISION });
     expect(await httpJevPort(W).saveDecision(ON)).toEqual({ ok: false, message: COULD_NOT_SAVE_DECISION });
   });
 

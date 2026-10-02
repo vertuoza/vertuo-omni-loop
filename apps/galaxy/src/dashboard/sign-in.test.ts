@@ -15,23 +15,23 @@ describe('the way back after signing in on the dashboard', () => {
 
   it('exchanges the code, joins the account\'s workspaces, then goes back to /app', async () => {
     const steps: string[] = [];
-    const exchange = vi.fn(async (code: string) => { steps.push(`exchange ${code}`); return { error: null }; });
-    const join = vi.fn(async () => { steps.push('join'); });
+    const exchange = vi.fn((code: string) => { steps.push(`exchange ${code}`); return Promise.resolve({ error: null }); });
+    const join = vi.fn(() => { steps.push('join'); return Promise.resolve(); });
     expect(await dashboardSignInReturn(back('?code=abc'), ORIGIN, exchange, join)).toBe(`${ORIGIN}/app`);
     expect(steps).toEqual(['exchange abc', 'join']);
   });
 
   it('still goes back when joining fails: the page then says the account is in no workspace, never an error', async () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const join = async () => { throw new Error('down'); };
-    expect(await dashboardSignInReturn(back('?code=abc'), ORIGIN, async () => ({ error: null }), join)).toBe(`${ORIGIN}/app`);
+    const join = () => Promise.reject(new Error('down'));
+    expect(await dashboardSignInReturn(back('?code=abc'), ORIGIN, () => Promise.resolve({ error: null }), join)).toBe(`${ORIGIN}/app`);
     expect(quiet).toHaveBeenCalled();
     quiet.mockRestore();
   });
 
   it('carries the reason when Google refused, and joins nothing', async () => {
     const join = vi.fn(async () => {});
-    const url = new URL(await dashboardSignInReturn(back('?error=access_denied&error_description=Not+allowed'), ORIGIN, async () => ({ error: null }), join));
+    const url = new URL(await dashboardSignInReturn(back('?error=access_denied&error_description=Not+allowed'), ORIGIN, () => Promise.resolve({ error: null }), join));
     expect(url.pathname).toBe('/app');
     expect(url.searchParams.get('signin_error')).toBe('Not allowed');
     expect(join).not.toHaveBeenCalled();
@@ -40,7 +40,7 @@ describe('the way back after signing in on the dashboard', () => {
   it('says so when the code could not be exchanged, and joins nothing', async () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const join = vi.fn(async () => {});
-    const url = new URL(await dashboardSignInReturn(back('?code=old'), ORIGIN, async () => ({ error: { message: 'expired' } }), join));
+    const url = new URL(await dashboardSignInReturn(back('?code=old'), ORIGIN, () => Promise.resolve({ error: { message: 'expired' } }), join));
     expect(url.pathname).toBe('/app');
     expect(url.searchParams.get('signin_error')).toBe('That sign-in could not be finished. Start again from this browser.');
     expect(join).not.toHaveBeenCalled();
@@ -48,7 +48,7 @@ describe('the way back after signing in on the dashboard', () => {
   });
 
   it('only ever goes back to /app on this site, whatever the address carries', async () => {
-    expect(await dashboardSignInReturn(back('?code=abc&next=https://evil.example'), ORIGIN, async () => ({ error: null }), null)).toBe(`${ORIGIN}/app`);
+    expect(await dashboardSignInReturn(back('?code=abc&next=https://evil.example'), ORIGIN, () => Promise.resolve({ error: null }), null)).toBe(`${ORIGIN}/app`);
   });
 
   it('goes back without exchanging anything when this deployment has no database', async () => {

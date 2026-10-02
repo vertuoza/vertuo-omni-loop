@@ -47,13 +47,13 @@ async function prdOut(files: Files) {
   return { code, text: s.out.join('') };
 }
 
-function expectedLines(files: any[]) {
+function expectedLines(files: string[]) {
   return [
     'PRD 7 — 0007-quote',
     'state: inbox',
     `dir: ${DIR}`,
     'files:',
-    ...files.map((file: any) => `  - ${DIR}/${file}`),
+    ...files.map((file) => `  - ${DIR}/${file}`),
     'outbox: .omni-loop/delivery/outbox/0007-quote',
     'open items: none',
   ];

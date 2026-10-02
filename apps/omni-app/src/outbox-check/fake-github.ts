@@ -4,21 +4,48 @@
 // Test support only; nothing in the app imports it.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A request's parameters, as a unit hands them to `octokit.request`. */
 type Params = Record<string, unknown>;
 
-/** A record this double keeps, which a test reads back as it was written. */
-type Recorded = Record<string, any>; // ts-allow: test support; a test reads the double's records in whatever shape it wrote
+/** A request this double recorded: its route, and the parameters as the unit handed them. */
+type Recorded = { route: string } & Params;
 
-/** An answer, which a test may read or amend as GitHub would have sent it. */
-type Answer = { data: any }; // ts-allow: test support; a test reads the double's answers in whatever shape it sent
+/** An answer, as GitHub would have sent it: a test that reads it narrows it first. */
+type Answer = { data: unknown };
 
 /** The pull request this double serves. */
 type FakePull = { number: number; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
 
-/** A check run this double created. */
-type FakeCheckRun = Recorded & { id: number };
+/**
+ * A check run this double created: each field as the unit sent it. The inbox check's tests add the
+ * run's `external_id` and its `actions`, which only they serve.
+ */
+type FakeCheckRun = {
+  id: number;
+  name: unknown;
+  head_sha: unknown;
+  status: unknown;
+  conclusion: unknown;
+  output: unknown;
+  external_id?: unknown;
+  actions?: unknown;
+};
+
+/** What a completed check run's `output` holds, as the tests read it. */
+const OutputSchema = z.looseObject({ title: z.string(), summary: z.string() });
+
+/** The check run at `index` (from the end when negative): the test fails when there is none. */
+export function checkRunAt(state: { checkRuns: FakeCheckRun[] }, index: number): FakeCheckRun {
+  return at(state.checkRuns, index, 'the check run');
+}
+
+/** A check run's `output`: the test fails when it holds no title and summary. */
+export function outputOf(run: FakeCheckRun): z.infer<typeof OutputSchema> {
+  return OutputSchema.parse(run.output);
+}
 
 /** One entry of a tree this double lists. */
 type FakeEntry = { path: string; mode: string; type: string; sha: string; size?: number };
@@ -67,7 +94,10 @@ export function fakeGitHub({
   }
 
   const octokit = {
-    async request(route: string, params: Params = {}): Promise<Answer> {
+    request: (route: string, params: Params = {}): Promise<Answer> => settled(() => answer(route, params)),
+  };
+
+  function answer(route: string, params: Params): Answer {
       requests.push({ route, ...params });
       switch (route) {
         case 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}': {
@@ -131,10 +161,16 @@ export function fakeGitHub({
         default:
           throw new Error(`fake GitHub: unexpected route ${route}`);
       }
-    },
-  };
+  }
 
   return { octokit, state };
+}
+
+/** `run`'s value as a promise and its throw as a rejection, as an `async` function makes them. */
+function settled<T>(run: () => T): Promise<T> {
+  return new Promise((resolve) => {
+    resolve(run());
+  });
 }
 
 function httpError(status: number, message: string): Error & { status: number } {

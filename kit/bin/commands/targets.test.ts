@@ -1,8 +1,8 @@
 // `omni targets` (PRD 522, s1), through `main()` on a fixture repository with `gh` faked: the table in
 // config order, `--json`, the exit code, and a repository with no plan section. It never calls GitHub.
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
+import { dig } from '../dig.ts';
 import { main } from '../omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../../test/fixture.ts';
@@ -123,7 +123,7 @@ describe('omni targets', () => {
     };
     const out: string[] = [];
     const code = await main(['targets', '--json'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
-    expect(JSON.parse(out.join(''))[2]).toEqual({
+    expect(dig(JSON.parse(out.join('')), 2)).toEqual({
       repo: 'acme/back', role: 'back-end', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '3 commits, 1 evidence file changed',
     });
     expect(code).toBe(1);

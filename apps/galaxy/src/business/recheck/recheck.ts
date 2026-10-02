@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { reply as json } from '../../business-api/reply';
 import type { DraftRow } from '../draft/run';
+import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // POST /api/business/recheck (PRD 774, s4): the weekly recheck. .github/workflows/business-recheck.yml
 // calls it every Sunday at 22:00 UTC with `Authorization: Bearer <BUSINESS_RECHECK_SECRET>`; any other
@@ -27,14 +28,14 @@ export interface RecheckDeps {
 
 type Skipped = { workspace: string; reason: string };
 
-const why = (error: unknown) => (error instanceof Error ? error.message : String(error)).split('\n')[0]!.slice(0, 300);
+const why = (error: unknown) => firstPart(error instanceof Error ? error.message : String(error), '\n').slice(0, 300);
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** Whether the request carries `Bearer <secret>`; never, without a secret. Compared in constant time. */
 function bearerMatches(request: Request, secret: string | undefined): boolean {
   if (!secret) return false;
   const match = /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '');
-  return match ? timingSafeEqual(digest(match[1]!), digest(secret)) : false;
+  return match ? timingSafeEqual(digest(group(match, 1)), digest(secret)) : false;
 }
 
 /** Rechecks one workspace; null when it ran, else why it was skipped. */
@@ -71,7 +72,7 @@ export async function recheckRoute(request: Request, deps: RecheckDeps): Promise
 }
 
 type Answer = { data: unknown; error: { message: string } | null };
-type ClaimsDb = { from(table: 'claims'): { select(columns: 'workspace_id'): { eq(column: 'state', value: 'confirmed'): PromiseLike<Answer> } } };
+export type ClaimsDb = { from(table: 'claims'): { select(columns: 'workspace_id'): { eq(column: 'state', value: 'confirmed'): PromiseLike<Answer> } } };
 
 /** The workspaces holding a confirmed claim, each once, sorted: read as the service role. */
 export async function rechecked(db: ClaimsDb): Promise<string[]> {
