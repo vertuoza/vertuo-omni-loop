@@ -20,7 +20,7 @@ const asTransport = (inner: StreamableHTTPClientTransport): Transport => ({
   start: () => inner.start(),
   send: (message, options) => inner.send(message, options),
   close: () => inner.close(),
-  setProtocolVersion: (version) => inner.setProtocolVersion(version),
+  setProtocolVersion: (version) => { inner.setProtocolVersion(version); },
   set onclose(handler: NonNullable<Transport['onclose']>) { inner.onclose = handler; },
   set onerror(handler: NonNullable<Transport['onerror']>) { inner.onerror = handler; },
   set onmessage(handler: NonNullable<Transport['onmessage']>) { inner.onmessage = handler; },
