@@ -6,11 +6,11 @@ import type { EngineeringScreenProps } from './EngineeringScreen';
 // the server calls it, with its data sources stubbed: it reads the period from the query (7 days
 // otherwise) and decides the situation once, as the board does; a repository the workspace does not
 // track is not found.
-const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
-  user: null as null | { id: string },
-  load: { kind: 'no-workspace' } as unknown,
-  demo: null as unknown,
+const given = vi.hoisted((): { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string }; load: unknown; demo: unknown } => ({
+  mode: 'supabase',
+  user: null,
+  load: { kind: 'no-workspace' },
+  demo: null,
 }));
 const demoEngineeringBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => given.demo));
 const loadEngineeringRepositoryBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));

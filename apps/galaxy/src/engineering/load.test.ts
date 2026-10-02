@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const given = vi.hoisted(() => ({
-  workspace: (() => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+const given = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
+  workspace: () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => given.workspace() }));
 
@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { UNREADABLE } from '../dashboard/part';
 import { peopleOf } from '../people/load';
 import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
+import { sure } from '../arcade/sure';
 
 // /app/engineering's read (PRD 612 s3), on fakes: no test calls Supabase.
 
@@ -79,8 +80,8 @@ describe('loadEngineering', () => {
     const board = await loadEngineering(reads({ people: () => Promise.reject(new Error('players down')) }), REQUEST);
     if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
     expect(board.tiles.merged).toBe(1);
-    expect(board.people.opened[0]!.face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
-    expect(board.people.merged[0]!.face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
+    expect(sure(board.people.opened[0], 'board.people.opened[0]').face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
+    expect(sure(board.people.merged[0], 'board.people.merged[0]').face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('players down'));
   });
 
@@ -164,13 +165,13 @@ describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: answers[table]!.shift(), error: null }).then(ok);
+        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: sure(answers[table], 'answers[table]').shift(), error: null }).then(ok);
         return q;
       },
     } as unknown as SupabaseClient;
     const got = await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST);
     expect(got).toMatchObject({ kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears' });
-    const of = (table: string) => calls.find((c) => c[0] === table)!;
+    const of = (table: string) => sure(calls.find((c) => c[0] === table), 'calls.find((c) => c[0] === table)');
     expect(of('pull_requests')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
     expect(of('pull_request_reviews')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
   });
@@ -192,7 +193,7 @@ describe('supabaseEngineeringReads', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range', 'limit']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(answers[table]!.shift()).then(ok, ko);
+        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(sure(answers[table], 'answers[table]').shift()).then(ok, ko);
         return q;
       },
     };

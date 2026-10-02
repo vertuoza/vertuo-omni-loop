@@ -6,7 +6,7 @@ import type { KnowledgeView } from './access';
 // stubbed: crew is membership of a workspace, as in the arcade, never an email domain; the repository
 // menu offers the repositories of the crew's own workspaces, read through the App.
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   user: null as null | { id: string; email: string },
   member: false,
   down: false,

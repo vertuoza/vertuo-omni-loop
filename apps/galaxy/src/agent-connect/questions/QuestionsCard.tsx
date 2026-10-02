@@ -71,7 +71,7 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
       {needsProduct && answering.kind !== 'region' && (
         <label>
           <span className="business-type-label">Product</span>
-          <select name="product" value={answering.product ?? ''} disabled={busy} onChange={(e) => on.product(e.currentTarget.value)}>
+          <select name="product" value={answering.product ?? ''} disabled={busy} onChange={(e) => { on.product(e.currentTarget.value); }}>
             <option value="" disabled>Pick one</option>
             {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -81,7 +81,7 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
         <span className="business-type-label">The answer</span>
         <input
           type="text" name="value" maxLength={maxValue(answering.kind)} value={answering.value} disabled={busy}
-          placeholder={answering.kind === 'size' ? SIZE_HINT : undefined} onChange={(e) => on.value(e.target.value)}
+          placeholder={answering.kind === 'size' ? SIZE_HINT : undefined} onChange={(e) => { on.value(e.target.value); }}
         />
       </label>
       <button type="submit" className="ask-button" disabled={busy || blank}>{SAVE_ANSWER}</button>
@@ -108,8 +108,8 @@ function QuestionRow({ question, state, products, on }: { question: AgentQuestio
         </div>
         {!answering && (
           <span className="agent-question-actions">
-            <button type="button" className="ask-button" onClick={() => on.answer(question)} disabled={state.busy}>{ANSWER_ONCE}</button>
-            <button type="button" className="ask-button quiet" aria-label={`${DISMISS}: ${question.question}`} onClick={() => on.dismiss(question)} disabled={state.busy}>{DISMISS}</button>
+            <button type="button" className="ask-button" onClick={() => { on.answer(question); }} disabled={state.busy}>{ANSWER_ONCE}</button>
+            <button type="button" className="ask-button quiet" aria-label={`${DISMISS}: ${question.question}`} onClick={() => { on.dismiss(question); }} disabled={state.busy}>{DISMISS}</button>
           </span>
         )}
       </div>
@@ -136,7 +136,7 @@ function SetAside({ questions, busy, on }: { questions: AgentQuestion[]; busy: b
                   <span>{dayLabel(q.lastAskedAt)}</span>
                 </span>
               </div>
-              <button type="button" className="ask-button quiet" aria-label={`${BRING_BACK}: ${q.question}`} onClick={() => on.bringBack(q)} disabled={busy}>{BRING_BACK}</button>
+              <button type="button" className="ask-button quiet" aria-label={`${BRING_BACK}: ${q.question}`} onClick={() => { on.bringBack(q); }} disabled={busy}>{BRING_BACK}</button>
             </div>
           </li>
         ))}

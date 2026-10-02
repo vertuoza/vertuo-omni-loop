@@ -74,7 +74,7 @@ function Picker({ state, access, on }: { state: RepositoriesState; access: Extra
         <ul className="repositories-offer">
           {offer.map((name) => (
             <li key={name}>
-              <button type="button" className="ask-button quiet" onClick={() => on.add(name)} disabled={state.busy}>{name}</button>
+              <button type="button" className="ask-button quiet" onClick={() => { on.add(name); }} disabled={state.busy}>{name}</button>
             </li>
           ))}
         </ul>
@@ -108,7 +108,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
           aria-checked={row.tracked}
           aria-label={label}
           className="repositories-toggle"
-          onClick={() => on.setTracked(row.fullName, !row.tracked)}
+          onClick={() => { on.setTracked(row.fullName, !row.tracked); }}
           disabled={!owner || busy}
         />
       </div>

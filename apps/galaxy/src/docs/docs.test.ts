@@ -15,6 +15,7 @@ import { readGuide } from './guide';
 import { skillNames, skillPage, skillsOverview } from './skills';
 import { SkillBody, SkillsOverview, skillSidebar, skillToc } from './skills-view';
 import { guideLoader, sidebarItems } from './tree';
+import { sure } from '../arcade/sure';
 
 // The guide's pages as /docs serves them (PRD 346): fumadocs-core's loader over docs/guide/, in
 // meta.json's order, each page drawn by DocsPage with the sidebar, its title, its body and its table
@@ -35,17 +36,17 @@ const toHtml = (node: HastNode): string => {
     : ` ${/^data[A-Z]/.test(name) ? name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`) : name}="${markdown.utils.escapeHtml(String(value))}"`).join('');
   return `<${node.tagName}${attributes}>${node.children.map(toHtml).join('')}</${node.tagName}>`;
 };
-const fence = markdown.renderer.rules.fence!;
+const fence = sure(markdown.renderer.rules.fence, 'markdown.renderer.rules.fence');
 markdown.renderer.rules.fence = (tokens, i, options, env, self) => {
   const pre = fence(tokens, i, options, env, self);
-  const kinds = codeKinds(tokens[i]!.info.trim().split(/\s+/).slice(1).join(' '));
+  const kinds = codeKinds(sure(tokens[i], 'tokens[i]').info.trim().split(/\s+/).slice(1).join(' '));
   return kinds.length > 0 ? toHtml(badgedBlock(kinds, { type: 'raw', value: pre })) : pre;
 };
-const image = markdown.renderer.rules.image!;
+const image = sure(markdown.renderer.rules.image, 'markdown.renderer.rules.image');
 markdown.renderer.rules.image = (tokens, i, options, env, self) => {
-  const src = String(tokens[i]!.attrGet('src') ?? '');
+  const src = String(sure(tokens[i], 'tokens[i]').attrGet('src') ?? '');
   if (!isDiagramPath(src)) return image(tokens, i, options, env, self);
-  const alt = self.renderInlineAsText(tokens[i]!.children ?? [], options, env);
+  const alt = self.renderInlineAsText(sure(tokens[i], 'tokens[i]').children ?? [], options, env);
   return toHtml(diagramFigure(readSvg(readFileSync(join(GUIDE, src), 'utf8')), alt));
 };
 /** A page's body as the app compiles it: a diagram's figure in place of its paragraph. */
@@ -64,7 +65,7 @@ function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
       title: page.title ?? undefined,
       html: renderBody(page.body),
       toc: [...page.body.matchAll(/^(#{2,4}) (.+)$/gm)].map(([, hashes, title]) => ({
-        title, url: `#${title!.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, depth: hashes!.length,
+        title, url: `#${sure(title, 'title').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, depth: sure(hashes, 'hashes').length,
       })),
     },
   }));
@@ -101,7 +102,7 @@ describe('the sidebar', () => {
   it('is what every page shows, the page shown marked current', () => {
     const html = render(['install']);
     expect(html).toContain('<nav class="docs-nav" aria-label="Guide">');
-    expect([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0]![0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
+    expect(sure([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0], '[...html.matchAll(/<nav class="docs-nav"[\\s\\S]*?<\\/nav...')[0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
       '<a href="/docs">Getting started</a>',
       '<a href="/docs/install" aria-current="page">Install</a>',
       '<a href="/docs/join">Join a team</a>',
@@ -213,8 +214,8 @@ describe('the skills pages (PRD 580)', () => {
     ]);
     const cards = [...html.matchAll(/<a class="docs-skill-card" href="([^"]*)"><code>([^<]*)<\/code><span>([^<]*)<\/span><\/a>/g)];
     expect(cards.map((m) => m[1])).toEqual(skillNames().map((name) => `/docs/skills/${name}`));
-    expect(cards[0]!.slice(1)).toEqual(['/docs/skills/think-big', '/omni:think-big', 'a vast idea, explored by a studio, to a concept PR']);
-    expect(cards[4]!.slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
+    expect(sure(cards[0], 'cards[0]').slice(1)).toEqual(['/docs/skills/think-big', '/omni:think-big', 'a vast idea, explored by a studio, to a concept PR']);
+    expect(sure(cards[4], 'cards[4]').slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
   });
 
   it('draws a skill page: its sections in order, its usage and example as code, and its SKILL.md', () => {
@@ -242,7 +243,7 @@ describe('the skills pages (PRD 580)', () => {
 describe('a code block', () => {
   /** Every code block of a page: its badges' text, then the start of its code. */
   const blocks = (html: string) => [...html.matchAll(/<div class="docs-code"><div class="docs-badges">([\s\S]*?)<\/div><pre><code[^>]*>([^\n]*)/g)]
-    .map(([, badges, code]) => [[...badges!.matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
+    .map(([, badges, code]) => [[...sure(badges, 'badges').matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
 
   it('shows where it goes, as badge text above its code, on every page', () => {
     for (const slug of [['join'], ['install'], ['invade'], ['loop'], ['first-prd'], ['several-repositories'], ['use-cases'], ['troubleshooting']]) {
@@ -285,9 +286,9 @@ describe('a diagram', () => {
   /** Every figure of a page: its drawing's accessible name, and the classes its shapes and words use. */
   const figures = (html: string) => [...html.matchAll(/<figure class="docs-figure"><svg ([^>]*)>([\s\S]*?)<\/svg><\/figure>/g)]
     .map(([, attributes, inside]) => ({
-      role: /role="([^"]*)"/.exec(attributes!)?.[1],
-      name: /aria-label="([^"]*)"/.exec(attributes!)?.[1],
-      classes: [...new Set([...inside!.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1]!.split(' ')))].sort(),
+      role: /role="([^"]*)"/.exec(sure(attributes, 'attributes'))?.[1],
+      name: /aria-label="([^"]*)"/.exec(sure(attributes, 'attributes'))?.[1],
+      classes: [...new Set([...sure(inside, 'inside').matchAll(/class="([^"]*)"/g)].flatMap((m) => sure(m[1], 'm[1]').split(' ')))].sort(),
       inside,
     }));
 
@@ -330,7 +331,7 @@ describe('its stylesheet', () => {
     const used = new Set<string>();
     for (const file of readdirSync(join(GUIDE, 'diagrams'))) {
       for (const [, names] of readFileSync(join(GUIDE, 'diagrams', file), 'utf8').matchAll(/class="([^"]*)"/g)) {
-        for (const name of names!.split(' ')) used.add(name);
+        for (const name of sure(names, 'names').split(' ')) used.add(name);
       }
     }
     for (const name of used) expect(rule(`.docs-figure .${name}`), name).toMatch(/var\(--ask-[a-z-]+\)|font-size|stroke-dasharray/);

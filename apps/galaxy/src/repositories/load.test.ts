@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const read = vi.hoisted(() => ({
-  workspace: (() => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+const read = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
+  workspace: () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
@@ -26,11 +26,11 @@ const STORED = [
 type Answer = { data?: unknown; error?: unknown };
 
 function db({
-  owner = { data: true } as Answer | Error,
-  repositories = { data: STORED } as Answer,
-  workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } } as Answer,
-  products = { data: [{ id: 'p-1', name: 'Vertuoza' }] } as Answer,
-} = {}) {
+  owner = { data: true },
+  repositories = { data: STORED },
+  workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } },
+  products = { data: [{ id: 'p-1', name: 'Vertuoza' }] },
+}: { owner?: Answer | Error; repositories?: Answer; workspace?: Answer; products?: Answer } = {}) {
   const calls: unknown[] = [];
   const query = (answer: Answer) => {
     const q = {

@@ -33,7 +33,7 @@ export function CodeCopy() {
       }, SHOWN_MS);
     };
     document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    return () => { document.removeEventListener('click', onClick); };
   }, []);
   return null;
 }

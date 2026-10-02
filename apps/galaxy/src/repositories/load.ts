@@ -1,6 +1,7 @@
 import 'server-only';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
 import { installationSettingsUrl } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
@@ -39,7 +40,7 @@ export type RepositoriesLoad =
     access: Access;
   };
 
-async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> {
+async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise<boolean> {
   const { data, error } = await db.rpc('is_owner', { workspace });
   if (error) throw error;
   return data === true;
@@ -53,7 +54,7 @@ function asMember(err: unknown): boolean {
   return false;
 }
 
-async function rowsOf(db: SupabaseClient, workspace: string): Promise<RepositoryRow[]> {
+async function rowsOf(db: SupabaseClient<Database>, workspace: string): Promise<RepositoryRow[]> {
   const { data, error } = await db
     .from('repositories')
     .select('full_name, tracked, collected_at, collect_error, product_id')
@@ -64,14 +65,14 @@ async function rowsOf(db: SupabaseClient, workspace: string): Promise<Repository
 
 type GithubOf = { github_org: string | null; github_installation_id: number | string | null };
 
-async function githubOf(db: SupabaseClient, workspace: string): Promise<GithubOf> {
+async function githubOf(db: SupabaseClient<Database>, workspace: string): Promise<GithubOf> {
   const { data, error } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's GitHub installation (${error.message})`);
-  return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null }; // ts-allow: the untyped client answers any; the select names GithubOf's two columns
+  return data ?? { github_org: null, github_installation_id: null };
 }
 
 /** The business's products, first first (PRD 748 s4). None when there is no business yet. */
-async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
+async function productsOf(db: SupabaseClient<Database>, workspace: string): Promise<Product[]> {
   const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
   if (error) throw error;
   return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name })); // ts-allow: the untyped client answers any rows; the select names id and name
@@ -117,7 +118,7 @@ async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUr
 }
 
 export async function loadRepositoriesPage(
-  db: SupabaseClient,
+  db: SupabaseClient<Database>,
   user: User,
   app: RepositoriesApp | null,
   installUrl: string | null,

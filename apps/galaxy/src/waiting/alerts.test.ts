@@ -5,6 +5,7 @@ import {
 } from './alerts';
 import type { DocumentGroup } from './documents';
 import type { WaitingItem, WaitingOutbox, WaitingQuestion } from './waiting';
+import { sure } from '../arcade/sure';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over fakes: what a read announces, the two
 // switches kept per browser, the chime claimed by one tab, and the desktop notifications.
@@ -67,7 +68,7 @@ describe('the switches', () => {
   it('are both off when storage throws, or cannot even be reached, and writing breaks nothing', () => {
     expect(readSwitches(throwing)).toEqual(ALERTS_OFF);
     expect(readSwitches(() => { throw new Error('no storage'); })).toEqual(ALERTS_OFF);
-    expect(() => writeSwitches(throwing, { desktop: true, chime: true })).not.toThrow();
+    expect(() => { writeSwitches(throwing, { desktop: true, chime: true }); }).not.toThrow();
   });
 
   it('read anything else stored as off', () => {
@@ -106,14 +107,14 @@ describe('the chime claim', () => {
   it('keeps a bounded memory of what it chimed', () => {
     const store = memory();
     for (let i = 0; i < 500; i++) claimChime(() => store, [`id-${i}`]);
-    expect((JSON.parse(store.map.get(CHIMED_KEY)!) as string[]).length).toBeLessThanOrEqual(200);
+    expect((JSON.parse(sure(store.map.get(CHIMED_KEY), 'store.map.get(CHIMED_KEY)')) as string[]).length).toBeLessThanOrEqual(200);
   });
 });
 
 describe('the chime itself', () => {
   it('breaks nothing when the browser refuses to play sound', () => {
-    expect(() => playChime(null)).not.toThrow();
-    expect(() => playChime(class { constructor() { throw new Error('no audio'); } } as never)).not.toThrow();
+    expect(() => { playChime(null); }).not.toThrow();
+    expect(() => { playChime(class { constructor() { throw new Error('no audio'); } } as never); }).not.toThrow();
   });
 });
 
@@ -177,7 +178,7 @@ describe('desktop alerts', () => {
       ['Claude is asking: Which r1?', 'r1'],
       ['PRD 460 outbox: Keep i1?', 'i1'],
     ]);
-    raised[1]!.onclick?.();
+    sure(raised[1], 'raised[1]').onclick?.();
     expect(opened).toEqual(['/prd/d-460?tab=outbox']);
   });
 
@@ -193,7 +194,7 @@ describe('desktop alerts', () => {
 
   it('never throws when the browser refuses a notification', () => {
     const api = class { static permission = 'granted'; constructor() { throw new Error('refused'); } } as unknown as NotificationApi;
-    expect(() => raiseAlerts(api, 'on', [q('r1')], () => {})).not.toThrow();
+    expect(() => { raiseAlerts(api, 'on', [q('r1')], () => {}); }).not.toThrow();
   });
 
   it('says what waits in words a person reads, and where it opens', () => {

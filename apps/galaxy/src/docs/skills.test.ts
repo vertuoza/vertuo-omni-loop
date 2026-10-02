@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
 import { fillGeneric, skillNames, skillPage, skillsOverview, type SkillEntry } from './skills';
+import { sure } from '../arcade/sure';
 
 // The skills pages' model (PRD 580): built from the help table's skill entries, the one source, so a
 // skill with an entry has its page and nothing else is written by hand.
@@ -25,7 +26,7 @@ describe('the overview', () => {
     ]);
     expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'visual-fix', 'bug-fix']);
     expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'plan', 'wave', 'do-work', 'pr', 'pr-care']);
-    expect(groups[1]!.skills[0]).toEqual({
+    expect(sure(groups[1], 'groups[1]').skills[0]).toEqual({
       name: 'yolo', command: '/omni:yolo', summary: 'build a whole PRD: plan, waves, the outbox gate, ship', url: '/docs/skills/yolo',
     });
   });
@@ -51,8 +52,8 @@ describe('a skill page', () => {
   });
 
   it('carries what it does, when to use it, its usage, its example and its SKILL.md', () => {
-    const page = skillPage('wave')!;
-    const entry = (ENTRIES as readonly SkillEntry[]).find((e) => e.kind === 'skill' && e.name === 'wave')!;
+    const page = sure(skillPage('wave'), 'skillPage(\'wave\')');
+    const entry = sure((ENTRIES as readonly SkillEntry[]).find((e) => e.kind === 'skill' && e.name === 'wave'), '(ENTRIES as readonly SkillEntry[]).find((e) => e.kind ===...');
     expect(page.summary).toBe(entry.summary);
     expect(page.when).toBe(entry.when);
     expect(page.usage).toEqual(['/omni:wave <n>']);
@@ -63,19 +64,19 @@ describe('a skill page', () => {
   it('fills the words in braces with generic ones, on every page', () => {
     expect(fillGeneric('{defaultBranch} of {remote}, {delivery} {inbox} {shipped} {other}'))
       .toBe('the default branch of the remote, .omni-loop/delivery .omni-loop/delivery/inbox/ .omni-loop/delivery/shipped/ {other}');
-    expect(skillPage('yolo')!.what).toContain('It never merges into the default branch.');
+    expect(sure(skillPage('yolo'), 'skillPage(\'yolo\')').what).toContain('It never merges into the default branch.');
     for (const name of skillNames()) expect(JSON.stringify(skillPage(name)), name).not.toMatch(/\{\w+\}/);
   });
 
   it('says you run a skill you type, and names the skills that run one they run', () => {
-    expect(skillPage('yolo')!.runBy).toBe('you');
-    expect(skillPage('dossier-push')!.runBy).toEqual([
+    expect(sure(skillPage('yolo'), 'skillPage(\'yolo\')').runBy).toBe('you');
+    expect(sure(skillPage('dossier-push'), 'skillPage(\'dossier-push\')').runBy).toEqual([
       { name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' },
       { name: 'plan', command: '/omni:plan', url: '/docs/skills/plan' },
       { name: 'visual-fix', command: '/omni:visual-fix', url: '/docs/skills/visual-fix' },
       { name: 'bug-fix', command: '/omni:bug-fix', url: '/docs/skills/bug-fix' },
     ]);
-    expect(skillPage('dossier-open')!.runBy).toEqual([
+    expect(sure(skillPage('dossier-open'), 'skillPage(\'dossier-open\')').runBy).toEqual([
       { name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' },
       { name: 'think-big', command: '/omni:think-big', url: '/docs/skills/think-big' },
     ]);
@@ -83,16 +84,16 @@ describe('a skill page', () => {
 
   it('names a run-by-skills skill\'s runner when that skill\'s words name it', () => {
     const entries = [skill('runner', 'build', 'It runs /omni:helper first.'), { ...skill('helper', 'run-by-skills'), who: 'skills' as const }];
-    expect(skillPage('helper', entries)!.runBy).toEqual([{ name: 'runner', command: '/omni:runner', url: '/docs/skills/runner' }]);
+    expect(sure(skillPage('helper', entries), 'skillPage(\'helper\', entries)').runBy).toEqual([{ name: 'runner', command: '/omni:runner', url: '/docs/skills/runner' }]);
   });
 
   it('relates the other skills its words name, in naming order, once each, never itself nor a skill with no entry', () => {
-    expect(skillPage('yolo')!.related.map((s) => s.name)).toEqual(['wave']);
-    expect(skillPage('mega-brainstorm')!.related.map((s) => s.name)).toEqual(['mega-invade', 'ultra-yolo']);
-    expect(skillPage('think-big')!.related.map((s) => s.name)).toEqual(['brainstorm', 'visual-fix']);
-    expect(skillPage('help')!.related.map((s) => s.name)).toEqual(['yolo']);
-    expect(skillPage('pr')!.related).toEqual([]);
+    expect(sure(skillPage('yolo'), 'skillPage(\'yolo\')').related.map((s) => s.name)).toEqual(['wave']);
+    expect(sure(skillPage('mega-brainstorm'), 'skillPage(\'mega-brainstorm\')').related.map((s) => s.name)).toEqual(['mega-invade', 'ultra-yolo']);
+    expect(sure(skillPage('think-big'), 'skillPage(\'think-big\')').related.map((s) => s.name)).toEqual(['brainstorm', 'visual-fix']);
+    expect(sure(skillPage('help'), 'skillPage(\'help\')').related.map((s) => s.name)).toEqual(['yolo']);
+    expect(sure(skillPage('pr'), 'skillPage(\'pr\')').related).toEqual([]);
     const entries = [skill('a', 'build', 'Then /omni:c, /omni:b, /omni:a, /omni:c and /omni:gone.'), skill('b', 'build'), skill('c', 'build')];
-    expect(skillPage('a', entries)!.related.map((s) => s.name)).toEqual(['c', 'b']);
+    expect(sure(skillPage('a', entries), 'skillPage(\'a\', entries)').related.map((s) => s.name)).toEqual(['c', 'b']);
   });
 });

@@ -55,7 +55,7 @@ export function OrreryDiagram({ graph, entries, label, selected, query, repo, on
           className={matches(entry, query) ? 'km-pick' : 'km-pick is-dim'}
           tabIndex={-1}
           data-entry={entry.id}
-          onClick={(event) => onChoose(entry.id, event)}
+          onClick={(event) => { onChoose(entry.id, event); }}
         >
           <title>{`${entry.id} · ${entry.statement}`}</title>
           <circle className="km-hit" cx={x} cy={y} r={layout.dot + 4} />

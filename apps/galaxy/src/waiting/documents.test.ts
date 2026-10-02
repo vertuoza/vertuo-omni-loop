@@ -5,6 +5,7 @@ import {
   ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen,
   noticeDocuments, readSeen, settled, SETTLE_MS, toAnnounce, type Announced, type DocumentGroup, type DocumentRow, type Seen,
 } from './documents';
+import { sure } from '../arcade/sure';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the person opened, one group per PRD, newest first, less
@@ -156,8 +157,8 @@ describe('what this browser has seen', () => {
 
   it('with a storage that throws: `since` is the load time, and nothing throws', () => {
     expect(readSeen(throwing, NOW)).toEqual({ since: NOW, dossiers: {} });
-    expect(() => markSeen(throwing, 'd-572', NOW)).not.toThrow();
-    expect(() => markSeen(() => { throw new Error('no storage'); }, 'd-572', NOW)).not.toThrow();
+    expect(() => { markSeen(throwing, 'd-572', NOW); }).not.toThrow();
+    expect(() => { markSeen(() => { throw new Error('no storage'); }, 'd-572', NOW); }).not.toThrow();
   });
 });
 
@@ -206,7 +207,7 @@ describe('what to announce', () => {
 
   it('names every kind of a group that carries no time per kind', () => {
     const bare: DocumentGroup = { dossierId: 'd-1', prd: 1, title: 't', kinds: ['spec', 'plan'], newestId: 'v1', newestAt: NOW };
-    expect(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0]!.kinds).toEqual(['spec', 'plan']);
+    expect(sure(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0], 'toAnnounce([bare], [{ id: \'v0\', dossierId: \'d-1\', at:...').kinds).toEqual(['spec', 'plan']);
   });
 
   it('keeps the announced list at most 200 long', () => {
@@ -260,7 +261,7 @@ describe('announcing settled documents', () => {
       ['PRD 572: new spec', 'docs-d-572-v2'],
       ['PRD 579: new plan', 'docs-d-579-v4'],
     ]);
-    raised[1]!.onclick?.();
+    sure(raised[1], 'raised[1]').onclick?.();
     expect(opened).toEqual(['/prd/d-579']);
     expect(play).not.toHaveBeenCalled();
   });
@@ -292,7 +293,7 @@ describe('announcing settled documents', () => {
     // A reload: nothing held in memory, only what the browser stored.
     noticeDocuments({ ...input, chime: false, kept: [] });
     expect(raised).toHaveLength(2);
-    expect(JSON.parse(m.map.get(DOCS_ANNOUNCED_KEY)!)).toEqual(kept);
+    expect(JSON.parse(sure(m.map.get(DOCS_ANNOUNCED_KEY), 'm.map.get(DOCS_ANNOUNCED_KEY)'))).toEqual(kept);
   });
 
   it('with a storage that throws: remembers for the visit through what it returns, plays nothing, never throws', () => {

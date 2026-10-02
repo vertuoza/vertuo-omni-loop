@@ -219,7 +219,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
         const { desktop, chime } = live.current;
         announced = noticeDocuments({
           groups, now: Date.now(), store: storage, kept: announced, desktop, chime,
-          notifications: notifications(), play: () => playChime(audio()), open: openFromAlert,
+          notifications: notifications(), play: () => { playChime(audio()); }, open: openFromAlert,
         });
       } catch (error) {
         log('documents', error);
@@ -256,7 +256,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     // Next writes each page's title and icon on navigation, after this effect: apply them again.
     const watch = new MutationObserver(apply);
     watch.observe(document.head, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href'] });
-    return () => watch.disconnect();
+    return () => { watch.disconnect(); };
   }, [total]);
 
   return (

@@ -28,7 +28,7 @@ export function mcpDeps(env: Record<string, string | undefined> = process.env): 
   return {
     connect,
     ...(jev ? {
-      reported: (question: string, link: string) => after(() => judgeQuestion(questionJudge(serviceDb(), connect(), jev), { question, link })),
+      reported: (question: string, link: string) => { after(() => judgeQuestion(questionJudge(serviceDb(), connect(), jev), { question, link })); },
     } : {}),
   };
 }

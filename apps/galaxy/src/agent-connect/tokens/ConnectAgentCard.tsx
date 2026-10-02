@@ -49,7 +49,7 @@ function TokenShown({ shown, copied, on }: { shown: Shown; copied: string | null
             <div className="agent-setup-head">
               <strong>{s.label}</strong>
               <span className="ask-muted">{s.where}</span>
-              <button type="button" className="ask-button quiet" onClick={() => on.copy(s.label, s.text)}>{copied === s.label ? COPIED : COPY}</button>
+              <button type="button" className="ask-button quiet" onClick={() => { on.copy(s.label, s.text); }}>{copied === s.label ? COPIED : COPY}</button>
             </div>
             <pre>{s.text}</pre>
           </li>
@@ -74,7 +74,7 @@ function TokenRow({ token, busy, on }: { token: AgentToken; busy: boolean; on: T
         {!token.working && <span className="agent-row-dead">{NOT_WORKING}</span>}
       </div>
       {token.canRevoke && (
-        <button type="button" className="ask-button quiet" aria-label={`${REVOKE} ${token.name}`} onClick={() => on.revoke(token)} disabled={busy}>{REVOKE}</button>
+        <button type="button" className="ask-button quiet" aria-label={`${REVOKE} ${token.name}`} onClick={() => { on.revoke(token); }} disabled={busy}>{REVOKE}</button>
       )}
     </li>
   );
@@ -97,7 +97,7 @@ export function ConnectAgentCard({ state, demo = false, on = IDLE }: ConnectAgen
           <span className="agent-make-label">{NAME_LABEL}</span>
           <input
             type="text" name="name" maxLength={TOKEN_NAME_MAX} placeholder={NAME_PLACEHOLDER} value={state.name}
-            onChange={(e) => on.name(e.target.value)} disabled={state.busy}
+            onChange={(e) => { on.name(e.target.value); }} disabled={state.busy}
           />
         </label>
         <button type="submit" className="ask-button" disabled={state.busy || state.name.trim() === ''}>{MAKE_LINK}</button>

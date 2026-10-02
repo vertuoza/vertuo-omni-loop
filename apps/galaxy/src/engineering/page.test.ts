@@ -5,10 +5,10 @@ import type { EngineeringScreenProps } from './EngineeringScreen';
 // /app/engineering (app/app/engineering/page.tsx), called as the server calls it, with its data
 // sources stubbed (PRD 612 s3): it reads the period and the sort from the query and decides the
 // situation once. Any member gets the board: no role is asked.
-const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
-  user: null as null | { id: string },
-  load: { kind: 'no-workspace' } as unknown,
+const given = vi.hoisted((): { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string }; load: unknown } => ({
+  mode: 'supabase',
+  user: null,
+  load: { kind: 'no-workspace' },
 }));
 const demoEngineeringBoard = vi.hoisted(() => vi.fn((period: string, sort: string) => ({ kind: 'board', name: 'demo', board: { period, sort } })));
 const loadEngineeringBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));

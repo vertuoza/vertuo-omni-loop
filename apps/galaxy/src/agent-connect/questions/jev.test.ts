@@ -20,7 +20,9 @@ type Rpc = { fn: string; args: Record<string, unknown> };
 const REPORT = { question: 'q-1', link: 'a'.repeat(64) };
 const KEY: JevKey = { kind: 'key', key: 'ts_key' };
 
-function world({ mode = 'off' as JevMode, noul = 0.05, confidence = 0.9, context = CONTEXT as unknown, key = KEY, workspace = 'w-1' as unknown } = {}) {
+function world({ mode = 'off', noul = 0.05, confidence = 0.9, context = CONTEXT, key = KEY, workspace = 'w-1' }: {
+  mode?: JevMode; noul?: number; confidence?: number; context?: unknown; key?: JevKey; workspace?: unknown;
+} = {}) {
   const rpcs: Rpc[] = [];
   const linked = {
     rpc: (fn: string, args: Record<string, unknown>) => {

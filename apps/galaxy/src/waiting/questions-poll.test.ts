@@ -82,7 +82,7 @@ describe('the questions poll', () => {
     const p = page();
     let release = () => {};
     const tick = vi.fn<() => Promise<boolean>>()
-      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { release = () => resolve(true); }))
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { release = () => { resolve(true); }; }))
       .mockImplementationOnce(() => Promise.reject(new Error('offline')))
       .mockImplementation(() => Promise.resolve(true));
     const stop = pollQuestions(tick, p.doc);
