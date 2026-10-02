@@ -31,7 +31,7 @@ export type { IssueFacts } from './github.ts';
  * One gate's verdict. `neutral`: the gate could not judge; it counts as ok. `title`: how a failed
  * gate reads in the title.
  */
-export type Gate = { name: string; ok: boolean; reason: string; neutral?: boolean; title?: string; details?: string[] };
+export type Gate = { name: string; ok: boolean; reason: string; neutral?: boolean; title?: string | undefined; details?: string[] };
 
 /** What the canon gate found. `state` is `green`, `red` or `neutral`. */
 export type CanonGateFacts = {
@@ -112,7 +112,7 @@ export async function evaluateInbox({
   changes: { path: string; status?: string }[] | null | undefined;
   commits: Commit[];
   issue: IssueFacts;
-  canon?: CanonGrader | null;
+  canon?: CanonGrader | null | undefined;
 }): Promise<InboxVerdict | null> {
   const config = readConfigAt(base);
   if (!config) return null;
