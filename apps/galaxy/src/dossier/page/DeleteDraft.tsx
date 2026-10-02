@@ -34,7 +34,7 @@ export function DeleteDraft({ supabase, id }: { supabase: Supabase; id: string }
 
   return (
     <span className="dossier-delete">
-      <button type="button" className="ask-button quiet" disabled={busy} onClick={remove}>{busy ? 'Deleting…' : 'Delete draft'}</button>
+      <button type="button" className="ask-button quiet" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete draft'}</button>
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </span>
   );
