@@ -45,16 +45,16 @@ const KEY = 'workspace_id,kind,repo,number';
 export const windowStart = (now: Date): Date => new Date(now.getTime() - WINDOW_DAYS * DAY);
 
 // What gh prints for `--json number,author,<time>`. A deleted account's author is null, or has no login.
-const Author = z.object({ login: z.string().nullish() }).passthrough().nullish();
+const Author = z.object({ login: z.string().nullish() }).loose().nullish();
 const Merged = z.array(z.object({
   number: z.number().int().positive(),
   author: Author,
   mergedAt: z.string().nullish(),
-  labels: z.array(z.object({ name: z.string() }).passthrough()).nullish(),
+  labels: z.array(z.object({ name: z.string() }).loose()).nullish(),
   body: z.string().nullish(),
-}).passthrough());
-const Viewed = z.object({ author: Author }).passthrough();
-const Opened = z.array(z.object({ number: z.number().int().positive(), author: Author, createdAt: z.string().nullish() }).passthrough());
+}).loose());
+const Viewed = z.object({ author: Author }).loose();
+const Opened = z.array(z.object({ number: z.number().int().positive(), author: Author, createdAt: z.string().nullish() }).loose());
 
 type Author = z.infer<typeof Author>;
 /** A contributions row before it is given its workspace. */

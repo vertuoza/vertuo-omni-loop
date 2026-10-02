@@ -40,7 +40,7 @@ export function deriveZones(planet: SnapshotPlanet): DerivedZone[] {
   });
 }
 
-export function deriveWounds(planet: SnapshotPlanet, now: Date): DerivedWound[] {
+export function deriveWounds(planet: SnapshotPlanet): DerivedWound[] {
   const key = planetKey(planet.home, planet.prd); // PRD 728: a wound names its PRD by its home
   const wounds: DerivedWound[] = [];
   for (const z of planet.zones) {
@@ -143,7 +143,7 @@ export function derivePlanet(
   { config, terraformedPlanets, now }: { config: Pick<GameConfig, 'sectorOf'>; terraformedPlanets: ReadonlySet<string | number>; now: Date },
 ): DerivedPlanet {
   const zones = deriveZones(planet);
-  const wounds = deriveWounds(planet, now);
+  const wounds = deriveWounds(planet);
   const regions = planet.regions.map((r) => r.repo);
   // A repository that no sector names counts as a sector of its own (PRD 728).
   const sectors = new Set(regions.map((r) => config.sectorOf(r) ?? `repo:${r}`));

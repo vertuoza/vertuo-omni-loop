@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { digText } from '../kit/bin/dig.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, 'vercel-ignore.sh');
@@ -67,7 +68,7 @@ describe('vercel-ignore.sh', () => {
   });
 
   it.each(['apps/galaxy', 'apps/omni-app'])('%s/vercel.json runs it from the repository root', (app) => {
-    const { ignoreCommand } = JSON.parse(readFileSync(join(here, '..', app, 'vercel.json'), 'utf8'));
+    const ignoreCommand = digText(JSON.parse(readFileSync(join(here, '..', app, 'vercel.json'), 'utf8')), 'ignoreCommand');
     expect(ignoreCommand).toBe('cd ../.. && bash scripts/vercel-ignore.sh');
     const run = (branch: string) => spawnSync('sh', ['-c', ignoreCommand], {
       cwd: join(here, '..', app),

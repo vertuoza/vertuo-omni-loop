@@ -15,7 +15,7 @@ const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 
 export const EventSchema = z.object({
   id: z.string().min(1),
-  at: z.string().datetime({ offset: true }),
+  at: z.iso.datetime({ offset: true }),
   type: z.enum(EVENT_TYPES),
   planet: z.number().int().positive(),
   // Absent on the events written before PRD 728.

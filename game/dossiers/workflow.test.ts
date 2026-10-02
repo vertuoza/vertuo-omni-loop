@@ -3,6 +3,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { z } from 'zod';
+import { nth } from '../test/present.ts';
+
+// The root package.json, as far as these tests read it: its scripts.
+const Package = z.object({ scripts: z.record(z.string(), z.string()) });
 
 type Step = { run?: string; env: Record<string, string>; 'continue-on-error'?: boolean };
 type Job = { steps: Step[]; env: Record<string, string> };
@@ -13,7 +18,7 @@ const wf = parse(read('.github/workflows/game.yml')) as Workflow;
 
 describe('game:dossiers in the game workflow', () => {
   it('has a root script beside the other game scripts', () => {
-    expect(JSON.parse(read('package.json')).scripts['game:dossiers']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.ts');
+    expect(Package.parse(JSON.parse(read('package.json'))).scripts['game:dossiers']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.ts');
   });
 
   it('runs in the ledger job after game:project, with the same GitHub token and service role, and never fails the job', () => {
@@ -22,8 +27,8 @@ describe('game:dossiers in the game workflow', () => {
     const dossiers = steps.findIndex((s) => s.run === 'pnpm game:dossiers');
     expect(project).toBeGreaterThanOrEqual(0);
     expect(dossiers).toBeGreaterThan(project);
-    expect(steps[dossiers]!.env.GH_TOKEN).toBe(steps[project]!.env.GH_TOKEN);
-    expect(steps[dossiers]!['continue-on-error']).toBe(true);
+    expect(nth(steps, dossiers, 'steps').env.GH_TOKEN).toBe(nth(steps, project, 'steps').env.GH_TOKEN);
+    expect(nth(steps, dossiers, 'steps')['continue-on-error']).toBe(true);
     expect(wf.jobs.ledger.env.SUPABASE_SERVICE_ROLE_KEY).toBe('${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}');
     expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:dossiers');
   });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseFrontMatter, parseSpec, deliveryOf, prdOfFolder, parseOutboxItem, parseSettled, parsePlanSlices } from './parsers.ts';
+import { present } from '../test/present.ts';
 
 describe('parsers', () => {
   it('reads plain key: value front matter', () => {
@@ -61,7 +62,7 @@ describe('parsers', () => {
   });
 
   it('reads who settled an item: nobody is no one, a delegated session is the person it answered for', () => {
-    const entry = (by: string) => parseSettled(`<!-- omni-outbox-settled: s1-01-a -->\n\n- Verdict: agreed\n- Approved by: ${by}\n- Approved at: 2026-09-29\n`).get('s1-01-a')!.by;
+    const entry = (by: string) => present(parseSettled(`<!-- omni-outbox-settled: s1-01-a -->\n\n- Verdict: agreed\n- Approved by: ${by}\n- Approved at: 2026-09-29\n`).get('s1-01-a'), 'the settled item').by;
     expect(entry('nobody')).toBeNull();
     expect(entry('claude-code-session (delegated by pierre-derval)')).toBe('pierre-derval');
     expect(entry('paul-w')).toBe('paul-w');
