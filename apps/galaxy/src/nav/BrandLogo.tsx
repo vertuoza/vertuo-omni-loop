@@ -17,7 +17,7 @@ export type BrandLogoProps = {
 
 export function BrandLogo({ className, onClick }: BrandLogoProps) {
   return (
-    <Link className={className ? `brand-logo ${className}` : 'brand-logo'} href={APP_HOME} onClick={onClick}>
+    <Link className={className ? `brand-logo ${className}` : 'brand-logo'} href={APP_HOME} {...(onClick === undefined ? {} : { onClick })}>
       <span className="brand-logo-crest" aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
       <span className="ask-mark">OMNI LOOP</span>
     </Link>

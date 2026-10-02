@@ -103,9 +103,9 @@ function world() {
   const request = (method: string, path: string, { token = 'ada-token', body, raw, headers = {}, signal }: Call = {}) =>
     new Request(`https://ask.example${path}`, {
       method,
-      signal,
+      signal: signal ?? null,
       headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', ...headers },
-      body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
+      body: raw ?? (body === undefined ? null : JSON.stringify(body)),
     });
   const read = async (response: Response) => ({ status: response.status, body: Answer.parse(await response.json()) });
 

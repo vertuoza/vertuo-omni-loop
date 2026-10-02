@@ -66,9 +66,9 @@ export type HistoryFilters = {
   /** Words, each of which must appear in the title. */
   search?: string;
   /** Only the dossiers whose outbox has open questions (PRD 251). */
-  needsAnswer?: true;
+  needsAnswer?: true | undefined;
   /** Only the dossiers at this stage now (PRD 587). */
-  stage?: StageId;
+  stage?: StageId | undefined;
 };
 
 /** Each numbered dossier's current stored stage, by stageKeyOf; one left out has no stored stage yet. */

@@ -22,7 +22,7 @@ const DEFAULT_HERO: Hero = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape
 
 export interface DockGameProps {
   /** The games this player may play (dockDoor), Invaders alone when none is given. */
-  games?: readonly DockGameId[];
+  games?: readonly DockGameId[] | undefined;
   /** The game the picker chose last in this tab: its cursor starts there. */
   chosen?: string | null;
   /** A game was chosen on the picker: the dock keeps it for the tab. */
@@ -33,7 +33,7 @@ export interface DockGameProps {
   hero?: Hero | null;
   team?: string | null;
   /** Each alien's value: the galaxy's `rules.woundClose`, the rulebook's by default. */
-  values?: Readonly<Record<WoundKind, number>>;
+  values?: Readonly<Record<WoundKind, number>> | undefined;
   /** Where the score is saved: the arcade's Supabase account for the workspace, or one given. */
   supabase?: { url: string; key: string } | null;
   workspace?: string | null;

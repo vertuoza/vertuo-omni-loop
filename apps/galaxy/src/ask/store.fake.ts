@@ -225,7 +225,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
   }
 
   /** `ask_round_share`: the session's owner shares a round with another member of its workspace. */
-  function share(me: FakeAccount | null, { p_round_id: id, p_member: member }: { p_round_id?: string; p_member?: string }): Result {
+  function share(me: FakeAccount | null, { p_round_id: id, p_member: member }: { p_round_id?: string | undefined; p_member?: string | undefined }): Result {
     const round = tables.ask_rounds.find((r) => r.id === id);
     const session = round && sessionOf(round, 'ask_rounds');
     const place = textOf(session?.workspace_id);

@@ -21,7 +21,7 @@ export interface FaceInput {
   /** The player row's stored hero, unchecked. */
   hero?: unknown;
   /** Their fleet's colour. */
-  color?: string | null;
+  color?: string | null | undefined;
 }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;

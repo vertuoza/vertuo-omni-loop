@@ -169,7 +169,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       this.emit('stomp');
     }
 
-    update(_time: number, delta: number) {
+    override update(_time: number, delta: number) {
       if (this.done) return;
       const dt = Math.min(delta / 1000, MAX_DT);
       if (this.tick(dt)) { this.again(); return; }

@@ -7,7 +7,7 @@
 // sprite is drawn through `sprite()`, in the theme's stripes.
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
-  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm,
+  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm, type Tint,
 } from '@omni/design';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
@@ -57,7 +57,7 @@ export interface FrameState {
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
   mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
-  logo?: LogoForm | null; // the house brand's crest, which the boot draws in place of the mark
+  logo?: LogoForm | null | undefined; // the house brand's crest, which the boot draws in place of the mark
   theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
   chart?: ChartFrame;   // the star chart (chart, system)
   game?: Game | null;   // the game being played (invaders), laid out for `grid`
@@ -203,12 +203,12 @@ export function heroSelectWall(ctx: CanvasRenderingContext2D) {
   for (let y = 3; y < H; y += 8) for (let x = (y / 8) % 2 ? 4 : 0; x < W; x += 8) ctx.fillRect(x, y, 2, 2);
 }
 
-/** How a sprite is drawn, but its stripes: those are the theme's. */
-export type SpriteOptions = Omit<NonNullable<Parameters<typeof drawSprite>[4]>, 'flat'>;
+/** How a sprite is drawn, but its stripes: those are the theme's. No tint, or an undefined one: its own colours. */
+export type SpriteOptions = Omit<NonNullable<Parameters<typeof drawSprite>[4]>, 'flat' | 'tint'> & { tint?: Tint | undefined };
 
 /** A sprite on the canvas, in the theme's stripes (`stripe-1` to `stripe-4`): every scene draws its sprites through here. */
-export function sprite(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: SpriteOptions = {}) {
-  drawSprite(ctx, name, x, y, { ...o, flat: stripesOf(s.theme) });
+export function sprite(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, { tint, ...o }: SpriteOptions = {}) {
+  drawSprite(ctx, name, x, y, { ...o, ...(tint ? { tint } : {}), flat: stripesOf(s.theme) });
 }
 
 export function drawFleetMascot(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: { scale?: number; frame?: number; alpha?: number; flip?: boolean } = {}) {

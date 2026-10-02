@@ -33,7 +33,7 @@ export function BellView({ list, documents = [], business = 0, unread, now, onOp
   unread: BellUnread;
   now: number;
   onOpen?: () => void;
-  alerts?: BellAlerts;
+  alerts?: BellAlerts | undefined;
 }) {
   const [state, send] = useReducer(bell, CLOSED_BELL);
   const root = useRef<HTMLDivElement>(null);

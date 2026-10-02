@@ -228,7 +228,7 @@ export interface EngineeringBoardProps {
   period: Period;
   query: Query;
   /** On a repository's page, that repository: the period switch stays on the page, and there is no table. */
-  repo?: string;
+  repo?: string | undefined;
 }
 
 export function EngineeringBoard({ board, period, query, repo }: EngineeringBoardProps) {

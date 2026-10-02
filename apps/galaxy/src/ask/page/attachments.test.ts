@@ -104,7 +104,7 @@ describe('sending with screenshots', () => {
   });
 
   it('takes a file an earlier try stored without hearing back as uploaded', async () => {
-    const { bucket } = stubBucket((path, attempt) => (attempt === 1 ? { message: 'The resource already exists', statusCode: '409' } : null));
+    const { bucket } = stubBucket((_path, attempt) => (attempt === 1 ? { message: 'The resource already exists', statusCode: '409' } : null));
     const tray = newTray();
     tray.shots = { 'Which one?': [shot('a')] };
     const r = recorder();

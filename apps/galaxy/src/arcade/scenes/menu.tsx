@@ -90,7 +90,7 @@ const UNKNOWN_XP: XpStatus = { kind: 'unreadable' };
 export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp = UNKNOWN_XP }: {
   view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void; chart?: ChartSource;
   /** The player's XP, for GAMES's hint and the level on their badge. */
-  xp?: XpStatus;
+  xp?: XpStatus | undefined;
 }) {
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',

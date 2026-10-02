@@ -22,7 +22,7 @@ export interface RepositoriesPageProps {
   access: Access;
   now: number;
   /** The business's products, first first (PRD 748 s4). */
-  products?: Product[];
+  products?: Product[] | undefined;
 }
 
 export function RepositoriesPage({ source, owner, repositories, access, now, products = [] }: RepositoriesPageProps) {

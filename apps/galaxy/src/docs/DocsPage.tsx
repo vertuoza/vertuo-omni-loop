@@ -19,7 +19,7 @@ export interface DocsPageProps {
   /** The URL of the page shown. */
   url: string;
   title: string;
-  description?: string;
+  description?: string | undefined;
   /** The page's headings, as fumadocs-mdx found them. */
   toc: readonly TOCItemType[];
   /** The page's body. */

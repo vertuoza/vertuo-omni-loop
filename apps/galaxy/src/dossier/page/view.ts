@@ -183,21 +183,21 @@ export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
   answerable?: readonly string[];
   /** The GitHub summary (PRD 426): null when it could not be read, left out when it was not asked for. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   /** The slices of the dossier's latest plan version; null or left out when not known. */
   slices?: number | null;
   /** The PRD's stored stages (PRD 587): none yet reads Syncing…; left out when they were not asked for. */
-  stages?: readonly StageRow[] | null;
+  stages?: readonly StageRow[] | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
-  fix?: FixPageView;
+  fix?: FixPageView | undefined;
   /** The workspace's people directory (PRD 652), for the faces; left out, everyone falls back to
    * their GitHub photo or their initial. */
-  people?: People;
+  people?: People | undefined;
   /** The proof runs (PRD 798): null when they could not be read, left out when not asked for; the
    * Proof tab shows only with one. */
-  proofs?: ProofRead | null;
+  proofs?: ProofRead | null | undefined;
 };
 
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */

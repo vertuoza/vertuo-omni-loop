@@ -99,7 +99,7 @@ export type AskDeps = {
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
   /** Where a person's calls for a repository go (repo_workspace()); absent: nobody can say here. */
-  place?: (userId: string, repo: string) => Promise<Placement>;
+  place?: ((userId: string, repo: string) => Promise<Placement>) | undefined;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
