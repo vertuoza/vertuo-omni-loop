@@ -67,7 +67,7 @@ export function fixVerdict({
   prefix: string;
   folders: readonly string[];
   grade: (folder: string) => string[];
-  commits?: readonly Commit[];
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const failures: string[] = [];
   let folder: string | null = null;

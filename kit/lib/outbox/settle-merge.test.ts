@@ -254,14 +254,14 @@ function settledEntry(r: Repo, text: string, verdict: Verdict, closed?: string) 
   });
 }
 
-function ledgerWith(r: Repo, ...entries: string[]) {
+function ledgerWith(...entries: string[]) {
   return ['# Settled outbox items — PRD 42', '', ...entries].join('\n');
 }
 
 describe('settleAtMerge — drift never reworked', () => {
   it('appends an adopted entry that wins, and the gate reads green on the result', () => {
     const r = repo();
-    r.write(LEDGER, ledgerWith(r, settledEntry(r, HIGH, 'drifted')));
+    r.write(LEDGER, ledgerWith(settledEntry(r, HIGH, 'drifted')));
     expect(gateOk(r)).toBe(false);
 
     const result = settleAtMerge({ ctx: r.ctx, prd: 42, merge: MERGE });
@@ -291,7 +291,6 @@ describe('settleAtMerge — drift never reworked', () => {
     r.write(
       LEDGER,
       ledgerWith(
-        r,
         settledEntry(r, HIGH, 'drifted', 'yes — reworked by #50, the sub-pull request that brought the build back in line'),
       ),
     );

@@ -89,8 +89,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   baseUrl: string;
   host: string;
   tokens: TokenStore;
-  fetch?: Fetch;
-  callMs?: number;
+  fetch?: Fetch | undefined;
+  callMs?: number | undefined;
 }) {
   const root = baseUrl.replace(/\/+$/, '');
   const segment = (value: string | number): string => encodeURIComponent(value);
@@ -103,7 +103,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       return await fetch(`${root}${path}`, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {

@@ -82,7 +82,7 @@ export function signedInLine({ login, email, repo, workspace, reason }: {
   return head;
 }
 
-export function credentials({ home = homedir() }: { home?: string } = {}): TokenStore & { file: string; remove(host: string): boolean } {
+export function credentials({ home = homedir() }: { home?: string | undefined } = {}): TokenStore & { file: string; remove(host: string): boolean } {
   const file = join(home, ...FILE);
   const tokens = homeTokens({ home });
   return {

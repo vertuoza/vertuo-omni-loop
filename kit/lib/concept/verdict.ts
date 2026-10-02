@@ -205,8 +205,8 @@ export function conceptVerdict({
 }: {
   ctx: ConceptContext;
   concept: number;
-  changed?: readonly string[];
-  commits?: readonly Commit[];
+  changed?: readonly string[] | undefined;
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx,

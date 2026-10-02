@@ -78,7 +78,7 @@ function folderViolations(ctx: VisualContext, folder: string): string[] {
 export function visualVerdict({ ctx, issue, commits }: {
   ctx: VisualContext;
   issue: number;
-  commits?: readonly Commit[];
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx, issue, commits, root: visualRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue)),

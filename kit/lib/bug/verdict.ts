@@ -120,8 +120,8 @@ function recordViolations(ctx: { root: string }, record: string, changed: Set<st
 export function bugVerdict({ ctx, issue, changed, commits }: {
   ctx: BugContext;
   issue: number;
-  changed?: Iterable<string>;
-  commits?: readonly Commit[];
+  changed?: Iterable<string> | undefined;
+  commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({

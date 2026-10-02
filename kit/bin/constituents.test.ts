@@ -57,7 +57,7 @@ function page(body: unknown, status = 200) {
 const offline: Fetch = () => Promise.reject(new TypeError('fetch failed'));
 
 /** A page that never answers until the call is given up. */
-const slow: Fetch = (url, init) => new Promise((_, reject) => {
+const slow: Fetch = (_url, init) => new Promise((_, reject) => {
   init.signal?.addEventListener('abort', () => {
     reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
   });

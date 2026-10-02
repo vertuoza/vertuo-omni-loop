@@ -83,13 +83,13 @@ export type AskInput = {
   system: string;
   user: string;
   check: ReplyCheck;
-  schema?: { name: string; schema: object };
-  env?: Record<string, string | undefined>;
-  fetch?: typeof fetch;
+  schema?: { name: string; schema: object } | undefined;
+  env?: Record<string, string | undefined> | undefined;
+  fetch?: typeof fetch | undefined;
   sleep?: ((ms: number) => Promise<void>) | undefined;
-  call?: ModelCall;
-  title?: string;
-  stream?: boolean;
+  call?: ModelCall | undefined;
+  title?: string | undefined;
+  stream?: boolean | undefined;
 };
 
 export type AskResult = { ok: boolean; error: ModelFailure | null; model: string | null; reply: unknown; reason: string | null };

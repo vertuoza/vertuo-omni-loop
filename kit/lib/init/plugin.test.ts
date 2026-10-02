@@ -60,7 +60,7 @@ describe('installPlugin', () => {
   });
 
   it('a list claude cannot give is no reason to skip the install', () => {
-    const exec = (cmd: string, args: readonly string[]): string => {
+    const exec = (_cmd: string, args: readonly string[]): string => {
       if (args.includes('--json')) return 'not json';
       return '';
     };

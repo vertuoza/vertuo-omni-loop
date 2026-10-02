@@ -64,7 +64,7 @@ export function ghClient({
  * `gh` login), else `env` plus `GH_TOKEN` read once from `gh auth token --user <user>`. The token is
  * only ever passed through `env` — never interpolated into an argument or a shell string.
  */
-export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = process.env }: { exec?: ExecText; env?: Env } = {}): Env | undefined {
+export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = process.env }: { exec?: ExecText; env?: Env | undefined } = {}): Env | undefined {
   const user = ctx.config.github.user;
   if (!user) return undefined;
   const token = exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

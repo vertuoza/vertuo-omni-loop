@@ -17,7 +17,7 @@ const BASE = 'https://omni.example';
 const HOST = 'omni.example';
 const LINK = `${BASE}/prd/0b7c-dossier-7`;
 
-const config = ({ url = BASE, enabled = true }: { url?: string | null; enabled?: boolean } = {}) =>
+const config = ({ url = BASE, enabled = true }: { url?: string | null | undefined; enabled?: boolean | undefined } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
 function memoryTokens(entries: Record<string, Tokens> = {}) {
@@ -28,7 +28,7 @@ const signedIn = () => memoryTokens({ [HOST]: { access_token: 'access-1', refres
 
 /** A fetch that answers every call with `reply(url, init)` and keeps each call. */
 function stubFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
-  const calls: { url: string; method?: string; authorization?: string }[] = [];
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined }[] = [];
   // A promise of the reply, rejected when replying throws, as the async fetch it fakes.
   const fetch = (url: string, init: FetchInit) => {
     calls.push({ url, method: init.method, authorization: init.headers.authorization });
@@ -223,7 +223,7 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
 
   /** A fetch that keeps each call with its body, and answers with `reply`. */
   function recordingFetch(reply: (url: string, init: FetchInit) => Response | Promise<Response>) {
-    const calls: { url: string; method?: string; body: Record<string, unknown> | undefined }[] = [];
+    const calls: { url: string; method?: string | undefined; body: Record<string, unknown> | undefined }[] = [];
     const fetch = (url: string, init: FetchInit) => {
       calls.push({ url, method: init.method, body: init.body === undefined ? undefined : (JSON.parse(init.body) as Record<string, unknown>) });
       return new Promise<Response>((resolve) => {

@@ -187,7 +187,7 @@ export function isDocsOnly(paths: readonly unknown[] | null | undefined, { ctx }
  */
 export function phase0Verdict(
   paths: readonly unknown[] | null | undefined,
-  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] },
+  { ctx, prd, needsBeforeAfter = true, commits }: { ctx: Phase0Ctx; prd: PrdNumber; needsBeforeAfter?: boolean; commits?: readonly Phase0Commit[] | undefined },
 ): Phase0Verdict {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
