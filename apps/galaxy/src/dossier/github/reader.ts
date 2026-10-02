@@ -125,7 +125,10 @@ const DETAIL_FIELDS = [
 
 /** An item as the Outbox tab shows it. */
 function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
-  const text_ = (key: string) => (typeof sections[key] === 'string' ? (sections[key] as string) : null); // ts-allow: typeof just proved it a string
+  const text_ = (key: string) => {
+    const value = sections[key];
+    return typeof value === 'string' ? value : null;
+  };
   const details: OutboxDetails = {};
   for (const [key, field] of DETAIL_FIELDS) {
     const text = text_(field);

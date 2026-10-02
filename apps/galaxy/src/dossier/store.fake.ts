@@ -97,18 +97,25 @@ const refuse = (code: string, message: string): Result => ({ data: null, error: 
  * @param orgs each workspace's github_org, by workspace id: a workspace not named owns no organisation
  */
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
-  const tables = {
-    dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[], // ts-allow: a test fake: each table starts empty, with its row type
-    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[], ask_shares: [] as FakeAskShare[], // ts-allow: a test fake: each table starts empty, with its row type
-    ledger_events: [] as FakeLedgerEvent[], // ts-allow: a test fake: each table starts empty, with its row type
+  const tables: {
+    dossiers: FakeDossier[]; dossier_versions: FakeVersion[];
+    ask_sessions: FakeAskSession[]; ask_rounds: FakeAskRound[]; ask_shares: FakeAskShare[];
+    ledger_events: FakeLedgerEvent[];
     /** Each workspace's plan repository, a bare name, by workspace id. */
-    plan_repos: {} as Record<string, string>, // ts-allow: a test fake: the map starts empty, with its value type
+    plan_repos: Record<string, string>;
     /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
-    players: {} as Record<string, Record<string, FakePlayer>>, // ts-allow: a test fake: the map starts empty, with its value type
-    teams: [] as FakeFleet[], // ts-allow: a test fake: the table starts empty, with its row type
+    players: Record<string, Record<string, FakePlayer>>;
+    teams: FakeFleet[];
+  } = {
+    dossiers: [], dossier_versions: [],
+    ask_sessions: [], ask_rounds: [], ask_shares: [],
+    ledger_events: [],
+    plan_repos: {},
+    players: {},
+    teams: [],
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
-  const state = { fail: null as Failure | null, calls: 0, rosterDown: false }; // ts-allow: a test fake: no failure is set until a test sets one
+  const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
   let next = 0;
   let tick = 0;
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
