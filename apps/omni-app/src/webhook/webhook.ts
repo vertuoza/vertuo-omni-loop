@@ -120,7 +120,7 @@ export async function receiveWebhook({
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
-  forward?: (stageEvent: StageEvent) => Promise<unknown>;
+  forward?: ((stageEvent: StageEvent) => Promise<unknown>) | undefined;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 

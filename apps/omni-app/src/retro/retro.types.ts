@@ -125,7 +125,7 @@ export type Prose = {
   summary?: ProseField;
   findings: Record<string, ProseFinding>;
   lessons: Lesson[];
-  verdict?: Verdict;
+  verdict?: Verdict | undefined;
 };
 
 export type Narration = { model: string | null; reason: string | null; dropped: { field: string; reason: string }[] };
