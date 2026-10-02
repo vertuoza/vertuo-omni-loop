@@ -34,8 +34,7 @@ each its own job, and each must be green before a hand-off:
 
 - `pnpm typecheck`: `tsc` over the root project, then the arcade's own `typecheck` script.
 - `pnpm lint`: typescript-eslint's `strictTypeChecked` over every TypeScript file git tracks
-  (`eslint.config.ts`, PRD 976). While PRD 976 builds, each area's count of findings must equal its
-  ceiling in `scripts/lint-ceilings/`, and a finding outside every area fails; `pnpm lint <path>…`
-  prints the findings under those paths. An `eslint-disable` comment changes nothing, and
+  (`eslint.config.ts`, PRD 976), failing on any finding at all; `pnpm lint <path>…` lints only the
+  files under those paths, the same way. An `eslint-disable` comment changes nothing, and
   `scripts/typescript-guard.test.ts` refuses one: fix the finding in code.
 - `pnpm fallow:audit`: the audit of what the change touches.
