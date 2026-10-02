@@ -42,7 +42,11 @@ export const delivery: Kind<Records, Facts> = Object.freeze({
     const subs = slicePulls(pulls, config, prd.topic);
     const merged = new Set(mergedSlicePulls(subs).map(({ pull }) => pull.number));
     const read: Record<string, PullReads> = {};
-    const at = (number: number): PullReads => (read[number] ??= {});
+    const at = (number: number): PullReads => {
+      const reads = read[number] ?? {};
+      read[number] = reads;
+      return reads;
+    };
 
     for (const { pull } of subs) {
       const ref = { owner, repo, number: pull.number };

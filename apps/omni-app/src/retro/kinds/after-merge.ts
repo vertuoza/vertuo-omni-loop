@@ -124,7 +124,7 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
     }
 
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha: mergeSha as string, unread }); // ts-allow: a merged feature PR always has its merge commit
-    const churnAtMerge = atMerge?.kinds?.churn as ChurnAtMerge | null | undefined; // ts-allow: the merge run's sheet keeps the churn kind's facts as it wrote them
+    const churnAtMerge = atMerge?.kinds.churn as ChurnAtMerge | null | undefined; // ts-allow: the merge run's sheet keeps the churn kind's facts as it wrote them
     const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
     return { window, bugs, fixes, checks, ranges, unread };
   },
@@ -132,10 +132,10 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
   detect(records, { prd }: Partial<KindContext> = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
-    const fixes = (records.fixes ?? []).filter((fix) => within(window, fix.mergedAt));
-    const ranges = records.ranges ?? [];
+    const fixes = records.fixes.filter((fix) => within(window, fix.mergedAt));
+    const { ranges } = records;
 
-    const bugs = (records.bugs ?? [])
+    const bugs = records.bugs
       .filter((bug) => within(window, bug.createdAt))
       .map((bug) => {
         const own = fixes.filter((fix) => fix.closes.includes(bug.number));
@@ -149,7 +149,7 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
         };
       });
 
-    const jobs = records.checks?.jobs ?? [];
+    const { jobs } = records.checks;
     const facts: Facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
@@ -161,16 +161,16 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
       bugs,
       fixes: fixes.filter((fix) => bugs.some((bug) => bug.fixes.includes(fix.number))).map(({ number, url, mergedAt }) => ({ number, url, mergedAt })),
       checks: {
-        commit: (records.checks?.commit ?? '').slice(0, SHORT),
-        read: !records.checks?.status,
-        status: records.checks?.status ?? null,
+        commit: records.checks.commit.slice(0, SHORT),
+        read: !records.checks.status,
+        status: records.checks.status ?? null,
         total: jobs.length,
         green: jobs.filter((job) => GREEN.has(job.conclusion)).length,
         red: jobs.filter((job) => RED.has(job.conclusion)).length,
         other: jobs.filter((job) => !GREEN.has(job.conclusion) && !RED.has(job.conclusion)).length,
         jobs,
       },
-      unread: records.unread ?? [],
+      unread: records.unread,
     };
 
     const urlOf = new Map(fixes.map((fix) => [fix.number, fix.url]));

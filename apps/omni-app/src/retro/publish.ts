@@ -17,6 +17,7 @@
 //
 // The branch, the commit and the PR are written through the app's shared writer (`../git-write/`).
 import { addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from '../git-write/git-write.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { mergeRuns, render } from './render.ts';
 import { readContent } from './github.ts';
 import { RefSchema, parseGitHub } from './github.schema.ts';
@@ -122,5 +123,5 @@ function withRuns(existing: string | null, records: readonly RunRecord[]): Retro
     doc = mergeRuns(text, record);
     text = JSON.stringify(doc);
   }
-  return doc!; // ts-allow: a run always publishes its own record, so `records` is never empty
+  return defined(doc, 'the retro.json of the records published');
 }

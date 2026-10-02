@@ -15,7 +15,7 @@ import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
 import type { Counts, Reporter } from './ci-logs.ts';
-import type { Evidence, Kind, RetroPrd, RetroPull } from './index.ts';
+import type { Evidence, GatherScope, Kind, RetroPrd, RetroPull } from './index.ts';
 import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
 import type { Job, WorkflowRun } from './schema.ts';
 import { sliceOf } from './slice-of.ts';
@@ -90,7 +90,7 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
   section: 'Checks',
   runs: Object.freeze(['merge'] as const),
 
-  async gather(octokit, { owner, repo, prd, config, pulls }) {
+  async gather(octokit, { owner, repo, prd, config, pulls }: GatherScope) {
     const branches = sliceBranches(pulls ?? [], prd, config);
     if (branches.length === 0) return null;
 
@@ -136,8 +136,8 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
 
   detect(records) {
     if (!records) return { facts: null, findings: [] };
-    const logs = records.logs ?? {};
-    const jobs = uniqueBy(records.jobs ?? [], (job) => job.id)
+    const { logs } = records;
+    const jobs = uniqueBy(records.jobs, (job) => job.id)
       .filter((job) => job.status === 'completed' && (RED.has(job.conclusion) || GREEN.has(job.conclusion)))
       .sort((a, b) => (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || a.id - b.id);
 
@@ -146,8 +146,8 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     const tests = testsOf(redRuns);
 
     const facts: Facts = {
-      slices: records.slices ?? [],
-      unread: records.unread ?? [],
+      slices: records.slices,
+      unread: records.unread,
       totals: {
         runs: jobs.length,
         red: redRuns.length,
@@ -341,7 +341,7 @@ async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
 
 /** `fn` over `items`, at most `PARALLEL_READS` at a time, the results in the items' order. */
 async function inParallel<T, R>(items: readonly T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+  const results = new Array<R>(items.length);
   // One queue the workers share: each takes the next item the moment it is free.
   const queue = items.entries();
   const worker = async () => {
@@ -397,7 +397,7 @@ function leafOf(test: string): string | undefined {
 }
 
 function short(sha: string | null | undefined): string {
-  return String(sha ?? '').slice(0, 7);
+  return (sha ?? '').slice(0, 7);
 }
 
 function count(n: number, noun: string): string {
@@ -405,11 +405,11 @@ function count(n: number, noun: string): string {
 }
 
 function cell(text: string): string {
-  return String(text).replaceAll('|', '\\|');
+  return text.replaceAll('|', '\\|');
 }
 
-function uniqueBy<T, K>(items: readonly T[], key: (item: T) => K): T[] {
-  const seen = new Set<K>();
+function uniqueBy<T>(items: readonly T[], key: (item: T) => unknown): T[] {
+  const seen = new Set<unknown>();
   return items.filter((item) => !seen.has(key(item)) && seen.add(key(item)));
 }
 

@@ -57,6 +57,7 @@ import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts'
 import { inngest, RETRO_EVENT } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { listComments } from '../outbox-check/github.ts';
+import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
@@ -111,7 +112,8 @@ export const DAY_WAIT = 2 * DAY_MS;
 export const FOLLOW_UP_STEP = 'wait-day-14';
 export const CLOCK_STEP = 'clock-day-14';
 
-const SCHEDULED = internalEvents.ScheduledTimer;
+/** The name of the event a cron trigger sends, as the event's name reads it: text, not the enum. */
+const SCHEDULED: string = internalEvents.ScheduledTimer;
 
 /**
  * One retro at a time per repository. The spec asks for one per repository and PRD; the PRD is known
@@ -192,7 +194,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, env = process.env, fetch = undefined, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, env = process.env, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -284,24 +286,36 @@ type RunInput = {
  * One run of the retro, from its kinds' reads to its published PR. `earlier` is the run it follows,
  * when there is one: its findings are numbered on from, asked about again, and published again.
  */
-async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier = null }: RunInput): Promise<RunResult> {
-  const id = (name: string) => (run === MERGE_RUN ? name : `${name}-${run}`);
+async function runRetro(input: RunInput): Promise<RunResult> {
+  const id = (name: string) => (input.run === MERGE_RUN ? name : `${name}-${input.run}`);
+  // Read from where the PRD's folder was at the merge; written, always, into its shipped folder.
+  const folder = retroFolder(input.prd, input.config);
+  const sheet = await factSheet(input, id, folder);
+  const judged = await judgeSheet(input, id, sheet);
+  return judged.verdict.worthIt ? publishRun(input, id, folder, sheet, judged) : commentRun(input, id, sheet, judged);
+}
 
+/** The id of a step of one run: the merge run's as named, the day-14 run's with its run after it. */
+type StepId = (name: string) => string;
+
+/** What judging a run's fact sheet gave: the sheet the model was asked about, its prose, the knowledge, the verdict and the record. */
+type Judged = { whole: FactSheet; prose: Prose | null; known: Known; verdict: VerdictOutcome; base: RunRecord };
+
+/** The run's fact sheet: each kind's records gathered, then detected, its findings numbered on from the run before. */
+async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, scope, earlier }: RunInput, id: StepId, folder: string): Promise<FactSheet> {
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
     records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
   }
-
-  // Read from where the PRD's folder was at the merge; written, always, into its shipped folder.
-  const folder = retroFolder(prd, config);
   const before = earlier?.sheet.findings ?? [];
-  const sheet = await step.run(id('facts'), () =>
-    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
-  );
+  return step.run(id('facts'), () => inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder));
+}
 
+/** The model's words on the run, guarded, and the verdict they give. */
+async function judgeSheet({ step, github, env, fetch, owner, repo, prd, config, scope, earlier }: RunInput, id: StepId, sheet: FactSheet): Promise<Judged> {
   // The model writes the words of the whole retro, so at day 14 it is given both runs' findings,
   // and the knowledge the merge run gathered.
-  const whole = earlier ? { ...sheet, findings: [...before, ...sheet.findings] } : sheet;
+  const whole = earlier ? { ...sheet, findings: [...earlier.sheet.findings, ...sheet.findings] } : sheet;
   const known =
     earlier?.known ??
     (await step.run(id('gather-knowledge'), async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
@@ -310,29 +324,42 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
   );
   const guarded = await step.run(id('guard'), () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
-  const verdict = verdictOf(prose, narrated.reason);
+  return { whole, prose, known, verdict: verdictOf(prose, narrated.reason), base: recordOf(sheet, prose, narrated, guarded) };
+}
 
+/** The run's record before its issues: the sheet, the narration's outcome, the verdict and the lessons kept. */
+function recordOf(sheet: FactSheet, prose: Prose | null, narrated: Awaited<ReturnType<typeof narrate>>, guarded: ReturnType<typeof guard>): RunRecord {
   const narration = {
     model: narrated.model ?? null,
     reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
-    dropped: guarded.dropped ?? [],
+    dropped: guarded.dropped,
   };
-  const base: RunRecord = { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
+  return { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
+}
+
+/** A run not worth a pull request: one comment on the feature PR, saying why. */
+async function commentRun({ step, github, owner, repo, pr, config, earlier }: RunInput, id: StepId, sheet: FactSheet, { prose, known, verdict, base }: Judged): Promise<RunResult> {
   const runs = [...(earlier ? [earlier.record] : []), base];
+  const comment = await step.run(id('verdict'), async () =>
+    upsertComment(await github(), {
+      owner,
+      repo,
+      prNumber: pr.number,
+      marker: verdictMarker(config.markers.prefix),
+      text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose }),
+    }),
+  );
+  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
+}
 
-  if (!verdict.worthIt) {
-    const comment = await step.run(id('verdict'), async () =>
-      upsertComment(await github(), {
-        owner,
-        repo,
-        prNumber: pr.number,
-        marker: verdictMarker(config.markers.prefix),
-        text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose }),
-      }),
-    );
-    return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
-  }
-
+/** A run worth a pull request: its findings' issues, then the retro's branch and PR. */
+async function publishRun(
+  { step, github, owner, repo, pr, prd, config, earlier }: RunInput,
+  id: StepId,
+  folder: string,
+  sheet: FactSheet,
+  { whole, prose, known, verdict, base }: Judged,
+): Promise<RunResult> {
   // The merge run's kept findings get their issues at day 14 when the merge run opened none.
   const retroPath = `${folder}/retro.md`;
   const issueSheet = earlier && !earlier.published ? whole : sheet;
@@ -340,7 +367,7 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
     publishIssues(await github(), { owner, repo, config, sheet: issueSheet, prose, retroPath }),
   );
 
-  const record = { ...base, issues: issues ?? {} };
+  const record = { ...base, issues };
   const published = await step.run(id('publish'), async () =>
     publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
@@ -364,8 +391,8 @@ export function verdictOf(prose: Prose | null, narrationReason?: string | null):
 /** The lessons `guard` accepted, as `retro.json` keeps them for the retros after this one. */
 function lessonsOf(prose: Prose | null): Lesson[] {
   return (prose?.lessons ?? [])
-    .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && !lesson.text.startsWith('_Dropped: '))
-    .map((lesson) => ({ text: lesson.text, findings: [...(lesson.findings ?? [])] }));
+    .filter((lesson) => lesson.text && !lesson.text.startsWith('_Dropped: '))
+    .map((lesson) => ({ text: lesson.text, findings: [...lesson.findings] }));
 }
 
 /**
@@ -452,7 +479,7 @@ export function retroFolder(prd: { folder: string }, config: Config): string {
 
 /** The fact sheet naming `folder` as the one its retro is written into. */
 function inFolder(sheet: FactSheet, folder: string): FactSheet {
-  return sheet.prd?.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
+  return sheet.prd.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
 
 /** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
@@ -509,11 +536,6 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
       return { commentId: parseGitHub(CreatedCommentSchema, data, COMMENT).id, reason, created: true };
     });
   };
-}
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
 }
 
 export const retro = createRetro({ client: inngest, octokitFor: installationOctokit, followUp: true });

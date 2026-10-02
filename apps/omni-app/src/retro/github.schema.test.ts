@@ -78,7 +78,7 @@ describe('the retro event', () => {
   });
 
   it('fails an event missing a field, naming it', () => {
-    const { prNumber, ...rest } = data;
+    const rest = Object.fromEntries(Object.entries(data).filter(([key]) => key !== 'prNumber'));
     const parsed = RetroEventSchema.safeParse(rest);
     expect(parsed.success).toBe(false);
     expect(parsed.error?.issues[0]?.path).toEqual(['prNumber']);

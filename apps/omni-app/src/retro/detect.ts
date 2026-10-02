@@ -20,9 +20,9 @@ export function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(
   const facts: Record<string, unknown> = {};
   const found: { finding: Finding & { source: string }; kindIndex: number; index: number }[] = [];
   kinds.forEach((kind, kindIndex) => {
-    const out = kind.detect(records[kind.id] ?? null, context) ?? {};
+    const out = kind.detect(records[kind.id] ?? null, context);
     facts[kind.id] = out.facts ?? null;
-    (out.findings ?? []).forEach((finding, index) => found.push({ finding: { ...finding, source: kind.id }, kindIndex, index }));
+    out.findings.forEach((finding, index) => found.push({ finding: { ...finding, source: kind.id }, kindIndex, index }));
   });
 
   const seen = new Set<string>();
