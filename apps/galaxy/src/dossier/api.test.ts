@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
@@ -23,6 +24,17 @@ const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n';
 const PLAN = '# Plan: team inbox\n';
 const PAGE = '<!doctype html>\n<title>Before and after</title>\n';
 
+// What an answer of the API carries, checked as it is read; any other field is kept for the whole-body checks.
+const Answer = z.looseObject({
+  error: z.string().optional(),
+  id: z.string().optional(),
+  url: z.string().optional(),
+  added: z.array(z.unknown()).optional(),
+  unchanged: z.array(z.unknown()).optional(),
+});
+// Any text, as a field of an expected body.
+const A_STRING: unknown = expect.any(String);
+
 type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Record<string, string> };
 
 function world({ database = true } = {}) {
@@ -40,15 +52,15 @@ function world({ database = true } = {}) {
       headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', ...headers },
       body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
     });
-  const read = async (response: Response) => ({ status: response.status, body: await response.json() });
+  const read = async (response: Response) => ({ status: response.status, body: Answer.parse(await response.json()) });
   const open = async (body: unknown, call: Call = {}) => read(await openDossier(request('/api/dossiers', { body, ...call }), deps));
   const push = async (body: unknown, call: Call = {}) => read(await pushDossier(request('/api/dossiers/push', { body, ...call }), deps));
   const find = async (query: string, { token = 'ada-token', headers = {} }: Call = {}) =>
     read(await findDossier(new Request(`https://omni.example/api/dossiers${query}`, {
       method: 'GET', headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
     }), deps));
-  const dossier = (id: string) => fake.tables.dossiers.find((d) => d.id === id);
-  const versions = (id: string) => fake.tables.dossier_versions.filter((v) => v.dossier_id === id);
+  const dossier = (id: string | undefined) => fake.tables.dossiers.find((d) => d.id === id);
+  const versions = (id: string | undefined) => fake.tables.dossier_versions.filter((v) => v.dossier_id === id);
   return { clock, fake, deps, request, read, open, push, find, dossier, versions };
 }
 
@@ -70,7 +82,7 @@ describe('every dossier call checks the bearer token, and leaves membership to t
       for (const c of [{ token: null }, { token: null, headers: { authorization: 'Basic YWRhOnB3' } }, { token: 'forged-token' }]) {
         const { status, body } = await call(w, c);
         expect(status).toBe(401);
-        expect(body.error).toEqual(expect.any(String));
+        expect(body.error).toEqual(A_STRING);
       }
       expect(w.fake.tables.dossiers).toEqual([]);
     });
@@ -81,7 +93,7 @@ describe('every dossier call checks the bearer token, and leaves membership to t
       expect(eve.status).toBeLessThan(300);
       const nell = await call(w, { token: 'nell-token' });
       expect(nell.status).toBe(403);
-      expect(nell.body.error).toEqual(expect.any(String));
+      expect(nell.body.error).toEqual(A_STRING);
       expect(nell.body.error).not.toMatch(/vertuoza\.com/);
     });
 
@@ -104,7 +116,7 @@ describe('every dossier call checks the bearer token, and leaves membership to t
       w.fake.state.fail = { message: 'connection reset' };
       const { status, body } = await call(w, {});
       expect(status).toBe(500);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     });
 
     it(`${name}: 400 for a body that is not a JSON object`, async () => {
@@ -122,7 +134,7 @@ describe('POST /api/dossiers: a draft opens', () => {
     const { status, body } = await w.open({ title: '  A team inbox for every question ', repo: 'Acme/Widgets', claudeSessionId: 'sess-a' });
 
     expect(status).toBe(201);
-    expect(body).toEqual({ id: expect.any(String), url: `https://omni.example/prd/${body.id}` });
+    expect(body).toEqual({ id: A_STRING, url: `https://omni.example/prd/${body.id}` });
     expect(w.dossier(body.id)).toMatchObject({
       workspace_id: FAKE_WORKSPACE, home_repo: 'acme/widgets', prd: null, title: 'A team inbox for every question',
       opened_by: ADA.id, claude_session_id: 'sess-a', numbered_at: null,
@@ -159,7 +171,7 @@ describe('POST /api/dossiers: a draft opens', () => {
     ]) {
       const { status, body } = await w.open(bad);
       expect(status, JSON.stringify(bad)).toBe(400);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
     expect(w.fake.tables.dossiers).toEqual([]);
   });
@@ -179,11 +191,11 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
 
     expect(status).toBe(200);
     expect(body).toEqual({
-      id: expect.any(String), url: `https://omni.example/prd/${body.id}`,
+      id: A_STRING, url: `https://omni.example/prd/${body.id}`,
       added: [{ kind: 'spec', version: 1 }, { kind: 'plan', version: 1 }, { kind: 'before-after', version: 1 }],
       unchanged: [],
     });
-    expect(w.dossier(body.id)).toMatchObject({ home_repo: 'acme/widgets', prd: 7, title: 'Team inbox', opened_by: ADA.id, numbered_at: expect.any(String) });
+    expect(w.dossier(body.id)).toMatchObject({ home_repo: 'acme/widgets', prd: 7, title: 'Team inbox', opened_by: ADA.id, numbered_at: A_STRING });
     expect(w.versions(body.id).map(({ kind, source, uploaded_by }) => ({ kind, source, uploaded_by }))).toEqual([
       { kind: 'spec', source: 'kit', uploaded_by: ADA.id },
       { kind: 'plan', source: 'kit', uploaded_by: ADA.id },
@@ -199,7 +211,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
 
     expect(status).toBe(200);
     expect(body).toMatchObject({ id: draft.id, url: draft.url });
-    expect(w.dossier(draft.id)).toMatchObject({ prd: 7, title: 'Team inbox', claude_session_id: 'sess-a', opened_by: ADA.id, numbered_at: expect.any(String) });
+    expect(w.dossier(draft.id)).toMatchObject({ prd: 7, title: 'Team inbox', claude_session_id: 'sess-a', opened_by: ADA.id, numbered_at: A_STRING });
     expect(w.fake.tables.dossiers).toHaveLength(1);
   });
 
@@ -279,7 +291,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
     for (const draftId of [MISSING, carls.id]) {
       const { status, body } = await w.push({ ...PUSH, draftId });
       expect(status, draftId).toBe(404);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
     expect(w.dossier(carls.id)).toMatchObject({ prd: null });
     expect(w.fake.tables.dossiers).toHaveLength(1);
@@ -320,7 +332,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
     ]) {
       const { status, body } = await w.push(bad);
       expect(status, JSON.stringify(bad).slice(0, 120)).toBe(400);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
     expect(w.fake.tables.dossiers).toEqual([]);
   });
@@ -375,10 +387,11 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
     const w = world();
     w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
     await w.open({ title: 'A draft', repo: 'acme/widgets' });
-    for (const [query, token] of [['?repo=acme/widgets&prd=8', 'ada-token'], ['?repo=acme/gadgets&prd=7', 'ada-token'], ['?repo=acme/widgets&prd=7', 'carl-token'], ['?repo=acme/widgets&prd=7', 'nell-token']]) {
-      const { status, body } = await w.find(query!, { token });
+    const cases: Array<[string, string]> = [['?repo=acme/widgets&prd=8', 'ada-token'], ['?repo=acme/gadgets&prd=7', 'ada-token'], ['?repo=acme/widgets&prd=7', 'carl-token'], ['?repo=acme/widgets&prd=7', 'nell-token']];
+    for (const [query, token] of cases) {
+      const { status, body } = await w.find(query, { token });
       expect(status, `${query} ${token}`).toBe(404);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
   });
 
@@ -399,7 +412,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
     ]) {
       const { status, body } = await w.find(query);
       expect(status, query).toBe(400);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
     expect((await w.find(`?repo=acme/widgets&prd=${2 ** 31 - 1}`)).status).toBe(404);
   });
@@ -437,7 +450,7 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     const w = world();
     const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
     const connect = (token: string) => {
-      const client = (w.fake.client as (t: string) => ReturnType<typeof w.fake.client>)(token);
+      const client = w.fake.client(token);
       return { ...client, rpc: (name: string, args: Record<string, unknown>) => { calls.push({ name, args }); return client.rpc(name, args); } };
     };
     const response = await pushDossier(w.request('/api/dossiers/push', { body: PUSH }), { connect: connect as unknown as DossierDeps['connect'] });
@@ -454,7 +467,7 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     expect(status).toBe(200);
     expect(body.id).not.toBe(prd.body.id);
     expect(body).toEqual({
-      id: expect.any(String), url: `https://omni.example/visual/${body.id}`,
+      id: A_STRING, url: `https://omni.example/visual/${body.id}`,
       added: [{ kind: 'before-after', version: 1 }, { kind: 'variations', version: 1 }, { kind: 'variations', version: 2 }],
       unchanged: [],
     });
@@ -491,7 +504,7 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     ]) {
       const { status, body } = await w.push(push);
       expect(status, JSON.stringify(push).slice(0, 120)).toBe(400);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
   });
 
@@ -510,7 +523,7 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
     ]) {
       const { status, body } = await w.push(push);
       expect(status, JSON.stringify(push).slice(0, 120)).toBe(400);
-      expect(body.error).toEqual(expect.any(String));
+      expect(body.error).toEqual(A_STRING);
     }
     expect(w.fake.tables.dossier_versions).toEqual([]);
   });

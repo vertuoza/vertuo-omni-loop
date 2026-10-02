@@ -1,7 +1,6 @@
 // PRD #99, slices s3 and s4: `omni credits`, through `main()` on a fixture repository, with `gh`
 // stubbed — the text report, `--repo`, `--since`, `--list`, `--json`, `signature: null`, a `gh` that
 // cannot be read and the 1,000-result cap (AC 7 to AC 10). It never calls GitHub.
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
@@ -101,6 +100,16 @@ const REPORT = [
   'By month   2026-07 1 · 2026-08 2 · 2026-09 3',
 ];
 
+/** The report `omni credits --json` prints, as these tests read it. */
+type CreditsDoc = {
+  name: string | null;
+  scope: unknown;
+  totals: unknown;
+  items: { type: string; repo: string; number: number; reasons: string[]; signature: string | null }[];
+  commits: unknown;
+  warnings: unknown;
+};
+
 describe('omni credits', () => {
   it('prints the pull requests, the PRD issues, the app, the commits, by repository and by month (AC 7, AC 8)', async () => {
     const { code, out, err } = await omni(['credits'], { routes: WORLD });
@@ -130,7 +139,7 @@ describe('omni credits', () => {
   it('--json prints the whole report as one document: scope, totals, items and their reasons, commits, warnings (AC 9)', async () => {
     const { code, out, err } = await omni(['credits', '--json'], { routes: WORLD });
     expect({ code, err }).toEqual({ code: 0, err: '' });
-    const doc = JSON.parse(out);
+    const doc = JSON.parse(out) as CreditsDoc;
     expect(Object.keys(doc)).toEqual(['name', 'scope', 'totals', 'items', 'commits', 'warnings']);
     expect(doc.name).toBe('Omni-man');
     expect(doc.scope).toEqual({ owner: 'acme', repo: null, since: null });
@@ -141,7 +150,7 @@ describe('omni credits', () => {
       commits: 1,
       byRepo: [{ repo: 'acme/widgets', count: 4 }, { repo: 'acme/gadgets', count: 2 }],
     });
-    expect(doc.items.map(({ type, repo, number, reasons, signature }: { type: string; repo: string; number: number; reasons: string[]; signature: string }) => `${type} ${repo}#${number} ${reasons.join('+')} ${signature}`)).toEqual([
+    expect(doc.items.map(({ type, repo, number, reasons, signature }) => `${type} ${repo}#${number} ${reasons.join('+')} ${String(signature)}`)).toEqual([
       'issue acme/widgets#20 label before signing',
       'pr acme/widgets#1 label before signing',
       'pr acme/widgets#2 label+marker signed',
@@ -165,7 +174,7 @@ describe('omni credits', () => {
     const routes: Route[] = [['search prs --repo acme/gadgets --label omni:sub', full]];
     const { code, out, err } = await omni(['credits', '--json', '--list', '--repo', 'acme/gadgets', '--since', '2026-09'], { routes });
     expect({ code, err }).toEqual({ code: 0, err: '' });
-    const doc = JSON.parse(out);
+    const doc = JSON.parse(out) as CreditsDoc;
     expect(doc.scope).toEqual({ owner: 'acme', repo: 'acme/gadgets', since: '2026-09' });
     expect(doc.items).toHaveLength(1000);
     expect(doc.warnings).toEqual([
@@ -176,10 +185,10 @@ describe('omni credits', () => {
   it('--json with signature: null: no name, no signatures, no app and no commits read', async () => {
     const { code, out } = await omni(['credits', '--json'], { config: `${CONFIG}signature: null\n`, routes: WORLD });
     expect(code).toBe(0);
-    const doc = JSON.parse(out);
+    const doc = JSON.parse(out) as CreditsDoc;
     expect(doc.name).toBeNull();
     expect(doc.totals).toMatchObject({ byTheApp: null, commits: null, prdIssues: { total: 1 } });
-    expect(doc.items.every((item: { signature: unknown }) => item.signature === null)).toBe(true);
+    expect(doc.items.every((item) => item.signature === null)).toBe(true);
     expect(doc.commits).toEqual([]);
   });
 

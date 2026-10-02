@@ -37,7 +37,7 @@ describe('Share, on the session page', () => {
 describe('the Share button', () => {
   const candidates = [{ id: 'po', label: 'PAULA', face: PHOTO }, { id: 'ux', label: 'uma@vertuoza.com' }];
   const button = (initial: Parameters<typeof ShareButton>[0]['initial']) =>
-    renderToStaticMarkup(createElement(ShareButton, { roundId: 'r1', candidates, onShare: async () => true, origin: 'https://galaxy.example', initial }));
+    renderToStaticMarkup(createElement(ShareButton, { roundId: 'r1', candidates, onShare: () => Promise.resolve(true), origin: 'https://galaxy.example', initial }));
 
   it('picks a member of the workspace', () => {
     const html = button({ kind: 'picking' });

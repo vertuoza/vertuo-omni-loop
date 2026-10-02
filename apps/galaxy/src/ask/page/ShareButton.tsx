@@ -61,7 +61,9 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   if (stage.kind === 'closed') {
     return (
       <p className="ask-share">
-        <button type="button" className="ask-button quiet" onClick={() => setStage({ kind: 'picking' })}>Share</button>
+        <button type="button" className="ask-button quiet" onClick={() => {
+          setStage({ kind: 'picking' });
+        }}>Share</button>
       </p>
     );
   }
@@ -71,8 +73,10 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
       <section className="ask-share" aria-live="polite">
         <p className="ask-muted">Shared with {sharedWith(stage.with)}. It shows under their Shared with me; send them the link:</p>
         <div className="ask-share-row">
-          <input ref={field} id={`${id}-link`} className="ask-share-link" readOnly value={link} aria-label="Link to this question" onFocus={(e) => e.target.select()} />
-          <button type="button" className="ask-button quiet" onClick={copy}>Copy</button>
+          <input ref={field} id={`${id}-link`} className="ask-share-link" readOnly value={link} aria-label="Link to this question" onFocus={(e) => {
+            e.target.select();
+          }} />
+          <button type="button" className="ask-button quiet" onClick={() => void copy()}>Copy</button>
         </div>
         {stage.copy === 'copied' && <p className="ask-hint">Copied.</p>}
         {stage.copy === 'selected' && <p className="ask-hint">The link is selected: copy it with Ctrl+C, or ⌘C on a Mac.</p>}
@@ -84,13 +88,17 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
     <section className="ask-share">
       <div className="ask-share-row">
         <label htmlFor={`${id}-member`} className="ask-muted">Share with</label>
-        <select id={`${id}-member`} className="ask-share-pick" value={member} onChange={(e) => setMember(e.target.value)}>
+        <select id={`${id}-member`} className="ask-share-pick" value={member} onChange={(e) => {
+          setMember(e.target.value);
+        }}>
           {candidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
-        <button type="button" className="ask-button" disabled={stage.kind === 'sharing' || !member} onClick={share}>
+        <button type="button" className="ask-button" disabled={stage.kind === 'sharing' || !member} onClick={() => void share()}>
           {stage.kind === 'sharing' ? 'Sharing…' : 'Share'}
         </button>
-        <button type="button" className="ask-button quiet" onClick={() => setStage({ kind: 'closed' })}>Cancel</button>
+        <button type="button" className="ask-button quiet" onClick={() => {
+          setStage({ kind: 'closed' });
+        }}>Cancel</button>
       </div>
       {problem && <p className="ask-problem" role="status">{problem}</p>}
     </section>

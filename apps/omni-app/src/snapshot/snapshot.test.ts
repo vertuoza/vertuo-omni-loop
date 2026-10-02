@@ -2,33 +2,48 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { MAX_BYTES, MAX_FILES, SnapshotBoundError, snapshot } from './snapshot.ts';
+
+/** A request's parameters, as `snapshot` hands them to `octokit.request`. */
+type Params = Record<string, unknown>;
+/** A file of the stubbed repository, and a folder of it. */
+type FileNode = { content: string; path: string };
+type DirNode = { entries: Map<string, DirNode | FileNode> };
+/** One entry of a tree the stub answers; `_node` is the folder a tree entry stands for. */
+type TreeEntry = { path: string; mode: string; type: string; sha: string; size?: number; _node?: DirNode | undefined };
+
+const notFound = () => Object.assign(new Error('Not Found'), { status: 404 });
 
 // A stubbed Octokit holding one repository as a tree of `{ path: content }` at one ref. It answers
 // the two Git Data routes `snapshot` may use — trees and blobs — and records every request, so a
 // test can prove nothing outside the listed paths is fetched.
 function stubRepo(files: Record<string, string>, { ref = 'abc123', sizes = {} }: { ref?: string; sizes?: Record<string, number> } = {}) {
-  const blobs = new Map();
-  const trees = new Map();
+  const blobs = new Map<string, Buffer>();
+  const trees = new Map<string, TreeEntry[]>();
   let nextSha = 0;
-  const sha = (kind: any) => `${kind}-${nextSha++}`;
+  const sha = (kind: string) => `${kind}-${nextSha++}`;
 
   // Build nested trees from the flat file list.
-  const root = { entries: new Map() };
+  const root: DirNode = { entries: new Map() };
   for (const [path, content] of Object.entries(files)) {
     const parts = path.split('/');
     let node = root;
     for (const dir of parts.slice(0, -1)) {
       if (!node.entries.has(dir)) node.entries.set(dir, { entries: new Map() });
-      node = node.entries.get(dir);
+      const next = node.entries.get(dir);
+      if (!next || !('entries' in next)) throw new Error(`${dir} is a file and a folder in the stub`);
+      node = next;
     }
-    node.entries.set(parts.at(-1), { content, path });
+    const name = parts.at(-1);
+    assertDefined(name, `the name of ${path}`);
+    node.entries.set(name, { content, path });
   }
-  const register = (node: any) => {
+  const register = (node: DirNode): string => {
     const treeSha = sha('tree');
-    const entries = [];
+    const entries: TreeEntry[] = [];
     for (const [name, child] of node.entries) {
-      if (child.entries) {
+      if ('entries' in child) {
         entries.push({ path: name, mode: '040000', type: 'tree', sha: register(child), _node: child });
       } else {
         const blobSha = sha('blob');
@@ -42,37 +57,52 @@ function stubRepo(files: Record<string, string>, { ref = 'abc123', sizes = {} }:
   };
   const rootSha = register(root);
 
-  const flatten = (treeSha: any, prefix = '') =>
-    trees.get(treeSha).flatMap((entry: any) => {
+  const listed = (treeSha: string): TreeEntry[] => {
+    const entries = trees.get(treeSha);
+    if (!entries) throw notFound();
+    return entries;
+  };
+  const flatten = (treeSha: string, prefix = ''): TreeEntry[] =>
+    listed(treeSha).flatMap((entry) => {
       const path = prefix + entry.path;
       const own = { ...entry, path, _node: undefined };
       return entry.type === 'tree' ? [own, ...flatten(entry.sha, `${path}/`)] : [own];
     });
 
-  const requests: any[] = [];
+  const requests: ({ route: string } & Params)[] = [];
+  function answer(route: string, params: Params) {
+    requests.push({ route, ...params });
+    if (route === 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}') {
+      const treeSha = params.tree_sha === ref ? rootSha : String(params.tree_sha);
+      if (!trees.has(treeSha)) throw notFound();
+      const tree = params.recursive
+        ? flatten(treeSha)
+        : listed(treeSha).map((entry) => {
+            const own = { ...entry };
+            delete own._node;
+            return own;
+          });
+      return { data: { sha: treeSha, tree, truncated: false } };
+    }
+    if (route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}') {
+      const bytes = blobs.get(String(params.file_sha));
+      if (!bytes) throw notFound();
+      return { data: { content: bytes.toString('base64'), encoding: 'base64', size: bytes.length } };
+    }
+    throw new Error(`unexpected route ${route}`);
+  }
   const octokit = {
-    async request(route: any, params: any) {
-      requests.push({ route, ...params });
-      if (route === 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}') {
-        const treeSha = params.tree_sha === ref ? rootSha : params.tree_sha;
-        if (!trees.has(treeSha)) throw Object.assign(new Error('Not Found'), { status: 404 });
-        const tree = params.recursive
-          ? flatten(treeSha)
-          : trees.get(treeSha).map(({ _node, ...entry }: any) => entry);
-        return { data: { sha: treeSha, tree, truncated: false } };
-      }
-      if (route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}') {
-        const bytes = blobs.get(params.file_sha);
-        return { data: { content: bytes.toString('base64'), encoding: 'base64', size: bytes.length } };
-      }
-      throw new Error(`unexpected route ${route}`);
-    },
+    // As an `async` function: a throw is a rejection.
+    request: (route: string, params: Params = {}) =>
+      new Promise<{ data: unknown }>((resolve) => {
+        resolve(answer(route, params));
+      }),
   };
   return { octokit, requests };
 }
 
 const REPO = { owner: 'vertuoza', repo: 'widget' };
-const created: any[] = [];
+const created: string[] = [];
 const dest = () => {
   const dir = mkdtempSync(join(tmpdir(), 'snapshot-test-'));
   created.push(dir);

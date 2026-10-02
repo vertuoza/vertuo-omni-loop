@@ -8,8 +8,10 @@ import { gradeKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/check-knowled
 import { gateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import { findOutboxViolations } from 'vertuo-omni-plan/kit/lib/outbox/check-outbox.ts';
-import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { parseSettledEntries, type SettledEntry } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { inngest, HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
 import {
@@ -45,16 +47,12 @@ import {
 import type { RequestOctokit } from './github.ts';
 
 type Octokit = RequestOctokit;
-type Row = Record<string, any>;
 type Replies = Record<string, unknown>;
 
-/** The replayed GitHub, as these tests read its state. */
-type Scenario = {
-  octokit: Octokit;
-  state: { requests: Row[]; pulls: Row[]; comments: Row[]; refs: Map<string, string> };
-  filesAt: (branch: string, paths: string[]) => Record<string, string | null>;
-};
-const scenario = (...args: Parameters<typeof harvestScenario>) => harvestScenario(...args) as unknown as Scenario;
+/** The replayed GitHub. */
+type Scenario = ReturnType<typeof harvestScenario>;
+type Pull = Scenario['state']['pulls'][number];
+const scenario = harvestScenario;
 const fetchReplying = (replies?: Replies) => fakeFetch(replies as typeof REPLIES);
 
 /** What a harvest run returns, as these tests read it. */
@@ -91,12 +89,47 @@ function engine(
   return { run: new InngestTestEngine({ function: fn, events: [event] }), fetch };
 }
 
+/** A fixture pull request's number. */
+function numberOf(pull: { number: unknown }): number {
+  return z.number().parse(pull.number);
+}
+
 const writes = (github: Scenario) => github.state.requests.filter((r) => !r.route.startsWith('GET '));
+
+/** One tree entry a unit wrote, as far as these tests read it. */
+const TreeSchema = z.array(z.looseObject({ path: z.string() }));
+
+/** The text of `path` among `files`: the test fails when the branch holds none. */
+function textOf(files: Record<string, string | null | undefined>, path: string): string {
+  const text = files[path];
+  assertDefined(text, path);
+  return text;
+}
+
+/** The latest ledger entry of each decision, by its id. */
+const latestEntries = (ledger: string) => new Map(parseSettledEntries(ledger, markers).map((entry) => [entry.id, entry]));
+
+/** The ledger entry of `id`: the test fails when the ledger holds none. */
+function entryOf(latest: Map<string, SettledEntry>, id: string): SettledEntry {
+  const entry = latest.get(id);
+  assertDefined(entry, `the ledger entry ${id}`);
+  return entry;
+}
+
+/** A pull request's body, which these tests read as text. */
+const bodyOf = (pull: Pull) => z.string().parse(pull.body);
 const commitsMade = (github: Scenario) => github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/git/commits');
 /** The knowledge PRs the runs opened from `branch`: the fixture's own merged knowledge PR left out. */
-const FIXTURE_PULLS = new Set([FEATURE, GADGETS_FEATURE, ...Object.values(NOT_HARVESTED)].map((pull) => pull.number));
+const FIXTURE_PULLS = new Set([FEATURE, GADGETS_FEATURE, ...Object.values(NOT_HARVESTED)].map(numberOf));
 const knowledgePulls = (github: Scenario, branch = BRANCH) =>
   github.state.pulls.filter((pull) => pull.head.ref === branch && !FIXTURE_PULLS.has(pull.number));
+
+/** The first knowledge PR from `branch`: the test fails when there is none. */
+function knowledgePull(github: Scenario, branch = BRANCH): Pull {
+  const pull = knowledgePulls(github, branch)[0];
+  assertDefined(pull, `a knowledge PR from ${branch}`);
+  return pull;
+}
 
 /** The branch's files, written into a scratch folder the kit's checks read. */
 const scratch: string[] = [];
@@ -106,7 +139,7 @@ function checkout(github: Scenario, branch: string, paths: string[]) {
   for (const [path, text] of Object.entries(github.filesAt(branch, paths))) {
     if (text === null || text === undefined) continue;
     mkdirSync(dirname(join(root, path)), { recursive: true });
-    writeFileSync(join(root, path), String(text));
+    writeFileSync(join(root, path), text);
   }
   return createContext(root, loadConfig(root));
 }
@@ -148,20 +181,20 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     const github = scenario();
     const { result, error } = await execute(engine(github).run);
     expect(error).toBeUndefined();
-    const pr = knowledgePulls(github)[0]!;
+    const pr = knowledgePull(github);
     expect(knowledgePulls(github)).toHaveLength(1);
     expect(pr.title).toBe('docs(knowledge): PRD 42 — Widgets that remember');
     expect(pr.head.ref).toBe(BRANCH);
     expect(pr.base.ref).toBe('main');
-    expect(pr.labels.map((label: Row) => label.name)).toEqual(['omni:knowledge']);
-    expect(result.published!.pr).toMatchObject({ number: pr.number, created: true });
+    expect(pr.labels.map((label) => label.name)).toEqual(['omni:knowledge']);
+    expect(result.published?.pr).toMatchObject({ number: pr.number, created: true });
   });
 
   it('commits a tree holding the adopted entries, the moved folder, the knowledge files and the ledger lines', async () => {
     const github = scenario();
     await execute(engine(github).run);
     expect(commitsMade(github)).toHaveLength(1);
-    expect(commitsMade(github)[0]!.parents).toEqual([TIP]);
+    expect(commitsMade(github)[0]?.parents).toEqual([TIP]);
 
     const files = github.filesAt(BRANCH, [...BRANCH_PATHS, `${INBOX}/spec.md`, `${OUTBOX}/settled.md`, `${OUTBOX}/s1-01-high-one.md`, `${SHIPPED}/outbox/s1-01-high-one.md`]);
     // Settled at merge: the open items adopted by the merger, their files gone, the folder shipped.
@@ -172,12 +205,12 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     expect(files[`${SHIPPED}/spec.md`]).toContain('# Widgets that remember');
     expect(files[`${SHIPPED}/plan.md`]).toContain(`\`${SHIPPED}/spec.md\``);
 
-    const latest = Object.fromEntries(parseSettledEntries(files[LEDGER]!, markers).map((entry) => [entry.id, entry])) as Row;
+    const latest = latestEntries(textOf(files, LEDGER));
     for (const id of ['s1-01-high-one', 's1-02-set-secret', 's0-04-drift']) {
-      expect(latest[id].verdict).toBe('adopted');
-      expect(latest[id].fields['Approved by']).toBe('@octocat');
-      expect(latest[id].fields['Approved at']).toBe(MERGED_AT);
-      expect(latest[id].fields.Basis).toMatch(/^merged-over-red/);
+      expect(entryOf(latest, id).verdict).toBe('adopted');
+      expect(entryOf(latest, id).fields['Approved by']).toBe('@octocat');
+      expect(entryOf(latest, id).fields['Approved at']).toBe(MERGED_AT);
+      expect(entryOf(latest, id).fields.Basis).toMatch(/^merged-over-red/);
     }
     // The knowledge, with its provenance.
     expect(files[ADR]).toContain('**Status:** adopted');
@@ -186,21 +219,23 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     expect(files[`${K}/product/rules.md`]).toContain(`Proposed: harvest ${TODAY}`);
     expect(files[`${K}/product/rules.md`]).not.toContain('None yet.');
     expect(files[`${K}/product/principles.md`]).toContain('## P-PRODUCT-2');
-    expect(latest['s1-01-high-one'].became).toEqual(['ADR-0002']);
-    expect(latest['s1-02-set-secret'].became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(latest['s0-04-drift'].became).toEqual(['ADR-0001']);
-    expect(latest['s0-01-local-name'].fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(entryOf(latest, 's1-01-high-one').became).toEqual(['ADR-0002']);
+    expect(entryOf(latest, 's1-02-set-secret').became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(entryOf(latest, 's0-04-drift').became).toEqual(['ADR-0001']);
+    expect(entryOf(latest, 's0-01-local-name').fields['Stays here']).toBe('a local choice, nothing lasting');
   });
 
   it('moves the files it does not rewrite by reusing their blobs, never their text', async () => {
     const github = scenario();
     await execute(engine(github).run);
-    const tree = github.state.requests.find((r) => r.route === 'POST /repos/{owner}/{repo}/git/trees')!.tree;
-    const spec = tree.find((entry: Row) => entry.path === `${SHIPPED}/spec.md`);
+    const written = github.state.requests.find((r) => r.route === 'POST /repos/{owner}/{repo}/git/trees');
+    assertDefined(written, 'the tree written');
+    const tree = TreeSchema.parse(written.tree);
+    const spec = tree.find((entry) => entry.path === `${SHIPPED}/spec.md`);
     expect(spec).toEqual({ path: `${SHIPPED}/spec.md`, mode: '100644', type: 'blob', sha: `${TIP}:${INBOX}/spec.md` });
-    expect(tree.find((entry: Row) => entry.path === `${INBOX}/spec.md`)).toMatchObject({ sha: null });
+    expect(tree.find((entry) => entry.path === `${INBOX}/spec.md`)).toMatchObject({ sha: null });
     // Every path appears once in the tree.
-    const paths = tree.map((entry: Row) => entry.path);
+    const paths = tree.map((entry) => entry.path);
     expect(new Set(paths).size).toBe(paths.length);
   });
 
@@ -217,8 +252,7 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
   it('writes a body whose rows match the ledger lines: proposed principles first, then the table, the not placed, the facts', async () => {
     const github = scenario();
     await execute(engine(github).run);
-    const pr = knowledgePulls(github)[0]!;
-    const body = pr.body;
+    const body = bodyOf(knowledgePull(github));
     const lines = body.split('\n');
     expect(lines[0]).toBe('Refs #42 · Knowledge from #43, merged by @octocat on 2026-09-26');
     expect(body).toContain("**Proposed principles — a person's call:** P-PRODUCT-2 (serves BR-PRODUCT-1)");
@@ -235,14 +269,16 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     expect(body.trimEnd().endsWith('Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.')).toBe(true);
 
     // Every row names a decision whose ledger entry carries a line; every unchecked box, one that carries none.
-    const ledger = github.filesAt(BRANCH, [LEDGER])[LEDGER];
-    const latest = Object.fromEntries(parseSettledEntries(ledger!, markers).map((entry) => [entry.id, entry])) as Row;
-    const rows = lines.filter((line: string) => /^\| s\d/.test(line)).map((line: string) => line.split('|')[1]!.trim());
+    const latest = latestEntries(textOf(github.filesAt(BRANCH, [LEDGER]), LEDGER));
+    const rows = lines.filter((line) => /^\| s\d/.test(line)).map((line) => line.split('|')[1]?.trim());
     expect(rows.sort()).toEqual(['s0-01-local-name', 's0-04-drift', 's1-01-high-one', 's1-02-set-secret']);
-    for (const id of rows) expect(latest[id].became.length > 0 || latest[id].fields['Stays here'] !== undefined).toBe(true);
+    for (const id of rows) {
+      assertDefined(id, 'a row\'s decision');
+      expect(entryOf(latest, id).became.length > 0 || entryOf(latest, id).fields['Stays here'] !== undefined).toBe(true);
+    }
     for (const id of ['s0-02-cited', 's0-03-refused']) {
-      expect(latest[id].became).toEqual([]);
-      expect(latest[id].fields['Stays here']).toBeUndefined();
+      expect(entryOf(latest, id).became).toEqual([]);
+      expect(entryOf(latest, id).fields['Stays here']).toBeUndefined();
     }
   });
 });
@@ -264,16 +300,16 @@ describe('knowledge-harvest — replays and ids', () => {
   it('a replay gives no second PR and no second commit, rewrites the body, and never writes to main', async () => {
     const github = scenario();
     await execute(engine(github).run);
-    const pr = knowledgePulls(github)[0]!;
+    const pr = knowledgePull(github);
     pr.body = 'edited by hand';
     const { result, error } = await execute(engine(github).run);
     expect(error).toBeUndefined();
     expect(knowledgePulls(github)).toHaveLength(1);
     expect(commitsMade(github)).toHaveLength(1);
     expect(result.published).toMatchObject({ committed: false, pr: { number: pr.number, created: false } });
-    expect(knowledgePulls(github)[0]!.body).toContain('Refs #42');
+    expect(bodyOf(knowledgePull(github))).toContain('Refs #42');
     expect(github.state.refs.get('heads/main')).toBe(TIP);
-    expect(writes(github).filter((r) => String(r.ref ?? '').endsWith('heads/main'))).toEqual([]);
+    expect(writes(github).filter((r) => String(r.ref).endsWith('heads/main'))).toEqual([]);
   });
 
   it('refuses a knowledge branch that is the default branch before any write', async () => {
@@ -302,9 +338,10 @@ describe('knowledge-harvest — replays and ids', () => {
     await execute(engine(github).run);
     // The first knowledge PR merged: the default branch moves to its head, its branch is deleted.
     const head = github.state.refs.get(`heads/${BRANCH}`);
-    github.state.refs.set('heads/main', head!);
+    assertDefined(head, `the branch ${BRANCH}`);
+    github.state.refs.set('heads/main', head);
     github.state.refs.delete(`heads/${BRANCH}`);
-    Object.assign(knowledgePulls(github)[0]!, { state: 'closed', merged_at: '2026-09-27T10:00:00Z' });
+    Object.assign(knowledgePull(github), { state: 'closed', merged_at: '2026-09-27T10:00:00Z' });
     const everything = Object.fromEntries(Object.keys(REFUSING).map((id) => [id, REFUSING[id]]));
     const { result, error } = await execute(engine(github, { fetch: fetchReplying(everything) }).run);
     expect(error).toBeUndefined();
@@ -324,6 +361,12 @@ describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
   };
   const gadgets = (github: Scenario, fetch = fetchReplying(LOCAL)) => execute(engine(github, { event: harvestEvent(GADGETS_FEATURE.number), fetch }).run);
   const verdicts = (github: Scenario) => github.state.comments.filter((comment) => comment.body.includes(VERDICT_MARKER));
+  /** The verdict comment: the test fails when there is none. */
+  function verdict(github: Scenario) {
+    const comment = verdicts(github)[0];
+    assertDefined(comment, 'the verdict comment');
+    return comment;
+  }
 
   it('creates no ref, opens no PR, and says so in one comment on the merged feature PR', async () => {
     const github = scenario();
@@ -335,8 +378,8 @@ describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
     expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/pulls')).toEqual([]);
     expect(commitsMade(github)).toEqual([]);
     expect(verdicts(github)).toHaveLength(1);
-    expect(verdicts(github)[0]).toMatchObject({
-      issue: GADGETS_FEATURE.number,
+    expect(verdict(github)).toMatchObject({
+      issue: numberOf(GADGETS_FEATURE),
       body: `${VERDICT_MARKER}\nKnowledge: nothing new — 2 candidates stayed local.\n`,
     });
     expect(result.verdict).toMatchObject({ created: true });
@@ -345,11 +388,11 @@ describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
   it('a replay edits the same comment, never a second one', async () => {
     const github = scenario();
     await gadgets(github);
-    verdicts(github)[0]!.body = `${VERDICT_MARKER}\nedited by hand`;
+    verdict(github).body = `${VERDICT_MARKER}\nedited by hand`;
     const { result, error } = await gadgets(github);
     expect(error).toBeUndefined();
     expect(verdicts(github)).toHaveLength(1);
-    expect(verdicts(github)[0]!.body).toBe(`${VERDICT_MARKER}\nKnowledge: nothing new — 2 candidates stayed local.\n`);
+    expect(verdict(github).body).toBe(`${VERDICT_MARKER}\nKnowledge: nothing new — 2 candidates stayed local.\n`);
     expect(result.verdict).toMatchObject({ created: false });
     expect(knowledgePulls(github, GADGETS_BRANCH)).toEqual([]);
   });
@@ -359,7 +402,7 @@ describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
     const { result, error } = await gadgets(github, fetchReplying({ ...LOCAL, 's1-01-gadget-record': REPLIES['s1-01-gadget-record'], 's1-02-gadget-rule': LOCAL['s1-01-gadget-record'] }));
     expect(error).toBeUndefined();
     expect(knowledgePulls(github, GADGETS_BRANCH)).toHaveLength(1);
-    expect(result.published!.pr.created).toBe(true);
+    expect(result.published?.pr.created).toBe(true);
     expect(result.verdict).toBeNull();
     expect(verdicts(github)).toEqual([]);
     const ledger = github.filesAt(GADGETS_BRANCH, [`${D}/shipped/0044-gadgets/outbox/settled.md`])[`${D}/shipped/0044-gadgets/outbox/settled.md`];
@@ -388,11 +431,11 @@ describe('knowledge-harvest — failures', () => {
     expect(error).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
     expect(result).toMatchObject({ settled: 3, shipped: true, placed: 0, notPlaced: 6 });
-    const pr = knowledgePulls(github)[0]!;
-    expect(pr.body).not.toContain('| Decision |');
-    expect(pr.body.match(/^- \[ \] .* — the model could not be asked: .*OPENROUTER_API_KEY/gm)).toHaveLength(6);
-    expect(pr.body).toContain('Settled at merge: 2 open items');
-    expect(pr.body).toContain('Shipped at merge: inbox/0042-widgets → shipped/0042-widgets');
+    const body = bodyOf(knowledgePull(github));
+    expect(body).not.toContain('| Decision |');
+    expect(body.match(/^- \[ \] .* — the model could not be asked: .*OPENROUTER_API_KEY/gm)).toHaveLength(6);
+    expect(body).toContain('Settled at merge: 2 open items');
+    expect(body).toContain('Shipped at merge: inbox/0042-widgets → shipped/0042-widgets');
     const files = github.filesAt(BRANCH, [`${SHIPPED}/spec.md`, ADR]);
     expect(files[`${SHIPPED}/spec.md`]).toContain('# Widgets');
     expect(files[ADR]).toBeNull();
@@ -411,7 +454,7 @@ describe('knowledge-harvest — failures', () => {
 
     const comments = github.state.comments.filter((comment) => comment.issue === FEATURE.number);
     expect(comments).toHaveLength(1);
-    expect(comments[0]!.body).toBe(`${FAILURE_MARKER}\nThe knowledge harvest could not run: GitHub is still down\n`);
+    expect(comments[0]?.body).toBe(`${FAILURE_MARKER}\nThe knowledge harvest could not run: GitHub is still down\n`);
   });
 });
 

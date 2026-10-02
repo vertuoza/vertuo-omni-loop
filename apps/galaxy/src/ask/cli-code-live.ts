@@ -58,7 +58,10 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
               },
             },
           });
-          const { data, error } = await client.auth.exchangeCodeForSession(code);
+          // `data` is widened to null: the Auth server's answer is read here unparsed.
+          const exchanged: { data: { session: CliSession | null } | null; error: { message: string } | null } =
+            await client.auth.exchangeCodeForSession(code);
+          const { data, error } = exchanged;
           return { session: data?.session ?? null, error: error ? { message: error.message } : null };
         }
       : null,
@@ -121,5 +124,5 @@ async function placeRepo(userId: string, repo: string): Promise<Placement> {
   if (typeof workspaceId !== 'string' || !workspaceId) return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
   const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', workspaceId).maybeSingle();
   if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
-  return { workspace: { slug: String(found.slug), name: String(found.name) }, reason: null };
+  return { workspace: { slug: found.slug, name: found.name }, reason: null };
 }

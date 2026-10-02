@@ -6,6 +6,7 @@ import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
 import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
+import { sure } from '../sure';
 
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
 const SCENES: Record<SceneName, true> = {
@@ -52,7 +53,7 @@ function frame(scene: SceneName, sceneT = 2, grid: Grid = WIDE): FrameState {
   return {
     scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: {
-      fleets, pick: 1, lockedAt: null, team: fleets[1]!.name, away: false,
+      fleets, pick: 1, lockedAt: null, team: sure(fleets[1], 'fleets[1]').name, away: false,
       hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
     },
   };

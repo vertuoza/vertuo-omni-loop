@@ -12,12 +12,23 @@
 // as GitHub's API allows; each tree and commit it writes can then be read back whole, like a synthetic
 // commit, so a later snapshot of a branch it wrote sees its files.
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 
 /** A request's parameters, as a unit hands them to `octokit.request`. */
 type Params = Record<string, unknown>;
 
 /** One recorded read: the route, its parameters, and GitHub's answer (or its failing status). */
 export type Recorded = { route: string; params: Params; data?: unknown; status?: number };
+
+/**
+ * A recording under `fixtures/`, read from its JSON: the merge it ends at and the reads it holds.
+ * `mergedAt` is recorded for PRD 438 only.
+ */
+export const Recording = z.object({
+  mergeSha: z.string(),
+  mergedAt: z.string().optional(),
+  requests: z.array(z.object({ route: z.string(), params: z.record(z.string(), z.unknown()), data: z.unknown(), status: z.number().optional() })),
+});
 
 /** One request the double received: its route beside its parameters. */
 type Request = Params & { route: string };
@@ -194,8 +205,6 @@ export function replayGitHub({
     return { ...(synthetic[commit ? commit.tree.sha : sha] ?? {}) };
   }
 
-  const text = (value: unknown): string => String(value);
-
   const ROUTES: Record<string, (params: Params) => Answer | Promise<Answer>> = {
     'GET /repos/{owner}/{repo}/git/trees/{tree_sha}': ({ tree_sha, recursive }) => {
       const synthetic = syntheticTree(text(tree_sha));
@@ -237,12 +246,9 @@ export function replayGitHub({
       const entries = Object.fromEntries(given.map((entry) => [entry.path, entryText(entry)]));
       const sha = `tree-${hash({ base_tree, entries })}`;
       state.trees.set(sha, { sha, base, entries, given: structuredClone(tree) });
-      const whole = base ? wholeTree(base) : {};
-      for (const [path, text] of Object.entries(entries)) {
-        if (text === null) delete whole[path];
-        else whole[path] = text;
-      }
-      synthetic[sha] = whole;
+      // The base's files under the entries: a `null` entry removes its path.
+      const merged = Object.entries({ ...(base ? wholeTree(base) : {}), ...entries });
+      synthetic[sha] = Object.fromEntries(merged.filter((file): file is [string, string] => file[1] !== null));
       return { data: { sha } };
     },
     'POST /repos/{owner}/{repo}/git/commits': ({ message, tree, parents }) => {
@@ -275,7 +281,7 @@ export function replayGitHub({
       const wanted = state.pulls.filter(
         (pull) =>
           (!params.base || pull.base.ref === params.base) &&
-          (!params.head || `${params.owner}:${pull.head.ref}` === params.head) &&
+          (!params.head || `${text(params.owner)}:${pull.head.ref}` === params.head) &&
           (params.state === 'all' || pull.state === (params.state ?? 'open')),
       );
       return { data: Number(params.page ?? 1) === 1 ? structuredClone(wanted) : [] };
@@ -317,8 +323,13 @@ export function replayGitHub({
     },
     // Issues, listed as GitHub lists them: pull requests among them, marked `pull_request`.
     'GET /repos/{owner}/{repo}/issues': ({ labels, state: wanted = 'open', page }) => {
-      const names = labels ? String(labels).split(',') : [];
-      const items = [...state.issues, ...state.pulls.map((pull) => ({ ...pull, pull_request: { url: pull.html_url } }))]
+      const names = labels ? text(labels).split(',') : [];
+      // Widened: the synthetic pull requests a test hands in are cast, not parsed, and may carry no labels.
+      const listed: { number: number; state?: unknown; labels?: Label[]; [field: string]: unknown }[] = [
+        ...state.issues,
+        ...state.pulls.map((pull) => ({ ...pull, pull_request: { url: pull.html_url } })),
+      ];
+      const items = listed
         .filter((item) => (wanted === 'all' || item.state === wanted) && names.every((name) => (item.labels ?? []).some((label) => label.name === name)))
         .sort((a, b) => b.number - a.number);
       return { data: Number(page ?? 1) === 1 ? structuredClone(items) : [] };
@@ -388,11 +399,16 @@ export function failing(
   };
 }
 
+/** A parameter as text, as GitHub's URL template reads it. */
+function text(value: unknown): string {
+  return String(value);
+}
+
 function sameParams(recorded: Params, params: Params): boolean {
   const keys = new Set([...Object.keys(recorded), ...Object.keys(params)]);
   for (const key of keys) {
     if (recorded[key] === undefined || params[key] === undefined) return false;
-    if (String(recorded[key]) !== String(params[key])) return false;
+    if (text(recorded[key]) !== text(params[key])) return false;
   }
   return true;
 }

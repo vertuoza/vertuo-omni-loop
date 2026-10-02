@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { fakeStageStore } from '../../stages/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
@@ -20,7 +21,7 @@ const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n\n<b>raw</b>\
 const PAGE = '<!doctype html><title>After</title><script>document.title = "ran"</script>';
 
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../store.fake').fakeSupabase>,
   path: '/prd',
@@ -45,8 +46,8 @@ vi.mock('../../stages/store', async (original) => ({
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 // Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
 vi.mock('./dock-player', () => ({
-  readDockPlayer: async (_db: unknown, user: { id: string }, workspace: string) =>
-    ({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
+  readDockPlayer: (_db: unknown, user: { id: string }, workspace: string) =>
+    Promise.resolve({ player: { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } }, hero: null, team: user.id, workspace }),
 }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -54,7 +55,7 @@ vi.mock('../../data/supabase-server', () => ({
     const client = given.fake.client(given.token ?? 'signed-out');
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
     const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email } } : null;
-    return { ...client, auth: { getUser: async () => user, getClaims: async () => ({ data: claims, error: null }) } };
+    return { ...client, auth: { getUser: () => Promise.resolve(user), getClaims: () => Promise.resolve({ data: claims, error: null }) } };
   },
 }));
 
@@ -78,7 +79,7 @@ beforeEach(async () => {
     p_artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'before-after', content: PAGE }],
   });
   numbered = (pushed.data as { id: string }).id;
-  given.summary = vi.fn(async () => null);
+  given.summary = vi.fn(() => Promise.resolve(null));
   given.stages = fakeStageStore();
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -94,11 +95,12 @@ const open = async (id: string, query: Record<string, string> = {}) =>
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
 /** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
 const liveOf = (page: ReactElement): ReactElement | undefined => {
-  const props = page.props as { live?: ReactElement; children?: ReactElement | ReactElement[] };
+  const props = page.props as { live?: ReactElement; children?: ReactElement | null | (ReactElement | null)[] };
   if (page.type !== Fragment) return props.live;
-  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh);
+  return [props.children ?? []].flat().find((child) => child?.type === LiveRefresh) ?? undefined;
 };
-const notFound = { digest: expect.stringContaining('404') };
+const SAYS_404: unknown = expect.stringContaining('404');
+const notFound = { digest: SAYS_404 };
 
 describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
@@ -167,19 +169,20 @@ describe('the page to share', () => {
     const { rounds: [round] } = given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
       { created_at: new Date(Date.now() - 60_000).toISOString(), prd: 7, questions: quick },
     ]);
+    assertDefined(round, 'the quick round');
     const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
     given.token = 'ada';
     const owner = await html(numbered, { tab: 'questions' });
     expect(buttons(owner)).toEqual(['Yes', 'No']);
-    expect(owner).toContain(`<li id="${round!.id}" class="dossier-round"`);
+    expect(owner).toContain(`<li id="${round.id}" class="dossier-round"`);
 
     given.token = 'bob';
     const other = await html(numbered, { tab: 'questions' });
     expect(buttons(other)).toEqual([]);
     expect(textOf(other)).toContain('Waiting for ADA');
 
-    given.fake.seedShare(round!.id, BOB.id, ADA.id);
+    given.fake.seedShare(round.id, BOB.id, ADA.id);
     expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
   });
 
@@ -196,7 +199,7 @@ describe('the page to share', () => {
   it('still shows the dossier when its questions cannot be read', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
     expect(page).toContain('PRD #7');
@@ -231,7 +234,7 @@ describe('the page to share', () => {
   it('starts the change check with no signature when the questions could not be read: its first read sets it', async () => {
     const client = given.fake.client('bob');
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
-      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
     const live = liveOf(await open(numbered)) as ReactElement<{ signature: string | null }> | undefined;
     expect(live?.props.signature).toBeNull();
@@ -514,7 +517,8 @@ describe('the stylesheet', () => {
     const declarations = [...css.matchAll(painted)];
     expect(declarations.length).toBeGreaterThan(10);
     for (const [, declaration, value] of declarations) {
-      expect(value!.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
+      assertDefined(value, `the value of ${declaration ?? 'a declaration'}`);
+      expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });
   /** Every rule of the stylesheet, with the media query it sits in ('' at the top level). */

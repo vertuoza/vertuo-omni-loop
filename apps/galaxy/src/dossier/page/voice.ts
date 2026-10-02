@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PersonaAvatar } from '@omni/design';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The User voice tab (PRD 822, s3), as pure functions: a version of the PRD's `voice` artifact read
 // through galaxy's own schema (the kit's `kit/lib/voice/` refuses a bad file before it is pushed; this
@@ -117,7 +118,7 @@ function cellsOf(name: string, voice: Voice): VoiceCell[] {
 export function voiceView(voice: Voice, cast: readonly VoiceCast[]): VoiceView {
   const names = [...new Set(voice.rounds.flatMap((r) => r.personas.map((p) => p.name)))];
   const rows = names.map((name): VoiceRow => {
-    const latest = [...voice.rounds].reverse().flatMap((r) => r.personas).find((p) => p.name === name)!;
+    const latest = defined([...voice.rounds].reverse().flatMap((r) => r.personas).find((p) => p.name === name), `${name}'s latest answer`);
     const known = cast.find((c) => c.name === name);
     return {
       name, stance: latest.stance, latest: latest.reaction,

@@ -26,19 +26,19 @@ describe('where the retro is read', () => {
 
 describe('the retro text', () => {
   it('is the file as the source holds it', async () => {
-    const raw = vi.fn(async () => '# Retro\n\nIt went well.\n');
+    const raw = vi.fn(() => Promise.resolve('# Retro\n\nIt went well.\n'));
     expect(await readRetro(retroPr('open'), WHERE, raw)).toBe('# Retro\n\nIt went well.\n');
     expect(raw).toHaveBeenCalledWith('loop/delivery/shipped/0426-prd-page-stage/retro.md', 'docs/retro-prd-page-stage');
   });
 
   it('is none, with no read, when there is no retro PR; none when the file is not there yet', async () => {
-    const raw = vi.fn(async () => null);
+    const raw = vi.fn(() => Promise.resolve(null));
     expect(await readRetro(null, WHERE, raw)).toBeNull();
     expect(raw).not.toHaveBeenCalled();
     expect(await readRetro(retroPr('merged'), WHERE, raw)).toBeNull();
   });
 
   it('lets a failed read fail, so the summary marks it unread', async () => {
-    await expect(readRetro(retroPr('open'), WHERE, async () => { throw new Error('GitHub answered 502'); })).rejects.toThrow('502');
+    await expect(readRetro(retroPr('open'), WHERE, () => Promise.reject(new Error('GitHub answered 502')))).rejects.toThrow('502');
   });
 });

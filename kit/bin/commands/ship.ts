@@ -4,9 +4,10 @@
 import { applyShip, DirtyDeliveryError, movedPath } from '../../lib/delivery/ship.ts';
 import { errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const ship: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr, exec }: CommandIo): number => {
     const { positional } = parseArgs('ship', args);
     if (positional.length !== 1) throw usageError('usage: omni ship <prd>');
     const prd = positiveInt('ship', '<prd>', positional[0]);
@@ -24,5 +25,5 @@ export const ship: Command = {
     lines.push('Review the diff and commit it on the feature branch.');
     println(stdout, lines.join('\n'));
     return 0;
-  },
+  }),
 };

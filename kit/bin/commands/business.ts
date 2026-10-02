@@ -98,7 +98,7 @@ function claimOf(raw: unknown): Claim | null {
   if (!value || !isText(value.id) || !READ_KINDS.includes(value.kind) || !isText(value.value) || !SOURCES.includes(value.source)) return null;
   const kind = String(value.kind);
   if (!value.id.startsWith(`${kind}#`)) return null;
-  const state = value.state ?? 'confirmed';
+  const state: unknown = value.state ?? 'confirmed';
   if (!STATES.includes(state)) return null;
   const orNull = (field: unknown): string | null => (isText(field) ? field : null);
   return {
