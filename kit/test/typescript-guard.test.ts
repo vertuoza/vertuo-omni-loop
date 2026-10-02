@@ -1,7 +1,9 @@
 // The ratchet's guard (PRD 725, s29): what would bring the old state back fails here. A file that
 // opens with `@ts-nocheck`, a JavaScript source file, and an `any` or an `as` in source on a line
-// with no `// ts-allow: <reason>` comment (or one with no reason). The rules are proven on fixtures
-// first, then the guard runs on every file git tracks, dot folders included.
+// with no `// ts-allow: <reason>` comment (or one with no reason), in every folder. And the ratchet
+// (PRD 942): each area's count of `ts-allow` lines in source equals its ceiling in
+// kit/test/typescript-ceilings.json, failing above it and below it. The rules are proven on
+// fixtures first, then the guard runs on every file git tracks, dot folders included.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -86,10 +88,9 @@ describe('the guard, on fixtures', () => {
     expect(rules('apps/omni-app/test/scenario.ts', 'export const x: any = {};\n')).toEqual([]);
   });
 
-  it('does not read casts in the arcade folders still unmarked, but holds them to the other rules', () => {
-    expect(ARCADE_UNMARKED.length).toBeGreaterThan(0);
-    expect(rules('apps/galaxy/src/jev/store.ts', 'export const x = JSON.parse("1") as number;\n')).toEqual([]);
-    expect(rules('apps/galaxy/src/jev/store.ts', '// @ts-nocheck\nexport {};\n')).toEqual(['ts-nocheck']);
+  it("reads casts in every folder, the arcade's included", () => {
+    expect(rules('apps/galaxy/src/jev/store.ts', 'export const x = JSON.parse("1") as number;\n')).toEqual(['as']);
+    expect(rules('apps/galaxy/proxy.ts', 'export const x: any = 1;\n')).toEqual(['any']);
     expect(rules('apps/galaxy/src/outbox/send.ts', 'export const x = JSON.parse("1") as number;\n')).toEqual(['as']);
   });
 
@@ -107,12 +108,73 @@ describe('the guard, on fixtures', () => {
   });
 });
 
+describe('the ceilings, on fixtures', () => {
+  const cast = (reason: string) => `export const n = JSON.parse("1") as number; // ts-allow: ${reason}\n`;
+  const files: File[] = [
+    { path: 'kit/lib/a.ts', text: cast('JSON.parse returns any') + cast('the same') },
+    { path: 'apps/galaxy/src/b.ts', text: cast('JSON.parse returns any') },
+    { path: 'kit/lib/a.test.ts', text: cast('a test is not counted') },
+    { path: 'kit/test/helper.ts', text: cast('a test folder is not counted') },
+    { path: 'supabase/database.types.ts', text: cast('generated, not counted') },
+    { path: 'kit/lib/a.md', text: cast('not code') },
+  ];
+  const ceilings = (over: Record<string, unknown> = {}): string =>
+    JSON.stringify({ kit: 2, game: 0, scripts: 0, packages: 0, 'apps/omni-app': 0, 'apps/galaxy': 1, ...over });
+
+  it('counts the ts-allow lines of source per area, not those of a test, a generated file or prose', () => {
+    expect(countAllows(files)).toEqual({ kit: 2, game: 0, scripts: 0, packages: 0, 'apps/omni-app': 0, 'apps/galaxy': 1 });
+  });
+
+  it('passes an area whose count equals its ceiling', () => {
+    expect(ceilingProblems(files, ceilings())).toEqual([]);
+  });
+
+  it('fails an area above its ceiling, saying to remove one or raise it and say why', () => {
+    expect(ceilingProblems(files, ceilings({ kit: 1 }))).toEqual([
+      'kit: 2 casts, ceiling 1 — remove one, or raise the ceiling in kit/test/typescript-ceilings.json and say why in the pull request',
+    ]);
+  });
+
+  it('fails an area below its ceiling, naming the ceiling to write', () => {
+    expect(ceilingProblems(files, ceilings({ 'apps/galaxy': 140 }))).toEqual([
+      'apps/galaxy: 1 casts, ceiling 140 — lower the ceiling to 1 in kit/test/typescript-ceilings.json',
+    ]);
+  });
+
+  it('fails an area missing from the ceilings file, naming it', () => {
+    const text = JSON.stringify({ kit: 2, game: 0, scripts: 0, packages: 0, 'apps/galaxy': 1 });
+    expect(ceilingProblems(files, text)).toEqual(['apps/omni-app: no ceiling in kit/test/typescript-ceilings.json']);
+  });
+
+  it('fails a ceilings file that does not read, naming the field', () => {
+    expect(ceilingProblems(files, ceilings({ packages: 'three' }))).toEqual([
+      'kit/test/typescript-ceilings.json: packages must be a whole number of casts, not "three"',
+    ]);
+    expect(ceilingProblems(files, ceilings({ game: -1 }))).toEqual([
+      'kit/test/typescript-ceilings.json: game must be a whole number of casts, not -1',
+    ]);
+    expect(ceilingProblems(files, ceilings({ apps: 3 }))).toEqual([
+      'kit/test/typescript-ceilings.json: apps is no area (kit, game, scripts, packages, apps/omni-app, apps/galaxy)',
+    ]);
+    expect(ceilingProblems(files, '{ "kit": ')).toEqual(['kit/test/typescript-ceilings.json: not JSON']);
+    expect(ceilingProblems(files, '[1]')).toEqual(['kit/test/typescript-ceilings.json: not an object of area: ceiling']);
+  });
+});
+
 describe('the guard, on the whole repository', () => {
-  it('finds nothing in any file git tracks', () => {
+  const tracked = (): File[] => {
     const paths = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' }).split('\0').filter(Boolean);
-    const files = paths.filter(isCode).map((path) => ({ path, text: readFileSync(join(repoRoot, path), 'utf8') }));
+    return paths.filter(isCode).map((path) => ({ path, text: readFileSync(join(repoRoot, path), 'utf8') }));
+  };
+
+  it('finds nothing in any file git tracks', () => {
+    const files = tracked();
     expect(files.length).toBeGreaterThan(500);
     expect(findViolations(files).map((v) => `${v.path}:${v.line} ${v.rule}: ${v.text.trim()}`)).toEqual([]);
+  });
+
+  it('holds every area at its ceiling', () => {
+    expect(ceilingProblems(tracked(), readFileSync(join(repoRoot, CEILINGS_FILE), 'utf8'))).toEqual([]);
   });
 });
 
@@ -133,28 +195,12 @@ const GENERATED = [/^supabase\/database\.types\.ts$/];
 /** A test, or a file in a `test/` folder that serves tests only: it may cast its fixtures freely. */
 const TEST = [/\.(?:test|spec)\.[cm]?tsx?$/, /(?:^|\/)test\//];
 
-/**
- * The arcade folders whose slices left their casts as they were (settled items s25-01 and
- * s27-01 of PRD 725): `any` and `as` are not read there until each is marked. The other rules
- * still hold. Strike a folder from this list once its casts carry their reasons.
- */
-const ARCADE_UNMARKED = [
-  // s25
-  'apps/galaxy/src/ask/',
-  'apps/galaxy/src/dashboard/',
-  'apps/galaxy/src/profile/',
-  'apps/galaxy/src/signup/',
-  'apps/galaxy/src/proxy/',
-  'apps/galaxy/proxy.ts',
-  'apps/galaxy/src/working/',
-  // s27
-  'apps/galaxy/src/business/',
-  'apps/galaxy/src/business-api/',
-  'apps/galaxy/src/jev/',
-  'apps/galaxy/src/proof/',
-  'apps/galaxy/src/engineering/',
-  'apps/galaxy/src/repositories/',
-];
+/** The committed ceilings, one per area: the ratchet (PRD 942). */
+const CEILINGS_FILE = 'kit/test/typescript-ceilings.json';
+
+/** The areas a ceiling holds: a file counts toward the first whose folder it sits in. */
+const AREAS = ['kit', 'game', 'scripts', 'packages', 'apps/omni-app', 'apps/galaxy'] as const;
+type Area = (typeof AREAS)[number];
 
 const JAVASCRIPT = /\.(?:[cm]?js|jsx)$/;
 const TYPESCRIPT = /\.(?:[cm]?ts|tsx)$/;
@@ -163,10 +209,9 @@ const ALLOW = /\/\/\s*ts-allow:(.*)$/;
 
 const matchesAny = (patterns: readonly RegExp[], path: string): boolean => patterns.some((pattern) => pattern.test(path));
 
-/** Whether a file's `any` and casts are read: not in a test, a generated file or an unmarked arcade folder. */
-function escapesRead(path: string): boolean {
-  if (matchesAny(TEST, path) || matchesAny(GENERATED, path)) return false;
-  return !ARCADE_UNMARKED.some((folder) => path.startsWith(folder));
+/** Whether a file is source whose `any` and casts are read: TypeScript, not a test, not generated. */
+function isSource(path: string): boolean {
+  return TYPESCRIPT.test(path) && !matchesAny(TEST, path) && !matchesAny(GENERATED, path);
 }
 
 /** The rule an `any` or a cast on line `text` breaks: its own without a reason, none with one. */
@@ -185,7 +230,7 @@ function fileViolations(file: File): Violation[] {
   lines.forEach((line, index) => {
     if (NOCHECK.test(line)) out.push(at(index + 1, 'ts-nocheck'));
   });
-  if (!escapesRead(file.path)) return out;
+  if (!isSource(file.path)) return out;
   for (const { line, rule } of escapes(file)) {
     const broken = escapeRule(rule, lines[line - 1] ?? '');
     if (broken) out.push(at(line, broken));
@@ -195,6 +240,75 @@ function fileViolations(file: File): Violation[] {
 
 function findViolations(files: readonly File[]): Violation[] {
   return files.flatMap(fileViolations);
+}
+
+function areaOf(path: string): Area | undefined {
+  return AREAS.find((area) => path.startsWith(`${area}/`));
+}
+
+/** Each area's count of `// ts-allow:` lines in source. */
+function countAllows(files: readonly File[]): Record<Area, number> {
+  const counts: Record<Area, number> = { kit: 0, game: 0, scripts: 0, packages: 0, 'apps/omni-app': 0, 'apps/galaxy': 0 };
+  for (const file of files) {
+    const area = areaOf(file.path);
+    if (!area || !isSource(file.path)) continue;
+    counts[area] += file.text.split('\n').filter((line) => ALLOW.test(line)).length;
+  }
+  return counts;
+}
+
+type Read<T> = { value: T } | { problem: string };
+const problem = (why: string): { problem: string } => ({ problem: `${CEILINGS_FILE}: ${why}` });
+
+/** The ceilings file's top level: an object, or why it is not one. */
+function readObject(text: string): Read<object> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return problem('not JSON');
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return problem('not an object of area: ceiling');
+  return { value: parsed };
+}
+
+/** One field of the ceilings file: an area and its whole number, or why it is not. */
+function readField(field: string, value: unknown): Read<[Area, number]> {
+  const area = AREAS.find((a) => a === field);
+  if (!area) return problem(`${field} is no area (${AREAS.join(', ')})`);
+  const whole = typeof value === 'number' && Number.isInteger(value) && value >= 0;
+  if (!whole) return problem(`${field} must be a whole number of casts, not ${JSON.stringify(value)}`);
+  return { value: [area, value] };
+}
+
+/** The ceilings file read, or the one line that says which field does not read. */
+function readCeilings(text: string): Read<Partial<Record<Area, number>>> {
+  const top = readObject(text);
+  if ('problem' in top) return top;
+  const ceilings: Partial<Record<Area, number>> = {};
+  for (const [field, value] of Object.entries(top.value)) {
+    const read = readField(field, value);
+    if ('problem' in read) return read;
+    ceilings[read.value[0]] = read.value[1];
+  }
+  return { value: ceilings };
+}
+
+/** Every area whose count differs from its ceiling, each with what to do. */
+function ceilingProblems(files: readonly File[], ceilingsText: string): string[] {
+  const read = readCeilings(ceilingsText);
+  if ('problem' in read) return [read.problem];
+  const counts = countAllows(files);
+  return AREAS.flatMap((area) => {
+    const ceiling = read.value[area];
+    const n = counts[area];
+    if (ceiling === undefined) return [`${area}: no ceiling in ${CEILINGS_FILE}`];
+    if (n > ceiling) {
+      return [`${area}: ${n} casts, ceiling ${ceiling} — remove one, or raise the ceiling in ${CEILINGS_FILE} and say why in the pull request`];
+    }
+    if (n < ceiling) return [`${area}: ${n} casts, ceiling ${ceiling} — lower the ceiling to ${n} in ${CEILINGS_FILE}`];
+    return [];
+  });
 }
 
 /** Every `any` and every cast in a file, with the line it reads on: a cast's is its type's. */
