@@ -1,6 +1,6 @@
 /**
  * **The shared narrowing helpers** (PRD 942, s1): one type guard or parser for each reason that
- * recurs across the repository's `// ts-allow:` comments, so the fact a cast asserted is proven
+ * recurs among the repository's casts, so the fact a cast asserted is proven
  * instead. Pure, with no dependency: the kit, the App, the arcade and the packages all import it.
  *
  * Each helper accepts exactly what the cast it replaces asserted, and nothing it did not.
