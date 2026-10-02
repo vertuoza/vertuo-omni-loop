@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
@@ -296,7 +295,9 @@ describe('omni plan check — outside a plan repository (PRD 549)', () => {
 });
 
 describe('omni plan check — user-caused errors are one line, exit 2', () => {
-  const oneLine = (s: Io) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  const oneLine = (s: Io) => {
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+  };
 
   it('an unknown plan subcommand', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });

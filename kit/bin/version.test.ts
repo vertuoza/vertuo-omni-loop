@@ -46,8 +46,8 @@ describe('omni version', () => {
     expect(code).toBe(0);
     expect(out).toBe('omni v0.0.13\nlatest v0.0.15, run: omni update\n');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.args).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
-    expect(calls[0]!.options.timeout).toBe(5000);
+    expect(calls[0]?.args).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
+    expect(calls[0]?.options.timeout).toBe(5000);
   });
 
   it('up to date: (latest) on the one line', async () => {

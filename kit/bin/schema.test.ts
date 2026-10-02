@@ -1,6 +1,7 @@
 // The CLI's `gh` schemas: each keeps what GitHub sends, and refuses a value of another shape with an
 // error that names the field.
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../test/assert.ts';
 import {
   GhCommentsSchema,
   GhGraphqlSchema,
@@ -16,7 +17,9 @@ import {
 const refusedAt = (schema: { safeParse: (value: unknown) => { success: boolean; error?: { issues: { path: PropertyKey[] }[] } } }, value: unknown) => {
   const result = schema.safeParse(value);
   expect(result.success).toBe(false);
-  return result.error!.issues[0]!.path.join('.');
+  const issue = result.error?.issues[0];
+  assertDefined(issue, 'the first issue');
+  return issue.path.join('.');
 };
 
 describe('the gh schemas', () => {

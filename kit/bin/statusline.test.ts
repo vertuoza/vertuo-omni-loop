@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { writeMode } from '../lib/ask/local-state.ts';
 import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
@@ -81,12 +82,12 @@ async function statusline(cwd: string | undefined, stdin: string, options: Recor
   return { code, out: out.join(''), err: err.join(''), calls, spawns };
 }
 
-const neverFetches = (calls: any[]) => calls.every((call: string) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
+const neverFetches = (calls: readonly string[]) => calls.every((call) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
 
 describe('omni statusline', () => {
   it('is in the command table', () => {
     expect(Object.keys(COMMAND_TABLE)).toContain('statusline');
-    expect(COMMAND_TABLE.statusline!.withoutContext).toBe(true);
+    expect(COMMAND_TABLE.statusline?.withoutContext).toBe(true);
   });
 
   it('prints the session line, then the no-PRD line, where the loop is installed', async () => {
@@ -175,8 +176,8 @@ describe('omni statusline', () => {
       const run = await statusline(root, payload(root), { env });
       const lines = run.out.replace(/\x1b\[[0-9;]*m/g, '').split('\n').slice(0, -1);
       expect(lines).toHaveLength(2);
-      for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
-      expect(lines[0]!.endsWith('…')).toBe(columns < 70);
+      for (const line of lines) expect(Array.from(line).length).toBeLessThanOrEqual(columns);
+      expect(lines[0]?.endsWith('…')).toBe(columns < 70);
     }
   });
 
@@ -185,8 +186,9 @@ describe('omni statusline', () => {
     const long = payload(root, { model: { display_name: 'A model whose display name is long enough to push the line past eighty' } });
     for (const env of [PLAIN, { ...PLAIN, COLUMNS: 'wide' }]) {
       const [line] = (await statusline(root, long, { env })).out.split('\n');
-      expect([...line!].length).toBe(80);
-      expect(line!.endsWith('…')).toBe(true);
+      assertDefined(line, 'the first line');
+      expect(Array.from(line).length).toBe(80);
+      expect(line.endsWith('…')).toBe(true);
     }
   });
 
@@ -196,7 +198,9 @@ describe('omni statusline', () => {
       const child = execFile(process.execPath, [CLI, 'statusline'], { cwd: root, env: { ...process.env, NO_COLOR: '1', COLUMNS: '200' }, encoding: 'utf8' }, (error, stdout, stderr) => {
         resolve({ code: error ? error.code : 0, stdout, stderr });
       });
-      child.stdin!.end(payload(root, { rate_limits: undefined }));
+      const { stdin } = child;
+      assertDefined(stdin, 'the child process stdin');
+      stdin.end(payload(root, { rate_limits: undefined }));
     });
     expect(run).toEqual({ code: 0, stderr: '', stdout: `Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n` });
   });
@@ -261,7 +265,7 @@ function originFixture() {
   git(seed.root, 'push', '-q', 'origin', 'main', 'feat/bravo', 'feat/charlie', `feat/${LONG_TOPIC}`, 'docs/phase-0-delta');
   const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
   git(tmpdir(), 'clone', '-q', bare, root);
-  const on = (branch: any, start = 'origin/main') => {
+  const on = (branch: string, start = 'origin/main') => {
     const dir = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
     git(root, 'worktree', 'add', '-q', '-b', branch, dir, start);
     return dir;
@@ -546,7 +550,7 @@ describe('omni statusline --refresh <n>', () => {
     return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
   }
 
-  const readBoardJson = (root: string, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8'));
+  const readBoardJson = (root: string, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')) as { slices: unknown[] };
 
   it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
