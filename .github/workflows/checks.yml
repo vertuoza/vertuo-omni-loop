@@ -67,8 +67,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
-  # typescript-eslint's strictTypeChecked over every TypeScript file git tracks (PRD 976), each area
-  # held at its ceiling in scripts/lint-ceilings/ until the last slice clears them all.
+  # typescript-eslint's strictTypeChecked over every TypeScript file git tracks (PRD 976), failing on
+  # any finding at all.
   lint:
     needs: settle
     if: needs.settle.outputs.stale == 'false'
