@@ -342,13 +342,10 @@ async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
 /** `fn` over `items`, at most `PARALLEL_READS` at a time, the results in the items' order. */
 async function inParallel<T, R>(items: readonly T[], fn: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
-  let next = 0;
+  // One queue the workers share: each takes the next item the moment it is free.
+  const queue = items.entries();
   const worker = async () => {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      results[index] = await fn(items[index] as T); // ts-allow: `index` is below `items.length`
-    }
+    for (const [index, item] of queue) results[index] = await fn(item);
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL_READS, items.length) }, worker));
   return results;

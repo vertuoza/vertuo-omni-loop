@@ -24,6 +24,9 @@ export const PullSchema = z.object({
   labels: z.array(label).nullish(),
 });
 
+/** A page of any list route, its items left for the reader to parse once the pages are read. */
+export const ListSchema = z.array(z.unknown());
+
 /** A page of `GET /repos/{owner}/{repo}/pulls`: each with its state and when it was opened. */
 export const PullsSchema = z.array(PullSchema.extend({ state: z.string(), created_at: z.string() }));
 

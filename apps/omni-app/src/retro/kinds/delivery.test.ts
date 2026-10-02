@@ -49,7 +49,7 @@ type Request = (route: string, params?: Params) => Promise<{ data: unknown }>;
 type Params = { pull_number?: number; issue_number?: number; variables?: { number: number; after?: string | null } };
 type Recorded = Params & { route: string };
 type Stub = { octokit: { request: Request }; state: { requests: Recorded[] } };
-type StubOptions = { threads?: (number: number, after: string | null) => unknown; events?: object; comments?: object[]; pulls?: object[] };
+type StubOptions = { threads?: (number: number, after: string | null) => unknown; events?: Record<number, object[]>; comments?: object[]; pulls?: object[] };
 
 function stubGitHub({ threads = threadsAnswer, events = EVENTS, comments = COMMENTS, pulls = DELIVERY_PULLS }: StubOptions = {}) {
   const stub = replay({ recording: deliveryRecording(), pulls: [FEATURE, ...pulls], events });

@@ -3,7 +3,7 @@
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
 import { RETRO_EVENT } from '../src/inngest-client.ts';
-import { replayGitHub } from './github-replay.ts';
+import { type Recorded, replayGitHub } from './github-replay.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
@@ -101,12 +101,17 @@ export const recordedRead = (route: string, params: Record<string, unknown>, dat
   ...(status ? { status } : { data }),
 });
 
-/**
- * The stubbed GitHub and the retro event for one scenario.
- * @param {{ files?: Record<string, string>, feature?: object, subPulls?: object[], events?: object[] | null,
- *   recording?: object[] }} [options]
- */
-export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPulls = SUB_PULLS, events = FEATURE_EVENTS, recording = [] } = {}) {
+/** What one scenario may change: the merge's files, the feature PR, its sub-PRs, its issue events, the recorded reads. */
+export type ScenarioOptions = {
+  files?: Record<string, string>;
+  feature?: typeof FEATURE;
+  subPulls?: readonly object[];
+  events?: object[] | null;
+  recording?: readonly Recorded[];
+};
+
+/** The stubbed GitHub and the retro event for one scenario. */
+export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPulls = SUB_PULLS, events = FEATURE_EVENTS, recording = [] }: ScenarioOptions = {}) {
   const github = replayGitHub({
     commits: { [MERGE_SHA]: files },
     pulls: [feature, ...subPulls],

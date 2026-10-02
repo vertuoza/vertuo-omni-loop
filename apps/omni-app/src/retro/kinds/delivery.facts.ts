@@ -21,6 +21,7 @@
 import { breaches, collisions, covers, parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { RANK_VALUES, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { reworkPullRequest } from 'vertuo-omni-plan/kit/lib/policy/rework.ts';
@@ -177,7 +178,7 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
   try {
     slices = parsePlanSlices(prd.plan);
   } catch (error) {
-    return ungraded(firstClause((error as Error).message)); // ts-allow: the plan parser throws only Error
+    return ungraded(firstClause(messageOf(error)));
   }
 
   const sharedGround = [...new Set(collisions(slices).flatMap((pair) => pair.shared))];

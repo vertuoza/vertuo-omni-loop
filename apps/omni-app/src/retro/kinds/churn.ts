@@ -273,7 +273,7 @@ function rewritten({ lines, commits }: Pick<Walked, 'lines' | 'commits'>): Rewri
     .flatMap(([path, followed]) =>
       rewrittenRanges(followed, THRESHOLDS.churnRangeCommits).map((range) => {
         const shas = [...range.commits].sort(byIndex);
-        return { path, from: range.from, to: range.to, shas, slices: unique(shas.map((sha) => commits.get(sha)!.slice)) }; // ts-allow: as above
+        return { path, from: range.from, to: range.to, shas, slices: unique(shas.map((sha) => commits.get(sha)!.slice)) }; // ts-allow: every sha a followed line names is a commit walked
       }),
     )
     .sort((a, b) => b.shas.length - a.shas.length || a.path.localeCompare(b.path) || a.from - b.from);

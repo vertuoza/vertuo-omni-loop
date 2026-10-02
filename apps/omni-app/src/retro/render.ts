@@ -259,7 +259,8 @@ export function verdictComment({
 }
 
 function minutesBetween(from: string | null, to: string | null): number | null {
-  const ms = Date.parse(to as string) - Date.parse(from as string); // ts-allow: a missing time parses as NaN, which reads as not known
+  if (from === null || to === null) return null;
+  const ms = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms) ? Math.round(ms / 60000) : null;
 }
 
