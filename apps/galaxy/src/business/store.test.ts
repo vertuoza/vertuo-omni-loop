@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { planPick, type Claim } from './model';
 import { callsOf, confirmCalls, COULD_NOT_SAVE, databaseBusiness, demoBusinessPort, INVALID, NOT_MEMBER, refusalOf, run, type Step } from './store';
+import { sure } from '../arcade/sure';
+import { sentOf } from './json.fake';
 
 // Settings → Business's calls (PRD 748 s2): claim_pick() and claim_set_state(), as the signed-in
 // person, each answering the row it saved or a refusal the page shows; a re-pick of a one-value kind,
@@ -11,11 +13,11 @@ function db(answers: Array<{ data?: unknown; error?: unknown } | Error>) {
   const calls: [string, unknown][] = [];
   return {
     calls,
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
       const answer = answers[Math.min(calls.length - 1, answers.length - 1)];
-      if (answer instanceof Error) throw answer;
-      return { data: answer!.data ?? null, error: answer!.error ?? null };
+      if (answer instanceof Error) return Promise.reject(answer);
+      return Promise.resolve({ data: sure(answer, 'answer').data ?? null, error: sure(answer, 'answer').error ?? null });
     },
   };
 }
@@ -33,7 +35,7 @@ describe('the database calls', () => {
   it('picks a region on the business, with no product', async () => {
     const d = db([{ data: row({ kind: 'region', value: 'Belgium', product_id: null }) }]);
     await databaseBusiness(d, 'ws-1', 'p-1').pick('region', 'Belgium');
-    expect(d.calls[0]![1]).toMatchObject({ p_product: null, p_kind: 'region' });
+    expect(sure(d.calls[0], 'd.calls[0]')[1]).toMatchObject({ p_product: null, p_kind: 'region' });
   });
 
   it('sets ✓ and ✗ with claim_set_state()', async () => {
@@ -68,8 +70,8 @@ describe('a re-pick', () => {
     const port = databaseBusiness(d, 'ws-1', 'p-1');
     expect(await run(callsOf(port, 'size', planPick([old], 'size', '5-100')), (s) => steps.push(s))).toBe(true);
     expect(d.calls.map((c) => c[0])).toEqual(['claim_set_state', 'claim_pick']);
-    expect(d.calls[0]![1]).toMatchObject({ p_claim: 'c-2', p_state: 'rejected' });
-    expect(d.calls[1]![1]).toMatchObject({ p_kind: 'size', p_value: '5-100' });
+    expect(sure(d.calls[0], 'd.calls[0]')[1]).toMatchObject({ p_claim: 'c-2', p_state: 'rejected' });
+    expect(sure(d.calls[1], 'd.calls[1]')[1]).toMatchObject({ p_kind: 'size', p_value: '5-100' });
     expect(steps.map((s) => s.type === 'saved' && [s.claim.value, s.claim.state])).toEqual([['2-50', 'rejected'], ['5-100', 'confirmed']]);
   });
 
@@ -110,10 +112,10 @@ describe('the demo', () => {
 describe('suggested rivals', () => {
   function stubFetch(reply: { ok: boolean; body?: unknown } | Error) {
     const calls: Array<[string, RequestInit]> = [];
-    const fetch = (async (url: string, init: RequestInit) => {
+    const fetch = ((url: string, init: RequestInit) => {
       calls.push([url, init]);
-      if (reply instanceof Error) throw reply;
-      return { ok: reply.ok, json: async () => reply.body } as Response;
+      if (reply instanceof Error) return Promise.reject(reply);
+      return Promise.resolve({ ok: reply.ok, json: () => Promise.resolve(reply.body) } as Response);
     }) as unknown as typeof globalThis.fetch;
     return { calls, fetch };
   }
@@ -122,9 +124,9 @@ describe('suggested rivals', () => {
     const s = stubFetch({ ok: true, body: { claims: [row({ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed' })] } });
     const found = await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest();
     expect(found).toEqual([{ id: 'c-7', seq: 7, kind: 'rival', value: 'Alpha', source: 'suggestion', state: 'proposed', product: 'p-1', cited: 0, lastBy: null }]);
-    expect(s.calls[0]![0]).toBe('/api/business/suggest-rivals');
-    expect(s.calls[0]![1].method).toBe('POST');
-    expect(JSON.parse(String(s.calls[0]![1].body))).toEqual({ workspace: 'ws-1', product: 'p-1' });
+    expect(sure(s.calls[0], 's.calls[0]')[0]).toBe('/api/business/suggest-rivals');
+    expect(sure(s.calls[0], 's.calls[0]')[1].method).toBe('POST');
+    expect(sentOf(sure(s.calls[0], 's.calls[0]')[1].body)).toEqual({ workspace: 'ws-1', product: 'p-1' });
   });
 
   it('finds no guess, and says nothing, on a refusal, a broken body or no network', async () => {
@@ -145,7 +147,7 @@ describe('suggested rivals', () => {
   it('asks for the product it is given (PRD 748 s4)', async () => {
     const s = stubFetch({ ok: true, body: { claims: [] } });
     await databaseBusiness(db([]), 'ws-1', 'p-1', s.fetch).suggest('p-2');
-    expect(JSON.parse(String(s.calls[0]![1].body))).toEqual({ workspace: 'ws-1', product: 'p-2' });
+    expect(sentOf(sure(s.calls[0], 's.calls[0]')[1].body)).toEqual({ workspace: 'ws-1', product: 'p-2' });
   });
 });
 
@@ -155,8 +157,8 @@ describe('products (PRD 748 s4)', () => {
     const port = databaseBusiness(d, 'ws-1', 'p-1');
     await port.pick('offering', 'ERP', 'p-2');
     await port.pick('region', 'Belgium', 'p-2');
-    expect(d.calls[0]![1]).toMatchObject({ p_product: 'p-2' });
-    expect(d.calls[1]![1]).toMatchObject({ p_product: null });
+    expect(sure(d.calls[0], 'd.calls[0]')[1]).toMatchObject({ p_product: 'p-2' });
+    expect(sure(d.calls[1], 'd.calls[1]')[1]).toMatchObject({ p_product: null });
   });
 
   it('makes a plan\'s pick on the product it is given', async () => {

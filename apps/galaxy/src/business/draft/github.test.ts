@@ -14,16 +14,16 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 function github(files: Record<string, unknown>) {
   const asked: string[] = [];
-  const fetch = async (raw: string, init: RequestInit) => {
+  const fetch = (raw: string, init: RequestInit) => {
     const url = new URL(raw);
     if (url.pathname === '/app/installations/11/access_tokens' && init.method === 'POST') {
-      return json({ token: 'ghs_1', expires_at: new Date(NOW + 3_600_000).toISOString() }, 201);
+      return Promise.resolve(json({ token: 'ghs_1', expires_at: new Date(NOW + 3_600_000).toISOString() }, 201));
     }
     asked.push(url.pathname);
     expect(new Headers(init.headers).get('authorization')).toBe('Bearer ghs_1');
     const found = files[url.pathname.replace('/repos/acme/widgets/contents/', '')];
-    if (found === undefined) return json({ message: 'Not Found' }, 404);
-    return typeof found === 'string' ? new Response(found) : json(found);
+    if (found === undefined) return Promise.resolve(json({ message: 'Not Found' }, 404));
+    return Promise.resolve(typeof found === 'string' ? new Response(found) : json(found));
   };
   return { reader: repoReader(CREDS, fetch, () => NOW), asked };
 }

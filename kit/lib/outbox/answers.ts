@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { OutboxItem, OutboxOption } from '../types.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 import { parseItem } from './settle.ts';
+import { plainText } from './plain-text.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -74,7 +75,7 @@ export type CommentNumbering = readonly { number: number; id: string; since?: st
  * two halves into another — and the rest is cut to {@link REASON_MAX_LENGTH} characters.
  */
 export function cleanLine(text: unknown): string {
-  let line = String(text ?? '');
+  let line = plainText(text);
   let previous: string;
   do {
     previous = line;
@@ -190,7 +191,7 @@ export function answerableQuestions({
       number,
       id,
       rank: item.rank,
-      options: item.sections?.options ?? [],
+      options: item.sections.options ?? [],
       adopted: !open.has(id),
       item,
     });
@@ -200,7 +201,7 @@ export function answerableQuestions({
 
 /** The text a question is asked with: the question and the decision, in plain words. */
 function askedText(item: OutboxItem): string {
-  const sections = item.sections ?? {};
+  const { sections } = item;
   return [sections.questionPlain ?? sections.whatIHadToDecide, sections.decisionPlain]
     .filter((part): part is string => Boolean(part))
     .map((part) => part.replace(/\s+/g, ' ').trim())
@@ -227,7 +228,7 @@ export function askBatches({ numbering, items }: { numbering: CommentNumbering; 
         rank,
         header: `Q${number} · ${isAction ? 'action' : rank}`,
         text: askedText(item),
-        ...(isAction ? { steps: (item.sections?.personSteps ?? '').trim() } : {}),
+        ...(isAction ? { steps: (item.sections.personSteps ?? '').trim() } : {}),
         options: isAction
           ? [
               { pick: 'done', label: 'Done', text: 'It is done.' },

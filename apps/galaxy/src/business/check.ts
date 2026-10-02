@@ -107,7 +107,7 @@ export function settled(claims: readonly Claim[], saved: Claim): Claim[] {
 /** The saved row, with the receipts and citations the page read. */
 function keptAsRead(saved: Claim, was: Claim | undefined): Claim {
   if (!was) return saved;
-  return { ...saved, cited: was.cited ?? saved.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
+  return { ...saved, cited: was.cited, lastBy: was.lastBy ?? saved.lastBy, ...(was.receipts ? { receipts: was.receipts } : {}) };
 }
 
 /** The old side of an answered replacement takes the other state; any other claim stays as it is. */

@@ -68,7 +68,7 @@ export function readTranscript(text: unknown): TranscriptFacts {
   const usage = new Map<string, object>();
   for (const raw of typeof text === 'string' ? text.split('\n') : []) {
     if (!raw.trim()) continue;
-    const entry: unknown = attempt(() => JSON.parse(raw));
+    const entry = attempt((): unknown => JSON.parse(raw));
     const message = field(entry, 'message');
     if (!message || typeof message !== 'object') continue;
     const type = field(entry, 'type');
@@ -131,7 +131,7 @@ export function sessionContext(root: string): { repo: string | null } {
 export function askContext({ root, input, exec = execFileSync }: { root: string; input: unknown; exec?: ExecText }): AskContext {
   const config = attempt(() => loadConfig(root));
   const cwd = textOrNull(field(input, 'cwd')) ?? root;
-  const head = attempt(() => String(exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, ...QUIET })).trim());
+  const head = attempt(() => exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, ...QUIET }).trim());
   const branch = head && head !== 'HEAD' ? head : null;
   const folders = config ? attempt(() => readdirSync(join(root, config.paths.delivery, 'inbox'))) ?? [] : [];
   const prd = config ? attempt(() => prdOfBranch(branch, { branches: config.branches, folders })) : null;
@@ -139,7 +139,7 @@ export function askContext({ root, input, exec = execFileSync }: { root: string;
   const path = typeof transcriptPath === 'string' ? transcriptPath : null;
   const transcript = (path && attempt(() => readTranscript(readFileSync(path, 'utf8')))) || { skill: null, model: null, tokens: null };
   return {
-    repo: config?.repo?.slug ?? null,
+    repo: config?.repo.slug ?? null,
     branch,
     prd,
     claudeSessionId: textOrNull(field(input, 'session_id')),

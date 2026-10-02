@@ -95,36 +95,36 @@ export function demoPersonasPort(initial: readonly Persona[] = []): PersonaPort 
   let next = Math.max(0, ...initial.map((p) => p.ordinal)) + 1;
   const refused = (field: string): SavedPersona => ({ ok: false, message: INVALID_FIELD[field] ?? INVALID });
   return {
-    async add(product, fields) {
+    add(product, fields) {
       const bad = invalidField(fields);
-      if (bad) return refused(bad);
+      if (bad) return Promise.resolve(refused(bad));
       const persona: Persona = { id: `demo-persona-${next}`, product, ordinal: next, ...trimmed(fields) };
       next += 1;
       personas = [...personas, persona];
-      return { ok: true, persona };
+      return Promise.resolve({ ok: true, persona });
     },
-    async edit(id, fields) {
+    edit(id, fields) {
       const bad = invalidField(fields);
-      if (bad) return refused(bad);
+      if (bad) return Promise.resolve(refused(bad));
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
       const persona = { ...kept, ...trimmed(fields) };
       personas = personas.map((p) => (p.id === id ? persona : p));
-      return { ok: true, persona };
+      return Promise.resolve({ ok: true, persona });
     },
-    async remove(id) {
+    remove(id) {
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
       personas = personas.filter((p) => p.id !== id);
       deleted.set(id, kept);
-      return { ok: true, persona: kept };
+      return Promise.resolve({ ok: true, persona: kept });
     },
-    async restore(id) {
+    restore(id) {
       const kept = deleted.get(id);
-      if (!kept) return { ok: false, message: GONE };
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
       deleted.delete(id);
       personas = [...personas, kept];
-      return { ok: true, persona: kept };
+      return Promise.resolve({ ok: true, persona: kept });
     },
   };
 }

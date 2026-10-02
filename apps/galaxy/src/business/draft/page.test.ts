@@ -12,7 +12,7 @@ const DNS: Record<string, string[]> = {
   'metadata.example.com': ['169.254.169.254'],
   'v6loop.example.com': ['::1'],
 };
-const lookup: Lookup = async (host) => DNS[host] ?? [];
+const lookup: Lookup = (host) => Promise.resolve(DNS[host] ?? []);
 
 const refused = async (promise: Promise<unknown>) => {
   const error = await promise.then(() => null, (e: unknown) => e);
@@ -72,13 +72,13 @@ type Route = { status?: number; headers?: Record<string, string>; body?: string 
 
 function site(routes: Record<string, Route>) {
   const asked: string[] = [];
-  const fetch = (async (input: URL | string, init: RequestInit) => {
+  const fetch = ((input: URL | string, init: RequestInit) => {
     const url = String(input);
     asked.push(url);
     expect(init.redirect).toBe('manual');
     const route = routes[url];
-    if (!route) return new Response('missing', { status: 404 });
-    return new Response(route.body ?? '', { status: route.status ?? 200, headers: route.headers ?? { 'content-type': 'text/html' } });
+    if (!route) return Promise.resolve(new Response('missing', { status: 404 }));
+    return Promise.resolve(new Response(route.body ?? '', { status: route.status ?? 200, headers: route.headers ?? { 'content-type': 'text/html' } }));
   }) as unknown as typeof globalThis.fetch;
   return { fetch, asked };
 }
