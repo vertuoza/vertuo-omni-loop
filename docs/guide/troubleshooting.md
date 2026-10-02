@@ -142,7 +142,7 @@ Two related lines:
 
   ```yaml file=.omni-loop/config.yml
   ask:
-    url: https://vertuo-omni-loop-galaxy.vercel.app
+    url: https://www.omni-loop.xyz
   ```
 
 - **`off`**, instead of a dossier link: dossiers are switched off in this repository. Nothing is
@@ -153,6 +153,31 @@ Two related lines:
   dossier:
     enabled: true
   ```
+
+## Your config still names vertuo-omni-loop-galaxy.vercel.app
+
+The Omni Loop app lives at `https://www.omni-loop.xyz`. A repository installed before it moved there
+names the old address, `https://vertuo-omni-loop-galaxy.vercel.app`, as its `ask.url` in
+`.omni-loop/config.yml`. Nothing is broken: the old address keeps working, with every page, sign-in,
+dossiers and ask mode, and so do the links your signed pull requests and issues already carry. You
+do not have to change anything.
+
+To switch, when you want to, set `ask.url` to the new address in `.omni-loop/config.yml`, then commit
+and merge the change:
+
+```yaml file=.omni-loop/config.yml
+ask:
+  url: https://www.omni-loop.xyz
+```
+
+If your config also sets `signature.home`, switch it the same way, so that new signatures link to
+the new address. If it does not set it, there is nothing to do: the kit's default is the new address in every kit
+since the move, and `omni update` brings one to a repository whose kit is older.
+
+```yaml file=.omni-loop/config.yml
+signature:
+  home: https://www.omni-loop.xyz
+```
 
 ## `refused (403): you are not a member of <workspace>, which owns <owner/repo>`
 
