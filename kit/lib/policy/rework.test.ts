@@ -379,7 +379,7 @@ describe('A feature that drifted is brought back in line', () => {
       const before = settled.split('\n');
       const after = closed.split('\n');
       expect(after).toHaveLength(before.length);
-      const changed = before.map((line, index) => index).filter((i) => before[i] !== after[i]);
+      const changed = before.map((_line, index) => index).filter((i) => before[i] !== after[i]);
       expect(changed).toHaveLength(1);
       const line = nth(changed, 0, 'the changed line');
       expect(before[line]).toMatch(/^- Closed: no\b/);
