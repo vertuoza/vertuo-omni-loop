@@ -326,7 +326,7 @@ Low: swapping a cast for a schema parse is a local edit per read, with no stored
 - Channel: feature pull request #943
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/943#issuecomment-5950218333
 - Basis: contradiction-marker — the answer says "no", "not", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #968, the sub-pull request that brought the build back in line
 - Rank: high
 - Became: playbook/architecture#boundaries
 - Bears on: ADR-0002
