@@ -21,6 +21,7 @@ import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } f
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { CommentClient } from '../../lib/outbox/comment.ts';
 import type { Context } from '../../lib/context.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json] | ' +
@@ -58,7 +59,7 @@ function printBatches(stdout: Out, batches: ReturnType<typeof askBatches>): void
   });
 }
 
-async function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
+function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
   const { positional, flags } = parseArgs('answers', args, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const prd = positiveInt('answers', '<prd>', positional[0]);
@@ -86,7 +87,7 @@ async function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo
   return 0;
 }
 
-async function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): Promise<number> {
+function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
   const { positional, flags } = parseArgs('answers', args, {
     values: ['prd', 'pr', 'repo', 'answers'],
     booleans: ['print'],
@@ -137,10 +138,10 @@ async function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandI
 }
 
 export const answers: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const [verb, ...rest] = args;
     if (verb === 'ask') return ask(rest, io);
     if (verb === 'post') return post(rest, io);
     throw usageError(USAGE);
-  },
+  }),
 };
