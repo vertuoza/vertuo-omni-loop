@@ -1,6 +1,6 @@
 import { PERSONA_TRADES, personaVariations, randomAvatar, type PersonaAvatar } from '@omni/design';
 import { hasProducts, type Product } from './model';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas (PRD 799 s3): a product's cast, the team's own picture of its
 // customers. Each persona has a name, a stance, a trade, an avatar into that trade's sprite variations
@@ -81,8 +81,11 @@ export const tradeLabel = (trade: string) => PERSONA_TRADES.find((t) => t.id ===
 /** True when the page can draw the trade: the database takes any short lower-case word. */
 export const drawable = (trade: string) => PERSONA_TRADES.some((t) => t.id === trade);
 
+/** An avatar's version, read as a number: the type names one version, a stored row may hold another. */
+const versionOf = (avatar: PersonaAvatar): number => avatar.v;
+
 export const sameAvatar = (a: PersonaAvatar, b: PersonaAvatar) =>
-  a.v === b.v && a.skin === b.skin && a.hair === b.hair && a.hairColor === b.hairColor && a.outfit === b.outfit && a.accessory === b.accessory;
+  versionOf(a) === versionOf(b) && a.skin === b.skin && a.hair === b.hair && a.hairColor === b.hairColor && a.outfit === b.outfit && a.accessory === b.accessory;
 
 const byOrdinal = (a: Persona, b: Persona) => a.ordinal - b.ordinal;
 
@@ -140,7 +143,7 @@ export const initialPersonasState = (personas: Persona[] = []): PersonasState =>
 });
 
 /** The first trade: where a new persona starts. */
-const FIRST_TRADE = PERSONA_TRADES[0]!.id;
+const FIRST_TRADE = at(PERSONA_TRADES, 0, 'the first trade').id;
 
 const blankFields = (seed: string): PersonaFields => ({
   name: '', stance: 'neutral', trade: FIRST_TRADE, avatar: randomAvatar(seed), who: '', usage: '',

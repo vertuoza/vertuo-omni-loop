@@ -1,11 +1,13 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
 import { claimOf, type Claim, type Product, type StoredCitation, type StoredClaim, type StoredReceipt } from './model';
 import { CLAIM_COLUMNS, DRAFT_COLUMNS, draftOf, RECEIPT_COLUMNS } from './draft-port';
 import type { DraftView, WebPage } from './reveal';
 import { PERSONA_COLUMNS, personaOf, type Persona, type StoredPersona } from './personas';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { rowsOr, type RpcAnswer } from './answer';
 
 // Settings → Business's read (PRD 748 s2), as the signed-in person, so row-level security decides what
 // it returns: their workspace (the one joined first, as /app's); its business, opened with
@@ -40,7 +42,8 @@ export type BusinessLoad =
 const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 async function openBusiness(db: SupabaseClient, workspace: string): Promise<string> {
-  const { data, error } = await db.rpc('business_open', { p_workspace: workspace });
+  const answer: RpcAnswer = await db.rpc('business_open', { p_workspace: workspace });
+  const { data, error } = answer;
   const id = propertyOf(data, 'id');
   if (error || typeof id !== 'string') throw new Error(`Supabase: could not open the business (${error?.message ?? 'no business'})`);
   return id;
@@ -57,13 +60,13 @@ async function productsOf(db: SupabaseClient, business: string): Promise<Product
 async function claimsOf(db: SupabaseClient, business: string): Promise<StoredClaim[]> {
   const { data, error } = await db.from('claims').select(CLAIM_COLUMNS).eq('business_id', business);
   if (error) throw new Error(`Supabase: could not read the claims (${error.message})`);
-  return (data ?? []) as StoredClaim[]; // ts-allow: the select names CLAIM_COLUMNS, the columns of StoredClaim
+  return rowsOr<StoredClaim>(data);
 }
 
 async function citationsOf(db: SupabaseClient, workspace: string): Promise<StoredCitation[]> {
   const { data, error } = await db.from('claim_citations').select('claim_id, cited_by, ref, cited_at').eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the citations (${error.message})`);
-  return (data ?? []) as StoredCitation[]; // ts-allow: the select names the columns of StoredCitation
+  return rowsOr<StoredCitation>(data);
 }
 
 /** A read the page can do without: logged, and read as `none`. */
@@ -76,7 +79,7 @@ async function optional<T>(what: string, read: PromiseLike<{ data: unknown; erro
   return (data ?? none) as T; // ts-allow: T is the shape the caller's select names; the client answers its rows untyped
 }
 
-export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<BusinessLoad> {
+export async function loadBusinessPage(db: SupabaseClient<Database>, user: User): Promise<BusinessLoad> {
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
@@ -90,7 +93,7 @@ export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<
     ]);
     const claims = stored.map((c) => claimOf(c, citations, receipts)).sort((a, b) => a.seq - b.seq);
     return {
-      kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0]!, products, claims,
+      kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: at(products, 0, 'the first product'), products, claims,
       draft: drafts[0] ? draftOf(drafts[0]) : null,
       pages: pages.map(({ id, url }) => ({ id, url })),
       personas: cast.map(personaOf),

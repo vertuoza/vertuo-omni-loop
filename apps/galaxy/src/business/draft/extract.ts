@@ -21,7 +21,7 @@ const MAX_SOURCE_CHARS = 24_000;
 const MAX_CANDIDATES = 20;
 const KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const satisfies readonly ClaimKind[];
 
-const Answer = z.array(z.object({ kind: z.string(), value: z.string(), quote: z.string() }).passthrough());
+const Answer = z.array(z.looseObject({ kind: z.string(), value: z.string(), quote: z.string() }));
 
 const SYSTEM = [
   'You read one document of a software company and find what it says about the company\'s business.',
