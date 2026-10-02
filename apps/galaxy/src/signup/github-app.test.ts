@@ -1,13 +1,14 @@
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl } from './github-app';
+import { item } from '../ask/test-item';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const CREDS = { appId: '123456', privateKey: PEM };
 const NOW = Date.parse('2026-09-28T10:00:00Z');
 
-const part = (jwt: string, i: number) => JSON.parse(Buffer.from(jwt.split('.')[i]!, 'base64url').toString('utf8'));
+const part = (jwt: string, i: number) => JSON.parse(Buffer.from(item(jwt.split('.'), i), 'base64url').toString('utf8'));
 
 describe('the App\'s JWT', () => {
   it('is signed RS256 with the App\'s key, issued by the App, for under ten minutes', () => {

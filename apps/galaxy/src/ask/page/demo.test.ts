@@ -6,6 +6,7 @@ import {
 import { questionView } from './question';
 import { firstTab, needsYou, rowOf, tabsOf } from './tabs';
 import { sessionView } from './view';
+import { item } from '../test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 
@@ -37,8 +38,8 @@ describe('the demo session', () => {
     expect(tabs).toHaveLength(3);
     expect(new Set(tabs.map((t) => t.title)).size).toBe(3);
     expect(tabs.map((t) => t.state)).toEqual(['needs-you', 'working', 'working']);
-    expect(demoPane(firstTab(tabs)!, 'open', NOW).session.id).toBe(tabs[0]!.id);
-    expect(sessionView(demoPane(tabs[0]!.id, 'open', NOW), NOW).kind).toBe('open');
+    expect(demoPane(firstTab(tabs)!, 'open', NOW).session.id).toBe(item(tabs, 0).id);
+    expect(sessionView(demoPane(item(tabs, 0).id, 'open', NOW), NOW).kind).toBe('open');
   });
 
   it("plays a PRD 71 link's session as before, and the other states on the first terminal", () => {
@@ -53,7 +54,7 @@ describe('the demo session', () => {
     const port = demoPort(demoState('any', 'open', NOW), () => clock.now, 4000);
     const open = sessionView((await port.read())!, clock.now);
     if (open.kind !== 'open') throw new Error(open.kind);
-    const answers = Object.fromEntries(open.questions.map((q) => [q.question, q.options[0]!.label]));
+    const answers = Object.fromEntries(open.questions.map((q) => [q.question, item(q.options, 0).label]));
     expect(await port.send(open.round.id, answers)).toBe('answered');
     expect(await port.send(open.round.id, answers)).toBe('taken');
     expect(sessionView((await port.read())!, clock.now).kind).toBe('working');

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
+import { item } from './test-item';
 
 // The classifier (PRD 144's spec, "Six categories"): one call to OpenRouter, stubbed here, and a reply
 // held to the six values. Anything else, an error or a timeout gives null, and nothing retries.
@@ -74,10 +75,10 @@ describe('the OpenRouter classifier', () => {
     const classify = openRouterClassifier({ apiKey: 'sk-or-test', fetch });
     expect(await classify(INPUT)).toBe('business');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect(calls[0]!.init.method).toBe('POST');
-    expect(new Headers(calls[0]!.init.headers).get('authorization')).toBe('Bearer sk-or-test');
-    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(item(calls, 0).url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(item(calls, 0).init.method).toBe('POST');
+    expect(new Headers(item(calls, 0).init.headers).get('authorization')).toBe('Bearer sk-or-test');
+    const body = JSON.parse(String(item(calls, 0).init.body));
     expect(typeof body.model).toBe('string');
     const prompt = body.messages.map((m: { content: string }) => m.content).join('\n');
     for (const category of CATEGORIES) expect(prompt).toContain(category);
@@ -92,7 +93,7 @@ describe('the OpenRouter classifier', () => {
     const { calls, fetch } = stub(() => completion('architecture'));
     const withPreview = { ...INPUT, questions: [{ question: 'Which table?', options: [{ label: 'A', preview: 'create table secret_preview ();' }] }] };
     await openRouterClassifier({ apiKey: 'k', fetch })(withPreview);
-    expect(String(calls[0]!.init.body)).not.toContain('secret_preview');
+    expect(String(item(calls, 0).init.body)).not.toContain('secret_preview');
   });
 
   it('gives null for a reply outside the six', async () => {

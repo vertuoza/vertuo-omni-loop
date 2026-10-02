@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { item } from '../test-item';
 
 // The three Questions pages (PRD 733), called as the server calls them with their reads stubbed: each
 // starts with the Questions tabs, its own tab marked, whatever it shows below; a teammate's session,
@@ -53,7 +54,7 @@ describe('the Questions pages start with their tabs', () => {
     expect(tabsOf(await ForMePage(query))).toBe('/ask/for-me');
     given.read = { kind: 'entries', entries: [] };
     const parts = partsOf(await ForMePage(query));
-    expect(parts[0]!.type).toBe(QuestionsTabs);
+    expect(item(parts, 0).type).toBe(QuestionsTabs);
     expect(parts).toHaveLength(2);
   });
 
