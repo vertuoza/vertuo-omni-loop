@@ -6,6 +6,7 @@ import { questionsOf } from './model';
 import { databaseQuestions, demoQuestions } from './port';
 import { BRING_BACK, NO_QUESTIONS, QuestionsCard, setAsideLabel } from './QuestionsCard';
 import { initialQuestionsState, questionsReducer } from './state';
+import { sure } from '../../arcade/sure';
 
 // Jev set aside (PRD 855 s4): a question Jev's Unknown worth asking set aside is folded under "Jev set
 // aside N" at the bottom of the card, with Bring back, which reopens it through
@@ -24,8 +25,8 @@ const render = (questions: AgentQuestion[], demo = false) =>
 
 describe('set aside by Jev', () => {
   it('reads `setAside` from the database, and a list without it as open', () => {
-    expect(questionsOf([SKY])?.[0]!.setAside).toBe(true);
-    expect(questionsOf([OPEN])?.[0]!.setAside).toBeUndefined();
+    expect(sure(questionsOf([SKY])?.[0], 'questionsOf([SKY])?.[0]').setAside).toBe(true);
+    expect(sure(questionsOf([OPEN])?.[0], 'questionsOf([OPEN])?.[0]').setAside).toBeUndefined();
   });
 
   it('folds the set-aside questions under "Jev set aside N", each with Bring back, below the open ones', () => {
@@ -37,7 +38,7 @@ describe('set aside by Jev', () => {
     expect(openPart).not.toContain('Is the sky blue?');
     expect(folded).toContain('Is the sky blue?');
     expect(folded).toContain('test test');
-    expect(folded!.match(new RegExp(`>${BRING_BACK}<`, 'g'))).toHaveLength(2);
+    expect(sure(folded, 'folded').match(new RegExp(`>${BRING_BACK}<`, 'g'))).toHaveLength(2);
     expect(folded).not.toContain('Answer once');
   });
 
@@ -63,10 +64,10 @@ describe('set aside by Jev', () => {
 
   it('calls agent_question_bring_back as the signed-in person; the demo brings back in memory', async () => {
     const calls: unknown[] = [];
-    const db = { rpc: async (fn: string, args: Record<string, unknown>) => (calls.push({ fn, args }), { data: { id: 'sky' }, error: null }) };
+    const db = { rpc: (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return Promise.resolve({ data: { id: 'sky' }, error: null }); } };
     expect(await databaseQuestions(db, 'w-1').bringBack(SKY)).toEqual({ ok: true });
     expect(calls).toEqual([{ fn: 'agent_question_bring_back', args: { p_workspace: 'w-1', p_question: 'sky' } }]);
-    const refused = { rpc: async () => ({ data: null, error: { code: 'P0002', message: 'no such set-aside question' } }) };
+    const refused = { rpc: () => Promise.resolve({ data: null, error: { code: 'P0002', message: 'no such set-aside question' } }) };
     expect((await databaseQuestions(refused, 'w-1').bringBack(SKY)).ok).toBe(false);
     expect(await demoQuestions(3).bringBack(SKY)).toEqual({ ok: true });
   });

@@ -52,8 +52,7 @@ function RepositoriesBody({ view }: { view: RepositoriesScreenView }) {
         </Notice>
       );
     case 'repositories': {
-      const { kind: _, ...props } = view;
-      return <RepositoriesPage {...props} />;
+      return <RepositoriesPage source={view.source} owner={view.owner} repositories={view.repositories} access={view.access} now={view.now} products={view.products} />;
     }
   }
 }

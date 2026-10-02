@@ -18,34 +18,41 @@ export function fakeSendStore(viewer: string, dossiers: FakeDossier[]) {
   const sends: Array<SendRow & { owner: string }> = [];
   let next = 1;
   const store: SendStore = {
-    async target(dossierId): Promise<SendTarget | null> {
+    target(dossierId): Promise<SendTarget | null> {
       const d = dossiers.find((x) => x.id === dossierId && x.members.includes(viewer));
-      return d ? { dossierId: d.id, homeRepo: d.homeRepo, prd: d.prd } : null;
+      return Promise.resolve(d ? { dossierId: d.id, homeRepo: d.homeRepo, prd: d.prd } : null);
     },
-    async create({ dossierId, prNumber, reply, nonceHash }) {
-      if (!dossiers.some((x) => x.id === dossierId && x.members.includes(viewer))) throw new Error('row-level security refused the send');
+    create({ dossierId, prNumber, reply, nonceHash }) {
+      if (!dossiers.some((x) => x.id === dossierId && x.members.includes(viewer))) return Promise.reject(new Error('row-level security refused the send'));
       const id = `00000000-0000-4000-8000-${String(next++).padStart(12, '0')}`;
       sends.push({
         id, owner: viewer, dossier_id: dossierId, pr_number: prNumber, reply, nonce_hash: nonceHash,
         created_at: '2026-09-28T10:05:00.000Z', posted_at: null, comment_url: null, login: null, counted: null, error: null,
       });
-      return id;
+      return Promise.resolve(id);
     },
-    async read(sendId) {
+    read(sendId) {
       const send = sends.find((s) => s.id === sendId && s.owner === viewer);
-      if (!send) return null;
-      const { owner: _owner, ...row } = send;
-      return { ...row };
+      return Promise.resolve(send ? ownerless(send) : null);
     },
-    async done(sendId, outcome) {
+    done(sendId, outcome) {
       const send = sends.find((s) => s.id === sendId && s.owner === viewer);
-      if (!send) throw new Error('No such send.');
-      if (send.posted_at !== null || send.error !== null) throw new Error("This send's outcome is already recorded.");
+      if (!send) return Promise.reject(new Error('No such send.'));
+      if (send.posted_at !== null || send.error !== null) return Promise.reject(new Error("This send's outcome is already recorded."));
       if ('error' in outcome) send.error = outcome.error.slice(0, 1000);
       else Object.assign(send, { posted_at: '2026-09-28T10:06:00.000Z', comment_url: outcome.commentUrl, login: outcome.login, counted: outcome.counted });
+      return Promise.resolve();
     },
   };
   return { store, sends };
+}
+
+/** A send as its owner reads it: every column but the owner the fake keeps beside it. */
+function ownerless(send: SendRow & { owner: string }): SendRow {
+  return {
+    id: send.id, dossier_id: send.dossier_id, pr_number: send.pr_number, reply: send.reply, nonce_hash: send.nonce_hash,
+    created_at: send.created_at, posted_at: send.posted_at, comment_url: send.comment_url, login: send.login, counted: send.counted, error: send.error,
+  };
 }
 
 /** PRD 426's reader, as a send uses it: every read counted, every forget recorded. */
@@ -54,9 +61,9 @@ export function fakeOutboxSource(summary: GithubSummary | null) {
   const forgotten: string[] = [];
   const state = { summary };
   const source: OutboxSource = {
-    async fresh(ref) {
+    fresh(ref) {
       reads.push(ref.id);
-      return state.summary;
+      return Promise.resolve(state.summary);
     },
     forget(id) {
       forgotten.push(id);
@@ -69,23 +76,32 @@ export type GitHubCall = { url: string; method: string; headers: Record<string, 
 
 type Answer = { status: number; body?: unknown } | 'down';
 
+/** The address a call asked for, whichever way fetch was handed it. */
+const urlOf = (input: string | URL | Request): string => (typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+
+/** A call's body as text: a send posts JSON text, so any other body is named, to show rather than hide the change. */
+function bodyOf(body: RequestInit['body']): string {
+  if (body === undefined || body === null) return '';
+  return typeof body === 'string' ? body : `<${body.constructor.name}>`;
+}
+
 /** A GitHub answering over fetch: the code exchange, then the comment. Each answer can be changed. */
 export function fakeGitHub({
-  exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } } as Answer, // ts-allow: a test fake's canned answer
+  exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } },
   comment = {
     status: 201,
     body: { html_url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', user: { login: 'ada' }, author_association: 'MEMBER' },
-  } as Answer, // ts-allow: a test fake's canned answer
-} = {}) {
+  },
+}: { exchange?: Answer; comment?: Answer } = {}) {
   const token = 'ghu_user_token_never_kept';
   const calls: GitHubCall[] = [];
   const answers = { exchange, comment };
-  const fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
-    const url = String(input);
-    calls.push({ url, method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers).entries()), body: String(init.body ?? '') });
+  const fetch = (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
+    const url = urlOf(input);
+    calls.push({ url, method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers).entries()), body: bodyOf(init.body) });
     const answer = url.startsWith('https://github.com/login/oauth/access_token') ? answers.exchange : answers.comment;
-    if (answer === 'down') throw new TypeError('fetch failed');
-    return Response.json(answer.body ?? {}, { status: answer.status });
+    if (answer === 'down') return Promise.reject(new TypeError('fetch failed'));
+    return Promise.resolve(Response.json(answer.body ?? {}, { status: answer.status }));
   };
-  return { fetch: fetch as typeof globalThis.fetch, calls, answers, token }; // ts-allow: a test fake answers the calls the code makes
+  return { fetch, calls, answers, token };
 }

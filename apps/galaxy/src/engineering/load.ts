@@ -3,7 +3,8 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
-import { allPages, type Page } from '../data/all-pages';
+import type { Database } from '../../../../supabase/database.types.ts';
+import { allPages } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loadPeople, peopleOf, type People } from '../people/load';
 import { loginsShown, withPeople } from './faced';
@@ -81,7 +82,7 @@ async function peopleFor(reads: EngineeringReads): Promise<People> {
 export type EngineeringBoard = { kind: 'no-workspace' } | { kind: 'board'; name: string; board: Read<EngineeringValue>; repo?: string };
 
 /** The workspace the person joined first, as /app/workspace reads its own; 'unreadable' when it cannot be read. */
-async function workspaceOf(db: SupabaseClient, user: Pick<User, 'id'>): Promise<Workspace | null | 'unreadable'> {
+async function workspaceOf(db: SupabaseClient<Database>, user: Pick<User, 'id'>): Promise<Workspace | null | 'unreadable'> {
   try {
     return await memberWorkspace(db, user.id);
   } catch (error) {
@@ -91,7 +92,7 @@ async function workspaceOf(db: SupabaseClient, user: Pick<User, 'id'>): Promise<
 }
 
 /** The board of the workspace the person joined first. */
-export async function loadEngineeringBoard(db: SupabaseClient, user: Pick<User, 'id'>, request: EngineeringRequest): Promise<EngineeringBoard> {
+export async function loadEngineeringBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, request: EngineeringRequest): Promise<EngineeringBoard> {
   const workspace = await workspaceOf(db, user);
   if (workspace === 'unreadable') return { kind: 'board', name: 'Engineering', board: UNREADABLE };
   if (!workspace) return { kind: 'no-workspace' };
@@ -100,7 +101,7 @@ export async function loadEngineeringBoard(db: SupabaseClient, user: Pick<User, 
 
 /** One repository's board in that workspace (PRD 645 s2); not tracked when the workspace does not track it. */
 export async function loadEngineeringRepositoryBoard(
-  db: SupabaseClient, user: Pick<User, 'id'>, repo: string, request: EngineeringRequest,
+  db: SupabaseClient<Database>, user: Pick<User, 'id'>, repo: string, request: EngineeringRequest,
 ): Promise<EngineeringBoard | { kind: 'not-tracked' }> {
   const workspace = await workspaceOf(db, user);
   if (workspace === 'unreadable') return { kind: 'board', name: 'Engineering', board: UNREADABLE, repo };
@@ -122,12 +123,14 @@ type StoredReview = { repo: string; number: number; reviewer: string; first_at: 
 
 const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at, status_state, needs_fix_at';
 
-export function supabaseEngineeringReads(db: SupabaseClient, workspace: string): EngineeringReads {
+export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace: string): EngineeringReads {
   return {
     async tracked() {
-      const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
+      // `data` is widened to null: the rows are read here unparsed.
+      const { data, error }: { data: Array<{ full_name: string }> | null; error: { message: string } | null } =
+        await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the untyped client answers any rows; the select names full_name, a text column
+      return (data ?? []).map((r) => r.full_name);
     },
     async pullRequests(from, repos) {
       const at = `"${from.toISOString()}"`;

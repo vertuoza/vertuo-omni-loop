@@ -29,7 +29,7 @@ function Rows({ rows, selected, tabLabel, repo, onChoose }: Omit<Props, 'index' 
             data-kind={entry.kind}
             aria-current={entry.id === selected ? 'true' : undefined}
             data-entry={entry.id}
-            onClick={(event) => onChoose(entry.id, event)}
+            onClick={(event) => { onChoose(entry.id, event); }}
           >
             <span className="km-mark" data-status={entry.status} aria-hidden="true" />
             <span className="ask-sr">{`${KIND_LABEL[entry.kind]}, ${entry.status}: `}</span>

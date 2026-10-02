@@ -11,14 +11,17 @@ import { codeToCopy } from './copy';
 
 const SHOWN_MS = 2000;
 
+/** A node's text, read as the DOM's Node gives it: none for a node that holds no text. */
+const textOf = (node: Node): string => node.textContent ?? '';
+
 export function CodeCopy() {
   useEffect(() => {
-    const onClick = async (event: MouseEvent) => {
+    const copyOn = async (event: MouseEvent) => {
       const target = event.target;
       const button = target instanceof Element ? target.closest('.docs-copy') : null;
       const pre = button?.closest('.docs-code')?.querySelector('pre');
       if (!(button instanceof HTMLElement) || !pre) return;
-      const done = await copyLink(codeToCopy(pre.textContent ?? ''), navigator.clipboard, () => {
+      const done = await copyLink(codeToCopy(textOf(pre)), navigator.clipboard, () => {
         const range = document.createRange();
         range.selectNodeContents(pre);
         window.getSelection()?.removeAllRanges();
@@ -32,8 +35,10 @@ export function CodeCopy() {
         button.setAttribute('aria-label', 'Copy the code');
       }, SHOWN_MS);
     };
+    // The listener answers at once; the copy finishes on its own, as it did when the listener was async.
+    const onClick = (event: MouseEvent) => { void copyOn(event); };
     document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    return () => { document.removeEventListener('click', onClick); };
   }, []);
   return null;
 }

@@ -26,7 +26,7 @@ function page(visible = true) {
 }
 
 describe('reading the outbox route', () => {
-  const answer = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  const answer = (status: number, body: unknown) => vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status })));
 
   it('asks GET /api/waiting/outbox and gives its items as the list\'s outbox items, and how many PRDs it could not read', async () => {
     const fetch = answer(200, { items: [wire(item('d1:a'))], unread: 2 });
@@ -42,7 +42,7 @@ describe('reading the outbox route', () => {
   it('fails on an answer it cannot read, and when the network fails', async () => {
     expect(await readOutbox(answer(200, { items: 'no' }))).toEqual({ ok: false, kind: 'shape' });
     expect(await readOutbox(answer(200, { items: [{ id: 'x' }], unread: 0 }))).toEqual({ ok: false, kind: 'shape' });
-    expect(await readOutbox(vi.fn(async () => { throw new Error('offline'); }))).toEqual({ ok: false, kind: 'network' });
+    expect(await readOutbox(vi.fn(() => Promise.reject(new Error('offline'))))).toEqual({ ok: false, kind: 'network' });
   });
 });
 

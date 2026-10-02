@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import { hashToken } from '../tokens/token';
 import { handleMcp, LINK_REFUSED, REPORTED, type McpDeps } from './server';
+import { sure } from '../../arcade/sure';
 
 // The MCP link (PRD 855 s2) driven by the SDK's own client, against a fake store that plays
 // business_for_token() as supabase/migrations/20261028090000_agent_tokens.sql writes it: a live token's
@@ -32,7 +33,9 @@ const NONE = { state: 'none', business: null, product: null, claims: [], persona
 
 type Call = { fn: string; args: Record<string, unknown> };
 
-async function world({ read = READ as unknown, products = 1, database = true, reported = 0, judge = (_id: string): void => {} } = {}) {
+async function world({ read = READ, products = 1, database = true, reported = 0, judge = (): void => {} }: {
+  read?: unknown; products?: number; database?: boolean; reported?: number; judge?: (id: string) => void;
+} = {}) {
   const live = await hashToken(LIVE);
   const revoked = await hashToken(REVOKED);
   const calls: Call[] = [];
@@ -49,12 +52,12 @@ async function world({ read = READ as unknown, products = 1, database = true, re
     }
     return { data: read, error: null };
   };
-  const rpc = async (fn: string, args: Record<string, unknown>) => {
+  const rpc = (fn: string, args: Record<string, unknown>) => {
     calls.push({ fn, args });
     if (args.p_hash !== live || args.p_hash === revoked) {
-      return { data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } };
+      return Promise.resolve({ data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } });
     }
-    return fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null);
+    return Promise.resolve(fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null));
   };
   // Jev's Unknown worth asking (s4): the questions handed to it once reported.
   const judged: string[] = [];
@@ -99,14 +102,14 @@ describe('/api/mcp, the MCP link', () => {
     const { tools } = await client.listTools();
     await client.close();
     expect(tools.map((t) => t.name).sort()).toEqual(['get_business', 'get_claims', 'report_unknown']);
-    const business = tools.find((t) => t.name === 'get_business')!;
+    const business = sure(tools.find((t) => t.name === 'get_business'), 'tools.find((t) => t.name === \'get_business\')');
     expect(business.description).toMatch(/region#1/);
     expect(business.description).toMatch(/report_unknown/);
     expect(business.annotations?.readOnlyHint).toBe(true);
     expect(Object.keys(business.inputSchema.properties ?? {})).toEqual(['repo']);
-    const claims = tools.find((t) => t.name === 'get_claims')!;
+    const claims = sure(tools.find((t) => t.name === 'get_claims'), 'tools.find((t) => t.name === \'get_claims\')');
     expect(Object.keys(claims.inputSchema.properties ?? {}).sort()).toEqual(['kind', 'repo']);
-    const report = tools.find((t) => t.name === 'report_unknown')!;
+    const report = sure(tools.find((t) => t.name === 'report_unknown'), 'tools.find((t) => t.name === \'report_unknown\')');
     expect(Object.keys(report.inputSchema.properties ?? {}).sort()).toEqual(['file', 'question', 'repo']);
   });
 
@@ -118,8 +121,8 @@ describe('/api/mcp, the MCP link', () => {
 
     const deps: BusinessDeps = {
       connect: (() => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'ada', email: 'ada@acme.test' } }, error: null }) },
-        rpc: async () => ({ data: READ, error: null }),
+        auth: { getUser: () => Promise.resolve({ data: { user: { id: 'ada', email: 'ada@acme.test' } }, error: null }) },
+        rpc: () => Promise.resolve({ data: READ, error: null }),
       })) as unknown as NonNullable<BusinessDeps['connect']>,
     };
     const http = await readBusiness(new Request('https://omni.example/api/business?repo=acme/widgets', {
@@ -133,7 +136,7 @@ describe('/api/mcp, the MCP link', () => {
     const { isError, text } = await w.call(LIVE, 'get_business');
     expect(isError).toBe(false);
     expect(JSON.parse(text)).toEqual(READ);
-    expect(w.calls[0]!.args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
+    expect(sure(w.calls[0], 'w.calls[0]').args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
   });
 
   it('several products and no repository: an error naming the tracked repositories', async () => {
@@ -209,7 +212,7 @@ describe('/api/mcp, the MCP link', () => {
     } }]);
     const bare = await w.call(LIVE, 'report_unknown', { question: 'Who are our rivals?' });
     expect(bare.text).toBe(REPORTED);
-    expect(w.calls[1]!.args).toEqual({ p_hash: await hashToken(LIVE), p_question: 'Who are our rivals?', p_repo: null, p_file: null });
+    expect(sure(w.calls[1], 'w.calls[1]').args).toEqual({ p_hash: await hashToken(LIVE), p_question: 'Who are our rivals?', p_repo: null, p_file: null });
   });
 
   it('report_unknown says it was asked before when the same question came again', async () => {
@@ -265,7 +268,7 @@ describe('/api/mcp, the MCP link', () => {
   });
 
   it('a database failure answers one line, never the database\'s message', async () => {
-    const deps: McpDeps = { connect: () => ({ rpc: async () => ({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
+    const deps: McpDeps = { connect: () => ({ rpc: () => Promise.resolve({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
     const client = new Client({ name: 't', version: '1' });
     await client.connect(new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
       requestInit: { headers: { authorization: `Bearer ${LIVE}` } },
@@ -276,7 +279,7 @@ describe('/api/mcp, the MCP link', () => {
     console.error = (...args: unknown[]) => { errors.push(args); };
     try {
       const result = await client.callTool({ name: 'get_business', arguments: {} });
-      const text = (result.content as Array<{ text: string }>)[0]!.text;
+      const text = sure((result.content as Array<{ text: string }>)[0], 'the result\'s first content').text;
       expect(result.isError).toBe(true);
       expect(text).toBe('The business database could not answer. Try again.');
     } finally {
@@ -297,7 +300,7 @@ describe('/api/mcp, the MCP link', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('mcp-session-id')).toBeNull();
     expect(response.headers.get('content-type')).toMatch(/application\/json/);
-    const body = await response.json();
+    const body = (await response.json()) as { result: { serverInfo: { name: string }; instructions: string } };
     expect(body.result.serverInfo.name).toBe('omni-business');
     expect(body.result.instructions).toMatch(/report_unknown/);
   });

@@ -4,6 +4,7 @@ import type { ForMeRow } from '../ask/page/question';
 import type { TabRow } from '../ask/page/tabs';
 import { peopleOf } from '../people/load';
 import { EMPTY_WAITING, mergeQuestions, ownQuestions, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
+import { sure } from '../arcade/sure';
 
 // The waiting list (PRD 499), as pure functions: the Questions part merged from the person's own
 // sessions and the rounds shared with them, its counts, and the tab title's `(N) ` prefix.
@@ -32,7 +33,7 @@ describe('the Questions part', () => {
 
   it('keeps who shared a round that is both one of mine and shared with me', () => {
     const [only] = mergeQuestions([q('b', MIN)], [q('b', MIN, 'Bob')]);
-    expect(only!.sharedBy).toBe('Bob');
+    expect(sure(only, 'only').sharedBy).toBe('Bob');
   });
 
   it('breaks a tie of age by id', () => {
@@ -93,7 +94,7 @@ describe('shared rounds', () => {
     const [only] = sharedQuestions([row], members, NOW, people);
     expect(only).toMatchObject({ sharedBy: 'Bob', sharedByFace: { kind: 'photo', url: 'https://a.test/bob.png' } });
     const [elsewhere] = sharedQuestions([{ ...row, session: session('s-x', { workspace_id: 'w-2' }) }], members, NOW, people);
-    expect(elsewhere!.sharedByFace).toEqual({ kind: 'initial', letter: 'B' });
+    expect(sure(elsewhere, 'elsewhere').sharedByFace).toEqual({ kind: 'initial', letter: 'B' });
   });
 });
 
