@@ -32,7 +32,7 @@ const refused = (code: string, message: string): Result => ({ data: null, error:
  * `accounts`: token → account. `orgs`: workspace id → the GitHub org it owns. `now`: the clock, in ms.
  */
 export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<string, string>, now: () => number) {
-  const tables = { working_pings: [] as FakePing[], dossiers: [] as FakeDossierKey[] };
+  const tables: { working_pings: FakePing[]; dossiers: FakeDossierKey[] } = { working_pings: [], dossiers: [] };
   const calls: Array<{ fn: string; args: Row }> = [];
 
   // repo_workspace(): the member workspace owning the repository's organisation; none when another
@@ -60,15 +60,15 @@ export function fakeWorking(accounts: Record<string, FakeAccount>, orgs: Record<
 
   const workOf = (args: Row): Work => ({
     repo: String(args.p_repo ?? '').trim().toLowerCase(),
-    kind: (args.p_work_kind ?? null) as string | null,
-    number: (args.p_work_number ?? null) as number | null,
-    draft: (args.p_draft ?? null) as string | null,
+    kind: typeof args.p_work_kind === 'string' ? args.p_work_kind : null,
+    number: typeof args.p_work_number === 'number' ? args.p_work_number : null,
+    draft: typeof args.p_draft === 'string' ? args.p_draft : null,
   });
 
   function workingPing(me: FakeAccount | null, args: Row): Result {
     calls.push({ fn: 'working_ping', args });
     if (!me) return refused('42501', 'Sign in first.');
-    const session = args.p_claude_session_id as string;
+    const session = String(args.p_claude_session_id);
     const work = workOf(args);
     const { repo, kind, number } = work;
     const ended = Boolean(args.p_ended);

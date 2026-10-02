@@ -12,6 +12,8 @@ const Made = z.object({
   created: z.boolean(),
 });
 
+const Requests = z.array(z.object({ github_org: z.string() }));
+
 const fail = (what: string, message: string) => new Error(`Supabase: could not ${what} (${message})`);
 
 export function signupStore(db: Pick<SupabaseClient, 'rpc' | 'from'>) {
@@ -29,7 +31,9 @@ export function signupStore(db: Pick<SupabaseClient, 'rpc' | 'from'>) {
     async pendingRequests(userId: string): Promise<string[]> {
       const { data, error } = await db.from('signup_requests').select('github_org').eq('user_id', userId);
       if (error) throw fail('read your sign-up requests', error.message);
-      return ((data ?? []) as { github_org: string }[]).map((r) => r.github_org);
+      const requests = Requests.safeParse(data ?? []);
+      if (!requests.success) throw new Error('Supabase: signup_requests answered an odd shape');
+      return requests.data.map((r) => r.github_org);
     },
     async recordRequest(userId: string, org: string): Promise<void> {
       const { error } = await db.from('signup_requests')

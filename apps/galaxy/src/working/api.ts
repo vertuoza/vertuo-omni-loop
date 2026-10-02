@@ -14,8 +14,9 @@
 // the caller owns, with the App's install link after its hint), 413 a body over its cap, 503 no database
 // here or the sign-in service down, 500 the database failed. The kit ignores every one of them.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
-import { WORK_KINDS, type WorkKind } from '../dossier/store';
+import { WORK_KINDS } from '../dossier/store';
 import { workingStore, WorkingStoreError, type Heartbeat, type Work } from './store';
 
 /** The largest heartbeat: a session id, a repository and a work, with room to spare. */
@@ -45,7 +46,7 @@ const hasOnly = (value: Record<string, unknown>, keys: string[]) => Object.keys(
 const isText = (value: unknown, max: number): value is string =>
   typeof value === 'string' && value.length >= 1 && value.length <= max;
 const isWorkNumber = (value: unknown): value is number =>
-  Number.isInteger(value) && (value as number) >= 1 && (value as number) <= NUMBER_MAX;
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= NUMBER_MAX;
 
 /** A draft's work, or undefined when it is malformed. */
 function draftOf(value: Record<string, unknown>): Work | undefined {
@@ -58,8 +59,9 @@ function workOf(value: unknown): Work | undefined {
   if (value === null) return null;
   if (!isRecord(value)) return undefined;
   if (value.kind === 'draft') return draftOf(value);
-  if (!WORK_KINDS.includes(value.kind as WorkKind) || !hasOnly(value, ['kind', 'number'])) return undefined;
-  return isWorkNumber(value.number) ? { kind: value.kind as WorkKind, number: value.number } : undefined;
+  const kind = value.kind;
+  if (!isOneOf(WORK_KINDS, kind) || !hasOnly(value, ['kind', 'number'])) return undefined;
+  return isWorkNumber(value.number) ? { kind, number: value.number } : undefined;
 }
 
 /** The heartbeat a body carries, or the problem with it. */

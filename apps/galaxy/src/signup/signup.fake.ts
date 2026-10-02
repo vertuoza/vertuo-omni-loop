@@ -94,7 +94,7 @@ export function signupWorld(opts: {
   const deps: SignInDeps & { signup: SignupDeps } = { readGithub, joinByGithub, signup };
   /** The session of one visitor: `userId` signed in as the GitHub account `accounts[userId]`. */
   const session = (userId: string, token: string | null = `${TOKEN}:${userId}`): SignedIn => ({ user: { id: userId }, provider_token: token });
-  const rpc = { rpc: linkGithub } as unknown as Pick<SupabaseClient, 'rpc'>;
+  const rpc = { rpc: linkGithub } as unknown as Pick<SupabaseClient, 'rpc'>; // ts-allow: a test fake, the one function sign-up calls standing in for rpc's generic signature, which no narrower shape satisfies
 
   return { deps, signup, session, db: rpc, linkGithub, joinByGithub, readGithub, workspaces, members, requests, installations, state };
 }
