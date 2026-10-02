@@ -122,10 +122,10 @@ describe('its metadata', () => {
   it('names it for the tab, search engines and link previews: title, description, canonical address, Open Graph', () => {
     expect(metadata.title).toBe('Release notes · Omni Loop');
     expect(metadata.description).toBe(RELEASES.description);
-    expect(metadata.alternates?.canonical).toBe('https://vertuo-omni-loop-galaxy.vercel.app/releases');
+    expect(metadata.alternates?.canonical).toBe('https://www.omni-loop.xyz/releases');
     expect(metadata.openGraph).toMatchObject({
       type: 'website',
-      url: 'https://vertuo-omni-loop-galaxy.vercel.app/releases',
+      url: 'https://www.omni-loop.xyz/releases',
       siteName: 'Omni Loop',
       title: 'Release notes · Omni Loop',
       description: RELEASES.description,

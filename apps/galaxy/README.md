@@ -1014,6 +1014,11 @@ pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, whic
 
 ## Deploy to production
 
+Galaxy is live at **`https://www.omni-loop.xyz`** (the apex `omni-loop.xyz` answers 308 to `www`),
+and still at `https://vertuo-omni-loop-galaxy.vercel.app`: both hosts serve every page, with no
+redirect between them, and every canonical address galaxy prints names the first (PRD 983). Below,
+`<production host>` is `www.omni-loop.xyz`.
+
 Supabase holds the game's data and is its source of truth; GitHub Actions migrates it and appends
 to the ledger, and Vercel serves the arcade from it:
 
@@ -1127,6 +1132,22 @@ Invite the crew to join (sign in with GitHub, pick a fleet). The real sectors ar
 (`supabase/migrations/20260926160000_vertuoza_sectors.sql`: `omni-core`, `ai-nebula`, `flow-rim`);
 add a sector or a repository with a migration of its own. Then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
 poll backfills history with everyone's fleet as it stands.
+
+### 7. Serve it on www.omni-loop.xyz
+
+Signing in works on any host, because every OAuth return address is built from the host the visitor
+is on. What a new host needs is outside the repository: three steps a person takes, none of them
+done by the code (PRD 983). Without them, `www.omni-loop.xyz` still serves every page, and sign-in
+works on the vercel.app host as before.
+
+1. **Supabase** › Authentication › URL Configuration: add `https://www.omni-loop.xyz/**` and
+   `https://omni-loop.xyz/**` to Redirect URLs, keeping the vercel.app, preview and localhost
+   entries. Set the Site URL to `https://www.omni-loop.xyz`.
+2. **The omni-loop GitHub App** › its settings page: add
+   `https://www.omni-loop.xyz/prd/github/callback` to its Callback URLs, keeping the vercel.app one,
+   and set its Setup URL to `https://www.omni-loop.xyz/signup/installed`.
+3. **Vercel** › the galaxy project › Domains: keep both `www.omni-loop.xyz` and
+   `vertuo-omni-loop-galaxy.vercel.app`, with no redirect between them.
 
 ### In production
 

@@ -17,7 +17,7 @@ laws:
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel
 # project's default production address; `null` switches the mode off.
 ask:
-  url: https://vertuo-omni-loop-galaxy.vercel.app
+  url: https://www.omni-loop.xyz
 # PRD dossiers (PRD 216): `omni dossier` sends each PRD's spec, plan and before/after page to the same
 # app, which keeps every version. Off by default in the kit; `false` stops every upload from here.
 dossier:
