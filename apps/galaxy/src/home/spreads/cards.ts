@@ -1,9 +1,9 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import type { FleetRow } from '../../arcade/types';
 
-// COLLECT ALL THE FLEETS! (PRD 261): the demo world's fleets as trading cards. The front is the fleet's mascot,
-// label and motto; the back its colour and one scoring value, read from the game's rulebook so a
-// card never states a number the rulebook does not hold.
+// COLLECT ALL THE FLEETS! (PRD 261): fleets as trading cards (HOME deals its own example fleets,
+// PRD 971). The front is the fleet's mascot, label and motto; the back its colour and one scoring
+// value, read from the game's rulebook so a card never states a number the rulebook does not hold.
 
 /** A scoring value a card's back may state: the rulebook's number, and the sentence that says it. */
 export interface CardRule { key: string; value: number; text: string }
@@ -20,7 +20,7 @@ export const RULES: readonly CardRule[] = [
 ];
 
 /** The value a card carries by its fleet's mascot (PRD 400: keyed by mascot, never by name), as the approved ad deals them. */
-const RULE_BY_MASCOT: Readonly<Record<string, string>> = {
+export const RULE_BY_MASCOT: Readonly<Record<string, string>> = {
   beaver: 'zoneSecured',
   octopod: 'woundClose.unconfirmed-ground',
   picsou: 'woundClose.fault-line',

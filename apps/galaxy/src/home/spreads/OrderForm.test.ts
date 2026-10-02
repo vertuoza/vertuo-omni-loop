@@ -18,6 +18,10 @@ describe('the order form', () => {
     expect(text(markup)).toContain('↑ ↑ ↓ ↓ ← → ← → B A FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.');
   });
 
+  it('says in the fine print how to leave: one folder, one commit (PRD 971)', () => {
+    expect(text(markup)).toContain('Leave any time: delete one folder and commit. Nothing to migrate.');
+  });
+
   it('offers GETTING STARTED, a plain link to /docs beside PRESS START, in its button style', () => {
     const start = /<a class="home-start" href="\/docs">GETTING STARTED<\/a>/;
     expect(markup).toMatch(start);
