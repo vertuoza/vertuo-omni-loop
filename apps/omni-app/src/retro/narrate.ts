@@ -43,6 +43,7 @@ import {
   maskSecrets,
 } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.ts';
 
 /** What the model is given of a finding: what `detect` put on the fact sheet. */
@@ -92,20 +93,6 @@ type ModelInputJson = {
 };
 
 export { DEFAULT_MODEL, MASK, MODEL_CALL, OPENROUTER_URL, maskSecrets };
-
-/** The kit's `askModel`, as its own documentation types it. */
-type AskModel = (input: {
-  system: string;
-  user: string;
-  check: (value: unknown) => { errors: string[]; reply: unknown };
-  env?: Record<string, string | undefined>;
-  fetch?: typeof fetch;
-  sleep?: ((ms: number) => Promise<void>) | undefined;
-  call?: typeof MODEL_CALL;
-  title?: string;
-  stream?: boolean;
-}) => Promise<{ ok: boolean; error: string | null; model: string | null; reply: unknown; reason: string | null }>;
-const ask = askModel as unknown as AskModel; // ts-allow: kit/lib/openrouter.ts still opens with @ts-nocheck, so its own parameter types read as its defaults
 
 export const NO_MODEL_KEY = 'no model key';
 export const REPLY_INVALID = 'model reply invalid';
@@ -185,7 +172,7 @@ export function modelInput({
  */
 export function knowledgeLines(summary: KnowledgeInput | undefined): { id: string; line: string }[] {
   const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-  const read = (entry: unknown, key: string): unknown => (entry === null || entry === undefined ? undefined : (entry as Record<string, unknown>)[key]); // ts-allow: any value but null or undefined reads a property, as `?.` did
+  const read = propertyOf;
   const entries = [...list(summary?.principles), ...list(summary?.laws)].map((entry) => ({ id: read(entry, 'id'), line: read(entry, 'statement') }));
   const records = list(summary?.decisions).map((record) => ({
     id: `ADR-${String(read(record, 'number')).padStart(4, '0')}`,
@@ -349,7 +336,7 @@ export async function narrate({
   call = MODEL_CALL,
 }: NarrateInput): Promise<Narrated> {
   const { system, user } = modelInput({ sheet, prd, knowledge, lessons });
-  const out = await ask({ system, user, check: checkReply, env, fetch, sleep, call, title: TITLE, stream: true });
+  const out = await askModel({ system, user, check: checkReply, env, fetch, sleep, call, title: TITLE, stream: true });
   if (out.ok) return { model: out.model, reply: out.reply as ModelReply, reason: null }; // ts-allow: an ok answer's reply is the one `checkReply` gave back
   if (out.error === NO_KEY) return { model: null, reply: null, reason: NO_MODEL_KEY };
   if (out.error === REFUSED) return { model: out.model, reply: null, reason: REPLY_INVALID };
