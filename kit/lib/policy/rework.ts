@@ -37,9 +37,8 @@ import { parsePlanSlices, sharedGround } from '../inbox/territory.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { parseSettledEntries } from '../outbox/settle.ts';
 import { COMMANDS } from '../commands.ts';
-import type { Config } from '../context.ts';
 import type { makeMarkers } from '../markers.ts';
-import type { OutboxItem, OutboxOption } from '../types.ts';
+import type { Config, OutboxItem, OutboxOption } from '../types.ts';
 
 /** The markers this module reads: a settled entry's opening and closing lines. */
 export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' | 'settledOpenRe' | 'settledClose'>;
@@ -48,7 +47,7 @@ export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' |
 export type ReworkBranches = Pick<Config['branches'], 'feature' | 'slice' | 'rework'>;
 
 /** One settled entry of the ledger, as `parseSettledEntries` reads it (`kit/lib/outbox/settle.ts`). */
-export type SettledEntry = {
+export type ReworkEntry = {
   id: string;
   verdict?: string;
   closed: boolean;
@@ -100,7 +99,7 @@ export type ReworkPlan = {
 };
 
 /** The ledger's entries, through its own reader. */
-function settledEntries(settledText: string, markers: ReworkMarkers): SettledEntry[] {
+function settledEntries(settledText: string, markers: ReworkMarkers): ReworkEntry[] {
   return parseSettledEntries(settledText, markers);
 }
 
@@ -113,7 +112,7 @@ const REWORKED_BY = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
  * Read through `parseSettledEntries` — the ledger's own reader, never a second parse of the same
  * markdown.
  */
-export function driftedEntries(settledText: string | null | undefined, markers: ReworkMarkers): SettledEntry[] {
+export function driftedEntries(settledText: string | null | undefined, markers: ReworkMarkers): ReworkEntry[] {
   return settledEntries(settledText ?? '', markers).filter(
     (entry) => entry.verdict === 'drifted' && !entry.closed,
   );
@@ -200,7 +199,7 @@ export function reworkBranch(featureBranch: string, sliceId: string, branches: R
  * decision was taken; elsewhere the field is absent, and the rework reads exactly as before.
  */
 export function deriveRework(
-  entry: Pick<SettledEntry, 'id' | 'itemText' | 'answerText' | 'fields'>,
+  entry: Pick<ReworkEntry, 'id' | 'itemText' | 'answerText' | 'fields'>,
   {
     planSlices = [],
     featureBranch = null,

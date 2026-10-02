@@ -39,7 +39,7 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
-import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Planet, Region, Snapshot } from '../types.ts';
+import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet } from '../types.ts';
 
 /** How the game calls gh: its arguments in, its stdout out. */
 export type Exec = (args: string[]) => Promise<string>;
@@ -131,7 +131,7 @@ export async function buildSnapshot(
   const teams = { ...(config.roster ?? {}) };
   const wanted = prds ? new Set(prds) : null;
   const tracked = config.tracked ?? [];
-  const planets: Planet[] = [];
+  const planets: SnapshotPlanet[] = [];
   const homes: Array<{ home: string; issues: IssueRow[] }> = [];
   for (const home of tracked) {
     const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
@@ -231,7 +231,7 @@ async function readRepository(exec: Exec, home: string): Promise<Repository> {
 async function readPlanet(
   exec: Exec,
   { home, repo, issue, teams, specOf, tracked, regionsOf }: { home: string; repo: Repository; issue: IssueRow; teams: Record<string, string>; specOf: SpecOf; tracked: readonly string[]; regionsOf: RegionsOf },
-): Promise<Planet> {
+): Promise<SnapshotPlanet> {
   const planet = chartPlanet(home, issue, teams);
   const { prd, issue: { createdAt } } = planet;
   const folder = repo.folders.get(prd);
@@ -260,7 +260,7 @@ async function readPlanet(
 
 // A PRD issue as a planet, charted and not yet surveyed. The owner: the first assignee, else the
 // issue's author (PRD 728). Their fleet owns the planet.
-function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string>): Planet {
+function chartPlanet(home: string, issue: IssueRow, teams: Record<string, string>): SnapshotPlanet {
   const captain = issue.assignees?.[0]?.login ?? issue.author?.login ?? null;
   return {
     prd: issue.number, home, title: issue.title, captain, ownerTeam: captain ? teams[captain.toLowerCase()] ?? null : null,
@@ -281,7 +281,7 @@ async function homeFeaturePr(exec: Exec, { home, repo, prd }: { home: string; re
 // Returns the regions the plan gives slices.
 async function readWork(
   exec: Exec,
-  { planet, home, repo, folder, tracked, fp, parts, features }: { planet: Planet; home: string; repo: Repository; folder: Folder; tracked: readonly string[]; fp: PrRow | undefined; parts: Part[]; features: Map<string, PrRow> },
+  { planet, home, repo, folder, tracked, fp, parts, features }: { planet: SnapshotPlanet; home: string; repo: Repository; folder: Folder; tracked: readonly string[]; fp: PrRow | undefined; parts: Part[]; features: Map<string, PrRow> },
 ): Promise<Set<string>> {
   for (const r of planet.regions) {
     const feature = features.get(r.repo);
@@ -364,7 +364,7 @@ async function readPlan(exec: Exec, { home, repo, folder, ref }: { home: string;
 // One region's zones: its slices, each matched to a sub-PR (`omni:sub`, into the region's feature
 // branch) by the head ref's `--<slice>` suffix. A region with no feature PR yet has sealed zones only.
 // Returns the region's sub-PRs.
-async function readZones(exec: Exec, { planet, slug, fp, slices }: { planet: Planet; slug: string; fp: PrRow | null; slices: PlanSlice[] }): Promise<SubRow[]> {
+async function readZones(exec: Exec, { planet, slug, fp, slices }: { planet: SnapshotPlanet; slug: string; fp: PrRow | null; slices: PlanSlice[] }): Promise<SubRow[]> {
   if (!slices.length) return [];
   // --json includes `body` (beyond the reads list's bare field set) because the revert rule
   // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
@@ -391,7 +391,7 @@ async function readZones(exec: Exec, { planet, slug, fp, slices }: { planet: Pla
 
 // The outbox, in the home: `<delivery>/outbox/<folder>/` while the PRD is built, `<folder>/outbox/`
 // once shipped. `subs` are every region's sub-PRs: a drift's rework is looked for among them.
-async function readOutbox(exec: Exec, { planet, home, repo, folder, ref, subs }: { planet: Planet; home: string; repo: Repository; folder: Folder; ref: string; subs: SubRow[] }): Promise<void> {
+async function readOutbox(exec: Exec, { planet, home, repo, folder, ref, subs }: { planet: SnapshotPlanet; home: string; repo: Repository; folder: Folder; ref: string; subs: SubRow[] }): Promise<void> {
   const { dir, names } = await findOutbox(exec, { home, repo, folder, ref });
   if (!dir) return;
   const at = { home, dir, ref };

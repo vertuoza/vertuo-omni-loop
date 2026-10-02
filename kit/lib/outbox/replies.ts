@@ -48,7 +48,7 @@ import {
 } from './comment.ts';
 import type { Context } from '../context.ts';
 import type { OutboxItem, OutboxOption } from '../types.ts';
-import { AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
+import { answerErrors, AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
 import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } from './settle.ts';
 import { SETTLED_FILE } from './outbox.ts';
 
@@ -415,14 +415,7 @@ export function appendObjection({
   judgement: Judgement;
 }): { ok: true; settledFile: string } | { ok: false; errors: string[] } {
   const parsedAnswer = AnswerSchema.safeParse(answer);
-  if (!parsedAnswer.success) {
-    return {
-      ok: false,
-      errors: parsedAnswer.error.issues.map(
-        (issue) => `${issue.path.join('.') || '(answer)'}: ${issue.message}`,
-      ),
-    };
-  }
+  if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
   const settledFile = `${ctx.layout.outboxDir(prd)}/${SETTLED_FILE}`;
   const absoluteSettled = join(ctx.root, settledFile);
   if (!existsSync(absoluteSettled)) {

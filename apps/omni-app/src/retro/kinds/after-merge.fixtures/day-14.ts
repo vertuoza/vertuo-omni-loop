@@ -18,7 +18,7 @@
 //
 // The merge commit ran two workflows: CI (`unit` green, `e2e` red, `lint` green) and Deploy
 // (`deploy` skipped).
-import { FEATURE, MERGED_AT, MERGE_SHA, OWNER, REPO } from '../../../../test/retro-scenario.ts';
+import { FEATURE, MERGED_AT, MERGE_SHA, OWNER, recordedRead, REPO } from '../../../../test/retro-scenario.ts';
 
 export { FEATURE, MERGED_AT, MERGE_SHA, OWNER, REPO };
 
@@ -93,12 +93,6 @@ const ROUTES = {
 };
 export { ROUTES };
 
-const request = (route: string, params: Record<string, unknown>, data: unknown, status: number | undefined) => ({
-  route,
-  params: { owner: OWNER, repo: REPO, ...params },
-  ...(status ? { status } : { data }),
-});
-
 /** The files of each fix, as `GET /repos/{owner}/{repo}/pulls/{pull_number}/files` lists them. */
 export const FIX_FILES = {
   45: [
@@ -137,16 +131,16 @@ export const MERGE_JOBS = {
  * `replayGitHub({ recording })`. `missing` names reads GitHub answers with a status instead:
  * `{ runs: 403, jobs: { 7001: 404 }, files: { 45: 404 } }`.
  */
-export type Missing = { runs?: number; jobs?: Record<string, number>; files?: Record<string, number> };
+export type AfterMergeMissing = { runs?: number; jobs?: Record<string, number>; files?: Record<string, number> };
 
-export function afterMergeRecording({ missing = {} }: { missing?: Missing } = {}) {
+export function afterMergeRecording({ missing = {} }: { missing?: AfterMergeMissing } = {}) {
   const entries = [];
   for (const [number, files] of Object.entries(FIX_FILES)) {
-    entries.push(request(ROUTES.files, { pull_number: number, per_page: 100, page: 1 }, files, missing.files?.[number]));
+    entries.push(recordedRead(ROUTES.files, { pull_number: number, per_page: 100, page: 1 }, files, missing.files?.[number]));
   }
-  entries.push(request(ROUTES.runs, { head_sha: MERGE_SHA, per_page: 100, page: 1 }, { total_count: MERGE_RUNS.length, workflow_runs: MERGE_RUNS }, missing.runs));
+  entries.push(recordedRead(ROUTES.runs, { head_sha: MERGE_SHA, per_page: 100, page: 1 }, { total_count: MERGE_RUNS.length, workflow_runs: MERGE_RUNS }, missing.runs));
   for (const [runId, jobs] of Object.entries(MERGE_JOBS)) {
-    entries.push(request(ROUTES.jobs, { run_id: runId, filter: 'latest', per_page: 100, page: 1 }, { total_count: jobs.length, jobs }, missing.jobs?.[runId]));
+    entries.push(recordedRead(ROUTES.jobs, { run_id: runId, filter: 'latest', per_page: 100, page: 1 }, { total_count: jobs.length, jobs }, missing.jobs?.[runId]));
   }
   return entries;
 }

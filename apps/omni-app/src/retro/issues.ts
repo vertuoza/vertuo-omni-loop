@@ -17,9 +17,7 @@
 import { PER_PAGE, paginate } from './github.ts';
 import { CreatedIssueSchema, IssuesSchema, RetroPullsSchema, parseGitHub } from './github.schema.ts';
 import { ISSUES_PER_RUN } from './rules.ts';
-import type { Config, FactSheet, IssueLink, IssueLinks, Octokit, Prose, ProseField, ProseFinding, SheetFinding } from './retro.types.ts';
-
-export type { IssueLink };
+import type { Config, FactSheet, IssueLinks, Octokit, Prose, ProseField, ProseFinding, SheetFinding } from './retro.types.ts';
 
 type Repo = { owner: string; repo: string };
 type Issue = ReturnType<typeof IssuesSchema.parse>[number];

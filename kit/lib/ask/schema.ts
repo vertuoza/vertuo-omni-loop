@@ -9,7 +9,7 @@ import { z } from 'zod';
 const text = z.string().min(1);
 
 /** Any JSON object: not null, not a list. Its fields are still unknown. */
-export const JsonObjectSchema = z.record(z.string(), z.unknown());
+const JsonObjectSchema = z.record(z.string(), z.unknown());
 export type JsonObject = z.infer<typeof JsonObjectSchema>;
 
 /** `value` when it is a JSON object, else `null`. */
@@ -42,7 +42,7 @@ export const ModeFileSchema = z.object({
 export const TerminalFileSchema = z.object({ sessionId: text, host: text });
 
 /** The states a question's round goes through. */
-export const ROUND_STATUSES = ['open', 'answered', 'abandoned'] as const;
+const ROUND_STATUSES = ['open', 'answered', 'abandoned'] as const;
 export type RoundStatus = (typeof ROUND_STATUSES)[number];
 
 /** `ask/rounds/<tool use id>.json`: one question's round; a status it does not know reads as open. */

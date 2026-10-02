@@ -35,7 +35,6 @@ export const StatusInputSchema = z.object({
   cwd: textOrNull,
   session_id: textOrNull,
 });
-export type StatusInput = z.infer<typeof StatusInputSchema>;
 
 /** `.omni-loop/local/sessions/<session id>.json`: the PRD a session last worked on, and when. */
 export const SessionRecordSchema = z.object({
@@ -45,8 +44,8 @@ export const SessionRecordSchema = z.object({
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
 /** One slice of a cached board: its id, its wave and its state on the board. */
-export const BoardSliceSchema = z.object({ id: z.string(), wave: whole, state: z.string() });
-export type BoardSlice = z.infer<typeof BoardSliceSchema>;
+const CachedSliceSchema = z.object({ id: z.string(), wave: whole, state: z.string() });
+export type CachedSlice = z.infer<typeof CachedSliceSchema>;
 
 /**
  * `.omni-loop/local/statusline/board-<n>.json`: `{ at, slices }` after a refresh that worked,
@@ -55,7 +54,7 @@ export type BoardSlice = z.infer<typeof BoardSliceSchema>;
  */
 export const BoardFileSchema = z.object({
   at: z.string(),
-  slices: z.array(BoardSliceSchema).optional().catch(undefined),
+  slices: z.array(CachedSliceSchema).optional().catch(undefined),
   error: z.string().optional().catch(undefined),
 });
 

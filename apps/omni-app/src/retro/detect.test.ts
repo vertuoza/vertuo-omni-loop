@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { detect } from './detect.ts';
-import { KINDS, kindsFor } from './kinds/index.ts';
+import { KINDS, kindsFor, type Kind } from './kinds/index.ts';
 import { RULES_VERSION } from './rules.ts';
-import type { Config, DetectContext, FeaturePull, Finding, Kind, PrdFacts } from './retro.types.ts';
+import type { Config, DetectContext, FeaturePull, Finding, PrdFacts } from './retro.types.ts';
 
 const pr = { number: 12, title: 'feat: widgets', url: 'https://x/pull/12', openedAt: 'a', mergedAt: 'b', mergeSha: 'merge1', headRef: 'feat/widget' } as FeaturePull;
 const prd = { number: 7, title: 'Widgets', topic: 'widget', state: 'shipped', folder: '.omni-loop/delivery/shipped/0007-widget', plan: '', settled: null, problem: 'p' } as PrdFacts;

@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.ts';
 import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
-import type { Exec, Target, TargetRow } from './targets.ts';
+import type { ExecRaw } from '../context.ts';
+import type { Target, TargetRow } from './targets.ts';
 
 /** One faked repository: `null` for one gh cannot read. */
 type FakeRepo = { branch?: string; files?: Record<string, string>; compare?: { ahead: number; files: string[] } };
@@ -21,7 +22,7 @@ const notFound = () => Object.assign(new Error('Command failed: gh api …\ngh: 
  * cannot read, else `{ branch, files: { path: text }, compare: { ahead, files } }`: a file absent
  * from `files` is a 404, and a directory lists the files under it.
  */
-function fakeGh(world: World): { exec: Exec; calls: string[] } {
+function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
   const calls: string[] = [];
   const exec = (file: string, args: readonly string[]): string => {
     if (file !== 'gh' || args[0] !== 'api') throw new Error(`unexpected ${file} ${args.join(' ')}`);

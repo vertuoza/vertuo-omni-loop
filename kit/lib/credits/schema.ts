@@ -3,7 +3,7 @@
 // missing or null. What it keys a row by (a row's number and repository, a commit's sha and
 // repository) is required. A field missing or of the wrong type fails, naming it.
 import { z } from 'zod';
-import { KIT_MESSAGES } from '../schema/messages.ts';
+import { parseOrThrow } from '../schema/parse-or-throw.ts';
 
 const named = z.object({ name: z.string() });
 const login = z.object({ login: z.string().nullish() });
@@ -45,9 +45,5 @@ export type ViewedPullRequest = z.infer<typeof ViewedPullRequestSchema>;
  * wrong: `gh search prs printed an unexpected shape: 0.number: Expected number, received string`.
  */
 export function parseGh<S extends z.ZodType>(schema: S, value: unknown, what: string): z.infer<S> {
-  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed.success) return parsed.data;
-  const issue = parsed.error.issues[0];
-  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
-  throw new Error(`${what} printed an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+  return parseOrThrow(schema, value, `${what} printed an unexpected shape`);
 }

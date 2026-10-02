@@ -14,6 +14,7 @@ import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { featureTopic, NOT_ACTIVE_ON_PR, prdDirs, prdOfTopic } from '../evaluate/evaluate.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
+import { PER_PAGE, paginate } from '../retro/github.ts';
 import {
   CheckRunsSchema,
   CommentsPageSchema,
@@ -27,10 +28,6 @@ import {
 } from './github-schema.ts';
 
 export type { GitHubClient, Repo } from './github-schema.ts';
-
-const PER_PAGE = 100;
-/** Pages read at most from a paginated list: 3,000 entries, GitHub's own cap on a compare's files. */
-const MAX_PAGES = 30;
 
 /** The compare endpoint's file statuses, in the one-letter `git diff --name-status` shape the kit reads. */
 const STATUS: Readonly<Record<string, string>> = Object.freeze({
@@ -138,7 +135,7 @@ export async function checkTarget(
  * The names of the folders directly under `dir` at `ref`, walking GitHub's trees one segment at a
  * time; none when `dir` is not there. Reads no blob.
  */
-export async function folderNamesAt(
+async function folderNamesAt(
   octokit: GitHubClient,
   { owner, repo, ref, dir }: Repo & { ref: string; dir: string },
 ): Promise<string[]> {
@@ -236,7 +233,7 @@ export async function completeAsSkipped(
 }
 
 /** The output of a skipped check: the title `evaluate` gives a pull request it does not gate. */
-export function skippedOutput(reason: string | null | undefined): { title: string; summary: string } {
+function skippedOutput(reason: string | null | undefined): { title: string; summary: string } {
   return { title: NOT_ACTIVE_ON_PR, summary: reason ?? NOT_ACTIVE_ON_PR };
 }
 
@@ -303,16 +300,6 @@ async function completeOpen(
     output,
   });
   return [CreatedSchema.parse(created).id];
-}
-
-async function paginate<T>(fetchPage: (page: number) => Promise<T[]>): Promise<T[]> {
-  const all: T[] = [];
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const items = await fetchPage(page);
-    all.push(...items);
-    if (items.length < PER_PAGE) break;
-  }
-  return all;
 }
 
 function firstLine(reason: unknown): string {

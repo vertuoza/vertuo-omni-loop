@@ -23,7 +23,8 @@ import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
 import { CheckRequestDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import { installationOctokit, notRetriedPastBound, onFailedRun, type OctokitFor } from '../outbox-check/outbox-check.ts';
+import type { OctokitFor } from '../octokit-for.ts';
+import { installationOctokit, notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.ts';
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { publish } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
@@ -46,7 +47,7 @@ export const INBOX_DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-export function createInboxCheck({ client, octokitFor, canon = null }: { client: Inngest; octokitFor: OctokitFor; canon?: CanonGrader | null }) {
+export function createInboxCheck({ client, octokitFor, canon = null }: { client: Inngest; octokitFor: OctokitFor<GitHubClient>; canon?: CanonGrader | null }) {
   return client.createFunction(
     {
       id: INBOX_FUNCTION_ID,
@@ -150,7 +151,7 @@ async function evaluateAt(
  * A PR that is not a phase-0 PR gets nothing. When GitHub itself fails the handler cannot tell, so it
  * completes an open inbox run of the default name if there is one, and creates none.
  */
-export function createInboxFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+export function createInboxFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
   return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
     let name = DEFAULT_INBOX_NAME;
     let create = false;

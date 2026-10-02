@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 /** One comment of an issue or a pull request (`GET repos/<slug>/issues/<n>/comments`). */
-export const GhCommentSchema = z.looseObject({
+const GhCommentSchema = z.looseObject({
   id: z.number(),
   body: z.string().nullish(),
   html_url: z.string().nullish(),
@@ -28,7 +28,7 @@ export const GhPullRequestSchema = z.looseObject({
 });
 
 /** One pull request of `gh pr list --json …`, the fields the board reads; each may be missing. */
-export const GhPrListItemSchema = z.looseObject({
+const GhPrListItemSchema = z.looseObject({
   number: z.number().optional(),
   title: z.string().optional(),
   headRefName: z.string().optional(),

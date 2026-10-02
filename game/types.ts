@@ -31,7 +31,7 @@ export type ZonePr = {
 };
 
 /** One slice of a PRD's plan, as a zone of its planet. */
-export type Zone = { id: string; repo: string; wave: number; blockedBy: string[]; pr: ZonePr | null };
+export type SnapshotZone = { id: string; repo: string; wave: number; blockedBy: string[]; pr: ZonePr | null };
 
 /** How an outbox item was settled. */
 export type Settled = {
@@ -56,7 +56,7 @@ export type Bug = {
 };
 
 /** A PRD issue as the snapshot reads it. */
-export type Planet = {
+export type SnapshotPlanet = {
   prd: number;
   home?: string | null;
   title: string;
@@ -65,22 +65,22 @@ export type Planet = {
   issue: { createdAt: string | null; closedAt: string | null };
   regions: Region[];
   featurePr: FeaturePr | null;
-  zones: Zone[];
+  zones: SnapshotZone[];
   outbox: OutboxEntry[];
   bugs: Bug[];
 };
 
 /** The world at one moment: every planet, and the roster (lower-cased login → fleet). */
-export type Snapshot = { at: string; teams: Record<string, string>; planets: Planet[] };
+export type Snapshot = { at: string; teams: Record<string, string>; planets: SnapshotPlanet[] };
 
-export type ZoneState = 'sealed' | 'secured' | 'under-fire' | 'claimed' | 'open';
+export type DerivedZoneState = 'sealed' | 'secured' | 'under-fire' | 'claimed' | 'open';
 
 /** A zone's state, derived from its sub-PR. */
 export type DerivedZone = {
   id: string;
   repo: string;
   wave: number;
-  state: ZoneState;
+  state: DerivedZoneState;
   openedAt: string | null;
   claimedAt: string | null;
   securedAt: string | null;
@@ -89,7 +89,7 @@ export type DerivedZone = {
 };
 
 /** A wound: something open on a planet that costs its fleet while it stays open. */
-export type Wound = {
+export type DerivedWound = {
   id: string;
   /** Undefined for an outbox item of a rank the game gives no wound kind. */
   kind: string | undefined;
@@ -101,7 +101,7 @@ export type Wound = {
   verdict?: string | null;
 };
 
-export type PlanetState =
+export type DerivedPlanetState =
   | 'lost' | 'decommissioned' | 'aftershock' | 'terraformed' | 'locked' | 'charted'
   | 'awaiting-command' | 'distress' | 'terraforming';
 
@@ -113,12 +113,12 @@ export type DerivedPlanet = {
   title: string;
   captain: string | null;
   ownerTeam: string | null;
-  state: PlanetState;
+  state: DerivedPlanetState;
   regions: string[];
   class: number;
   crossSector: boolean;
   zones: DerivedZone[];
-  wounds: Wound[];
+  wounds: DerivedWound[];
   distressSince: string | null;
   lastActivityAt: string | null;
   threat: number;

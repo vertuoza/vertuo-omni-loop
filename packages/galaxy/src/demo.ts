@@ -5,7 +5,7 @@
 // (PRD 728: every event names its home).
 import { projectEvents, type Skip } from 'vertuo-omni-plan/game/projector.ts';
 import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
-import type { Bug, OutboxEntry, Planet, Snapshot, Zone, ZonePr } from 'vertuo-omni-plan/game/types.ts';
+import type { Bug, OutboxEntry, Snapshot, SnapshotPlanet, SnapshotZone, ZonePr } from 'vertuo-omni-plan/game/types.ts';
 import type { Projects } from './types.ts';
 
 export const DEMO_PROJECTS: Projects = Object.freeze({
@@ -46,7 +46,7 @@ type FeatureRow = { created: number; ready?: number; merged?: number; activity?:
 type SettledRow = { verdict: string; h: number; by: string; reworkH?: number; reworkBy?: string };
 type PlanetRow = {
   prd: number; title: string; captain: string; created: number; regions?: RegionRow[]; feature?: FeatureRow | null;
-  zones?: Zone[]; outbox?: OutboxEntry[]; bugs?: Bug[]; closedH?: number | null;
+  zones?: SnapshotZone[]; outbox?: OutboxEntry[]; bugs?: Bug[]; closedH?: number | null;
 };
 
 export function demoSnapshot(now: Date = new Date()): Snapshot {
@@ -61,12 +61,12 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     labels: ['omni:sub', ...(mergedH === null ? ['omni:in-progress'] : []), ...(fire && fire[1] === null ? ['omni:needs-fix'] : [])],
     ...(fire ? { needsFix: { labeledAt: ago(fire[0]), unlabeledAt: ago(fire[1]) } } : {}),
   });
-  const zone = (id: string, repo: string, wave: number, blockedBy: string[] = [], pr: ZonePr | null = null): Zone => ({ id, repo, wave, blockedBy, pr });
+  const zone = (id: string, repo: string, wave: number, blockedBy: string[] = [], pr: ZonePr | null = null): SnapshotZone => ({ id, repo, wave, blockedBy, pr });
   const item = (id: string, repo: string, rank: string, raisedH: number, settled: SettledRow | null = null): OutboxEntry => ({
     id, repo, rank, raisedAt: ago(raisedH),
     settled: settled && { verdict: settled.verdict, at: ago(settled.h), by: settled.by, reworkMergedAt: ago(settled.reworkH ?? null), reworkBy: settled.reworkBy ?? null },
   });
-  const planet = ({ prd, title, captain, created, regions = [], feature = null, zones = [], outbox = [], bugs = [], closedH = null }: PlanetRow): Planet => ({
+  const planet = ({ prd, title, captain, created, regions = [], feature = null, zones = [], outbox = [], bugs = [], closedH = null }: PlanetRow): SnapshotPlanet => ({
     prd, home: DEMO_HOME, title, captain, ownerTeam: DEMO_TEAMS[captain] ?? null,
     issue: { createdAt: ago(created), closedAt: ago(closedH) },
     // A region's own feature PR is left to the planet's (game/planet-state.ts falls back to it).
@@ -78,7 +78,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     zones, outbox, bugs,
   });
 
-  const planets: Planet[] = [
+  const planets: SnapshotPlanet[] = [
     planet({
       prd: 985, title: 'Default Country per Company', captain: 'pm-otto', created: 400,
       regions: [['vertuo-core', 380]],

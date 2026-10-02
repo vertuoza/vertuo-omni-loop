@@ -17,6 +17,7 @@
 import { type Budget, BudgetLow, type GraphqlOctokit, type ListedPull, affords, pullsUpdatedAfter, readPullRecords } from './github.ts';
 import { FailureSchema } from './schema.ts';
 import type { PrStatsStore, TrackedRepository } from './supabase-store.ts';
+import type { OctokitFor } from '../octokit-for.ts';
 
 export const BACKFILL_DAYS = 90;
 /**
@@ -28,9 +29,6 @@ export const BATCH = 50;
 const MAX_BATCHES = 20;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** The installation's GraphQL client, for its id. */
-export type OctokitFor = (installationId: number) => Promise<GraphqlOctokit> | GraphqlOctokit;
 
 /** The part of an Inngest step the collector runs: one memoized, retried unit, its output as JSON. */
 export type CollectStep = { run: <T>(id: string, fn: () => T | Promise<T>) => Promise<T> };
@@ -45,7 +43,7 @@ type BatchOut = { saved: number; cursor: string; more: boolean; paused?: true; e
 
 type RepositoryRun = {
   store: PrStatsStore;
-  octokitFor: OctokitFor;
+  octokitFor: OctokitFor<GraphqlOctokit>;
   step: CollectStep;
   repository: TrackedRepository;
   budgets: Map<number, Budget>;
@@ -56,7 +54,7 @@ type RepositoryRun = {
 /** Every tracked repository collected, a step per batch; `now` is the run's clock, in ms. */
 export async function collectAll({ store, octokitFor, step, now }: {
   store: PrStatsStore;
-  octokitFor: OctokitFor;
+  octokitFor: OctokitFor<GraphqlOctokit>;
   step: CollectStep;
   now: number;
 }): Promise<CollectSummary> {

@@ -19,10 +19,10 @@ export type PrdNumber = number | string;
 export type LayoutPaths = { delivery: string; adr: string; knowledge: string; playbook: string };
 
 /** Where a PRD's folder is: its name, whether it is in the inbox or shipped, and its path. */
-export type PrdPlace = { name: string; state: 'inbox' | 'shipped'; dir: string };
+type PrdPlace = { name: string; state: 'inbox' | 'shipped'; dir: string };
 
 /** One outbox folder: its PRD, its path, and whether it sits inside a shipped folder. */
-export type OutboxDir = { prd: number; dir: string; shipped: boolean };
+type OutboxDir = { prd: number; dir: string; shipped: boolean };
 
 export function padPrd(prd: PrdNumber): string {
   return String(Number(prd)).padStart(4, '0');

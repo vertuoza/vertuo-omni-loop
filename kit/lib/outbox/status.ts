@@ -44,11 +44,11 @@ import { existsSync } from 'node:fs';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';
 import { compare, readAccounts } from './account.ts';
-import type { Change, RiskyChange } from './account.ts';
+import type { Change } from './account.ts';
 import { riskyChanges } from './decision-coverage.ts';
 import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
-import type { CoverageContext } from './decision-coverage.ts';
+import type { CoverageContext, RiskyChange } from './decision-coverage.ts';
 import { parseSettledEntries } from './settle.ts';
 
 /** The part of the context the gate reads. */

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
 import { projectEvents, type Skip } from './projector.ts';
 import type { GameEvent } from './events.ts';
-import type { Planet, Snapshot } from './types.ts';
+import type { Snapshot, SnapshotPlanet } from './types.ts';
 
 const config = configFrom({
   sectors: [{ name: 'core', repos: ['core-repo'] }],
@@ -112,7 +112,7 @@ describe('projectEvents', () => {
       featurePr: { repo: 'core-repo', number: 400, createdAt: '2026-08-05T08:00:00Z', readyAt: '2026-09-09T08:00:00Z', mergedAt: '2026-09-10T08:00:00Z', lastActivityAt: '2026-09-10T08:00:00Z' },
       zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['omni:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
       outbox: [], bugs: [],
-    } as unknown as Planet);
+    } as unknown as SnapshotPlanet);
     const events = projectEvents(s, { config, now: NOW });
     expect(events.find((e) => e.id === 'planet:2332:locked:2300')).toMatchObject({ at: '2026-09-02T08:00:00Z' });
     expect(events.find((e) => e.id === 'planet:2332:unlocked:2300')).toMatchObject({ at: '2026-09-10T08:00:00Z' });
@@ -138,7 +138,7 @@ describe('projectEvents', () => {
       featurePr: { repo: 'core-repo', number: 400, createdAt: '2026-08-05T08:00:00Z', readyAt: '2026-09-09T08:00:00Z', mergedAt: '2026-09-10T08:00:00Z', lastActivityAt: '2026-09-10T08:00:00Z' },
       zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['omni:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
       outbox: [], bugs: [{ repo: 'core-repo', number: 600, createdAt: '2026-09-11T08:00:00Z', closedAt: '2026-09-12T08:00:00Z', closedBy: 'alice', fixedBy: 'alice' }],
-    } as unknown as Planet);
+    } as unknown as SnapshotPlanet);
     const all = projectEvents(s, { config, now: NOW }).map((e) => e.id);
     expect(all.length).toBeGreaterThan(20);
     expect(new Set(all).size).toBe(all.length);
@@ -150,7 +150,7 @@ describe('projectEvents', () => {
       prd: 2400, title: 'Broken', captain: null, ownerTeam: null,
       issue: { createdAt: 'not-a-date', closedAt: null },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
-    } as unknown as Planet);
+    } as unknown as SnapshotPlanet);
     const skipped: Skip[] = [];
     const events = projectEvents(s, { config, now: NOW, onSkip: (err) => skipped.push(err) });
     expect(events.some((e) => e.id === 'planet:2332:charted')).toBe(true);
@@ -169,13 +169,13 @@ describe('projectEvents', () => {
 
   describe('a PRD named by its home (PRD 728)', () => {
     type Over = { ownerTeam?: string; blockedBy?: number[]; mergedAt?: string; author?: string };
-    const homed = (home: string, over: Over = {}): Planet => ({
+    const homed = (home: string, over: Over = {}): SnapshotPlanet => ({
       ...snapshot().planets[0], prd: 88, home, ownerTeam: over.ownerTeam ?? 'beaver',
       regions: [{ repo: home, blockedBy: over.blockedBy ?? [], surveyedAt: '2026-09-02T08:00:00Z' }],
       featurePr: { repo: home, number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: over.mergedAt ?? null, lastActivityAt: '2026-09-22T12:00:00Z' },
       zones: [{ id: 's1', repo: home, wave: 1, blockedBy: [], pr: { number: 501, author: over.author ?? 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }],
       outbox: [{ id: 's1-01-a', repo: home, rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: null } }],
-    }) as unknown as Planet;
+    }) as unknown as SnapshotPlanet;
 
     it('names every event by its home, and stamps each with it', () => {
       const events = projectEvents({ ...snapshot(), planets: [homed('acme/plan', { mergedAt: '2026-09-22T12:00:00Z' })] }, { config, now: NOW });
@@ -192,7 +192,7 @@ describe('projectEvents', () => {
       const events = projectEvents({ ...snapshot(), planets: [
         homed('acme/plan', { mergedAt: '2026-09-22T12:00:00Z' }),
         homed('acme/tools', { author: 'bob', ownerTeam: 'octopod' }),
-        { ...homed('acme/tools'), prd: 90, zones: [], outbox: [], featurePr: null, regions: [{ repo: 'acme/tools', blockedBy: [88], surveyedAt: '2026-09-02T08:00:00Z' }] } as unknown as Planet,
+        { ...homed('acme/tools'), prd: 90, zones: [], outbox: [], featurePr: null, regions: [{ repo: 'acme/tools', blockedBy: [88], surveyedAt: '2026-09-02T08:00:00Z' }] } as unknown as SnapshotPlanet,
       ] }, { config, now: NOW });
       const all = events.map((e) => e.id);
       expect(new Set(all).size).toBe(all.length);

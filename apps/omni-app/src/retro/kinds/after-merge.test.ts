@@ -16,7 +16,7 @@ import {
   REPO,
   afterMergeRecording,
 } from './after-merge.fixtures/day-14.ts';
-import type { Missing } from './after-merge.fixtures/day-14.ts';
+import type { AfterMergeMissing } from './after-merge.fixtures/day-14.ts';
 
 const { gather, detect, section } = handles(afterMerge);
 
@@ -27,7 +27,7 @@ const atMerge = { kinds: { churn: { ranges: RANGES } } };
 const issueUrl = (n: number) => `https://github.com/${OWNER}/${REPO}/issues/${n}`;
 const pullUrl = (n: number) => `https://github.com/${OWNER}/${REPO}/pull/${n}`;
 
-type Options = { missing?: Missing; issues?: object[]; pulls?: object[]; scope?: object };
+type Options = { missing?: AfterMergeMissing; issues?: object[]; pulls?: object[]; scope?: object };
 
 function github({ missing, issues = ISSUES, pulls = FIX_PULLS }: Options = {}) {
   const stub = replay({ pulls: [FEATURE, ...pulls], recording: afterMergeRecording({ missing }) });

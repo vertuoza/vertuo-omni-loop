@@ -66,7 +66,7 @@ export type AnswerableQuestion = {
 };
 
 /** The numbering the pull request comment carries: which item each question number names. */
-export type Numbering = readonly { number: number; id: string; since?: string }[];
+export type CommentNumbering = readonly { number: number; id: string; since?: string }[];
 
 /**
  * A reason or a prose answer as one clean line: every run of whitespace (newlines included) becomes
@@ -172,7 +172,7 @@ export function answerableQuestions({
   items,
   adopted = [],
 }: {
-  numbering: Numbering;
+  numbering: CommentNumbering;
   items: readonly OutboxItem[];
   adopted?: readonly { id: string; itemText: string }[];
 }): AnswerableQuestion[] {
@@ -215,7 +215,7 @@ function askedText(item: OutboxItem): string {
  *
  * @param {{ numbering: { number: number, id: string }[], items: object[] }} args
  */
-export function askBatches({ numbering, items }: { numbering: Numbering; items: readonly OutboxItem[] }) {
+export function askBatches({ numbering, items }: { numbering: CommentNumbering; items: readonly OutboxItem[] }) {
   const asked = answerableQuestions({ numbering, items })
     .filter((question) => !question.adopted && (question.rank === HUMAN_ACTION || question.rank === 'high'))
     .sort((a, b) => Number(b.rank === HUMAN_ACTION) - Number(a.rank === HUMAN_ACTION) || a.number - b.number)

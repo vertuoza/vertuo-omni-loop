@@ -13,7 +13,7 @@ import { SOLO, type FleetTag, type Person } from './types';
 // every lookup falls back so: a failed faces read never turns a screen into "could not load".
 
 /** A member, as workspace_roster returns them. */
-export const RosterRowSchema = z.object({
+const RosterRowSchema = z.object({
   user_id: z.string(),
   name: z.string().nullable(),
   github_login: z.string().nullable(),
@@ -24,7 +24,7 @@ export const RosterRowSchema = z.object({
 export type RosterRow = z.infer<typeof RosterRowSchema>;
 
 /** A fleet, as the directory reads it from `teams`. */
-export const FleetLookRowSchema = z.object({ name: z.string(), label: z.string(), color: z.string().nullable(), mascot: z.string().nullable() });
+const FleetLookRowSchema = z.object({ name: z.string(), label: z.string(), color: z.string().nullable(), mascot: z.string().nullable() });
 export type FleetLookRow = z.infer<typeof FleetLookRowSchema>;
 
 export interface People {

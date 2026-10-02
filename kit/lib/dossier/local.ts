@@ -8,10 +8,10 @@
 // of the wrong shape reads as absent: a draft the kit cannot read is one it does not number.
 import { execFileSync } from 'node:child_process';
 import type { StdioOptions } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import { LOCAL_DIR } from '../ask/local-state.ts';
+import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import type { ExecText } from '../context.ts';
 import type { DossierEntry } from './draft.ts';
 
@@ -22,7 +22,7 @@ const QUIET: { encoding: 'utf8'; stdio: StdioOptions } = { encoding: 'utf8', std
 const text = z.string().min(1);
 
 /** One entry of the file, as `entryOf` keeps it: any other key is dropped. */
-export const DossierEntrySchema = z.object({
+const DossierEntrySchema = z.object({
   id: text,
   url: text,
   claudeSessionId: text.nullable(),
@@ -66,10 +66,7 @@ export function readDossiers(root: string): DossierEntry[] {
 }
 
 function writeDossiers(root: string, entries: readonly DossierEntry[]): void {
-  const dir = join(root, LOCAL_DIR);
-  mkdirSync(dir, { recursive: true });
-  const ignore = join(dir, '.gitignore');
-  if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
+  ensureLocalDir(root);
   writeFileSync(join(root, DOSSIERS_FILE), `${JSON.stringify(entries, null, 2)}\n`);
 }
 

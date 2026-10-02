@@ -35,7 +35,7 @@ import { findRoot, readRepo } from '../../lib/init/repo.ts';
 import { writeStatusLine } from '../../lib/init/settings.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { signin } from './signin.ts';
-import type { Config } from '../../lib/context.ts';
+import type { Config } from '../../lib/types.ts';
 import type { InitCommands } from '../../lib/init/config-text.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
 

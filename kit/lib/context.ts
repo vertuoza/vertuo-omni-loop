@@ -1,17 +1,18 @@
 // The one object every kit function receives instead of a repository root: where the repository is,
 // what its config says, where its PRDs live, and which markers its comments carry.
 import { execFileSync } from 'node:child_process';
-import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { ConfigError, loadConfig } from './config.ts';
 import { foldersLayout } from './layout.ts';
 import { makeMarkers } from './markers.ts';
-
-/** The repository's parsed `.omni-loop/config.yml`, exactly as `loadConfig` returns it. */
-export type Config = ReturnType<typeof loadConfig>;
+import type { Config } from './types.ts';
 
 /** A process runner shaped like `execFileSync` called with a text `encoding`: it returns stdout. */
 export type ExecText = (file: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding) => string;
+
+/** A process runner shaped like `execFileSync`: stdout as text with an `encoding`, a Buffer without. */
+export type ExecRaw = (file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer;
 
 /** The one object every kit function receives: the repository's root, config, layout and markers. */
 export type Context = ReturnType<typeof createContext>;

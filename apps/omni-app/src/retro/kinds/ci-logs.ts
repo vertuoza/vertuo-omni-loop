@@ -82,25 +82,37 @@ const playwright: LogReader = {
   detects: (lines) =>
     lines.some((line) => /^Running \d+ tests? using \d+ workers?/.test(line.trim()) || PLAYWRIGHT_HEADER.test(line)),
   read(lines) {
-    const counts: Counts = {};
-    const listed: string[] = [];
-    let section: string | null = null;
-    for (const line of lines) {
-      const count = PLAYWRIGHT_COUNT.exec(line);
-      if (count) {
-        section = count[2] ?? null;
-        const key = section === null ? undefined : COUNT_KEYS[section];
-        if (key) counts[key] = Number(count[1]);
-        continue;
-      }
-      const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line);
-      if (section === 'failed' && entry?.[1] !== undefined) listed.push(entry[1]);
-      else if (line.trim() !== '') section = null;
-    }
+    const { counts, listed } = playwrightSummary(lines);
     const failed = Object.keys(counts).length > 0 ? listed : present(lines.map((line) => PLAYWRIGHT_HEADER.exec(line)?.[1]));
     return { tests: failed.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
   },
 };
+
+/** Playwright's summary: the counts it gives out, and the tests listed under its `failed` count. */
+function playwrightSummary(lines: string[]): { counts: Counts; listed: string[] } {
+  const counts: Counts = {};
+  const listed: string[] = [];
+  let section: string | null = null;
+  for (const line of lines) {
+    const count = PLAYWRIGHT_COUNT.exec(line);
+    if (count) {
+      section = keptCount(counts, count);
+      continue;
+    }
+    const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line);
+    if (section === 'failed' && entry?.[1] !== undefined) listed.push(entry[1]);
+    else if (line.trim() !== '') section = null;
+  }
+  return { counts, listed };
+}
+
+/** Keeps a Playwright count line's number under its key; the section the line opens. */
+function keptCount(counts: Counts, count: RegExpExecArray): string | null {
+  const section = count[2] ?? null;
+  const key = section === null ? undefined : COUNT_KEYS[section];
+  if (key) counts[key] = Number(count[1]);
+  return section;
+}
 
 /** A Playwright title without its line and column, nor the retry it was printed for. */
 function playwrightName(title: string): string {
@@ -116,22 +128,21 @@ const jest: LogReader = {
     let file: string | null = null;
     for (const line of lines) {
       const fail = /^\s*FAIL\s+(\S+)/.exec(line);
-      if (fail?.[1] !== undefined) {
-        file = fail[1];
-        continue;
-      }
-      const block = /^\s*● (.+?)\s*$/.exec(line);
-      if (block?.[1] === undefined || JEST_SKIPPED.test(block[1])) continue;
-      if (block[1] === 'Test suite failed to run') {
-        if (file) tests.push(file);
-      } else {
-        tests.push(normalize(file ? `${file} › ${block[1]}` : block[1]));
-      }
+      if (fail?.[1] !== undefined) file = fail[1];
+      else tests.push(...jestFailed(line, file));
     }
     const summary = present(lines.map((line) => /^\s*Tests:\s+(.+)$/.exec(line)?.[1])).at(-1);
     return { tests, counts: summary ? countsIn(summary) : null };
   },
 };
+
+/** The test a Jest `●` line names as failed, under the file of the last FAIL line: none for any other line. */
+function jestFailed(line: string, file: string | null): string[] {
+  const block = /^\s*● (.+?)\s*$/.exec(line);
+  if (block?.[1] === undefined || JEST_SKIPPED.test(block[1])) return [];
+  if (block[1] === 'Test suite failed to run') return file ? [file] : [];
+  return [normalize(file ? `${file} › ${block[1]}` : block[1])];
+}
 
 const VITEST_SUMMARY = /^\s*Tests\s{2,}(.+)$/;
 const vitest: LogReader = {

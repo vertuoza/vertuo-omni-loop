@@ -6,7 +6,7 @@ import { z } from 'zod';
 // it is the viewer's own and whether the viewer may revoke it (its maker, or an owner), and whether it
 // still works (its maker is still a member of the workspace).
 
-export const NAME_MAX = 40;
+export const TOKEN_NAME_MAX = 40;
 /** The live links one person may hold (decision 7). */
 export const LIVE_MAX = 20;
 /** The name the setup gives the MCP server in the editor. */
@@ -16,7 +16,7 @@ const MCP_PATH = '/api/mcp';
 
 const agentTokenSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1).max(NAME_MAX),
+  name: z.string().min(1).max(TOKEN_NAME_MAX),
   lastFour: z.string().length(4),
   createdAt: z.string(),
   lastUsedAt: z.string().nullable(),
@@ -44,7 +44,7 @@ export function tokensOf(value: unknown): AgentToken[] | null {
 export function nameOf(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const name = value.trim();
-  return name.length >= 1 && name.length <= NAME_MAX && !/[\r\n\t]/.test(name) ? name : null;
+  return name.length >= 1 && name.length <= TOKEN_NAME_MAX && !/[\r\n\t]/.test(name) ? name : null;
 }
 
 /** Who made a link, as the list says it: their name, else their GitHub login, else "someone". */

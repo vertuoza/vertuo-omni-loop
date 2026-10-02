@@ -12,7 +12,7 @@ export const IssueEventSchema = z.looseObject({
 });
 
 /** One workflow run of `GET /repos/{owner}/{repo}/actions/runs`. */
-export const WorkflowRunSchema = z.looseObject({
+const WorkflowRunSchema = z.looseObject({
   id: z.number(),
   name: z.string().nullish(),
   head_sha: z.string().nullish(),
@@ -22,7 +22,7 @@ export const WorkflowRunSchema = z.looseObject({
 export const WorkflowRunsPageSchema = z.looseObject({ workflow_runs: z.array(WorkflowRunSchema).nullish() });
 
 /** One job of `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`. */
-export const JobSchema = z.looseObject({
+const JobSchema = z.looseObject({
   id: z.number(),
   run_id: z.number().nullish(),
   workflow_name: z.string().nullish(),
@@ -137,7 +137,6 @@ export const ReviewThreadsAnswerSchema = z
   })
   .nullish();
 
-export type IssueEvent = z.infer<typeof IssueEventSchema>;
 export type WorkflowRun = z.infer<typeof WorkflowRunSchema>;
 export type Job = z.infer<typeof JobSchema>;
 export type Issue = z.infer<typeof IssueSchema>;

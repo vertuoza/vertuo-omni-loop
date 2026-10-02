@@ -10,7 +10,8 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from 'no
 import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from '../config.ts';
 import { createContext } from '../context.ts';
-import type { Config, ExecText } from '../context.ts';
+import type { ExecText } from '../context.ts';
+import type { Config } from '../types.ts';
 import { reconcileLabels } from '../init/labels.ts';
 import { readRepo } from '../init/repo.ts';
 import { writeForms } from '../playbook/write-forms.ts';

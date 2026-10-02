@@ -28,17 +28,15 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT, inngest } from '../inngest-client.ts';
+import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
-import { upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { filesIn, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import { type CommitFile, commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
 import { CommitSchema, FailedHarvestEventSchema, HarvestEventSchema, parsedOr } from './schema.ts';
-
-/** The installation's REST client, for its id. */
-export type OctokitFor = (installationId: number) => Promise<RequestOctokit> | RequestOctokit;
 
 /** The part of an Inngest step the harvest runs: one memoized, retried unit, its output as JSON. */
 type HarvestStep = { run: <T>(id: string, fn: () => T | Promise<T>) => Promise<T> };
@@ -71,7 +69,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** The function, bound to its client, GitHub, the environment and fetch; `now` gives the harvest's day, for `Proposed:`. */
 export function createKnowledgeHarvest({ client, octokitFor, env = process.env, fetch = globalThis.fetch, now = today }: {
   client: Inngest.Any;
-  octokitFor: OctokitFor;
+  octokitFor: OctokitFor<RequestOctokit>;
   env?: Record<string, string | undefined>;
   fetch?: typeof globalThis.fetch;
   now?: () => string;
@@ -215,7 +213,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
  * "The knowledge harvest could not run: <reason>" — rewritten in place on a later failure, never a
  * second one.
  */
-export function createHarvestFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+export function createHarvestFailureHandler({ octokitFor }: { octokitFor: OctokitFor<RequestOctokit> }) {
   return async ({ event, error, step }: {
     event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
     error?: { message?: string } | null;
@@ -227,10 +225,7 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const text = `The knowledge harvest could not run: ${reason}`;
 
-    const run = <T>(id: string, fn: () => Promise<T>) => (step?.run ? step.run(id, fn) : fn());
-    return run('comment-failure', async () => {
-      const octokit = await octokitFor(installationId);
-      const where = { owner, repo } as { owner: string; repo: string }; // ts-allow: a merge's failure event names its repository; one that does not fails the GitHub call, as it always has
+    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, async (octokit, where) => {
       const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text });
       return { ...posted, reason };
     });

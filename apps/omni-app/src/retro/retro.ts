@@ -53,20 +53,21 @@ import type { Inngest } from 'inngest';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { KIT_MESSAGES } from 'vertuo-omni-plan/kit/lib/schema/messages.ts';
+import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 import { inngest, RETRO_EVENT } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
-import { upsertComment } from '../verdict-comment/verdict-comment.ts';
+import type { OctokitFor } from '../octokit-for.ts';
+import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
 import { BlobSchema, CreatedCommentSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import { guard } from './guard.ts';
 import { publishIssues } from './issues.ts';
 import { followUpAt } from './kinds/after-merge.ts';
-import { KINDS } from './kinds/index.ts';
+import { KINDS, type Kind } from './kinds/index.ts';
 import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
@@ -76,7 +77,6 @@ import type {
   FactSheet,
   FeaturePull,
   IssueLinks,
-  Kind,
   Known,
   Lesson,
   Octokit,
@@ -157,18 +157,17 @@ const FailedEventSchema = z
   .catch({});
 
 /** The step tools the retro uses. Every value it hands `run` is plain JSON, so it comes back as given. */
-export type RetroStep = {
+type RetroStep = {
   run<T>(id: string, fn: () => T | Promise<T>): Promise<T>;
   sendEvent(id: string, payload: { name: string; data: Record<string, never> }): Promise<unknown>;
   waitForEvent(id: string, options: { event: string; timeout: number }): Promise<{ ts?: number } | null>;
 };
 
-export type OctokitFor = (installationId: number) => Promise<Octokit> | Octokit;
 type Env = Record<string, string | undefined>;
 
 export type RetroDeps = {
   client: Inngest.Any;
-  octokitFor: OctokitFor;
+  octokitFor: OctokitFor<Octokit>;
   env?: Env;
   /** The model call's fetch; the global one when not given. */
   fetch?: typeof fetch;
@@ -247,11 +246,7 @@ function kindsIn(run: Run, kinds: readonly Kind[]): Kind[] {
 
 /** The event's data, parsed; an event missing a field fails, naming it. */
 function parseEvent(data: unknown): z.infer<typeof RetroEventSchema> {
-  const parsed = RetroEventSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (parsed.success) return parsed.data;
-  const issue = parsed.error.issues[0];
-  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
-  throw new Error(`The ${RETRO_EVENT} event carries an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+  return parseOrThrow(RetroEventSchema, data, `The ${RETRO_EVENT} event carries an unexpected shape`);
 }
 
 /**
@@ -485,17 +480,14 @@ type FailureInput = {
  * "The retro could not run: <reason>" — rewritten in place on a later failure, never a second one.
  * A scheduled run has no merged PR, so its failure leaves no comment.
  */
-export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Octokit> }) {
   return async ({ event, error, step }: FailureInput) => {
     const { installationId, owner, repo, prNumber } = FailedEventSchema.parse(event.data.event.data ?? {});
     if (!installationId || !prNumber) return { skipped: 'not a merge' };
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const body = `${FAILURE_MARKER}\nThe retro could not run: ${reason}\n`;
 
-    const run = <T>(id: string, fn: () => Promise<T>) => (step?.run ? step.run(id, fn) : fn());
-    return run('comment-failure', async () => {
-      const octokit = await octokitFor(installationId);
-      const where = { owner, repo } as { owner: string; repo: string }; // ts-allow: a merge's failure event names its repository; one that does not fails the GitHub call, as it always has
+    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, async (octokit, where) => {
       const comments = await listComments(octokit, { ...where, prNumber });
       const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
       if (existing) {

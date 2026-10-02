@@ -13,19 +13,15 @@
 // "A filled form" is a Markdown file under the target's `paths.playbook` (read from its own config,
 // the kit's default layout when unset) whose front matter says `state: filled` (playbook/filled.ts).
 import { execFileSync } from 'node:child_process';
-import type { ExecFileSyncOptions } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { z } from 'zod';
-import type { Context } from '../context.ts';
+import type { Context, ExecRaw } from '../context.ts';
 import { isFilled, playbookOf } from '../playbook/filled.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
 import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
 import type { GhCompare, GhContentEntry, GhRepository } from './gh-schema.ts';
-
-/** How `gh` is run: `execFileSync`, or a fake of it. */
-export type Exec = (file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer;
 
 /** One target of a config's `plan.targets`, as the reader needs it. */
 export type Target = { repo: string; role: string; knowledge: string; readAt?: string | null };
@@ -70,7 +66,7 @@ export class Unreachable extends Error {}
 
 /** The `gh api` readings one target needs. A missing file or directory is `null`; any other failure throws
  * `Unreachable`. Shared with `omni plan moved` (`./moved.ts`). */
-export function ghReader({ exec, env }: { exec: Exec; env?: NodeJS.ProcessEnv | undefined }): GhReader {
+export function ghReader({ exec, env }: { exec: ExecRaw; env?: NodeJS.ProcessEnv | undefined }): GhReader {
   const api = (args: string[]): string => String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env } : {}) }));
   const call = (args: string[]): string | null => {
     try {
@@ -143,7 +139,7 @@ export function readTarget(
     exec = execFileSync,
     env,
     evidence = new Set(),
-  }: { exec?: Exec; env?: NodeJS.ProcessEnv | undefined; evidence?: ReadonlySet<string> } = {},
+  }: { exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined; evidence?: ReadonlySet<string> } = {},
 ): TargetRow {
   const { repo, role, knowledge } = target;
   const row = (loop: string, state: TargetState, detail: string | null = null): TargetRow => ({ repo, role, knowledge, loop, state, detail });
@@ -194,7 +190,7 @@ export function copyEvidence(repo: string, { ctx }: { ctx: Pick<Context, 'root' 
 /** Every target's row, in config order. */
 export function readTargets(
   targets: readonly Target[],
-  { ctx, exec = execFileSync, env }: { ctx: Pick<Context, 'root' | 'config'>; exec?: Exec; env?: NodeJS.ProcessEnv | undefined },
+  { ctx, exec = execFileSync, env }: { ctx: Pick<Context, 'root' | 'config'>; exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined },
 ): TargetRow[] {
   return targets.map((target) =>
     readTarget(target, { exec, env, evidence: target.knowledge === 'imported' ? copyEvidence(target.repo, { ctx }) : new Set() }),

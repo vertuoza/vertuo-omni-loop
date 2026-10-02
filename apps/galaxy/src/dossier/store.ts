@@ -7,6 +7,7 @@
 // Since PRD 627 a dossier has a kind — a PRD's, a visual fix's or a bug fix's — keyed with the repository
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { type Outcome, StoreError } from '../data/store-error';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */
 export const DOSSIER_KINDS = ['spec', 'plan', 'before-after'] as const;
@@ -65,17 +66,7 @@ export type DossierPushed = { id: string; added: Array<{ kind: ArtifactKind; ver
  * P0002 no such draft for them, 22023 a draft of another repository or already another PRD, 54000 an
  * artifact over the cap.
  */
-export class DossierStoreError extends Error {
-  readonly code: string | undefined;
-  readonly reason: string;
-  constructor(what: string, code: string | undefined, reason: string) {
-    super(`${what}: ${reason}`);
-    this.code = code;
-    this.reason = reason;
-  }
-}
-
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
+export class DossierStoreError extends StoreError {}
 
 function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
   if (error) throw new DossierStoreError(what, error.code, error.message);

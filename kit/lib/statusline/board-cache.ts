@@ -25,13 +25,13 @@ import { fileURLToPath } from 'node:url';
 import { LOCAL_DIR } from '../ask/local-state.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { BoardFileSchema, LockFileSchema } from './schema.ts';
-import type { BoardSlice } from './schema.ts';
+import type { CachedSlice } from './schema.ts';
 
 /** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
-export type Board = { at: number; slices: BoardSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
+export type Board = { at: number; slices: CachedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
 
 /** A board entry as it is written, `at` an ISO time. */
-export type BoardEntry = { at: string; slices: BoardSlice[] } | { at: string; error: string };
+export type BoardEntry = { at: string; slices: CachedSlice[] } | { at: string; error: string };
 
 /** What starts the refresh: shaped like `spawn` from `node:child_process`; its child may be anything. */
 export type Spawn = (command: string, args: readonly string[], options: SpawnOptions) => {
@@ -89,7 +89,7 @@ function ageOf(board: Board | null | undefined, now: number): number | null {
 }
 
 /** The slices to show: the board's, when it holds slices under 10 minutes old; else `null`. */
-export function shownSlices(board: Board | null | undefined, now: number): BoardSlice[] | null {
+export function shownSlices(board: Board | null | undefined, now: number): CachedSlice[] | null {
   const age = ageOf(board, now);
   return board?.slices && age !== null && age < SHOWN_UNDER_MS ? board.slices : null;
 }
@@ -153,7 +153,7 @@ export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }:
   spawn?: Spawn | null;
   script?: string;
   env?: NodeJS.ProcessEnv | undefined;
-}): BoardSlice[] | null {
+}): CachedSlice[] | null {
   const board = attempt(() => readBoard(root, prd), null);
   if (spawn && refreshDue(board, now) && !attempt(() => lockHeld(root, prd, now), true)) {
     startRefresh({ spawn, script: script ?? omniScript(), cwd, prd, env });
@@ -225,7 +225,7 @@ const oneLine = (error: unknown): string => (String(prop(error, 'message') ?? er
  * nothing written, while another refresh holds it), writes what `build()` returns as the board's
  * slices, or what it throws as the error entry, then removes the lock (`'written'`).
  */
-export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly BoardSlice[] }): 'written' | 'held' {
+export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly CachedSlice[] }): 'written' | 'held' {
   const owner = takeLock(root, prd, now);
   if (owner === null) return 'held';
   try {

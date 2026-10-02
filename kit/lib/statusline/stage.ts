@@ -23,7 +23,7 @@
 //   old). A board that sees a slice merged or in flight reads outbox before the feature branch is
 //   built (the spec's D9): a wave's sub-PR shows on it the moment the wave claims its slice.
 import { SETTLED_FILE } from '../outbox/outbox.ts';
-import type { BoardSlice } from './schema.ts';
+import type { CachedSlice } from './schema.ts';
 
 export const SHIPPED = 'shipped';
 export const OUTBOX = 'outbox';
@@ -71,13 +71,13 @@ export function isBuilt({ forkChanges, stillDiffers, delivery }: { forkChanges: 
 }
 
 /** Whether the board's `slices` show work under way: a slice merged or in flight. */
-export function boardShowsWork(slices: readonly BoardSlice[] | null | undefined): boolean {
+export function boardShowsWork(slices: readonly CachedSlice[] | null | undefined): boolean {
   return (slices ?? []).some((slice) => slice.state === MERGED || IN_FLIGHT.includes(slice.state));
 }
 
 /** Whether a PRD whose folder is in the base inbox reads outbox: its feature branch is built, or
  * holds an open item, or its board shows a slice merged or in flight. */
-export function inOutbox(feature: FeatureFacts | null | undefined, slices: readonly BoardSlice[] | null = null): boolean {
+export function inOutbox(feature: FeatureFacts | null | undefined, slices: readonly CachedSlice[] | null = null): boolean {
   return Boolean(feature?.built) || (feature?.openItems ?? 0) > 0 || boardShowsWork(slices);
 }
 
@@ -90,7 +90,7 @@ export function stageOf({ folder, base, feature, slices = null }: {
   folder: string;
   base: BaseFolders | null;
   feature: FeatureFacts | null;
-  slices?: readonly BoardSlice[] | null;
+  slices?: readonly CachedSlice[] | null;
 }): PrdStage | null {
   if (!base) return null;
   if (base.shipped.includes(folder)) return SHIPPED;

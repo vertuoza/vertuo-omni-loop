@@ -138,7 +138,7 @@ export async function readContent(
 }
 
 /** The HTTP status an Octokit error carries, when it carries one. */
-export function statusOf(error: unknown): unknown {
+function statusOf(error: unknown): unknown {
   return typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
 }
 

@@ -1,6 +1,6 @@
 import type { TOCItemType } from 'fumadocs-core/toc';
 import { badgeLabel } from './badges';
-import { skillNames, skillPage, SKILLS_PATH, type SkillGroup, type SkillLink, type SkillPageModel } from './skills';
+import { skillNames, skillPage, SKILLS_PATH, type SkillLink, type SkillPageModel, type SkillSection } from './skills';
 import type { SidebarItem } from './tree';
 
 // The skills pages as drawn inside DocsPage (PRD 580): the overview's sections and cards, one skill's
@@ -56,7 +56,7 @@ function Links({ skills }: { skills: readonly SkillLink[] }) {
 }
 
 /** /docs/skills: one section per group, one card per skill linking its page. */
-export function SkillsOverview({ groups }: { groups: readonly SkillGroup[] }) {
+export function SkillsOverview({ groups }: { groups: readonly SkillSection[] }) {
   return (
     <>
       {groups.map((group) => (

@@ -3,8 +3,7 @@
 // shape the kit only builds itself is written here as a type. Types only: this file holds no value.
 import type { z } from 'zod';
 import type { ConfigSchema } from './schema/config.ts';
-import type { DossierRowSchema, VERSION_KINDS } from './schema/dossier.ts';
-import type { FleetRowSchema } from './schema/fleet.ts';
+import type { VERSION_KINDS } from './schema/dossier.ts';
 import type { OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES, SPEC_VALUES, SpecFrontMatterSchema } from './schema/front-matter.ts';
 
 /** `.omni-loop/config.yml`, parsed: every key present, defaults filled in. */
@@ -45,12 +44,6 @@ export type Slice = {
   blockedBy: string[];
   /** `null` for a plan with no `wave` column. */
   wave: number | null;
-};
-
-/** The slices of one plan that share a wave: built together, merged one at a time. */
-export type Wave = {
-  wave: number;
-  slices: Slice[];
 };
 
 export type SpecSource = (typeof SPEC_VALUES)[number];
@@ -97,7 +90,6 @@ export type OutboxItem = Pick<OutboxItemFrontMatter, 'id' | 'prd' | 'slice' | 'r
   file: string | null;
 };
 
-export type DossierRow = z.infer<typeof DossierRowSchema>;
 export type DossierVersionKind = (typeof VERSION_KINDS)[number];
 
 /** One version of a dossier's artifact, as the store returns it. */
@@ -112,8 +104,6 @@ export type Dossier = {
   /** A visual fix's only: every `variations` version, since each round is its own. */
   rounds?: DossierVersion[];
 };
-
-export type FleetRow = z.infer<typeof FleetRowSchema>;
 
 /** A fleet, folded from its row (`configFrom`, `game/config.ts`). */
 export type Fleet = {

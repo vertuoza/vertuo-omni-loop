@@ -20,7 +20,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.ts';
-import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.ts';
+import { fixVerdict, issuePrefix, numberedFolders, rasterFaults } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
 
@@ -40,11 +40,6 @@ const ROUND_LIKE = /^variations/i;
 /** Where every visual fix's folder lives. */
 export function visualRoot(ctx: { config: { paths: { delivery: string } } }): string {
   return `${ctx.config.paths.delivery}/visual`;
-}
-
-/** The folder name prefix of an issue's visual fix: its number, zero-padded to four digits, then `-`. */
-export function folderPrefix(issue: number | string): string {
-  return `${String(issue).padStart(4, '0')}-`;
 }
 
 function pageViolations(ctx: VisualContext, page: string): string[] {
@@ -86,7 +81,7 @@ export function visualVerdict({ ctx, issue, commits }: {
   commits?: readonly Commit[];
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
-    ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), folderPrefix(issue)),
+    ctx, issue, commits, root: visualRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue)),
     grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
   });
 }

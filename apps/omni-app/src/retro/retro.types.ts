@@ -82,9 +82,6 @@ export type Finding = { id: string; kind: string; title: string; happened: strin
 /** A finding on the fact sheet: the kind it came from (`source`) and its rank (`ref`, F1, F2…). */
 export type SheetFinding = Finding & { source: string; ref: string };
 
-/** A kind of finding: its contract lives with the registry. */
-export type { Kind } from './kinds/index.ts';
-
 export type RulesSheet = ReturnType<typeof rulesSheet>;
 
 /** The fact sheet `detect` makes: every number `retro.md` shows. */

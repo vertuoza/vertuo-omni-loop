@@ -94,6 +94,13 @@ export function mergeFiles({ config = CONFIG, state = 'shipped', settled = null 
   return files;
 }
 
+/** One recorded read of `acme/widgets` for `replayGitHub({ recording })`: its data, or the status GitHub answers instead. */
+export const recordedRead = (route: string, params: Record<string, unknown>, data: unknown, status: number | undefined) => ({
+  route,
+  params: { owner: OWNER, repo: REPO, ...params },
+  ...(status ? { status } : { data }),
+});
+
 /**
  * The stubbed GitHub and the retro event for one scenario.
  * @param {{ files?: Record<string, string>, feature?: object, subPulls?: object[], events?: object[] | null,

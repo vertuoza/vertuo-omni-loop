@@ -17,6 +17,11 @@ type VerdictContext = { root: string; config: { signature: TrailerSignature | nu
 /** A `data:image/` URL whose type is anything but SVG. */
 const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 
+/** The folder name prefix of an issue's fix: its number, zero-padded to four digits, then `-`. */
+export function issuePrefix(issue: number | string): string {
+  return `${String(issue).padStart(4, '0')}-`;
+}
+
 /** Every folder under `root` named `prefix` then a slug, sorted, as repository paths. */
 export function numberedFolders(ctx: { root: string }, root: string, prefix: string): string[] {
   const absolute = join(ctx.root, root);

@@ -45,7 +45,7 @@ export interface SkillCard extends SkillLink {
 }
 
 /** A section of the overview. */
-export interface SkillGroup {
+export interface SkillSection {
   id: string;
   title: string;
   skills: SkillCard[];
@@ -92,7 +92,7 @@ const named = (texts: readonly string[]) => [...new Set(texts.flatMap((text) => 
 
 /** The overview: one section per group in SKILL_GROUPS order, its skills in the entries' order; a
  * group with no skill is left out. */
-export function skillsOverview(entries: readonly SkillEntry[] = HELP_ENTRIES, groups: readonly SkillGroupEntry[] = GROUPS): SkillGroup[] {
+export function skillsOverview(entries: readonly SkillEntry[] = HELP_ENTRIES, groups: readonly SkillGroupEntry[] = GROUPS): SkillSection[] {
   const skills = skillsOf(entries);
   return groups
     .map((group) => ({

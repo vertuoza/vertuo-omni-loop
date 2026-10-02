@@ -10,6 +10,7 @@
 // wrote before asking, sent by the kit with the round.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from './classify';
+import { type Outcome, StoreError } from '../data/store-error';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;
@@ -89,18 +90,7 @@ export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at
 
 /** The database refused or failed; `code` is Postgres's (42501: row-level security, or the workspace
  * pick, said no), and `reason` the database's own words. */
-export class AskStoreError extends Error {
-  readonly code: string | undefined;
-  readonly reason: string;
-
-  constructor(what: string, code: string | undefined, reason: string) {
-    super(`${what}: ${reason}`);
-    this.code = code;
-    this.reason = reason;
-  }
-}
-
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
+export class AskStoreError extends StoreError {}
 
 /** A database call's data, or the AskStoreError that says what failed. */
 export function settle<T>(what: string, { data, error }: Outcome<T>): T | null {

@@ -43,9 +43,6 @@ export type ParsedAccount = { ok: true; account: Account } | { ok: false; errors
 /** One change of a range, exactly `git diff --name-status` shape. */
 export type Change = { path: string; status: string };
 
-/** A change a decision-coverage rule fired on (`riskyChanges`, `decision-coverage.ts`). */
-export type RiskyChange = Change & { rule: string };
-
 /** An account entry carried with the slice and file it came from, as {@link compare} reports it. */
 export type NamedEntry = AccountEntry & { slice: string; file: string | null };
 

@@ -143,22 +143,11 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
       return { repository: { pullRequests: { pageInfo: { hasNextPage: end < sorted.length, endCursor: String(end) }, nodes } } };
     },
     PullDetails(variables: Partial<Variables>, numbers: number[]) {
-      const pulls = graphqlRepo(variables, true).pulls ?? [];
-      const repository: Record<string, unknown> = {};
-      for (const number of numbers) {
-        const pull = pulls.find((candidate) => candidate.number === number);
-        repository[`p${number}`] = pull ? asGraphql(pull) : null;
-      }
-      return { repository };
+      return { repository: aliased(graphqlRepo(variables, true).pulls ?? [], numbers, asGraphql) };
     },
     PullStatus(variables: Partial<Variables>, numbers: number[]) {
-      const pulls = graphqlRepo(variables).pulls ?? [];
-      const repository: Record<string, unknown> = {};
-      for (const number of numbers) {
-        const pull = pulls.find((candidate) => candidate.number === number);
-        repository[`p${number}`] = pull ? { comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } } : null;
-      }
-      return { repository };
+      const comments = (pull: FakePull) => ({ comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } });
+      return { repository: aliased(graphqlRepo(variables).pulls ?? [], numbers, comments) };
     },
   };
 
@@ -171,6 +160,16 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
   }
 
   return { octokit, requests, queries, budget };
+}
+
+/** One aliased field per number, `p<number>`, as a query of several pull requests answers: each pull request as `shape` gives it, `null` when the repository has none by that number. */
+function aliased(pulls: readonly FakePull[], numbers: readonly number[], shape: (pull: FakePull) => unknown): Record<string, unknown> {
+  const repository: Record<string, unknown> = {};
+  for (const number of numbers) {
+    const pull = pulls.find((candidate) => candidate.number === number);
+    repository[`p${number}`] = pull ? shape(pull) : null;
+  }
+  return repository;
 }
 
 /** A pull request of the REST shape `pull()` builds, as GitHub's GraphQL API answers it. */

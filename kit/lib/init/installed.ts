@@ -11,7 +11,8 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
-import type { Config, ExecText } from '../context.ts';
+import type { ExecText } from '../context.ts';
+import type { Config } from '../types.ts';
 import { invadedOn, isFilled, playbookOf } from '../playbook/filled.ts';
 import { readRepo } from './repo.ts';
 

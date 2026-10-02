@@ -8,7 +8,8 @@ import { detect } from './detect.ts';
 import { listPullsInto } from './github.ts';
 import { mergeRuns, render, retroTitle, verdictComment } from './render.ts';
 import { refusedWordsIn } from './rules.ts';
-import type { FeaturePull, Finding, IssueLinks, Kind, Narration, Octokit, PrdFacts, Prose, RunRecord } from './retro.types.ts';
+import type { FeaturePull, Finding, IssueLinks, Narration, Octokit, PrdFacts, Prose, RunRecord } from './retro.types.ts';
+import type { Kind } from './kinds/index.ts';
 
 const GOLDEN = fileURLToPath(new URL('./render.golden/', import.meta.url));
 

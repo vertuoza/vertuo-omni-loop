@@ -190,26 +190,38 @@ function reach({ cwd, exec, tokens, home, fetch, callMs }: BusinessIo): Unreache
   return { repo, client: askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) }) };
 }
 
+/** Prints the one "<what> skipped: …" line a failed write prints, and exits 0: it never stops a run. */
+function skipped(env: BusinessIo, what: string, line: string): number {
+  println(env.stdout, `${what} skipped: ${line}`);
+  return 0;
+}
+
+/** The reply of `call` to this repository's Omni page, or the one line saying why there is none. */
+async function called(
+  env: BusinessIo,
+  call: (client: ReturnType<typeof askClient>, repo: string) => Promise<unknown>,
+): Promise<{ reply: unknown } | { line: string }> {
+  const reached = reach(env);
+  if (reached.client === undefined) return { line: reached.line };
+  try {
+    return { reply: await call(reached.client, reached.repo) };
+  } catch (error) {
+    return { line: stopped(error).line };
+  }
+}
+
 /**
  * `omni business cited <id>… --by <skill> [--ref <text>]`: appends one citation per id to the
  * business's log. The ids are the server's to judge, so a skill line naming a wrong one never stops a
  * run: every failed call prints one "citation skipped" line and exits 0.
  */
 async function cited(ids: string[], flags: { by?: string; ref?: string }, env: BusinessIo): Promise<number> {
-  if (ids.length === 0 || typeof flags.by !== 'string' || !flags.by.trim()) throw usageError(CITED_USAGE);
+  const by = flags.by;
+  if (ids.length === 0 || typeof by !== 'string' || !by.trim()) throw usageError(CITED_USAGE);
   const ref = typeof flags.ref === 'string' && flags.ref.trim() ? flags.ref : null;
-  const skip = (line: string) => {
-    println(env.stdout, `citation skipped: ${line}`);
-    return 0;
-  };
-  const reached = reach(env);
-  if (reached.client === undefined) return skip(reached.line);
-  try {
-    await reached.client.citeClaims({ repo: reached.repo, ids, by: flags.by, ref });
-  } catch (error) {
-    return skip(stopped(error).line);
-  }
-  println(env.stdout, `cited ${ids.join(', ')} (${[flags.by, ref].filter(Boolean).join(', ')})`);
+  const result = await called(env, (client, repo) => client.citeClaims({ repo, ids, by, ref }));
+  if ('line' in result) return skipped(env, 'citation', result.line);
+  println(env.stdout, `cited ${ids.join(', ')} (${[by, ref].filter(Boolean).join(', ')})`);
   return 0;
 }
 
@@ -241,20 +253,10 @@ const storedOf = (raw: unknown): { id: string; state: string; added: boolean } |
  */
 async function claim(positional: string[], flags: { kind?: string; value?: string; state?: string; ref?: string }, env: BusinessIo): Promise<number> {
   const answer = answerOf(positional, flags);
-  const skip = (line: string) => {
-    println(env.stdout, `claim skipped: ${line}`);
-    return 0;
-  };
-  const reached = reach(env);
-  if (reached.client === undefined) return skip(reached.line);
-  let reply: unknown;
-  try {
-    reply = await reached.client.addClaim({ repo: reached.repo, ...answer });
-  } catch (error) {
-    return skip(stopped(error).line);
-  }
-  const stored = storedOf(reply);
-  if (!stored) return skip(`refused (the reply is not a claim) ${CARRY_ON}`);
+  const result = await called(env, (client, repo) => client.addClaim({ repo, ...answer }));
+  if ('line' in result) return skipped(env, 'claim', result.line);
+  const stored = storedOf(result.reply);
+  if (!stored) return skipped(env, 'claim', `refused (the reply is not a claim) ${CARRY_ON}`);
   println(env.stdout, `claim ${stored.added ? 'saved' : 'already held'}: ${stored.id} (${stored.state})`);
   return 0;
 }

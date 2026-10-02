@@ -5,9 +5,9 @@
 // It runs each kind's detector on that kind's records, keeps each kind's facts under its id, and ranks
 // every finding by `rules`' order (then by kind, then as found), numbering them F1, F2… The sheet is
 // what `retro.json` keeps for the run, and what `render` reads every number from.
-import { kindsFor } from './kinds/index.ts';
+import { kindsFor, type Kind } from './kinds/index.ts';
 import { rankOf, rulesSheet } from './rules.ts';
-import type { DetectContext, FactSheet, Finding, Kind, Run } from './retro.types.ts';
+import type { DetectContext, FactSheet, Finding, Run } from './retro.types.ts';
 
 export type DetectInput = DetectContext & {
   run: Run;

@@ -3,7 +3,7 @@
 // when it is missing may be missing or null; what it reads as is stays required. A field missing or
 // of the wrong type fails, naming it.
 import { z } from 'zod';
-import { KIT_MESSAGES } from 'vertuo-omni-plan/kit/lib/schema/messages.ts';
+import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 
 const label = z.union([z.string(), z.object({ name: z.string() })]);
 
@@ -81,9 +81,5 @@ export const RetroLessonsSchema = z
  * is wrong: `GET /repos/{owner}/{repo}/pulls answered an unexpected shape: 0.number: …`.
  */
 export function parseGitHub<S extends z.ZodType>(schema: S, value: unknown, route: string): z.infer<S> {
-  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed.success) return parsed.data;
-  const issue = parsed.error.issues[0];
-  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
-  throw new Error(`${route} answered an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+  return parseOrThrow(schema, value, `${route} answered an unexpected shape`);
 }

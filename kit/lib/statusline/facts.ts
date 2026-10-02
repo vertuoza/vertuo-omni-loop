@@ -38,7 +38,7 @@ import { findRoot } from '../init/repo.ts';
 import { cachedSlices } from './board-cache.ts';
 import type { Spawn } from './board-cache.ts';
 import type { SessionInput } from './input.ts';
-import type { BoardSlice } from './schema.ts';
+import type { CachedSlice } from './schema.ts';
 import { recordedPrd } from './sessions.ts';
 import { isBuilt, openItemCount, stageOf } from './stage.ts';
 import type { FeatureFacts, PrdStage } from './stage.ts';
@@ -51,7 +51,7 @@ export type PrdFacts = {
   slice: string | null;
   stage: PrdStage | null;
   openItems: number;
-  slices: BoardSlice[] | null;
+  slices: CachedSlice[] | null;
 };
 
 /** What the status line reads besides Claude Code's JSON. */
@@ -154,7 +154,7 @@ function featureFacts(ctx: Context, { base, topic, folder }: { base: string; top
 
 /** The slices PRD `prd`'s cached board shows, read in the main checkout of `folder`, its refresh
  * started in `folder` when due and `spawn` is given; `null` for none. */
-function boardSlices({ folder, prd, now, spawn, env }: Refresh & { folder: string; prd: number }, exec: ExecText): BoardSlice[] | null {
+function boardSlices({ folder, prd, now, spawn, env }: Refresh & { folder: string; prd: number }, exec: ExecText): CachedSlice[] | null {
   const root = attempt(() => mainCheckout(folder, exec), null);
   return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, env }) : null;
 }

@@ -23,7 +23,7 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { PERSONA_TRADES, randomAvatar, validPersonaAvatar } from '../packages/design/src/index.ts';
 import type { PersonaAvatar } from '../packages/design/src/index.ts';
-import { KIT_MESSAGES } from '../kit/lib/schema/messages.ts';
+import { parseOrThrow } from '../kit/lib/schema/parse-or-throw.ts';
 
 const STANCES = ['excited', 'neutral', 'skeptical'] as const;
 const KEYS = ['product', 'name', 'stance', 'trade', 'who', 'usage', 'avatar'];
@@ -180,11 +180,7 @@ const RefusalSchema = z.object({ code: z.unknown(), message: z.unknown(), hint: 
 
 /** `value`, what Supabase answered `path` with, parsed by `schema`; else an error naming the field. */
 function answer<S extends z.ZodType>(schema: S, value: unknown, path: string): z.infer<S> {
-  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed.success) return parsed.data;
-  const issue = parsed.error.issues[0];
-  const field = issue && issue.path.length ? `${issue.path.join('.')}: ` : '';
-  throw new Error(`Supabase answered ${path.split('?')[0]} with an unexpected shape: ${field}${issue?.message ?? 'invalid'}`);
+  return parseOrThrow(schema, value, `Supabase answered ${path.split('?')[0]} with an unexpected shape`);
 }
 
 /** The reads the import needs, and persona_add(). */

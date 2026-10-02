@@ -13,11 +13,12 @@
 // Read-only: nothing is cloned, nothing is written.
 import { execFileSync } from 'node:child_process';
 import { covers } from '../inbox/territory.ts';
+import type { ExecRaw } from '../context.ts';
 import type { Slice } from '../types.ts';
 import type { PlanRepository } from '../inbox/territory.ts';
 import type { GhCompareFile } from './gh-schema.ts';
 import { ghReader, Unreachable } from './targets.ts';
-import type { Exec, GhReader } from './targets.ts';
+import type { GhReader } from './targets.ts';
 
 /** What moved in one target since the plan read it. */
 export type MovedRow = {
@@ -71,7 +72,7 @@ export function planMoved(
     planSlug,
     targets,
   }: { slices: readonly MovedSlice[]; repositories: readonly PlanRepository[]; planSlug: string; targets: readonly { repo: string }[] },
-  { exec = execFileSync, env }: { exec?: Exec; env?: NodeJS.ProcessEnv | undefined } = {},
+  { exec = execFileSync, env }: { exec?: ExecRaw; env?: NodeJS.ProcessEnv | undefined } = {},
 ): MovedRow[] {
   const gh = ghReader({ exec, env });
   const slugOf = new Map(targets.map((target) => [shortName(target.repo), target.repo]));

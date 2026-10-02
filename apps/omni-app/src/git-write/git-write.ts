@@ -28,6 +28,7 @@ import {
   type GitHubClient,
   type PullListed,
 } from '../outbox-check/github-schema.ts';
+import type { Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 
 const FILE_MODE = '100644';
 
@@ -36,9 +37,6 @@ type TreeWrite = { path: string; mode: string; type: 'blob'; content?: string; s
 
 /** A file written as it is given. */
 export type FileWrite = { path: string; content: string };
-
-/** A file, or every file under a folder, moved. */
-export type Move = { from: string; to: string };
 
 type Where = { owner: string; repo: string };
 

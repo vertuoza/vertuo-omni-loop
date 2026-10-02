@@ -18,6 +18,7 @@ import type { Counts, Reporter } from './ci-logs.ts';
 import type { Evidence, Kind, RetroPrd, RetroPull } from './index.ts';
 import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
 import type { Job, WorkflowRun } from './schema.ts';
+import { sliceOf } from './slice-of.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 
 /** One job of one run, as the kind keeps it. */
@@ -371,14 +372,6 @@ function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Confi
     if (slice !== null && !branches.some((known) => known.branch === pull.headRef)) branches.push({ slice, branch: pull.headRef });
   }
   return branches;
-}
-
-/** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-function sliceOf(headRef: string, template: string): string | null {
-  const [prefix = '', suffix = ''] = template.split('{slice}');
-  if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
-  const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
-  return slice && !slice.includes('/') ? slice : null;
 }
 
 function runName(run: RedRun): string {

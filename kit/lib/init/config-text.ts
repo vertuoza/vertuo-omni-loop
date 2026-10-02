@@ -8,7 +8,7 @@
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
-import type { Config } from '../context.ts';
+import type { Config } from '../types.ts';
 
 /** The commands `omni init` writes, each `null` when not known yet. */
 export type InitCommands = { test: string | null; preflight: string | null; preflightFull: string | null };

@@ -9,9 +9,10 @@
 // double click cannot post twice. Galaxy's host is `GALAXY_URL` when set, as for the stage events.
 import type { Inngest } from 'inngest';
 import { CanonActionRequestDataSchema, inngest } from '../inngest-client.ts';
-import { installationOctokit, type OctokitFor } from '../outbox-check/outbox-check.ts';
+import type { OctokitFor } from '../octokit-for.ts';
+import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { CreatedSchema } from '../outbox-check/github-schema.ts';
-import { listComments } from '../outbox-check/github.ts';
+import { listComments, type GitHubClient } from '../outbox-check/github.ts';
 import { stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { CANON_ACTION_EVENT, canonComment, commentMarker } from './canon-actions.ts';
 import { phase0CheckName } from './inbox-check.ts';
@@ -21,7 +22,7 @@ export const CANON_ACTION_FUNCTION_ID = 'canon-action';
 /** Galaxy's host: `GALAXY_URL` when set, else its production domain. */
 const galaxyHost = () => new URL(stageEventUrl()).origin;
 
-export function createCanonAction({ client, octokitFor, galaxyUrl }: { client: Inngest; octokitFor: OctokitFor; galaxyUrl?: string }) {
+export function createCanonAction({ client, octokitFor, galaxyUrl }: { client: Inngest; octokitFor: OctokitFor<GitHubClient>; galaxyUrl?: string }) {
   return client.createFunction(
     {
       id: CANON_ACTION_FUNCTION_ID,

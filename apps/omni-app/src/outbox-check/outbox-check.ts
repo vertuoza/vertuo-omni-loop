@@ -27,6 +27,7 @@ import { App } from '@octokit/app';
 import { NonRetriableError, type Inngest } from 'inngest';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, inngest, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
+import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import {
@@ -43,9 +44,6 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { messageField } from './github-schema.ts';
-
-/** An installation's GitHub client, by the installation's id. */
-export type OctokitFor = (installationId: number) => Promise<GitHubClient> | GitHubClient;
 
 /** What a failure handler is handed: the failed run's event, its final error, and its steps. */
 type FailureInput = {
@@ -69,7 +67,7 @@ export const DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-export function createOutboxCheck({ client, octokitFor }: { client: Inngest; octokitFor: OctokitFor }) {
+export function createOutboxCheck({ client, octokitFor }: { client: Inngest; octokitFor: OctokitFor<GitHubClient> }) {
   return client.createFunction(
     {
       id: FUNCTION_ID,
@@ -172,7 +170,7 @@ async function evaluateAt(
  * `skipped` instead (issue 876). Inngest hands it the original event under
  * `event.data.event` and the final error.
  */
-export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor }) {
+export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
   return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
     let target: CheckTarget | null = null;
     try {
@@ -212,7 +210,7 @@ type FailedRun = { octokit: GitHubClient; request: CheckRequestData; reason: unk
  * ("unknown error" when nothing says), and does `work` in the step "complete-as-failure" (or directly,
  * when it is called without steps).
  */
-export function onFailedRun(octokitFor: OctokitFor, work: (failed: FailedRun) => Promise<unknown>) {
+export function onFailedRun(octokitFor: OctokitFor<GitHubClient>, work: (failed: FailedRun) => Promise<unknown>) {
   return async ({ event, error, step }: FailureInput): Promise<unknown> => {
     const failed = FailureEventDataSchema.parse(event.data);
     const request = CheckRequestDataSchema.parse(failed.event.data);

@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requestOrigin } from '../../../src/ask/page/sign-in';
-import { settlingExchange } from '../../../src/data/sign-in';
-import { signInDeps } from '../../../src/data/sign-in-live';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { codeExchange } from '../../../src/data/sign-in-exchange';
 import { knowledgeSignInReturn } from '../../../src/knowledge/sign-in';
 
 // Where GitHub sends the person back after signing in on the knowledge map: the code becomes the
@@ -11,11 +9,5 @@ import { knowledgeSignInReturn } from '../../../src/knowledge/sign-in';
 // (src/knowledge/sign-in.ts).
 
 export async function GET(request: NextRequest) {
-  const exchange = supabaseEnv()
-    ? async (code: string) => {
-      const db = await supabaseServer();
-      return settlingExchange((c) => db.auth.exchangeCodeForSession(c), db, signInDeps)(code);
-    }
-    : null;
-  return NextResponse.redirect(await knowledgeSignInReturn(request.nextUrl, requestOrigin(request), exchange));
+  return NextResponse.redirect(await knowledgeSignInReturn(request.nextUrl, requestOrigin(request), codeExchange()));
 }

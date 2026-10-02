@@ -6,10 +6,7 @@ import { z } from 'zod';
 /** The kinds of version a dossier holds, as the dossier_versions table names them. */
 export const VERSION_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record'] as const;
 
-/** The kinds of dossier, part of its key (PRD 627). */
-export const DOSSIER_KINDS = ['prd', 'visual', 'bug'] as const;
-
-export const DossierVersionRowSchema = z.object({
+const DossierVersionRowSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(VERSION_KINDS),
   git_blob: z.string().nullable(),

@@ -30,6 +30,7 @@
 import { COMMANDS } from '../commands.ts';
 import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
+import type { AccountEntry, AccountLine } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
 import type { Laws } from '../laws.ts';
 import type { Layout, PrdNumber } from '../layout.ts';
@@ -116,26 +117,20 @@ export type OutboxItemFields = {
   laws: FloorLaws;
 };
 
-/** An account a slice gives for one risky change: an outbox item, or the spec's own words. */
-export type Account = { kind: 'item'; id: string } | { kind: 'spec'; where: string };
-
 /** A risky change, identified by its path and the rule it fires. */
-export type RiskyChange = { path: string; rule: string };
-
-/** A risky change and the account it was given. */
-export type AccountEntry = RiskyChange & { account: Account };
+export type RiskyPath = { path: string; rule: string };
 
 /** What a policy reads of the context to name an account file: the layout's outbox folder. */
 export type AccountCtx = { layout: Pick<Layout, 'outboxDir'> };
 
 /** One account form: its kind, the field its value is read from, and its line. */
-type AccountForm = Readonly<{ kind: Account['kind']; field: string; line: (value: string) => string; why: string }>;
+type AccountForm = Readonly<{ kind: AccountLine['kind']; field: string; line: (value: string) => string; why: string }>;
 
 /** What {@link planAccount} owes, writes and leaves unaccounted. */
 export type AccountPlan = {
-  owed: RiskyChange[];
+  owed: RiskyPath[];
   entries: AccountEntry[];
-  unaccounted: RiskyChange[];
+  unaccounted: RiskyPath[];
   writesFile: boolean;
   file: string | null;
   text: string | null;
@@ -632,7 +627,7 @@ export function sliceTimeGuardCommand({ base = null, prd = null }: { base?: stri
  * at something a reader can open and disagree with (the outbox directory's own README holds the
  * format itself — it is not restated here).
  */
-export const ACCOUNT_FORMS: Readonly<Record<Account['kind'], AccountForm>> = Object.freeze({
+export const ACCOUNT_FORMS: Readonly<Record<AccountLine['kind'], AccountForm>> = Object.freeze({
   item: Object.freeze({
     kind: 'item',
     field: 'id',
@@ -693,7 +688,7 @@ export function renderAccount({
   prd: PrdNumber;
   slice: string;
   graded: string;
-  entries: readonly (RiskyChange & { account: GivenAccount })[] | null | undefined;
+  entries: readonly (RiskyPath & { account: GivenAccount })[] | null | undefined;
 }): string {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error(
@@ -722,7 +717,7 @@ export function renderAccount({
 }
 
 /** A risky change is identified by its path AND its rule — one path may fire more than one rule. */
-function changeKey({ path, rule }: RiskyChange): string {
+function changeKey({ path, rule }: RiskyPath): string {
   return `${path}\u0000${rule}`;
 }
 
@@ -750,12 +745,12 @@ export function planAccount({
   prd: PrdNumber;
   slice: string;
   graded: string;
-  risky?: readonly (RiskyChange & { status?: string })[];
-  accountFor: (change: RiskyChange) => Account | null | undefined;
+  risky?: readonly (RiskyPath & { status?: string })[];
+  accountFor: (change: RiskyPath) => AccountLine | null | undefined;
   ctx: AccountCtx;
 }): AccountPlan {
   const seen = new Set<string>();
-  const owed: RiskyChange[] = [];
+  const owed: RiskyPath[] = [];
   for (const change of risky) {
     const key = changeKey(change);
     if (seen.has(key)) continue;
@@ -764,7 +759,7 @@ export function planAccount({
   }
 
   const entries: AccountEntry[] = [];
-  const unaccounted: RiskyChange[] = [];
+  const unaccounted: RiskyPath[] = [];
   for (const change of owed) {
     const account = accountFor(change) ?? null;
     if (account) entries.push({ ...change, account });

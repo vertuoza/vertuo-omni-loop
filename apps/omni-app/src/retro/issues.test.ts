@@ -12,7 +12,8 @@ import { issueMarker, publishIssues, renderIssue } from './issues.ts';
 import { timeline } from './kinds/timeline.ts';
 import { createRetro } from './retro.ts';
 import { ISSUES_PER_RUN, refusedWordsIn } from './rules.ts';
-import type { Config, FactSheet, FeaturePull, Finding, Kind, Octokit, PrdFacts, Prose } from './retro.types.ts';
+import type { Config, FactSheet, FeaturePull, Finding, Octokit, PrdFacts, Prose } from './retro.types.ts';
+import type { Kind } from './kinds/index.ts';
 
 /** The stubbed GitHub, as the tests read it: its state open to look at. */
 type Stub = { octokit: Octokit; state: any; filesAt: (branch: string, paths: string[]) => Record<string, string | undefined> };

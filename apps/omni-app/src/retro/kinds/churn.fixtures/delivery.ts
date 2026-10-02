@@ -19,7 +19,7 @@
 // `dist/**` generated. So `at.js` churns 40 lines, 50% of 80, exactly at both thresholds;
 // `below-lines.js` 39 (50%, a line short); `below-percent.js` 49 (49%); `table.js` 60 (50%), counted by
 // its totals; `colour.js` 8.
-import { FEATURE, OWNER, REPO, SUB_PULLS } from '../../../../test/retro-scenario.ts';
+import { FEATURE, OWNER, recordedRead, REPO, SUB_PULLS } from '../../../../test/retro-scenario.ts';
 
 export { FEATURE, OWNER, REPO, SUB_PULLS };
 
@@ -142,12 +142,6 @@ export const FINAL_FILES = [
   file(COLOUR, { status: 'added', additions: 23 }),
 ];
 
-const request = (route: string, params: Record<string, unknown>, data: unknown, status: number | undefined) => ({
-  route,
-  params: { owner: OWNER, repo: REPO, ...params },
-  ...(status ? { status } : { data }),
-});
-
 export const LIST_COMMITS = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits';
 export const GET_COMMIT = 'GET /repos/{owner}/{repo}/commits/{ref}';
 export const LIST_FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
@@ -156,18 +150,18 @@ export const LIST_FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
  * The recorded reads churn makes, for `replayGitHub({ recording })`. `missing` names reads GitHub
  * answers with a status instead: `{ pulls: { 14: 404 }, commits: { c4: 404 }, final: 404 }`.
  */
-export type Missing = { pulls?: Record<string, number>; commits?: Record<string, number>; final?: number };
+export type ChurnMissing = { pulls?: Record<string, number>; commits?: Record<string, number>; final?: number };
 
-export function churnRecording({ missing = {} }: { missing?: Missing } = {}) {
+export function churnRecording({ missing = {} }: { missing?: ChurnMissing } = {}) {
   const entries = [];
   for (const [number, tags] of Object.entries(PULL_COMMITS)) {
     const list = tags.map((tag) => listed(tag, tag === 'm1' ? 2 : 1));
-    entries.push(request(LIST_COMMITS, { pull_number: number, per_page: 100, page: 1 }, list, missing.pulls?.[number]));
+    entries.push(recordedRead(LIST_COMMITS, { pull_number: number, per_page: 100, page: 1 }, list, missing.pulls?.[number]));
   }
   for (const [tag, files] of Object.entries(COMMITS)) {
     const data = { sha: sha(tag), html_url: commitUrl(tag), commit: { message: tag }, parents: [{ sha: sha(`p0${tag}`) }], files };
-    entries.push(request(GET_COMMIT, { ref: sha(tag), per_page: 100, page: 1 }, data, missing.commits?.[tag]));
+    entries.push(recordedRead(GET_COMMIT, { ref: sha(tag), per_page: 100, page: 1 }, data, missing.commits?.[tag]));
   }
-  entries.push(request(LIST_FILES, { pull_number: FEATURE.number, per_page: 100, page: 1 }, FINAL_FILES, missing.final));
+  entries.push(recordedRead(LIST_FILES, { pull_number: FEATURE.number, per_page: 100, page: 1 }, FINAL_FILES, missing.final));
   return entries;
 }

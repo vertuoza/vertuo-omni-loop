@@ -2,9 +2,10 @@
 // collector reads them (PRD 725, s20). Each schema names only the fields the collector uses and lets
 // every other field through; a field the collector reads past a missing value is nullish here.
 import { z } from 'zod';
+import { firstIssue } from 'vertuo-omni-plan/kit/lib/plan-repo/gh-schema.ts';
 
 /** `rateLimit { limit remaining resetAt }`: an installation's GraphQL budget. */
-export const RateLimitSchema = z.looseObject({
+const RateLimitSchema = z.looseObject({
   limit: z.number(),
   remaining: z.number(),
   resetAt: z.string().nullish(),
@@ -101,7 +102,6 @@ export const StoreEnvSchema = z.looseObject({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
 
-export type RateLimit =z.infer<typeof RateLimitSchema>;
 export type PullDetail = z.infer<typeof PullDetailSchema>;
 export type Actor = z.infer<typeof ActorSchema>;
 
@@ -118,12 +118,4 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
   const parsed = schema.safeParse(value);
   if (parsed.success) return parsed.data;
   throw new Error(`${context}: ${firstIssue(parsed.error)}`);
-}
-
-/** A refused value's first issue, its field first: `nodes.0.number: Invalid input…`. */
-export function firstIssue(error: z.ZodError): string {
-  const [issue] = error.issues;
-  if (issue === undefined) return error.message;
-  const field = issue.path.length > 0 ? issue.path.join('.') : '(answer)';
-  return `${field}: ${issue.message}`;
 }

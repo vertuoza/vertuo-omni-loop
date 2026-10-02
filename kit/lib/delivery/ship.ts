@@ -4,7 +4,6 @@
 // With `releaseNotes.enabled` (PRD 262), a PRD ships only with a release note that holds: the note
 // is in its folder, so the move carries it to shipped.
 import { execFileSync } from 'node:child_process';
-import type { ExecFileSyncOptions } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join, dirname } from 'node:path';
 import { trackedFiles } from '../check-report.ts';
@@ -12,11 +11,8 @@ import { openItemFiles, unreworkedDrift } from '../outbox/status.ts';
 import { SETTLED_FILE } from '../outbox/outbox.ts';
 import { releaseNotePath } from '../releases/check-releases.ts';
 import { gradeReleaseNote } from '../releases/note.ts';
-import type { Context } from '../context.ts';
+import type { Context, ExecRaw } from '../context.ts';
 import type { PrdNumber } from '../layout.ts';
-
-/** A process runner shaped like `execFileSync`: stdout as text with an `encoding`, a Buffer without. */
-export type Exec = (file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer;
 
 /** Reads a repository file's text, by its path from the root. */
 export type ReadFile = (file: string) => string;
@@ -85,7 +81,7 @@ export class DirtyDeliveryError extends Error {
   }
 }
 
-export function applyShip(ctx: Context, prd: PrdNumber, { exec = execFileSync }: { exec?: Exec } = {}): ShipPlan & { ok: true } {
+export function applyShip(ctx: Context, prd: PrdNumber, { exec = execFileSync }: { exec?: ExecRaw } = {}): ShipPlan & { ok: true } {
   // Ship moves folders with git mv and never commits: it runs on a committed delivery folder, as
   // yolo-fix commits the settle before shipping.
   const delivery = ctx.config.paths.delivery;

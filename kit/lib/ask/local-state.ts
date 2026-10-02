@@ -54,7 +54,7 @@ function localFile(root: string, file: string): string {
 }
 
 /** The folder, with its `.gitignore` written once and never rewritten. */
-function ensureLocalDir(root: string): void {
+export function ensureLocalDir(root: string): void {
   const dir = join(root, LOCAL_DIR);
   mkdirSync(dir, { recursive: true });
   const ignore = join(dir, '.gitignore');

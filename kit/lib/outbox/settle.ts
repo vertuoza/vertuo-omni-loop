@@ -129,6 +129,11 @@ export const AnswerSchema = z
   })
   .strict();
 
+/** Why an answer failed {@link AnswerSchema}: one `<path>: <message>` line per issue. */
+export function answerErrors(error: z.ZodError): string[] {
+  return error.issues.map((issue) => `${issue.path.join('.') || '(answer)'}: ${issue.message}`);
+}
+
 /** The answer an entry records: a parsed human answer, or an adoption's, which names no channel. */
 export type EntryAnswer = {
   text: string;
@@ -538,14 +543,7 @@ export function settleItem({
   const { absoluteFile, relativeFile } = locate(ctx.root, file);
 
   const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
-  if (!parsedAnswer.success) {
-    return {
-      ok: false,
-      errors: parsedAnswer.error.issues.map(
-        (issue) => `${issue.path.join('.') || '(answer)'}: ${issue.message}`,
-      ),
-    };
-  }
+  if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
 
   if (!existsSync(absoluteFile)) {
     return { ok: false, errors: [`${relativeFile}: no such open item.`] };

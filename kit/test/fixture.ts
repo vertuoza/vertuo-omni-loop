@@ -73,11 +73,8 @@ export const realExec: FakeExec = (file, args, options) => execFileSync(file, ar
 /** What a fake `fetch` reads of a request: its method, its headers and its body. */
 export type FetchInit = { method?: string; headers: Record<string, string>; body?: string; signal?: AbortSignal | null };
 
-/** A fake `fetch`, as a test hands it to a command. */
-export type FakeFetch = (url: string, init: FetchInit) => Promise<Response>;
-
 /** Where a test's command prints, and what it printed. */
-export function io() {
+function io() {
   const out: string[] = [];
   const err: string[] = [];
   return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };

@@ -18,7 +18,7 @@ import type { Context } from '../context.ts';
 type Markers = Context['markers'];
 
 /** What the harvest reads of one settled entry (`parseSettledEntries`). */
-export type SettledEntry = {
+export type HarvestedEntry = {
   id: string;
   verdict?: string | null;
   fields: Record<string, string | undefined>;
@@ -51,7 +51,7 @@ export const BECAME_FIELD = 'Became';
 export const STAYS_HERE_FIELD = 'Stays here';
 
 /** Whether a parsed settled entry was already written back: a `Became:` or a `Stays here:` line. */
-export function writtenBack(entry: Pick<SettledEntry, 'became' | 'fields'>): boolean {
+export function writtenBack(entry: Pick<HarvestedEntry, 'became' | 'fields'>): boolean {
   return entry.became.length > 0 || (entry.fields[STAYS_HERE_FIELD] ?? '').trim().length > 0;
 }
 
@@ -61,7 +61,7 @@ export function writtenBack(entry: Pick<SettledEntry, 'became' | 'fields'>): boo
  * sections, its PRD), `null` when the embedded text no longer parses: the candidate is still listed,
  * its text still carried, so no decision is dropped silently.
  */
-function toCandidate(entry: SettledEntry, ledgerFile: string | null): Candidate {
+function toCandidate(entry: HarvestedEntry, ledgerFile: string | null): Candidate {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   return {
     id: entry.id,
@@ -87,7 +87,7 @@ export function candidatesFromLedger(
   text: string,
   { markers, ledgerFile = null }: { markers: Markers; ledgerFile?: string | null },
 ): Candidate[] {
-  const entries: SettledEntry[] = parseSettledEntries(text, markers);
+  const entries: HarvestedEntry[] = parseSettledEntries(text, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 

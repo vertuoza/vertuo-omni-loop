@@ -22,7 +22,7 @@ import {
   sha,
   short,
 } from './churn.fixtures/delivery.ts';
-import type { Missing } from './churn.fixtures/delivery.ts';
+import type { ChurnMissing } from './churn.fixtures/delivery.ts';
 
 const { gather, detect, section } = handles(churn);
 
@@ -32,7 +32,7 @@ const pr = { number: 12, url: FEATURE.html_url, headSha: FEATURE.head.sha, opene
 const BLOB = `https://github.com/${OWNER}/${REPO}/blob/${FEATURE.head.sha}`;
 const commitUrl = (tag: string) => `https://github.com/${OWNER}/${REPO}/commit/${sha(tag)}`;
 
-type Options = { missing?: Missing; gitattributes?: string | null };
+type Options = { missing?: ChurnMissing; gitattributes?: string | null };
 
 function github({ missing, gitattributes = GITATTRIBUTES }: Options = {}) {
   const files = gitattributes === null ? {} : { '.gitattributes': gitattributes };

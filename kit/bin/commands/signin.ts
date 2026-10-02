@@ -58,7 +58,7 @@ function noArguments(name: string, args: string[]): void {
 }
 
 /** What a test (or `omni init`) hands `omni signin` beyond `main()`'s own. */
-export type SigninOptions = {
+type SigninOptions = {
   home?: string | undefined;
   openBrowser?: (url: string) => unknown;
   fetch?: Fetch;

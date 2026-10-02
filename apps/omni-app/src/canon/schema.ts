@@ -5,10 +5,10 @@
 import { z } from 'zod';
 
 /** A confirmed claim: its display id (`never#4`), its kind and its value. */
-export const ClaimSchema = z.looseObject({ id: z.string(), kind: z.string(), value: z.string().nullish() });
+const ClaimSchema = z.looseObject({ id: z.string(), kind: z.string(), value: z.string().nullish() });
 
 /** A persona of the repository's product: its name, and the lines that describe it. */
-export const PersonaSchema = z.looseObject({
+const PersonaSchema = z.looseObject({
   name: z.string(),
   who: z.string().nullish(),
   trade: z.string().nullish(),
@@ -28,13 +28,13 @@ export const BusinessSchema = z.looseObject({
 });
 
 /** A constituent: the Statement (id `statement`) or a Never line (id `never#<n>`), and its text. */
-export const ConstituentSchema = z.looseObject({ id: z.string(), text: z.string() });
+const ConstituentSchema = z.looseObject({ id: z.string(), text: z.string() });
 
 /**
  * `constituents_for_repo_app(repo)` (PRD 871): `state` "ok" when the product has a live constituent,
  * its Statement (null with none), its live Never lines, and the id of its latest constituent event.
  */
-export const ConstituentsSchema = z.looseObject({
+const ConstituentsSchema = z.looseObject({
   state: z.string().nullish(),
   statement: ConstituentSchema.nullish(),
   never: z.array(ConstituentSchema).nullish(),

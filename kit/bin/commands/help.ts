@@ -5,7 +5,7 @@
 import { CONFIG_VERSION, ConfigError, ConfigSchema } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { renderEntry, renderOverview } from '../../lib/help/render.ts';
-import type { Config } from '../../lib/context.ts';
+import type { Config } from '../../lib/types.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 

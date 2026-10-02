@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
-import type { DerivedZone, Planet } from './types.ts';
+import type { DerivedZone, SnapshotPlanet } from './types.ts';
 
 const config = configFrom({
   sectors: [{ name: 'ai', repos: ['ai-repo'] }, { name: 'core', repos: ['core-repo'] }],
@@ -12,7 +12,7 @@ const config = configFrom({
 const NOW = new Date('2026-09-23T14:00:00Z');
 const ctx = (terraformed: Array<string | number> = []) => ({ config, terraformedPlanets: new Set(terraformed), now: NOW });
 
-function planet(over: Record<string, unknown> = {}): Planet {
+function planet(over: Record<string, unknown> = {}): SnapshotPlanet {
   return {
     prd: 2332, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver',
     issue: { createdAt: '2026-09-01T08:00:00Z', closedAt: null },
@@ -24,7 +24,7 @@ function planet(over: Record<string, unknown> = {}): Planet {
     ],
     outbox: [], bugs: [],
     ...over,
-  } as unknown as Planet;
+  } as unknown as SnapshotPlanet;
 }
 
 describe('derivePlanet', () => {

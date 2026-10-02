@@ -161,28 +161,40 @@ const TYPESCRIPT = /\.(?:[cm]?ts|tsx)$/;
 const NOCHECK = /^\s*(?:\/\/+|\/\*+|\*)\s*@ts-nocheck\b/;
 const ALLOW = /\/\/\s*ts-allow:(.*)$/;
 
-function findViolations(files: readonly File[]): Violation[] {
+const matchesAny = (patterns: readonly RegExp[], path: string): boolean => patterns.some((pattern) => pattern.test(path));
+
+/** Whether a file's `any` and casts are read: not in a test, a generated file or an unmarked arcade folder. */
+function escapesRead(path: string): boolean {
+  if (matchesAny(TEST, path) || matchesAny(GENERATED, path)) return false;
+  return !ARCADE_UNMARKED.some((folder) => path.startsWith(folder));
+}
+
+/** The rule an `any` or a cast on line `text` breaks: its own without a reason, none with one. */
+function escapeRule(rule: 'any' | 'as', text: string): Rule | null {
+  const allow = ALLOW.exec(text);
+  if (!allow) return rule;
+  return allow[1]?.trim() ? null : 'empty-reason';
+}
+
+function fileViolations(file: File): Violation[] {
+  const lines = file.text.split('\n');
+  const at = (line: number, rule: Rule): Violation => ({ path: file.path, line, rule, text: lines[line - 1] ?? '' });
+  if (JAVASCRIPT.test(file.path)) return matchesAny(JAVASCRIPT_KEPT, file.path) ? [] : [at(1, 'javascript')];
+  if (!TYPESCRIPT.test(file.path)) return [];
   const out: Violation[] = [];
-  for (const file of files) {
-    const lines = file.text.split('\n');
-    const at = (line: number, rule: Rule): Violation => ({ path: file.path, line, rule, text: lines[line - 1] ?? '' });
-    if (JAVASCRIPT.test(file.path)) {
-      if (!JAVASCRIPT_KEPT.some((kept) => kept.test(file.path))) out.push(at(1, 'javascript'));
-      continue;
-    }
-    if (!TYPESCRIPT.test(file.path)) continue;
-    lines.forEach((line, index) => {
-      if (NOCHECK.test(line)) out.push(at(index + 1, 'ts-nocheck'));
-    });
-    if (TEST.some((test) => test.test(file.path)) || GENERATED.some((generated) => generated.test(file.path))) continue;
-    if (ARCADE_UNMARKED.some((folder) => file.path.startsWith(folder))) continue;
-    for (const { line, rule } of escapes(file)) {
-      const allow = ALLOW.exec(lines[line - 1] ?? '');
-      if (!allow) out.push(at(line, rule));
-      else if (!allow[1]?.trim()) out.push(at(line, 'empty-reason'));
-    }
+  lines.forEach((line, index) => {
+    if (NOCHECK.test(line)) out.push(at(index + 1, 'ts-nocheck'));
+  });
+  if (!escapesRead(file.path)) return out;
+  for (const { line, rule } of escapes(file)) {
+    const broken = escapeRule(rule, lines[line - 1] ?? '');
+    if (broken) out.push(at(line, broken));
   }
   return out;
+}
+
+function findViolations(files: readonly File[]): Violation[] {
+  return files.flatMap(fileViolations);
 }
 
 /** Every `any` and every cast in a file, with the line it reads on: a cast's is its type's. */

@@ -28,6 +28,7 @@ import type { SettledEntry } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import type { Evidence, Finding, RetroPr, RetroPrd, RetroPull } from './index.ts';
 import type { PullReads, StuckComment } from './delivery.reads.ts';
+import { sliceOf } from './slice-of.ts';
 
 /** A sub-PR of a slice: the pull request and the slice its head branch names. */
 export type Sub = { pull: RetroPull; slice: string };
@@ -58,14 +59,6 @@ export function hasRedCircle(body: unknown): boolean {
 /** GitHub names an app's account `<name>[bot]`. */
 export function isBotLogin(login: unknown): boolean {
   return typeof login === 'string' && login.endsWith('[bot]');
-}
-
-/** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-export function sliceOf(headRef: string, template: string): string | null {
-  const [prefix = '', suffix = ''] = template.split('{slice}');
-  if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
-  const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
-  return slice && !slice.includes('/') ? slice : null;
 }
 
 /** The pull requests into the feature branch that are sub-PRs of a slice, oldest claim first. */

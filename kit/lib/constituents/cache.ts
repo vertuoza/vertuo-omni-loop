@@ -5,9 +5,9 @@
 //
 // The file is `{ repo, syncedAt, read }`, `read` being the reply `constituentsOf` read. A file that is
 // missing, half-written, of the wrong shape or for another repository reads as null.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LOCAL_DIR } from '../ask/local-state.ts';
+import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import { constituentsOf } from './read.ts';
 import type { Constituents } from './read.ts';
 import { ConstituentsCacheSchema } from './schema.ts';
@@ -30,9 +30,6 @@ export function readCache(root: string, repo: string): { syncedAt: string; read:
 
 /** Keeps `read`, synced for `repo` at `syncedAt`, under `root`. */
 export function writeCache(root: string, { repo, syncedAt, read }: { repo: string; syncedAt: string; read: Constituents }): void {
-  const dir = join(root, LOCAL_DIR);
-  mkdirSync(dir, { recursive: true });
-  const ignore = join(dir, '.gitignore');
-  if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
+  ensureLocalDir(root);
   writeFileSync(join(root, CONSTITUENTS_FILE), `${JSON.stringify({ repo, syncedAt, read }, null, 2)}\n`);
 }

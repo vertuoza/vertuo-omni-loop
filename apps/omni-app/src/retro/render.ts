@@ -16,11 +16,11 @@
 // When the retro is not worth a pull request, or was not judged, nothing of that is written:
 // `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
 import { RetroDocSchema } from './github.schema.ts';
-import { KINDS } from './kinds/index.ts';
+import { KINDS, type Kind } from './kinds/index.ts';
 import { JUDGE_VERSION } from './narrate.ts';
-import type { IssueLink, IssueLinks, Kind, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
+import type { IssueLink, IssueLinks, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
 
-export type { IssueLinks, RetroDoc, RunRecord };
+export type { RetroDoc, RunRecord };
 
 /** The timeline kind's facts, as far as the verdict comment reads them (`kinds/timeline.ts`). */
 type TimelineFacts = {

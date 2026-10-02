@@ -10,6 +10,7 @@ import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import type { Kind, RetroPull } from './index.ts';
 import { IssueEventSchema } from './schema.ts';
+import { sliceOf } from './slice-of.ts';
 
 const MINUTE = 60 * 1000;
 
@@ -171,14 +172,6 @@ export function wavesAsMerged(pulls: readonly { openedAt: string; closedAt: stri
     waves.push(wave);
   }
   return waves;
-}
-
-/** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-function sliceOf(headRef: string, template: string): string | null {
-  const [prefix = '', suffix = ''] = template.split('{slice}');
-  if (!headRef.startsWith(prefix) || !headRef.endsWith(suffix)) return null;
-  const slice = headRef.slice(prefix.length, headRef.length - suffix.length);
-  return slice && !slice.includes('/') ? slice : null;
 }
 
 /** Each planned slice's wave, from the plan's slice table, or `null` when the plan has none. */

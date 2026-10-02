@@ -1,7 +1,6 @@
 // The shapes every `omni` command is handed: where it writes, how it runs a process, and the
 // repository context it works in. Types only: nothing here runs.
-import type { ExecFileSyncOptions } from 'node:child_process';
-import type { Context, ExecText } from '../lib/context.ts';
+import type { Context, ExecRaw, ExecText } from '../lib/context.ts';
 
 /** Where a command prints: `process.stdout`, `process.stderr`, or a test's buffer. */
 export type Out = { write(text: string): unknown; isTTY?: boolean };
@@ -13,7 +12,7 @@ export type Env = Record<string, string | undefined>;
  * How a command runs a process: `execFileSync`, or a test's fake. It is called both with a text
  * `encoding` (and returns the text) and without one, as the library modules it hands it to do.
  */
-export type Exec = ExecText & ((file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer);
+export type Exec = ExecText & ExecRaw;
 
 /** What a command that runs inside a repository is handed. */
 export type CommandIo = { ctx: Context; stdout: Out; stderr: Out; exec: Exec; env: Env };

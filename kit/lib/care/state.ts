@@ -97,14 +97,21 @@ const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRE
 const FAILED_STATUS = new Set(['FAILURE', 'ERROR']);
 const CARE_LINE_RE = /PR care: watching since (.+?) · last round (.+?)\s*$/m;
 
+/** A commit status that failed, as a failed check; null for one that did not. */
+function failedStatus(node: ContextNode): FailedCheck | null {
+  return FAILED_STATUS.has(node.state ?? '') ? { name: node.context, url: node.targetUrl ?? null } : null;
+}
+
+/** A check run that failed, as a failed check; null for one that did not. */
+function failedRun(node: ContextNode): FailedCheck | null {
+  return FAILED_RUN.has(node.conclusion ?? '') ? { name: node.name, url: node.detailsUrl ?? null } : null;
+}
+
 function failedContexts(contexts: readonly Maybe<ContextNode>[]): FailedCheck[] {
   const failed: FailedCheck[] = [];
   for (const node of contexts) {
-    if (node?.__typename === 'StatusContext') {
-      if (FAILED_STATUS.has(node.state ?? '')) failed.push({ name: node.context, url: node.targetUrl ?? null });
-    } else if (node && FAILED_RUN.has(node.conclusion ?? '')) {
-      failed.push({ name: node.name, url: node.detailsUrl ?? null });
-    }
+    const check = node ? (node.__typename === 'StatusContext' ? failedStatus(node) : failedRun(node)) : null;
+    if (check) failed.push(check);
   }
   return failed;
 }

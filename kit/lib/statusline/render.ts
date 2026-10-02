@@ -19,7 +19,7 @@
 // - Colour is ANSI, on the context bar with its percentage and on the stuck count (red) only, and
 //   none when `NO_COLOR` is set to anything but an empty string.
 import type { SessionInput } from './input.ts';
-import type { BoardSlice } from './schema.ts';
+import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
 
 /** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
@@ -35,7 +35,7 @@ export type PrdLineFacts = {
   slice: string | null;
   stage: string | null;
   openItems: number;
-  slices?: readonly BoardSlice[] | null;
+  slices?: readonly CachedSlice[] | null;
 };
 
 type Colour = 'green' | 'yellow' | 'red';
@@ -149,7 +149,7 @@ export function itemsPart(count: number | null | undefined): string | null {
  * from the board's slices; `null` without a board, or with one of no slices. The stuck count is red
  * when `color` is on.
  */
-export function slicesPart(slices: readonly BoardSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
+export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
   if (!Array.isArray(slices) || slices.length === 0) return null;
   const count = (test: (state: string) => boolean): number => slices.filter((slice) => test(slice.state)).length;
   const merged = count((state) => state === MERGED);

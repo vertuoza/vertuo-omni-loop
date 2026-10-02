@@ -39,12 +39,12 @@ import {
   createHarvestFailureHandler,
   createKnowledgeHarvest,
   knowledgeHarvest,
-  type OctokitFor,
   nothingNewText,
   verdictMarker,
 } from './knowledge-harvest.ts';
+import type { RequestOctokit } from './github.ts';
 
-type Octokit = Awaited<ReturnType<OctokitFor>>;
+type Octokit = RequestOctokit;
 type Row = Record<string, any>;
 type Replies = Record<string, unknown>;
 

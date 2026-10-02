@@ -18,7 +18,7 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
-import { fixVerdict, numberedFolders } from '../fix-verdict.ts';
+import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
 
@@ -36,11 +36,6 @@ export const RISK_LEVELS: readonly string[] = ['critical', 'high', 'medium', 'lo
 /** Where every bug fix's folder lives. */
 export function bugRoot(ctx: { config: { paths: { delivery: string } } }): string {
   return `${ctx.config.paths.delivery}/bugs`;
-}
-
-/** The folder name prefix of an issue's bug fix: its number, zero-padded to four digits, then `-`. */
-export function folderPrefix(issue: number | string): string {
-  return `${String(issue).padStart(4, '0')}-`;
 }
 
 /** The record's `## ` sections, as a map from heading to body text (first heading wins). */
@@ -130,7 +125,7 @@ export function bugVerdict({ ctx, issue, changed, commits }: {
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
-    ctx, issue, commits, root: bugRoot(ctx), prefix: folderPrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), folderPrefix(issue)),
+    ctx, issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
     grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet),
   });
 }

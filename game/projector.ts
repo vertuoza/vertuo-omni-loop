@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { makeEvent, planetKey, type EventType, type GameEvent } from './events.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { GameConfig } from './config.ts';
-import type { DerivedPlanet, Planet, Snapshot } from './types.ts';
+import type { DerivedPlanet, Snapshot, SnapshotPlanet } from './types.ts';
 
 /** One fact that could not become an event, and why. */
 export type Skip = { id: string; message: string };
@@ -22,7 +22,7 @@ type Fields = {
   data?: Record<string, unknown>;
 };
 type Push = (fields: Fields) => void;
-type At = { planet: Planet; state: DerivedPlanet; key: string; on: { planet: number; home?: string } };
+type At = { planet: SnapshotPlanet; state: DerivedPlanet; key: string; on: { planet: number; home?: string } };
 
 // What a thrown value says: a schema's issues, field by field, else its message.
 function why(err: unknown): string {
@@ -141,6 +141,6 @@ function endEvents(push: Push, { planet, state, key, on }: At): void {
   if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
 }
 
-function prNumber(planet: Planet, zoneId: string, repo: string): number | null {
+function prNumber(planet: SnapshotPlanet, zoneId: string, repo: string): number | null {
   return planet.zones.find((z) => z.id === zoneId && (!repo || z.repo === repo))?.pr?.number ?? null;
 }
