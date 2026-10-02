@@ -8,7 +8,6 @@ import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
-import type { Json } from '../test/fake-ask-server.ts';
 
 function io() {
   const out: string[] = [];
@@ -70,8 +69,8 @@ const without = (value: object, key: string) => Object.fromEntries(Object.entrie
 /** What a fake server answers a handled call with: its status (200 when not given) and its body. */
 type Answered = { status?: number; body: unknown };
 
-/** What a checkout of the fake server takes: the handler, the sign-in, and the config's ask.url. */
-type Checkout<K extends string> = { [key in K]?: (input: Json) => Answered } & { signedIn?: boolean; url?: string | null };
+/** What a checkout of the fake server takes: the handler (`business` reads the repository, the others the body), the sign-in, and the config's ask.url. */
+type Checkout<K extends string> = { [key in K]?: (input: key extends 'business' ? string : unknown) => Answered } & { signedIn?: boolean; url?: string | null };
 
 async function checkout({ business, signedIn = true, url }: Checkout<'business'> = {}) {
   await startServer({ business });
