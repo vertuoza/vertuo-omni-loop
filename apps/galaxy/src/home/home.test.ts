@@ -162,6 +162,16 @@ describe('the poster', () => {
     expect(supabase.server).not.toHaveBeenCalled();
   });
 
+  it('carries no hint line under the sign-up buttons, only the empty place the browser draws it in (PRD 932, s4)', async () => {
+    const html = await render();
+    expect(html).not.toMatch(/Opens the (Omni app|Arcade)/);
+    expect(html).not.toContain('data-sign-up-change');
+    expect(html).not.toContain('home-signup-hint');
+    const slots = [...html.matchAll(/<span\b[^>]*data-sign-up-hint=""[^>]*>([\s\S]*?)<\/span>/g)];
+    expect(slots).toHaveLength(2);
+    for (const [, inner] of slots) expect(text(inner)).toBe('SIGN UP WITH GITHUB');
+  });
+
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
     const html = await render();
     const starts = [...html.matchAll(/<a\b[^>]*>PRESS START<\/a>/g)].map(([a]) => a);
