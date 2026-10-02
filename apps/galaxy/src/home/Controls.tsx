@@ -17,6 +17,8 @@
 // Signed in (PRD 1006): once the page is there, it reads the visitor's session (session-read.ts) and,
 // when there is one, draws the signed-in pill (SignedIn.tsx) into every sign-up slot, where it takes
 // the place of SIGN UP WITH GITHUB. No session, a failed read or the demo leaves the page as it is.
+// It also settles the pending mark the page set before it painted (session-mark.ts): `in` on a session,
+// removed on none, a failed read, the demo or 3 seconds without an answer; a later session still draws.
 // The photo or initial is drawn first; a player's hero replaces it once it is read (s3).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -25,6 +27,7 @@ import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
 import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice, type SignUpClickPorts } from './selector/choice';
 import { Selector } from './selector/Selector';
+import { SESSION_ATTR, settleSession } from './session-mark';
 import { browserSessionPort, readSignedIn } from './session-read';
 import { SignedIn } from './SignedIn';
 import type { SignedInView } from './signed-in';
@@ -180,9 +183,16 @@ export function Controls() {
     setSaved(readChoice(storage()));
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
     const env = supabase();
+    const page = document.querySelector('main.home');
     let live = true;
-    void readSignedIn(env && browserSessionPort(env), (view) => { if (live) setSignedIn(view); });
-    return () => { live = false; };
+    /** The hero, once read, replaces the photo; the photo never replaces the hero. */
+    const hero = (view: SignedInView | null) => { if (live && view?.face.kind === 'hero') setSignedIn(view); };
+    const cancel = settleSession({
+      read: () => readSignedIn(env && browserSessionPort(env), hero),
+      mark: (state) => { if (state) page?.setAttribute(SESSION_ATTR, state); else page?.removeAttribute(SESSION_ATTR); },
+      draw: (view) => setSignedIn((now) => (now?.face.kind === 'hero' ? now : view)),
+    });
+    return () => { live = false; cancel(); };
   }, []);
 
   useEffect(() => {
