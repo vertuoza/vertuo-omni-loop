@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SignedIn } from './SignedIn';
 import type { SignedInView } from './signed-in';
+import { PRESS_START_ATTR } from './start';
 
 // The signed-in pill (PRD 1006, s1): the visitor's face beside CONTINUE YOUR GAME, a plain link to
 // /play, drawn by Controls into each sign-up slot in place of SIGN UP WITH GITHUB.
@@ -15,6 +16,14 @@ describe('the signed-in pill', () => {
     const html = draw({ name: 'Ada Lovelace', face: { kind: 'initial', letter: 'A' } });
     expect(html).toMatch(/^<a [^>]*href="\/play"/);
     expect(html).toContain('aria-label="Continue your game as Ada Lovelace"');
+  });
+
+  // #1014: CONTINUE YOUR GAME is the signed-in visitor's PRESS START. Controls answers a click on
+  // an element marked PRESS START by opening SELECT YOUR APP (or going where a remembered pick
+  // says), so the pill carries that mark; its href stays /play for a page without JavaScript.
+  it('is pressed as PRESS START, so a click opens SELECT YOUR APP', () => {
+    const html = draw({ name: 'Ada', face: { kind: 'initial', letter: 'A' } });
+    expect(html).toMatch(new RegExp(`^<a [^>]*${PRESS_START_ATTR}=""`));
   });
 
   it('says CONTINUE YOUR GAME', () => {
