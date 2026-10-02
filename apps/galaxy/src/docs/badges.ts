@@ -90,6 +90,7 @@ export function badgedBlock(kinds: readonly CodeKind[], pre: HastNode): HastElem
 }
 
 const isElement = (node: HastNode): node is HastElement => node.type === 'element';
+const isParent = (node: HastNode): node is HastNode & HastParent => Array.isArray(node.children);
 
 /** The meta of a compiled code block: `<pre><code>` carries its fence's words as `data.meta`. */
 function metaOf(node: HastNode): string | null {
@@ -105,7 +106,7 @@ export function rehypeCodeBadges() {
       parent.children = parent.children.map((child) => {
         const kinds = codeKinds(metaOf(child));
         if (kinds.length > 0) return badgedBlock(kinds, child);
-        if ('children' in child && Array.isArray(child.children)) walk(child as HastParent); // ts-allow: a node with a children array is a parent
+        if (isParent(child)) walk(child);
         return child;
       });
     };
