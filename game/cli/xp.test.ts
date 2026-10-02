@@ -9,6 +9,8 @@ import { runXp } from './xp.ts';
 import { supabaseRest } from '../sources/supabase.ts';
 import { fakeSupabase, serveFake, type Call, type Init, type Reply, type Row, type Served } from '../test/fake-supabase.ts';
 import { RULEBOOK } from '../rulebook.ts';
+import { nth, present } from '../test/present.ts';
+import { assertDefined } from '../../kit/test/assert.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
@@ -43,10 +45,11 @@ describe('runXp', () => {
     expect(rows).toEqual(expected);
     expect(posts(fake)).toHaveLength(1);
     const [write] = posts(fake);
-    expect(write!.table).toBe('player_xp');
-    expect(write!.url.searchParams.get('on_conflict')).toBe('workspace_id,github_login');
-    expect(write!.headers!.Prefer).toMatch(/resolution=merge-duplicates/);
-    expect(write!.body).toEqual(expected);
+    assertDefined(write, 'the write');
+    expect(write.table).toBe('player_xp');
+    expect(write.url.searchParams.get('on_conflict')).toBe('workspace_id,github_login');
+    expect(present(write.headers, 'headers').Prefer).toMatch(/resolution=merge-duplicates/);
+    expect(write.body).toEqual(expected);
     expect(fake.tables.player_xp).toEqual(expected);
   });
 
@@ -57,8 +60,8 @@ describe('runXp', () => {
     for (const read of fake.calls.filter((c) => c.method === 'GET')) {
       expect(read.url.searchParams.get('workspace_id'), read.table).toBe(`eq.${VERTUOZA}`);
     }
-    expect((posts(fake)[0]!.body as Row[]).map((r) => r.workspace_id)).toEqual([VERTUOZA, VERTUOZA, VERTUOZA]);
-    expect(fake.tables.player_xp!.find((r) => r.workspace_id === ACME)).toEqual(acmeRow);
+    expect((nth(posts(fake), 0, 'the first post').body as Row[]).map((r) => r.workspace_id)).toEqual([VERTUOZA, VERTUOZA, VERTUOZA]);
+    expect(present(fake.tables.player_xp, 'player_xp').find((r) => r.workspace_id === ACME)).toEqual(acmeRow);
   });
 
   it('rewrites a login\'s row at every run, and keeps its stored unlocks when a lowered weight drops its level', async () => {
@@ -69,10 +72,10 @@ describe('runXp', () => {
     await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: later, rules: nothingCounts });
 
     expect(fake.tables.player_xp).toHaveLength(3);
-    expect(fake.tables.player_xp!.find((r) => r.github_login === 'alice')).toEqual({
+    expect(present(fake.tables.player_xp, 'player_xp').find((r) => r.github_login === 'alice')).toEqual({
       workspace_id: VERTUOZA, github_login: 'alice', xp: 0, level: 0, unlocked: ['invaders'], computed_at: later.toISOString(),
     });
-    expect(fake.tables.player_xp!.find((r) => r.github_login === 'carol')!.unlocked).toEqual([]);
+    expect(present(present(fake.tables.player_xp, 'player_xp').find((r) => r.github_login === 'carol'), 'the player row').unlocked).toEqual([]);
   });
 
   it('restarts XP at the fresh start: rows with no home add nothing, and a game already unlocked stays (PRD 728)', async () => {
@@ -98,7 +101,7 @@ describe('runXp', () => {
   });
 
   it('writes nothing for a ledger that names no login yet', async () => {
-    const fake = fakeSupabase({ ledger_events: [ledger()[0]!], player_xp: [] });
+    const fake = fakeSupabase({ ledger_events: [nth(ledger(), 0, 'the first event')], player_xp: [] });
     expect(await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: NOW })).toEqual([]);
     expect(posts(fake)).toEqual([]);
   });
@@ -118,7 +121,7 @@ describe('pnpm game:xp, as a process', () => {
   async function xp(args: string[], env: Record<string, string> = {}) {
     try {
       const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, 'xp.ts'), ...args], {
-        env: { PATH: process.env.PATH, SUPABASE_URL: server!.url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
+        env: { PATH: process.env.PATH, SUPABASE_URL: present(server, 'the fake server').url, SUPABASE_SERVICE_ROLE_KEY: 'k', ...env },
       });
       return { code: 0, stdout, stderr };
     } catch (err) {
@@ -132,7 +135,7 @@ describe('pnpm game:xp, as a process', () => {
     const run = await xp([], { OMNI_LOOP_WORKSPACE: 'vertuoza' });
     expect(run.code, run.stderr).toBe(0);
     expect(run.stdout).toMatch(/vertuoza: 3 logins · 2 with a level · written to player_xp/);
-    expect(server!.tables.player_xp!.map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
+    expect(present(present(server, 'the fake server').tables.player_xp, 'player_xp').map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
   });
 
   it('exits non-zero and writes nothing when the ledger cannot be read', async () => {
