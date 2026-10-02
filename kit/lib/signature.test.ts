@@ -8,7 +8,7 @@ import { botLogin, carriesTrailer, footerLine, isSignedBody, SIGNED_MARKER, trai
 
 const EMAIL = '333776611+omni-loop-invader[bot]@users.noreply.github.com';
 const TRAILER = `Co-authored-by: Omni-man <${EMAIL}>`;
-const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const HOME = 'https://www.omni-loop.xyz';
 const FOOTER = `🦸 Omni-man by [Omni Loop](${HOME}) ©`;
 const signature = parseConfig('kit: 1\n').signature;
 const custom = { name: 'Robo', email: 'robo@example.com', footer: 'Made by Robo' };

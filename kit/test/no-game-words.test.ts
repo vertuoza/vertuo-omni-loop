@@ -5,10 +5,8 @@
 // fuller list of game words the outbox's fun lines must avoid is kept by
 // `kit/lib/outbox/banter.test.ts`; only this one word is refused kit-wide.
 //
-// One exception (ADR-0047, amending ADR-0002's decision 3): the arcade's production address,
-// `vertuo-omni-loop-galaxy.vercel.app`, which `signature.home` defaults to. Each whole occurrence of
-// that host is removed from a line before the line is tested, so the word elsewhere on the line, or
-// in any other host (one merely holding the address included), still fails.
+// No exception: `signature.home` defaults to the Omni Loop home, `www.omni-loop.xyz`, which holds no
+// game word (ADR-0055, lapsing the exception ADR-0047 made for the arcade's old address).
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -17,9 +15,6 @@ import { describe, expect, it } from 'vitest';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
 const GAME_WORD = /galax(?:y|ies)|galactic/i;
-// The one address the kit may carry, as a whole host: no host character right before it, and none
-// right after it but a path, a port or the end of the address.
-const HOME_ADDRESS = /(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g;
 const isTest = (name: string) => /\.test\.[cm]?[jt]sx?$/.test(name);
 
 /** Every file under `dir` that is not a test, dependencies left out. */
@@ -39,7 +34,7 @@ function gameWordHits(root: string) {
   const hits: string[] = [];
   for (const file of nonTestFiles(root)) {
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
-      if (GAME_WORD.test(line.replace(HOME_ADDRESS, ''))) hits.push(`${relative(root, file)}:${index + 1}: ${line.trim()}`);
+      if (GAME_WORD.test(line)) hits.push(`${relative(root, file)}:${index + 1}: ${line.trim()}`);
     });
   }
   return hits.sort();
@@ -80,30 +75,14 @@ describe('the kit never names the game', () => {
     ]);
   });
 
-  it('lets the arcade\'s exact address through, and nothing else (ADR-0047)', () => {
+  it('refuses the arcade\'s old address like any host holding the word, and passes the Omni Loop home (ADR-0055)', () => {
     const root = fixture({
-      'lib/config.mjs': "home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),\n",
-      'dist/omni.mjs':
-        '// [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) or https://vertuo-omni-loop-galaxy.vercel.app/ask.\n',
-      'lib/same-line.mjs': "const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app'; // the galaxy app\n",
-      'lib/other-host.mjs': "const HOME = 'https://galaxy.example.com';\n",
-      'lib/longer-hosts.mjs': [
-        "'https://evil-vertuo-omni-loop-galaxy.vercel.app'",
-        "'https://x.vertuo-omni-loop-galaxy.vercel.app'",
-        "'https://vertuo-omni-loop-galaxy.vercel.app.evil.example'",
-        "'https://vertuo-omni-loop-galaxy.vercel.apps'",
-        "'https://vertuo-omni-loop-galaxy2.vercel.app'",
-        '',
-      ].join('\n'),
+      'lib/config.mjs': "home: httpsUrl.default('https://www.omni-loop.xyz'),\n",
+      'lib/old-home.mjs': "const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';\n",
+      'dist/omni.mjs': '// [Omni Loop](https://www.omni-loop.xyz) or https://www.omni-loop.xyz/ask.\n',
     });
     expect(gameWordHits(root)).toEqual([
-      "lib/longer-hosts.mjs:1: 'https://evil-vertuo-omni-loop-galaxy.vercel.app'",
-      "lib/longer-hosts.mjs:2: 'https://x.vertuo-omni-loop-galaxy.vercel.app'",
-      "lib/longer-hosts.mjs:3: 'https://vertuo-omni-loop-galaxy.vercel.app.evil.example'",
-      "lib/longer-hosts.mjs:4: 'https://vertuo-omni-loop-galaxy.vercel.apps'",
-      "lib/longer-hosts.mjs:5: 'https://vertuo-omni-loop-galaxy2.vercel.app'",
-      "lib/other-host.mjs:1: const HOME = 'https://galaxy.example.com';",
-      "lib/same-line.mjs:1: const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app'; // the galaxy app",
+      "lib/old-home.mjs:1: const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';",
     ]);
   });
 
