@@ -14,6 +14,9 @@
 // the Arcade starts the game, the Omni app opens /app (start.ts). The Konami code is the game's cheat,
 // and starts the game whatever was picked.
 // Without JavaScript, PRESS START is still a plain link to /play.
+// Signed in (PRD 1006): once the page is there, it reads the visitor's session (session-read.ts) and,
+// when there is one, draws the signed-in pill (SignedIn.tsx) into every sign-up slot, where it takes
+// the place of SIGN UP WITH GITHUB. No session, a failed read or the demo leaves the page as it is.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
@@ -21,6 +24,9 @@ import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
 import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice, type SignUpClickPorts } from './selector/choice';
 import { Selector } from './selector/Selector';
+import { browserSessionPort, readSignedIn } from './session-read';
+import { SignedIn } from './SignedIn';
+import type { SignedInView } from './signed-in';
 import { SIGN_UP_ATTR, signUp, type AppPick } from './sign-up';
 import { flipCard } from './spreads/flip';
 import { PRESS_START_ATTR, pressStart, startsOnKey, type StartPorts } from './start';
@@ -88,6 +94,8 @@ export function Controls() {
   const [saved, setSaved] = useState<AppPick | null>(null);
   /** The wrappers of the SIGN UP WITH GITHUB buttons, where the hint line is drawn. */
   const [slots, setSlots] = useState<Element[]>([]);
+  /** Who is signed in, read once the page is in the browser: the server never draws the pill. */
+  const [signedIn, setSignedIn] = useState<SignedInView | null>(null);
   const started = useRef(false);
   const signingUp = useRef(false);
   /**
@@ -170,6 +178,10 @@ export function Controls() {
   useEffect(() => {
     setSaved(readChoice(storage()));
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
+    const env = supabase();
+    let live = true;
+    void readSignedIn(env && browserSessionPort(env)).then((view) => { if (live) setSignedIn(view); });
+    return () => { live = false; };
   }, []);
 
   useEffect(() => {
@@ -217,7 +229,8 @@ export function Controls() {
       </div>
       {selecting ? <Selector onGo={go} onClose={closeSelector} /> : null}
       {signUpError ? <p className="home-signup-error" role="alert">{signUpError}</p> : null}
-      {hint ? slots.map((slot, i) => createPortal(
+      {signedIn ? slots.map((slot, i) => createPortal(<SignedIn view={signedIn} />, slot, `signed-in-${i}`)) : null}
+      {hint && !signedIn ? slots.map((slot, i) => createPortal(
         <span className="home-signup-hint">
           {hint.opens} · <button type="button" className="home-signup-change" {...{ [CHANGE_ATTR]: '' }}>{hint.change}</button>
         </span>,
