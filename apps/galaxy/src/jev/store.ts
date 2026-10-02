@@ -1,3 +1,6 @@
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isRecord } from './is-record';
+
 // The one way into Jev's three tables (supabase/migrations/20261022090000_jev_decisions.sql, PRD 812).
 //
 // - jevStore(db), as the signed-in person: whether they own the workspace, the key's status (stored;
@@ -75,7 +78,7 @@ type Failure = { message?: string; code?: string } | null | undefined;
 type Result = { data: unknown; error: Failure };
 
 /** The Supabase client's calls this store makes, loosely typed so a test can record them. */
-type Db = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<Result>; from(table: string): any };
+type Db = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<Result>; from(table: string): any }; // ts-allow: the query chain is Supabase's builder, whose typed form a test's recording fake cannot match
 
 function settle(what: string, error: Failure): void {
   if (error) throw new JevStoreError(what, error.code, error.message ?? 'no reason given');
@@ -88,7 +91,7 @@ const num = (value: unknown, fallback: number): number => {
 const numOrNull = (value: unknown): number | null => (value === null || value === undefined ? null : num(value, NaN));
 const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 const MODES: readonly JevMode[] = ['off', 'shadow', 'on'];
-const modeOf = (value: unknown): JevMode => (MODES.includes(value as JevMode) ? (value as JevMode) : 'off');
+const modeOf = (value: unknown): JevMode => (isOneOf(MODES, value) ? value : 'off');
 
 type StoredDecision = { decision: string; mode: unknown; threshold: unknown; confidence_floor: unknown };
 
@@ -109,7 +112,7 @@ const CALL_COLUMNS = 'id, decision, mode, outcome, model, jev_answer, confidence
 
 const first = (data: unknown): Record<string, unknown> | null => {
   const row = Array.isArray(data) ? data[0] : data;
-  return row && typeof row === 'object' ? (row as Record<string, unknown>) : null;
+  return isRecord(row) ? row : null;
 };
 
 function callOf(row: Record<string, unknown>): JevCallRow {
@@ -117,7 +120,7 @@ function callOf(row: Record<string, unknown>): JevCallRow {
     id: num(row.id, 0),
     decision: String(row.decision),
     mode: modeOf(row.mode),
-    outcome: row.outcome as JevCallOutcome,
+    outcome: row.outcome as JevCallOutcome, // ts-allow: jev_calls checks outcome is one of JevCallOutcome's four
     model: str(row.model),
     jevAnswer: str(row.jev_answer),
     confidence: numOrNull(row.confidence),
@@ -163,7 +166,7 @@ export function jevStore(db: Db) {
     async decisions(workspace: string): Promise<JevDecisionSettings[]> {
       const { data, error } = await db.from('jev_decisions').select(DECISION_COLUMNS).eq('workspace_id', workspace);
       settle('read the Jev decisions', error);
-      return ((data ?? []) as StoredDecision[]).map(settingsOf);
+      return ((data ?? []) as StoredDecision[]).map(settingsOf); // ts-allow: the select names DECISION_COLUMNS, the columns of StoredDecision
     },
 
     async setDecision(workspace: string, settings: JevDecisionSettings): Promise<JevDecisionSettings> {
@@ -172,7 +175,7 @@ export function jevStore(db: Db) {
       });
       settle('save the Jev decision', error);
       const row = first(data);
-      return row ? settingsOf(row as StoredDecision) : settings;
+      return row ? settingsOf(row as StoredDecision) : settings; // ts-allow: set_jev_decision() answers the jev_decisions row it saved
     },
 
     /** The workspace's calls since `since` (an ISO date), newest first. */
@@ -180,7 +183,7 @@ export function jevStore(db: Db) {
       const { data, error } = await db.from('jev_calls').select(CALL_COLUMNS)
         .eq('workspace_id', workspace).gte('called_at', since).order('called_at', { ascending: false });
       settle('read the Jev calls', error);
-      return ((data ?? []) as Record<string, unknown>[]).map(callOf);
+      return ((data ?? []) as Record<string, unknown>[]).map(callOf); // ts-allow: rows read as unknown; callOf reads each field
     },
   };
 }
@@ -202,7 +205,7 @@ export function jevServiceStore(db: Db) {
       const { data, error } = await db.from('jev_decisions').select(DECISION_COLUMNS).eq('workspace_id', workspace).eq('decision', decision).maybeSingle();
       settle('read the Jev decision', error);
       const row = first(data);
-      return row ? settingsOf(row as StoredDecision) : decisionOf([], decision);
+      return row ? settingsOf(row as StoredDecision) : decisionOf([], decision); // ts-allow: the select names DECISION_COLUMNS, the columns of StoredDecision
     },
 
     async logCall(workspace: string, call: JevCall): Promise<void> {

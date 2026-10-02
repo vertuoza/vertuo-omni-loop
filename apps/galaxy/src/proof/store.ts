@@ -38,7 +38,7 @@ export const PROOF_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 export const VERDICTS = ['pass', 'fail', 'unfilmable'] as const;
 export type Verdict = (typeof VERDICTS)[number];
-export const isVerdict = (value: unknown): value is Verdict => VERDICTS.includes(value as Verdict);
+export const isVerdict = (value: unknown): value is Verdict => VERDICTS.some((verdict) => verdict === value);
 
 /** One criterion of a run: its text, verdict, the note (a fail's first error line, an unfilmable's
  * reason), and the names of its clip and script in the run's folder. */
