@@ -19,6 +19,7 @@
 // the place of SIGN UP WITH GITHUB. No session, a failed read or the demo leaves the page as it is.
 // It also settles the pending mark the page set before it painted (session-mark.ts): `in` on a session,
 // removed on none, a failed read, the demo or 3 seconds without an answer; a later session still draws.
+// The photo or initial is drawn first; a player's hero replaces it once it is read (s3).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
@@ -183,11 +184,15 @@ export function Controls() {
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
     const env = supabase();
     const page = document.querySelector('main.home');
-    return settleSession({
-      read: () => readSignedIn(env && browserSessionPort(env)),
+    let live = true;
+    /** The hero, once read, replaces the photo; the photo never replaces the hero. */
+    const hero = (view: SignedInView | null) => { if (live && view?.face.kind === 'hero') setSignedIn(view); };
+    const cancel = settleSession({
+      read: () => readSignedIn(env && browserSessionPort(env), hero),
       mark: (state) => { if (state) page?.setAttribute(SESSION_ATTR, state); else page?.removeAttribute(SESSION_ATTR); },
-      draw: setSignedIn,
+      draw: (view) => setSignedIn((now) => (now?.face.kind === 'hero' ? now : view)),
     });
+    return () => { live = false; cancel(); };
   }, []);
 
   useEffect(() => {
