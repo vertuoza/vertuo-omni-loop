@@ -76,6 +76,15 @@ export type GitHubCall = { url: string; method: string; headers: Record<string, 
 
 type Answer = { status: number; body?: unknown } | 'down';
 
+/** The address a call asked for, whichever way fetch was handed it. */
+const urlOf = (input: string | URL | Request): string => (typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+
+/** A call's body as text: a send posts JSON text, so any other body is named, to show rather than hide the change. */
+function bodyOf(body: RequestInit['body']): string {
+  if (body === undefined || body === null) return '';
+  return typeof body === 'string' ? body : `<${body.constructor.name}>`;
+}
+
 /** A GitHub answering over fetch: the code exchange, then the comment. Each answer can be changed. */
 export function fakeGitHub({
   exchange = { status: 200, body: { access_token: 'ghu_user_token_never_kept', token_type: 'bearer' } },
@@ -88,10 +97,8 @@ export function fakeGitHub({
   const calls: GitHubCall[] = [];
   const answers = { exchange, comment };
   const fetch = (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    // A send posts JSON text: any other body would be a change this fake should show, not hide.
-    const body = init.body === undefined || init.body === null ? '' : typeof init.body === 'string' ? init.body : `<${init.body.constructor.name}>`;
-    calls.push({ url, method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers).entries()), body });
+    const url = urlOf(input);
+    calls.push({ url, method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers).entries()), body: bodyOf(init.body) });
     const answer = url.startsWith('https://github.com/login/oauth/access_token') ? answers.exchange : answers.comment;
     if (answer === 'down') return Promise.reject(new TypeError('fetch failed'));
     return Promise.resolve(Response.json(answer.body ?? {}, { status: answer.status }));
