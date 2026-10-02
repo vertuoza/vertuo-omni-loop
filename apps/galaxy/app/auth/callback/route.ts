@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cliSignInReturn } from '../../../src/ask/cli-code';
 import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
-import { afterSignIn, joinBeforeIssue, settleSignIn, type SignedIn } from '../../../src/data/sign-in';
+import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, type SignedIn } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 import { landingAfterSignIn } from '../../../src/data/workspace';
@@ -12,6 +12,9 @@ import { landingAfterSignIn } from '../../../src/data/workspace';
 // browser sends (src/data/sign-in.ts). Then back to the arcade at /play (HOME is at /, PRD 261),
 // with the outcome in the query string for it to show; or, for someone still in no workspace, on to
 // /signup to install Omni Loop.
+// With `?next=app`, the Omni app was picked at SELECT YOUR APP on HOME (PRD 932): a finished sign-in
+// lands on /app instead of the arcade, through the allowlist appLanding(). A failure still goes back
+// to the arcade with its reason, and someone in no workspace still goes on to /signup.
 // With `?next=ask-cli` it is `omni signin` coming back instead: the code becomes a sign-in for the
 // terminal, not a cookie, which joins and links as well before its one-time code is issued, and the
 // browser goes on to the terminal's loopback address with that code, or back to /ask/signin with the
@@ -49,10 +52,13 @@ export async function GET(request: NextRequest) {
   }
 
   const session = (data?.session as SignedIn | null | undefined) ?? null;
-  const [key, value] = await afterSignIn(db, session, signInDeps, params.get('next'));
+  const next = params.get('next');
+  const [key, value] = await afterSignIn(db, session, signInDeps, next);
   // Someone still in no workspace goes straight on to sign-up, not to the arcade's dead end.
   if (session && key === 'signin' && (await landingAfterSignIn(db, session.user.id)) === '/signup') {
     return NextResponse.redirect(new URL('/signup', origin(request)));
   }
+  // The Omni app's pick lands on the board; the outcome in the query string is the arcade's to read.
+  if (appLanding(next) === '/app') return NextResponse.redirect(new URL('/app', origin(request)));
   return back(key, value);
 }

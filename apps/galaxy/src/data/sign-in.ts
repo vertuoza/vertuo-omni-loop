@@ -119,6 +119,14 @@ export async function afterSignIn(db: Rpc, session: SignedIn | null, deps: SignI
   return ['signin', 'ok'];
 }
 
+/**
+ * Where a sign-in from HOME lands (PRD 932), allowlisted: `next` 'app' (the Omni app picked at
+ * SELECT YOUR APP) gives /app, and anything else gives /play. Never a path taken from the address.
+ */
+export function appLanding(next: string | null): '/app' | '/play' {
+  return next === 'app' ? '/app' : '/play';
+}
+
 /** Supabase's exchangeCodeForSession, as far as a page's callback reads it. */
 export type SessionExchange = (code: string) => Promise<{ data: { session: SignedIn | null } | null; error: { message: string } | null }>;
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cliSignInReturn, type CliCallbackDeps, type CliSession } from '../ask/cli-code';
 import type { GithubAccount } from './github-orgs';
-import { afterSignIn, joinBeforeIssue, settleSignIn, settlingExchange, type SignedIn, type SignInDeps } from './sign-in';
+import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, settlingExchange, type SignedIn, type SignInDeps } from './sign-in';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { joinByGithub } from './workspace';
 
@@ -113,6 +113,18 @@ describe('after the arcade\'s link step (next=link, until the step goes)', () =>
     const { db, deps, session } = world(PEOPLE.eve);
     expect(await afterSignIn(db, session, deps, 'link')).toEqual(['link_error', 'Sign in with an account of a workspace first.']);
   });
+});
+
+// Where a sign-in from HOME lands (PRD 932): allowlisted, never a path taken from the address.
+describe('the landing after a sign-in from HOME', () => {
+  it('lands an Omni app pick on /app', () => {
+    expect(appLanding('app')).toBe('/app');
+  });
+
+  it.each([null, '', 'arcade', 'link', 'ask-cli', 'APP', '/app', '//evil.example', 'https://evil.example', '/app/../x'])(
+    'lands %j on /play', (next) => {
+      expect(appLanding(next)).toBe('/play');
+    });
 });
 
 describe('a page\'s own callback (ask, knowledge, dossiers)', () => {
