@@ -8,6 +8,7 @@
 // A thread's verdict: the last care reply's marker, except that a person writing after it, or a thread
 // care resolved and someone reopened, makes it `asked` (the reviewer keeps the last word). A thread with
 // no care reply is `open` while unresolved; resolved by a person without one, it is left out.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 
 export type CareCi = 'green' | 'red' | 'running' | 'none';
@@ -82,12 +83,12 @@ const Answer = z.object({
 });
 
 const MARKER = /<!--\s*omni-care:\s*([a-z-]+)\s*-->/;
-const VERDICTS = new Set(['fixed', 'pushed-back', 'asked']);
+const VERDICTS: readonly Exclude<CareVerdict, 'open'>[] = ['fixed', 'pushed-back', 'asked'];
 
 /** A comment's care verdict; null when it carries no marker, or an unknown one (then it is a person's). */
 export function careVerdictOf(body: string | null | undefined): Exclude<CareVerdict, 'open'> | null {
   const found = MARKER.exec(body ?? '')?.[1];
-  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null; // ts-allow: VERDICTS holds only these verdicts
+  return isOneOf(VERDICTS, found) ? found : null;
 }
 
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);

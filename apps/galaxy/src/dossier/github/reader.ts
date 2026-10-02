@@ -94,14 +94,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 function repoConfig(text: string): RepoConfig {
-  const config = parseConfig(text, CONFIG_PATH) as unknown as { // ts-allow: the kit parseConfig answers the full config; these are the keys read here
-    repo: { defaultBranch: string };
-    branches: { feature: string; phase0: string; retro: string; fix: string };
-    paths: { delivery: string };
-    prLinks: { feature: string; phase0: string };
-    markers: { prefix: string };
-    labels: { riskCritical: string; riskHigh: string; riskMedium: string; riskLow: string; regression: string };
-  };
+  const config = parseConfig(text, CONFIG_PATH);
   return {
     defaultBranch: config.repo.defaultBranch,
     branches: { feature: config.branches.feature, phase0: config.branches.phase0, retro: config.branches.retro },
@@ -120,7 +113,7 @@ type ParsedItem = KitItem & { rank: OutboxItem['rank']; bearsOn: string };
 
 /** An item as the kit's parser reads it; null, said on the server's log, when it is not well formed. */
 function parsedItem(text: string, file: string | null): ParsedItem | null {
-  const parsed = parseOutboxItem(text, { file }) as { ok: true; item: ParsedItem } | { ok: false; errors: string[] }; // ts-allow: parseOutboxItem answers one of these two shapes
+  const parsed = parseOutboxItem(text, { file });
   if (parsed.ok) return parsed.item;
   console.error(`PRD page: an outbox item could not be read: ${parsed.errors.join('; ')}`);
   return null;
@@ -158,7 +151,7 @@ type LedgerEntry = { id: string; verdict?: string; answerText: string; itemText:
 /** The settled entries, in the order settled.md holds them (the latest per id). */
 function settledItems(entries: LedgerEntry[]): SettledItem[] {
   return entries.map((entry) => {
-    const parsed = parseOutboxItem(entry.itemText) as { ok: boolean; item?: { sections: Record<string, unknown> } }; // ts-allow: parseOutboxItem answers this shape
+    const parsed = parseOutboxItem(entry.itemText);
     const question = parsed.ok ? parsed.item?.sections.questionPlain : undefined;
     const field = (name: string) => entry.fields[name]?.trim() || null;
     return {
@@ -283,7 +276,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         const parsed = await Promise.all(files.filter((f) => f.name !== SETTLED_FILE).map(async (f) => parsedItem(await raw(f.name), f.name)));
         const items = parsed.filter((i): i is ParsedItem => i !== null);
         const ledger = files.some((f) => f.name === SETTLED_FILE)
-          ? (parseSettledEntries(await raw(SETTLED_FILE), markers) as LedgerEntry[]) : []; // ts-allow: parseSettledEntries answers ledger entries
+          ? parseSettledEntries(await raw(SETTLED_FILE), markers) : [];
         const adopted = ledger.filter((entry) => entry.verdict === ADOPTED_VERDICT);
         const adoptedItems = adopted.map((entry) => parsedItem(entry.itemText, null)).filter((i): i is ParsedItem => i !== null);
         return {

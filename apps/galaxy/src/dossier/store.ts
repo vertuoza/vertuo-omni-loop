@@ -7,6 +7,7 @@
 // Since PRD 627 a dossier has a kind — a PRD's, a visual fix's or a bug fix's — keyed with the repository
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { type Outcome, StoreError } from '../data/store-error';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */
@@ -40,9 +41,9 @@ export const ARTIFACT_MAX_BYTES = 512 * 1024;
 /** The longest title a dossier takes. */
 export const TITLE_MAX = 200;
 
-export const isPulseKind = (value: unknown): value is PulseKind => PULSE_KINDS.includes(value as PulseKind); // ts-allow: a guard: includes() only compares the value
-export const isArtifactKind = (value: unknown): value is ArtifactKind => ARTIFACT_KINDS.includes(value as ArtifactKind); // ts-allow: a guard: includes() only compares the value
-export const isWorkKind = (value: unknown): value is WorkKind => WORK_KINDS.includes(value as WorkKind); // ts-allow: a guard: includes() only compares the value
+export const isPulseKind = (value: unknown): value is PulseKind => isOneOf(PULSE_KINDS, value);
+export const isArtifactKind = (value: unknown): value is ArtifactKind => isOneOf(ARTIFACT_KINDS, value);
+export const isWorkKind = (value: unknown): value is WorkKind => isOneOf(WORK_KINDS, value);
 
 export type DossierArtifact = { kind: ArtifactKind; content: string };
 
