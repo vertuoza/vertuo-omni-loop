@@ -7,7 +7,7 @@ import {
 } from './source';
 import { stageShots, type Bucket } from './attachments';
 import { peopleOf } from '../../people/load';
-import { item } from '../test-item';
+import { item, present } from '../test-item';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -28,11 +28,11 @@ async function world() {
       const query = fake.client(token).from(table as 'ask_sessions');
       const proxy: unknown = new Proxy(query, {
         get(target, prop, receiver) {
-          const value = Reflect.get(target, prop, receiver);
+          const value: unknown = Reflect.get(target, prop, receiver);
           if (typeof value !== 'function' || !['select', 'eq', 'in', 'update'].includes(String(prop))) return value;
           return (...args: unknown[]) => {
             calls.push(`${table}.${String(prop)}(${args.map((a) => JSON.stringify(a)).join(', ')})`);
-            value.apply(target, args);
+            Reflect.apply(value, target, args);
             return proxy;
           };
         },
@@ -312,7 +312,7 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     expect(await shareRound(both(w, 'ada'), id, CARL.id)).toBe(false);
     expect(await shareRound(both(w, 'ada'), id, BOB.id)).toBe(true);
     const state = await readSession(w.as('ada'), w.sessionId);
-    expect(await databasePort(both(w, 'ada'), state!).share(id, BOB.id)).toBe(true);
+    expect(await databasePort(both(w, 'ada'), present(state, 'state')).share(id, BOB.id)).toBe(true);
     expect(w.fake.tables.ask_shares).toHaveLength(1);
   });
 
@@ -357,16 +357,16 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
   it('lists the members of my workspace, and nobody for a workspace I am not in or none', async () => {
     const w = await world();
     const state = await readSession(w.as('ada'), w.sessionId);
-    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    const members = await readMembers(both(w, 'bob'), present(state, 'state').session.workspace_id);
     expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
-    expect(await readMembers(both(w, 'carl'), state!.session.workspace_id)).toEqual([]);
+    expect(await readMembers(both(w, 'carl'), present(state, 'state').session.workspace_id)).toEqual([]);
     expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
   });
 
   it('gives each member a face; with no people directory to read, the initial of their name (PRD 652)', async () => {
     const w = await world();
     const state = await readSession(w.as('ada'), w.sessionId);
-    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    const members = await readMembers(both(w, 'bob'), present(state, 'state').session.workspace_id);
     expect(members.map((m) => m.face).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))))
       .toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }]);
   });
@@ -393,7 +393,11 @@ describe('members\' faces (PRD 652)', () => {
 
   it('keeps every member, named as before, when the directory could not be read', () => {
     const faced = withFaces(members, peopleOf([], []));
-    expect(faced.map(({ face: _face, ...m }) => m)).toEqual(members);
+    expect(faced.map((member) => {
+      const m = { ...member };
+      delete m.face;
+      return m;
+    })).toEqual(members);
     expect(faced.map((m) => m.face)).toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }, { kind: 'initial', letter: 'C' }]);
   });
 });
@@ -462,9 +466,9 @@ describe('reading the tab list', () => {
     const newest = await w.askIn(w.sessionId, 'Access');
     const rows = await readTabs(w.recording('ada'), ADA.id, w.clock.now);
     expect(rows.map((r) => r.session.id).sort()).toEqual([w.sessionId, w.second].sort());
-    const first = rows.find((r) => r.session.id === w.sessionId)!;
+    const first = present(rows.find((r) => r.session.id === w.sessionId), 'rows.find((r) => r.session.id === w.sessionId)');
     expect(first.newest).toMatchObject({ id: newest, status: 'open', header: 'Access' });
-    expect(rows.find((r) => r.session.id === w.second)!.newest).toBeNull();
+    expect(present(rows.find((r) => r.session.id === w.second), 'rows.find((r) => r.session.id === w.second)').newest).toBeNull();
   });
 
   it('asks the database for open sessions only, and never reads another person\'s, even a teammate\'s (PRD 144)', async () => {

@@ -14,14 +14,18 @@ const covers = (path: string) => config.matcher.some((m) => new RegExp(`^${m}$`)
 describe('the proxy matcher', () => {
   it.each(['/', '/app', '/app/workspace', '/app/fleet', '/prd', '/prd/1f0c9a2e-8a55-4c55-9a1e-0f5c2d4b7e11', '/ask', '/play', '/apple'])(
     'covers the page %s',
-    (path) => expect(covers(path)).toBe(true),
+    (path) => {
+      expect(covers(path)).toBe(true);
+    },
   );
 
   it.each([
     '/api', '/api/waiting/outbox', '/api/stages/event', '/_next/static/chunks/app.js', '/_next/image', '/favicon.ico',
     '/fonts/anton.woff2', '/fonts/inter.woff', '/styles/app.css', '/mascots/beaver.gif', '/hero.png', '/hero.jpg', '/hero.jpeg',
     '/crest.svg', '/hero.webp', '/hero.avif', '/robots.txt', '/sitemap.xml',
-  ])('leaves out %s', (path) => expect(covers(path)).toBe(false));
+  ])('leaves out %s', (path) => {
+    expect(covers(path)).toBe(false);
+  });
 });
 
 function fakeCreate() {

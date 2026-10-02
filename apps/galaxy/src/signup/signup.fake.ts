@@ -34,7 +34,8 @@ export function signupWorld(opts: {
     resolve(run());
   });
 
-  const signup: SignupDeps = {
+  // `satisfies`, not a type: a test reads each mock as a property, not as a method of SignupDeps.
+  const signup = {
     installation: vi.fn((id: number) => settled(() => { github(); return installations.find((i) => i.id === id) ?? null; })),
     orgInstallation: vi.fn((org: string) => settled(() => {
       github();
@@ -72,7 +73,7 @@ export function signupWorld(opts: {
       const at = requests.findIndex((r) => r.user_id === userId && r.github_org === org);
       if (at >= 0) requests.splice(at, 1);
     })),
-  };
+  } satisfies SignupDeps;
 
   // Each visitor's token is `<TOKEN>:<their user id>`; any other is refused, as an expired one is.
   const readGithub = vi.fn((token: string) => settled(() => {

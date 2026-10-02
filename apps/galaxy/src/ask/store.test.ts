@@ -119,16 +119,16 @@ describe('askAttachments.removeRounds (PRD 620)', () => {
     const db = {
       storage: {
         from: (name: string) => ({
-          async list(folder: string): Promise<Listed> {
+          list(folder: string): Promise<Listed> {
             calls.push({ bucket: name, op: 'list', arg: folder });
-            if (fail.list) return { data: null, error: { message: 'list is down' } };
-            return { data: objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+            if (fail.list) return Promise.resolve({ data: null, error: { message: 'list is down' } });
+            return Promise.resolve({ data: objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null });
           },
-          async remove(paths: string[]) {
+          remove(paths: string[]) {
             calls.push({ bucket: name, op: 'remove', arg: paths });
-            if (fail.remove) return { data: null, error: { message: 'remove is down' } };
+            if (fail.remove) return Promise.resolve({ data: null, error: { message: 'remove is down' } });
             objects = objects.filter((o) => !paths.includes(o));
-            return { data: paths.map((p) => ({ name: p })), error: null };
+            return Promise.resolve({ data: paths.map((p) => ({ name: p })), error: null });
           },
         }),
       },

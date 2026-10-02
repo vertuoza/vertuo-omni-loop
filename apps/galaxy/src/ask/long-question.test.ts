@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { foldSummary, LONG_QUESTION, longQuestion } from './long-question';
+import { present } from './test-item';
 
 // A long question on the ask page (PRD 752): a lead in bold, the rest folded under "Read the full
 // question · N steps · N words", inline steps as a numbered list. A short one stays as it is.
@@ -23,7 +24,7 @@ describe('a long question', () => {
   });
 
   it('takes the first sentence and the final question as the lead when there is no blank line', () => {
-    const long = longQuestion(ERP)!;
+    const long = present(longQuestion(ERP), 'longQuestion(ERP)');
     expect(long.lead).toBe(
       "The two customer-facing screens are painted by the ERP out of the package this work publishes, and that package now expects the ERP to install AG Grid itself and point Tailwind at the package's dist. Has that been done?",
     );
@@ -32,7 +33,7 @@ describe('a long question', () => {
   });
 
   it('turns inline steps into a numbered list and counts them', () => {
-    const long = longQuestion(ERP)!;
+    const long = present(longQuestion(ERP), 'longQuestion(ERP)');
     expect(long.steps).toBe(3);
     expect(long.rest).toContain('Steps:\n\n1. open a change in vertuo-apps');
     expect(long.rest).toContain('\n2. in the same change add the @source line');
@@ -42,12 +43,12 @@ describe('a long question', () => {
   });
 
   it('counts the words of the whole question', () => {
-    expect(longQuestion(ERP)!.words).toBe(ERP.split(/\s+/).filter(Boolean).length);
+    expect(present(longQuestion(ERP), 'longQuestion(ERP)').words).toBe(ERP.split(/\s+/).filter(Boolean).length);
   });
 
   it('takes the first paragraph as the lead when the text has a blank line', () => {
     const text = `Should the sessions move to Postgres now?\nThe memory store loses them on every deploy.\n\n${filler.repeat(4)}Is that fine?`;
-    const long = longQuestion(text)!;
+    const long = present(longQuestion(text), 'longQuestion(text)');
     expect(long.lead).toBe('Should the sessions move to Postgres now?\nThe memory store loses them on every deploy.');
     expect(long.rest).toBe(`${filler.repeat(4).trim()} Is that fine?`);
     expect(long.steps).toBe(0);
@@ -56,28 +57,28 @@ describe('a long question', () => {
 
   it('keeps the first sentence alone when it is the question itself', () => {
     const text = `Should the sessions move to Postgres now? ${filler.repeat(4).trim()}`;
-    const long = longQuestion(text)!;
+    const long = present(longQuestion(text), 'longQuestion(text)');
     expect(long.lead).toBe('Should the sessions move to Postgres now?');
     expect(long.rest).toBe(filler.repeat(4).trim());
   });
 
   it('adds a later question only when it is a different sentence from the first', () => {
     const text = `We moved the sessions to Postgres. ${filler.repeat(4)}Which region should hold them? ${filler.trim()}`;
-    const long = longQuestion(text)!;
+    const long = present(longQuestion(text), 'longQuestion(text)');
     expect(long.lead).toBe('We moved the sessions to Postgres. Which region should hold them?');
     expect(long.rest).toBe(`${filler.repeat(4).trim()} ${filler.trim()}`);
   });
 
   it('has no rest when the long question is one sentence', () => {
     const text = `Should ${'the sessions and '.repeat(20)}the rounds move to Postgres?`;
-    const long = longQuestion(text)!;
+    const long = present(longQuestion(text), 'longQuestion(text)');
     expect(long.lead).toBe(text);
     expect(long.rest).toBe('');
   });
 
   it('only counts steps that run 1, 2, 3 in order', () => {
     const text = `We weighed it. ${filler.repeat(4)}See (2) of the guide and (1) of the spec. Ready?`;
-    const long = longQuestion(text)!;
+    const long = present(longQuestion(text), 'longQuestion(text)');
     expect(long.steps).toBe(0);
     expect(long.rest).toContain('See (2) of the guide and (1) of the spec.');
   });

@@ -6,12 +6,8 @@ import { item } from '../test-item';
 // starts with the Questions tabs, its own tab marked, whatever it shows below; a teammate's session,
 // opened on its own, has no tab row.
 
-const given = vi.hoisted(() => ({
-  mode: 'closed' as 'demo' | 'closed' | 'supabase',
-  read: { kind: 'unavailable' } as unknown,
-  user: null as null | { id: string },
-  pane: null as unknown,
-}));
+type Given = { mode: 'demo' | 'closed' | 'supabase'; read: unknown; user: null | { id: string }; pane: unknown };
+const given = vi.hoisted((): Given => ({ mode: 'closed', read: { kind: 'unavailable' }, user: null, pane: null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));

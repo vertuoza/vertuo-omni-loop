@@ -13,7 +13,9 @@ function stubDb(answer: { data?: unknown; error?: { message: string } | null } =
     for (const op of ['select', 'insert', 'upsert', 'delete', 'eq']) {
       q[op] = (...args: unknown[]) => { calls.push({ op, args }); return q; };
     }
-    q.then = (resolve: (v: unknown) => void) => resolve(result);
+    q.then = (resolve: (v: unknown) => void) => {
+      resolve(result);
+    };
     return q;
   };
   const db = {

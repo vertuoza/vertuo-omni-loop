@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { item } from './test-item';
+import { item, present } from './test-item';
 
 // PRD 476: on every page drawn in Ask's colours, what the eye must find (a chip, a badge, a card or
 // panel, a control, a tab) is outlined with --ask-line-strong, at 3:1 against what it sits on.
@@ -26,7 +26,7 @@ const RULES = FOLDERS.flatMap((folder) => stylesheets(join(SRC, folder))).flatMa
   const file = relative(SRC, path);
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
     file,
-    selector: item(m, 1).trim().split('\n').pop()!.trim(),
+    selector: present(item(m, 1).trim().split('\n').pop(), 'the outline\'s last line').trim(),
     body: item(m, 2),
   }));
 });

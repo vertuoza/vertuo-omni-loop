@@ -31,7 +31,9 @@ describe('the theme choice', () => {
 
   it('never throws when storage is refused', () => {
     const refused = { setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
-    for (const choice of THEME_CHOICES) expect(() => storeChoice(refused, choice), choice).not.toThrow();
+    for (const choice of THEME_CHOICES) expect(() => {
+      storeChoice(refused, choice);
+    }, choice).not.toThrow();
   });
 });
 
@@ -72,7 +74,9 @@ describe('the script applied before the first paint', () => {
   });
 
   it('does nothing where it has no parent to mark', () => {
-    expect(() => runInNewContext(themeScript, { localStorage: { getItem: () => 'dark' }, document: { currentScript: null } })).not.toThrow();
+    expect(() => {
+      runInNewContext(themeScript, { localStorage: { getItem: () => 'dark' }, document: { currentScript: null } });
+    }).not.toThrow();
   });
 
   it('is one small self-contained statement', () => {

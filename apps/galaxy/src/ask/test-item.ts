@@ -8,3 +8,9 @@ export function item<T>(list: readonly T[], index: number): T {
   assertDefined(value, `item ${index} of ${list.length}`);
   return value;
 }
+
+/** `value`, where a test wrote `value!`; fails the test, naming `what`, when it is undefined or null. */
+export function present<T>(value: T, what: string): NonNullable<T> {
+  assertDefined(value, what);
+  return value;
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RoundRow, SessionRow } from './view';
 import { historyChoices, historyList, readHistoryFilters, type HistoryRow } from './workspace-history';
+import { present } from '../test-item';
 
 // The workspace's history (PRD 144), as a pure function of the rows the caller may read, the
 // workspace's members and the filters in the address: newest first, each filter narrowing it.
@@ -62,7 +63,7 @@ describe('the workspace history', () => {
       question: 'Should the trial last 30 days?', answer: 'Fourteen days, invoiced monthly', status: 'answered',
       askedBy: 'bob@vertuoza.com', answeredBy: 'bob@vertuoza.com', via: 'terminal', category: 'Business', at: at(5),
     });
-    expect(trial!.context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
+    expect(present(trial, 'trial').context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
     expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@vertuoza.com', category: 'Architecture' });
     expect(storage).toMatchObject({ askedByFace: { kind: 'initial', letter: 'A' }, answeredByFace: { kind: 'initial', letter: 'B' } });
     const open = historyList(ROWS, {}, MEMBERS)[0];

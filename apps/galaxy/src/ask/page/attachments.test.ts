@@ -146,7 +146,9 @@ describe('the round trays the form stages', () => {
     stageShots('r-tray', { 'Which one?': [shot('a')] });
     expect(trayOf('r-tray').shots).toEqual({ 'Which one?': [shot('a')] });
     const { bucket } = stubBucket();
-    await sendWithShots(bucket, ROUND, trayOf('r-tray'), recorder().record, (p) => trayOf('r-tray').setProgress(p));
+    await sendWithShots(bucket, ROUND, trayOf('r-tray'), recorder().record, (p) => {
+      trayOf('r-tray').setProgress(p);
+    });
     stop();
     expect(heard).toEqual(['Uploading 1 of 1…', 'idle']);
     expect(progressOf('never-staged')).toEqual({ kind: 'idle' });
