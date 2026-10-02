@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { TOCItemType } from 'fumadocs-core/toc';
+import { CodeCopy } from './CodeCopy';
 import { DocsSearch } from './DocsSearch';
 import { ALL_SKILLS } from './skills-view';
 import type { SidebarItem } from './tree';
@@ -56,6 +57,7 @@ export function DocsPage({ items, url, title, description, toc, children, skills
         <h1 className="docs-title">{title}</h1>
         {description ? <p className="docs-lede">{description}</p> : null}
         <div className="docs-md">{children}</div>
+        <CodeCopy />
       </article>
       {toc.length > 0 ? (
         <nav className="docs-toc" aria-label="On this page">

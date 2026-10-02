@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A focus-trapped dialog with real keyboard handling is fine, as long as the board stays one keystroke away and nothing breaks the GitHub sign-in.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "A fighting-game screen in front of the tool is the gimmick I expected. I only accept it if I see it once.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Landing straight on the board instead of the game saves me a detour every sign-in.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Saying up front that there is a serious app and a game helps me tell the team which one is for work.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "I do not want to learn the arcade to reach my PRDs. Picking OMNI APP once and remembering it is exactly that.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "B-E DEv", "text": "A fighting-game screen between me and my board is exactly the fluff I expected: give me a one-keystroke way past it, and never show it to me twice.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The selector is a pure reducer under test, and storage that throws still works. The allowlisted landing removes the open redirect I would have worried about.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "The cursor starts on OMNI APP and Enter goes. With the pick remembered, I never see the screen again, which I can accept.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "No migration and no kit change, and rollback is a revert. It can ship fast.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Sprites live in the design package with their test, so the app does not grow its own art again.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The 'change' line under the button means I can switch without asking anyone how.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · offering#36 ✓"
+    }
+  ]
+}
