@@ -141,7 +141,7 @@ const dayWords = (date: string, today: boolean) => {
 
 function ChartPart({ id, title, total, children }: { id: string; title: string; total: ReactNode; children: ReactNode }) {
   return (
-    <section className="board-chart" aria-labelledby={id}>
+    <section className="board-chart board-card" aria-labelledby={id}>
       <header className="board-chart-head">
         <h2 id={id}>{title}</h2>
         {total}
@@ -211,7 +211,7 @@ function failed(rows: PersonRow[]): string[] {
 
 function People({ people, title, note }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode }) {
   return (
-    <section className="board-people" aria-labelledby="board-people">
+    <section className="board-people board-card" aria-labelledby="board-people">
       <h2 id="board-people">{title}</h2>
       {people === UNREADABLE ? <CouldNotLoad /> : (
         <>
@@ -256,7 +256,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
 
 function Repositories({ repos }: { repos: Read<RepoRow[]> }) {
   return (
-    <section className="board-repos" aria-labelledby="board-repos">
+    <section className="board-repos board-card" aria-labelledby="board-repos">
       <h2 id="board-repos">Repositories involved</h2>
       {repos === UNREADABLE ? <CouldNotLoad /> : repos.length === 0 ? <p className="dash-note">No merged PR or PRD event in this period</p> : (
         <table className="board-table">
@@ -283,7 +283,7 @@ function Medal({ rank }: { rank: number }) {
 
 function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: string }) {
   return (
-    <section className="board-fleets" aria-labelledby="board-fleets">
+    <section className="board-fleets board-card" aria-labelledby="board-fleets">
       <h2 id="board-fleets">{`Fleets · ${season}`}</h2>
       {fleets === UNREADABLE ? <CouldNotLoad /> : fleets.length === 0 ? <p className="dash-note">This workspace has no fleet yet</p> : (
         <table className="board-table">
