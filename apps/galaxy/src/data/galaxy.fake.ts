@@ -15,6 +15,7 @@
 
 import { firstPart, group, isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { workspacesToJoin, type JoinableWorkspace } from './github-orgs';
+import { listOf, textOf } from './unparsed';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -37,7 +38,17 @@ export type FakeCall =
 /** The highest score submit_score() takes. */
 const SCORE_CAP = 9_999_999;
 
-const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+/** A copy of a value as JSON carries it, which is how PostgREST sends and keeps one: read back as unknown. */
+const copyOf = (value: unknown): unknown => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+const isRow = (value: unknown): value is Row => typeof value === 'object' && value !== null && !Array.isArray(value);
+/** A row's copy, as JSON carries it. */
+const copyRow = (row: Row): Row => {
+  const copy = copyOf(row);
+  return isRow(copy) ? copy : {};
+};
+/** The seed's tables, each row copied as JSON carries it: a table left out stays empty. */
+const copySeed = (seed: Partial<FakeTables>): Partial<FakeTables> =>
+  Object.fromEntries(Object.entries(seed).map(([table, rows]) => [table, listOf(rows).map(copyRow)]));
 
 /** A refused call, with its Postgres (or PostgREST) code. */
 const refusal = (code: string, message: string): Result => ({ data: null, error: { code, message } });
@@ -55,13 +66,13 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 function compare(a: unknown, b: unknown): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   if (typeof a === 'string' && typeof b === 'string' && ISO.test(a) && ISO.test(b)) return Date.parse(a) - Date.parse(b);
-  const x = String(a ?? ''), y = String(b ?? '');
+  const x = textOf(a ?? ''), y = textOf(b ?? '');
   return x === y ? 0 : x < y ? -1 : 1;
 }
 
 /** A LIKE pattern (`%` any run, `_` one character) as a regular expression over the whole value. */
 const likeOf = (pattern: string, flags = '') =>
-  new RegExp(`^${[...pattern].map((c) => (c === '%' ? '.*' : c === '_' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('')}$`, flags);
+  new RegExp(`^${Array.from(pattern).map((c) => (c === '%' ? '.*' : c === '_' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('')}$`, flags);
 
 const known = (cell: unknown) => cell !== null && cell !== undefined;
 
@@ -95,11 +106,18 @@ function items(columns: string): string[] {
   return out;
 }
 
-export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] = []) {
+/**
+ * The fake for the tables `seed` holds. The people a test signs in as are each handed to `client()`;
+ * the list a caller may pass after the seed is read by nothing, as it never was.
+ */
+export const fakeGalaxyDb: (seed?: Partial<FakeTables>, people?: readonly FakeUser[]) => ReturnType<typeof galaxyDb> =
+  (seed = {}) => galaxyDb(seed);
+
+function galaxyDb(seed: Partial<FakeTables>) {
   const tables: FakeTables = {
     workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [], player_xp: [], arcade_scores: [],
     contributions: [],
-    ...clone(seed),
+    ...copySeed(seed),
   };
   const calls: FakeCall[] = [];
   /** `fail`: every call fails, as a database out of reach; `failOn`: only the reads of one table. */
@@ -122,14 +140,14 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
   /** A row as `select(columns)` shapes it: aliases (`id:user_id`) and one level of embedding
    * (`workspace:workspaces(id, slug)`, `player:players(display_name)`, under the same security). */
   function project(row: Row, columns: string, me: FakeUser | null): Row {
-    if (columns.trim() === '*') return clone(row);
+    if (columns.trim() === '*') return copyRow(row);
     const out: Row = {};
     for (const item of items(columns)) {
       const m = /^(?:(\w+):)?(\w+)(?:\((.*)\))?$/s.exec(item);
       if (!m) throw new Error(`fake: cannot read the column list item "${item}"`);
       const [, alias, , inner] = m;
       const name = group(m, 2);
-      if (inner === undefined) { out[alias ?? name] = clone(row[name]); continue; }
+      if (inner === undefined) { out[alias ?? name] = copyOf(row[name]); continue; }
       if (!isOneOf(keysOf(tables), name)) throw new Error(`fake: no table "${name}" to embed`);
       const table = name;
       const on = joined(table, row);
@@ -194,7 +212,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     private run(): Result {
       calls.push({
         kind: 'from', table: this.table, op: this.op, eq: { ...this.eqs },
-        ...(this.filters.length ? { filters: clone(this.filters) } : {}),
+        ...(this.filters.length ? { filters: this.filters.map((filter) => ({ ...filter, value: copyOf(filter.value) })) } : {}),
       });
       if (state.fail) return { data: null, error: state.fail };
       if (state.failOn === this.table) return { data: null, error: { message: `fake: ${this.table} is out of reach` } };
@@ -217,7 +235,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       const sorted = [...rows].sort((a, b) => {
         for (const { column, ascending } of this.orders) {
           const numbers = typeof a[column] === 'number' && typeof b[column] === 'number';
-          const x = numbers ? (a[column] as number) : String(a[column] ?? ''), y = numbers ? (b[column] as number) : String(b[column] ?? ''); // ts-allow: a test fake orders a numeric column as numbers
+          const x = numbers ? (a[column] as number) : textOf(a[column] ?? ''), y = numbers ? (b[column] as number) : textOf(b[column] ?? ''); // ts-allow: a test fake orders a numeric column as numbers
           if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
         }
         return 0;
@@ -241,7 +259,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       }
       const at = stamp();
       const row = {
-        team: null, ...clone(this.values),
+        team: null, ...copyRow(this.values),
         team_since: this.values.team ? at : null, github_id: me.github.id, github_login: me.github.login, created_at: at, updated_at: at,
       };
       tables.players.push(row);
@@ -255,7 +273,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       const rows = this.matching().filter((row) => this.table === 'players' && row.user_id === this.me?.id);
       for (const row of rows) {
         if (this.values.team !== undefined && this.values.team !== row.team) row.team_since = stamp();
-        Object.assign(row, clone(this.values));
+        Object.assign(row, copyRow(this.values));
       }
       return rows;
     }
@@ -295,8 +313,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     const player = me && tables.players.find((p) => p.workspace_id === workspace && p.user_id === me.id);
     if (!me || !player) return refusal('42501', 'Only a player of this workspace may post a score.');
     if (!isScore(score)) return refusal('22023', 'A score is a whole number from 0 to 9,999,999.');
-    if (!unlockedFor(workspace, String(player.github_login ?? '').toLowerCase(), game)) {
-      return refusal('42501', `The game ${game} is not unlocked for this player yet.`);
+    if (!unlockedFor(workspace, textOf(player.github_login ?? '').toLowerCase(), game)) {
+      return refusal('42501', `The game ${textOf(game)} is not unlocked for this player yet.`);
     }
     const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
     if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
@@ -312,8 +330,13 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     return { data: { github_id: me.github.id, github_login: me.github.login }, error: null };
   }
 
-  async function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>, service = false): Promise<Result> {
-    calls.push(args === undefined ? { kind: 'rpc', fn } : { kind: 'rpc', fn, args: clone(args) });
+  /** An RPC answers once called, as the real client's does: recorded at the call, settled on a later turn. */
+  function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>, service = false): Promise<Result> {
+    calls.push(args === undefined ? { kind: 'rpc', fn } : { kind: 'rpc', fn, args: copyRow(args) });
+    return Promise.resolve(answer(me, fn, args, service));
+  }
+
+  function answer(me: FakeUser | null, fn: string, args: Record<string, unknown> | undefined, service: boolean): Result {
     if (state.fail) return { data: null, error: state.fail };
     if (fn === 'join_workspaces_by_github') return joinByGithub(args, service);
     if (fn === 'submit_score') return submitScore(me, args);
@@ -326,8 +349,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
   function client(user: FakeUser | null) {
     return {
       auth: {
-        async getUser() {
-          return { data: { user: user ? { id: user.id, email: user.email } : null }, error: null };
+        getUser() {
+          return Promise.resolve({ data: { user: user ? { id: user.id, email: user.email } : null }, error: null });
         },
       },
       from: (table: FakeTable) => new Query(table, user),

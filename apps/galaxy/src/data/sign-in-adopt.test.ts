@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Installation } from '../signup/installation';
 import { signupWorld } from '../signup/signup.fake';
+import { item } from '../ask/test-item';
 import { afterSignIn } from './sign-in';
 
 // A sign-up that stopped half way: the App is installed, but no workspace was made. The next sign-in
@@ -52,8 +53,8 @@ describe('a sign-in by someone in no workspace', () => {
   it('picks up the installation before GitHub is linked, so they are a player at once', async () => {
     const w = world([OWN]);
     await afterSignIn(w.db, w.session(DAN), w.deps, null);
-    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
-    expect(w.linkGithub.mock.invocationCallOrder[0]!).toBeGreaterThan(created);
+    const created = item((w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder, 0);
+    expect(item(w.linkGithub.mock.invocationCallOrder, 0)).toBeGreaterThan(created);
   });
 
   it('looks up nothing when joining failed, since it cannot tell whether they are in one', async () => {
@@ -67,7 +68,7 @@ describe('a sign-in by someone in no workspace', () => {
   it('never fails the sign-in when GitHub cannot be read (ADR 0044)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const w = world([OWN]);
-    w.signup.userInstallation = vi.fn(async () => { throw new Error('GitHub answered 502'); });
+    w.signup.userInstallation = vi.fn(() => Promise.reject(new Error('GitHub answered 502')));
     expect(await afterSignIn(w.db, w.session(DAN), w.deps, null)).toEqual(['signin', 'ok']);
     expect(w.linkGithub).toHaveBeenCalled();
   });

@@ -85,15 +85,15 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
   const current = currentItem(usePathname());
   const drawer = useDrawer();
   const { counts } = useWaiting();
-  const choose = () => drawer.send('choose');
+  const choose = () => { drawer.send('choose'); };
   return (
     <>
-      {drawer.open && <div className="app-drawer-scrim" aria-hidden="true" onClick={() => drawer.send('scrim')} />}
+      {drawer.open && <div className="app-drawer-scrim" aria-hidden="true" onClick={() => { drawer.send('scrim'); }} />}
       <aside ref={drawer.panel} className="app-sidebar" id="app-sidebar" aria-label="Sidebar" data-open={drawer.open || undefined}>
         <div className="app-sidebar-head">
           <BrandLogo className="app-sidebar-crest" onClick={choose} />
-          <button type="button" className="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu" aria-expanded="true" aria-controls="app-sidebar" onClick={(event) => fold(event, 'rail')}>«</button>
-          <button type="button" className="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar" onClick={(event) => fold(event, 'open')}>»</button>
+          <button type="button" className="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu" aria-expanded="true" aria-controls="app-sidebar" onClick={(event) => { fold(event, 'rail'); }}>«</button>
+          <button type="button" className="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar" onClick={(event) => { fold(event, 'open'); }}>»</button>
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
         </div>
         <nav className="app-sidebar-nav" aria-label="Sections">

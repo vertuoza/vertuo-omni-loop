@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactElement } from 'react';
 import { COLOURS, logoSvg } from '@omni/design';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // HOME shared as the ad (PRD 261, reworded by PRD 285): what a link to `/` previews as. The page's
 // title and description, and the Open Graph card: the crest and AGENTS SHIP. YOU STEER. on the
@@ -36,7 +37,7 @@ const crestSrc = () =>
   `data:image/svg+xml;base64,${Buffer.from(logoSvg('full', { scale: CREST_SCALE, title: null })).toString('base64')}`;
 
 /** The star colours, each a token the design package defines. */
-const [WHITE, CYAN, YELLOW] = [COLOURS.white!, COLOURS.cyan!, COLOURS.yellow!];
+const [WHITE, CYAN, YELLOW] = [defined(COLOURS.white, 'the white token'), defined(COLOURS.cyan, 'the cyan token'), defined(COLOURS.yellow, 'the yellow token')];
 
 /** A handful of fixed stars, as [left %, top %, size px, colour]: the same field on every build. */
 const STARS: readonly (readonly [number, number, number, string])[] = [
