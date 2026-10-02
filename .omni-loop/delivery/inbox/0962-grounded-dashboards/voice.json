@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Cards everywhere is the generated-dashboard look I distrust; one shared rule is the only version I would accept.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "A restyle of a board I barely open. It won't change my mind that this is fluff, but it costs little.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "A board that looks finished is one I can show the team when I pitch shipping more ideas through the loop.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "I mostly look at the board. Panels I can tell apart at a glance make it easier to read whether the loop holds.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A quick win that customers never see, but a cleaner board is easier to share when I report to my team.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "F-E Developer", "text": "Cards everywhere is exactly the generated-dashboard look I distrust. If each board grows its own copy-pasted frame CSS instead of one shared rule, that's the slop I expect to break in production.", "citations": ["persona:F-E Developer"], "settled": "accepted" },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ (one shared rule) · persona:B-E DEv ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A criterion that no other selector frames a panel, and a render test per panel, is what makes me trust this one.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "Clear scope, no data touched, easy rollback. Still a cosmetic change in my eyes.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Four boards fixed in one PRD, with a proof video I can forward. Good.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Two components and two stylesheets, and the pinned table column was thought of. Cohesive across the boards.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "The phone criteria matter to me; the rest I take on trust.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ✗ · offering#36 ✓"
+    }
+  ]
+}
