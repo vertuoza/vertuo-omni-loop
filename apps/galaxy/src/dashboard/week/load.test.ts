@@ -22,7 +22,7 @@ function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {})
   return w;
 }
 
-const galaxyUntouched = vi.fn(async () => { throw new Error('the week read the galaxy'); });
+const galaxyUntouched = vi.fn(() => Promise.reject(new Error('the week read the galaxy')));
 
 function inputOf(w: ReturnType<typeof fakeGalaxyDb>, person: FakeUser, workspace: string, login: string | null): PartInput {
   return {

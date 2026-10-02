@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import { sure } from '../../arcade/sure';
 
 vi.mock('server-only', () => ({}));
 
 const read = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+  workspace: (() => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
 }));
 vi.mock('../../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
@@ -35,11 +36,11 @@ function db({
   return {
     calls,
     client: {
-      rpc: async (fn: string, args: unknown) => {
+      rpc: (fn: string, args: unknown) => {
         calls.push([fn, args]);
         const answer = fn === 'is_owner' ? owner : status;
-        if (answer instanceof Error) throw answer;
-        return { data: answer.data ?? null, error: answer.error ?? null };
+        if (answer instanceof Error) return Promise.reject(answer);
+        return Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null });
       },
       // The decisions' read (PRD 812 s2): from('jev_decisions').select(…).eq('workspace_id', …); the
       // calls' read (PRD 812 s4): from('jev_calls').select(…).eq(…).gte('called_at', …).order(…).
@@ -52,7 +53,7 @@ function db({
             return Object.assign(settled, {
               gte: (col: string, since: unknown) => {
                 calls.push(['gte', col, since]);
-                return { order: async () => ({ data: answer.data ?? null, error: answer.error ?? null }) };
+                return { order: () => Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }) };
               },
             });
           },
@@ -79,7 +80,7 @@ describe('loadJevPage', () => {
     expect(calls).toEqual(expect.arrayContaining([['from', 'jev_calls', 'workspace_id', 'ws-1'], ['gte', 'called_at', '2026-08-31T12:00:00.000Z']]));
     expect(got).toMatchObject({ kind: 'jev', records: { 'question-category': { calls: 2, compared: 2, agreed: 1, agreement: 0.5 } } });
     if (got.kind !== 'jev') throw new Error('no page');
-    expect(got.records?.['question-category']!.disagreements.map((d) => d.ref)).toEqual([{ text: 'the round', href: '/ask/q/r-2' }]);
+    expect(sure(got.records?.['question-category'], 'the value').disagreements.map((d) => d.ref)).toEqual([{ text: 'the round', href: '/ask/q/r-2' }]);
     expect(got.records?.['outbox-risk']).toMatchObject({ calls: 0, agreement: null });
   });
 
@@ -95,7 +96,7 @@ describe('loadJevPage', () => {
 
   it('is no-workspace for an account in none, and unreadable when the key\'s status cannot be read', async () => {
     const before = read.workspace;
-    read.workspace = async () => null;
+    read.workspace = () => Promise.resolve(null);
     expect(await loadJevPage(db().client, USER)).toEqual({ kind: 'no-workspace' });
     read.workspace = before;
     expect(await loadJevPage(db({ status: { error: { message: 'no', code: '42501' } } }).client, USER)).toEqual({ kind: 'unreadable' });

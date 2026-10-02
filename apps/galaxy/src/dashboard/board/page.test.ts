@@ -11,14 +11,14 @@ const given = vi.hoisted(() => ({
   load: { kind: 'no-workspace' } as unknown,
 }));
 const demoWorkspaceBoard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ kind: 'board', name: 'demo', board: { period, at: now.toISOString() } })));
-const loadWorkspaceBoard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
+const loadWorkspaceBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));
+const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getClaims } }),
+  supabaseServer: () => Promise.resolve({ auth: { getClaims } }),
 }));
 vi.mock('./workspace', () => ({ demoWorkspaceBoard, loadWorkspaceBoard }));
 

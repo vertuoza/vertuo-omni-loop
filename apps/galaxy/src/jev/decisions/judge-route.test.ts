@@ -27,19 +27,20 @@ function world({ mode = 'off', noul = 0.9, jev = true, secret = SECRET, outcome,
   const logged: JevCall[] = [];
   const lines: string[] = [];
   const deps: JevDecideDeps = {
-    settings: async (_w, decision): Promise<JevDecisionSettings> => ({ decision, mode, threshold: 0.5, floor: 0.4 }),
-    key: async () => ({ kind: 'key', key: 'ts-key' }),
-    ask: async (_key, state, question) => {
+    settings: (_w, decision): Promise<JevDecisionSettings> => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+    key: () => Promise.resolve({ kind: 'key', key: 'ts-key' }),
+    ask: (_key, state, question) => {
       asked.push({ state, question });
-      return outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 80 };
+      return Promise.resolve(outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 80 });
     },
-    log: async (_w, call) => {
+    log: (_w, call) => {
       logged.push(call);
+      return Promise.resolve();
     },
   };
   const route: JudgeRouteDeps = {
     secret,
-    workspaceOf: lookup ?? (async (repo) => (repo === 'acme/widgets' ? ACME : null)),
+    workspaceOf: lookup ?? ((repo) => Promise.resolve((repo === 'acme/widgets' ? ACME : null))),
     jev: jev ? deps : null,
     log: (line) => lines.push(line),
   };
@@ -131,7 +132,7 @@ describe('POST /api/constituents/judge', () => {
   });
 
   it('answers 500 when the workspace cannot be looked up', async () => {
-    const w = world({ mode: 'on', lookup: async () => { throw new Error('db down'); } });
+    const w = world({ mode: 'on', lookup: () => Promise.reject(new Error('db down')) });
     expect(await send(w)).toMatchObject({ status: 500 });
     expect(w.lines.join('\n')).toMatch(/db down/);
   });

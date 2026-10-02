@@ -5,6 +5,7 @@ import type { JevDecisionEntry } from './decisions';
 import { decide, openKey, resolve, type JevAttempt, type JevDecideDeps, type JevKey } from './resolve';
 import { sealSecret } from './secret-box';
 import type { JevCall, JevDecisionSettings, JevMode } from './store';
+import { sure } from '../arcade/sure';
 
 // The resolver (PRD 812 s2): every mode × every outcome gives the answer that counts, who decided, and
 // the one log row (Off logs nothing: Jev is not called). Decisions 4 and 6: On replaces in both
@@ -127,19 +128,20 @@ describe('decide', () => {
     const asked: Array<{ key: string; state: unknown; question: JevQuestion }> = [];
     const logged: Array<[string, JevCall]> = [];
     const d: JevDecideDeps = {
-      async settings(workspace, decision) {
-        if (settingsFail) throw new Error('db down');
-        return { ...settings(mode), decision };
+      settings(workspace, decision) {
+        if (settingsFail) return Promise.reject(new Error('db down'));
+        return Promise.resolve({ ...settings(mode), decision });
       },
-      async key() { return key; },
-      async ask(k, state, question) {
+      key() { return Promise.resolve(key); },
+      ask(k, state, question) {
         asked.push({ key: k, state, question });
-        if (outcome instanceof Error) throw outcome;
-        return outcome;
+        if (outcome instanceof Error) return Promise.reject(outcome);
+        return Promise.resolve(outcome);
       },
-      async log(workspace, call) {
-        if (logFail) throw new Error('insert refused');
+      log(workspace, call) {
+        if (logFail) return Promise.reject(new Error('insert refused'));
         logged.push([workspace, call]);
+        return Promise.resolve();
       },
     };
     return { d, asked, logged };
@@ -149,7 +151,7 @@ describe('decide', () => {
   it('Off: runs today\'s path only, never reads the key, never asks Jev, logs nothing', async () => {
     const { d, asked, logged } = deps({ mode: 'off' });
     const key = vi.spyOn(d, 'key');
-    const old = vi.fn(async () => 'red' as Colour);
+    const old = vi.fn(() => Promise.resolve('red' as Colour));
     expect(await decide(d, { workspace: W, entry: colour, input: 'blue', old, ref: 'round:r1' })).toMatchObject({ value: 'red', decidedBy: 'old' });
     expect(old).toHaveBeenCalledOnce();
     expect(key).not.toHaveBeenCalled();
@@ -159,20 +161,20 @@ describe('decide', () => {
 
   it('Off: today\'s failure is today\'s failure', async () => {
     const { d } = deps({ mode: 'off' });
-    await expect(decide(d, { workspace: W, entry: colour, input: 'x', old: async () => { throw new Error('boom'); }, ref: null })).rejects.toThrow('boom');
+    await expect(decide(d, { workspace: W, entry: colour, input: 'x', old: () => Promise.reject(new Error('boom')), ref: null })).rejects.toThrow('boom');
   });
 
   it('reads as Off when the settings cannot be read', async () => {
     const spy = quiet();
     const { d, asked } = deps({ settingsFail: true });
-    expect(await decide(d, { workspace: W, entry: colour, input: 'x', old: async () => 'red', ref: null })).toMatchObject({ value: 'red', decidedBy: 'old' });
+    expect(await decide(d, { workspace: W, entry: colour, input: 'x', old: () => Promise.resolve('red'), ref: null })).toMatchObject({ value: 'red', decidedBy: 'old' });
     expect(asked).toEqual([]);
     spy.mockRestore();
   });
 
   it('Shadow: asks Jev the entry\'s question about the entry\'s state, logs, and today\'s answer counts', async () => {
     const { d, asked, logged } = deps({ mode: 'shadow' });
-    const got = await decide(d, { workspace: W, entry: colour, input: 'blue', old: async () => 'red', ref: 'round:r1' });
+    const got = await decide(d, { workspace: W, entry: colour, input: 'blue', old: () => Promise.resolve('red'), ref: 'round:r1' });
     expect(got).toMatchObject({ value: 'red', decidedBy: 'old' });
     expect(asked).toEqual([{ key: 'k', state: 'The sky is blue.', question: QUESTION }]);
     expect(logged).toEqual([[W, row({ mode: 'shadow', counted: 'red', decidedBy: 'old' })]]);
@@ -181,20 +183,20 @@ describe('decide', () => {
   it('On: Jev\'s answer counts; a throwing today\'s path reads as no old answer', async () => {
     const spy = quiet();
     const { d, logged } = deps();
-    const got = await decide(d, { workspace: W, entry: colour, input: 'x', old: async () => { throw new Error('haiku down'); }, ref: 'round:r1' });
+    const got = await decide(d, { workspace: W, entry: colour, input: 'x', old: () => Promise.reject(new Error('haiku down')), ref: 'round:r1' });
     expect(got).toMatchObject({ value: 'blue', decidedBy: 'jev' });
-    expect(logged[0]![1]).toMatchObject({ oldAnswer: null, counted: 'blue' });
+    expect(sure(logged[0], 'logged[0]')[1]).toMatchObject({ oldAnswer: null, counted: 'blue' });
     spy.mockRestore();
   });
 
   it('On: a throwing ask, a missing key or a failing log never blocks today\'s answer', async () => {
     const spy = quiet();
-    expect(await decide(deps({ outcome: new Error('socket') }).d, { workspace: W, entry: colour, input: 'x', old: async () => 'red', ref: null }))
+    expect(await decide(deps({ outcome: new Error('socket') }).d, { workspace: W, entry: colour, input: 'x', old: () => Promise.resolve('red'), ref: null }))
       .toMatchObject({ value: 'red', decidedBy: 'old', call: { outcome: 'failed' } });
     const noKey = deps({ key: { kind: 'none' } });
-    expect(await decide(noKey.d, { workspace: W, entry: colour, input: 'x', old: async () => 'red', ref: null })).toMatchObject({ value: 'red', call: { outcome: 'no-key' } });
+    expect(await decide(noKey.d, { workspace: W, entry: colour, input: 'x', old: () => Promise.resolve('red'), ref: null })).toMatchObject({ value: 'red', call: { outcome: 'no-key' } });
     expect(noKey.asked).toEqual([]);
-    expect(await decide(deps({ logFail: true }).d, { workspace: W, entry: colour, input: 'x', old: async () => 'red', ref: null })).toMatchObject({ value: 'blue' });
+    expect(await decide(deps({ logFail: true }).d, { workspace: W, entry: colour, input: 'x', old: () => Promise.resolve('red'), ref: null })).toMatchObject({ value: 'blue' });
     spy.mockRestore();
   });
 });

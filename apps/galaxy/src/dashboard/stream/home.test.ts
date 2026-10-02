@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sure } from '../../arcade/sure';
 
 vi.mock('server-only', () => ({}));
 
@@ -7,10 +8,10 @@ vi.mock('server-only', () => ({}));
 // stands alone, so Waiting for you arrives while the player row is still being read, and a read that
 // fails leaves only its own part 'unreadable'.
 const reads = vi.hoisted(() => ({
-  me: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ display_name: 'ADA', github_login: 'Ada-GH', team: 'beaver', hero: null })),
-  fleets: vi.fn(async (..._args: unknown[]) => [{ name: 'beaver', label: 'BEAVER', color: '#d08a4a' }]),
-  galaxy: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ heroes: [], teams: [] })),
-  board: vi.fn(async (..._args: unknown[]): Promise<unknown> => 'the board'),
+  me: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve({ display_name: 'ADA', github_login: 'Ada-GH', team: 'beaver', hero: null })),
+  fleets: vi.fn((..._args: unknown[]) => Promise.resolve([{ name: 'beaver', label: 'BEAVER', color: '#d08a4a' }])),
+  galaxy: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve({ heroes: [], teams: [] })),
+  board: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve('the board')),
   supabaseReads: vi.fn((..._args: unknown[]) => 'the reads'),
 }));
 vi.mock('../../data/load-galaxy', () => ({ loadMe: reads.me, loadFleets: reads.fleets, loadGalaxy: reads.galaxy }));
@@ -37,13 +38,13 @@ describe('Home\'s parts, each on its own', () => {
   it('counts Waiting for you from the layout\'s questions, without waiting for the player row', async () => {
     const me = pending<unknown>();
     reads.me.mockReturnValueOnce(me.read);
-    const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => [QUESTION]);
+    const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.resolve([QUESTION]));
     expect(await parts.waiting).toEqual({ count: 1, href: expect.any(String) });
     me.resolve(null);
   });
 
   it('heads the hero block with the player\'s name, and draws the board for their fleet', async () => {
-    const parts = homeParts(DB, USER, 'w1', '30d', NOW, async () => []);
+    const parts = homeParts(DB, USER, 'w1', '30d', NOW, () => Promise.resolve([]));
     const you = await parts.you;
     expect(you.name).toBe('ADA');
     expect(you.you).toMatchObject({ kind: 'player', fleet: { name: 'beaver' } });
@@ -55,17 +56,17 @@ describe('Home\'s parts, each on its own', () => {
 
   it('reads the galaxy once for the hero block and the board', async () => {
     reads.board.mockImplementationOnce(async (r: unknown) => {
-      await (reads.supabaseReads.mock.calls[0]![2] as () => Promise<unknown>)();
+      await (sure(reads.supabaseReads.mock.calls[0], 'reads.supabaseReads.mock.calls[0]')[2] as () => Promise<unknown>)();
       return r;
     });
-    const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => []);
+    const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.resolve([]));
     await Promise.all([parts.you, parts.board]);
     expect(reads.galaxy).toHaveBeenCalledTimes(1);
   });
 
   it('with no player row: no team, the board of your own row and the line to Fleet', async () => {
     reads.me.mockResolvedValueOnce(null);
-    const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => []);
+    const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.resolve([]));
     expect((await parts.you).you).toEqual({ kind: 'no-player' });
     expect((await parts.board).solo).toBe(true);
   });
@@ -73,7 +74,7 @@ describe('Home\'s parts, each on its own', () => {
   it('a player row that cannot be read leaves the hero block unreadable, and the rest renders', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     reads.me.mockRejectedValueOnce(new Error('down'));
-    const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => [QUESTION]);
+    const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.resolve([QUESTION]));
     expect((await parts.you).you).toBe('unreadable');
     expect(await parts.board).toEqual({ board: 'the board', solo: true });
     expect((await parts.waiting)).toMatchObject({ count: 1 });
@@ -81,7 +82,7 @@ describe('Home\'s parts, each on its own', () => {
 
   it('questions that cannot be read leave only Waiting for you unreadable', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const parts = homeParts(DB, USER, 'w1', '7d', NOW, async () => { throw new Error('down'); });
+    const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.reject(new Error('down')));
     expect(await parts.waiting).toBe('unreadable');
     expect((await parts.you).name).toBe('ADA');
   });

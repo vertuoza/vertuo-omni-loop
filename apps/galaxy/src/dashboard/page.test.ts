@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardScreenProps } from './DashboardScreen';
+import { sure } from '../arcade/sure';
 
 // /app (app/app/page.tsx), called as the server calls it, with its data sources stubbed (PRD 328):
 // it reads the period from the query (PRD 572), decides the situation once, top to bottom, and hands
@@ -14,21 +15,21 @@ const given = vi.hoisted(() => ({
 }));
 const homeParts = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ parts: 'streamed' })));
 const demoDashboard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ period, demo: now.toISOString() })));
-const loadDashboard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id, email: given.user.email } } : null, error: null })));
+const loadDashboard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));
+const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id, email: given.user.email } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getClaims } }),
+  supabaseServer: () => Promise.resolve({ auth: { getClaims } }),
 }));
 vi.mock('./demo', () => ({ demoDashboard }));
 vi.mock('./load', () => ({ loadDashboard }));
 vi.mock('../data/workspace', () => ({
-  memberWorkspace: async () => {
-    if (given.workspace instanceof Error) throw given.workspace;
-    return given.workspace;
+  memberWorkspace: () => {
+    if (given.workspace instanceof Error) return Promise.reject(given.workspace);
+    return Promise.resolve(given.workspace);
   },
 }));
 vi.mock('./stream/home', () => ({ homeParts }));
@@ -79,9 +80,9 @@ describe('/app decides once', () => {
     expect(page.type).toBe(HomeStream);
     expect((page.props as { parts: unknown }).parts).toEqual({ parts: 'streamed' });
     expect((page.props as { query: unknown }).query).toEqual({ period: '30d', x: '1' });
-    const [db, user, workspace, period, now, questions] = homeParts.mock.calls[0]!;
+    const [db, user, workspace, period, now, questions] = sure(homeParts.mock.calls[0], 'homeParts.mock.calls[0]');
     expect((db as { auth: unknown }).auth).toBeTruthy();
-    expect(user).toMatchObject(given.user!);
+    expect(user).toMatchObject(sure(given.user, 'given.user'));
     expect(workspace).toBe('w1');
     expect(period).toBe('30d');
     expect(now).toBeInstanceOf(Date);
@@ -96,9 +97,9 @@ describe('/app decides once', () => {
     given.load = { kind: 'dashboard', dashboard: { name: 'ADA' } };
     const { view } = await propsOf();
     expect(view).toEqual(given.load);
-    const [db, user, period, now] = loadDashboard.mock.calls[0]!;
+    const [db, user, period, now] = sure(loadDashboard.mock.calls[0], 'loadDashboard.mock.calls[0]');
     expect((db as { auth: unknown }).auth).toBeTruthy();
-    expect(user).toMatchObject(given.user!);
+    expect(user).toMatchObject(sure(given.user, 'given.user'));
     expect(period).toBe('7d');
     expect(now).toBeInstanceOf(Date);
     expect(homeParts).not.toHaveBeenCalled();

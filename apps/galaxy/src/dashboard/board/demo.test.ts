@@ -2,6 +2,7 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { describe, expect, it } from 'vitest';
 import { demoBoard, demoRoster, DEMO_VIEWER } from './demo';
 import type { PersonRow } from './tally';
+import { sure } from '../../arcade/sure';
 
 // The board in the demo (PRD 572): every part shows, with members at 0 among them.
 
@@ -37,7 +38,7 @@ describe('the demo board', () => {
       expect((board.repositories as unknown[]).length).toBeGreaterThan(1);
       const people = board.people as PersonRow[];
       expect(people.find((p) => p.login === 'paul-e')).toMatchObject({ points: 0, answered: 9 });
-      expect((people.find((p) => p.login === 'paul-e')!.prs as number)).toBeGreaterThan(0);
+      expect((sure(people.find((p) => p.login === 'paul-e'), 'the item found').prs as number)).toBeGreaterThan(0);
       expect(people.find((p) => p.login === 'new-hire')).toMatchObject({ points: 0, prs: 0, answered: 0, fleet: 'solo' });
       expect(people.filter((p) => p.you).map((p) => p.login)).toEqual([DEMO_VIEWER.login]);
     });
