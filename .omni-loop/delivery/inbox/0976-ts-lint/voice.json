@@ -4,24 +4,164 @@
       "stage": "design",
       "date": "2026-10-02",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 5, "reaction": "A misused promise or an undefined printed in the UI is exactly the slop I fear in production. A linter at zero, nothing silenced, answers that.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 5, "reaction": "Strict rules, tests included, no eslint-disable allowed: that is what a serious codebase runs. Not fluff.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 1, "reaction": "Eight thousand fixes is weeks of agents on code that already works. My features wait behind it.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "One config, one lint job, the same rules in every repository folder: the cohesion I look for.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Nothing my customers see changes, but fewer bugs reach them.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "A misused promise or an undefined printed in the UI is exactly the slop I fear in production. A linter at zero, nothing silenced, answers that.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "Strict rules, tests included, no eslint-disable allowed: that is what a serious codebase runs. Not fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 1,
+          "reaction": "Eight thousand fixes is weeks of agents on code that already works. My features wait behind it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One config, one lint job, the same rules in every repository folder: the cohesion I look for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing my customers see changes, but fewer bugs reach them.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": { "persona": "Paul - Product Manager", "text": "8,800 findings is weeks of agents rewriting code that already works, while the features my team needs sit behind it.", "citations": ["persona:Paul - Product Manager"], "settled": "none" },
+      "objection": {
+        "persona": "Paul - Product Manager",
+        "text": "8,800 findings is weeks of agents rewriting code that already works, while the features my team needs sit behind it.",
+        "citations": [
+          "persona:Paul - Product Manager"
+        ],
+        "settled": "none"
+      },
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✗ · offering#36 ✓"
     },
     {
       "stage": "spec",
       "date": "2026-10-02",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 5, "reaction": "React's hooks rules on the arcade, and each effect kept running on the same changes. That covers the bugs I see most.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Measured numbers per rule, a check never deleted on the type's word. I would spec it the same way.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 2, "reaction": "Still no feature. The flaky test fixed first means fewer red slices on my own PRDs, at least.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "One ceiling file per area so parallel slices never collide, then zero. That is how I want it planned.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "No behaviour change promised. Fine by me.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "React's hooks rules on the arcade, and each effect kept running on the same changes. That covers the bugs I see most.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Measured numbers per rule, a check never deleted on the type's word. I would spec it the same way.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "Still no feature. The flaky test fixed first means fewer red slices on my own PRDs, at least.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One ceiling file per area so parallel slices never collide, then zero. That is how I want it planned.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "No behaviour change promised. Fine by me.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✗ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-02",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "Zero findings, React's hooks rules on, nothing silenced, and the home page that landed mid-build linted too. That is the bar I wanted.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "A lint job that fails on one finding, and a suite that holds under load. Real tooling.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "It took the day, but the features that merged meanwhile came through linted, and the flaky test is gone.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Twenty slices, one config, and a rule that cannot be bought back with a disable comment: the cohesion I look for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing my customers see changed, as promised.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✗ · offering#36 ✓"
