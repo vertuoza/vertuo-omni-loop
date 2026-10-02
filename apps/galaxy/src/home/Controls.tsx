@@ -17,6 +17,7 @@
 // Signed in (PRD 1006): once the page is there, it reads the visitor's session (session-read.ts) and,
 // when there is one, draws the signed-in pill (SignedIn.tsx) into every sign-up slot, where it takes
 // the place of SIGN UP WITH GITHUB. No session, a failed read or the demo leaves the page as it is.
+// The photo or initial is drawn first; a player's hero replaces it once it is read (s3).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
@@ -180,7 +181,7 @@ export function Controls() {
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
     const env = supabase();
     let live = true;
-    void readSignedIn(env && browserSessionPort(env)).then((view) => { if (live) setSignedIn(view); });
+    void readSignedIn(env && browserSessionPort(env), (view) => { if (live) setSignedIn(view); });
     return () => { live = false; };
   }, []);
 
