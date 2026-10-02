@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 942 · TypeScript cleanup</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 942 · TypeScript cleanup — clear the escape hatches, then ratchet them down</h1>
+  <p class="lede">Nothing on screen changes. What changes is what the code tells the compiler, and what the guard lets in.</p>
+
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+
+      <h3>A bridge cast hides a typed function</h3>
+<pre>// kit/lib/knowledge/pipeline.ts
+const planShip = untypedPlanShip as PlanShip;
+  <span class="muted">// ts-allow: ship is untyped until s11</span>
+<span class="bad">// s11 merged: ship is typed, the cast still overrides it</span></pre>
+
+      <h3>The same reason, written again and again</h3>
+<pre>if (KINDS.includes(value as Kind)) …
+  <span class="muted">// ts-allow: includes() only compares the value</span></pre>
+
+      <h3>Eleven folders the guard does not read</h3>
+<pre>ARCADE_UNMARKED = [
+  'apps/galaxy/src/business/',  <span class="bad">60 casts, no reason</span>
+  'apps/galaxy/src/ask/',       <span class="bad">33</span>
+  'apps/galaxy/src/jev/',       <span class="bad">32</span>
+  … 8 more                      <span class="bad">65</span>
+]</pre>
+
+      <h3>The count can only be described, not held</h3>
+<pre>$ pnpm test kit/test/typescript-guard.test.ts
+<span class="good">✓ the guard, on the whole repository</span>
+<span class="muted">  (552 casts in source; a new one passes when it gives a reason)</span></pre>
+    </section>
+
+    <section>
+      <h2>After</h2>
+
+      <h3>The typed function is called directly</h3>
+<pre>// kit/lib/knowledge/pipeline.ts
+import { planShip } from '../delivery/ship.ts';
+<span class="good">// the compiler checks the real signature</span></pre>
+
+      <h3>One helper proves what the cast claimed</h3>
+<pre>import { isOneOf } from '…/kit/lib/narrow.ts';
+if (isOneOf(KINDS, value)) …   <span class="good">// value is a Kind here</span></pre>
+
+      <h3>No folder is skipped</h3>
+<pre>ARCADE_UNMARKED   <span class="good">deleted: every cast left carries its reason</span></pre>
+
+      <h3>A ceiling per area, held both ways</h3>
+<pre>$ pnpm test kit/test/typescript-guard.test.ts
+<span class="bad">✗ apps/galaxy: 141 casts, ceiling 140 — remove one, or raise
+  the ceiling in kit/test/typescript-ceilings.json and say why
+  in the pull request</span>
+
+<span class="bad">✗ apps/galaxy: 138 casts, ceiling 140 — lower the ceiling
+  to 138 in kit/test/typescript-ceilings.json</span></pre>
+      <table style="margin-top:10px">
+        <tr><th>kit/test/typescript-ceilings.json</th><th class="n">ceiling</th></tr>
+        <tr><td>kit · game · scripts · packages · apps/omni-app · apps/galaxy</td><td class="n">set by the cleanup, total &lt; 552</td></tr>
+      </table>
+    </section>
+  </div>
+
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Every command, page and output: the suite pins behaviour, with at least as many tests as before.</li>
+      <li>Casts in tests and test fakes: the guard still lets a test cast its fixtures.</li>
+      <li>The bundle other repositories run, <code>.omni-loop/bin/omni.mjs</code>: same name, same commands.</li>
+      <li>A cast whose reason is true and that nothing narrower can replace stays, with its reason.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
