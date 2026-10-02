@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FleetRowSchema, RepositoryRowSchema, RosterRowSchema, SectorRowSchema } from './fleet.ts';
+import { FleetRowSchema, RepositoryRowSchema, RosterRowSchema, SectorRowSchema } from './config.schema.ts';
 
 describe('the org rows', () => {
   it('reads a fleet, a sector, a roster line and a repository, defaults filled in', () => {

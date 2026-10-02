@@ -10,9 +10,23 @@
 // or `bug`, part of its key. Every read names the kind it reads (`prd` when it names none), so a visual
 // fix and a PRD of the same number never meet.
 import { z } from 'zod';
-import { DossierRowSchema } from '../../kit/lib/schema/dossier.ts';
-import type { Dossier, DossierVersion, DossierVersionKind } from '../../kit/lib/types.ts';
+import { DossierRowSchema, type VERSION_KINDS } from './store.schema.ts';
 import { causeOf, supabaseRest, type FetchLike } from '../sources/supabase.ts';
+
+export type DossierVersionKind = (typeof VERSION_KINDS)[number];
+
+/** One version of a dossier's artifact, as the store returns it. */
+export type DossierVersion = { id: string; gitBlob: string | null; bytes: number };
+
+/** A dossier, read from its row: the latest version of each kind. */
+export type Dossier = {
+  id: string;
+  prd: number;
+  title: string;
+  latest: Partial<Record<DossierVersionKind, DossierVersion>>;
+  /** A visual fix's only: every `variations` version, since each round is its own. */
+  rounds?: DossierVersion[];
+};
 
 /** The fallback's way into the dossier tables. */
 export type DossierStore = {

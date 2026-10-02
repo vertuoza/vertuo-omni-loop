@@ -2,8 +2,19 @@
 // fleet) and the repositories the game reads. All four live in Supabase (public.sectors,
 // public.teams, public.players, public.repositories); this module turns their rows into lookups and
 // stays pure. The reads are in sources/supabase.ts.
-import { FleetRowSchema, RepositoryRowSchema, RosterRowSchema, SectorRowSchema } from '../kit/lib/schema/fleet.ts';
-import type { Fleet } from '../kit/lib/types.ts';
+import { FleetRowSchema, RepositoryRowSchema, RosterRowSchema, SectorRowSchema } from './config.schema.ts';
+
+/** A fleet, folded from its row (`configFrom`). */
+export type Fleet = {
+  /** The sector the fleet calls home, or `null`. */
+  home: string | null;
+  label?: string;
+  color?: string;
+  motto?: string;
+  mascot?: string | null;
+  sort?: number;
+  retired: boolean;
+};
 
 /** The four tables' rows, as Supabase answers them; each is parsed here before use. */
 export type ConfigRows = { sectors?: unknown[]; teams?: unknown[]; roster?: unknown[]; repositories?: unknown[] };

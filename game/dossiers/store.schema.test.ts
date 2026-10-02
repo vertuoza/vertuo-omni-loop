@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DossierRowSchema } from './dossier.ts';
+import { DossierRowSchema } from './store.schema.ts';
 
 describe('DossierRowSchema', () => {
   it('reads a dossier and its versions, none when the row embeds none', () => {

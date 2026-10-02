@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { syncDossiers, type RepositoryReport } from './sync.ts';
-import { dossierStore, type DossierStore } from './store.ts';
+import { dossierStore, type Dossier, type DossierStore } from './store.ts';
 import { fakeDossiers, type DossierRow, type DossierTables } from './fake-supabase.ts';
 import { fakeGitHub, type FakeRepo, type World } from './fake-github.ts';
-import type { Dossier } from '../../kit/lib/types.ts';
 import { gitBlobSha } from './folders.ts';
 
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';

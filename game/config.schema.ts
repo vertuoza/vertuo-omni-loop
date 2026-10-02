@@ -1,6 +1,6 @@
 // The game's org facts as Supabase answers them (PRD 725, s3): a sector (public.sectors), a fleet
 // (public.teams), a roster line (public.players) and a tracked repository (public.repositories).
-// `game/config.ts` folds them into its lookups; the folded fleet is `Fleet` in `kit/lib/types.ts`.
+// `game/config.ts` folds them into its lookups. They live with the game: the kit never names it (ADR-0002).
 import { z } from 'zod';
 
 export const SectorRowSchema = z.object({ name: z.string().min(1), repos: z.array(z.string().min(1)).nullable().default([]) });
