@@ -77,6 +77,6 @@ type ClaimsDb = { from(table: 'claims'): { select(columns: 'workspace_id'): { eq
 export async function rechecked(db: ClaimsDb): Promise<string[]> {
   const { data, error } = await db.from('claims').select('workspace_id').eq('state', 'confirmed');
   if (error) throw new Error(`Supabase refused to read the claims: ${error.message}`);
-  const ids = ((data ?? []) as Array<{ workspace_id: unknown }>).map((r) => String(r.workspace_id));
+  const ids = ((data ?? []) as Array<{ workspace_id: unknown }>).map((r) => String(r.workspace_id)); // ts-allow: the select names workspace_id; a select answers rows, read here as unknown
   return [...new Set(ids)].sort();
 }

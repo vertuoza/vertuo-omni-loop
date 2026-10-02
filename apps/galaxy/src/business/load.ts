@@ -5,6 +5,7 @@ import { claimOf, type Claim, type Product, type StoredCitation, type StoredClai
 import { CLAIM_COLUMNS, DRAFT_COLUMNS, draftOf, RECEIPT_COLUMNS } from './draft-port';
 import type { DraftView, WebPage } from './reveal';
 import { PERSONA_COLUMNS, personaOf, type Persona, type StoredPersona } from './personas';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business's read (PRD 748 s2), as the signed-in person, so row-level security decides what
 // it returns: their workspace (the one joined first, as /app's); its business, opened with
@@ -36,11 +37,11 @@ export type BusinessLoad =
     personas: Persona[];
   };
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 async function openBusiness(db: SupabaseClient, workspace: string): Promise<string> {
   const { data, error } = await db.rpc('business_open', { p_workspace: workspace });
-  const id = (data as { id?: unknown } | null)?.id;
+  const id = propertyOf(data, 'id');
   if (error || typeof id !== 'string') throw new Error(`Supabase: could not open the business (${error?.message ?? 'no business'})`);
   return id;
 }
@@ -48,7 +49,7 @@ async function openBusiness(db: SupabaseClient, workspace: string): Promise<stri
 /** The business's products, first first; a business always has one. */
 async function productsOf(db: SupabaseClient, business: string): Promise<Product[]> {
   const { data, error } = await db.from('products').select('id, name').eq('business_id', business).order('ordinal');
-  const products = ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
+  const products = ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name })); // ts-allow: the select names id and name, the columns of Product
   if (error || products.length === 0) throw new Error(`Supabase: could not read the products (${error?.message ?? 'none'})`);
   return products;
 }
@@ -56,13 +57,13 @@ async function productsOf(db: SupabaseClient, business: string): Promise<Product
 async function claimsOf(db: SupabaseClient, business: string): Promise<StoredClaim[]> {
   const { data, error } = await db.from('claims').select(CLAIM_COLUMNS).eq('business_id', business);
   if (error) throw new Error(`Supabase: could not read the claims (${error.message})`);
-  return (data ?? []) as StoredClaim[];
+  return (data ?? []) as StoredClaim[]; // ts-allow: the select names CLAIM_COLUMNS, the columns of StoredClaim
 }
 
 async function citationsOf(db: SupabaseClient, workspace: string): Promise<StoredCitation[]> {
   const { data, error } = await db.from('claim_citations').select('claim_id, cited_by, ref, cited_at').eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the citations (${error.message})`);
-  return (data ?? []) as StoredCitation[];
+  return (data ?? []) as StoredCitation[]; // ts-allow: the select names the columns of StoredCitation
 }
 
 /** A read the page can do without: logged, and read as `none`. */
@@ -72,7 +73,7 @@ async function optional<T>(what: string, read: PromiseLike<{ data: unknown; erro
     console.error(`business: could not read ${what} (${error.message})`);
     return none;
   }
-  return (data ?? none) as T;
+  return (data ?? none) as T; // ts-allow: T is the shape the caller's select names; the client answers its rows untyped
 }
 
 export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<BusinessLoad> {

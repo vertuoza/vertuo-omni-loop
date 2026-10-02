@@ -78,7 +78,10 @@ export function checkRows(claims: readonly Claim[], now: number): CheckRow[] {
     return before.length > 0 ? [{ kind: 'addition' as const, claim: c, before }] : [];
   });
   const answers: CheckRow[] = bySeq.flatMap((c) => (isAnswerToCheck(c) ? [{ kind: 'answer' as const, claim: c }] : []));
-  const faded: CheckRow[] = bySeq.flatMap((c) => (isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since: lastSeenOf(c) as string }] : []));
+  const faded: CheckRow[] = bySeq.flatMap((c) => {
+    const since = lastSeenOf(c);
+    return since !== null && isFaded(c, now) ? [{ kind: 'faded' as const, claim: c, since }] : [];
+  });
   return [...replacements, ...additions, ...answers, ...faded];
 }
 

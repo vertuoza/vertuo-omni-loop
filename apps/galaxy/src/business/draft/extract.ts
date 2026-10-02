@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { SUGGEST_MODEL } from '../suggest';
 import { maxValue, type ClaimKind } from '../model';
 import type { Candidate } from './verify';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The extraction of a draft (PRD 774, spec step 2): one call per source to the small model already
 // used for suggested rivals (../suggest.ts, through OpenRouter), which answers candidate claims of the
@@ -86,8 +87,9 @@ export async function extractCandidates(text: string, where: string, { apiKey, f
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return [];
-    const body = (await response.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
-    return readCandidates(body?.choices?.[0]?.message?.content);
+    const body: unknown = await response.json();
+    const message = propertyOf(propertyOf(propertyOf(body, 'choices'), '0'), 'message');
+    return readCandidates(propertyOf(message, 'content'));
   } catch {
     return [];
   }
