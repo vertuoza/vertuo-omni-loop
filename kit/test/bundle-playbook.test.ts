@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { FORM_IDS } from '../lib/playbook/forms.ts';
@@ -31,6 +31,19 @@ function bundled(root: string, argv: string[]) {
   return { code: run.status, out: run.stdout, err: run.stderr };
 }
 
+/**
+ * `omni <argv>` run by the bundle's own `main()`, imported in this process from the fixture's copy:
+ * every form in turn, without a process per form (PRD 976). The copy has no `node_modules` beside it,
+ * so the import itself proves the bundle needs nothing installed.
+ */
+async function bundledInProcess(root: string, argv: readonly string[]) {
+  const bundle = (await import(pathToFileURL(join(root, BIN)).href)) as { main: typeof main };
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await bundle.main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } });
+  return { code, out: out.join(''), err: err.join('') };
+}
+
 /** `omni <argv>` run from the kit's source. */
 async function fromSource(root: string, argv: readonly string[]) {
   const out: string[] = [];
@@ -43,14 +56,17 @@ describe('the committed bundle, alone in a fixture repository (acceptance criter
     const { root } = repoWithBundle();
     expect(existsSync(join(root, 'node_modules'))).toBe(false);
     for (const id of FORM_IDS) {
-      const bundle = bundled(root, ['kb', 'show', id]);
+      const bundle = await bundledInProcess(root, ['kb', 'show', id]);
       expect(bundle.err, id).toBe('');
       expect(bundle.code, id).toBe(0);
       expect(bundle.out, id).toBe((await fromSource(root, ['kb', 'show', id])).out);
     }
-    const testing = bundled(root, ['kb', 'show', 'testing']).out;
-    expect(testing).toContain('## Commands  [kit default]\n`make check` runs the whole suite.');
-    expect(testing).toContain('## Never  [kit default]\n- A test never proves implementation trivia');
+    // Run with plain node, once: the bundle prints a form as a command, as it does in the loop above.
+    const testing = bundled(root, ['kb', 'show', 'testing']);
+    expect({ code: testing.code, err: testing.err }).toEqual({ code: 0, err: '' });
+    expect(testing.out).toBe((await bundledInProcess(root, ['kb', 'show', 'testing'])).out);
+    expect(testing.out).toContain('## Commands  [kit default]\n`make check` runs the whole suite.');
+    expect(testing.out).toContain('## Never  [kit default]\n- A test never proves implementation trivia');
   });
 
   it('lays down the same blank forms as the kit’s source, and grades them the same', async () => {

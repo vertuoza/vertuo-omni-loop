@@ -14,17 +14,29 @@ const SELF = 'kit/test/test-timeouts.test.ts';
 
 // A test's own limit: a number of 1000 or more after an `it`/`test` body (`}, 20_000);`, while a timer's
 // short delay, `}, 50);`, is not one), a `{ timeout: … }` option on a `describe`, `it` or `test`, or
-// `vi.setConfig({ testTimeout: … })`.
+// `vi.setConfig({ testTimeout: … })`. A name after a test body (`}, SPAWNS_MS);`) is one when the file
+// sets that name to such a number (`const SPAWNS_MS = 30000;`).
 const OWN_LIMIT = [/^\s*\}\s*,\s*\d[\d_]{3,}\s*\)\s*;?\s*$/m, /\b(?:describe|it|test)(?:\.\w+)*\([^\n]*\{\s*timeout\s*:/, /\bvi\.setConfig\(\s*\{[^}]*\b(?:test|hook)Timeout\b/];
+const NAMED_LIMIT = /^[ \t]*\}[ \t]*,[ \t]*([A-Za-z_$][\w$]*)\s*\)\s*;?\s*$/gm;
+
+/** The whole line of `source` around `index`, trimmed. */
+function lineAt(source: string, index: number) {
+  const start = source.lastIndexOf('\n', index) + 1;
+  const end = source.indexOf('\n', index);
+  return source.slice(start, end === -1 ? undefined : end).trim();
+}
 
 /** The first line of `source` that sets a test's own time limit, or `null`. */
 export function ownLimit(source: string) {
   for (const pattern of OWN_LIMIT) {
     const match = pattern.exec(source);
-    if (!match) continue;
-    const start = source.lastIndexOf('\n', match.index) + 1;
-    const end = source.indexOf('\n', match.index);
-    return source.slice(start, end === -1 ? undefined : end).trim();
+    if (match) return lineAt(source, match.index);
+  }
+  for (const match of source.matchAll(NAMED_LIMIT)) {
+    const name = match[1] as string;
+    if (new RegExp(`\\b(?:const|let|var)\\s+${name.replace(/\$/g, '\\$')}\\s*=\\s*\\d[\\d_]{3,}\\s*;?\\s*$`, 'm').test(source)) {
+      return lineAt(source, match.index);
+    }
   }
   return null;
 }
@@ -59,6 +71,16 @@ describe('ownLimit', () => {
     expect(ownLimit("describe('a', { timeout: 20_000 }, () => {\n});\n")).toBe("describe('a', { timeout: 20_000 }, () => {");
     expect(ownLimit("it.concurrent('a', { timeout: 5 }, () => {});\n")).toBe("it.concurrent('a', { timeout: 5 }, () => {});");
     expect(ownLimit('vi.setConfig({ testTimeout: 1000 });\n')).toBe('vi.setConfig({ testTimeout: 1000 });');
+  });
+
+  it('finds a named limit after a test body, when the file sets that name to 1000 or more', () => {
+    expect(ownLimit("const SPAWNS_MS = 30000;\nit('a', () => {\n  run();\n}, SPAWNS_MS);\n")).toBe('}, SPAWNS_MS);');
+    expect(ownLimit("const LIMIT = 20_000;\n  it('a', async () => {\n  }, LIMIT)\n")).toBe('}, LIMIT)');
+  });
+
+  it('lets a timer pass with a named short delay, or a name the file never sets to a number', () => {
+    expect(ownLimit('const SHORT = 50;\nsetTimeout(() => {\n  done();\n}, SHORT);\n')).toBeNull();
+    expect(ownLimit("it('a', () => {\n  run();\n}, options);\n")).toBeNull();
   });
 
   it('lets a test body, a timer, and a timeout value under test pass', () => {
