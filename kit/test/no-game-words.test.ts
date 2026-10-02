@@ -21,6 +21,9 @@ const GAME_WORD = /galax(?:y|ies)|galactic/i;
 // right after it but a path, a port or the end of the address.
 const HOME_ADDRESS = /(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g;
 const isTest = (name: string) => /\.test\.[cm]?[jt]sx?$/.test(name);
+// One data file only a test reads, so it is the test's own (PRD 942, s11): the TypeScript guard's
+// ceilings, one per area of the repository, `apps/galaxy` among them. Only the bundle ships.
+const TEST_DATA = ['test/typescript-ceilings.json'];
 
 /** Every file under `dir` that is not a test, dependencies left out. */
 function nonTestFiles(dir: string): string[] {
@@ -37,7 +40,7 @@ function nonTestFiles(dir: string): string[] {
 /** Every line naming the game's world under `root`, as `<file>:<line>: <text>`. */
 function gameWordHits(root: string) {
   const hits: string[] = [];
-  for (const file of nonTestFiles(root)) {
+  for (const file of nonTestFiles(root).filter((path) => !TEST_DATA.includes(relative(root, path)))) {
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
       if (GAME_WORD.test(line.replace(HOME_ADDRESS, ''))) hits.push(`${relative(root, file)}:${index + 1}: ${line.trim()}`);
     });
@@ -115,5 +118,17 @@ describe('the kit never names the game', () => {
       'lib/clean.mjs': 'export const clean = true;\n',
     });
     expect(gameWordHits(root)).toEqual([]);
+  });
+
+  it("leaves the TypeScript guard's ceilings alone, and no other data file", () => {
+    const root = fixture({
+      'test/typescript-ceilings.json': '{ "apps/galaxy": 1 }\n',
+      'test/other-ceilings.json': '{ "apps/galaxy": 1 }\n',
+      'lib/typescript-ceilings.json': '{ "apps/galaxy": 1 }\n',
+    });
+    expect(gameWordHits(root)).toEqual([
+      'lib/typescript-ceilings.json:1: { "apps/galaxy": 1 }',
+      'test/other-ceilings.json:1: { "apps/galaxy": 1 }',
+    ]);
   });
 });
