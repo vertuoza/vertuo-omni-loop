@@ -11,6 +11,7 @@
 // A Never line (PRD 839, kind `never`) is a line the team never crosses, a product's, typed on the page
 // and confirmed at once, or proposed by the draft with its receipt. It is never part of the sentence and
 // holds several at once; its value is the line itself, 1 to 200 characters (every other kind 1 to 80).
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival' | 'never';
 export type ClaimState = 'proposed' | 'confirmed' | 'rejected' | 'contradicted' | 'unknown';
@@ -193,9 +194,9 @@ export function sentence(claims: readonly Claim[], lead = 'We sell '): SentenceP
   };
   return [
     { text: lead },
-    fill('offering', (vs) => `${article(vs[0]!)} ${listed(vs)}`),
+    fill('offering', (vs) => `${article(at(vs, 0, 'the first offering'))} ${listed(vs)}`),
     { text: ' to ' },
-    fill('size', (vs) => sizeLabel(vs[0]!)),
+    fill('size', (vs) => sizeLabel(at(vs, 0, 'the size'))),
     { text: '-person ' },
     fill('trade', (vs) => `${listed(vs)} firms`),
     { text: ' in ' },
@@ -269,6 +270,6 @@ export const hasProducts = (products: readonly Product[]) => products.length >= 
  * as the first product's. */
 export function viewClaims(claims: readonly Claim[], products: readonly Product[], current: string | null): Claim[] {
   if (!hasProducts(products)) return [...claims];
-  const first = products[0]!.id;
+  const first = at(products, 0, 'the first product').id;
   return claims.filter((c) => c.kind === 'region' || (c.product ?? first) === current);
 }

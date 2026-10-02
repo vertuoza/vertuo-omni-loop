@@ -50,7 +50,7 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
     async installation(workspace) {
       try {
         const { data } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
-        return data ? await github().installationFor(installationRow(data as WorkspaceRow)) : null; // ts-allow: the select names the columns of WorkspaceRow
+        return data ? await github().installationFor(installationRow(data)) : null;
       } catch (error) {
         console.error(`business draft: no GitHub installation for ${workspace} (${why(error)})`);
         return null;
@@ -62,7 +62,7 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
     },
     page: (url) => fetchPage(url),
     extract: extractorFromEnv(process.env),
-    log: (line) => console.error(line),
+    log: (line) => { console.error(line); },
   };
 }
 

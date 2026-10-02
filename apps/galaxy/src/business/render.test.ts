@@ -73,16 +73,16 @@ describe('an empty business', () => {
     expect(chips('trade')).toEqual(['Construction', 'Retail', 'Healthcare', 'Finance', 'Logistics', 'Manufacturing', 'Software', 'Other']);
     expect(chips('region')).toEqual(['Belgium', 'France', 'Netherlands', 'Germany', 'United Kingdom', 'Europe', 'North America', 'Worldwide', 'Other']);
     expect(chips('rival')).toEqual([ADD_RIVAL]);
-    const ranges = inputs(html).filter((i) => i!.includes('type="range"'));
-    expect(ranges.map((r) => /aria-label="([^"]+)"/.exec(r!)?.[1])).toEqual(['Smallest customer', 'Largest customer']);
+    const ranges = inputs(html).filter((i) => i.includes('type="range"'));
+    expect(ranges.map((r) => /aria-label="([^"]+)"/.exec(r)?.[1])).toEqual(['Smallest customer', 'Largest customer']);
     expect(text(groupOf(html, 'size'))).toContain('Customer size · not picked');
   });
 
   it('has no text field until Other or "+ add a rival" is pressed, and one then', () => {
-    expect(inputs(render([])).filter((i) => i!.includes('type="text"'))).toHaveLength(0);
+    expect(inputs(render([])).filter((i) => i.includes('type="text"'))).toHaveLength(0);
     for (const kind of ['offering', 'trade', 'region', 'rival'] as const) {
       const html = render([], { actions: [{ type: 'type', kind }] });
-      expect(inputs(html).filter((i) => i!.includes('type="text"')), kind).toHaveLength(1);
+      expect(inputs(html).filter((i) => i.includes('type="text"')), kind).toHaveLength(1);
       expect(groupOf(html, kind)).toContain('type="text"');
     }
   });
@@ -197,7 +197,7 @@ describe('products (PRD 748 s4)', () => {
 
   it('opens a name field on "+ Add a product", the only field then', () => {
     const html = renderProducts(FILLED, [VERTUOZA], [{ type: 'add-product' }]);
-    const fields = inputs(html).filter((i) => i!.includes('type="text"'));
+    const fields = inputs(html).filter((i) => i.includes('type="text"'));
     expect(fields).toHaveLength(1);
     expect(text(html)).toContain(PRODUCT_NAME);
     expect(buttons(html).map((b) => b.text)).not.toContain(ADD_PRODUCT);
