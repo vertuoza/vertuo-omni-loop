@@ -21,9 +21,10 @@ import { updatePlugin } from '../../lib/update/plugin.ts';
 import { UpdateError, downloadBundle, findTarget } from '../../lib/update/release.ts';
 import { parseVersion } from '../../lib/version/version.ts';
 import type { RunningKit } from '../../lib/init/bundle.ts';
-import { propertyOf } from '../../lib/narrow.ts';
+import { defined, propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni update [--to <version>]';
 
@@ -31,7 +32,7 @@ const USAGE = 'usage: omni update [--to <version>]';
 function handOver({ cwd, home, from, target, exec }: { cwd: string; home: string | null; from: string | null; target: string; exec: Exec }): number {
   const dir = mkdtempSync(join(tmpdir(), 'omni-update-'));
   try {
-    const bundle = downloadBundle({ home: home!, version: target, dir, exec }); // ts-allow: findTarget refused a kit with no home before any hand-over
+    const bundle = downloadBundle({ home: defined(home, 'the kit home'), version: target, dir, exec });
     const fromFlag = from ? ['--from', from] : [];
     try {
       exec('node', [bundle, 'update', '--apply', ...fromFlag], { cwd, stdio: 'inherit' });
@@ -89,14 +90,16 @@ function updateRepository({
 
 export const update = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, kit, bundle }: FreeIo & { kit?: RunningKit; bundle?: string | null }) {
+  run: synchronous((args: string[], { cwd, stdout, stderr, exec, kit, bundle }: FreeIo & { kit?: RunningKit; bundle?: string | null }): number => {
     const { positional, flags } = parseArgs('update', args, { values: ['to', 'from'], booleans: ['apply'] });
     if (positional.length) throw usageError(USAGE);
     if (flags.to !== undefined && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== undefined && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
     const file = bundle === undefined ? runningBundle() : bundle;
-    const out = (line: string) => println(stdout, line);
+    const out = (line: string) => {
+      println(stdout, line);
+    };
 
     try {
       if (flags.apply) {
@@ -114,5 +117,5 @@ export const update = {
       stderr.write(`${error.message}\n`);
       return 1;
     }
-  },
+  }),
 } satisfies FreeCommand;

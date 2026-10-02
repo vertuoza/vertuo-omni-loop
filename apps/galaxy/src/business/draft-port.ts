@@ -54,7 +54,7 @@ export function draftOf(row: unknown): DraftView {
     id: String(propertyOf(row, 'id')),
     kind: propertyOf(row, 'kind') === 'recheck' ? 'recheck' : 'draft',
     state: state === 'done' || state === 'failed' ? state : 'running',
-    counts: (counts && typeof counts === 'object' ? counts : {}) as DraftView['counts'], // ts-allow: counts is a JSON column the draft run writes in DraftView's shape
+    counts: (counts && typeof counts === 'object' ? counts : {}),
     scanned: Array.isArray(scanned) ? (scanned as DraftView['scanned']) : [], // ts-allow: scanned is a JSON column the draft run writes in DraftView's shape
     reason: typeof reason === 'string' ? reason : null,
   };
@@ -168,12 +168,12 @@ export function demoDraftPort(current: () => readonly Claim[]): DraftPort {
     return [...held, ...found.filter((f) => !held.some((c) => c.id === f.id))];
   };
   return {
-    async start() {
+    start() {
       draft = { id: 'demo-draft', kind: 'draft', state: 'running', counts: {}, scanned: DEMO_SCANNED.slice(0, 2), reason: null };
-      return { ok: true, draft };
+      return Promise.resolve({ ok: true, draft });
     },
-    async latest() {
-      if (!draft) return null;
+    latest() {
+      if (!draft) return Promise.resolve(null);
       if (draft.state === 'running') {
         const held = all();
         let seq = Math.max(0, ...held.map((c) => c.seq));
@@ -187,30 +187,30 @@ export function demoDraftPort(current: () => readonly Claim[]): DraftPort {
         }
         draft = { ...draft, state: 'done', scanned: DEMO_SCANNED, counts: { readmes: 1, docs: 1, prds: 0, pages: 1, kept: DEMO_FOUND.length } };
       }
-      return draft;
+      return Promise.resolve(draft);
     },
-    async claims() {
-      return all();
+    claims() {
+      return Promise.resolve(all());
     },
-    async addPage(url) {
+    addPage(url) {
       const v = url.trim();
-      if (!/^https:\/\/\S+$/i.test(v)) return { ok: false, message: 'Only an https:// address can be read.' };
-      if (pages.length >= MAX_PAGES) return { ok: false, message: 'Three web pages at most: remove one to add another.' };
+      if (!/^https:\/\/\S+$/i.test(v)) return Promise.resolve({ ok: false, message: 'Only an https:// address can be read.' });
+      if (pages.length >= MAX_PAGES) return Promise.resolve({ ok: false, message: 'Three web pages at most: remove one to add another.' });
       made += 1;
       const page = { id: `demo-page-${made}`, url: v };
       pages = [...pages, page];
-      return { ok: true, page };
+      return Promise.resolve({ ok: true, page });
     },
-    async removePage(id) {
+    removePage(id) {
       pages = pages.filter((p) => p.id !== id);
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
-    async stillTrue() {
-      return { ok: true, at: new Date().toISOString() };
+    stillTrue() {
+      return Promise.resolve({ ok: true, at: new Date().toISOString() });
     },
-    async thatsUs(rejected) {
+    thatsUs(rejected) {
       found = found.map((c) => (c.state === 'proposed' && c.source === 'evidence' ? { ...c, state: rejected.includes(c.id) ? 'rejected' : 'confirmed' } : c));
-      return { ok: true };
+      return Promise.resolve({ ok: true });
     },
   };
 }

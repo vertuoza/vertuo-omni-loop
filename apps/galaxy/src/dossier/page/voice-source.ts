@@ -18,7 +18,10 @@ type PersonasDb = {
 export async function readVoiceCast(db: Pick<Db, 'from'>, workspace: string): Promise<VoiceCast[]> {
   try {
     const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal'); // ts-allow: the personas table is read through the narrow port it declares
-    if (error) throw new Error(`read the personas: ${propertyOf(error, 'message') ?? 'failed'}`);
+    if (error) {
+      const message = propertyOf(error, 'message');
+      throw new Error(`read the personas: ${typeof message === 'string' ? message : 'failed'}`);
+    }
     const rows: readonly unknown[] = Array.isArray(data) ? data : [];
     return rows.flatMap((row) => {
       const name = propertyOf(row, 'name'), trade = propertyOf(row, 'trade'), avatar = propertyOf(row, 'avatar');

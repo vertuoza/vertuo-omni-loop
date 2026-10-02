@@ -7,6 +7,7 @@
 // at least: its id is minted here, a random UUID as the app's own.
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { at } from '../narrow.ts';
 import type { ProofCriterion, ProofFile, ProofRun } from './run.ts';
 
 /** A file of the run, as the upload call asks for it. */
@@ -70,7 +71,7 @@ export async function pushProof({
   if (run.files.length) {
     const reply = await client.requestProofUploads({ repo, prd, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
     const given = linksOf(reply, run.files);
-    for (const [index, file] of run.files.entries()) await client.upload(given.links[index]!, read(file.path), file.type); // one link per file
+    for (const [index, file] of run.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file.name}`), read(file.path), file.type); // one link per file
     runId = given.runId;
   } else {
     runId = newRunId();

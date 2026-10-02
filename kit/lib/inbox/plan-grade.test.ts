@@ -39,7 +39,8 @@ describe('gradePlan (PRD 675)', () => {
       's2 (wave 1) is blocked by s1 (wave 1) — a blocker must sit in an earlier wave.',
       expect.stringMatching(/^s1 and s2 share .* and both sit in wave 1 — two slices in one wave may never share territory\.$/),
     ]);
-    expect(graded.matrices).toEqual([{ repo: null, rows: expect.any(Array) }]);
+    const anyRows: unknown = expect.any(Array);
+    expect(graded.matrices).toEqual([{ repo: null, rows: anyRows }]);
   });
 
   it('refuses a repo column outside a plan repository, and grades one inside', () => {

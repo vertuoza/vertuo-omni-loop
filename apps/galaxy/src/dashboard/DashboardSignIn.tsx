@@ -31,7 +31,7 @@ export function DashboardSignIn({ supabase, returnPath, error }: { supabase: Sup
           waiting for you. Sign in with your GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => { void signIn(); }} disabled={busy}>
           {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>

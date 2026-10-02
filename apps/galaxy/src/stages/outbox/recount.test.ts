@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DossierRef } from '../../dossier/github/reader';
 import { UNREAD, type GithubSummary, type OutboxItem, type PullRef } from '../../dossier/github/summary';
+import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { countsOf, recountOutboxes } from './recount';
 import { fakePrdOutboxStore } from './store.fake';
@@ -55,12 +56,12 @@ function setUp(summaries: Record<number, GithubSummary | null | Error>) {
   const deps = {
     stages,
     store,
-    summary: async (ref: DossierRef) => {
+    summary: (ref: DossierRef) => settled(() => {
       asked.push(ref);
       const answer = summaries[ref.prd];
       if (answer instanceof Error) throw answer;
       return answer ?? null;
-    },
+    }),
     log: (line: string) => logs.push(line),
   };
   const at = (prd: number, stage: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped') =>

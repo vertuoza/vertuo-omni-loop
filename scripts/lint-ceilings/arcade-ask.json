@@ -6,5 +6,5 @@
     "apps/galaxy/src/proxy/",
     "apps/galaxy/proxy.ts"
   ],
-  "ceiling": 467
+  "ceiling": 0
 }

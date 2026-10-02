@@ -47,6 +47,7 @@
 //   exit code is 2, whether or not `--json` was passed; `outcome: 'record'` is never reached.
 // - **After `--adopt`**, the ledger can still refuse the adoption (a malformed `settled.md`, say);
 //   nothing is written then either, `adopted` stays `false`, and the exit code is 1.
+import { defined } from '../../lib/narrow.ts';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -60,6 +61,7 @@ import { KIT_MESSAGES } from '../../lib/schema/messages.ts';
 import { errorMessage, inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
 const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>';
@@ -75,7 +77,7 @@ function funLine(field: string) {
     .min(1, `${field} must not be empty`)
     .superRefine((value, refinement) => {
       for (const problem of funLineProblems(value)) {
-        refinement.addIssue({ code: z.ZodIssueCode.custom, message: `${field} ${problem}` });
+        refinement.addIssue({ code: 'custom', message: `${field} ${problem}` });
       }
     })
     .optional();
@@ -87,7 +89,7 @@ function funPair(input: { introFun?: string | undefined; punchlineFun?: string |
     input.introFun === undefined ? ['punchlineFun', 'introFun'] : ['introFun', 'punchlineFun'];
   if ((input.introFun === undefined) === (input.punchlineFun === undefined)) return;
   refinement.addIssue({
-    code: z.ZodIssueCode.custom,
+    code: 'custom',
     path: [missing],
     message: `${missing} is required when ${given} is given — the intro and the punchline come together, or neither does`,
   });
@@ -170,7 +172,7 @@ function readItemInput(ctx: Context, path: string): z.infer<typeof ItemInputSche
 /** Every id this PRD's slice has already spent: an open item file's basename, or an id `settled.md`
  * already carries — a medium item adopted at raise time leaves no open file behind at all. */
 function spentIds(prd: number, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string> {
-  const outboxDir = ctx.layout.outboxDir(prd)!; // ts-allow: runNew refused a PRD with no outbox folder first
+  const outboxDir = defined(ctx.layout.outboxDir(prd), `PRD ${prd}'s outbox folder`);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
     outboxItemFiles({ ctx })
@@ -224,7 +226,7 @@ function jsonOutcome({ outcome, rank = null, id = null, file = null, adopted = f
   return JSON.stringify({ outcome, rank, id, file, adopted, reason });
 }
 
-async function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): Promise<number> {
+function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   const { positional, flags } = parseArgs('item new', args, {
     values: ['prd', 'slice', 'file', 'out'],
     booleans: ['adopt', 'json'],
@@ -384,7 +386,7 @@ function writeItemFile(destination: Destination, id: string, text: string): stri
 // a target wrote to scratch into the PRD's outbox, through `relayFolder`. Each move is printed on
 // stdout; each refused file on stderr with its reason, left in place, and the exit is 2 while the
 // others still move. An empty folder relays nothing, exit 0.
-async function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): Promise<number> {
+function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): number {
   const { positional, flags } = parseArgs('item relay', args, { values: ['prd'] });
   const [named] = positional;
   if (positional.length !== 1 || named === undefined || flags.prd === undefined) throw usageError(RELAY_USAGE);
@@ -406,10 +408,10 @@ async function runRelay(args: string[], { ctx, stdout, stderr }: CommandIo): Pro
 }
 
 export const item: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'new') return runNew(rest, io);
     if (sub === 'relay') return runRelay(rest, io);
     throw usageError(USAGE);
-  },
+  }),
 };

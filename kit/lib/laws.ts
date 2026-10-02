@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from './context.ts';
 import { ID_SHAPE, resolveId } from './knowledge/registers.ts';
+import { group } from './narrow.ts';
 
 /** Where a repository's laws come from: `laws.source` in its config. */
 export type LawsSource = 'knowledge' | 'claudeMdInvariants' | 'none';
@@ -25,7 +26,7 @@ export function invariantAdrs(text: string, heading: string): Set<string> {
   const lines = text.split('\n');
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return new Set();
-  const level = heading.trim().match(/^#+/)![0].length; // ts-allow: a heading with no leading `#` throws here, as it always has (PRD 725 outbox item s4-01-heading-without-hashes-still-crashes)
+  const level = group(/^#+/.exec(heading.trim()), 0).length; // a heading with no leading `#` throws here, as it always has (PRD 725 outbox item s4-01-heading-without-hashes-still-crashes)
   const ids = new Set<string>();
   for (const line of lines.slice(start + 1)) {
     const next = line.match(/^(#+)\s/);

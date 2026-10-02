@@ -35,7 +35,7 @@ const settled = async (p: HomeParts) => new Response((await prerender(element(p)
 /** What the server has sent once the reads that resolve have: a pending block keeps its skeleton. */
 async function sentBy(p: HomeParts) {
   const stop = new AbortController();
-  setTimeout(() => stop.abort(), 20);
+  setTimeout(() => { stop.abort(); }, 20);
   return new Response((await prerender(element(p), { signal: stop.signal })).prelude).text();
 }
 

@@ -9,6 +9,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import type { Hero } from '@omni/design';
 import { GAMES } from '../arcade/games';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
+import { listOf, numberOf } from './unparsed';
 
 /** How many lines a cabinet shows: the crew's top five. */
 export const TOP = 5;
@@ -16,7 +17,7 @@ export const TOP = 5;
 type ScoreRow = { id: string; best: number; player: { display_name: string; hero: Hero | null; team: string | null } | null };
 
 const lineOf = (row: ScoreRow): ScoreLine => ({
-  id: row.id, name: row.player?.display_name ?? '???', hero: row.player?.hero ?? null, team: row.player?.team ?? null, best: Number(row.best),
+  id: row.id, name: row.player?.display_name ?? '???', hero: row.player?.hero ?? null, team: row.player?.team ?? null, best: numberOf(row.best),
 });
 
 /**
@@ -38,7 +39,7 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
   const error = top.error ?? mine?.error;
   if (error) throw new Error(`Supabase: could not read the high scores (${error.message})`);
   const own = mine?.data;
-  return { top: ((top.data ?? []) as unknown as ScoreRow[]).map(lineOf), mine: own ? Number(own.best) : null }; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
+  return { top: (listOf(top.data) as unknown as ScoreRow[]).map(lineOf), mine: own ? numberOf(own.best) : null }; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }
 
 /**
@@ -63,5 +64,5 @@ export async function submitScore(db: Pick<SupabaseClient<Database>, 'rpc'>, wor
   if (!workspace) throw new Error('This account belongs to no workspace yet.');
   const { data, error } = await db.rpc('submit_score', { workspace, game, score });
   if (error) throw new Error(`Saving your score: ${error.message}`);
-  return Number(data);
+  return numberOf(data);
 }

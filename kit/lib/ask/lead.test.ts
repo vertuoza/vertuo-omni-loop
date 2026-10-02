@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { LEAD_MAX_BYTES, SHORTENED_NOTE, readLead, roundLead } from './lead.ts';
 
 const lines = (...entries: unknown[]) => entries.map((entry) => JSON.stringify(entry)).join('\n');
@@ -75,7 +76,8 @@ describe('readLead', () => {
 
   it(`cuts a lead over ${LEAD_MAX_BYTES} bytes and ends it with the shortened note`, () => {
     const long = 'é'.repeat(LEAD_MAX_BYTES);
-    const lead = readLead(lines(user('go'), assistant('m1', [{ type: 'text', text: long }, ask()])), 'toolu_ask')!;
+    const lead = readLead(lines(user('go'), assistant('m1', [{ type: 'text', text: long }, ask()])), 'toolu_ask');
+    assertDefined(lead, 'the lead');
     expect(lead.endsWith(SHORTENED_NOTE)).toBe(true);
     expect(SHORTENED_NOTE).toBe('… (shortened, the rest is in the terminal)');
     const kept = lead.slice(0, lead.length - SHORTENED_NOTE.length).trimEnd();

@@ -32,7 +32,7 @@ function itemText({
   frontMatter = {},
   sections = {},
 }: { frontMatter?: Record<string, string | undefined>; sections?: Record<string, string | undefined> } = {}) {
-  const fm = {
+  const fm: Record<string, string | undefined> = {
     id: 's3-01-example',
     prd: '985',
     slice: 's3',
@@ -44,7 +44,7 @@ function itemText({
   };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
 
   const body: Record<string, string | undefined> = {
     'The question, in plain words': 'Should this ship as it is?',

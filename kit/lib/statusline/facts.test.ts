@@ -15,6 +15,7 @@ import { BOARD_DIR, boardFile, lockFile } from './board-cache.ts';
 import { readFacts } from './facts.ts';
 import type { SessionInput } from './input.ts';
 import { writeRecord } from './sessions.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
 const DELIVERY = '.omni-loop/delivery';
@@ -276,8 +277,10 @@ describe('readFacts: the board (slice s6)', () => {
     const { prd, spawns } = read(root);
     expect(prd).toMatchObject({ number: 7, stage: 'inbox', slices: null });
     expect(spawns).toHaveLength(1);
-    expect(spawns[0]!.args.slice(1)).toEqual(['statusline', '--refresh', '7']);
-    expect(spawns[0]!.options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
+    assertDefined(spawns[0], 'spawns[0]');
+    expect(spawns[0].args.slice(1)).toEqual(['statusline', '--refresh', '7']);
+    assertDefined(spawns[0], 'spawns[0]');
+    expect(spawns[0].options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
   });
 
   it('starts one refresh without a board, none while a refresh holds the lock, and none without a spawn', () => {

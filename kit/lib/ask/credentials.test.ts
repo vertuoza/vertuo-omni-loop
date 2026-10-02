@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { startFakeAskServer } from '../../test/fake-ask-server.ts';
+import { startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { homeTokens } from './client-tokens.ts';
 import { credentials, credentialsHost, exchangeCode, signedInLine, SignInError, tokenEntry } from './credentials.ts';
 
@@ -18,13 +18,10 @@ function home(entries?: unknown) {
   return dir;
 }
 
-const onDisk = (dir: string) => JSON.parse(readFileSync(join(dir, ...FILE), 'utf8'));
+const onDisk = (dir: string): unknown => JSON.parse(readFileSync(join(dir, ...FILE), 'utf8'));
 const modeOf = (dir: string) => statSync(join(dir, ...FILE)).mode & 0o777;
 
-/** The fake server, read loosely: a test reads its record of the calls as it expects. */
-type FakeServer = { url: string; host: string; calls: any[]; close(): Promise<void>; [key: string]: any };
-const startServer = startFakeAskServer as (options?: Record<string, unknown>) => Promise<FakeServer>;
-let server: FakeServer | undefined;
+let server: FakeAskServer | undefined;
 afterEach(async () => {
   await server?.close();
   server = undefined;
@@ -131,7 +128,7 @@ describe('the line a sign-in ends on (PRD 459)', () => {
 
 describe('exchanging a one-time code', () => {
   it('posts {code} to <ask.url>/api/ask/token and returns the tokens', async () => {
-    server = await startServer({ codes: ['code-1'], email: 'ada@example.com' });
+    server = await startFakeAskServer({ codes: ['code-1'], email: 'ada@example.com' });
     const { entry, workspace, reason } = await exchangeCode({ askUrl: `${server.url}/`, code: 'code-1' });
     expect(entry).toMatchObject({ access_token: 'access-2', refresh_token: 'refresh-2', email: 'ada@example.com' });
     expect({ workspace, reason }).toEqual({ workspace: null, reason: null });
@@ -140,31 +137,31 @@ describe('exchanging a one-time code', () => {
 
   it('sends the repository with the code, and returns where it goes (PRD 459)', async () => {
     const sent: unknown[] = [];
-    const fetch = async (_url: unknown, init: RequestInit) => {
-      sent.push(JSON.parse(String(init.body)));
-      return Response.json({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned', workspace: { slug: 'acme', name: 'Acme', extra: 1 } });
+    const fetch = (_url: unknown, init: RequestInit) => {
+      sent.push(JSON.parse(typeof init.body === 'string' ? init.body : ''));
+      return Promise.resolve(Response.json({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned', workspace: { slug: 'acme', name: 'Acme', extra: 1 } }));
     };
     const out = await exchangeCode({ askUrl: 'https://ask.example.com', code: 'c', repo: 'acme/api', fetch });
     expect(sent).toEqual([{ code: 'c', repo: 'acme/api' }]);
     expect(out).toEqual({ entry: { access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned' }, login: 'ned', email: null, workspace: { slug: 'acme', name: 'Acme' }, reason: null });
-    const refused = async () => Response.json({ access_token: 'a', refresh_token: 'r', login: 'ned', workspace: null, reason: 'you are not a member of Acme, which owns acme/api' });
+    const refused = () => Promise.resolve(Response.json({ access_token: 'a', refresh_token: 'r', login: 'ned', workspace: null, reason: 'you are not a member of Acme, which owns acme/api' }));
     expect(await exchangeCode({ askUrl: 'https://ask.example.com', code: 'c', repo: 'acme/api', fetch: refused })).toMatchObject({ workspace: null, reason: 'you are not a member of Acme, which owns acme/api' });
   });
 
   it('is refused with the server\'s reason for a code it does not know, or knew once', async () => {
-    server = await startServer({ codes: ['code-1'] });
+    server = await startFakeAskServer({ codes: ['code-1'] });
     await exchangeCode({ askUrl: server.url, code: 'code-1' });
     await expect(exchangeCode({ askUrl: server.url, code: 'code-1' })).rejects.toThrow(/refused.*invalid grant/);
     await expect(exchangeCode({ askUrl: server.url, code: 'code-1' })).rejects.toBeInstanceOf(SignInError);
   });
 
   it('is refused when the server cannot be reached, or answers without tokens', async () => {
-    server = await startServer();
+    server = await startFakeAskServer();
     const { url } = server;
     await server.close();
     server = undefined;
     await expect(exchangeCode({ askUrl: url, code: 'c' })).rejects.toThrow(/could not reach/);
-    const empty = async () => new Response('{}', { status: 200 });
+    const empty = () => Promise.resolve(new Response('{}', { status: 200 }));
     await expect(exchangeCode({ askUrl: url, code: 'c', fetch: empty })).rejects.toThrow(/no tokens/);
   });
 });

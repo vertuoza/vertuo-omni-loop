@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { DEFAULT_CHECK_NAME, MAX_SUMMARY, publish, startCheck } from './publish.ts';
 
@@ -6,10 +7,23 @@ const REPO = { owner: 'vertuoza', repo: 'widget' };
 const HEAD = 'abc123';
 
 // A stubbed Octokit: records every request and answers the four routes publish uses.
+/** A request's parameters, as publish hands them to `octokit.request`. */
+type Params = Record<string, unknown>;
+type Recorded = { route: string } & Params;
+
+/** A check run's output as publish sent it, as the tests read it. */
+const OutputSchema = z.looseObject({ title: z.string(), summary: z.string() });
+
+/** The first request recorded: the test fails when there is none. */
+function first(requests: readonly Recorded[]): Recorded {
+  const [request] = requests;
+  if (!request) throw new Error('no request was made');
+  return request;
+}
+
 function stubGitHub({ prHeadSha = HEAD, checkRunId = 77 } = {}) {
-  const requests: any[] = [];
-  const octokit = {
-    async request(route: any, params: any) {
+  const requests: Recorded[] = [];
+  function answer(route: string, params: Params) {
       requests.push({ route, ...params });
       switch (route) {
         case 'POST /repos/{owner}/{repo}/check-runs':
@@ -25,12 +39,18 @@ function stubGitHub({ prHeadSha = HEAD, checkRunId = 77 } = {}) {
         default:
           throw new Error(`unexpected route ${route}`);
       }
-    },
+  }
+  const octokit = {
+    // As an `async` function: a throw is a rejection.
+    request: (route: string, params: Params = {}) =>
+      new Promise<{ data: unknown }>((resolve) => {
+        resolve(answer(route, params));
+      }),
   };
   return { octokit, requests };
 }
 
-const routes = (requests: any) => requests.map((r: any) => r.route);
+const routes = (requests: readonly Recorded[]) => requests.map((r) => r.route);
 
 const verdict = (over = {}) => ({
   conclusion: 'failure',
@@ -59,7 +79,7 @@ describe('startCheck — in_progress on the head SHA', () => {
     const { octokit, requests } = stubGitHub();
     await startCheck(octokit, { ...REPO, headSha: HEAD });
     expect(DEFAULT_CHECK_NAME).toBe(ConfigSchema.parse({ kit: 1 }).ci.outboxContext);
-    expect(requests[0].name).toBe(DEFAULT_CHECK_NAME);
+    expect(first(requests).name).toBe(DEFAULT_CHECK_NAME);
   });
 });
 
@@ -75,7 +95,7 @@ describe('publish — completed, and the comment rewritten in place', () => {
       conclusion: 'failure',
       output: { title: '1 open outbox item', summary: '## report' },
     });
-    expect(requests[0].completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(first(requests).completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('rewrites the marker comment in place by its id', async () => {
@@ -122,7 +142,7 @@ describe('publish — completed, and the comment rewritten in place', () => {
     });
     expect(result).toEqual({ checkRunId: 77, comment: 'none' });
     expect(routes(requests)).toEqual(['PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}']);
-    expect(requests[0].conclusion).toBe('skipped');
+    expect(first(requests).conclusion).toBe('skipped');
   });
 
   it('keeps the title to one line and the summary within GitHub\'s limit', async () => {
@@ -134,7 +154,7 @@ describe('publish — completed, and the comment rewritten in place', () => {
       headSha: HEAD,
       verdict: verdict({ title: 'first line\nsecond line', summary: 'x'.repeat(MAX_SUMMARY + 10), comment: null }),
     });
-    expect(requests[0].output.title).toBe('first line');
-    expect(requests[0].output.summary.length).toBeLessThanOrEqual(MAX_SUMMARY);
+    expect(OutputSchema.parse(first(requests).output).title).toBe('first line');
+    expect(OutputSchema.parse(first(requests).output).summary.length).toBeLessThanOrEqual(MAX_SUMMARY);
   });
 });

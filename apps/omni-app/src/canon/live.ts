@@ -34,7 +34,7 @@ const CANON_CALL = Object.freeze({ ...MODEL_CALL, budgetMs: 60_000, maxTokens: 2
 type Connection = { url: string; key: string; fetch?: typeof globalThis.fetch | undefined };
 
 /** The service role's client. */
-function serviceClient({ url, key, fetch = undefined }: Connection) {
+function serviceClient({ url, key, fetch }: Connection) {
   return createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     ...(fetch ? { global: { fetch } } : {}),
@@ -76,8 +76,8 @@ export function canonFromEnv(env: Record<string, string | undefined> = process.e
   const read = CanonEnvSchema.parse(env);
   const url = read.SUPABASE_URL;
   const key = read.SUPABASE_SERVICE_ROLE_KEY;
-  const readBusiness = url && key ? businessReader({ url, key, fetch }) : async () => null;
-  const readConstituents = url && key ? constituentsReader({ url, key, fetch }) : async () => null;
+  const readBusiness = url && key ? businessReader({ url, key, fetch }) : () => Promise.resolve(null);
+  const readConstituents = url && key ? constituentsReader({ url, key, fetch }) : () => Promise.resolve(null);
   const judge = constituentJudge({ url: judgeUrl(env), secret: read[JUDGE_SECRET_VAR], fetch });
   const modelEnv = { [KEY_VAR]: read[KEY_VAR], [MODEL_VAR]: CANON_MODEL };
   const ask: Ask = (request) => askModel({ ...request, env: modelEnv, fetch, call: CANON_CALL, title: 'omni loop canon' });

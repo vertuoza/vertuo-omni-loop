@@ -7,6 +7,7 @@ import { main } from '../../bin/omni.ts';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { FORMS, parseForm } from './forms.ts';
 import { formTemplate } from './templates.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -24,15 +25,22 @@ async function omni(root: string, argv: string[]) {
   const out: string[] = [];
   const err: string[] = [];
   const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
-  const code = await main(argv, io as never);
+  const code = await main(argv, io);
   return { code, out: out.join(''), err: err.join('') };
 }
 
-const slotText = (id: string) => parseForm(formTemplate('review')).form!.slots.find((slot) => slot.id === id)!.body.text;
+const slotText = (id: string) => {
+  const { form } = parseForm(formTemplate('review'));
+  assertDefined(form, 'the review form');
+  const slot = form.slots.find((candidate) => candidate.id === id);
+  assertDefined(slot, `the ${id} slot`);
+  return slot.body.text;
+};
 
 describe('the review form', () => {
   it('is an extended form with its three slots, fix, push-back and ask, each required', () => {
-    const review = FORMS.find((form) => form.id === 'review')!;
+    const review = FORMS.find((form) => form.id === 'review');
+    assertDefined(review, 'review');
     expect(review).toMatchObject({ kind: 'extended', pointerOnly: false });
     expect(review.slots).toEqual([
       { id: 'fix', required: true },

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { savePlayer } from './players';
+
+const A_STRING: unknown = expect.any(String);
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import type { Hero } from '@omni/design';
 
@@ -18,7 +20,7 @@ describe('joining a fleet', () => {
     const row = await savePlayer(db, VERTUOZA, PEOPLE.bea.id, { team: 'pirates', display_name: 'BEA', hero: HERO }, null);
     expect(world.tables.players.at(-1)).toMatchObject({ workspace_id: VERTUOZA, user_id: PEOPLE.bea.id, team: 'pirates' });
     expect(row).toEqual({
-      id: PEOPLE.bea.id, display_name: 'BEA', team: 'pirates', team_since: expect.any(String), hero: HERO, github_login: 'bea-gh',
+      id: PEOPLE.bea.id, display_name: 'BEA', team: 'pirates', team_since: A_STRING, hero: HERO, github_login: 'bea-gh',
     });
   });
 

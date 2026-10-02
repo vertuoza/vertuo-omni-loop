@@ -28,7 +28,9 @@ function freshHome(entries?: Record<string, Record<string, unknown>>) {
   return dir;
 }
 
-const credentialsOf = (home: string) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8'));
+const credentialsOf = (home: string) => JSON.parse(readFileSync(join(home, ...FILE), 'utf8')) as Record<string, unknown>;
+/** Matches any number, inside an expected object. */
+const anyNumber: unknown = expect.any(Number);
 const repoWith = (url: string | null) => makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${url === null ? 'null' : url}\n` } });
 
 /**
@@ -58,14 +60,22 @@ function fakeBrowser({ code = 'code-1', callbacks }: { code?: string; callbacks?
 }
 
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
+
+/** Starts a fake server, closed after the test. */
+async function startServer(options: Parameters<typeof startFakeAskServer>[0]) {
+  const fake = await startFakeAskServer(options);
+  started.push(fake);
+  return fake;
+}
 
 describe('omni signin', () => {
   it('opens <ask.url>/ask/signin with a port and a state, and keeps the sign-in at mode 0600 keyed by the host', async () => {
-    server = await startFakeAskServer({ codes: ['code-1'], email: 'ada@example.com' });
+    server = await startServer({ codes: ['code-1'], email: 'ada@example.com' });
     const { root } = repoWith(server.url);
     const home = freshHome({ 'other.example.com': { access_token: 'x' } });
     const browser = fakeBrowser();
@@ -84,12 +94,12 @@ describe('omni signin', () => {
     expect(std.text().trim().split('\n').at(-1)).toBe('signed in as ada@example.com');
 
     const [visit] = await Promise.all(browser.visits);
-    expect(visit![0]).toMatchObject({ status: 200 });
+    expect(visit?.[0]).toMatchObject({ status: 200 });
     expect(server.calls.at(-1)).toMatchObject({ method: 'POST', path: '/api/ask/token', body: { code: 'code-1' } });
     expect(statSync(join(home, ...FILE)).mode & 0o777).toBe(0o600);
     const kept = credentialsOf(home);
-    expect(Object.keys(kept).sort()).toEqual(['127.0.0.1:' + server.port, 'other.example.com'].sort());
-    expect(kept[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), email: 'ada@example.com' });
+    expect(Object.keys(kept).sort()).toEqual([`127.0.0.1:${server.port}`, 'other.example.com'].sort());
+    expect(kept[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: anyNumber, email: 'ada@example.com' });
     // The hooks read the very same entry.
     expect(homeTokens({ home }).read(server.host)).toEqual(kept[server.host]);
   });
@@ -105,13 +115,14 @@ describe('omni signin', () => {
       it(line, async () => {
         // The fake page, with the token reply the real one gives: the login, where the repository
         // goes, and no email (a GitHub account that keeps it private).
-        server = await startFakeAskServer({ codes: ['code-1'] });
+        server = await startServer({ codes: ['code-1'] });
         const sent: unknown[] = [];
         const fetch = async (url: string, init: RequestInit) => {
           const response = await globalThis.fetch(url, init);
-          if (!String(url).endsWith('/api/ask/token')) return response;
-          sent.push(JSON.parse(String(init.body)));
-          const { email: _hidden, ...tokens } = await response.json();
+          if (!url.endsWith('/api/ask/token')) return response;
+          sent.push(JSON.parse(typeof init.body === 'string' ? init.body : ''));
+          const reply = (await response.json()) as object;
+          const tokens = Object.fromEntries(Object.entries(reply).filter(([key]) => key !== 'email'));
           return Response.json({ ...tokens, login: 'ned', ...where }, { status: response.status });
         };
         const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/api\nask:\n  url: ${server.url}\n` } });
@@ -123,13 +134,13 @@ describe('omni signin', () => {
         expect(std.errors()).toBe('');
         expect(std.text().trim().split('\n').at(-1)).toBe(line);
         expect(sent).toEqual([{ code: 'code-1', repo: 'acme/api' }]);
-        expect(credentialsOf(home)[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), login: 'ned' });
+        expect(credentialsOf(home)[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: anyNumber, login: 'ned' });
       });
     }
   });
 
   it('opens a new state on every run', async () => {
-    server = await startFakeAskServer({ codes: ['code-1', 'code-2'] });
+    server = await startServer({ codes: ['code-1', 'code-2'] });
     const { root } = repoWith(server.url);
     const home = freshHome();
     const first = fakeBrowser({ code: 'code-1' });
@@ -141,7 +152,7 @@ describe('omni signin', () => {
   });
 
   it('refuses a callback with another state, writes nothing for it, and takes the right one', async () => {
-    server = await startFakeAskServer({ codes: ['code-1', 'planted'] });
+    server = await startServer({ codes: ['code-1', 'planted'] });
     const { root } = repoWith(server.url);
     const home = freshHome();
     const browser = fakeBrowser({ callbacks: (state) => ['state=not-this-terminal&code=planted', `state=${state}&code=code-1`] });
@@ -149,12 +160,12 @@ describe('omni signin', () => {
     expect(await main(['signin'], { cwd: root, ...io(), home, openBrowser: browser.open })).toBe(0);
 
     const [visit] = await Promise.all(browser.visits);
-    expect(visit!.map((v: { status: number }) => v.status)).toEqual([400, 200]);
-    expect(server.calls.filter((c) => c.path === '/api/ask/token').map((c) => c.body)).toEqual([{ code: 'code-1' }]);
+    expect(visit?.map((v) => v.status)).toEqual([400, 200]);
+    expect(server.calls.filter((c) => c.path === '/api/ask/token').map((c): unknown => c.body)).toEqual([{ code: 'code-1' }]);
   });
 
   it('writes nothing when only a callback with another state comes back', async () => {
-    server = await startFakeAskServer({ codes: ['planted'] });
+    server = await startServer({ codes: ['planted'] });
     const { root } = repoWith(server.url);
     const home = freshHome();
     const browser = fakeBrowser({ callbacks: () => ['state=not-this-terminal&code=planted'] });
@@ -168,7 +179,7 @@ describe('omni signin', () => {
   });
 
   it('writes nothing, and says why, when the server refuses the code', async () => {
-    server = await startFakeAskServer({ codes: [] });
+    server = await startServer({ codes: [] });
     const { root } = repoWith(server.url);
     const home = freshHome();
     const std = io();
@@ -180,7 +191,7 @@ describe('omni signin', () => {
   });
 
   it('still waits for the browser when it could not be opened: the link is printed to open by hand', async () => {
-    server = await startFakeAskServer({ codes: ['code-1'] });
+    server = await startServer({ codes: ['code-1'] });
     const { root } = repoWith(server.url);
     const home = freshHome();
     const browser = fakeBrowser();
@@ -226,7 +237,7 @@ describe('omni whoami', () => {
   });
 
   it('renews an expired sign-in, keeps the new tokens and prints the email', async () => {
-    server = await startFakeAskServer({ refreshToken: 'refresh-1', email: 'ada@example.com' });
+    server = await startServer({ refreshToken: 'refresh-1', email: 'ada@example.com' });
     const { root } = repoWith(server.url);
     const home = freshHome({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: 1, email: 'ada@example.com' } });
     const std = io();
@@ -236,7 +247,7 @@ describe('omni whoami', () => {
   });
 
   it('says the sign-in is no longer valid when the renewal is refused', async () => {
-    server = await startFakeAskServer({ refreshToken: 'refresh-1' });
+    server = await startServer({ refreshToken: 'refresh-1' });
     server.expireRefresh();
     const { root } = repoWith(server.url);
     const home = freshHome({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: 1, email: 'ada@example.com' } });

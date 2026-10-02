@@ -2,6 +2,7 @@
 // renderers, so HOME paints them with no script: the crest, OmniMan pointing, the invaded planet and
 // the starfield behind it. Each is an SVG string, crisp at a whole-number scale.
 import { drawPlanet, drawStarfield, logoSvg, makeStarfield, OMNI_LOOP, spritePixels } from '@omni/design';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { pixelSvg, type PixelGrid } from '../../design/pixel-svg';
 
 /** The crest's form on the poster: the full wordmark, where the ad puts its logo. */
@@ -75,8 +76,9 @@ export function planetPixels(progress: number): PixelGrid {
   if (!image) throw new Error('planetPixels: drawPlanet drew nothing');
   const { width: w, height: h, data } = image;
   const pixels: (string | null)[] = [];
+  const byte = (k: number) => defined(data[k], 'a pixel\'s byte');
   for (let i = 0; i < data.length; i += 4) {
-    pixels.push(data[i + 3]! < 128 ? null : `#${hex(data[i]!)}${hex(data[i + 1]!)}${hex(data[i + 2]!)}`);
+    pixels.push(byte(i + 3) < 128 ? null : `#${hex(byte(i))}${hex(byte(i + 1))}${hex(byte(i + 2))}`);
   }
   return { w, h, pixels };
 }

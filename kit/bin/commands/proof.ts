@@ -22,6 +22,7 @@
 //
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens`, `home`, `fetch`
 // and `callMs`; it loads the context itself.
+import { defined } from '../../lib/narrow.ts';
 import { writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
@@ -61,7 +62,7 @@ function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | {
   const { positional } = parseArgs('proof', args);
   const [verb, first, second, ...rest] = positional;
   if (verb === 'session') {
-    const file = first ?? env?.PROOF_STORAGE_STATE;
+    const file = first ?? env.PROOF_STORAGE_STATE;
     if (!file || second !== undefined) throw usageError(`${USAGE} (session needs <file> or PROOF_STORAGE_STATE)`);
     return { verb, file };
   }
@@ -120,7 +121,7 @@ async function renewedToken(
   const store = tokens ?? homeTokens(home ? { home } : undefined);
   if (!store.read(host)) return { line: NO_SIGN_IN };
   const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) }).renew();
-  if (outcome === 'renewed') return { host, token: store.read(host)!.access_token }; // ts-allow: a renewal just wrote this host's tokens
+  if (outcome === 'renewed') return { host, token: defined(store.read(host), `the sign-in of ${host}`).access_token };
   return { line: outcome === 'refused' ? NO_SIGN_IN : 'unreachable' };
 }
 
@@ -166,10 +167,10 @@ export const proof = {
     const parsed = argsOf(args, env);
     const ctx = loadContext(cwd, { exec });
     if (parsed.verb === 'session') {
-      const askUrl = ctx.config.ask?.url;
+      const askUrl = ctx.config.ask.url;
       if (!askUrl) throw usageError('omni proof session: no sign-in server here — set ask.url in the config.');
       const file = isAbsolute(parsed.file) ? parsed.file : resolve(cwd, parsed.file);
-      return writeSession({ askUrl, file, target: targetHost(env?.PROOF_URL) }, { stdout, stderr, tokens, home, fetch, callMs });
+      return writeSession({ askUrl, file, target: targetHost(env.PROOF_URL) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
     const { prd, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);

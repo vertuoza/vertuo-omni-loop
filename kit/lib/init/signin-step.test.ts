@@ -14,10 +14,10 @@ const freshHome = () => mkdtempSync(join(tmpdir(), 'omni-home-'));
 /** A sign-in flow that keeps an entry for the host, as `omni signin` does, and exits with `code`. */
 function flow(home: string, code = 0) {
   const calls: string[] = [];
-  const signIn = async () => {
+  const signIn = () => {
     calls.push('signin');
     if (code === 0) credentials({ home }).write(HOST, ENTRY);
-    return code;
+    return Promise.resolve(code);
   };
   return { signIn, calls };
 }
@@ -50,7 +50,7 @@ describe('signInStep', () => {
   it('carries the line the sign-in ended on, naming where the repository goes (PRD 459)', async () => {
     const home = freshHome();
     const line = 'signed in as ada — acme/api goes to Acme';
-    const signIn = async () => { credentials({ home }).write(HOST, ENTRY); return { code: 0, line }; };
+    const signIn = () => { credentials({ home }).write(HOST, ENTRY); return Promise.resolve({ code: 0, line }); };
     expect(await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn })).toEqual({ outcome: 'signed-in', host: HOST, email: ENTRY.email, line });
   });
 
@@ -64,7 +64,7 @@ describe('signInStep', () => {
   it('a sign-in refused, timed out or throwing: later', async () => {
     const home = freshHome();
     expect((await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn: flow(home, 1).signIn })).outcome).toBe('later');
-    const throwing = async () => { throw new Error('boom'); };
+    const throwing = () => Promise.reject(new Error('boom'));
     expect(await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn: throwing })).toEqual({ outcome: 'later', host: HOST, why: 'did not finish' });
   });
 

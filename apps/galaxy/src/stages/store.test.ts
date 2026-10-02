@@ -1,6 +1,7 @@
 // The stored PRD stages (PRD 587): the store's rules on its fake, and its Supabase calls on a recording
 // client. No test reaches Supabase.
 import { describe, expect, it } from 'vitest';
+import { item } from '../ask/test-item';
 import { fakeStageStore } from './store.fake';
 import { countStages, currentOf, noCounts, stageStore, type StageRecord } from './store';
 
@@ -27,7 +28,7 @@ describe('the store, on its fake', () => {
     const store = fakeStageStore();
     await store.recordStages([rec(7, 'prd', 1, { repository: 'Acme/Widgets' })], at(1));
     expect(await store.stagesOf({ workspace_id: W, repository: 'ACME/widgets', prd: 7 })).toHaveLength(1);
-    expect(store.stages[0]!.repository).toBe('acme/widgets');
+    expect(item(store.stages, 0).repository).toBe('acme/widgets');
   });
 
   it('gives the current stage of each PRD, the latest on the track, and counts them, for a set of PRDs or all', async () => {

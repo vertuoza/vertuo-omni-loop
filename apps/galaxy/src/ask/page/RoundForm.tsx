@@ -46,7 +46,7 @@ const isTyping = (el: Element | null) =>
 
 /** The question an element sits in, from its data-question attribute. */
 function questionOf(el: Element | null): number | null {
-  const at = el?.closest?.('[data-question]')?.getAttribute('data-question');
+  const at = el?.closest('[data-question]')?.getAttribute('data-question');
   return at === undefined || at === null ? null : Number(at);
 }
 
@@ -56,7 +56,9 @@ function Thumb({ shot, n, onRemove }: { shot: Shot; n: number; onRemove: () => v
   useEffect(() => {
     const made = URL.createObjectURL(shot.file);
     setUrl(made);
-    return () => URL.revokeObjectURL(made);
+    return () => {
+      URL.revokeObjectURL(made);
+    };
   }, [shot.file]);
   return (
     <li className="ask-shot">
@@ -97,14 +99,18 @@ function OtherBox({ name, question, pick, questions, draft, index, onDraft, upda
       onDragOver={(event) => {
         if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
       }}
-      onDrop={(event) => takeFiles(event, event.dataTransfer, addFiles)}
+      onDrop={(event) => {
+        takeFiles(event, event.dataTransfer, addFiles);
+      }}
     >
       <input
         id={`${name}-other`}
         type={question.multiSelect ? 'checkbox' : 'radio'}
         name={name}
         checked={pick.otherOn}
-        onChange={() => update(toggleOther(question, pick))}
+        onChange={() => {
+          update(toggleOther(question, pick));
+        }}
       />
       <label htmlFor={`${name}-other`} className="ask-other-head">
         <span className="ask-key" aria-hidden="true">…</span>
@@ -116,13 +122,19 @@ function OtherBox({ name, question, pick, questions, draft, index, onDraft, upda
         placeholder="Type your own answer"
         aria-label={`Your own answer: ${question.question}`}
         value={pick.otherText}
-        onChange={(event) => update(typeOther(question, pick, event.target.value))}
-        onPaste={(event) => takeFiles(event, event.clipboardData, addFiles)}
+        onChange={(event) => {
+          update(typeOther(question, pick, event.target.value));
+        }}
+        onPaste={(event) => {
+          takeFiles(event, event.clipboardData, addFiles);
+        }}
       />
       <div className="ask-shots">
         {!!pick.shots?.length && (
           <ul className="ask-shot-list" aria-label="Screenshots">
-            {pick.shots.map((shot, n) => <Thumb key={shot.id} shot={shot} n={n + 1} onRemove={() => dropShot(shot.id)} />)}
+            {pick.shots.map((shot, n) => <Thumb key={shot.id} shot={shot} n={n + 1} onRemove={() => {
+              dropShot(shot.id);
+            }} />)}
           </ul>
         )}
         <input
@@ -161,7 +173,9 @@ function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
         name={name}
         value={option.label}
         checked={pick.labels.includes(option.label)}
-        onChange={() => update(pickOption(question, pick, option.label))}
+        onChange={() => {
+          update(pickOption(question, pick, option.label));
+        }}
       />
       <span className="ask-key" aria-hidden="true">{k < 4 ? k + 1 : ''}</span>
       <span>
@@ -215,7 +229,9 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
   const pick = draft[index];
   if (!question || !pick) return null;
   const withPreview = question.options.some((o) => o.preview !== null) ? ' has-preview' : '';
-  const update = (next: Pick) => onDraft(draft.map((p, i) => (i === index ? next : p)));
+  const update = (next: Pick) => {
+    onDraft(draft.map((p, i) => (i === index ? next : p)));
+  };
   return (
     <section className={`ask-q${withPreview}`} data-question={index} aria-labelledby={`${name}-text`}>
       <QuestionHead question={question} />
@@ -224,7 +240,9 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
         <fieldset className="ask-opts" data-multi={question.multiSelect}>
           <legend className="ask-sr">{question.question}</legend>
           {question.options.map((_, k) => (
-            <OptionRow key={k} name={name} question={question} pick={pick} k={k} onFocus={() => setFocus({ question: index, option: k })} update={update} />
+            <OptionRow key={k} name={name} question={question} pick={pick} k={k} onFocus={() => {
+              setFocus({ question: index, option: k });
+            }} update={update} />
           ))}
           <OtherBox name={name} question={question} pick={pick} questions={questions} draft={draft} index={index} onDraft={onDraft} update={update} />
         </fieldset>
@@ -269,7 +287,9 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
       onDraft(pickByKey(questions, draft, activeQuestion(questions, draft, questionOf(target)), intent.option));
     }
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
   }, [questions, draft, onDraft, canSend, sending, onSend]);
 
   return (

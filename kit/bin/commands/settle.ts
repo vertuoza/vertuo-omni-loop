@@ -5,13 +5,14 @@ import { relative } from 'node:path';
 import { settleItem } from '../../lib/outbox/settle.ts';
 import { inRoot, parseArgs, println, readUserFile, usageError, withPrdFolder } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request ' +
   '--number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 
 export const settle: Command = {
-  async run(args: string[], { ctx, stdout, stderr }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
     const { positional, flags } = parseArgs('settle', args, {
       values: ['by', 'at', 'channel', 'number', 'answer', 'answer-file', 'url', 'verdict'],
     });
@@ -49,5 +50,5 @@ export const settle: Command = {
       `omni settle — ${result.removedFile} settled as "${result.verdict}" (${result.basis}); appended to ${result.settledFile}. Commit the append and the deletion together.`,
     );
     return 0;
-  },
+  }),
 };

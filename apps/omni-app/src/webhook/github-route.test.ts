@@ -1,10 +1,12 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { GET, POST } from '../../api/github.ts';
 
 const SECRET = 'route-secret';
-const sign = (body: any) => `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`;
+const sign = (body: string) => `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`;
 
 const body = JSON.stringify({
   action: 'synchronize',
@@ -13,18 +15,24 @@ const body = JSON.stringify({
   pull_request: { number: 3, head: { sha: 'def456' }, base: { ref: 'main' } },
 });
 
-const request = (headers: any) =>
+const request = (headers: Record<string, string>) =>
   new Request('https://omni-loop.example/api/github', {
     method: 'POST',
     body,
     headers: { 'content-type': 'application/json', 'x-github-event': 'pull_request', ...headers },
   });
 
+/** Inngest's send, stubbed to take every event. */
+const stubbedSend = () => vi.spyOn(inngest, 'send').mockResolvedValue({ ids: ['e1'] });
+
+/** What the stage event's POST carried, as the test reads it. */
+const StagePostSchema = z.looseObject({ body: z.string(), headers: z.record(z.string(), z.string()) });
+
 describe('/api/github', () => {
-  let send: any;
+  let send: ReturnType<typeof stubbedSend>;
   beforeEach(() => {
     vi.stubEnv('GITHUB_WEBHOOK_SECRET', SECRET);
-    send = vi.spyOn(inngest, 'send').mockResolvedValue({ ids: ['e1'] });
+    send = stubbedSend();
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -71,14 +79,17 @@ describe('/api/github', () => {
     }));
     expect(response.status).toBe(200);
     expect(post).toHaveBeenCalledTimes(1);
-    const [url, init]: any = post.mock.calls[0];
+    const call = post.mock.calls[0];
+    assertDefined(call, 'the stage event POST');
+    const [url, sent] = call;
     expect(url).toBe('https://galaxy.example/api/stages/event');
+    const init = StagePostSchema.parse(sent);
     expect(JSON.parse(init.body)).toEqual({ repository: 'o/r', topic: 'x', prd: 9, stage: 'inbox', at: '2026-09-29T10:00:00Z' });
     expect(init.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(init.body).digest('hex')}`);
   });
 
-  it('answers 405 to anything but POST', async () => {
-    const response = await GET();
+  it('answers 405 to anything but POST', () => {
+    const response = GET();
     expect(response.status).toBe(405);
     expect(response.headers.get('allow')).toBe('POST');
   });

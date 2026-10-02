@@ -71,7 +71,7 @@ export function omniScript(): string {
 /** PRD `prd`'s board in the checkout at `root`: `{ at, slices }` or `{ at, error }` (`at` in
  * milliseconds), or `null` when the file is missing or its time cannot be read. */
 export function readBoard(root: string, prd: number): Board | null {
-  const value: unknown = attempt(() => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')), null);
+  const value = attempt((): unknown => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')), null);
   const parsed = BoardFileSchema.safeParse(value);
   if (!parsed.success) return null;
   const at = Date.parse(parsed.data.at);

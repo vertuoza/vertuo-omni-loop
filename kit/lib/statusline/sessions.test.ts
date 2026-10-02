@@ -8,13 +8,14 @@ import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { readRecord, recordedPrd, recordSession, SESSIONS_DIR, writeRecord } from './sessions.ts';
+import { dig } from '../../bin/dig.ts';
 
 const NOW = Date.parse('2026-09-28T12:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
 
 const tempRoot = () => mkdtempSync(join(tmpdir(), 'omni-sessions-'));
 const recordFile = (root: string, id: string) => join(root, SESSIONS_DIR, `${id}.json`);
-const readJson = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
+const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));
 
 /** A record file written by hand, `at` the given instant. */
 function plant(root: string, id: string, at: number, prd = 3) {
@@ -109,10 +110,10 @@ describe('recordSession and recordedPrd: the main checkout', () => {
   it('writes in the main checkout, from the checkout itself and from any of its worktrees', () => {
     const { root, worktree } = withWorktree();
     expect(recordSession({ cwd: worktree, exec: execFileSync, sessionId: 'abc', prd: 7, now: NOW })).toBe(true);
-    expect(readJson(recordFile(root, 'abc')).prd).toBe(7);
+    expect(dig(readJson(recordFile(root, 'abc')), 'prd')).toBe(7);
     expect(existsSync(join(worktree, '.omni-loop'))).toBe(false);
     expect(recordSession({ cwd: root, exec: execFileSync, sessionId: 'def', prd: 9, now: NOW })).toBe(true);
-    expect(readJson(recordFile(root, 'def')).prd).toBe(9);
+    expect(dig(readJson(recordFile(root, 'def')), 'prd')).toBe(9);
   });
 
   it('reads the record from the main checkout, from the checkout or any of its worktrees', () => {
