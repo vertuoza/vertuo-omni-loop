@@ -19,7 +19,7 @@ import './Game.css';
 const artOf = (c: Card) => pixelSvg(spritePixels(c.mascot!, { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` });
 
 /** The three counters, in order: each label and the count it shows. */
-export const scoreRows = (scores: Counts) => [
+const scoreRows = (scores: Counts) => [
   ['FEATURES SHIPPED', scores.prdsShipped],
   ['SLICES MERGED', scores.slicesMerged],
   ['DECISIONS ADOPTED', scores.decisionsAdopted],

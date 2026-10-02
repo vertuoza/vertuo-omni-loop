@@ -54,7 +54,7 @@ const LEGEND: Record<Mover, string> = {
 const MOVER_CLASS: Record<Mover, string> = { YOU: 'home-loop-you', AGENTS: 'home-loop-agents', 'OMNI APP': 'home-loop-app' };
 
 /** A line cut into rows of at most `width` characters, at spaces. */
-export function wrap(line: string, width: number): string[] {
+function wrap(line: string, width: number): string[] {
   const rows: string[] = [];
   for (const word of line.split(' ')) {
     const last = rows.at(-1);
