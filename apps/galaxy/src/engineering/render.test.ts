@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -252,6 +253,39 @@ describe('a page per repository (PRD 645 s2)', () => {
     expect(text(demo)).toContain('Loop health Right now Stale claim acme/gears#501 opened 3.0 h ago');
     expect(text(demo)).not.toContain('acme/widgets#500');
     expect(demoEngineeringBoard('7d', 'merged', NOW, 'acme/sprockets')).toEqual({ kind: 'not-tracked' });
+  });
+});
+
+describe('every panel in the shared card (PRD 962)', () => {
+  const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"[^>]*?(?:aria-labelledby="([^"]*)")?>/g)].map((m) => ({ id: m[2], classes: m[1]!.split(' ') }));
+  const gears: EngineeringView = {
+    kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears',
+    board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged', NOW),
+  };
+
+  it('on the board: Omni Loop, Loop health, merged per day, Repositories and each top-5 list', () => {
+    const panels = sections(render(board()));
+    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-repos', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
+    for (const p of panels) expect(p.classes, p.id).toContain('board-card');
+  });
+
+  it('on a repository\'s page: the same panels, with no table', () => {
+    const panels = sections(render(gears));
+    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
+    for (const p of panels) expect(p.classes, p.id).toContain('board-card');
+  });
+
+  it('the empty and could-not-load states keep their markup', () => {
+    expect(render(board([], []))).toContain('<section class="eng-empty"><p>No tracked repositories yet');
+    expect(render({ kind: 'board', name: 'Vertuoza', board: UNREADABLE })).not.toContain('board-card');
+  });
+
+  it('engineering.css frames no panel itself and lets the cards of a row stretch to one line', () => {
+    const css = readFileSync(new URL('./engineering.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+    const framing = rules.filter((r) => /\.(eng-(omni|health|top|people)|board-(chart|charts|repos|card))(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
+    expect(framing.map((r) => r.selector)).toEqual([]);
+    expect(rules.find((r) => r.selector === '.eng-people')!.body).toMatch(/align-items: stretch/);
   });
 });
 
