@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 942
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-slice-waiting-reasons-left-to-wave-two -->
+
+## s1-01-slice-waiting-reasons-left-to-wave-two — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-02
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-02
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-slice-waiting-reasons-left-to-wave-two
 prd: 942
@@ -47,3 +77,7 @@ Low: if the later slices miss them, a one-line change per note fixes it before t
 (author) The PRD, the registers and the glossary do not settle this:
 
 - Whether the plan meant the first slice to reach outside its territory for these four notes (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-slice-waiting-reasons-left-to-wave-two -->
