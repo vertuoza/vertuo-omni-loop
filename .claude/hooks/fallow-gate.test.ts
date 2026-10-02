@@ -22,7 +22,9 @@ function tempDir() {
 // an empty folder, so no node_modules/.bin/fallow is found there; PATH decides what is reachable.
 function runHook(command: string, { env = {}, path = process.env.PATH }: { env?: NodeJS.ProcessEnv; path?: string } = {}) {
   const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
-  const { CLAUDE_PROJECT_DIR, FALLOW_GATE_DEBUG, ...base } = process.env;
+  const base = { ...process.env };
+  delete base.CLAUDE_PROJECT_DIR;
+  delete base.FALLOW_GATE_DEBUG;
   return spawnSync('bash', [HOOK], {
     input,
     cwd: tempDir(),

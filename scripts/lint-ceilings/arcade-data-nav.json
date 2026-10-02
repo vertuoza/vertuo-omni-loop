@@ -1,0 +1,9 @@
+{
+  "paths": [
+    "apps/galaxy/src/data/",
+    "apps/galaxy/src/nav/",
+    "apps/galaxy/src/home/",
+    "apps/galaxy/src/stages/"
+  ],
+  "ceiling": 436
+}

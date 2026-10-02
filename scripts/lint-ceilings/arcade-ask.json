@@ -1,0 +1,10 @@
+{
+  "paths": [
+    "apps/galaxy/src/ask/",
+    "apps/galaxy/src/signup/",
+    "apps/galaxy/src/working/",
+    "apps/galaxy/src/proxy/",
+    "apps/galaxy/proxy.ts"
+  ],
+  "ceiling": 467
+}

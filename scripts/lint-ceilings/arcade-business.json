@@ -1,0 +1,7 @@
+{
+  "paths": [
+    "apps/galaxy/src/business/",
+    "apps/galaxy/src/business-api/"
+  ],
+  "ceiling": 434
+}
