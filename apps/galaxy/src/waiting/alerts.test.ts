@@ -177,7 +177,7 @@ describe('desktop alerts', () => {
       ['Claude is asking: Which r1?', 'r1'],
       ['PRD 460 outbox: Keep i1?', 'i1'],
     ]);
-    raised[1].onclick?.();
+    raised[1]!.onclick?.();
     expect(opened).toEqual(['/prd/d-460?tab=outbox']);
   });
 

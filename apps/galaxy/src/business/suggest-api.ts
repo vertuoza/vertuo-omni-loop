@@ -17,8 +17,10 @@ import { suggestInput, type Suggester } from './suggest';
 
 /** A store call that failed, with the database's code. */
 export class SuggestStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
+  readonly code: string | undefined;
+  constructor(what: string, code: string | undefined, message: string) {
     super(`Could not ${what}: ${message}`);
+    this.code = code;
   }
 }
 

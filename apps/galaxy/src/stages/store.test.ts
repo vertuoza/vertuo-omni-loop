@@ -27,7 +27,7 @@ describe('the store, on its fake', () => {
     const store = fakeStageStore();
     await store.recordStages([rec(7, 'prd', 1, { repository: 'Acme/Widgets' })], at(1));
     expect(await store.stagesOf({ workspace_id: W, repository: 'ACME/widgets', prd: 7 })).toHaveLength(1);
-    expect(store.stages[0].repository).toBe('acme/widgets');
+    expect(store.stages[0]!.repository).toBe('acme/widgets');
   });
 
   it('gives the current stage of each PRD, the latest on the track, and counts them, for a set of PRDs or all', async () => {

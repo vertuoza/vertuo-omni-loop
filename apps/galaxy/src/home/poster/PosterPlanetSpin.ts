@@ -23,7 +23,7 @@ export function planetMoves(win: { matchMedia?: (query: string) => { matches: bo
 /** The planet at second `t`: its turn (radians) and how much of it is secured. */
 export function planetAt(t: number): { rot: number; progress: number } {
   const step = Math.floor(t / PLANET_STEP_SECONDS) % PLANET_PROGRESS.length;
-  return { rot: (t / PLANET_TURN_SECONDS) * Math.PI * 2, progress: PLANET_PROGRESS[step] };
+  return { rot: (t / PLANET_TURN_SECONDS) * Math.PI * 2, progress: PLANET_PROGRESS[step]! };
 }
 
 /** What the loop needs from the browser: a clock, frames, and the page's visibility. */

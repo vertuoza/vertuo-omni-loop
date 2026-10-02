@@ -4,6 +4,7 @@
 // workspace's rows to its members. A PRD is a workspace, a repository (kept in lower case) and an issue
 // number. A write replaces the PRD's counts. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
 
 const TABLE = 'prd_outbox';
@@ -30,13 +31,13 @@ const RANKS = new Set(['human-action', 'high']);
 export function waitingOf(value: unknown): WaitingQuestion[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((raw): WaitingQuestion[] => {
-    const item = (raw ?? {}) as Record<string, unknown>;
+    const item = (raw ?? {}) as Record<string, unknown>; // ts-allow: each field is checked on the next line
     if (typeof item.id !== 'string' || typeof item.question !== 'string' || typeof item.rank !== 'string' || !RANKS.has(item.rank)) return [];
-    return [{ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }];
+    return [{ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }]; // ts-allow: RANKS holds only the waiting ranks, checked above
   });
 }
 
-export function prdOutboxStore(db: Pick<SupabaseClient, 'from'>): PrdOutboxStore {
+export function prdOutboxStore(db: Pick<SupabaseClient<Database>, 'from'>): PrdOutboxStore {
   return {
     async record(rows, syncedAt = new Date().toISOString()) {
       if (rows.length === 0) return;
@@ -56,7 +57,7 @@ export function prdOutboxStore(db: Pick<SupabaseClient, 'from'>): PrdOutboxStore
       const { data, error } = await db.from(TABLE).select('repository, prd, open_questions, waiting')
         .eq('workspace_id', workspace).in('prd', numbers);
       settle('read the outboxes', error);
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
+      for (const row of data ?? []) {
         const key = prdKey({ repository: String(row.repository), prd: Number(row.prd) });
         if (!wanted.has(key)) continue;
         counts.set(key, { open_questions: Number(row.open_questions) || 0, waiting: waitingOf(row.waiting) });

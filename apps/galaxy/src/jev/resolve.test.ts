@@ -183,7 +183,7 @@ describe('decide', () => {
     const { d, logged } = deps();
     const got = await decide(d, { workspace: W, entry: colour, input: 'x', old: async () => { throw new Error('haiku down'); }, ref: 'round:r1' });
     expect(got).toMatchObject({ value: 'blue', decidedBy: 'jev' });
-    expect(logged[0][1]).toMatchObject({ oldAnswer: null, counted: 'blue' });
+    expect(logged[0]![1]).toMatchObject({ oldAnswer: null, counted: 'blue' });
     spy.mockRestore();
   });
 

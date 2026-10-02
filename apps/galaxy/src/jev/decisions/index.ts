@@ -55,5 +55,5 @@ const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.fr
 
 /** The decision's registry entry, or null when it has none (yet). */
 export function jevEntry(name: string): JevDecisionEntry<unknown, unknown> | null {
-  return Object.hasOwn(REGISTRY, name) ? REGISTRY[name] : null;
+  return Object.hasOwn(REGISTRY, name) ? REGISTRY[name]! : null;
 }

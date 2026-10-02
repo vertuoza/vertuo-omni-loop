@@ -83,7 +83,7 @@ export class FakeProofWorld {
           .map(({ workspace: _, ...row }) => row);
       },
       async links(paths, seconds) {
-        return paths.map((p) => (world.files.has(p) && world.reads(workspaces, p.split('/')[0]) ? `https://storage.test/sign/${p}?ttl=${seconds}` : null));
+        return paths.map((p) => (world.files.has(p) && world.reads(workspaces, p.split('/')[0]!) ? `https://storage.test/sign/${p}?ttl=${seconds}` : null));
       },
     };
     return {

@@ -1,9 +1,9 @@
 import 'server-only';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
+import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import type { KnowledgeGraph } from './knowledge';
 
 // The knowledge map's data (PRD 149): the knowledge of the checkout the app is deployed from, read at
@@ -30,8 +30,8 @@ export function loadKnowledge({ cwd = process.cwd(), log = console.error }: { cw
     // repository. next.config.mjs traces the files the kit reads here.
     const folder = join(/*turbopackIgnore: true*/ root, ctx.layout.knowledgeRoot);
     if (!existsSync(/*turbopackIgnore: true*/ folder)) return outOfReach(`${ctx.layout.knowledgeRoot} is missing in ${root}`);
-    return readGraph({ ctx }) as KnowledgeGraph;
+    return readGraph({ ctx }) as KnowledgeGraph; // ts-allow: the kit's one parser reads the folder; the map reads its graph's narrower view
   } catch (err) {
-    return outOfReach(err instanceof Error ? err.message.split('\n')[0] : String(err));
+    return outOfReach(err instanceof Error ? err.message.split('\n')[0]! : String(err)); // ts-allow: split always yields a first part
   }
 }

@@ -136,7 +136,7 @@ type Called = { data: unknown; error: { message: string; code?: string } | null 
 /** The one thing each half asks of a Supabase client acting as nobody (the anon key). */
 export type TokenClient = {
   auth: { refreshSession(current: { refresh_token: string }): Promise<Refreshed> };
-  rpc(fn: string, args: Record<string, unknown>): PromiseLike<Called>;
+  rpc(fn: 'ask_cli_code_redeem', args: { p_code_hash: string }): PromiseLike<Called>;
 };
 
 export type TokenDeps = {

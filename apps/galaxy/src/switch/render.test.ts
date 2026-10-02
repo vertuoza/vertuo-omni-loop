@@ -120,8 +120,8 @@ describe('the stylesheets', () => {
   it('dims the page behind the Game mode dialog with the ground\'s colour on Omni, as on dark', () => {
     const css = readFileSync(new URL('./switch.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const onGround = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter((m) => m[2].includes('background: var(--ask-ground);'))
-      .flatMap((m) => m[1].split(',').map((one) => one.trim()));
+      .filter((m) => m[2]!.includes('background: var(--ask-ground);'))
+      .flatMap((m) => m[1]!.split(',').map((one) => one.trim()));
     for (const theme of ['omni', 'dark']) expect(onGround, theme).toContain(`.ask[data-ask-theme='${theme}'] .game-mode-dialog::backdrop`);
     expect(onGround.join()).not.toContain("data-ask-theme='light'");
   });

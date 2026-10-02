@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Folds game ledger events into the galaxy view the arcade UI draws, plus a demo world.",
   "exports": {
-    ".": { "types": "./src/index.d.ts", "default": "./src/index.mjs" }
+    ".": { "types": "./src/index.d.ts", "default": "./src/index.ts" }
   },
   "dependencies": {
     "vertuo-omni-plan": "workspace:*"

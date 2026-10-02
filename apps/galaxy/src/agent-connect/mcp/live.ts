@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { after } from 'next/server';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { serviceDb } from '../../data/sign-in-live';
 import { supabaseEnv } from '../../data/supabase-server';
 import { jevDecideDeps } from '../../jev/resolve-live';
@@ -20,7 +21,7 @@ import type { McpDeps } from './server';
 export function mcpDeps(env: Record<string, string | undefined> = process.env): McpDeps {
   const supabase = supabaseEnv();
   if (!supabase) return { connect: null };
-  const connect = () => createClient(supabase.url, supabase.key, {
+  const connect = () => createClient<Database>(supabase.url, supabase.key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   const jev = jevDecideDeps(env);

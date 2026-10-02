@@ -12,10 +12,10 @@ import { QUESTIONS_TABS, SETTINGS_TABS, withCounts } from './section-tabs.ts';
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
   attrs: m[1],
-  href: /href="([^"]*)"/.exec(m[1])?.[1],
-  current: /aria-current="page"/.test(m[1]),
-  name: /aria-label="([^"]*)"/.exec(m[1])?.[1] ?? text(m[2]),
-  text: text(m[2]),
+  href: /href="([^"]*)"/.exec(m[1]!)?.[1],
+  current: /aria-current="page"/.test(m[1]!),
+  name: /aria-label="([^"]*)"/.exec(m[1]!)?.[1] ?? text(m[2]!),
+  text: text(m[2]!),
 }));
 
 describe('the settings tabs', () => {
@@ -60,19 +60,19 @@ describe('the Questions tabs', () => {
 
   it('carry questions − shared on Open questions and shared on Shared with me, spoken with the name', () => {
     const [open, shared, history] = links(render('/ask', 5, 2));
-    expect(open.text).toBe('Open questions 3');
-    expect(open.name).toBe('Open questions: 3 waiting');
-    expect(shared.text).toBe('Shared with me 2');
-    expect(shared.name).toBe('Shared with me: 2 waiting');
-    expect(history.text).toBe('History');
-    expect(history.attrs).not.toContain('aria-label');
+    expect(open!.text).toBe('Open questions 3');
+    expect(open!.name).toBe('Open questions: 3 waiting');
+    expect(shared!.text).toBe('Shared with me 2');
+    expect(shared!.name).toBe('Shared with me: 2 waiting');
+    expect(history!.text).toBe('History');
+    expect(history!.attrs).not.toContain('aria-label');
   });
 
   it('show no count at 0', () => {
     const [open, shared] = links(render('/ask', 2, 2));
-    expect(open.text).toBe('Open questions');
-    expect(open.attrs).not.toContain('aria-label');
-    expect(shared.text).toBe('Shared with me 2');
+    expect(open!.text).toBe('Open questions');
+    expect(open!.attrs).not.toContain('aria-label');
+    expect(shared!.text).toBe('Shared with me 2');
     expect(links(render('/ask')).map((l) => l.text)).toEqual(['Open questions', 'Shared with me', 'History']);
     expect(render('/ask')).not.toContain('section-tabs-count');
   });

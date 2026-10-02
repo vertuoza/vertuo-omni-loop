@@ -17,11 +17,12 @@
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
 import { belongsTo, type SignupDeps } from '../signup/installation';
 import { joinLogins, type GithubAccount } from './github-orgs';
 
-type Rpc = Pick<SupabaseClient, 'rpc'>;
+type Rpc = Pick<SupabaseClient<Database>, 'rpc'>;
 
 /** The new session, as far as joining needs it: whose it is, and GitHub's token when Supabase handed one. */
 export type SignedIn = { user: { id: string }; provider_token?: string | null };
@@ -83,7 +84,7 @@ export async function linkGithub(db: Rpc): Promise<Linked> {
   try {
     const { data, error } = await db.rpc('link_github');
     if (error) return { login: null, error: error.message };
-    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null };
+    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null }; // ts-allow: link_github() answers JSON holding the login it linked
   } catch (err) {
     return { login: null, error: err instanceof Error ? err.message : String(err) };
   }

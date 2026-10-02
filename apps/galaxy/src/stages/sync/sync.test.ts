@@ -37,7 +37,7 @@ function deps(more: Partial<SyncDeps> = {}, repos: Record<string, string[]> = { 
     snapshot: async (_w, repo) => {
       const s = snapshots[repo];
       if (s instanceof Error) throw s;
-      return s;
+      return s!;
     },
     store,
     now: () => NOW,

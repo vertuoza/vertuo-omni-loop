@@ -53,7 +53,7 @@ describe('the Questions pages start with their tabs', () => {
     expect(tabsOf(await ForMePage(query))).toBe('/ask/for-me');
     given.read = { kind: 'entries', entries: [] };
     const parts = partsOf(await ForMePage(query));
-    expect(parts[0].type).toBe(QuestionsTabs);
+    expect(parts[0]!.type).toBe(QuestionsTabs);
     expect(parts).toHaveLength(2);
   });
 

@@ -32,13 +32,13 @@ describe('a week', () => {
 
   it('holds a release made at 23:30 UTC on a Sunday in the next week: it is Monday in Brussels', () => {
     const [week] = weeksOf([row(262, 2, '2026-09-27T23:30:00+00:00')]);
-    expect(week.monday).toEqual({ year: 2026, month: 9, day: 28, weekday: 0 });
-    expect(week.releases[0].day).toEqual({ year: 2026, month: 9, day: 28, weekday: 0 });
+    expect(week!.monday).toEqual({ year: 2026, month: 9, day: 28, weekday: 0 });
+    expect(week!.releases[0]!.day).toEqual({ year: 2026, month: 9, day: 28, weekday: 0 });
   });
 
   it('holds a release made at 21:30 UTC on a Sunday in its own week: it is still Sunday in Brussels', () => {
     const [week] = weeksOf([row(262, 2, '2026-09-27T21:30:00+00:00')]);
-    expect(week.monday).toEqual({ year: 2026, month: 9, day: 21, weekday: 0 });
+    expect(week!.monday).toEqual({ year: 2026, month: 9, day: 21, weekday: 0 });
   });
 });
 
@@ -55,15 +55,15 @@ describe('the releases', () => {
       row(216, 1, '2026-09-27T13:29:53+00:00'),
       row(28, 1, '2026-09-25T13:17:33+00:00'),
     ]);
-    expect(initial.release).toBe(1);
-    expect(initial.releasedAt).toBe('2026-09-27T13:29:53+00:00');
-    expect(initial.day).toEqual({ year: 2026, month: 9, day: 27, weekday: 6 });
-    expect(initial.lines.map((l) => l.prd)).toEqual([3, 28, 141, 216]);
+    expect(initial!.release).toBe(1);
+    expect(initial!.releasedAt).toBe('2026-09-27T13:29:53+00:00');
+    expect(initial!.day).toEqual({ year: 2026, month: 9, day: 27, weekday: 6 });
+    expect(initial!.lines.map((l) => l.prd)).toEqual([3, 28, 141, 216]);
   });
 
   it('keep every word of their rows', () => {
     const only = row(262, 2, '2026-09-28T09:00:00+00:00', 'Everything we ship, in plain words');
-    expect(releasesOf([only])[0].lines).toEqual([only]);
+    expect(releasesOf([only])[0]!.lines).toEqual([only]);
   });
 });
 
@@ -84,7 +84,7 @@ describe('the weeks', () => {
 
   it('put a release that lands the same moment as another after it, the higher number first', () => {
     const weeks = weeksOf([row(300, 5, '2026-10-12T08:00:00+00:00'), row(301, 6, '2026-10-12T08:00:00+00:00')]);
-    expect(weeks[0].releases.map((r) => r.version)).toEqual(['0.0.6', '0.0.5']);
+    expect(weeks[0]!.releases.map((r) => r.version)).toEqual(['0.0.6', '0.0.5']);
   });
 
   it('count their releases and their PRDs', () => {

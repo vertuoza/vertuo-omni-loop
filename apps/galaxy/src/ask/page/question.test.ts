@@ -109,8 +109,8 @@ describe('For me', () => {
   it('carries the sharer\'s face: the directory\'s, else their initial (PRD 652)', () => {
     const hero = { kind: 'hero' as const, svg: '<svg></svg>' };
     const faced = MEMBERS.map((m) => (m.user_id === ADA ? { ...m, face: hero } : m));
-    expect(forMeList([row(round('r1', MIN))], faced, NOW)[0].sharedByFace).toEqual(hero);
-    expect(forMeList([row(round('r1', MIN), { sharedBy: DAN })], faced, NOW)[0].sharedByFace).toEqual({ kind: 'initial', letter: 'D' });
+    expect(forMeList([row(round('r1', MIN))], faced, NOW)[0]!.sharedByFace).toEqual(hero);
+    expect(forMeList([row(round('r1', MIN), { sharedBy: DAN })], faced, NOW)[0]!.sharedByFace).toEqual({ kind: 'initial', letter: 'D' });
   });
 
   it('leaves out a round answered, moved to the terminal, out of time, or in a closed session', () => {

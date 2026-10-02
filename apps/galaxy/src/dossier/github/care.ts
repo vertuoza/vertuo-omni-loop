@@ -87,7 +87,7 @@ const VERDICTS = new Set(['fixed', 'pushed-back', 'asked']);
 /** A comment's care verdict; null when it carries no marker, or an unknown one (then it is a person's). */
 export function careVerdictOf(body: string | null | undefined): Exclude<CareVerdict, 'open'> | null {
   const found = MARKER.exec(body ?? '')?.[1];
-  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null;
+  return found && VERDICTS.has(found) ? (found as Exclude<CareVerdict, 'open'>) : null; // ts-allow: VERDICTS holds only these verdicts
 }
 
 const FAILED_RUN = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
@@ -119,13 +119,13 @@ type CareComment = z.infer<typeof Comment>;
 /** What a thread shows of its first comment: who opened it and its first line. */
 function threadBaseOf(first: CareComment, resolved: boolean) {
   return { url: first.url, login: first.author?.login ?? 'ghost', avatar: first.author?.avatarUrl ?? null,
-    firstLine: (first.body ?? '').trim().split('\n')[0].trim(), resolved };
+    firstLine: (first.body ?? '').trim().split('\n')[0]!.trim(), resolved };
 }
 
 /** The verdict and reason of the last care reply, at `lastCare`: asked once a person spoke after it
  * or reopened the thread. */
 function repliedOf(comments: CareComment[], lastCare: number, resolved: boolean): Pick<CareThread, 'verdict' | 'reason'> {
-  const reply = comments[lastCare];
+  const reply = comments[lastCare]!;
   const marked = careVerdictOf(reply.body)!;
   const spokeAfter = lastCare < comments.length - 1;
   const reopened = !resolved && marked !== 'asked';
@@ -170,8 +170,8 @@ export function parseCare(data: unknown, statusMarker: string): CareState | null
     conflict: pull.mergeable === 'CONFLICTING' ? true : pull.mergeable === 'MERGEABLE' ? false : null,
     base: pull.baseRefName,
     threads,
-    watchingSince: line ? iso(line[1]) : null,
-    lastRound: line ? iso(line[2]) : null,
+    watchingSince: line ? iso(line[1]!) : null,
+    lastRound: line ? iso(line[2]!) : null,
   };
 }
 

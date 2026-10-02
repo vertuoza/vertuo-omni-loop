@@ -1,5 +1,5 @@
-import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.mjs';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 
@@ -248,7 +248,7 @@ export function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 const MINUTE = 60_000;

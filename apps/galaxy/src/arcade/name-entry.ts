@@ -52,7 +52,7 @@ export function nameReduce(s: NameState, a: NameAction): { state: NameState; sou
     }
     case 'spin': {
       const at = chars[slot] ? WHEEL.indexOf(chars[slot]) : a.dir > 0 ? -1 : 0;
-      chars[slot] = WHEEL[(at + a.dir + WHEEL.length) % WHEEL.length];
+      chars[slot] = WHEEL[(at + a.dir + WHEEL.length) % WHEEL.length]!;
       return { state: { chars, cursor: slot }, sound: 'tick' };
     }
     case 'move': {

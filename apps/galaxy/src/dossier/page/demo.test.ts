@@ -45,7 +45,7 @@ describe('the demo dossier\'s GitHub summary', () => {
 
   it('reads like a real outbox on the Outbox tab (PRD 251, s9): an answer pending, a medium adopted, and Send off, saying so', () => {
     const { outbox } = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'outbox', version: null }, NOW);
-    expect(outbox.open[1].pending).toMatchObject({ by: 'paula', where: 'on GitHub', counted: true });
+    expect(outbox.open[1]!.pending).toMatchObject({ by: 'paula', where: 'on GitHub', counted: true });
     expect(outbox.adopted.map((c) => [c.number, c.id])).toEqual([[3, 's2-01-poll-interval']]);
     expect(outbox).toMatchObject({ readOnly: false, sendOff: 'A demo outbox: Send is off here.' });
   });

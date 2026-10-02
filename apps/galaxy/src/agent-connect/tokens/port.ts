@@ -21,7 +21,7 @@ const ROUTE = '/api/agent-tokens';
 async function sent<T extends Record<string, unknown>>(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<(T & { ok: true }) | { ok: false; message: string }> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const answer = (await res.json().catch(() => null)) as (T & { error?: unknown }) | null;
+    const answer = (await res.json().catch(() => null)) as (T & { error?: unknown }) | null; // ts-allow: the route's own JSON; each caller checks its fields
     if (res.ok && answer) return { ...answer, ok: true };
     return { ok: false, message: typeof answer?.error === 'string' ? answer.error : COULD_NOT };
   } catch {

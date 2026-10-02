@@ -19,7 +19,7 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it (code, hint, message), or anything thrown. */
 export function refusalOf(error: unknown): Refusal {
-  const { code, hint, message } = (error ?? {}) as { code?: unknown; hint?: unknown; message?: unknown };
+  const { code, hint, message } = (error ?? {}) as { code?: unknown; hint?: unknown; message?: unknown }; // ts-allow: anything thrown is read for these three fields, each checked below
   if (code === '42501') return { field: 'form', message: NOT_OWNER };
   if (code === 'P0002') return { field: 'form', message: GONE };
   if (code === '22023' && typeof message === 'string' && message) {

@@ -39,7 +39,7 @@ function history(filters: HistoryFilters = ALL, rows = ROWS, viewer: string | nu
 }
 
 const toggle = (html: string) =>
-  [...html.matchAll(/<a class="dossier-history-who"( aria-current="page")? href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[3], m[2].replaceAll('&amp;', '&'), Boolean(m[1])]);
+  [...html.matchAll(/<a class="dossier-history-who"( aria-current="page")? href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[3], m[2]!.replaceAll('&amp;', '&'), Boolean(m[1])]);
 
 describe('the filters', () => {
   it('are a GET form to the same page, a search and two picks, so they work before any script runs', () => {
@@ -117,7 +117,7 @@ describe('Mine and All', () => {
   });
 
   it('Mine lists only the viewer\'s dossiers', () => {
-    const rows = [...ROWS, { ...ROWS[1], id: '00000000-0000-4000-8000-0000000000d9', title: 'Paula\'s idea', opened_by: 'u-paula' }];
+    const rows = [...ROWS, { ...ROWS[1]!, id: '00000000-0000-4000-8000-0000000000d9', title: 'Paula\'s idea', opened_by: 'u-paula' }];
     const html = history({ who: 'mine' }, rows);
     expect(html).toContain('Offline quotes');
     expect(html).not.toContain('Paula&#x27;s idea');
@@ -230,14 +230,14 @@ describe('the open questions (PRD 251)', () => {
 describe('the stages (PRD 587)', () => {
   const ANSWERED = row('00000000-0000-4000-8000-0000000000d3', { title: 'Half answered', asked: 2, answered: 1, last_activity: '2026-09-19T09:00:00Z' });
   const rows = [...ROWS, ANSWERED];
-  const stages: CurrentStages = new Map([[stageKeyOf(ROWS[0]), 'building']]);
+  const stages: CurrentStages = new Map([[stageKeyOf(ROWS[0]!), 'building']]);
   const render = (filters: HistoryFilters) => renderToStaticMarkup(createElement(DossierHistory, {
     items: historyItems(rows, filters, 'u-pierre', new Map(), stages), choices: historyChoices(rows), filters,
     stages: historyStageBar(rows, filters, 'u-pierre', new Map(), stages),
   }));
   const bar = (html: string) =>
     [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? href="([^"]+)" style="text-decoration:none">([^<]+) <small>(\d+)<\/small><\/a>/g)]
-      .map((m) => [m[4], Number(m[5]), m[3].replaceAll('&amp;', '&'), m[1] === 'current']);
+      .map((m) => [m[4], Number(m[5]), m[3]!.replaceAll('&amp;', '&'), m[1] === 'current']);
 
   it('shows the bar above the list, the seven stages in order with their counts, each a link', () => {
     const html = render(ALL);

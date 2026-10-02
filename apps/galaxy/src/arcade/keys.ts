@@ -33,5 +33,5 @@ const ON_PAD: Record<string, string | null> = { ENTER: 'START', TAB: 'SELECT', '
  */
 export function hintKey(key: string, form: Form): string | null {
   if (form === 'full' || !(key in ON_PAD)) return key;
-  return ON_PAD[key];
+  return ON_PAD[key] ?? null;
 }

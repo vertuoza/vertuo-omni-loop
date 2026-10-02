@@ -8,8 +8,8 @@
 // answers shows that answer; a number only the second answers shows it too, marked as not counted,
 // so the tab can say `/omni:yolo-fix` will not read it. Where an answer was given comes from the
 // reply's door line (`_answered in the terminal · …`, `_answered on the Omni page · …`), else GitHub.
-import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.mjs';
-import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.mjs';
+import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
+import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
 import type { AnswerDoor, OutboxReplies, PendingAnswer } from './summary';
 
 /** A comment of the feature PR, as GitHub lists it. */
@@ -18,7 +18,7 @@ export type PrComment = {
 };
 
 /** The kit's markers, as `makeMarkers` builds them. */
-type Markers = object;
+type Markers = Parameters<typeof findPrMarkerComment>[1];
 
 /** An item as the kit's parser reads it; an adopted entry as the kit's ledger reader reads it. */
 export type KitItem = { id: string; rank: string; sections: Record<string, unknown> };
@@ -37,15 +37,15 @@ function doorOf(body: string | null | undefined): AnswerDoor {
 
 /** What the kit's reply reader decides: the answers it would settle and those it holds, by number. */
 function answersOf(plan: unknown): Map<number, Planned> {
-  const { settle, held } = plan as { settle: Planned[]; held: Planned[] };
+  const { settle, held } = plan as { settle: Planned[]; held: Planned[] }; // ts-allow: the kit planReplies answers these two lists
   return new Map([...settle, ...held].map((p) => [p.number, p]));
 }
 
 export function outboxReplies({ comments, items, adopted, markers }: {
   comments: PrComment[]; items: KitItem[]; adopted: KitAdopted[]; markers: Markers;
 }): OutboxReplies {
-  const prComment = findPrMarkerComment(comments as { id: number; body?: string }[], markers) as PrComment | null;
-  const numbering = (parseNumbersMarker(prComment?.body, markers) as { number: number; id: string }[])
+  const prComment = findPrMarkerComment(comments as { id: number; body?: string }[], markers) as PrComment | null; // ts-allow: GitHub's issue comments carry an id and a body; the marker comment is one of them
+  const numbering = (parseNumbersMarker(prComment?.body, markers) as { number: number; id: string }[]) // ts-allow: the numbers marker answers number and id pairs
     .map(({ number, id }) => ({ number, id }));
   const counted = answersOf(planReplies({ comments, items, adopted, markers }));
   // Every author counts here; a comment carrying an outbox marker is still never an answer.

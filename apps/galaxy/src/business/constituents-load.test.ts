@@ -30,8 +30,8 @@ function db({
   const query = (table: string) => {
     const q = {
       select: () => q,
-      in: (...a: unknown[]) => { calls.push(['in', table, ...a]); return answer(tables[table]); },
-      eq: () => answer(tables[table]),
+      in: (...a: unknown[]) => { calls.push(['in', table, ...a]); return answer(tables[table]!); },
+      eq: () => answer(tables[table]!),
     };
     return q;
   };

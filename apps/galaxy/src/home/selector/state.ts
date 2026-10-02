@@ -5,7 +5,7 @@
 import type { AppPick } from '../sign-up';
 
 /** The pedestals, left to right. */
-export const APPS: readonly AppPick[] = ['app', 'arcade'];
+export const APPS: readonly [AppPick, AppPick] = ['app', 'arcade'];
 
 export interface SelectorState {
   /** The pedestal under the ▼ P1 cursor. */
@@ -29,7 +29,7 @@ export function openSelector(): SelectorState {
   return { cursor: APPS[0], remember: false };
 }
 
-const move = (cursor: AppPick, by: number): AppPick => APPS[(APPS.indexOf(cursor) + by + APPS.length) % APPS.length];
+const move = (cursor: AppPick, by: number): AppPick => APPS[(APPS.indexOf(cursor) + by + APPS.length) % APPS.length] ?? cursor;
 
 const go = (state: SelectorState, pick: AppPick) =>
   ({ state: { ...state, cursor: pick }, effect: { type: 'go', pick, save: state.remember } as const });

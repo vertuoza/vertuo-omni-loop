@@ -1,0 +1,637 @@
+// PRD #324, slices s1, s4, s5 and s6: `omni statusline` through `main()` — Claude Code's JSON on
+// stdin, the session line out, then the PRD of the session's branch, else the one the session last
+// worked on, with its stage and, in the outbox, the slices of its cached board (or the no-PRD line)
+// where the loop is installed, exit 0 and nothing on stderr every time; and `--refresh <n>`, the
+// background half that builds the board with `gh` and writes it. The spawn is injected: no test here
+// starts a real refresh.
+import { execFile, execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { writeMode } from '../lib/ask/local-state.ts';
+import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.ts';
+import { makeRepo } from '../test/fixture.ts';
+import { COMMAND_TABLE } from './commands/index.ts';
+import { main } from './omni.ts';
+import type { ExecFileSyncOptions } from 'node:child_process';
+import { realExec } from '../test/fixture.ts';
+
+const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
+const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
+const NOW = Date.parse('2026-09-28T12:00:00Z');
+const MINUTE = 60_000;
+const YELLOW = '\x1b[33m';
+const RESET = '\x1b[0m';
+const PLAIN = { NO_COLOR: '1' };
+const NO_PRD = 'no PRD · /omni:brainstorm to start';
+const BAR = '█████░░░░░';
+
+/** Claude Code's JSON for a session in `dir`: 58.9 % of the context, 25.4 % of the 5-hour window, 90 minutes left. */
+function payload(dir: string, more = {}) {
+  return JSON.stringify({
+    session_id: 'abc',
+    cwd: dir,
+    model: { id: 'claude-opus-5-5', display_name: 'Opus 5.5' },
+    workspace: { current_dir: dir, project_dir: dir },
+    context_window: { used_percentage: 58.9 },
+    rate_limits: { five_hour: { used_percentage: 25.4, resets_at: (NOW + 90 * MINUTE) / 1000 } },
+    ...more,
+  });
+}
+
+/** `execFileSync`, with every call it runs recorded as `<file> <args…>`. */
+function recordingExec() {
+  const calls: string[] = [];
+  const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+    calls.push([file, ...args].join(' '));
+    return realExec(file, args, options);
+  };
+  return { calls, exec };
+}
+
+/** A spawn that starts nothing: it records each call as `{ command, args, options }`. */
+function recordingSpawn() {
+  const spawns: { command: string; args: readonly string[]; options: unknown }[] = [];
+  const spawn = (command: string, args: readonly string[], options: unknown) => {
+    spawns.push({ command, args, options });
+    return { unref() {}, on() { return this; } };
+  };
+  return { spawns, spawn };
+}
+
+/** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns }`. */
+async function statusline(cwd: string | undefined, stdin: string, options: Record<string, unknown> = {}, args: string[] = []) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const { calls, exec } = recordingExec();
+  const { spawns, spawn } = recordingSpawn();
+  const code = await main(['statusline', ...args], {
+    cwd: cwd as string,
+    stdout: { write: (s) => out.push(s) },
+    stderr: { write: (s) => err.push(s) },
+    exec,
+    env: PLAIN,
+    now: () => NOW,
+    stdin,
+    spawn,
+    ...options,
+  });
+  return { code, out: out.join(''), err: err.join(''), calls, spawns };
+}
+
+const neverFetches = (calls: any[]) => calls.every((call: string) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
+
+describe('omni statusline', () => {
+  it('is in the command table', () => {
+    expect(Object.keys(COMMAND_TABLE)).toContain('statusline');
+    expect(COMMAND_TABLE.statusline!.withoutContext).toBe(true);
+  });
+
+  it('prints the session line, then the no-PRD line, where the loop is installed', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    writeMode(root, { host: 'ask.example.test' });
+    const run = await statusline(root, payload(root));
+    expect(run).toMatchObject({
+      code: 0,
+      err: '',
+      out: `Opus 5.5 · context ${BAR} 58% · usage 25%, resets in 1h30 · ask on\n${NO_PRD}\n`,
+    });
+    expect(neverFetches(run.calls)).toBe(true);
+  });
+
+  it('colours the context bar and its percentage unless NO_COLOR is set', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const coloured = await statusline(root, payload(root), { env: {} });
+    expect(coloured.out).toBe(`Opus 5.5 · context ${YELLOW}${BAR} 58%${RESET} · usage 25%, resets in 1h30\n${NO_PRD}\n`);
+    const plain = await statusline(root, payload(root), { env: { NO_COLOR: '1' } });
+    expect(plain.out).not.toContain('\x1b');
+  });
+
+  it('reads the session folder from the JSON, not from where it runs', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const elsewhere = mkdtempSync(join(tmpdir(), 'omni-elsewhere-'));
+    expect((await statusline(elsewhere, payload(root))).out).toContain(`\n${NO_PRD}\n`);
+    expect((await statusline(root, payload(elsewhere))).out).not.toContain(NO_PRD);
+  });
+
+  it('leaves out the usage once its reset has passed, and `ask on` while ask mode is off', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const run = await statusline(root, payload(root), { now: () => NOW + 91 * MINUTE });
+    expect(run.out).toBe(`Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n`);
+  });
+
+  it('prints only line 1 in a repository with no config, and outside any repository', async () => {
+    const bare = makeRepo({ git: true });
+    const inBare = await statusline(bare.root, payload(bare.root));
+    expect(inBare).toMatchObject({ code: 0, err: '', out: `Opus 5.5 · context ${BAR} 58% · usage 25%, resets in 1h30\n` });
+    const outside = mkdtempSync(join(tmpdir(), 'omni-outside-'));
+    const nowhere = await statusline(outside, payload(outside));
+    expect(nowhere).toMatchObject({ code: 0, err: '', out: `Opus 5.5 · context ${BAR} 58% · usage 25%, resets in 1h30\n` });
+  });
+
+  it('prints `omni` for text that is not JSON, and for no text at all', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    for (const stdin of ['not json at all', '', '[1, 2]']) {
+      expect(await statusline(root, stdin)).toMatchObject({ code: 0, err: '', out: 'omni\n' });
+    }
+  });
+
+  it('prints `context —` early in a session, when Claude Code sends no percentage', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const run = await statusline(root, payload(root, { context_window: { used_percentage: null }, rate_limits: undefined }));
+    expect(run.out).toBe(`Opus 5.5 · context —\n${NO_PRD}\n`);
+  });
+
+  it('prints line 1 from the JSON alone when its reader throws', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    writeMode(root, { host: 'ask.example.test' });
+    const readFacts = () => {
+      throw new Error('the disk is gone');
+    };
+    const run = await statusline(root, payload(root), { readFacts });
+    expect(run).toMatchObject({ code: 0, err: '', out: `Opus 5.5 · context ${BAR} 58% · usage 25%, resets in 1h30\n` });
+  });
+
+  it('exits 0 with nothing on stderr when its output cannot be written', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const err: string[] = [];
+    const code = await main(['statusline'], {
+      cwd: root,
+      stdout: { write: () => { throw new Error('EPIPE'); } },
+      stderr: { write: (s) => err.push(s) },
+      env: PLAIN,
+      stdin: payload(root),
+      spawn: recordingSpawn().spawn,
+    });
+    expect({ code, err: err.join('') }).toEqual({ code: 0, err: '' });
+  });
+
+  it.each([40, 80, 200])('fits every line within COLUMNS=%i', async (columns: number) => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    writeMode(root, { host: 'ask.example.test' });
+    for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
+      const run = await statusline(root, payload(root), { env });
+      const lines = run.out.replace(/\x1b\[[0-9;]*m/g, '').split('\n').slice(0, -1);
+      expect(lines).toHaveLength(2);
+      for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
+      expect(lines[0]!.endsWith('…')).toBe(columns < 70);
+    }
+  });
+
+  it('reads COLUMNS as 80 when it is unset or not a number', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const long = payload(root, { model: { display_name: 'A model whose display name is long enough to push the line past eighty' } });
+    for (const env of [PLAIN, { ...PLAIN, COLUMNS: 'wide' }]) {
+      const [line] = (await statusline(root, long, { env })).out.split('\n');
+      expect([...line!].length).toBe(80);
+      expect(line!.endsWith('…')).toBe(true);
+    }
+  });
+
+  it('reads its stdin from the process when run as a command', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const run = await new Promise((resolve) => {
+      const child = execFile(process.execPath, [CLI, 'statusline'], { cwd: root, env: { ...process.env, NO_COLOR: '1', COLUMNS: '200' }, encoding: 'utf8' }, (error, stdout, stderr) => {
+        resolve({ code: error ? error.code : 0, stdout, stderr });
+      });
+      child.stdin!.end(payload(root, { rate_limits: undefined }));
+    });
+    expect(run).toEqual({ code: 0, stderr: '', stdout: `Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n` });
+  });
+});
+
+const DELIVERY = '.omni-loop/delivery';
+const LONG_TOPIC = 'statusline-for-claude-code';
+
+/** Runs git in `cwd` as a fixture author. */
+const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
+
+/** Writes `files` under `root` and commits them. */
+function commit(root: string, files: Record<string, string>, message = 'change') {
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', message);
+}
+
+/**
+ * A checkout cloned from a local bare repository whose default branch holds the shipped folder
+ * `0003-alpha` and the inbox folders `0007-bravo`, `0009-charlie` and `0013-<LONG_TOPIC>`, with the
+ * remote branches `feat/bravo` (a source file and two open items), `feat/charlie` (only its phase-0
+ * copy), `feat/<LONG_TOPIC>` (one open item and nothing else) and `docs/phase-0-delta` (the folder
+ * `0011-delta`, not on the default branch). `on(branch, start)` checks `branch` out in a worktree of
+ * its own and returns its folder.
+ */
+function originFixture() {
+  const seed = makeRepo({ git: true, files: CONFIG });
+  const withConfigOnly = git(seed.root, 'rev-parse', 'HEAD').trim();
+  const charlie = {
+    [`${DELIVERY}/inbox/0009-charlie/spec.md`]: '# charlie\n',
+    'acceptance/charlie.feature.pending': 'Feature: charlie\n',
+  };
+  commit(seed.root, {
+    [`${DELIVERY}/shipped/0003-alpha/spec.md`]: '# alpha\n',
+    [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n',
+    [`${DELIVERY}/inbox/0013-${LONG_TOPIC}/spec.md`]: '# long\n',
+    ...charlie,
+  }, 'the PRDs');
+  git(seed.root, 'checkout', '-q', '-b', 'feat/bravo');
+  commit(seed.root, {
+    'src/app.mjs': 'export const app = 1;\n',
+    [`${DELIVERY}/outbox/0007-bravo/s1-01-first.md`]: '# first\n',
+    [`${DELIVERY}/outbox/0007-bravo/s1-02-second.md`]: '# second\n',
+    [`${DELIVERY}/outbox/0007-bravo/settled.md`]: '# settled\n',
+    [`${DELIVERY}/outbox/0007-bravo/accounts/s1.md`]: '# account\n',
+  });
+  git(seed.root, 'checkout', '-q', '-b', `feat/${LONG_TOPIC}`, 'main');
+  commit(seed.root, { [`${DELIVERY}/outbox/0013-${LONG_TOPIC}/s1-01-only.md`]: '# only\n' });
+  git(seed.root, 'checkout', '-q', '-b', 'feat/charlie', withConfigOnly);
+  commit(seed.root, charlie, 'phase-0 copy');
+  git(seed.root, 'checkout', '-q', '-b', 'docs/phase-0-delta', 'main');
+  commit(seed.root, { [`${DELIVERY}/inbox/0011-delta/spec.md`]: '# delta\n' });
+  git(seed.root, 'checkout', '-q', 'main');
+
+  const bare = mkdtempSync(join(tmpdir(), 'omni-origin-'));
+  git(bare, 'init', '-q', '--bare', '-b', 'main');
+  git(seed.root, 'remote', 'add', 'origin', bare);
+  git(seed.root, 'push', '-q', 'origin', 'main', 'feat/bravo', 'feat/charlie', `feat/${LONG_TOPIC}`, 'docs/phase-0-delta');
+  const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
+  git(tmpdir(), 'clone', '-q', bare, root);
+  const on = (branch: any, start = 'origin/main') => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', branch, dir, start);
+    return dir;
+  };
+  return { root, on };
+}
+
+describe('omni statusline: line 2 names the PRD of the session branch', () => {
+  const fixture = originFixture();
+  const line2 = async (dir: string, options = {}) => {
+    const run = await statusline(dir, payload(dir), options);
+    expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(run.calls)).toBe(true);
+    return run.out.split('\n')[1];
+  };
+
+  it('names the slice, the stage and the open items on a slice branch', async () => {
+    expect(await line2(fixture.on('feat/bravo--s2', 'origin/feat/bravo'))).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
+  });
+
+  it('names the stage and the open items on the feature branch', async () => {
+    expect(await line2(fixture.on('feat/bravo', 'origin/feat/bravo'))).toBe('PRD 7 bravo · outbox · 2 open items');
+  });
+
+  it('reads inbox for a feature branch that is only its phase-0 copy', async () => {
+    expect(await line2(fixture.on('feat/charlie', 'origin/feat/charlie'))).toBe('PRD 9 charlie · inbox');
+  });
+
+  it('reads in review on a phase-0 branch whose folder is not on the default branch', async () => {
+    expect(await line2(fixture.on('docs/phase-0-delta', 'origin/docs/phase-0-delta'))).toBe('PRD 11 delta · in review');
+  });
+
+  it('reads shipped, and nothing after, on a branch naming a shipped PRD', async () => {
+    expect(await line2(fixture.on('feat/alpha'))).toBe('PRD 3 alpha · shipped');
+    expect(await line2(fixture.on('feat/alpha--s9'))).toBe('PRD 3 alpha · shipped');
+  });
+
+  it('reads outbox for open items alone, and says `1 open item`', async () => {
+    const dir = fixture.on(`feat/${LONG_TOPIC}--s4`, `origin/feat/${LONG_TOPIC}`);
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '200' } })).toBe(`PRD 13 ${LONG_TOPIC} · s4 · outbox · 1 open item`);
+  });
+
+  it('cuts the topic to 8 characters ending in `…` before anything else when the line is too wide', async () => {
+    const dir = fixture.on(`feat/${LONG_TOPIC}--s5`, `origin/feat/${LONG_TOPIC}`);
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '43' } })).toBe('PRD 13 statusl… · s5 · outbox · 1 open item');
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '40' } })).toBe('PRD 13 statusl… · s5 · outbox · 1 open …');
+  });
+
+  it('reads no PRD on the default branch, and on a branch whose topic has no folder', async () => {
+    expect(await line2(fixture.root)).toBe(NO_PRD);
+    expect(await line2(fixture.on('feat/zulu'))).toBe(NO_PRD);
+  });
+
+  it('reads the PRD from the session folder the JSON names, from anywhere in its checkout', async () => {
+    const dir = fixture.on('feat/bravo--s3', 'origin/feat/bravo');
+    const run = await statusline(fixture.root, payload(join(dir, 'src')));
+    expect(run.out.split('\n')[1]).toBe('PRD 7 bravo · s3 · outbox · 2 open items');
+  });
+});
+
+describe('omni statusline: line 2 names the PRD the session last worked on', () => {
+  const fixture = originFixture();
+  /** `omni <argv>` in `cwd`, run as Claude Code runs a command of the session `abc`: its exit code. */
+  const inSession = (argv: readonly string[], cwd: string) => main(argv, { cwd, stdout: { write() {} }, stderr: { write() {} }, env: { CLAUDE_CODE_SESSION_ID: 'abc' } });
+  const line2 = async (dir: string, more = {}) => {
+    const run = await statusline(dir, payload(dir, more));
+    expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(run.calls)).toBe(true);
+    return run.out.split('\n')[1];
+  };
+
+  it('names on the default branch the PRD the latest command of the session named', async () => {
+    expect(await line2(fixture.root)).toBe(NO_PRD);
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 7 bravo · outbox · 2 open items');
+    expect(await inSession(['prd', '9'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 9 charlie · inbox');
+  });
+
+  it('reads a record written from a worktree, in the main checkout', async () => {
+    const worktree = fixture.on('scratch');
+    expect(await inSession(['prd', '3'], worktree)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 3 alpha · shipped');
+    expect(await line2(worktree)).toBe('PRD 3 alpha · shipped');
+  });
+
+  it('lets the branch win over the record', async () => {
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.on('feat/charlie', 'origin/feat/charlie'))).toBe('PRD 9 charlie · inbox');
+    expect(await line2(fixture.on('feat/zulu'))).toBe('PRD 7 bravo · outbox · 2 open items');
+  });
+
+  it('reads no PRD for a record whose PRD has no folder, and for a session with no record', async () => {
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root, { session_id: 'someone-else' })).toBe(NO_PRD);
+    expect(await line2(fixture.root, { session_id: '../abc' })).toBe(NO_PRD);
+    expect(await inSession(['prd', '42'], fixture.root)).toBe(1);
+    expect(await line2(fixture.root)).toBe(NO_PRD);
+  });
+});
+
+const SECOND = 1000;
+const iso = (ms: number) => new Date(ms).toISOString();
+
+describe('omni statusline: the slices, from a board refreshed in the background', () => {
+  const fixture = originFixture();
+  const slice = (id: string, wave: number, state: string) => ({ id, wave, state });
+  const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'claimed-stale'), slice('s5', 4, 'stuck')];
+  const WIDE = { ...PLAIN, COLUMNS: '200' };
+
+  /** PRD `prd`'s board in the fixture's main checkout, written `age` milliseconds before `NOW`. */
+  function plantBoard(prd: number, age: number, body: Record<string, unknown>) {
+    mkdirSync(join(fixture.root, BOARD_DIR), { recursive: true });
+    writeFileSync(boardFile(fixture.root, prd), JSON.stringify({ at: iso(NOW - age), ...body }));
+  }
+
+  /** Line 2 in `dir`, and the refreshes the run started; exit 0, nothing on stderr, no `gh`, no fetch. */
+  async function run(dir: string | undefined, env: Record<string, string> = WIDE) {
+    const result = await statusline(dir, payload(dir as string), { env });
+    expect({ code: result.code, err: result.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(result.calls)).toBe(true);
+    return { line: result.out.split('\n')[1], spawns: result.spawns };
+  }
+
+  it('shows the wave, the slices merged, in flight and stuck, after the stage and before the open items', async () => {
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s6', 'origin/feat/bravo');
+    expect(await run(dir)).toEqual({ line: 'PRD 7 bravo · s6 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items', spawns: [] });
+  });
+
+  it('colours the stuck count red, unless NO_COLOR is set', async () => {
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s7', 'origin/feat/bravo');
+    const { line } = await run(dir, { COLUMNS: '200' });
+    expect(line).toBe('PRD 7 bravo · s7 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, \x1b[31m1 stuck\x1b[0m · 2 open items');
+  });
+
+  it('reads `all slices merged` when every slice is merged', async () => {
+    plantBoard(7, 30 * SECOND, { slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'merged')] });
+    expect((await run(fixture.on('feat/bravo--s8', 'origin/feat/bravo'))).line).toBe('PRD 7 bravo · s8 · outbox · all slices merged · 2 open items');
+  });
+
+  it('reads outbox for a PRD git reads as inbox once its board shows a slice in flight', async () => {
+    plantBoard(9, 30 * SECOND, { slices: [slice('s1', 1, 'in-flight'), slice('s2', 2, 'blocked')] });
+    const dir = fixture.on('feat/charlie--s1', 'origin/feat/charlie');
+    expect(await run(dir)).toEqual({ line: 'PRD 9 charlie · s1 · outbox · wave 1 of 2 · 0/2 slices merged, 1 in flight', spawns: [] });
+    plantBoard(9, 30 * SECOND, { slices: [slice('s1', 1, 'runnable'), slice('s2', 2, 'blocked')] });
+    expect((await run(dir)).line).toBe('PRD 9 charlie · s1 · inbox');
+  });
+
+  it('starts one detached refresh in the session folder when the board is a minute old, and shows it meanwhile', async () => {
+    plantBoard(7, 60 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s9', 'origin/feat/bravo');
+    const { line, spawns } = await run(dir);
+    expect(line).toBe('PRD 7 bravo · s9 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
+    expect(spawns).toHaveLength(1);
+    const [{ command, args, options }] = spawns as [(typeof spawns)[number]];
+    expect(command).toBe(process.execPath);
+    expect(args).toEqual([CLI, 'statusline', '--refresh', '7']);
+    expect(options).toMatchObject({ cwd: dir, detached: true, stdio: 'ignore' });
+  });
+
+  it('shows the stage alone from a board 10 minutes old, or with no board, and starts one refresh', async () => {
+    plantBoard(7, 10 * 60 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s10', 'origin/feat/bravo');
+    expect(await run(dir)).toMatchObject({ line: 'PRD 7 bravo · s10 · outbox · 2 open items', spawns: [{ args: [CLI, 'statusline', '--refresh', '7'] }] });
+    const missing = fixture.on(`feat/${LONG_TOPIC}--s1`, `origin/feat/${LONG_TOPIC}`);
+    expect(await run(missing)).toMatchObject({ line: `PRD 13 ${LONG_TOPIC} · s1 · outbox · 1 open item`, spawns: [{ args: [CLI, 'statusline', '--refresh', '13'] }] });
+  });
+
+  it('starts none while a refresh holds the lock', async () => {
+    plantBoard(7, 5 * 60 * SECOND, { slices: FIVE });
+    writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    try {
+      expect((await run(fixture.on('feat/bravo--s11', 'origin/feat/bravo'))).spawns).toEqual([]);
+    } finally {
+      writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 2 * 60 * SECOND) }));
+    }
+    expect((await run(fixture.on('feat/bravo--s12', 'origin/feat/bravo'))).spawns).toHaveLength(1);
+  });
+
+  it('hides the slices after a failed refresh, and tries again 60 seconds after it', async () => {
+    plantBoard(7, 59 * SECOND, { error: 'gh: command not found' });
+    const dir = fixture.on('feat/bravo--s13', 'origin/feat/bravo');
+    expect(await run(dir)).toEqual({ line: 'PRD 7 bravo · s13 · outbox · 2 open items', spawns: [] });
+    plantBoard(7, 60 * SECOND, { error: 'gh: command not found' });
+    expect((await run(dir)).spawns).toHaveLength(1);
+  });
+
+  it('starts no refresh for a shipped PRD, a PRD in review, or no PRD', async () => {
+    for (const [dir, line] of [
+      [fixture.on('feat/alpha--s1'), 'PRD 3 alpha · shipped'],
+      [fixture.on('docs/phase-0-delta', 'origin/docs/phase-0-delta'), 'PRD 11 delta · in review'],
+      [fixture.root, NO_PRD],
+    ]) {
+      expect(await run(dir)).toEqual({ line, spawns: [] });
+    }
+  });
+
+  it('prints the plain status line for an argument it does not know', async () => {
+    const dir = fixture.on('feat/bravo--s14', 'origin/feat/bravo');
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    for (const args of [['--bogus'], ['7'], ['--json']]) {
+      const result = await statusline(dir, payload(dir), { env: WIDE }, args);
+      expect(result).toMatchObject({ code: 0, err: '', spawns: [] });
+      expect(result.out.split('\n')[1]).toBe('PRD 7 bravo · s14 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
+    }
+  });
+});
+
+describe('omni statusline --refresh <n>', () => {
+  const HOUR = 60 * MINUTE;
+  const PLAN = [
+    '# A plan',
+    '',
+    '| id | slice | territory | blocked by | wave |',
+    '| --- | --- | --- | --- | --- |',
+    '| s1 | Alpha | `a/` | — | 1 |',
+    '| s2 | Beta | `b/` | s1 | 2 |',
+    '| s3 | Gamma | `c/` | s1 | 2 |',
+    '| s4 | Delta | `d/` | s2 | 3 |',
+    '',
+  ].join('\n');
+  const FILES = {
+    '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n',
+    '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN,
+  };
+
+  /** A pull request of the feature `widgets`, as `gh pr list` returns one. */
+  function pr(number: number, slice: string, more = {}) {
+    return {
+      number,
+      title: slice,
+      headRefName: `feat/widgets--${slice}`,
+      baseRefName: 'feat/widgets',
+      state: 'OPEN',
+      isDraft: false,
+      mergedAt: null,
+      body: '',
+      labels: [],
+      updatedAt: iso(NOW - MINUTE),
+      createdAt: iso(NOW - 5 * MINUTE),
+      ...more,
+    };
+  }
+  const PRS = [
+    pr(1, 's1', { state: 'MERGED', mergedAt: iso(NOW - HOUR) }),
+    pr(2, 's2', { isDraft: true }),
+    pr(3, 's3', { labels: [{ name: 'omni:needs-fix' }] }),
+  ];
+
+  /** `execFileSync` for git, and a stub for `gh`: `pr list` returns `prs`, and any `gh` throws when `ghFails`. */
+  function stubbedExec({ prs = PRS, ghFails = false } = {}) {
+    const calls: string[] = [];
+    const exec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+      calls.push([file, ...args].join(' '));
+      if (file !== 'gh') return realExec(file, args, options);
+      if (ghFails) throw new Error('spawnSync gh ENOENT\n    at stub');
+      if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
+      if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ commits: [] });
+      throw new Error(`unexpected gh ${args.join(' ')}`);
+    };
+    return { calls, exec };
+  }
+
+  /** `omni statusline --refresh <prd>` in `cwd`: `{ code, out, err, calls }`. */
+  async function refresh(cwd: string, prd = '7', stub = stubbedExec()) {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await main(['statusline', '--refresh', prd], {
+      cwd,
+      stdout: { write: (s) => out.push(s) },
+      stderr: { write: (s) => err.push(s) },
+      exec: stub.exec,
+      env: { ...PLAIN, CLAUDE_CODE_SESSION_ID: 'abc' },
+      now: () => NOW,
+      stdin: '',
+      spawn: () => {
+        throw new Error('a refresh starts no process');
+      },
+    });
+    return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
+  }
+
+  const readBoardJson = (root: string, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8'));
+
+  it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const run = await refresh(root);
+    expect(run).toMatchObject({ code: 0, out: '', err: '' });
+    expect(readBoardJson(root)).toEqual({
+      at: iso(NOW),
+      slices: [
+        { id: 's1', wave: 1, state: 'merged' },
+        { id: 's2', wave: 2, state: 'in-flight' },
+        { id: 's3', wave: 2, state: 'stuck' },
+        { id: 's4', wave: 3, state: 'blocked' },
+      ],
+    });
+    expect(existsSync(lockFile(root, 7))).toBe(false);
+    expect(run.calls.filter((call) => call.startsWith('gh '))).toEqual([
+      'gh pr list --repo acme/widgets --json number,title,headRefName,baseRefName,state,isDraft,mergedAt,body,labels,updatedAt,createdAt --state all --limit 200 --base feat/widgets',
+    ]);
+    expect(readFileSync(join(root, '.omni-loop/local/.gitignore'), 'utf8')).toBe('*\n');
+    expect(existsSync(join(root, '.omni-loop/local/sessions'))).toBe(false);
+  });
+
+  it('writes nothing and exits 0 while another refresh holds the lock', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    const run = await refresh(root);
+    expect(run).toMatchObject({ code: 0, out: '', err: '' });
+    expect(existsSync(boardFile(root, 7))).toBe(false);
+    expect(existsSync(lockFile(root, 7))).toBe(true);
+    expect(run.calls.some((call) => call.startsWith('gh '))).toBe(false);
+  });
+
+  it('takes over a lock 2 minutes old', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 2 * MINUTE) }));
+    expect((await refresh(root)).code).toBe(0);
+    expect(readBoardJson(root).slices).toHaveLength(4);
+    expect(existsSync(lockFile(root, 7))).toBe(false);
+  });
+
+  it('writes the error entry when gh fails, when there is no plan, or no such PRD', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, '.omni-loop/delivery/inbox/0009-nothing/spec.md': '# nothing\n' } });
+    expect((await refresh(root, '7', stubbedExec({ ghFails: true }))).code).toBe(0);
+    expect(readBoardJson(root)).toEqual({ at: iso(NOW), error: 'spawnSync gh ENOENT' });
+    expect((await refresh(root, '9')).code).toBe(0);
+    expect(readBoardJson(root, 9)).toEqual({ at: iso(NOW), error: 'omni board: no plan at .omni-loop/delivery/inbox/0009-nothing/plan.md.' });
+    expect((await refresh(root, '42')).code).toBe(0);
+    expect(readBoardJson(root, 42)).toEqual({ at: iso(NOW), error: 'omni board: PRD 42 has no inbox or shipped folder.' });
+    for (const prd of [7, 9, 42]) expect(existsSync(lockFile(root, prd))).toBe(false);
+  });
+
+  it('writes the board in the main checkout when run from a worktree', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', 'feat/widgets--s2', worktree);
+    expect((await refresh(worktree)).code).toBe(0);
+    expect(readBoardJson(root).slices).toHaveLength(4);
+    expect(existsSync(join(worktree, '.omni-loop/local'))).toBe(false);
+  });
+
+  it('writes nothing and exits 0 for a PRD that is not a positive integer, or outside any repository', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    for (const prd of ['seven', '0', '-7', '']) {
+      expect(await refresh(root, prd)).toMatchObject({ code: 0, out: '', err: '' });
+    }
+    expect(existsSync(join(root, '.omni-loop/local'))).toBe(false);
+    const outside = mkdtempSync(join(tmpdir(), 'omni-outside-'));
+    expect(await refresh(outside)).toMatchObject({ code: 0, out: '', err: '' });
+    expect(existsSync(join(outside, '.omni-loop'))).toBe(false);
+  });
+
+  it('is what the status line shows next', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const bare = mkdtempSync(join(tmpdir(), 'omni-origin-'));
+    git(bare, 'init', '-q', '--bare', '-b', 'main');
+    git(root, 'remote', 'add', 'origin', bare);
+    git(root, 'push', '-q', 'origin', 'main');
+    git(root, 'fetch', '-q', 'origin');
+    git(root, 'checkout', '-q', '-b', 'feat/widgets--s4');
+    expect((await refresh(root)).code).toBe(0);
+    const shown = await statusline(root, payload(root), { env: { ...PLAIN, COLUMNS: '200' } });
+    expect(shown.out.split('\n')[1]).toBe('PRD 7 widgets · s4 · outbox · wave 2 of 3 · 1/4 slices merged, 1 in flight, 1 stuck');
+    expect(shown.spawns).toEqual([]);
+    expect(neverFetches(shown.calls)).toBe(true);
+  });
+});

@@ -60,7 +60,10 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
     <form className="business-type agent-question-answer" onSubmit={submit}>
       <label>
         <span className="business-type-label">Kind</span>
-        <select name="kind" value={answering.kind} disabled={busy} onChange={(e) => on.kind(e.currentTarget.value as ClaimKind)}>
+        <select
+          name="kind" value={answering.kind} disabled={busy}
+          onChange={(e) => on.kind(e.currentTarget.value as ClaimKind)} // ts-allow: the select offers only KIND_ORDER's kinds
+        >
           {KIND_ORDER.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>
       </label>

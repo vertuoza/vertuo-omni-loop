@@ -169,7 +169,7 @@ describe('the poster', () => {
     expect(html).not.toContain('home-signup-hint');
     const slots = [...html.matchAll(/<span\b[^>]*data-sign-up-hint=""[^>]*>([\s\S]*?)<\/span>/g)];
     expect(slots).toHaveLength(2);
-    for (const [, inner] of slots) expect(text(inner)).toBe('SIGN UP WITH GITHUB');
+    for (const [, inner] of slots) expect(text(inner ?? '')).toBe('SIGN UP WITH GITHUB');
   });
 
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
@@ -218,7 +218,7 @@ describe('the spreads', () => {
 
   it('come under the poster, in the spec\'s order, each under its own h2', async () => {
     const html = await render();
-    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h));
+    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h!));
     expect(heads).toEqual(HEADS);
     expect(html.indexOf('<h2')).toBeGreaterThan(html.indexOf('</h1>'));
   });

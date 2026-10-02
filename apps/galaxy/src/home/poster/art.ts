@@ -45,12 +45,17 @@ const hex = (v: number) => v.toString(16).padStart(2, '0');
  * server there is no canvas, so for the length of the call it is handed one that keeps the pixels.
  */
 export function planetPixels(progress: number): PixelGrid {
-  const g = globalThis as { OffscreenCanvas?: unknown };
+  const g = globalThis as { OffscreenCanvas?: unknown }; // ts-allow: globalThis is lent an OffscreenCanvas for the call, and given its own back after
   const had = Object.hasOwn(g, 'OffscreenCanvas');
   const before = g.OffscreenCanvas;
   class Keeper {
     image: ImageData | null = null;
-    constructor(readonly width: number, readonly height: number) {}
+    readonly width: number;
+    readonly height: number;
+    constructor(width: number, height: number) {
+      this.width = width;
+      this.height = height;
+    }
     getContext() {
       return {
         createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
@@ -62,16 +67,16 @@ export function planetPixels(progress: number): PixelGrid {
   g.OffscreenCanvas = Keeper;
   try {
     const onto = { drawImage: (canvas: Keeper) => { drawn = canvas; } };
-    drawPlanet(onto as unknown as CanvasRenderingContext2D, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress });
+    drawPlanet(onto as unknown as CanvasRenderingContext2D, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress }); // ts-allow: drawPlanet calls only drawImage, which this stand-in has
   } finally {
     if (had) g.OffscreenCanvas = before; else delete g.OffscreenCanvas;
   }
-  const image = (drawn as Keeper | null)?.image;
+  const image = (drawn as Keeper | null)?.image; // ts-allow: TypeScript narrows drawn to null, but drawImage sets it during the call
   if (!image) throw new Error('planetPixels: drawPlanet drew nothing');
   const { width: w, height: h, data } = image;
   const pixels: (string | null)[] = [];
   for (let i = 0; i < data.length; i += 4) {
-    pixels.push(data[i + 3] < 128 ? null : `#${hex(data[i])}${hex(data[i + 1])}${hex(data[i + 2])}`);
+    pixels.push(data[i + 3]! < 128 ? null : `#${hex(data[i]!)}${hex(data[i + 1]!)}${hex(data[i + 2]!)}`);
   }
   return { w, h, pixels };
 }
@@ -100,7 +105,7 @@ export function starfieldSvg(): string {
       paths.set(this.fillStyle, list);
     },
   };
-  drawStarfield(ctx as unknown as CanvasRenderingContext2D, makeStarfield(seed, w, h, count), 0, { w, h });
+  drawStarfield(ctx as unknown as CanvasRenderingContext2D, makeStarfield(seed, w, h, count), 0, { w, h }); // ts-allow: drawStarfield calls only what this stand-in has
   stars = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" aria-hidden="true">${
     [...paths].map(([fill, d]) => `<path fill="${fill}" d="${d.join('')}"/>`).join('')
   }</svg>`;

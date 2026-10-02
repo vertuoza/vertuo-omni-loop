@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { startGithubSignIn } from '../../data/sign-in-github';
+import type { Database } from '../../../../../supabase/database.types';
 
 // Signed out on an ask page: the galaxy's GitHub sign-in (PRD 359; src/data/sign-in-github.ts),
 // coming back to `returnPath`, which exchanges the code and goes back to the page
@@ -45,7 +46,7 @@ export function SwitchAccount({ supabase }: { supabase: Supabase }) {
   const [busy, setBusy] = useState(false);
   async function switchAccount() {
     setBusy(true);
-    await createBrowserClient(supabase.url, supabase.key).auth.signOut();
+    await createBrowserClient<Database>(supabase.url, supabase.key).auth.signOut();
     window.location.reload();
   }
   return (

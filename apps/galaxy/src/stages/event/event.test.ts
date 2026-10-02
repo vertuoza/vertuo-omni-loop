@@ -58,7 +58,7 @@ describe('the stage event route', () => {
     await post(event({ at: '2026-09-30T10:00:00Z' }));
     expect(store.writes.length).toBe(writes);
     expect(store.stages).toHaveLength(1);
-    expect(store.stages[0].reached_at).toBe('2026-09-29T10:00:00Z');
+    expect(store.stages[0]!.reached_at).toBe('2026-09-29T10:00:00Z');
   });
 
   it('answers 401 and writes nothing to a bad, missing or foreign signature', async () => {

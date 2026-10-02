@@ -5,12 +5,16 @@
 // browser's session storage (a convenience only: without it, the picks simply stay after a posted send).
 // Back on the tab with `?send=<id>`, a posted send drops those picks, since its answers now show as
 // pending; a failed one keeps every pick. `?send_error=<code>` says why the callback touched nothing.
+import { z } from 'zod';
 import { isSendError, type SendErrorCode } from './sent';
 
 /** Where the tab keeps the send it is waiting on. */
 export const sendingKey = (dossierId: string) => `omni-outbox-sending:${dossierId}`;
 
 export type Sending = { send: string; numbers: number[] };
+
+/** A kept send as its writer stores it: the send, and the numbers it answered, each checked below. */
+const KeptSending = z.object({ send: z.string(), numbers: z.array(z.unknown()) });
 
 /** The kept send, as written by {@link sendingKey}'s writer; null when it is not `send`, or malformed. */
 export function readSending(stored: string | null, send: string): Sending | null {
@@ -20,9 +24,9 @@ export function readSending(stored: string | null, send: string): Sending | null
   } catch {
     return null;
   }
-  const value = data as Partial<Sending> | null;
-  if (!value || typeof value !== 'object' || value.send !== send || !Array.isArray(value.numbers)) return null;
-  const numbers = value.numbers.filter((n): n is number => Number.isInteger(n) && n > 0);
+  const kept = KeptSending.safeParse(data);
+  if (!kept.success || kept.data.send !== send) return null;
+  const numbers = kept.data.numbers.filter((n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0);
   return { send, numbers };
 }
 

@@ -28,7 +28,7 @@ function fixture(routes: Record<string, unknown>, fail: RegExp | null = null): {
       calls.push(route);
       if (fail?.test(route)) throw new Error(`GitHub answered 502 to ${route}`);
       const key = route.split('?')[0];
-      return key in routes ? routes[key] : null;
+      return key! in routes ? routes[key!] : null;
     },
   };
 }

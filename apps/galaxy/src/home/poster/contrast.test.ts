@@ -23,7 +23,7 @@ describe('the poster text on the ad purple', () => {
 
   it.each(POSTER_TEXT)('$selector is --$colour and scores at least 4.5', ({ selector, colour }) => {
     expect(colours[colour], `--${colour} is a token`).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(contrast(colours[colour], colours[POSTER_BACKGROUND])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colours[colour]!, colours[POSTER_BACKGROUND]!)).toBeGreaterThanOrEqual(4.5);
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const body = new RegExp(`\\n${escaped} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
     expect(body, selector).toContain(`color: var(--${colour});`);
@@ -51,7 +51,7 @@ describe('the SELECT YOUR APP overlay\'s text', () => {
   it.each(SELECTOR_TEXT)('$selector is --$colour on --$on and scores at least 4.5', ({ selector, colour, on }) => {
     expect(colours[colour], `--${colour} is a token`).toMatch(/^#[0-9a-f]{6}$/i);
     expect(colours[on], `--${on} is a token`).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(contrast(colours[colour], colours[on])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colours[colour] ?? '', colours[on] ?? '')).toBeGreaterThanOrEqual(4.5);
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const body = new RegExp(`\\n${escaped} \\{([^}]*)\\}`).exec(selectorCss)?.[1] ?? '';
     expect(body, selector).toContain(`color: var(--${colour});`);

@@ -61,7 +61,7 @@ function fixDeps(): FixSyncDeps {
       const { data, error } = await serviceDb().from('dossiers').select('id, home_repo, prd')
         .eq('workspace_id', workspace.id).in('kind', ['visual', 'bug']).not('prd', 'is', null);
       if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
-      return ((data ?? []) as Record<string, unknown>[]).map((row): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
+      return (data ?? []).map((row): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
     },
     reader: { fix: (ref) => fixReader().fix(ref) },
     store: {
@@ -77,7 +77,7 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     async workspaces() {
       const { data, error } = await serviceDb().from('workspaces').select('id, slug, github_org, github_installation_id').order('slug');
       if (error) throw new Error(`Supabase refused to read the workspaces: ${error.message}`);
-      return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+      return (data ?? []).map((row) => ({
         id: String(row.id),
         slug: String(row.slug),
         github_org: typeof row.github_org === 'string' ? row.github_org : null,

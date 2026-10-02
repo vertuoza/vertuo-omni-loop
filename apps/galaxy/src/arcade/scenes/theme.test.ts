@@ -63,7 +63,7 @@ function frame(scene: SceneName, grid: Grid, theme: Theme, sceneT: number): Fram
   return {
     scene, grid, page: 0, view, layout: layoutMap(view, grid), sel, fleetSel: 0, t: 5.3, sceneT, reduced: false,
     mark: markFor('Vertuoza', theme), theme,
-    join: { fleets, pick: 1, lockedAt: null, team: fleets[1].name, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
+    join: { fleets, pick: 1, lockedAt: null, team: fleets[1]!.name, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
 

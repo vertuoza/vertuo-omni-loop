@@ -35,8 +35,8 @@ export const WORLD = Object.freeze(['1-1', '1-2', '1-3'] as const);
 
 /** The stage played after `stage`; none after the last. */
 export function nextStage(stage: string): string | null {
-  const i = WORLD.indexOf(stage as (typeof WORLD)[number]);
-  return i >= 0 && i < WORLD.length - 1 ? WORLD[i + 1] : null;
+  const i = WORLD.indexOf(stage as (typeof WORLD)[number]); // ts-allow: indexOf looks any string up in the world; one not in it answers -1
+  return i >= 0 && i < WORLD.length - 1 ? WORLD[i + 1]! : null;
 }
 
 /**

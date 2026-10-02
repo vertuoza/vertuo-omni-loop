@@ -13,7 +13,7 @@ describe('tileFrame', () => {
     for (const stage of STAGES) {
       const data = tileData(stage);
       stage.tiles.forEach((line, row) => line.forEach((t, col) => {
-        expect(data[row][col] >= 0, `${stage.id} ${row},${col}`).toBe(t !== 'empty');
+        expect(data[row]![col]! >= 0, `${stage.id} ${row},${col}`).toBe(t !== 'empty');
       }));
     }
   });

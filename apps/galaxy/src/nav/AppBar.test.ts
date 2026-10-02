@@ -42,7 +42,7 @@ const tileOf = (bar: string) => (bar.match(/<span class="app-bar-tile" aria-hidd
 const tileWith = (svg: string) => `<span class="app-bar-tile" aria-hidden="true">${svg}</span>`;
 const sprite = (name: string) => tileWith(pixelSvg(spritePixels(name), { scale: 2, title: '' }));
 const controls = (bar: string) =>
-  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]));
+  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]!));
 
 describe('the top bar', () => {
   it('is a header holding the trail to the page, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {

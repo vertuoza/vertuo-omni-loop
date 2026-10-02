@@ -53,7 +53,7 @@ export function Selector({ onGo, onClose }: SelectorProps) {
     if (e.key === 'Tab') {
       e.preventDefault();
       const order = [...APPS.map((pick) => slots.current[pick]), toggle.current].filter((el): el is HTMLButtonElement => Boolean(el));
-      const at = order.indexOf(document.activeElement as HTMLButtonElement);
+      const at = order.findIndex((el) => el === document.activeElement);
       const next = order[(at + (e.shiftKey ? -1 : 1) + order.length) % order.length];
       next?.focus();
       return;

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { buttonKey, initialOf, menuKey, profileHref, publicSupabase, signInFromBar, signOutAndLeave } from './user-menu';
 import type { ViewerView } from './viewer-view';
 import './user-menu.css';
@@ -39,7 +40,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) setOpen(false); // ts-allow: a pointer event's target is a DOM node
     };
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
@@ -54,7 +55,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
 
   const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const list = items();
-    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length);
+    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length); // ts-allow: indexOf only compares the element
     if (move.kind === 'none') return;
     if (move.kind === 'focus') {
       event.preventDefault();
@@ -68,7 +69,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   async function signOut() {
     setBusy(true);
     const supabase = publicSupabase();
-    await signOutAndLeave(supabase && createBrowserClient(supabase.url, supabase.key), (to) => window.location.assign(to));
+    await signOutAndLeave(supabase && createBrowserClient<Database>(supabase.url, supabase.key), (to) => window.location.assign(to));
   }
 
   return (

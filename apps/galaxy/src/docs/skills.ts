@@ -1,9 +1,9 @@
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.mjs';
+import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
 import { DOCS_PATH } from './paths';
 
 // The skills pages of the docs (PRD 580): /docs/skills, every skill grouped by what you want to do,
 // and /docs/skills/<name>, one page per skill. Pure: built from the skill entries of the help table
-// (kit/lib/help/entries.mjs), the one source `omni help` prints too, so nothing is written twice.
+// (kit/lib/help/entries.ts), the one source `omni help` prints too, so nothing is written twice.
 // Words in braces are filled with generic ones, never a repository's: the docs are the same for every
 // reader. Who runs a skill and its related skills are derived from the /omni:<name> its words name.
 
@@ -45,7 +45,7 @@ export interface SkillCard extends SkillLink {
 }
 
 /** A section of the overview. */
-export interface SkillGroup {
+export interface SkillSection {
   id: string;
   title: string;
   skills: SkillCard[];
@@ -65,8 +65,8 @@ export interface SkillPageModel extends SkillCard {
   source: string;
 }
 
-const HELP_ENTRIES = ENTRIES as readonly SkillEntry[];
-const GROUPS = SKILL_GROUPS as readonly SkillGroupEntry[];
+const HELP_ENTRIES = ENTRIES as readonly SkillEntry[]; // ts-allow: the kit's help table, read as the fields the page shows
+const GROUPS = SKILL_GROUPS as readonly SkillGroupEntry[]; // ts-allow: the kit's skill groups, read as the fields the page shows
 
 /** The generic words that stand for a repository's own in the help table's braces. */
 const DELIVERY = '.omni-loop/delivery';
@@ -80,7 +80,7 @@ const GENERIC_WORDS: Readonly<Record<string, string>> = {
 
 /** `text` with every known word in braces filled with its generic word; an unknown one is kept. */
 export function fillGeneric(text: string): string {
-  return text.replace(/\{(\w+)\}/g, (whole, key: string) => (Object.hasOwn(GENERIC_WORDS, key) ? GENERIC_WORDS[key] : whole));
+  return text.replace(/\{(\w+)\}/g, (whole, key: string) => (Object.hasOwn(GENERIC_WORDS, key) ? (GENERIC_WORDS[key] ?? whole) : whole));
 }
 
 const skillsOf = (entries: readonly SkillEntry[]) => entries.filter((entry) => entry.kind === 'skill');
@@ -88,11 +88,11 @@ const skillsOf = (entries: readonly SkillEntry[]) => entries.filter((entry) => e
 const linkTo = (name: string): SkillLink => ({ name, command: `/omni:${name}`, url: `${SKILLS_PATH}/${name}` });
 
 /** The skill names `texts` name as /omni:<name>, in order, once each. */
-const named = (texts: readonly string[]) => [...new Set(texts.flatMap((text) => [...text.matchAll(/\/omni:([a-z](?:[a-z0-9-]*[a-z0-9])?)/g)].map((m) => m[1])))];
+const named = (texts: readonly string[]) => [...new Set(texts.flatMap((text) => [...text.matchAll(/\/omni:([a-z](?:[a-z0-9-]*[a-z0-9])?)/g)].map((m) => m[1]!)))]; // ts-allow: the group always matches
 
 /** The overview: one section per group in SKILL_GROUPS order, its skills in the entries' order; a
  * group with no skill is left out. */
-export function skillsOverview(entries: readonly SkillEntry[] = HELP_ENTRIES, groups: readonly SkillGroupEntry[] = GROUPS): SkillGroup[] {
+export function skillsOverview(entries: readonly SkillEntry[] = HELP_ENTRIES, groups: readonly SkillGroupEntry[] = GROUPS): SkillSection[] {
   const skills = skillsOf(entries);
   return groups
     .map((group) => ({

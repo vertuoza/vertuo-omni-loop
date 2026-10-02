@@ -50,7 +50,7 @@ describe('byId — id order, numbers read as numbers', () => {
 
 describe('systems — one per domain, the product first', () => {
   it('lists the product, then each domain by name, each with how many entries it holds', () => {
-    const shuffled: KnowledgeGraph = { ...GRAPH, domains: [GRAPH.domains[2], GRAPH.domains[1], GRAPH.domains[0]] };
+    const shuffled: KnowledgeGraph = { ...GRAPH, domains: [GRAPH.domains[2]!, GRAPH.domains[1]!, GRAPH.domains[0]!] };
     for (const graph of [GRAPH, shuffled]) {
       expect(systems(graph).map(({ name, scope, size }) => `${name} ${scope} ${size}`)).toEqual(['product product 6', 'advisor domain 0', 'quote domain 2']);
     }

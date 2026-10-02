@@ -36,7 +36,7 @@ const INVALID = 'That can’t be saved. Check the text.';
 
 /** An error as PostgREST answers it, or anything thrown, as the panel says it. */
 export function constituentRefusalOf(error: unknown): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
+  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown }; // ts-allow: each field is compared, never trusted
   if (code === '42501') return NOT_OWNER;
   if (code === 'P0002') return GONE;
   if (code === '22023') return INVALID_FIELD[String(hint)] ?? INVALID;
@@ -50,7 +50,7 @@ export function databaseConstituents(db: Rpc, workspace: string): ConstituentPor
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: constituentRefusalOf(error) };
-      return { ok: true, constituent: constituentOf(data as StoredConstituent) };
+      return { ok: true, constituent: constituentOf(data as StoredConstituent) }; // ts-allow: the constituent functions answer the row they wrote
     } catch (err) {
       return { ok: false, message: constituentRefusalOf(err) };
     }

@@ -40,7 +40,7 @@ const CONTEXT = z.object({
   claims: z.array(z.string()),
 });
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err)); // ts-allow: a caught value is read for a message, each checked by String()
 
 async function call(on: Rpc, fn: string, args: Record<string, unknown>) {
   const { data, error } = await on.rpc(fn, args);

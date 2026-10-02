@@ -240,7 +240,7 @@ export function step(game: Game, held: ReadonlySet<Action>, dt: number): Game {
       const row = Math.floor(hit / g.cols);
       const a = alienAt(g, row, hit % g.cols);
       g.alive[hit] = false;
-      g.score = Math.min(SCORE_CAP, g.score + g.values[row]);
+      g.score = Math.min(SCORE_CAP, g.score + g.values[row]!);
       g.booms.push({ x: a.x + a.size / 2, y: a.y + a.size / 2, at: g.t });
       g.events.push('hit');
       g.bolt = null;
@@ -290,7 +290,7 @@ export function step(game: Game, held: ReadonlySet<Action>, dt: number): Game {
     g.bombIn = (0.4 + wait * 1.1) * Math.max(0.5, 0.9 ** (g.wave - 1));
     if (g.bombs.length < f.bomb.max) {
       const cols = [...new Set(g.alive.flatMap((on, i) => (on ? [i % g.cols] : [])))];
-      const col = cols[Math.floor(pick * cols.length)];
+      const col = cols[Math.floor(pick * cols.length)]!;
       let row = g.rows - 1;
       while (!g.alive[row * g.cols + col]) row--;
       const a = alienAt(g, row, col);

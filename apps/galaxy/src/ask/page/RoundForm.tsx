@@ -151,6 +151,7 @@ type OptionProps = { name: string; question: AskQuestion; pick: Pick; k: number;
 /** One option's row: its radio or checkbox, its key, its label with the Recommended badge, its description. */
 function OptionRow({ name, question, pick, k, onFocus, update }: OptionProps) {
   const option = question.options[k];
+  if (!option) return null;
   const shown = shownLabel(option.label);
   return (
     <label className="ask-opt" onMouseEnter={onFocus} onFocus={onFocus}>
@@ -183,21 +184,42 @@ type QuestionProps = {
   onDraft: (draft: Draft) => void;
 };
 
+/** A question's head: its header chip, if any, and whether it takes one pick or several. */
+function QuestionHead({ question }: { question: AskQuestion }) {
+  return (
+    <div className="ask-q-head">
+      {question.header && <span className="ask-chip">{question.header}</span>}
+      <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
+    </div>
+  );
+}
+
+/** The preview beside the options, of the option it shows; nothing when none is shown. */
+function PreviewPanel({ question, pick, focused }: { question: AskQuestion; pick: Pick; focused: number | null }) {
+  const preview = shownPreview(question, pick, focused);
+  const option = preview ? question.options[preview.option] : undefined;
+  if (!preview || !option) return null;
+  const label = shownLabel(option.label).text;
+  return (
+    <pre className="ask-preview" aria-label={`Preview of ${label}`}>
+      <span className="ask-preview-for" aria-hidden="true">Preview · {label}</span>
+      {preview.text}
+    </pre>
+  );
+}
+
 /** One question: its head, its options with Other, and the preview beside them when one is shown. */
 function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDraft }: QuestionProps) {
   const question = questions[index];
   const pick = draft[index];
-  const preview = shownPreview(question, pick, focused);
-  const hasPreview = question.options.some((o) => o.preview !== null);
+  if (!question || !pick) return null;
+  const withPreview = question.options.some((o) => o.preview !== null) ? ' has-preview' : '';
   const update = (next: Pick) => onDraft(draft.map((p, i) => (i === index ? next : p)));
   return (
-    <section className={hasPreview ? 'ask-q has-preview' : 'ask-q'} data-question={index} aria-labelledby={`${name}-text`}>
-      <div className="ask-q-head">
-        {question.header && <span className="ask-chip">{question.header}</span>}
-        <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
-      </div>
+    <section className={`ask-q${withPreview}`} data-question={index} aria-labelledby={`${name}-text`}>
+      <QuestionHead question={question} />
       <QuestionHeading id={`${name}-text`} text={question.question} />
-      <div className={hasPreview ? 'ask-q-body has-preview' : 'ask-q-body'}>
+      <div className={`ask-q-body${withPreview}`}>
         <fieldset className="ask-opts" data-multi={question.multiSelect}>
           <legend className="ask-sr">{question.question}</legend>
           {question.options.map((_, k) => (
@@ -205,12 +227,7 @@ function QuestionBlock({ name, questions, draft, index, focused, setFocus, onDra
           ))}
           <OtherBox name={name} question={question} pick={pick} questions={questions} draft={draft} index={index} onDraft={onDraft} update={update} />
         </fieldset>
-        {preview && (
-          <pre className="ask-preview" aria-label={`Preview of ${shownLabel(question.options[preview.option].label).text}`}>
-            <span className="ask-preview-for" aria-hidden="true">Preview · {shownLabel(question.options[preview.option].label).text}</span>
-            {preview.text}
-          </pre>
-        )}
+        <PreviewPanel question={question} pick={pick} focused={focused} />
       </div>
     </section>
   );

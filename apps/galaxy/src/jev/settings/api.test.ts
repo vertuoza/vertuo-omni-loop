@@ -58,7 +58,7 @@ describe('POST /api/jev/key', () => {
     expect(JSON.stringify(body)).not.toContain(KEY);
     expect(tested).toEqual([KEY]);
     expect(saved).toHaveLength(1);
-    const [[workspace, sealed]] = saved;
+    const [workspace, sealed] = saved[0]!;
     expect(workspace).toBe(W);
     expect(sealed.ciphertext).not.toContain(KEY);
     expect(openSecret(sealed, MASTER)).toBe(KEY);

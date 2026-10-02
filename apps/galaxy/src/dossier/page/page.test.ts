@@ -172,14 +172,14 @@ describe('the page to share', () => {
     given.token = 'ada';
     const owner = await html(numbered, { tab: 'questions' });
     expect(buttons(owner)).toEqual(['Yes', 'No']);
-    expect(owner).toContain(`<li id="${round.id}" class="dossier-round"`);
+    expect(owner).toContain(`<li id="${round!.id}" class="dossier-round"`);
 
     given.token = 'bob';
     const other = await html(numbered, { tab: 'questions' });
     expect(buttons(other)).toEqual([]);
     expect(textOf(other)).toContain('Waiting for ADA');
 
-    given.fake.seedShare(round.id, BOB.id, ADA.id);
+    given.fake.seedShare(round!.id, BOB.id, ADA.id);
     expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
   });
 
@@ -514,7 +514,7 @@ describe('the stylesheet', () => {
     const declarations = [...css.matchAll(painted)];
     expect(declarations.length).toBeGreaterThan(10);
     for (const [, declaration, value] of declarations) {
-      expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
+      expect(value!.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });
   /** Every rule of the stylesheet, with the media query it sits in ('' at the top level). */

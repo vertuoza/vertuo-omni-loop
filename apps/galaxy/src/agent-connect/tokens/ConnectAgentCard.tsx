@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { dayLabel, lastUsedLabel, makerLabel, NAME_MAX, setupsOf, type AgentToken } from './model';
+import { dayLabel, lastUsedLabel, makerLabel, setupsOf, TOKEN_NAME_MAX, type AgentToken } from './model';
 import type { Shown, TokensState } from './state';
 
 // Settings › Business › Connect an agent drawn from its state (PRD 855 s1). A name field and Make link;
@@ -96,7 +96,7 @@ export function ConnectAgentCard({ state, demo = false, on = IDLE }: ConnectAgen
         <label>
           <span className="agent-make-label">{NAME_LABEL}</span>
           <input
-            type="text" name="name" maxLength={NAME_MAX} placeholder={NAME_PLACEHOLDER} value={state.name}
+            type="text" name="name" maxLength={TOKEN_NAME_MAX} placeholder={NAME_PLACEHOLDER} value={state.name}
             onChange={(e) => on.name(e.target.value)} disabled={state.busy}
           />
         </label>

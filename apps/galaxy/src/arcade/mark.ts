@@ -82,7 +82,7 @@ const RUNS = new Map<Letter, readonly Run[]>();
  */
 export function letterOf(name: string): Letter {
   const first = name.normalize('NFD').charAt(0).toUpperCase();
-  return /^[A-Z]$/.test(first) ? (first as Letter) : 'O';
+  return /^[A-Z]$/.test(first) ? (first as Letter) : 'O'; // ts-allow: the test on this line proves it one capital letter
 }
 
 /** The mark of a name: its letter, in the theme's gradient (`mark-1` to `mark-3`) and shade (`mark-shade-1` to `mark-shade-3`). */

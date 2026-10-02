@@ -12,7 +12,7 @@ describe('the high scores', () => {
   });
 
   it('show the three counters as the build counted them, and — for one it could not read', () => {
-    const scores = [...markup.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s));
+    const scores = [...markup.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s!));
     expect(scores).toEqual(['FEATURES SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
   });
 

@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
 import { PLAYER_COLUMNS } from './players';
@@ -31,10 +32,10 @@ const fleetsFrom = (rows: TeamRow[]): FleetRow[] => rows
 const TEAM_COLUMNS = 'name, home, label, color, motto, mascot, sort, retired_at';
 
 /** Every fleet of the workspace, retired ones included (history still names them). */
-export async function loadFleets(db: SupabaseClient, workspace: string): Promise<FleetRow[]> {
+export async function loadFleets(db: SupabaseClient<Database>, workspace: string): Promise<FleetRow[]> {
   const { data, error } = await db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the fleets (${error.message})`);
-  return fleetsFrom((data ?? []) as TeamRow[]);
+  return fleetsFrom(data ?? []);
 }
 
 /**
@@ -44,7 +45,7 @@ export async function loadFleets(db: SupabaseClient, workspace: string): Promise
  * viewer who reads no event (not a member, or an empty ledger) gets the fold of nothing, as the
  * uncached read gives them, and the service key is never used for them.
  */
-export async function loadGalaxy(db: SupabaseClient, workspace: string, now = new Date(), season: SeasonDeps = liveSeason()): Promise<GalaxyView> {
+export async function loadGalaxy(db: SupabaseClient<Database>, workspace: string, now = new Date(), season: SeasonDeps = liveSeason()): Promise<GalaxyView> {
   if (!season) {
     const [events, projects] = await Promise.all([readLedger(db, workspace), readProjects(db, workspace)]);
     return buildGalaxy(events, { projects, now, source: 'supabase' });
@@ -56,7 +57,7 @@ export async function loadGalaxy(db: SupabaseClient, workspace: string, now = ne
 }
 
 /** The workspace's newest ledger event and how many it holds, as the viewer reads them; null when none shows. */
-async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest | null> {
+async function readNewest(db: SupabaseClient<Database>, workspace: string): Promise<Newest | null> {
   const { data, error, count } = await db
     .from('ledger_events')
     .select('id, at', { count: 'exact' })
@@ -66,7 +67,7 @@ async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest
     .order('id', { ascending: false })
     .limit(1);
   if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-  const row = (data ?? [])[0] as { id: string; at: string } | undefined;
+  const row = (data ?? [])[0];
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
@@ -88,7 +89,7 @@ function eventOf(row: LedgerRow): LedgerEvent {
 }
 
 /** One page of the workspace's ledger, oldest first. */
-async function ledgerPage(db: SupabaseClient, workspace: string, from: number): Promise<LedgerRow[]> {
+async function ledgerPage(db: SupabaseClient<Database>, workspace: string, from: number): Promise<LedgerRow[]> {
   const { data, error } = await db
     .from('ledger_events')
     .select('id, at, type, planet, home, region, contributor, team, data')
@@ -98,11 +99,11 @@ async function ledgerPage(db: SupabaseClient, workspace: string, from: number): 
     .order('id', { ascending: true })
     .range(from, from + PAGE - 1);
   if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-  return (data ?? []) as LedgerRow[];
+  return (data ?? []) as LedgerRow[]; // ts-allow: the type and data columns hold the events the ledger projection wrote
 }
 
 /** Every event of the workspace's ledger, oldest first, a page at a time. */
-async function readLedger(db: SupabaseClient, workspace: string): Promise<LedgerEvent[]> {
+async function readLedger(db: SupabaseClient<Database>, workspace: string): Promise<LedgerEvent[]> {
   const events: LedgerEvent[] = [];
   for (let from = 0; ; from += PAGE) {
     const rows = await ledgerPage(db, workspace, from);
@@ -112,7 +113,7 @@ async function readLedger(db: SupabaseClient, workspace: string): Promise<Ledger
 }
 
 /** The workspace's sectors and fleets, as buildGalaxy takes them. */
-async function readProjects(db: SupabaseClient, workspace: string): Promise<Projects> {
+async function readProjects(db: SupabaseClient<Database>, workspace: string): Promise<Projects> {
   const [sectors, teams] = await Promise.all([
     db.from('sectors').select('name, repos').eq('workspace_id', workspace),
     db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace),
@@ -120,22 +121,22 @@ async function readProjects(db: SupabaseClient, workspace: string): Promise<Proj
   if (sectors.error || teams.error) throw new Error(`Supabase: could not read sectors/teams (${(sectors.error ?? teams.error)!.message})`);
   return {
     sectors: Object.fromEntries((sectors.data ?? []).map((s) => [s.name, { repos: s.repos ?? [] }])),
-    teams: Object.fromEntries(((teams.data ?? []) as TeamRow[]).map((t): [string, FleetConfig] => [t.name, {
+    teams: Object.fromEntries((teams.data ?? []).map((t): [string, FleetConfig] => [t.name, {
       home: t.home, label: t.label, color: t.color, motto: t.motto, mascot: t.mascot, sort: t.sort, retired: Boolean(t.retired_at),
     }])),
   };
 }
 
 /** The workspace's whole crew: names and heroes for the Hall of Heroes and the fleet screens. */
-export async function loadCrew(db: SupabaseClient, workspace: string): Promise<Player[]> {
+export async function loadCrew(db: SupabaseClient<Database>, workspace: string): Promise<Player[]> {
   const { data, error } = await db.from('players').select(PLAYER_COLUMNS).eq('workspace_id', workspace).order('display_name');
   if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
-  return (data ?? []) as unknown as Player[];
+  return (data ?? []) as unknown as Player[]; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }
 
 /** The signed-in person's own player row in the workspace, or null before they pick a fleet. */
-export async function loadMe(db: SupabaseClient, workspace: string, userId: string): Promise<Player | null> {
+export async function loadMe(db: SupabaseClient<Database>, workspace: string, userId: string): Promise<Player | null> {
   const { data, error } = await db.from('players').select(PLAYER_COLUMNS).eq('workspace_id', workspace).eq('user_id', userId).maybeSingle();
   if (error) throw new Error(`Supabase: could not read your player (${error.message})`);
-  return (data as unknown as Player | null) ?? null;
+  return (data as unknown as Player | null) ?? null; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }

@@ -20,7 +20,7 @@ const EXEMPT = /(\.test\.|\.fake\.|\/test\/|\/__fixtures__\/)/;
 
 /** Where `cia` may appear: the tables keyed by mascot. */
 const MASCOT_TABLES = new Set([
-  'packages/design/src/sprites.mjs',
+  'packages/design/src/sprites.ts',
   'apps/galaxy/src/arcade/sound.ts',
   'apps/galaxy/src/home/spreads/cards.ts',
 ]);

@@ -1,6 +1,7 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { fleetSprite, spritePixels } from '@omni/design';
 import type { FleetRow } from '../arcade/types';
+import { cssVars } from '../arcade/css-vars';
 import { pixelSvg } from '../design/pixel-svg';
 import { NEUTRAL } from './model';
 
@@ -19,7 +20,7 @@ export function mascotSvg(mascot: string | null, color: string, title: string, s
 export function FleetCard({ fleet, children }: { fleet: FleetRow; children?: ReactNode }) {
   const color = HEX.test(fleet.color) ? fleet.color.toLowerCase() : NEUTRAL;
   return (
-    <article className="fleet-card" style={{ '--fleet': color } as CSSProperties}>
+    <article className="fleet-card" style={cssVars({ '--fleet': color })}>
       <span className="fleet-card-mascot" dangerouslySetInnerHTML={{ __html: mascotSvg(fleet.mascot, color, fleet.label) }} />
       <div className="fleet-card-body">
         <h3 className="fleet-card-label">{fleet.label}</h3>

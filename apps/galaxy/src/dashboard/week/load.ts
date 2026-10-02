@@ -18,7 +18,7 @@ const HOUR = 3_600_000;
 /** An instant no later than the week's first midnight in Brussels, which is never more than two hours
  * ahead of UTC: the read starts there, and chartDays keeps only the rows of the week's days. */
 function weekStart(now: Date): string {
-  const [year, month, day] = weekDays(now)[0].split('-').map(Number);
+  const [year, month, day] = weekDays(now)[0]!.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
   return new Date(Date.UTC(year, month - 1, day) - 2 * HOUR).toISOString();
 }
 

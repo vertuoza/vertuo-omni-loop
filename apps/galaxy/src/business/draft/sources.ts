@@ -1,4 +1,4 @@
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 
 // What a draft reads in one repository (PRD 774, spec step 1 and decision 3): its README.md, its
 // top-level docs/*.md and, only when it has the kit layout (a `.omni-loop/config.yml` naming the

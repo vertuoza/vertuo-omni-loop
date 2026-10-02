@@ -1,6 +1,7 @@
 'use client';
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Product } from '../business/model';
 import { initialState, repositoriesReducer, type RepositoryRow } from './model';
 import { RepositoriesView, type Access, type RepositoriesHandlers } from './RepositoriesView';
@@ -31,7 +32,7 @@ export function RepositoriesPage({ source, owner, repositories, access, now, pro
   const port = useRef<RepositoriesPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoRepositoriesPort(repositories)
-    : databaseRepositories(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseRepositories(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls
 
   const run = async (call: (p: RepositoriesPort) => Promise<Saved>) => {
     if (state.busy) return;

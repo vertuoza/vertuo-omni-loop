@@ -77,9 +77,9 @@ describe('reading a version', () => {
   it('reads one version\'s content for a member, and nothing for anyone else', async () => {
     const { as, numbered } = await world();
     const spec = (await readDossier(as('ada'), numbered))!.versions[0];
-    expect(await readContent(as('bob'), spec.id)).toBe(SPEC);
-    expect(await readContent(as('carl'), spec.id)).toBeNull();
-    expect(await readContent(as(null), spec.id)).toBeNull();
+    expect(await readContent(as('bob'), spec!.id)).toBe(SPEC);
+    expect(await readContent(as('carl'), spec!.id)).toBeNull();
+    expect(await readContent(as(null), spec!.id)).toBeNull();
   });
 
   it('serves the before/after page by its number, to a member only', async () => {
@@ -244,7 +244,7 @@ describe('reading the history', () => {
       repos: ['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets'],
       latest: { spec: { version: 1, source: 'kit' } }, asked: 2, answered: 1, last_activity: at('11:00'),
     });
-    expect(rows[0].latest.plan).toBeUndefined();
+    expect(rows[0]!.latest.plan).toBeUndefined();
     expect(rows[1]).toMatchObject({ repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: at('10:00') });
     expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
   });
@@ -283,7 +283,7 @@ describe('reading the change check (PRD 384)', () => {
     expect(asked).toMatchObject({ asked: 1, answered: 0 });
     expect(signature(asked)).not.toBe(signature(first));
 
-    Object.assign(round, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
+    Object.assign(round!, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
     const answered = await readPulse(as('bob'), numbered);
     expect(answered).toMatchObject({ asked: 1, answered: 1 });
     expect(signature(answered)).not.toBe(signature(asked));
@@ -332,8 +332,8 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
       { created_at: '2026-09-28T10:01:00.000Z', prd: 7 },
       { created_at: '2026-09-28T10:02:00.000Z', prd: 7, status: 'answered', answers: { 'A question?': 'Yes' } },
     ]).rounds.map((r) => r.id);
-    fake.seedShare(shared, BOB.id, ADA.id);
-    fake.seedShare(done, BOB.id, ADA.id);
+    fake.seedShare(shared!, BOB.id, ADA.id);
+    fake.seedShare(done!, BOB.id, ADA.id);
     const read = async (token: keyof typeof ACCOUNTS) => (await readDossier(fake.client(token) as never, id, ACCOUNTS[token].id))?.answerable;
     return { fake, id, read, shared, own };
   }
@@ -406,7 +406,7 @@ describe('answering a quick round from the list (PRD 384)', () => {
 
   it('says it moved when the terminal took it over', async () => {
     const { fake, id, as } = await round();
-    fake.tables.ask_rounds[0].status = 'abandoned';
+    fake.tables.ask_rounds[0]!.status = 'abandoned';
     expect(await answerQuick(as('ada'), id, QUESTION, 'Memory')).toMatchObject({ kind: 'taken', by: null, moved: true });
   });
 

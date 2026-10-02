@@ -29,7 +29,7 @@ Game Boy's buttons on a phone (design:
   (24×24) recoloured per wound kind, 16×16 icons. A fleet's flavour (its sprite, its motif, its
   HOME card's rule) is keyed by its mascot, never by its name: a workspace names its own fleets.
 - Every player's hero is the OmniMan body (a girl or a boy, 32×48) recoloured: skin, hair, suit and
-  cape are ramp swaps on one material each (`packages/design/src/heroes.mjs`). A fleet without a
+  cape are ramp swaps on one material each (`packages/design/src/heroes.ts`). A fleet without a
   drawn mascot flies as a hero in its own colour.
 - Planets are procedural: a dithered, lit, rotating sphere per PRD with oceans, shallows, forests,
   ice caps, drifting clouds, a five-band terminator and an atmosphere glow. The surface greens in
@@ -103,11 +103,11 @@ HOME.
 | Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
-| Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
+| Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and a SOON cabinet ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
-| How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
+| How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
 (`src/arcade/deep-link.ts`). Each opens its screen past the boot and the title, and the address
@@ -267,13 +267,13 @@ GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: 
                                                                  ▼
              apps/galaxy (Next.js, per request, as the signed-in member, one workspace) ── buildGalaxy() ──▶ arcade (client)
                                                                  ▲
-                              no Supabase configured ──▶ demo world → game/projector.mjs → events
+                              no Supabase configured ──▶ demo world → game/projector.ts → events
 ```
 
 `@omni/galaxy` (`packages/galaxy`) folds ledger events into the view. It never invents a number:
-points and rankings come from `game/economy.mjs`, decay and threat weights from
-`game/rulebook.mjs`, working hours from `game/calendar.mjs`, XP, levels and unlocks from
-`game/experience.mjs` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
+points and rankings come from `game/economy.ts`, decay and threat weights from
+`game/rulebook.ts`, working hours from `game/calendar.ts`, XP, levels and unlocks from
+`game/experience.ts` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
 galaxy is a fictional GitHub snapshot run through the real projector, so demo events are exactly
 what `pnpm game:project` would append. Its fleets are invented too (`demoFleets()`): no workspace's
 own, and nobody's but the demo mode's, HOME's and the artifact's.
@@ -501,7 +501,7 @@ error logged on the server, and the rest renders.
 
 **Numbers that read 0 for now.** Season points and places come from the ledger, whose projector
 reads each repository's `docs/inbox/*.md` and the plan repository's PRD issues only
-(`game/sources/github.mjs`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`: they read
+(`game/sources/github.ts`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`: they read
 0 for most people until a later PRD teaches the projector the kit's delivery folders, and the boards
 show activity beside them. The merges and PRD stages read 0 while the game workflow is off, and the
 stages cover the poller's 40-day window only.
@@ -636,7 +636,7 @@ installation (the one it stored, else the App's installation on its GitHub org, 
 account), a hundred per page and at most ten pages, checking fifty configs per GraphQL call, and a
 picked repository's `product/`, `domains/` and `cross-domain/` registers, under the knowledge folder
 its config names, are read in one more call at its default branch's tip and built into the same
-graph by the same parser (`graphOfTexts` in `kit/lib/knowledge/graph.mjs`). The token stays in
+graph by the same parser (`graphOfTexts` in `kit/lib/knowledge/graph.ts`). The token stays in
 server memory; the listing is kept five minutes per installation and a graph one minute per
 repository. Without the App's credentials, or when the workspaces or GitHub cannot be read, the menu
 offers only what it could read (the log says why), and the deployed checkout is always there.
@@ -652,8 +652,8 @@ knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
 
 Every point a player earns by delivering also counts as XP, and XP never resets: a new season
 starts the Hall of Heroes again, never a level (PRD 160). The rules (what XP counts, the curve, the
-cap and the level each game opens at) are the `xp` block of `game/rulebook.mjs`, applied by
-`game/experience.mjs` ([`game/README.md` › XP, levels and unlocks](../../game/README.md#xp-levels-and-unlocks)).
+cap and the level each game opens at) are the `xp` block of `game/rulebook.ts`, applied by
+`game/experience.ts` ([`game/README.md` › XP, levels and unlocks](../../game/README.md#xp-levels-and-unlocks)).
 The game workflow writes each login's XP, level and unlocked games to `player_xp` at every poll
 (`pnpm game:xp`); the arcade reads that row and shows the level it holds. Where the workflow is
 off, no row exists, and every player sees NO XP YET.
@@ -788,7 +788,7 @@ person's own reply on the feature pull request, so `/omni:yolo-fix` settles it l
 1. `POST /api/outbox/send` (`src/outbox/send.ts`), as the signed-in person, who must be a member of
    the dossier's workspace, reads the outbox fresh from GitHub (not from the cache) and checks each
    pick against it. A pick whose question was settled meanwhile is dropped, and the tab names it.
-   The kit's reply writer (`kit/lib/outbox/answers.mjs`) writes the reply, and it is recorded as a
+   The kit's reply writer (`kit/lib/outbox/answers.ts`) writes the reply, and it is recorded as a
    send, a row of `outbox_sends`.
 2. The person goes through GitHub's authorisation of the omni-loop App (`GITHUB_APP_CLIENT_ID`),
    whose `state` names the send and carries a nonce, also held in a short-lived, http-only cookie;
@@ -900,7 +900,7 @@ notes**.
   the read throws, Next keeps serving the last page it rendered, and it tries again on a later
   request. A visitor never reads an error's detail.
 
-**`pnpm releases:sync`, the sync** (`scripts/releases-sync.mjs`, its rules in `src/releases/`). It
+**`pnpm releases:sync`, the sync** (`scripts/releases-sync.ts`, its rules in `src/releases/`). It
 reads this checkout's shipped folders through the kit (the config, the layout and the note parser)
 and `git`, reads the table, and writes:
 
@@ -1160,7 +1160,7 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   installation when it had none), else a new, empty one with the person as its owner.
 - `signup_requests`: `(user_id, github_org, created_at)`, a visitor waiting for their org's owner to
   install the App. Its own person reads it; only the service role writes it.
-- `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
+- `ledger_events` mirrors the event contract (`game/events.ts`) one to one, with the same type
   check, plus the `workspace_id` it is stored under: the workspace is a storage column, never an
   event field, so two workspaces may each hold a `planet:12:charted` (key `(workspace_id, id)`). A
   trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.

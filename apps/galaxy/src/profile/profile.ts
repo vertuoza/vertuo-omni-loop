@@ -125,7 +125,7 @@ export function demoProfile(login: string, period: Period, now: Date, galaxy: Ga
   }));
   const logins = roster.flatMap((m) => (m.login ? [m.login] : []));
   const reviews = merges.flatMap((a, i): ReviewRow[] => {
-    const reviewer = logins[(i + 1) % logins.length];
+    const reviewer = logins[(i + 1) % logins.length]!;
     return i % 3 === 0 && reviewer !== a.login ? [{ repo: repo(a.repo), number: a.number, reviewer, firstAt: new Date(Date.parse(a.at) - DAY / 2).toISOString() }] : [];
   });
   return profileOf(

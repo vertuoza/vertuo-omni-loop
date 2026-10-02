@@ -20,7 +20,7 @@ export function seasonBounds(now: Date): Season {
   const year = now.getUTCFullYear(), month = now.getUTCMonth();
   const from = new Date(Date.UTC(year, month, 1));
   const to = new Date(Date.UTC(year, month + 1, 1));
-  return { from, to, name: MONTHS[month], key: from.toISOString().slice(0, 7) };
+  return { from, to, name: MONTHS[month]!, key: from.toISOString().slice(0, 7) };
 }
 
 /** Whether an instant (a Date, or an ISO string as a row holds it) falls in the season. */

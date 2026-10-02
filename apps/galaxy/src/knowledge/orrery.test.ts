@@ -30,7 +30,7 @@ function check(entries: KnowledgeEntry[]) {
   for (let i = 0; i < layout.dots.length; i += 1) {
     for (let j = i + 1; j < layout.dots.length; j += 1) {
       const [a, b] = [layout.dots[i], layout.dots[j]];
-      expect(Math.hypot(a.x - b.x, a.y - b.y), `${a.entry.id} and ${b.entry.id}`).toBeGreaterThanOrEqual(2 * dot + 4);
+      expect(Math.hypot(a!.x - b!.x, a!.y - b!.y), `${a!.entry.id} and ${b!.entry.id}`).toBeGreaterThanOrEqual(2 * dot + 4);
     }
   }
   return layout;
@@ -53,9 +53,9 @@ describe('orrery — the page’s diagram', () => {
     const layout = orrery(PRODUCT);
     const principles = layout.dots.filter((d) => d.entry.kind === 'principle');
     expect(principles.map((d) => d.entry.id)).toEqual(Array.from({ length: 24 }, (_, i) => `P-DEMO-${i + 1}`));
-    expect(principles[0].x).toBeCloseTo(layout.center, 5);
-    expect(principles[0].y).toBeLessThan(layout.center);
-    expect(principles[1].x).toBeGreaterThan(layout.center);
+    expect(principles[0]!.x).toBeCloseTo(layout.center, 5);
+    expect(principles[0]!.y).toBeLessThan(layout.center);
+    expect(principles[1]!.x).toBeGreaterThan(layout.center);
   });
 
   it('spills a crowded orbit outward onto more orbits of the same kind, and still seats all 150 entries', () => {
@@ -75,7 +75,7 @@ describe('orrery — the page’s diagram', () => {
     const empty = orrery([]);
     expect(empty.dots).toEqual([]);
     expect(empty.rings).toHaveLength(3);
-    expect(empty.size).toBeGreaterThan(2 * empty.rings[2].r);
+    expect(empty.size).toBeGreaterThan(2 * empty.rings[2]!.r);
   });
 
   it('keeps its constants sane: dots fit their spacing', () => {

@@ -22,7 +22,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const player: Player = {
-  id: 'guest', display_name: 'MAXIMILIAN', team: fleets[1].name, team_since: null, github_login: 'max-gh',
+  id: 'guest', display_name: 'MAXIMILIAN', team: fleets[1]!.name, team_since: null, github_login: 'max-gh',
   hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
 };
 
@@ -72,7 +72,12 @@ function recorder() {
 }
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 
@@ -87,7 +92,7 @@ describe('the menu on the canvas', () => {
   beforeAll(() => { vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas); });
   afterAll(() => { vi.unstubAllGlobals(); });
 
-  it.each([['the player\'s hero', fleets[1].name], ['OmniMan (a visitor has no hero)', null]] as const)(
+  it.each([['the player\'s hero', fleets[1]!.name], ['OmniMan (a visitor has no hero)', null]] as const)(
     'stands %s and the planet inside the tall grid',
     (_, team) => {
       const { ctx, images } = recorder();
@@ -243,7 +248,7 @@ describe('GAMES on the menu', () => {
   it('names a player\'s level and the games unlocked in its hint, and puts the level on their badge', () => {
     const text = shown(playing, player, withXp);
     expect(hintOf(text)).toBe('LV 3 · 1 game unlocked');
-    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1].label} · LV 3`);
+    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1]!.label} · LV 3`);
     expect(shown(playing, player, withXp, TALL)).toEqual(text);
   });
 
@@ -262,7 +267,7 @@ describe('GAMES on the menu', () => {
   ] as const)('shows a player with %s no level: never LV 0, never a guess', (_, xp, hint) => {
     const text = shown(playing, player, xp);
     expect(hintOf(text)).toBe(hint);
-    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1].label}`);
+    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1]!.label}`);
     expect(text.some((s) => /LV \d/.test(s)), text.join(' | ')).toBe(false);
   });
 

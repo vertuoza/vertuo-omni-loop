@@ -26,10 +26,10 @@ function world({ database = true, answer, error }: { database?: boolean; answer?
     rpc: async (fn: string, args: { p_repo: string }) => {
       calls.push({ fn, args, token });
       if (error) return { data: null, error };
-      if (!users[token].member && args.p_repo.toLowerCase().startsWith('acme/')) {
+      if (!users[token]!.member && args.p_repo.toLowerCase().startsWith('acme/')) {
         return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
       }
-      if (!users[token].member) {
+      if (!users[token]!.member) {
         return { data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } };
       }
       return { data: answer ?? READ, error: null };

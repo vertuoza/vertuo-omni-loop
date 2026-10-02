@@ -146,7 +146,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
 
   it('each poll carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
     const w = await world();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    w.fake.tables.ask_sessions[0]!.claude_session_id = 'claude-this-tab';
     const p = pings();
     const read = sessionReader(w.recording('ada'), w.sessionId, null, p.read);
     expect((await read())?.ping).toEqual(FRESH);
@@ -156,7 +156,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
 
   it('the first read carries it too, so the server renders the tab as it stands', async () => {
     const w = await world();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    w.fake.tables.ask_sessions[0]!.claude_session_id = 'claude-this-tab';
     const p = pings();
     expect((await readSession(w.recording('ada'), w.sessionId, p.read))?.ping).toEqual(FRESH);
   });
@@ -171,7 +171,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
   it('a heartbeat out of reach reads as none, and the session is still read', async () => {
     const w = await world();
     await w.ask();
-    w.fake.tables.ask_sessions[0].claude_session_id = 'claude-this-tab';
+    w.fake.tables.ask_sessions[0]!.claude_session_id = 'claude-this-tab';
     const state = await sessionReader(w.recording('ada'), w.sessionId, null, async () => { throw new Error('connection lost'); })();
     expect(state?.ping).toBeNull();
     expect(state?.rounds).toHaveLength(1);
@@ -189,7 +189,7 @@ describe('sending the answers', () => {
   it('never answers a round the terminal took over, or one already answered', async () => {
     const w = await world();
     const id = await w.ask();
-    w.fake.tables.ask_rounds[0].status = 'abandoned';
+    w.fake.tables.ask_rounds[0]!.status = 'abandoned';
     expect(await sendAnswers(w.as('ada'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'abandoned', answers: null });
 
@@ -243,7 +243,7 @@ describe('sending with screenshots (PRD 620)', () => {
   it('deletes the uploads of a round the terminal answered first', async () => {
     const w = await world();
     const id = await w.ask();
-    w.fake.tables.ask_rounds[0].status = 'abandoned';
+    w.fake.tables.ask_rounds[0]!.status = 'abandoned';
     stageShots(id, { 'Which storage?': [png('a')] });
     const { db, removed } = withBucket(w, 'ada');
     expect(await sendAnswers(db, id, ANSWERS)).toBe('taken');
@@ -410,7 +410,7 @@ describe('the workspace history (PRD 144)', () => {
     for (const token of ['ada', 'bob']) {
       const rows = await readHistory(w.as(token));
       expect(rows.map((r) => [r.round.id, r.session.id]), token).toEqual([[second, w.sessionId], [first, w.sessionId]]);
-      expect(rows[0].round).not.toHaveProperty('session_id');
+      expect(rows[0]!.round).not.toHaveProperty('session_id');
     }
     expect((await readHistory(w.as('carl'))).map((r) => r.session.title)).toEqual(['elsewhere']);
   });

@@ -27,7 +27,7 @@ function stubReader(answers: Record<string, FixSummary | null>) {
     async fix(r) {
       reads.push(r.id);
       if (!(r.id in answers)) throw new Error(`GitHub did not answer for ${r.id}`);
-      return answers[r.id];
+      return answers[r.id]!;
     },
   };
   return { reader, reads };

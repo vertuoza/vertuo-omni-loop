@@ -10,7 +10,7 @@ export async function loadQuestions(db: Rpc, workspace: string): Promise<AgentQu
   const { data, error } = await db.rpc('agent_questions_list', { p_workspace: workspace });
   const questions = error ? null : questionsOf(data);
   if (!questions) {
-    const why = error ? (error as { message?: unknown }).message : 'an unexpected answer';
+    const why = error ? (error as { message?: unknown }).message : 'an unexpected answer'; // ts-allow: a PostgREST error carries a message; it is only logged
     console.error(`agent-questions: could not read the questions (${String(why)})`);
     return [];
   }

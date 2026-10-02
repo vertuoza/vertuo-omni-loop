@@ -14,7 +14,7 @@ const GITHUB: Record<string, GithubAccount> = {
   [PEOPLE.eve.id]: { login: 'eve-gh', orgs: ['example'] },
 };
 
-function world(person: FakeUser, github = GITHUB[person.id]) {
+function world(person: FakeUser, github = GITHUB[person.id]!) {
   const w = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
   const readGithub = vi.fn(async (token: string) => {
     if (token !== TOKEN) throw new Error('GitHub answered 401 to /user');

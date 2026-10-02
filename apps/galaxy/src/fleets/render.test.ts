@@ -22,7 +22,7 @@ const OLD = fleet('old', { label: 'OLD GUARD', retired: true, sort: 5 });
 const state = (...actions: FleetsAction[]): FleetsState => actions.reduce(fleetsReducer, initialState([BEAVER, OCTOPOD, OLD]));
 const render = (s: FleetsState, owner = true) => renderToStaticMarkup(createElement(FleetsView, { state: s, owner, mascots: MASCOTS }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((m) => text(m[1]));
+const buttons = (html: string) => [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((m) => text(m[1]!));
 /** The markup of one field of the form: its label, its input and what is said about it. */
 const field = (html: string, name: string) => {
   const from = html.indexOf(`data-field="${name}"`);

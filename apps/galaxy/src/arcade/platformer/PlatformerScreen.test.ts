@@ -12,7 +12,11 @@ import type { SceneOptions } from './scene';
 class StubGame {
   static made: StubGame[] = [];
   calls: string[] = [];
-  constructor(readonly config: Record<string, unknown>) { StubGame.made.push(this); }
+  readonly config: Record<string, unknown>;
+  constructor(config: Record<string, unknown>) {
+    this.config = config;
+    StubGame.made.push(this);
+  }
   pause() { this.calls.push('pause'); }
   resume() { this.calls.push('resume'); }
   destroy(removeCanvas: boolean) { this.calls.push(`destroy:${removeCanvas}`); }
@@ -35,7 +39,7 @@ describe('startPlatformer', () => {
     expect(p.status()).toBe('loading');
     await p.ready;
     expect(StubGame.made).toHaveLength(1);
-    expect(StubGame.made[0].config).toMatchObject({ parent: host, width: 640, height: 360, pixelArt: true, scene: SCENE });
+    expect(StubGame.made[0]!.config).toMatchObject({ parent: host, width: 640, height: 360, pixelArt: true, scene: SCENE });
     expect(p.status()).toBe('ready');
     expect(onStatus.mock.calls.map(([s]) => s)).toEqual(['loading', 'ready']);
   });
@@ -43,8 +47,8 @@ describe('startPlatformer', () => {
   it('lays the game out on the tall grid too, and never lets Phaser read the keyboard or play sound', async () => {
     const p = startPlatformer(host, opts(TALL), deps(async () => STUB));
     await p.ready;
-    expect(StubGame.made[0].config).toMatchObject({ width: 320, height: 288, audio: { noAudio: true } });
-    expect(StubGame.made[0].config.input).toMatchObject({ keyboard: false, mouse: false, touch: false, gamepad: false });
+    expect(StubGame.made[0]!.config).toMatchObject({ width: 320, height: 288, audio: { noAudio: true } });
+    expect(StubGame.made[0]!.config.input).toMatchObject({ keyboard: false, mouse: false, touch: false, gamepad: false });
   });
 
   it('passes pause and resume through to the game', async () => {
@@ -52,23 +56,23 @@ describe('startPlatformer', () => {
     await p.ready;
     p.pause();
     p.resume();
-    expect(StubGame.made[0].calls).toEqual(['pause', 'resume']);
+    expect(StubGame.made[0]!.calls).toEqual(['pause', 'resume']);
   });
 
   it('starts paused when told to pause before Phaser arrived', async () => {
     const p = startPlatformer(host, opts(), deps(async () => STUB));
     p.pause();
     await p.ready;
-    expect(StubGame.made[0].calls).toEqual(['pause']);
+    expect(StubGame.made[0]!.calls).toEqual(['pause']);
   });
 
   it('destroys the game and its canvas on unmount', async () => {
     const p = startPlatformer(host, opts(), deps(async () => STUB));
     await p.ready;
     p.destroy();
-    expect(StubGame.made[0].calls).toEqual(['destroy:true']);
+    expect(StubGame.made[0]!.calls).toEqual(['destroy:true']);
     p.pause();
-    expect(StubGame.made[0].calls).toEqual(['destroy:true']);
+    expect(StubGame.made[0]!.calls).toEqual(['destroy:true']);
   });
 
   it('starts no game when unmounted before Phaser arrived', async () => {

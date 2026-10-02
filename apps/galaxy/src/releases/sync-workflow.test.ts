@@ -52,7 +52,7 @@ describe('the releases workflow', () => {
   it('shares nothing with the game: deleting game/ leaves it working', () => {
     const text = read('.github/workflows/releases.yml').replace(/^\s*#.*$/gm, '');
     expect(text).not.toMatch(/\bgame[:/]|GAME_/);
-    expect(read('apps/galaxy/scripts/releases-sync.mjs')).not.toMatch(/from '[^']*game\//);
+    expect(read('apps/galaxy/scripts/releases-sync.ts')).not.toMatch(/from '[^']*game\//);
   });
 });
 

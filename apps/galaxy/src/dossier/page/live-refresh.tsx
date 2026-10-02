@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { poll } from '../../ask/page/poll';
 import { PlayDock } from '../../play-dock/PlayDock';
 import type { WorkingState } from '../../working/state';
@@ -40,7 +41,7 @@ export function LiveRefresh({ supabase, id, signature, dock = null }: Props) {
   const docked = dock !== null;
 
   useEffect(() => {
-    const db = createBrowserClient(supabase.url, supabase.key);
+    const db = createBrowserClient<Database>(supabase.url, supabase.key);
     const pulse = () => readPulse(db, id);
     return poll(watchNewWork({
       initial: rendered.current,

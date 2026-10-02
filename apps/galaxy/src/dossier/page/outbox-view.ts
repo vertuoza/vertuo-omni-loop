@@ -38,7 +38,7 @@ export const NOT_NUMBERED = 'Not numbered yet: the outbox comment on the pull re
 export type ContextKind = 'before-after' | 'spec' | 'brainstorm';
 export const CONTEXTS: readonly ContextKind[] = ['before-after', 'spec', 'brainstorm'];
 export const CONTEXT_LABELS: Readonly<Record<ContextKind, string>> = { 'before-after': 'Before/after', spec: 'Spec', brainstorm: 'Brainstorm' };
-export const isContext = (value: unknown): value is ContextKind => CONTEXTS.includes(value as ContextKind);
+export const isContext = (value: unknown): value is ContextKind => CONTEXTS.includes(value as ContextKind); // ts-allow: a guard: includes() only compares the value
 
 /** One question the brainstorm asked, and its answer as given. */
 export type BrainstormAnswer = { question: string; answer: string | null };

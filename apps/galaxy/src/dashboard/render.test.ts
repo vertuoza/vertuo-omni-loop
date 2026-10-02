@@ -35,7 +35,7 @@ const render = (view: DashboardView, supabase: typeof SUPABASE | null = SUPABASE
   renderToStaticMarkup(createElement(DashboardScreen, { view, supabase, signinError, query: { period: '30d' } }));
 const dashboard = (over: Partial<DashboardData> = {}) => render({ kind: 'dashboard', dashboard: data(over) });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const h1s = (html: string) => [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => text(m[1]));
+const h1s = (html: string) => [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => text(m[1]!));
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 /** The hero block alone: the board's heading says "Your fleet" too. */
 const you = (html: string) => html.slice(html.indexOf('class="dash-you"'), html.indexOf('</section>', html.indexOf('class="dash-you"')));

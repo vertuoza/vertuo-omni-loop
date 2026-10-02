@@ -127,7 +127,7 @@ export const DEMO_VOICE_CAST: VoiceCast[] = [
   { name: 'Sofia', trade: 'office', avatar: { v: 1, skin: 1, hair: 3, hairColor: 2, outfit: 1, accessory: 2 } },
 ];
 
-const [PAULA, UMA] = [DEMO_MEMBERS[1].user_id, DEMO_MEMBERS[2].user_id];
+const [PAULA, UMA] = [DEMO_MEMBERS[1]!.user_id, DEMO_MEMBERS[2]!.user_id];
 
 const MODE = {
   question: 'How should the questions reach the page?', header: 'Mode', multiSelect: false,
@@ -178,11 +178,11 @@ function demoRounds(opened: number): DossierRoundRow[] {
   });
   const delivery = { rule: 'delivery' as const, prd: 71, branch: 'feat/ask-mode--s2', skill: '/omni:do-work', session_id: 'demo-terminal-2' };
   return [
-    round(1, MODE, opened + 5 * MIN, { ...answered(MODE, MODE.options[0].label, PAULA, 'page', opened + 7 * MIN + 10_000), category: 'architecture', category_by: 'model' }),
-    round(2, HOST, opened + 12 * MIN, { ...answered(HOST, HOST.options[0].label, DEMO_OWNER, 'terminal', opened + 12 * MIN + 40_000), category: 'product', category_by: DEMO_OWNER }),
+    round(1, MODE, opened + 5 * MIN, { ...answered(MODE, MODE.options[0]!.label, PAULA, 'page', opened + 7 * MIN + 10_000), category: 'architecture', category_by: 'model' }),
+    round(2, HOST, opened + 12 * MIN, { ...answered(HOST, HOST.options[0]!.label, DEMO_OWNER, 'terminal', opened + 12 * MIN + 40_000), category: 'product', category_by: DEMO_OWNER }),
     round(3, CHECKS, opened + 30 * MIN, { ...answered(CHECKS, 'Row-level security, Handler tests', UMA, 'page', opened + 36 * MIN), category: 'harness', category_by: 'model' }),
     round(4, UPDATES, opened + 2 * 24 * 60 * MIN, {
-      ...delivery, ...answered(UPDATES, UPDATES.options[0].label, DEMO_OWNER, 'terminal', opened + 2 * 24 * 60 * MIN + 3 * MIN), category: 'architecture', category_by: 'model',
+      ...delivery, ...answered(UPDATES, UPDATES.options[0]!.label, DEMO_OWNER, 'terminal', opened + 2 * 24 * 60 * MIN + 3 * MIN), category: 'architecture', category_by: 'model',
     }),
     round(5, THEME, opened + 2 * 24 * 60 * MIN + 40 * MIN, { ...delivery, status: 'abandoned' }),
   ];

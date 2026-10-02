@@ -426,8 +426,8 @@ const askedOrder = (a: Asked, b: Asked) =>
 export function isQuick(row: Pick<DossierRoundRow, 'status' | 'questions' | 'created_at'>, now: number): boolean {
   if (row.status !== 'open' || now >= Date.parse(row.created_at) + HOOK_WAIT_MS) return false;
   const asked = readQuestions(row.questions);
-  if (asked.length !== 1) return false;
   const [only] = asked;
+  if (asked.length !== 1 || !only) return false;
   return !only.multiSelect && only.options.length > 0 && only.options.every((o) => o.preview === null);
 }
 
@@ -450,6 +450,7 @@ function quickOf(
 ): QuickRound | null {
   if (!isQuick(row, now)) return null;
   const [only] = readQuestions(row.questions);
+  if (!only) return null;
   const canAnswer = answerable.includes(row.round_id);
   return {
     question: only.question,
@@ -548,7 +549,7 @@ function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const numbered = read.dossier.prd === null ? undefined : read.github;
   const kindTabs = work === 'prd' && read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS[work];
   const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
-  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0];
+  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0]!;
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
   const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
   return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered };
@@ -596,7 +597,7 @@ function versionEntries({ read, tab, work, href }: Page, version: number | null)
 function railSpecOf({ read, href }: Page): VersionEntry | null {
   const specs = read.versions.filter((v) => v.kind === 'spec');
   if (!specs.length) return null;
-  return { id: specs[specs.length - 1].id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+  return { id: specs[specs.length - 1]!.id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
 }
 
 /** `DRAFT`, `PRD #216`, or a fix's `#548`. */

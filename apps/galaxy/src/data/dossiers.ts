@@ -15,6 +15,7 @@
 // demo world's planets (`demoDossiers`), shaped by the same function, and in the artifact, which has no
 // page to open, no link.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
 import { dossierList, dossierRounds, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
@@ -33,9 +34,10 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
   // An answer to a question the round does not name (an older kit's) is still an answer.
   const questions = [...asked, ...Object.keys(answers).filter((q) => !asked.includes(q))];
   const first = questions.find((q) => typeof answers[q] === 'string');
-  if (first === undefined || !row.answered_at) return null;
+  const answer = first === undefined ? undefined : answers[first];
+  if (first === undefined || typeof answer !== 'string' || !row.answered_at) return null;
   const more = questions.filter((q) => q !== first && typeof answers[q] === 'string').length;
-  return { question: first, answer: shownLabel(answers[first]).text, more, at: row.answered_at };
+  return { question: first, answer: shownLabel(answer).text, more, at: row.answered_at };
 }
 
 /**
@@ -47,7 +49,7 @@ export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], ur
   const latest = Object.fromEntries(ARTIFACTS.map((kind) => {
     const v = row.latest[kind];
     return [kind, v ? { version: Number(v.version), at: v.created_at } : null];
-  })) as PlanetDossier['latest'];
+  })) as PlanetDossier['latest']; // ts-allow: fromEntries over ARTIFACTS keeps every kind
   const last = rounds
     .filter((r) => r.status === 'answered' && r.answered_at)
     .sort((a, b) => Date.parse(b.answered_at!) - Date.parse(a.answered_at!) || b.round_id.localeCompare(a.round_id))
@@ -57,14 +59,13 @@ export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], ur
   return { id: row.id, url, latest, asked: Number(row.asked), answered: Number(row.answered), last };
 }
 
-type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
-type PlanRow = { github_org: string | null; plan_repo: string | null };
+type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 
 /** The workspace's plan repository as a dossier's home repository, or null when it has none. */
 async function planRepo(db: Db, workspace: string): Promise<string | null> {
   const { data, error } = await db.from('workspaces').select('github_org, plan_repo').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's plan repository (${error.message})`);
-  const row = data as PlanRow | null;
+  const row = data;
   return row?.github_org && row.plan_repo ? `${row.github_org}/${row.plan_repo}`.toLowerCase() : null;
 }
 
@@ -73,7 +74,7 @@ async function dossierIds(db: Db, workspace: string, home: string): Promise<Map<
   const { data, error } = await db.from('dossiers').select('id, prd').eq('workspace_id', workspace).eq('home_repo', home);
   if (error) throw new Error(`Supabase: could not read the dossiers (${error.message})`);
   const ids = new Map<number, string>();
-  for (const row of (data ?? []) as Array<{ id: string; prd: number | null }>) if (row.prd !== null) ids.set(Number(row.prd), row.id);
+  for (const row of data ?? []) if (row.prd !== null) ids.set(Number(row.prd), row.id);
   return ids;
 }
 
@@ -115,10 +116,10 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
  * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. Rejects
  * when the list cannot be read.
  */
-export async function workspaceDossiers(db: Pick<SupabaseClient, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
+export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  return (data ?? []) as DossierListRow[];
+  return (data ?? []) as DossierListRow[]; // ts-allow: latest is a JSON column, written by dossier_list() in the shape DossierListRow names
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────

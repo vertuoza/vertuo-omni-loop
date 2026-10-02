@@ -32,12 +32,12 @@ let tick = 0;
 const now = () => new Date(Date.UTC(2026, 9, 1, 9, tick++)).toISOString();
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 const history = (html: string) => {
   const from = html.indexOf('<details class="constituents-history"');
   return from < 0 ? '' : html.slice(from, html.indexOf('</details>', from));
 };
-const events = (html: string) => [...history(html).matchAll(/<li class="constituents-event"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]));
+const events = (html: string) => [...history(html).matchAll(/<li class="constituents-event"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(m[1]!));
 
 const render = (state: ConstituentsState, { owner = true, unreadable = false } = {}) =>
   renderToStaticMarkup(createElement(ConstituentsPanel, { state, product: PRODUCT, owner, people: PEOPLE, unreadable }));

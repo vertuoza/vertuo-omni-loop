@@ -26,8 +26,8 @@ const state = (rows: RepositoryRow[], ...actions: RepositoriesAction[]) => actio
 const render = (rows: RepositoryRow[], { owner = true, access = INSTALLED as Access, actions = [] as RepositoriesAction[] } = {}) =>
   renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access, now: NOW }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
-const switches = (html: string) => buttons(html).filter((b) => b.attrs.includes('role="switch"'));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
+const switches = (html: string) => buttons(html).filter((b) => b.attrs!.includes('role="switch"'));
 const rowOf = (html: string, name: string) => {
   const from = html.indexOf(`data-repository="${name}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
@@ -47,9 +47,9 @@ describe('the owner\'s repositories page', () => {
     expect(buttons(html).map((b) => b.text)).toContain('Add repository');
     const sw = switches(html);
     expect(sw).toHaveLength(2);
-    expect(sw.every((s) => !/disabled/.test(s.attrs))).toBe(true);
-    expect(sw.find((s) => s.attrs.includes('Track vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="true"');
-    expect(sw.find((s) => s.attrs.includes('Track vertuoza/pdf-builder'))?.attrs).toContain('aria-checked="false"');
+    expect(sw.every((s) => !/disabled/.test(s.attrs!))).toBe(true);
+    expect(sw.find((s) => s.attrs!.includes('Track vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="true"');
+    expect(sw.find((s) => s.attrs!.includes('Track vertuoza/pdf-builder'))?.attrs).toContain('aria-checked="false"');
   });
 
   it('links to the installation\'s settings on GitHub for a missing repository', () => {
@@ -108,7 +108,7 @@ describe('a member\'s repositories page', () => {
     expect(buttons(html).map((b) => b.text)).not.toContain('Add repository');
     const sw = switches(html);
     expect(sw).toHaveLength(2);
-    expect(sw.every((s) => /disabled=""/.test(s.attrs))).toBe(true);
+    expect(sw.every((s) => /disabled=""/.test(s.attrs!))).toBe(true);
   });
 
   it('says the owner adds them, when the list is empty', () => {
@@ -133,7 +133,7 @@ describe('products (PRD 748 s4)', () => {
     renderToStaticMarkup(createElement(RepositoriesView, { state: state(rows, ...actions), owner, access: INSTALLED, now: NOW, products }));
   const selects = (html: string) => [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/g)].map((m) => ({
     attrs: m[1],
-    options: [...m[2].matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(o[1])?.[1], text: o[2], selected: o[1].includes('selected') })),
+    options: [...m[2]!.matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(o[1]!)?.[1], text: o[2], selected: o[1]!.includes('selected') })),
   }));
 
   it('shows no product select, and never says "Product", while the business has one or none', () => {
@@ -148,22 +148,22 @@ describe('products (PRD 748 s4)', () => {
     const html = withProducts([row('vertuoza/vertuo-apps', { product: 'p-1' }), row('vertuoza/vertuo-omni-loop', { product: 'p-2' })], [ERP, LOOP]);
     const all = selects(html);
     expect(all).toHaveLength(2);
-    expect(all[0].attrs).toContain('aria-label="Product of vertuoza/vertuo-apps"');
-    expect(all[0].options.map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
-    expect(all[0].options.find((o) => o.selected)?.text).toBe('Vertuoza');
-    expect(selects(rowOf(html, 'vertuoza/vertuo-omni-loop'))[0].options.find((o) => o.selected)?.text).toBe('Omni Loop');
+    expect(all[0]!.attrs).toContain('aria-label="Product of vertuoza/vertuo-apps"');
+    expect(all[0]!.options.map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+    expect(all[0]!.options.find((o) => o.selected)?.text).toBe('Vertuoza');
+    expect(selects(rowOf(html, 'vertuoza/vertuo-omni-loop'))[0]!.options.find((o) => o.selected)?.text).toBe('Omni Loop');
     expect(text(html)).toContain('Each repository’s agents read its product’s business.');
   });
 
   it('offers a repository with no product a disabled placeholder first', () => {
     const [only] = selects(withProducts([APPS], [ERP, LOOP]));
-    expect(only.options[0]).toEqual({ value: '', text: 'Choose…', selected: true });
-    expect(only.options.slice(1).map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
+    expect(only!.options[0]).toEqual({ value: '', text: 'Choose…', selected: true });
+    expect(only!.options.slice(1).map((o) => o.text)).toEqual(['Vertuoza', 'Omni Loop']);
   });
 
   it('lets a member change it too, but not while a call is on its way', () => {
-    expect(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0].attrs).not.toContain('disabled');
-    expect(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0].attrs).toContain('disabled');
+    expect(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0]!.attrs).not.toContain('disabled');
+    expect(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0]!.attrs).toContain('disabled');
   });
 
   it('wraps the select under the name at 393 px', () => {

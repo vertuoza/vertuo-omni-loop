@@ -8,7 +8,7 @@ import type { BusinessCountDb, BusinessCountDeps } from './business-count';
 // read as Settings › Business reads it (the one joined first), so the count matches the page it links to.
 export function businessCountDeps(): BusinessCountDeps {
   return {
-    db: async () => (await supabaseServer()) as unknown as BusinessCountDb,
-    workspace: (db, user) => memberWorkspace(db as unknown as SupabaseClient, user),
+    db: async () => (await supabaseServer()) as unknown as BusinessCountDb, // ts-allow: the business count reads only the members BusinessCountDb names
+    workspace: (db, user) => memberWorkspace(db as unknown as SupabaseClient, user), // ts-allow: memberWorkspace reads only `from`
   };
 }

@@ -7,7 +7,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/design';
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
+import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { Press } from '../arcade/hint';
 import type { Action } from '../arcade/keys';
 import { supabaseAccount } from '../arcade/account-supabase';

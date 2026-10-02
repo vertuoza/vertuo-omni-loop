@@ -25,8 +25,8 @@ const RULES = FOLDERS.flatMap((folder) => stylesheets(join(SRC, folder))).flatMa
   const file = relative(SRC, path);
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
     file,
-    selector: m[1].trim().split('\n').pop()!.trim(),
-    body: m[2],
+    selector: m[1]!.trim().split('\n').pop()!.trim(),
+    body: m[2]!,
   }));
 });
 

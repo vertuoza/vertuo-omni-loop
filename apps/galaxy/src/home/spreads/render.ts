@@ -13,5 +13,5 @@ export const text = (markup: string) => markup.replace(/<script[\s\S]*?<\/script
 export const heading = (markup: string) => {
   const heads = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)];
   if (heads.length !== 1) throw new Error(`expected one h2, found ${heads.length}`);
-  return text(heads[0][1]);
+  return text(heads[0]![1]!);
 };

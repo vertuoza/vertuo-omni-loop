@@ -21,5 +21,5 @@ export async function savePlayer(
   // A visitor's row is refused by row-level security: joining a fleet needs GitHub linked.
   if (error && !current && error.code === '42501') throw new Error('Link your GitHub first: it is what makes you a player.');
   if (error) throw new Error(`Saving: ${error.message}`);
-  return data as unknown as Player;
+  return data as unknown as Player; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
 }
