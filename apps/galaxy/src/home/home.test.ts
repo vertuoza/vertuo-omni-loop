@@ -199,18 +199,15 @@ describe('the poster', () => {
   });
 });
 
-// The magazine spreads under the poster (PRD 285): value first, then the loop's proof, the game and
-// the order form. Each spread is its own component, with its own test beside it under spreads/.
+// The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the proof, the game
+// and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
     return renderToStaticMarkup(Home());
   };
   const HEADS = [
-    'What\'s in it for you?',
     'Strategy guide: the loop, level by level',
-    'You see everything',
-    'Easy in, easy out',
     'High scores: the loop built this',
     'The game: Entropy you can see',
     'Join the loop!',
@@ -226,18 +223,18 @@ describe('the spreads', () => {
   it('are composed by Spreads.tsx alone, one component per spread', () => {
     const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/<section\b|<h2\b/);
-    for (const name of ['ForYou', 'StrategyGuide', 'SeeEverything', 'InOut', 'HighScores', 'Game', 'OrderForm']) {
+    for (const name of ['StrategyGuide', 'HighScores', 'Game', 'OrderForm']) {
       expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
     }
+    for (const gone of ['ForYou', 'SeeEverything', 'InOut']) expect(source, gone).not.toContain(gone);
   });
 
-  it('link nowhere but the game at /play, the release notes at /releases and the docs at /docs (PRD 346), the pages open without signing in', async () => {
+  it('link nowhere but the game at /play and the docs at /docs (PRD 346; /releases left with You see everything, PRD 971), the pages open without signing in', async () => {
     const html = await render();
     const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
     expect(hrefs).toContain('/play');
-    expect(hrefs).toContain('/releases');
     expect(hrefs).toContain('/docs');
-    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases', '/docs']));
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
   });
