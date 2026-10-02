@@ -62,20 +62,20 @@ interface ClickAnswers {
 /** What a click on the page answers, or null when it is not HOME's to answer. */
 function clickAnswer(target: Element | null, answers: ClickAnswers): (() => void) | null {
   const change = target?.closest(`[${CHANGE_ATTR}]`);
-  if (change) return () => answers.change(change);
+  if (change) return () => { answers.change(change); };
   const button = target?.closest(`[${SIGN_UP_ATTR}]`);
-  if (button) return () => answers.signUp(button);
+  if (button) return () => { answers.signUp(button); };
   const pressed = target?.closest(`[${PRESS_START_ATTR}]`);
-  return pressed ? () => answers.pressStart(pressed) : null;
+  return pressed ? () => { answers.pressStart(pressed); } : null;
 }
 
 /** PRESS START in the browser: the arcade's start sound, a real wait, a real page change. */
 function startPorts(open: () => void): StartPorts {
   return {
     storage: storage(),
-    playStart: () => play('start', false),
+    playStart: () => { play('start', false); },
     wait: (ms) => new Promise((done) => setTimeout(done, ms)),
-    go: (href) => window.location.assign(href),
+    go: (href) => { window.location.assign(href); },
     open,
   };
 }
@@ -136,7 +136,7 @@ export function Controls() {
       supabase: supabase(),
       origin: window.location.origin,
       start: startGithubSignIn,
-      go: (href) => window.location.assign(href),
+      go: (href) => { window.location.assign(href); },
     }, pick).then((failure) => {
       if (!failure) return;
       signingUp.current = false;
@@ -153,7 +153,7 @@ export function Controls() {
   const signUpClicked = (button: Element | null, answer: (ports: SignUpClickPorts) => void): boolean => {
     if (signingUp.current || open.current) return false;
     opener.current = button;
-    answer({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
+    answer({ storage: storage(), open: openSelector, go: (pick) => { go(pick, false); } });
     return true;
   };
 
@@ -172,6 +172,13 @@ export function Controls() {
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
   }, []);
 
+  /**
+   * The page's listeners, added once on mount, read HOME's answers through this ref, refreshed on each
+   * render: they only ever touch refs and state setters, so the first render's and the latest act alike.
+   */
+  const latest = useRef({ answers, start });
+  latest.current = { answers, start };
+
   useEffect(() => {
     const code = konami();
 
@@ -179,7 +186,7 @@ export function Controls() {
       if (open.current) return;
       if (code(e.key)) {
         setCheat(true);
-        start({ holdMs: CHEAT_MS, pick: 'arcade' });
+        latest.current.start({ holdMs: CHEAT_MS, pick: 'arcade' });
         return;
       }
       const target = e.target instanceof Element ? e.target : null;
@@ -187,14 +194,14 @@ export function Controls() {
       if (startsOnKey({ key, repeat, altKey, ctrlKey, metaKey, shiftKey, inControl: Boolean(target?.closest(CONTROL)) })) {
         e.preventDefault();
         opener.current = document.querySelector(`[${PRESS_START_ATTR}]`);
-        start();
+        latest.current.start();
       }
     };
     const onClick = (e: MouseEvent) => {
       if (!plainClick(e)) return;
       const target = e.target instanceof Element ? e.target : null;
       if (flipCard(target)) return;
-      const answer = clickAnswer(target, answers);
+      const answer = clickAnswer(target, latest.current.answers);
       if (!answer) return;
       e.preventDefault();
       answer();

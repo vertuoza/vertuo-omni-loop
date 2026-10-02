@@ -1,7 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import type { JwtPayload, SupabaseClient, User } from '@supabase/supabase-js';
-import type { Database } from '../../../../supabase/database.types.ts';
+import type { JwtPayload, User } from '@supabase/supabase-js';
 import { readWaitingQuestions } from '../waiting/source';
 import type { WaitingQuestion } from '../waiting/waiting';
 import { arcadeMode, type ArcadeMode } from './mode';
@@ -101,7 +100,7 @@ export async function readViewing(deps: ViewerDeps): Promise<Viewing> {
   const user = userOfClaims(claims);
   return {
     kind: 'signed-in', db, env, user,
-    workspace: once(() => memberWorkspace(db as unknown as SupabaseClient<Database>, user.id)), // ts-allow: the viewer's client is the server client, typed narrower here
+    workspace: once(() => memberWorkspace(db, user.id)),
     questions: once(() => deps.questions(db, user.id, deps.now())),
   };
 }

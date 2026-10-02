@@ -74,7 +74,7 @@ export async function readViewer(source: ViewerSource): Promise<Viewer> {
   const [[workspace, player], questions, live] = await Promise.all([
     settle(() => source.workspace(user.id), null).then(async (w) => [w, w ? await settle(() => source.player(user.id, w.id), null) : null] as const),
     settle(() => source.questions(user.id), null),
-    settle(async () => source.live(user.id), null),
+    settle(() => Promise.resolve(source.live(user.id)), null),
   ]);
   return {
     signedIn: true,
@@ -107,7 +107,7 @@ export async function viewerLive(): Promise<Viewer> {
   if (seen?.kind !== 'signed-in') return SIGNED_OUT;
   const { env, user } = seen;
   return readViewer({
-    user: async () => user,
+    user: () => Promise.resolve(user),
     workspace: () => seen.workspace(),
     player: async (userId, workspaceId) => {
       const [me, fleets] = await Promise.all([loadMe(seen.db, workspaceId, userId), loadFleets(seen.db, workspaceId)]);

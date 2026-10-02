@@ -2,6 +2,7 @@
 // a given second, and the loop that draws it onto a canvas with the game's own drawPlanet. Kept
 // apart from the component so it runs with a stubbed canvas, a stubbed frame clock and a stubbed page.
 import { drawPlanet } from '@omni/design';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { PLANET, PLANET_PROGRESS } from './art';
 
 /** The planet's label: what the planet's box says, whether the frames or the canvas show. */
@@ -23,7 +24,7 @@ export function planetMoves(win: { matchMedia?: (query: string) => { matches: bo
 /** The planet at second `t`: its turn (radians) and how much of it is secured. */
 export function planetAt(t: number): { rot: number; progress: number } {
   const step = Math.floor(t / PLANET_STEP_SECONDS) % PLANET_PROGRESS.length;
-  return { rot: (t / PLANET_TURN_SECONDS) * Math.PI * 2, progress: PLANET_PROGRESS[step]! };
+  return { rot: (t / PLANET_TURN_SECONDS) * Math.PI * 2, progress: at(PLANET_PROGRESS, step, 'the planet\'s progress') };
 }
 
 /** What the loop needs from the browser: a clock, frames, and the page's visibility. */
@@ -43,7 +44,7 @@ export function browserClock(): SpinClock {
   return {
     now: () => performance.now(),
     frame: (fn) => requestAnimationFrame(fn),
-    cancel: (id) => cancelAnimationFrame(id),
+    cancel: (id) => { cancelAnimationFrame(id); },
     doc: document,
   };
 }
