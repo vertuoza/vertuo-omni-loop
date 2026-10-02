@@ -7,7 +7,6 @@
 // this site: anything that is not a dossier id goes home. /prd, the history (step 4), signs in the same
 // way through /prd/callback, and comes back to /prd; a list of fixes (PRD 627) through its own
 // /visual/callback or /bugs/callback, back to itself.
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Exchange } from '../../ask/page/sign-in';
 import { HISTORY_PATH } from './history';
 import { dossierPath } from './view';
@@ -44,7 +43,7 @@ async function signInReturn(url: URL, back: URL, exchange: Exchange | null, join
       try {
         await join();
       } catch (failure) {
-        console.error(`dossier sign-in: ${messageOf(failure)}`);
+        console.error(`dossier sign-in: ${(failure as Error).message}`); // ts-allow: the sign-in call throws only Error
       }
     }
   }
