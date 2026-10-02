@@ -21,6 +21,7 @@ describe('app.yml — the GitHub App manifest', () => {
   it('sends an installer to galaxy’s /signup/installed, over https', () => {
     const setup = new URL(manifest.setup_url);
     expect(setup.protocol).toBe('https:');
+    expect(setup.host).toBe('www.omni-loop.xyz');
     expect(setup.pathname).toBe('/signup/installed');
     expect(setup.search).toBe('');
   });
