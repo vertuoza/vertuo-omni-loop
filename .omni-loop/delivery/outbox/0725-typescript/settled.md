@@ -4007,7 +4007,7 @@ Cheap: each change is behaviour-neutral and its own commit; reverting one restor
 - Channel: feature pull request #726
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/726#issuecomment-5947762035
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #940, the sub-pull request that brought the build back in line
 - Rank: high
 - Stays here: ADR-0002 already says the kit never names the game; this answer upholds it and adds no new rule
 - Bears on: ADR-0002
