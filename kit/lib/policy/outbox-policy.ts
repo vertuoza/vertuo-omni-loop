@@ -32,7 +32,7 @@ import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import type { AccountEntry, AccountLine } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
-import { isList } from '../outbox/plain-text.ts';
+import { isList, plainText } from '../outbox/plain-text.ts';
 import type { Laws } from '../laws.ts';
 import type { Layout, PrdNumber } from '../layout.ts';
 import type { Rank } from '../types.ts';
@@ -662,11 +662,10 @@ function accountLine(account: GivenAccount): string {
   const form = kind === 'item' || kind === 'spec' ? ACCOUNT_FORMS[kind] : undefined;
   if (!form) {
     throw new Error(
-      `an account is "item <id>" or "spec <where>", and no third form — got "${typeof kind === 'string' ? kind : kind === undefined ? 'undefined' : JSON.stringify(kind)}"`,
+      `an account is "item <id>" or "spec <where>", and no third form — got "${String(kind)}"`,
     );
   }
-  const given = account?.[form.field];
-  const value = (typeof given === 'string' ? given : '').trim();
+  const value = plainText(account?.[form.field]).trim();
   if (value.length === 0) {
     throw new Error(`an "${form.kind}" account needs its ${form.field} — ${form.why}`);
   }

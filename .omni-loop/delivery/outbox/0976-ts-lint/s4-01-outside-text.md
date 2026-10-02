@@ -36,7 +36,7 @@ How kit/lib/outbox and kit/lib/policy read a value handed in from outside as tex
 
 ## What I did meanwhile
 
-`plainText` in `kit/lib/outbox/plain-text.ts` reads a string as it is, a number or a boolean written out, and anything else as ''. It replaces `String(value ?? '')` in `cleanLine`, `parseReplyLines`, `interpretAnswer`, phase-0's `normalize` and `beforeAfterHandoff`; an account's id or where is read only when it is text. Text, numbers and nothing read exactly as before.
+`plainText` in `kit/lib/outbox/plain-text.ts` reads a string as it is, a number or a boolean written out, and anything else as ''. It replaces `String(value ?? '')` in `cleanLine`, `parseReplyLines`, `interpretAnswer`, phase-0's `normalize`, `beforeAfterHandoff` and the account renderer's id or where. Text, numbers and nothing read exactly as before.
 
 ## What it costs to change later
 
