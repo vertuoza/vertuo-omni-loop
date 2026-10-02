@@ -192,6 +192,9 @@ const DASH = '–';
 const cell = (value: number | null | typeof UNREADABLE) =>
   (value === null ? <span aria-label="no GitHub login">{DASH}</span> : value === UNREADABLE ? <span aria-label="could not load">?</span> : n(value));
 
+/** A person's place by points (PRD 1017); – for a row whose points are a dash or `?`. */
+const rankCell = (rank: number | null) => (rank === null ? <span aria-label="no rank">{DASH}</span> : n(rank));
+
 function PrdsCell({ prds }: { prds: PersonRow['prds'] }) {
   if (prds === UNREADABLE) return cell(prds);
   return <span aria-label={GROUPS.map((g) => `${prds[g]} ${g}`).join(', ')}>{GROUPS.map((g) => n(prds[g])).join(' · ')}</span>;
@@ -219,6 +222,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
             <table className="board-table">
               <thead>
                 <tr>
+                  <th scope="col" className="is-num">Rank</th>
                   <th scope="col">Name</th>
                   <th scope="col">Fleet</th>
                   <th scope="col" className="is-num">Points</th>
@@ -230,6 +234,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: Rea
               <tbody>
                 {people.map((p) => (
                   <tr key={p.userId} aria-current={p.you ? 'true' : undefined}>
+                    <td className="is-num">{rankCell(p.rank)}</td>
                     <th scope="row" className="board-name">
                       <PersonChip person={p} />
                       {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}

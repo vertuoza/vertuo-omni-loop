@@ -267,6 +267,9 @@ export interface PersonRow {
   prs: number | null | typeof UNREADABLE;
   prds: PrdGroups | typeof UNREADABLE;
   answered: number | typeof UNREADABLE;
+  /** Their place by points among the table's rows (PRD 1017), equal points sharing a rank and the next
+   * rank skipping (1, 2, 2, 4); null when their points are a dash or unreadable. */
+  rank: number | null;
   you: boolean;
 }
 
@@ -281,7 +284,8 @@ export interface PeopleInput {
   prds: Read<readonly PrdNow[]>;
 }
 
-const rank = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'number' ? n : -1);
+/** A figure to order by: a dash or `?` below every number. */
+const score = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'number' ? n : -1);
 
 const nameOf = (m: Member) => m.name?.trim() || m.login || 'A member';
 
@@ -309,7 +313,7 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
   if (input.heroes !== UNREADABLE) for (const h of input.heroes) points.set(h.name.toLowerCase(), h.points);
   const fleets = new Map(input.fleets.map((f) => [f.name, f]));
 
-  const rows = members.map((m): PersonRow => {
+  const rows = members.map((m): Omit<PersonRow, 'rank'> => {
     const login = m.login?.toLowerCase() ?? null;
     const mine = login ? byLogin.get(login) ?? [] : [];
     const byGithub = <T>(unreadable: boolean, value: () => T): T | null | typeof UNREADABLE =>
@@ -330,6 +334,13 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       you: m.userId === viewerId,
     };
   });
-  return rows.sort((a, b) => rank(b.prs) - rank(a.prs) || rank(b.points) - rank(a.points)
+  // Points, highest first, then PRs merged, then the name A to Z (PRD 1017). A rank is one more than
+  // the number of rows with more points, so equal points share it and the next rank skips.
+  const sorted = rows.sort((a, b) => score(b.points) - score(a.points) || score(b.prs) - score(a.prs)
     || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  return sorted.map((row) => {
+    const { points } = row;
+    const rank = typeof points === 'number' ? 1 + sorted.filter((r) => typeof r.points === 'number' && r.points > points).length : null;
+    return { ...row, rank };
+  });
 }
