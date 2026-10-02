@@ -10,17 +10,20 @@
 // A remembered pick skips the overlay: the click goes straight to GitHub with it, and the line under
 // each button, drawn here in its wrapper, says where it opens; its **change** forgets the pick and
 // opens the overlay (selector/choice.ts).
+// PRESS START (#955) opens the same overlay, by a click or by Enter, and a remembered pick skips it:
+// the Arcade starts the game, the Omni app opens /app (start.ts). The Konami code is the game's cheat,
+// and starts the game whatever was picked.
 // Without JavaScript, PRESS START is still a plain link to /play.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
 import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
-import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice } from './selector/choice';
+import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice, type SignUpClickPorts } from './selector/choice';
 import { Selector } from './selector/Selector';
 import { SIGN_UP_ATTR, signUp, type AppPick } from './sign-up';
 import { flipCard } from './spreads/flip';
-import { PRESS_START_ATTR, pressStart, startsOnKey } from './start';
+import { PRESS_START_ATTR, pressStart, startsOnKey, type StartPorts } from './start';
 
 /** How long CHEAT ACTIVATED! shows before the sound and the game. */
 export const CHEAT_MS = 900;
@@ -35,8 +38,46 @@ function supabase(): { url: string; key: string } | null {
   return url && key ? { url, key } : null;
 }
 
+/** A plain left click: one with a modifier, or one something already answered, is the browser's. */
+function plainClick(e: MouseEvent): boolean {
+  return !e.defaultPrevented && e.button === 0 && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+}
+
+/** The SIGN UP WITH GITHUB button a **change** sits under: it takes the focus back on close. */
+function signUpButtonOf(change: Element): Element | null {
+  return change.closest(`[${HINT_SLOT_ATTR}]`)?.querySelector(`[${SIGN_UP_ATTR}]`) ?? null;
+}
+
 function storage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
+}
+
+/** What a click on each of HOME's controls does, given the element clicked. */
+interface ClickAnswers {
+  change: (change: Element) => void;
+  signUp: (button: Element) => void;
+  pressStart: (pressed: Element) => void;
+}
+
+/** What a click on the page answers, or null when it is not HOME's to answer. */
+function clickAnswer(target: Element | null, answers: ClickAnswers): (() => void) | null {
+  const change = target?.closest(`[${CHANGE_ATTR}]`);
+  if (change) return () => answers.change(change);
+  const button = target?.closest(`[${SIGN_UP_ATTR}]`);
+  if (button) return () => answers.signUp(button);
+  const pressed = target?.closest(`[${PRESS_START_ATTR}]`);
+  return pressed ? () => answers.pressStart(pressed) : null;
+}
+
+/** PRESS START in the browser: the arcade's start sound, a real wait, a real page change. */
+function startPorts(open: () => void): StartPorts {
+  return {
+    storage: storage(),
+    playStart: () => play('start', false),
+    wait: (ms) => new Promise((done) => setTimeout(done, ms)),
+    go: (href) => window.location.assign(href),
+    open,
+  };
 }
 
 export function Controls() {
@@ -49,7 +90,10 @@ export function Controls() {
   const [slots, setSlots] = useState<Element[]>([]);
   const started = useRef(false);
   const signingUp = useRef(false);
-  /** The SIGN UP WITH GITHUB button that opened the overlay: it takes the focus back on close. */
+  /**
+   * The SIGN UP WITH GITHUB button or the PRESS START that opened the overlay: it takes the focus back
+   * on close, and says what the pick does, sign up or press START.
+   */
   const opener = useRef<Element | null>(null);
   const open = useRef(false);
 
@@ -59,13 +103,32 @@ export function Controls() {
     if (opener.current instanceof HTMLElement) opener.current.focus();
   };
 
+  const openSelector = () => {
+    open.current = true;
+    setSignUpError(null);
+    setSelecting(true);
+  };
+
+  const start = (options: { holdMs?: number; pick?: AppPick } = {}) => {
+    if (started.current) return;
+    started.current = true;
+    void pressStart(startPorts(() => {
+      started.current = false;
+      openSelector();
+    }), options);
+  };
+
   const go = (pick: AppPick, save: boolean) => {
-    const button = opener.current;
-    if (signingUp.current || !button) return;
     if (save) {
       saveChoice(storage(), pick);
       setSaved(readChoice(storage()));
     }
+    if (opener.current?.matches(`[${PRESS_START_ATTR}]`)) {
+      start({ pick });
+      return;
+    }
+    const button = opener.current;
+    if (signingUp.current || !button) return;
     signingUp.current = true;
     button.setAttribute('aria-busy', 'true');
     setSignUpError(null);
@@ -83,10 +146,25 @@ export function Controls() {
     });
   };
 
-  const openSelector = () => {
-    open.current = true;
-    setSignUpError(null);
-    setSelecting(true);
+  /**
+   * A sign-up control clicked (the button, or **change** under it): ignored while a sign-up is under
+   * way or the overlay is open. Says whether it answered.
+   */
+  const signUpClicked = (button: Element | null, answer: (ports: SignUpClickPorts) => void): boolean => {
+    if (signingUp.current || open.current) return false;
+    opener.current = button;
+    answer({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
+    return true;
+  };
+
+  const answers: ClickAnswers = {
+    change: (change) => { if (signUpClicked(signUpButtonOf(change), changeChoice)) setSaved(null); },
+    signUp: (button) => { signUpClicked(button, answerSignUp); },
+    pressStart: (pressed) => {
+      if (open.current) return;
+      opener.current = pressed;
+      start();
+    },
   };
 
   useEffect(() => {
@@ -95,57 +173,31 @@ export function Controls() {
   }, []);
 
   useEffect(() => {
-    const start = (holdMs = 0) => {
-      if (started.current) return;
-      started.current = true;
-      void pressStart({
-        storage: storage(),
-        playStart: () => play('start', false),
-        wait: (ms) => new Promise((done) => setTimeout(done, ms)),
-        go: (href) => window.location.assign(href),
-      }, { holdMs });
-    };
     const code = konami();
 
     const onKey = (e: KeyboardEvent) => {
       if (open.current) return;
       if (code(e.key)) {
         setCheat(true);
-        start(CHEAT_MS);
+        start({ holdMs: CHEAT_MS, pick: 'arcade' });
         return;
       }
       const target = e.target instanceof Element ? e.target : null;
       const { key, repeat, altKey, ctrlKey, metaKey, shiftKey } = e;
       if (startsOnKey({ key, repeat, altKey, ctrlKey, metaKey, shiftKey, inControl: Boolean(target?.closest(CONTROL)) })) {
         e.preventDefault();
+        opener.current = document.querySelector(`[${PRESS_START_ATTR}]`);
         start();
       }
     };
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (!plainClick(e)) return;
       const target = e.target instanceof Element ? e.target : null;
       if (flipCard(target)) return;
-      const change = target?.closest(`[${CHANGE_ATTR}]`);
-      if (change) {
-        e.preventDefault();
-        if (signingUp.current || open.current) return;
-        opener.current = change.closest(`[${HINT_SLOT_ATTR}]`)?.querySelector(`[${SIGN_UP_ATTR}]`) ?? null;
-        changeChoice({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
-        setSaved(null);
-        return;
-      }
-      const button = target?.closest(`[${SIGN_UP_ATTR}]`);
-      if (button) {
-        e.preventDefault();
-        if (signingUp.current || open.current) return;
-        opener.current = button;
-        answerSignUp({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
-        return;
-      }
-      if (open.current) return;
-      if (!target?.closest(`[${PRESS_START_ATTR}]`)) return;
+      const answer = clickAnswer(target, answers);
+      if (!answer) return;
       e.preventDefault();
-      start();
+      answer();
     };
 
     window.addEventListener('keydown', onKey);

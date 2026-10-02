@@ -12,7 +12,7 @@ export type ChoiceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const isPick = (v: unknown): v is AppPick => v === 'app' || v === 'arcade';
 
 /** The saved pick, or null: none saved, an unknown value, or storage that is missing or refuses. */
-export function readChoice(storage: ChoiceStorage | null): AppPick | null {
+export function readChoice(storage: Pick<Storage, 'getItem'> | null): AppPick | null {
   try {
     const value = storage?.getItem(CHOICE_KEY);
     return isPick(value) ? value : null;
