@@ -412,3 +412,12 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-57
+
+A repository's spec is always judged against one workspace's business, chosen the same way every time.
+
+Why: Mixing or switching between workspaces' claims would make the check's verdict unpredictable and unfair to the repository's owners.
+Source: .omni-loop/delivery/shipped/0839-canon-check/outbox/settled.md, entry s1-01-app-read-workspace-choice, PRD #839
+Merged: @pierrederval, 2026-09-30, PR #840
+Proposed: harvest 2026-09-30
