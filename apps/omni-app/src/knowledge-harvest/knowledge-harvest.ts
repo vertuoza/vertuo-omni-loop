@@ -31,6 +31,7 @@ import { HARVEST_EVENT, inngest } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
+import { firstLine } from '../outbox-check/github-schema.ts';
 import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
@@ -231,13 +232,5 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
     });
   };
 }
-
-/** The first line of whatever the failure said: Inngest hands the error over unparsed. */
-function firstLine(reason: unknown): string {
-  const text = (reason === undefined || reason === null ? 'unknown error' : printed(reason)).trim();
-  return text.split('\n')[0] || 'unknown error';
-}
-
-const printed = (value: unknown) => String(value);
 
 export const knowledgeHarvest = createKnowledgeHarvest({ client: inngest, octokitFor: installationOctokit });

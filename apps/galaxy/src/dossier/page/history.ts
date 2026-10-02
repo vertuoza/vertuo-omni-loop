@@ -28,6 +28,8 @@ import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '.
 import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
 import type { PrdOutboxStore } from '../../stages/outbox/store';
 import type { DossierKind, DossierListRow } from '../store';
+import { listOf } from '../../data/unparsed';
+import type { ViewerDb } from '../../data/viewer';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 
 /** The history's own address, and where its sign-in comes back to. */
@@ -221,6 +223,13 @@ export async function readLoginIds(rows: readonly Pick<DossierListRow, 'workspac
   }));
   return ids;
 }
+
+/** The roster reader `readLoginIds` takes: workspace_roster, as the viewer; a refusal throws its message. */
+export const rosterReader = (db: Pick<ViewerDb, 'rpc'>): RosterReader => async (workspace) => {
+  const { data, error } = await db.rpc('workspace_roster', { workspace });
+  if (error) throw new Error(error.message);
+  return listOf(data);
+};
 
 /** A reader of the stored outboxes (PRD 657, s5): prd_outbox, as the viewer. */
 type OpenReader = Pick<PrdOutboxStore, 'countsOf'>;

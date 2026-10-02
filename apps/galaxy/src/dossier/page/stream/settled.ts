@@ -7,7 +7,7 @@ import { completePage, DossierStream, type DossierStreamProps } from './DossierS
 // streamed page (./DossierStream.tsx) is its complete page; anything else is itself. The tests then
 // render it to static markup, and read its props, as before the page streamed.
 
-export async function settled(node: ReactNode): Promise<ReactElement> {
+export async function settledPage(node: ReactNode): Promise<ReactElement> {
   if (isValidElement(node) && node.type === DossierStream) {
     const props = node.props as DossierStreamProps; // ts-allow: its type is DossierStream, so these are its props
     const [live, page] = await Promise.all([props.live(props.read), completePage(props)]);
@@ -15,7 +15,7 @@ export async function settled(node: ReactNode): Promise<ReactElement> {
   }
   if (isValidElement(node) && node.type === Streamed) {
     const { read, children } = node.props as StreamedProps<unknown>; // ts-allow: its type is Streamed, so these are its props
-    return settled(children(await read));
+    return settledPage(children(await read));
   }
   return node as ReactElement; // ts-allow: the page hands its root element; the checks above guard anything else
 }

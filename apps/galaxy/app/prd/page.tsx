@@ -1,14 +1,13 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { arcadeMode } from '../../src/data/mode';
-import { listOf } from '../../src/data/unparsed';
 import type { DossierListRow } from '../../src/dossier/store';
 import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import {
   HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
-  whoLogin, type CurrentStages, type OpenCounts, type Whom,
+  rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
@@ -83,11 +82,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const whom = login ? await readLoginIds(rows, login, async (workspace) => {
-      const { data, error } = await db.rpc('workspace_roster', { workspace });
-      if (error) throw new Error(error.message);
-      return listOf(data);
-    }) : undefined;
+    const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
     const [open, stages] = await Promise.all([
       readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),

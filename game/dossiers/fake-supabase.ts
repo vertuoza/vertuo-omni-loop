@@ -148,26 +148,42 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     return reply(200, ofKind.length + 1);
   }
 
+  // One handler per table the fake serves, each given the parsed request.
+  type Routed = { url: URL; method: string; headers: Headers | undefined; body: unknown; sent: Row };
+
+  const versionRule = ({ method, sent }: Routed): Reply =>
+    method === 'POST' ? addVersion(sent) : refuse(405, 'PGRST101', 'POST only');
+
+  function dossiersTable({ url, method, headers, body, sent }: Routed): Reply {
+    if (method === 'GET') return reply(200, readDossiers(url));
+    if (method === 'POST') return insertDossiers(url, headers, Array.isArray(body) ? Written.parse(body) : [sent]);
+    if (method === 'PATCH') return updateDossiers(url, sent);
+    return refuse(403, '42501', `permission denied: ${method} on dossiers`);
+  }
+
+  function versionsTable({ url, method }: Routed): Reply {
+    if (method !== 'GET') return refuse(403, '42501', `permission denied: ${method} on dossier_versions: a version is added only by dossier_add_version()`);
+    const { columns } = parseSelect(url.searchParams.get('select'));
+    return reply(200, filtered(versions, url.searchParams).map((v) => pick(v, columns)));
+  }
+
+  const routes = new Map<string, (request: Routed) => Reply>([
+    ['rpc/dossier_add_version', versionRule],
+    ['dossiers', dossiersTable],
+    ['dossier_versions', versionsTable],
+  ]);
+
+  const objectOf = (body: unknown): Row =>
+    body && typeof body === 'object' && !Array.isArray(body) ? Object.fromEntries(Object.entries(body)) : {};
+
   const answer = (href: string, init: Init): Promise<Reply> | Reply => {
     const url = new URL(href);
     const path = url.pathname.replace(/^.*\/rest\/v1\//, '');
     const method = init.method ?? 'GET';
     const body: unknown = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, path, url, headers: init.headers, body });
-    const sent: Row = body && typeof body === 'object' && !Array.isArray(body) ? Object.fromEntries(Object.entries(body)) : {};
-    if (path === 'rpc/dossier_add_version') return method === 'POST' ? addVersion(sent) : refuse(405, 'PGRST101', 'POST only');
-    if (path === 'dossiers') {
-      if (method === 'GET') return reply(200, readDossiers(url));
-      if (method === 'POST') return insertDossiers(url, init.headers, Array.isArray(body) ? Written.parse(body) : [sent]);
-      if (method === 'PATCH') return updateDossiers(url, sent);
-      return refuse(403, '42501', `permission denied: ${method} on dossiers`);
-    }
-    if (path === 'dossier_versions') {
-      if (method !== 'GET') return refuse(403, '42501', `permission denied: ${method} on dossier_versions: a version is added only by dossier_add_version()`);
-      const { columns } = parseSelect(url.searchParams.get('select'));
-      return reply(200, filtered(versions, url.searchParams).map((v) => pick(v, columns)));
-    }
-    return others.fetch(href, init);
+    const route = routes.get(path);
+    return route ? route({ url, method, headers: init.headers, body, sent: objectOf(body) }) : others.fetch(href, init);
   };
   // Answers at once, as an async function's body did; a request it cannot read rejects.
   const fetch = (href: string, init: Init = {}): Promise<Reply> => new Promise((resolve) => { resolve(answer(href, init)); });

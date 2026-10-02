@@ -1,6 +1,5 @@
 import { Notice } from '../ask/page/Notice';
 import { arcadeMode } from '../data/mode';
-import { listOf } from '../data/unparsed';
 import { DEMO_VIEWER, demoHistory } from '../dossier/page/demo';
 import { DossierSignIn } from '../dossier/page/DossierSignIn';
 import { readHistory, type Db } from '../dossier/page/source';
@@ -15,7 +14,7 @@ import { loginOf } from '../nav/viewer';
 import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type FixViewer } from './list';
 import { loadPeople, type People } from '../people/load';
 import { NOBODY, type PeopleIn } from './people';
-import { readLoginIds, whoLogin, type Whom } from '../dossier/page/history';
+import { readLoginIds, rosterReader, whoLogin, type Whom } from '../dossier/page/history';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -86,11 +85,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
   const fixes = ofWork(rows, kind);
   const [facts, people, whom] = await Promise.all([
     storedFacts(db, fixes), peopleOf(db, fixes),
-    login ? readLoginIds(fixes, login, async (workspace) => {
-      const { data, error } = await db.rpc('workspace_roster', { workspace });
-      if (error) throw new Error(error.message);
-      return listOf(data);
-    }) : undefined,
+    login ? readLoginIds(fixes, login, rosterReader(db)) : undefined,
   ]);
   return listing(rows, { id: user.id, login: loginOf(user) }, facts, people, whom);
 }

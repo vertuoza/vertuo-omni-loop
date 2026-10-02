@@ -174,11 +174,14 @@ function checkReply(value: unknown): Checked {
 }
 
 /** Whatever the model wrote, as `String` prints it, trimmed: nothing for null and undefined. */
-const text = (value: unknown) => (value === undefined || value === null ? '' : printed(value)).trim();
-const printed = (value: unknown) => String(value);
+const text = (value: unknown) => (value === undefined || value === null ? '' : stringOf(value)).trim();
+
+/** Any value, as `String` prints it. */
+export const stringOf = (value: unknown) => String(value);
 
 /** What a thrown value says: its `message`, when it has one. */
-const messageOf = (error: unknown): unknown => (error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined);
+export const thrownMessage = (error: unknown): unknown =>
+  error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined;
 
 function userPrompt({ spec, claims, constituents, personas }: { spec: string; claims: Claim[]; constituents: Constituent[]; personas: Persona[] }): string {
   const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ['(none)'];
@@ -294,7 +297,7 @@ async function attempt<T>(read: () => Promise<T>, what: string): Promise<{ gate:
   try {
     return { value: await read() };
   } catch (error) {
-    return { gate: neutral(`${what}: the read failed (${String(messageOf(error) ?? error)})`) };
+    return { gate: neutral(`${what}: the read failed (${String(thrownMessage(error) ?? error)})`) };
   }
 }
 

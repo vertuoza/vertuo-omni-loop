@@ -369,29 +369,26 @@ function Scan({ draft }: { draft: NonNullable<BusinessState['draft']> }) {
   );
 }
 
+/** The reveals that come to one line: its class and what it says. */
+const ONE_LINERS: Partial<Record<Reveal['kind'], { className: string; line: ReactNode }>> = {
+  nothing: { className: 'business-reveal-line', line: <strong>{NOTHING_FOUND}</strong> },
+  known: { className: 'business-reveal-line ask-muted', line: NOTHING_NEW },
+  saved: { className: 'business-reveal-line business-saved', line: SAVED_LINE },
+};
+
 /** What the draft came to, in one line, above the picks. */
 function RevealLine({ reveal }: { reveal: Reveal }) {
-  switch (reveal.kind) {
-    case 'thin':
-      return (
-        <div className="business-reveal-line">
-          <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
-          <p className="ask-muted">{THIN_HINT}</p>
-        </div>
-      );
-    case 'nothing':
-      return <p className="business-reveal-line"><strong>{NOTHING_FOUND}</strong></p>;
-    case 'known':
-      return <p className="business-reveal-line ask-muted">{NOTHING_NEW}</p>;
-    case 'saved':
-      return <p className="business-reveal-line business-saved">{SAVED_LINE}</p>;
-    case 'failed':
-      return <p className="business-refusal" role="alert">{reveal.reason}</p>;
-    case 'none':
-    case 'scan':
-    case 'reveal':
-      return null;
+  if (reveal.kind === 'thin') {
+    return (
+      <div className="business-reveal-line">
+        <p><strong>We found only {reveal.found} {reveal.found === 1 ? 'thing' : 'things'}.</strong></p>
+        <p className="ask-muted">{THIN_HINT}</p>
+      </div>
+    );
   }
+  if (reveal.kind === 'failed') return <p className="business-refusal" role="alert">{reveal.reason}</p>;
+  const oneLiner = ONE_LINERS[reveal.kind];
+  return oneLiner ? <p className={oneLiner.className}>{oneLiner.line}</p> : null;
 }
 
 const pageName = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');

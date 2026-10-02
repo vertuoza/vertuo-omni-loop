@@ -14,7 +14,7 @@
 // VerdictSchema (PRD 725) before its answer counts.
 import { z } from 'zod';
 import { STAGE_SIGNATURE_HEADER, signStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
-import { type Judge, type JudgeAnswer, JUDGE_NOT_CONFIGURED } from './canon.ts';
+import { type Judge, type JudgeAnswer, JUDGE_NOT_CONFIGURED, stringOf, thrownMessage } from './canon.ts';
 
 export const JUDGE_SECRET_VAR = 'CONSTITUENT_JUDGE_SECRET';
 /** Jev reads a spec of 40,000 characters at most; galaxy's route allows itself a minute. */
@@ -37,12 +37,6 @@ export function judgeUrl(env: Record<string, string | undefined> = process.env):
 
 const failed = (error: string, reason: string): JudgeAnswer => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason });
 
-/** Any value, as `String` prints it: a refusal's `error` line is whatever galaxy wrote. */
-const printed = (value: unknown) => String(value);
-
-/** What a thrown value says: its `message`, when it has one. */
-const messageOf = (error: unknown): unknown => (error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined);
-
 /** The judge bound to galaxy's route and the shared secret. */
 export function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS }: {
   url: string;
@@ -62,12 +56,12 @@ export function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs =
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      return failed('judge', `galaxy could not be reached: ${String(messageOf(error) ?? error)}`);
+      return failed('judge', `galaxy could not be reached: ${String(thrownMessage(error) ?? error)}`);
     }
     const reply: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal = RefusalSchema.safeParse(reply);
-      const said = refusal.success && refusal.data.error ? `: ${printed(refusal.data.error)}` : '';
+      const said = refusal.success && refusal.data.error ? `: ${stringOf(refusal.data.error)}` : '';
       return failed('judge', `galaxy answered ${response.status}${said}`);
     }
     const verdict = VerdictSchema.safeParse(reply);

@@ -63,7 +63,7 @@ const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
 const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
-const { settled } = await import('./stream/settled');
+const { settledPage } = await import('./stream/settled');
 const { DossierStream } = await import('./stream/DossierStream');
 
 let numbered = '';
@@ -91,7 +91,7 @@ const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 
 // A PRD's page streams (PRD 657 s4): these tests read what it ends as, once its reads have resolved.
 const open = async (id: string, query: Record<string, string> = {}) =>
-  settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
+  settledPage(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
 /** The change check of an opened page: beside a streamed PRD page (bug #782), else the page's own. */
 const liveOf = (page: ReactElement): ReactElement | undefined => {
@@ -371,7 +371,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
 
 describe('the history', () => {
   const list = async (query: Record<string, string> = {}) =>
-    renderToStaticMarkup(await settled(await HistoryPage({ searchParams: Promise.resolve(query) })));
+    renderToStaticMarkup(await settledPage(await HistoryPage({ searchParams: Promise.resolve(query) })));
   const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
 
   it('lists every dossier of a member\'s workspace under All, newest activity first, each opening its page', async () => {

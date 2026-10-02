@@ -116,3 +116,14 @@ export function messageField(error: unknown): unknown {
 export function messageOf(error: unknown): unknown {
   return messageField(error) ?? error;
 }
+
+/**
+ * The first line of whatever a failure said, as `String` prints it ("unknown error" when it said
+ * nothing): Inngest hands an error over unparsed, and a check run's title holds one line.
+ */
+export function firstLine(reason: unknown): string {
+  const said = (reason === undefined || reason === null ? 'unknown error' : printed(reason)).trim();
+  return said.split('\n')[0] || 'unknown error';
+}
+
+const printed = (value: unknown) => String(value);

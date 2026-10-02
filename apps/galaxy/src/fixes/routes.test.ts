@@ -101,7 +101,7 @@ const { default: VisualPage } = await import('../../app/visual/[id]/page.tsx');
 const { default: BugPage } = await import('../../app/bugs/[id]/page.tsx');
 const { default: PrdPage } = await import('../../app/prd/[id]/page.tsx');
 const { GET: roundRoute } = await import('../../app/visual/[id]/r/[round]/page/route.ts');
-const { settled } = await import('../dossier/page/stream/settled');
+const { settledPage } = await import('../dossier/page/stream/settled');
 const { fakeFixFactsStore } = await import('./facts/store.fake');
 
 let prd = '';
@@ -134,9 +134,9 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 const query = (q: Record<string, string> = {}) => Promise.resolve(q);
 const list = async (route: (p: { searchParams: Promise<Record<string, string>> }) => unknown, q: Record<string, string> = {}) =>
-  renderToStaticMarkup(await settled(await route({ searchParams: query(q) }) as ReactElement));
+  renderToStaticMarkup(await settledPage(await route({ searchParams: query(q) }) as ReactElement));
 const page = async (route: (p: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) => unknown, id: string, q: Record<string, string> = {}) =>
-  renderToStaticMarkup(await settled(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
+  renderToStaticMarkup(await settledPage(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
 const redirectTo = (path: string) => {
   const digest: unknown = expect.stringContaining(`;${path};`);
   return { digest };
