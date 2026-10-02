@@ -19,7 +19,7 @@ function db({ players = null, player_xp = null, fail = [] }: Rows) {
       const q = {
         select: () => q,
         eq: (col: string, v: string) => { seen.push(`${table}.${col}=${v}`); return q; },
-        maybeSingle: async () => (fail.includes(table)
+        maybeSingle: () => Promise.resolve(fail.includes(table)
           ? { data: null, error: { message: 'down' } }
           : { data: table === 'players' ? players : player_xp, error: null }),
       };

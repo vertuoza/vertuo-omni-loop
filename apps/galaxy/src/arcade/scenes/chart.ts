@@ -3,6 +3,7 @@
 // entries as worlds on still orbits (principles inside, rules in the middle, invariants outside),
 // laws terraformed and proposed entries barren, and the selected world's links. Where everything
 // sits is chart-layout.ts; the labels, the panel and the reading card are the text layer, chart.tsx.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { drawPlanet, drawSun } from '@omni/design';
 import { servedBy, serving, type EntryKind, type KnowledgeGraph } from '../../data/knowledge';
 import { sunSeed, type WorldSlot } from './chart-layout.ts';
@@ -26,13 +27,13 @@ export const KIND_LOOK: Record<EntryKind, { token: Token | null; color: string |
 /** A kind's colour on the canvas, in the frame's theme. */
 export const kindColor = (kind: EntryKind, theme: Theme) => {
   const { token, color } = KIND_LOOK[kind];
-  return token ? theme[token] : color!;
+  return token ? theme[token] : defined(color, `the ${kind} colour`);
 };
 
 /** A kind's colour in the text layer: the custom property the theme writes on the arcade's root. */
 export const kindCss = (kind: EntryKind) => {
   const { token, color } = KIND_LOOK[kind];
-  return token ? `var(--${token})` : color!;
+  return token ? `var(--${token})` : defined(color, `the ${kind} colour`);
 };
 
 /** The graph a frame shows, if it has one: out of reach and a build without a chart draw bare space. */
@@ -80,7 +81,7 @@ export function drawChart(ctx: CanvasRenderingContext2D, s: FrameState) {
   const t = s.reduced ? 0 : s.t;
   // Lanes first: a cross-domain file between two suns.
   for (const lane of lanes) {
-    const a = suns[lane.from]!, b = suns[lane.to]!;
+    const a = defined(suns[lane.from], "a lane's first sun"), b = defined(suns[lane.to], "a lane's second sun");
     dotted(ctx, a.x, a.y, b.x, b.y, { skipA: a.r * 1.4 + 3, skipB: b.r * 1.4 + 3, every: 7, size: 2, color: '#a88cff', shade: '#2a1f5c', t });
   }
   for (const sun of suns) drawSun(ctx, { cx: sun.x, cy: sun.y, r: sun.r, seed: sun.seed, t });

@@ -4,6 +4,7 @@
 // (640×360, 5 rows × 10, four shields) or the tall one (320×288, 5 rows × 6, three shields). The
 // score line, the ready screen's score table, the pause and the game over are the text layer's
 // (invaders.tsx).
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
 import { woundTint, type Tint } from '@omni/design';
 import { alienAt, FIELDS } from '../games/invaders';
@@ -20,8 +21,9 @@ const SHIELD = '#1d8f55';
 // One tint per kind, made once: the sprite cache keys on it every frame.
 const tints = new Map<WoundKind, Tint>();
 const tintOf = (kind: WoundKind) => {
-  if (!tints.has(kind)) tints.set(kind, woundTint(kind));
-  return tints.get(kind)!;
+  let tint = tints.get(kind);
+  if (!tint) { tint = woundTint(kind); tints.set(kind, tint); }
+  return tint;
 };
 
 export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -53,7 +55,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
     if (!on) return;
     const row = Math.floor(i / g.cols);
     const a = alienAt(g, row, i % g.cols);
-    sprite(ctx, s, 'entropy', a.x, a.y, { tint: tintOf(g.kinds[row]!), frame: step });
+    sprite(ctx, s, 'entropy', a.x, a.y, { tint: tintOf(at(g.kinds, row, "an alien row's kind")), frame: step });
   });
 
   // An alien hit bursts for a moment.

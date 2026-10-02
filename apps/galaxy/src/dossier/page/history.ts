@@ -128,7 +128,7 @@ export function readHistoryFilters(query: Query): HistoryFilters {
 }
 
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
-export const filtered = ({ who: _who, ...rest }: HistoryFilters) => Object.keys(rest).length > 0;
+export const filtered = (filters: HistoryFilters) => Object.keys(filters).some((key) => key !== 'who');
 
 /** The history's address for these filters: `repo`, `state`, `q`, `needs`, `stage`, then `who=all` for All or
  * `who=<login>` for one person (Mine is the default). */
@@ -200,7 +200,7 @@ const newestFirst = (a: DossierListRow, b: DossierListRow) =>
 /** The numbered dossiers every filter but Needs an answer and the stage lets through, newest activity
  * first: the ones whose open questions the history reads (the stage bar counts over them too). */
 export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, whom: Whom = NOBODY): DossierListRow[] {
-  const { needsAnswer: _needs, stage: _stage, ...rest } = filters;
+  const rest: HistoryFilters = { ...filters, needsAnswer: undefined, stage: undefined };
   return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map(), new Map(), whom)).sort(newestFirst);
 }
 

@@ -5,13 +5,14 @@
 // A finished game's score goes through submit_score(), and the crew's tables are read as the member
 // (src/data/scores.ts).
 import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { savePlayer } from '../data/players';
 import { githubSignIn } from '../data/sign-in-github';
 import { loadScores, submitScore } from '../data/scores';
 import type { Account, Player, PlayerPatch } from './types';
 import type { Database } from '../../../../supabase/database.types.ts';
 
-type Browser = ReturnType<typeof createBrowserClient<Database>>;
+type Browser = SupabaseClient<Database>;
 
 /** `workspace`: the id of the workspace the page plays, where joining a fleet writes the player row;
  * null for a person who belongs to none. */
@@ -19,18 +20,18 @@ export function supabaseAccount({ url, key, workspace }: { url: string; key: str
   // Created on first use, in the browser: the server's pre-render of the arcade never needs it.
   let client: Browser | null = null;
   const db = new Proxy({} as Browser, { // ts-allow: an empty target: every read goes to the client, made on first use
-    get: (_, prop) => Reflect.get((client ??= createBrowserClient<Database>(url, key)), prop),
+    get: (_, prop): unknown => Reflect.get((client ??= createBrowserClient<Database>(url, key)), prop),
   });
   const callback = (next?: string) => `${window.location.origin}/auth/callback${next ? `?next=${next}` : ''}`;
   const fail = (what: string, message: string) => new Error(`${what}: ${message}`);
   return {
     kind: 'supabase',
-    async signIn() {
+    async signIn(): Promise<undefined> {
       // The callback joins the workspaces of the person's GitHub orgs and links GitHub (src/data/sign-in.ts).
       const { error } = await db.auth.signInWithOAuth(githubSignIn(callback()));
       if (error) throw fail('GitHub sign-in', error.message);
     },
-    async linkGithub() {
+    async linkGithub(): Promise<undefined> {
       // Every sign-in is GitHub's and links it: the arcade's link step signs in again, and the
       // callback answers the linked login (until the step goes, PRD 359 s3).
       const { error } = await db.auth.signInWithOAuth(githubSignIn(callback('link')));
