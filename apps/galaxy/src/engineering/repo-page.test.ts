@@ -12,11 +12,14 @@ const given = vi.hoisted((): { mode: 'demo' | 'closed' | 'supabase'; user: null 
   load: { kind: 'no-workspace' },
   demo: null,
 }));
-const demoEngineeringBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => given.demo));
-const loadEngineeringRepositoryBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));
+const demoEngineeringBoard = vi.hoisted(() => vi.fn<(...args: unknown[]) => unknown>(() => given.demo));
+const loadEngineeringRepositoryBoard = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(given.load)));
 const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
+
+const A_DATE: unknown = expect.any(Date);
+const A_404: unknown = expect.stringContaining('404');
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -29,7 +32,7 @@ const { default: Page } = await import('../../app/app/engineering/[owner]/[repo]
 
 const open = async (owner: string, repo: string, query: Record<string, string> = {}) =>
   ((await Page({ params: Promise.resolve({ owner, repo }), searchParams: Promise.resolve(query) })) as ReactElement<EngineeringScreenProps>).props;
-const notFound = { digest: expect.stringContaining('404') };
+const notFound = { digest: A_404 };
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' }, demo: null });
@@ -106,7 +109,7 @@ describe('/app/engineering/<owner>/<repo> decides once', () => {
     const { view, period } = await open('vertuoza', 'pdf-builder', { period: 'forever' });
     expect(view).toEqual(given.load);
     expect(period).toBe('7d');
-    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'vertuoza/pdf-builder', { period: '7d', sort: 'merged', now: expect.any(Date) });
+    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'vertuoza/pdf-builder', { period: '7d', sort: 'merged', now: A_DATE });
   });
 
   it('signed in, a repository the workspace does not track: not found', async () => {

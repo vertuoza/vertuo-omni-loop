@@ -54,7 +54,9 @@ export const EMPTY_WAITING: WaitingList = { questions: [], outbox: [] };
 
 export type WaitingCounts = { questions: number; shared: number; outbox: number; total: number };
 
-const sessionTitle = (session: SessionRow) => session.title?.trim() || session.repo?.trim() || 'A terminal';
+/** A session's text, trimmed; none when it has none (its row is read unparsed, so a title may be missing). */
+const trimmedOf = (text: string | null | undefined): string => text?.trim() ?? '';
+const sessionTitle = (session: SessionRow) => trimmedOf(session.title) || trimmedOf(session.repo) || 'A terminal';
 
 /** The person's own sessions whose newest round waits on the page. `texts` holds each round's first
  * question, by round id, once read; until then the header stands in. */

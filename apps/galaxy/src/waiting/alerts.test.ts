@@ -21,7 +21,7 @@ const ids = (items: WaitingItem[]) => items.map((i) => i.id);
 /** A storage over a map, like the browser's. */
 function memory(): Store & { map: Map<string, string> } {
   const map = new Map<string, string>();
-  return { map, getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, String(v)) };
+  return { map, getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) };
 }
 const throwing = (): Store => ({
   getItem: () => { throw new Error('blocked'); },
@@ -114,7 +114,7 @@ describe('the chime claim', () => {
 describe('the chime itself', () => {
   it('breaks nothing when the browser refuses to play sound', () => {
     expect(() => { playChime(null); }).not.toThrow();
-    expect(() => { playChime(class { constructor() { throw new Error('no audio'); } } as never); }).not.toThrow();
+    expect(() => { playChime(class { readonly state = 'closed'; constructor() { throw new Error('no audio'); } } as never); }).not.toThrow();
   });
 });
 
@@ -183,7 +183,7 @@ describe('desktop alerts', () => {
   });
 
   it('with the switch off nothing is raised and nothing is asked', () => {
-    const { api, raised, asks } = fakeNotification('granted');
+    const { api, raised } = fakeNotification('granted');
     raiseAlerts(api, 'off', [q('r1')], () => {});
     raiseAlerts(api, 'blocked', [q('r1')], () => {});
     expect(raised).toEqual([]);
@@ -193,7 +193,7 @@ describe('desktop alerts', () => {
   });
 
   it('never throws when the browser refuses a notification', () => {
-    const api = class { static permission = 'granted'; constructor() { throw new Error('refused'); } } as unknown as NotificationApi;
+    const api = class { static permission = 'granted'; onclick = null; constructor() { throw new Error('refused'); } } as unknown as NotificationApi;
     expect(() => { raiseAlerts(api, 'on', [q('r1')], () => {}); }).not.toThrow();
   });
 

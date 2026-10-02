@@ -15,8 +15,6 @@ export type RepositoriesSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string };
 
-type Rpc = Parameters<typeof databaseRepositories>[0];
-
 export interface RepositoriesPageProps {
   source: RepositoriesSource;
   owner: boolean;

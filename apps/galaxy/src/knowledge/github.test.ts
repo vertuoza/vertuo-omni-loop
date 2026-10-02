@@ -44,7 +44,7 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
   const byName = new Map(repos.map((r) => [r.name.toLowerCase(), r]));
   const fetchImpl = vi.fn((href: string, init: RequestInit) => {
     const url = new URL(href);
-    const body = init.body ? (JSON.parse(String(init.body)) as { query: string; variables: Record<string, string> }) : null;
+    const body = typeof init.body === 'string' && init.body !== '' ? (JSON.parse(init.body) as { query: string; variables: Record<string, string> }) : null;
     const what = body ? (body.query.includes('fragment files') ? `graphql knowledge ${body.variables.owner}/${body.variables.name}` : 'graphql configs') : `${init.method ?? 'GET'} ${url.pathname}${url.search}`;
     calls.push(what);
     if (fail?.test(what)) return Promise.resolve(json({ message: 'boom' }, 502));

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_MEMBER, NOT_OWNER, refusalOf } from './store';
 
+const containing = (text: string): unknown => expect.stringContaining(text);
+
 // Settings → Repositories's two calls (PRD 612 s1): add_repository() and set_repository_tracked(),
 // as the signed-in person, each answering the row it saved or a refusal the page shows; and the demo,
 // which keeps the same rules in memory.
@@ -33,7 +35,7 @@ describe('the database calls', () => {
     expect(await databaseRepositories(d, 'ws-1').setProduct('vertuoza/vertuo-apps', 'p-2')).toMatchObject({ ok: true, repository: { product: 'p-2' } });
     expect(d.calls).toEqual([['repository_set_product', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_product: 'p-2' }]]);
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setProduct('a/b', 'p-2')).toEqual({ ok: false, message: NOT_MEMBER });
-    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setProduct('a/b', 'p-2')).toMatchObject({ ok: false, message: expect.stringContaining('Reload') });
+    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setProduct('a/b', 'p-2')).toMatchObject({ ok: false, message: containing('Reload') });
   });
 
   it('points a repository at a product in the demo', async () => {

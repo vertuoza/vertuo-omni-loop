@@ -135,7 +135,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
 });
 
 describe('Loop health, in the period (PRD 714 s4)', () => {
-  const periodPart = (html: string) => sure(sure(html.split('id="eng-health">')[1], 'html.split(\'id="eng-health">\')[1]').split('</section>')[0], 'sure(html.split(\'id="eng-health">\')[1], \'html.split(\\...').split('In the period')[1];
+  const periodPart = (html: string) => sure(sure(html.split('id="eng-health">')[1], 'the health panel').split('</section>')[0], 'the health panel\'s section').split('In the period')[1];
   const sub = (over: Partial<PullRequestRow> = {}) => mergedAfter(1, { omniSigned: true, base: 'feat/x', head: 'feat/x--s1', ...over });
 
   it('reads K of M merged sub-PRs got omni:needs-fix first, with the percent', () => {
@@ -164,7 +164,7 @@ describe('the top-people lists (PRD 645 s1)', () => {
     const withFace = (list: [string, number][]) => people(list).map((p) => (faces[p.login] ? { ...p, face: faces[p.login] } : p));
     return { ...view, board: { ...view.board, people: { opened: withFace(opened), merged: withFace([['bob', 2]]), reviews: withFace([['dora', 1]]) } } };
   };
-  const rowsOf = (html: string, id: string) => sure(sure(html.split(`id="${id}"`)[1], 'html.split(`id="${id}"`)[1]').split('</section>')[0], 'sure(html.split(`id="${id}"`)[1], \'html.split(`id="${id}...').match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  const rowsOf = (html: string, id: string) => sure(sure(html.split(`id="${id}"`)[1], `the section ${id}`).split('</section>')[0], `the section ${id}'s body`).match(/<li[^>]*>.*?<\/li>/g) ?? [];
 
   const FIVE: [string, number][] = [['ada', 8], ['bob', 6], ['carl', 4], ['dora', 2], ['eli', 1]];
 

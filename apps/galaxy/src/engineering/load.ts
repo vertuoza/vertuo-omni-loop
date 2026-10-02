@@ -126,7 +126,9 @@ const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, c
 export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace: string): EngineeringReads {
   return {
     async tracked() {
-      const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
+      // `data` is widened to null: the rows are read here unparsed.
+      const { data, error }: { data: Array<{ full_name: string }> | null; error: { message: string } | null } =
+        await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
       return (data ?? []).map((r) => r.full_name);
     },

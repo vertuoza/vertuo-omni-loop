@@ -79,7 +79,7 @@ function Picker({ state, access, on }: { state: RepositoriesState; access: Extra
           ))}
         </ul>
       )}
-      <button type="button" className="ask-button quiet" onClick={on.close} disabled={state.busy}>Close</button>
+      <button type="button" className="ask-button quiet" onClick={() => { on.close(); }} disabled={state.busy}>Close</button>
     </section>
   );
 }
@@ -95,7 +95,7 @@ function Row({ row, owner, access, now, busy, products, on }: { row: RepositoryR
         {noAccess && (
           <span className="repositories-no-access">
             {NO_ACCESS}
-            {access.kind === 'installed' && access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
+            {access.settingsUrl && <> · <a href={access.settingsUrl}>Give access on GitHub →</a></>}
           </span>
         )}
       </div>
@@ -128,7 +128,7 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
           : <p className="ask-muted">{ONLY_OWNER}</p>}
         {hasProducts(products) && <p className="ask-muted">{PRODUCTS_LINE}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
-        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={on.pick} disabled={state.busy}>Add repository</button>}
+        {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}
       </section>
 
       {access.kind === 'none' && (
@@ -139,7 +139,7 @@ export function RepositoriesView({ state, owner, access, now, products = [], on 
         </section>
       )}
 
-      {canAdd && state.picking && access.kind === 'installed' && <Picker state={state} access={access} on={on} />}
+      {canAdd && state.picking && <Picker state={state} access={access} on={on} />}
 
       <section className="repositories-list" aria-label="The workspace’s repositories">
         {rows.length === 0

@@ -31,7 +31,7 @@ export function KnowledgeSignIn({ supabase, returnPath, error }: { supabase: Sup
           come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => { void signIn(); }} disabled={busy}>
           {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>

@@ -7,7 +7,7 @@ import { waitingBusiness, type BusinessCountDeps } from './business-count';
 type Over = { user?: string | null; workspace?: string | null; count?: number; questions?: number; error?: string; fail?: boolean };
 
 function deps(over: Over = {}) {
-  const rpc = vi.fn((fn: string, _args: Record<string, unknown>) =>
+  const rpc = vi.fn<(fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>>((fn) =>
     Promise.resolve(over.error ? { data: null, error: { message: over.error } }
       : { data: fn === 'agent_questions_open' ? over.questions ?? 0 : over.count ?? 0, error: null }));
   const db = { auth: { getUser: () => Promise.resolve({ data: { user: over.user === null ? null : { id: over.user ?? 'u1' } } }) }, rpc };
@@ -22,7 +22,7 @@ function deps(over: Over = {}) {
   return { d, rpc, workspace };
 }
 
-const body = async (r: Response) => ({ status: r.status, json: await r.json() });
+const body = async (r: Response) => ({ status: r.status, json: (await r.json()) as unknown });
 
 describe('the business count route', () => {
   it('gives the member\'s count of things to check, read for their workspace', async () => {

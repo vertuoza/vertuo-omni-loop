@@ -53,7 +53,7 @@ describe('a skill page', () => {
 
   it('carries what it does, when to use it, its usage, its example and its SKILL.md', () => {
     const page = sure(skillPage('wave'), 'skillPage(\'wave\')');
-    const entry = sure((ENTRIES as readonly SkillEntry[]).find((e) => e.kind === 'skill' && e.name === 'wave'), '(ENTRIES as readonly SkillEntry[]).find((e) => e.kind ===...');
+    const entry = sure((ENTRIES as readonly SkillEntry[]).find((e) => e.kind === 'skill' && e.name === 'wave'), 'the wave skill\'s entry');
     expect(page.summary).toBe(entry.summary);
     expect(page.when).toBe(entry.when);
     expect(page.usage).toEqual(['/omni:wave <n>']);

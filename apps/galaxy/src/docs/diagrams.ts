@@ -71,7 +71,7 @@ export function readSvg(source: string): HastElement {
   };
 
   for (const match of source.matchAll(TOKEN)) {
-    const index = match.index ?? 0;
+    const index = match.index;
     text(source.slice(at, index), at);
     at = index + match[0].length;
     const [whole, closing, , attributes, selfClosing] = match;

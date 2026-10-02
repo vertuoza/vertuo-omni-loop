@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { dayLabel, lastUsedLabel, makerLabel, setupsOf, TOKEN_NAME_MAX, type AgentToken } from './model';
 import type { Shown, TokensState } from './state';
 
@@ -55,7 +55,7 @@ function TokenShown({ shown, copied, on }: { shown: Shown; copied: string | null
           </li>
         ))}
       </ul>
-      <button type="button" className="ask-button" onClick={on.done}>{DONE}</button>
+      <button type="button" className="ask-button" onClick={() => { on.done(); }}>{DONE}</button>
     </div>
   );
 }
@@ -81,7 +81,7 @@ function TokenRow({ token, busy, on }: { token: AgentToken; busy: boolean; on: T
 }
 
 export function ConnectAgentCard({ state, demo = false, on = IDLE }: ConnectAgentCardProps) {
-  const submit = (e: FormEvent) => {
+  const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     on.make();
   };

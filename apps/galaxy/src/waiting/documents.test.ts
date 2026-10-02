@@ -167,7 +167,7 @@ describe('what this browser has seen', () => {
 const SEC = 1000;
 const g = (prd: number, newestId: string, ago: number, kindsAt: DocumentGroup['kindsAt'] = { spec: NOW - ago }): DocumentGroup => ({
   dossierId: `d-${prd}`, prd, title: `PRD title ${prd}`,
-  kinds: (['spec', 'plan', 'before-after'] as const).filter((k) => kindsAt?.[k] !== undefined),
+  kinds: (['spec', 'plan', 'before-after'] as const).filter((k) => kindsAt[k] !== undefined),
   newestId, newestAt: NOW - ago, kindsAt,
 });
 

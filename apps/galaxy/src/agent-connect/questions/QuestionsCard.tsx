@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '../../business/model';
 import { dayLabel } from '../tokens/model';
 import type { AgentQuestion } from './model';
@@ -52,7 +52,7 @@ export interface QuestionsCardProps {
 function AnswerForm({ answering, needsProduct, products, busy, on }: {
   answering: Answering; needsProduct: boolean; products: Product[]; busy: boolean; on: QuestionsHandlers;
 }) {
-  const submit = (e: FormEvent) => {
+  const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     on.save();
   };
@@ -85,7 +85,7 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
         />
       </label>
       <button type="submit" className="ask-button" disabled={busy || blank}>{SAVE_ANSWER}</button>
-      <button type="button" className="ask-button quiet" onClick={on.cancel} disabled={busy}>{CANCEL}</button>
+      <button type="button" className="ask-button quiet" onClick={() => { on.cancel(); }} disabled={busy}>{CANCEL}</button>
     </form>
   );
 }

@@ -1,6 +1,6 @@
 import type { Db } from '../ask/page/source';
 import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -61,7 +61,7 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
   const groups = new Map<string, { group: DocumentGroup; kinds: Set<DocumentKind> }>();
   for (const r of rows) {
     const { dossier } = r;
-    if (!dossier || typeof dossier.prd !== 'number' || !KNOWN.has(r.kind)) continue;
+    if (typeof dossier.prd !== 'number' || !KNOWN.has(r.kind)) continue;
     const time = Date.parse(r.created_at);
     if (Number.isNaN(time) || time < seen.since) continue;
     const last = seen.dossiers[dossier.id];
@@ -72,7 +72,7 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
       groups.set(dossier.id, entry);
     }
     entry.kinds.add(r.kind);
-    const kindsAt = entry.group.kindsAt!;
+    const kindsAt = defined(entry.group.kindsAt, 'the group\'s times by kind');
     if ((kindsAt[r.kind] ?? -Infinity) < time) kindsAt[r.kind] = time;
     if (time > entry.group.newestAt) {
       entry.group.newestId = r.id;
@@ -100,7 +100,8 @@ export function documentsReader(db: Db, me: string): (now: number) => Promise<Do
       .order('created_at', { ascending: false })
       .limit(DOCS_LIMIT);
     if (error) throw new Error(`read the new documents: ${error.message}`);
-    return ((data ?? []) as unknown as Raw[]).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
+    // `data` is widened to null: the rows are read here unparsed, and each is checked on the next line.
+    return ((data as unknown as Raw[] | null) ?? []).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
       ? [{ id: r.id, kind: r.kind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }]
       : []));
   };
@@ -199,8 +200,9 @@ function readAnnounced(store: () => Store): Announced | null {
   try {
     const raw: unknown = JSON.parse(store().getItem(DOCS_ANNOUNCED_KEY) ?? '[]');
     if (!Array.isArray(raw)) return [];
-    return raw.filter((a): a is Announced[number] =>
-      !!a && typeof a.id === 'string' && typeof a.dossierId === 'string' && typeof a.at === 'number');
+    const list: unknown[] = raw;
+    return list.filter((a): a is Announced[number] =>
+      !!a && typeof propertyOf(a, 'id') === 'string' && typeof propertyOf(a, 'dossierId') === 'string' && typeof propertyOf(a, 'at') === 'number');
   } catch (error) {
     return error instanceof SyntaxError ? [] : null;
   }

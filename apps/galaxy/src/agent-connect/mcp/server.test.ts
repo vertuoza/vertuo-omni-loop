@@ -279,7 +279,7 @@ describe('/api/mcp, the MCP link', () => {
     console.error = (...args: unknown[]) => { errors.push(args); };
     try {
       const result = await client.callTool({ name: 'get_business', arguments: {} });
-      const text = sure((result.content as Array<{ text: string }>)[0], '(result.content as Array<{ text: string }>)[0]').text;
+      const text = sure((result.content as Array<{ text: string }>)[0], 'the result\'s first content').text;
       expect(result.isError).toBe(true);
       expect(text).toBe('The business database could not answer. Try again.');
     } finally {
@@ -300,7 +300,7 @@ describe('/api/mcp, the MCP link', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('mcp-session-id')).toBeNull();
     expect(response.headers.get('content-type')).toMatch(/application\/json/);
-    const body = await response.json();
+    const body = (await response.json()) as { result: { serverInfo: { name: string }; instructions: string } };
     expect(body.result.serverInfo.name).toBe('omni-business');
     expect(body.result.instructions).toMatch(/report_unknown/);
   });

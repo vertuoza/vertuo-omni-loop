@@ -22,8 +22,6 @@ export interface AgentQuestionsProps {
   products: Product[];
 }
 
-type Rpc = Parameters<typeof databaseQuestions>[0];
-
 export function AgentQuestions({ source, questions, products }: AgentQuestionsProps) {
   const [state, act] = useReducer(questionsReducer, questions, initialQuestionsState);
   const port = useRef<QuestionsPort | null>(null);

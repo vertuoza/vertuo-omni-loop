@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { matches, type KnowledgeEntry, type KnowledgeGraph, type KnowledgeLink } from '../data/knowledge';
 import { orrery } from './orrery';
 import { entryHref, tabOf } from './view';
@@ -35,7 +36,7 @@ export function OrreryDiagram({ graph, entries, label, selected, query, repo, on
   const chosen = selected ? at.get(selected) : undefined;
 
   const line = (link: KnowledgeLink, className: string) => {
-    const [a, b] = [at.get(link.from)!, at.get(link.to)!];
+    const [a, b] = [defined(at.get(link.from), `the dot of ${link.from}`), defined(at.get(link.to), `the dot of ${link.to}`)];
     return <line key={`${link.kind} ${link.from} ${link.to}`} className={className} data-link={link.kind} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
   };
 

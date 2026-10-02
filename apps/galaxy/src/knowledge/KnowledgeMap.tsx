@@ -59,7 +59,8 @@ export function KnowledgeMap({ graph, initial, repo = null }: { graph: Knowledge
     reveal.current = false;
     const box = panel.current?.getBoundingClientRect();
     if (!box || (box.top >= 0 && box.top < window.innerHeight * 0.8)) return;
-    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    // A browser without matchMedia (an old one, a test's) moves smoothly, as before.
+    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     panel.current?.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' });
   }, [selection]);
 

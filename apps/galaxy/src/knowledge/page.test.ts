@@ -14,10 +14,10 @@ const given = vi.hoisted(() => ({
   app: true,
 }));
 const loadKnowledge = vi.hoisted(() => vi.fn(() => given.graph));
-const memberGithub = vi.hoisted(() => vi.fn((_db: unknown, _id: string) => Promise.resolve([{ slug: 'acme', github_org: 'acme', github_installation_id: 2 }])));
+const memberGithub = vi.hoisted(() => vi.fn<(db: unknown, id: string) => Promise<unknown[]>>(() => Promise.resolve([{ slug: 'acme', github_org: 'acme', github_installation_id: 2 }])));
 const reader = vi.hoisted(() => ({
   installationFor: vi.fn((w: { github_installation_id: number | null }) => Promise.resolve(w.github_installation_id)),
-  repos: vi.fn((_id: number) => Promise.resolve(['acme/Anvils', 'acme/widgets'])),
+  repos: vi.fn<(id: number) => Promise<string[]>>(() => Promise.resolve(['acme/Anvils', 'acme/widgets'])),
   graph: vi.fn((_id: number, repo: string) => Promise.resolve({ version: 1 as const, repo, domains: [], entries: [], links: [], loose: [], unserved: [] })),
 }));
 

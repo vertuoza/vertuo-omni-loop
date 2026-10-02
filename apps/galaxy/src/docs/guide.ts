@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { fenceProblem } from './badges';
 import { diagramsNamed, svgProblem } from './diagrams';
 import { pageUrl } from './paths';
@@ -95,7 +95,7 @@ const GuideMeta = z.object({ pages: z.array(z.string()).optional() });
 function readOrder(metaFile: string): string[] {
   const parsed = GuideMeta.safeParse(JSON.parse(readFileSync(metaFile, 'utf8')));
   if (parsed.success) return parsed.data.pages ?? [];
-  const issue = parsed.error.issues[0]!; // ts-allow: a failed parse has an issue
+  const issue = defined(parsed.error.issues[0], 'the failed parse\'s first issue');
   throw new Error(`${metaFile}: ${issue.path.join('.') || 'the file'}: ${issue.message}`);
 }
 

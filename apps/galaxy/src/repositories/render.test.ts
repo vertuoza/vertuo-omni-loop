@@ -163,8 +163,8 @@ describe('products (PRD 748 s4)', () => {
   });
 
   it('lets a member change it too, but not while a call is on its way', () => {
-    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0], 'selects(withProducts([APPS], [ERP, LOOP], { owner: false ...').attrs).not.toContain('disabled');
-    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0], 'selects(withProducts([APPS], [ERP, LOOP], { actions: [{ t...').attrs).toContain('disabled');
+    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { owner: false }))[0], 'a member\'s first product select').attrs).not.toContain('disabled');
+    expect(sure(selects(withProducts([APPS], [ERP, LOOP], { actions: [{ type: 'busy' }] }))[0], 'the busy first product select').attrs).toContain('disabled');
   });
 
   it('wraps the select under the name at 393 px', () => {

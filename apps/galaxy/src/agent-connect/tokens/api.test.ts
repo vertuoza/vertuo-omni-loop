@@ -51,7 +51,7 @@ describe('POST /api/agent-tokens', () => {
     expect(res.status).toBe(201);
     expect(made).toEqual([[W, 'Tom’s editor', MADE.hash, MADE.lastFour]]);
     expect(made.flat()).not.toContain(MADE.token);
-    const body = await res.json();
+    const body: unknown = await res.json();
     expect(body).toEqual({ token: MADE.token, url: 'https://galaxy.example/api/mcp', listed: listed() });
     expect(res.headers.get('cache-control')).toBe('no-store');
   });

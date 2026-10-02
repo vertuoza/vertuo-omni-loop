@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { MetaData, Source } from 'fumadocs-core/source';
+import type { MetaData, StaticSource } from 'fumadocs-core/source';
 import type { TOCItemType } from 'fumadocs-core/toc';
 import { describe, expect, it } from 'vitest';
 import { badgedBlock, codeKinds, type HastNode } from './badges';
@@ -56,8 +56,8 @@ const renderBody = (body: string) => markdown.render(body).replace(/<p>(<figure 
 type TestPage = { title?: string; html: string; toc: TOCItemType[] };
 
 /** docs/guide/ as a fumadocs source: its meta.json, and each page with a body markdown-it renders. */
-function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
-  const meta = JSON.parse(readFileSync(join(GUIDE, 'meta.json'), 'utf8'));
+function source(): StaticSource<{ pageData: TestPage; metaData: MetaData }> {
+  const meta = JSON.parse(readFileSync(join(GUIDE, 'meta.json'), 'utf8')) as MetaData;
   const pages = readGuide(GUIDE).pages.map((page) => ({
     type: 'page' as const,
     path: `${page.slug}.md`,
@@ -102,7 +102,7 @@ describe('the sidebar', () => {
   it('is what every page shows, the page shown marked current', () => {
     const html = render(['install']);
     expect(html).toContain('<nav class="docs-nav" aria-label="Guide">');
-    expect(sure([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0], '[...html.matchAll(/<nav class="docs-nav"[\\s\\S]*?<\\/nav...')[0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
+    expect(sure([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0], 'the docs nav')[0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
       '<a href="/docs">Getting started</a>',
       '<a href="/docs/install" aria-current="page">Install</a>',
       '<a href="/docs/join">Join a team</a>',

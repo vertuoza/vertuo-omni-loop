@@ -8,6 +8,7 @@ const given = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => given.workspace() }));
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { UNREADABLE } from '../dashboard/part';
 import { peopleOf } from '../people/load';
 import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
@@ -133,7 +134,7 @@ describe('loadEngineeringRepository (PRD 645 s2)', () => {
 });
 
 describe('loadEngineeringBoard', () => {
-  const db = () => ({ from: () => { throw new Error('no read expected'); } }) as unknown as SupabaseClient;
+  const db = () => ({ from: () => { throw new Error('no read expected'); } }) as unknown as SupabaseClient<Database>;
 
   it('for an account in no workspace: no-workspace', async () => {
     given.workspace = () => Promise.resolve(null);
@@ -149,7 +150,7 @@ describe('loadEngineeringBoard', () => {
 describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
   it('for an account in no workspace: no-workspace', async () => {
     given.workspace = () => Promise.resolve(null);
-    const db = { from: () => { throw new Error('no read expected'); } } as unknown as SupabaseClient;
+    const db = { from: () => { throw new Error('no read expected'); } } as unknown as SupabaseClient<Database>;
     expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'no-workspace' });
   });
 
@@ -168,7 +169,7 @@ describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
         q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: sure(answers[table], 'answers[table]').shift(), error: null }).then(ok);
         return q;
       },
-    } as unknown as SupabaseClient;
+    } as unknown as SupabaseClient<Database>;
     const got = await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST);
     expect(got).toMatchObject({ kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears' });
     const of = (table: string) => sure(calls.find((c) => c[0] === table), 'calls.find((c) => c[0] === table)');
@@ -178,7 +179,7 @@ describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
 
   it('for a repository the workspace does not track: not tracked', async () => {
     given.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
-    const db = { from: () => ({ select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ full_name: 'acme/widgets' }], error: null }) }) }) }) } as unknown as SupabaseClient;
+    const db = { from: () => ({ select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ full_name: 'acme/widgets' }], error: null }) }) }) }) } as unknown as SupabaseClient<Database>;
     expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'not-tracked' });
   });
 });
@@ -197,7 +198,7 @@ describe('supabaseEngineeringReads', () => {
         return q;
       },
     };
-    return { calls, db: db as unknown as SupabaseClient };
+    return { calls, db: db as unknown as SupabaseClient<Database> };
   }
 
   it('reads only the workspace\'s tracked repositories', async () => {

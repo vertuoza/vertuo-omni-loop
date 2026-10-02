@@ -12,7 +12,7 @@ const SOLO: WorkspaceGithub = { slug: 'solo', github_org: null, github_installat
 
 function reader(repos: Record<number, string[] | Error>, installations: Record<string, number | null> = { vertuoza: 1 }): KnowledgeReader {
   return {
-    installationFor: vi.fn((w) => Promise.resolve(w.github_installation_id ?? (w.github_org ? installations[w.github_org] ?? null : null))),
+    installationFor: vi.fn((w: WorkspaceGithub) => Promise.resolve(w.github_installation_id ?? (w.github_org ? installations[w.github_org] ?? null : null))),
     repos: vi.fn((id: number) => {
       const found = repos[id];
       if (found instanceof Error) return Promise.reject(found);

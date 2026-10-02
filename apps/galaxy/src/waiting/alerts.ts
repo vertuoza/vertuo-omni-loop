@@ -95,7 +95,9 @@ export function playChime(Audio: AudioCtor | null | undefined): void {
     tone.onended = () => void ctx.close().catch(() => {});
     tone.start(t);
     tone.stop(t + 0.32);
-    void ctx.resume?.().catch(() => {});
+    // An older AudioContext has no resume: then the tone plays as the context allows.
+    const resumable: { resume?: () => Promise<void> } = ctx;
+    void resumable.resume?.().catch(() => {});
   } catch {
     /* no sound */
   }
