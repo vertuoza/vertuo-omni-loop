@@ -15,5 +15,5 @@
     "apps/omni-app/src/verdict-comment/",
     "apps/omni-app/src/webhook/"
   ],
-  "ceiling": 701
+  "ceiling": 0
 }

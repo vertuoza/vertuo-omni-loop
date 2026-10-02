@@ -1,6 +1,7 @@
 // The canon gate (PRD 839) with a stubbed business and a stubbed model: nothing here calls Supabase or
 // OpenRouter.
 import { describe, expect, it, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { type Ask, CANON_SPEC_LIMIT, createCanon, type Judge, type JudgeAnswer, quoted } from './canon.ts';
 import type { Business, Constituents } from './schema.ts';
 
@@ -31,17 +32,32 @@ const BREAK = {
   persona: { name: 'marc', line: 'Six entities? I have one van and five plumbers.' },
 };
 
-/** A model that answers `reply` (run through the caller's check, as the kit's client does). */
-const modelAnswering = (reply: unknown) =>
-  vi.fn<Ask>(async ({ check }) => {
-    const out = check(reply);
-    return out.errors.length === 0
-      ? { ok: true, error: null, reply: out.reply, reason: null }
-      : { ok: false, error: 'refused', reply: null, reason: `model reply invalid: ${out.errors.join('; ')}` };
+/** `run`'s value as a promise and its throw as a rejection, as an `async` function makes them. */
+const settled = <T>(run: () => T) =>
+  new Promise<T>((resolve) => {
+    resolve(run());
   });
 
+/** A model that answers `reply` (run through the caller's check, as the kit's client does). */
+const modelAnswering = (reply: unknown) =>
+  vi.fn<Ask>(({ check }) =>
+    settled(() => {
+      const out = check(reply);
+      return out.errors.length === 0
+        ? { ok: true, error: null, reply: out.reply, reason: null }
+        : { ok: false, error: 'refused', reply: null, reason: `model reply invalid: ${out.errors.join('; ')}` };
+    }),
+  );
+
+/** The first call `mock` received: the test fails when it was never called. */
+function firstCall<A extends unknown[]>(mock: { mock: { calls: A[] } }): A {
+  const call = mock.mock.calls[0];
+  assertDefined(call, 'a call');
+  return call;
+}
+
 const canonWith = ({ business = BUSINESS, ask = modelAnswering({ findings: [], persona: { name: '', line: '' } }) }: { business?: Business; ask?: Ask } = {}) => {
-  const readBusiness = vi.fn(async () => business);
+  const readBusiness = vi.fn(() => Promise.resolve(business));
   return { canon: createCanon({ readBusiness, ask }), readBusiness, ask };
 };
 
@@ -70,12 +86,12 @@ describe('createCanon — the verdicts', () => {
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ name: 'canon', ok: false, neutral: false, title: 'canon ✗ 1', reason: 'canon ✗ 1' });
     expect(gate.canon.findings).toEqual([
-      { quote: BREAK.findings[0]!.quote, claims: ['never#4', 'size#1'], why: 'A holding is a group.' },
+      { quote: BREAK.findings[0]?.quote, claims: ['never#4', 'size#1'], why: 'A holding is a group.' },
     ]);
     expect(gate.canon.persona).toEqual({ name: 'Marc', line: 'Six entities? I have one van and five plumbers.' });
     const details = gate.details.join('\n');
     expect(details).toContain('never#4 "Never: build for groups of companies"');
-    expect(details).toContain(`"${BREAK.findings[0]!.quote}"`);
+    expect(details).toContain(`"${BREAK.findings[0]?.quote}"`);
     expect(details).toContain('Marc: "Six entities? I have one van and five plumbers."');
   });
 
@@ -113,26 +129,26 @@ describe('createCanon — the verdicts', () => {
   });
 
   it('neutral when the business cannot be read at all', async () => {
-    const canon = createCanon({ readBusiness: async () => null, ask: modelAnswering(BREAK) });
+    const canon = createCanon({ readBusiness: () => Promise.resolve(null), ask: modelAnswering(BREAK) });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ neutral: true, reason: 'no business: the App cannot read businesses here' });
   });
 
   it('neutral when the business read fails', async () => {
-    const canon = createCanon({ readBusiness: async () => { throw new Error('connection reset'); }, ask: modelAnswering(BREAK) });
+    const canon = createCanon({ readBusiness: () => Promise.reject(new Error('connection reset')), ask: modelAnswering(BREAK) });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ neutral: true, reason: 'no business: the read failed (connection reset)' });
   });
 
   it('neutral for no model key', async () => {
-    const ask = vi.fn(async () => ({ ok: false, error: 'no-key', reply: null, reason: 'OPENROUTER_API_KEY is not set' }));
+    const ask = vi.fn(() => Promise.resolve({ ok: false, error: 'no-key', reply: null, reason: 'OPENROUTER_API_KEY is not set' }));
     const { canon } = canonWith({ ask });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: true, reason: 'model not configured (OPENROUTER_API_KEY is not set)' });
   });
 
   it('neutral for a model error', async () => {
-    const ask = vi.fn(async () => ({ ok: false, error: 'unavailable', reply: null, reason: 'model unavailable (503)' }));
+    const ask = vi.fn(() => Promise.resolve({ ok: false, error: 'unavailable', reply: null, reason: 'model unavailable (503)' }));
     const { canon } = canonWith({ ask });
     const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: true, reason: 'model error: model unavailable (503)' });
@@ -181,7 +197,7 @@ describe('createCanon — one call, cached by the spec and the claims', () => {
     const long = `${SPEC}\n${'x'.repeat(CANON_SPEC_LIMIT)}`;
     await canon.grade({ repo: 'acme/widgets', spec: long });
     expect(ask).toHaveBeenCalledTimes(1);
-    const { user } = vi.mocked(ask).mock.calls[0]![0];
+    const { user } = firstCall(vi.mocked(ask))[0];
     expect(user).toContain('never#4: never — Never: build for groups of companies');
     expect(user).toContain('Marc');
     expect(user.length).toBeLessThan(CANON_SPEC_LIMIT + 2000);
@@ -218,7 +234,7 @@ const NOTHING = { findings: [], persona: { name: '', line: '' } };
 
 /** A judge answering as galaxy's route does: `{answer, confidence, decidedBy}`; `answer` null echoes today's. */
 const judgeAnswering = (answer: string | null, confidence: number | null = null, decidedBy = 'old') =>
-  vi.fn<Judge>(async ({ old }) => ({ ok: true, answer: answer ?? old, confidence, decidedBy, error: null, reason: null }));
+  vi.fn<Judge>(({ old }) => Promise.resolve({ ok: true, answer: answer ?? old, confidence, decidedBy, error: null, reason: null }));
 
 const constituentCanon = ({
   business = { ...BUSINESS, claims: [], personas: [] },
@@ -226,8 +242,8 @@ const constituentCanon = ({
   reply = API_BREAK,
   judge = judgeAnswering(null),
 }: { business?: Business; constituents?: Constituents; reply?: unknown; judge?: ReturnType<typeof judgeAnswering> } = {}) => {
-  const readBusiness = vi.fn(async () => business);
-  const readConstituents = vi.fn(async () => constituents);
+  const readBusiness = vi.fn(() => Promise.resolve(business));
+  const readConstituents = vi.fn(() => Promise.resolve(constituents));
   const ask = modelAnswering(reply);
   return { canon: createCanon({ readBusiness, readConstituents, judge, ask }), readBusiness, readConstituents, judge, ask };
 };
@@ -241,7 +257,7 @@ describe('createCanon — the constituents (PRD 871)', () => {
     expect(gate.canon.findings).toEqual([{ quote: "fetch('/api/v1/projects')", claims: ['never#1'], why: 'A real API call.' }]);
     expect(gate.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
     expect(gate.canon.judge).toEqual({ decidedBy: 'old', confidence: null });
-    const [call] = judge.mock.calls[0]!;
+    const [call] = firstCall(judge);
     expect(call).toMatchObject({ repo: 'acme/ux', old: 'true', ref: 'PRD 9' });
     expect(call.state).toEqual({
       spec: API_SPEC,
@@ -257,7 +273,7 @@ describe('createCanon — the constituents (PRD 871)', () => {
   it('the model reads the Statement and the live Never lines by their ids', async () => {
     const { canon, ask } = constituentCanon();
     await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
-    const { user, system } = ask.mock.calls[0]![0];
+    const { user, system } = firstCall(ask)[0];
     expect(user).toContain('statement: The component workshop, shown with fixtures.');
     expect(user).toContain('never#1: Calls real Vertuoza data or real Vertuoza APIs');
     expect(system).toContain('Statement');
@@ -267,7 +283,7 @@ describe('createCanon — the constituents (PRD 871)', () => {
     const { canon, judge } = constituentCanon({ reply: NOTHING });
     const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: false, reason: 'canon ✓ · 0 claims, 3 constituents read' });
-    expect(judge.mock.calls[0]![0]).toMatchObject({ old: 'false' });
+    expect(judge.mock.calls[0]?.[0]).toMatchObject({ old: 'false' });
   });
 
   it("Shadow: the judge answers today's (Jev only logged), so the model decides", async () => {
@@ -316,14 +332,14 @@ describe('createCanon — the constituents (PRD 871)', () => {
     const { canon, judge } = constituentCanon({ reply });
     const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: false });
-    expect(judge.mock.calls[0]![0]).toMatchObject({ old: 'false' });
+    expect(judge.mock.calls[0]?.[0]).toMatchObject({ old: 'false' });
   });
 
   it('cites the Statement by its id', async () => {
     const reply = { findings: [{ quote: 'shows each project', claims: ['statement'], why: 'not a workshop' }], persona: { name: '', line: '' } };
     const { canon } = constituentCanon({ reply });
     const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
-    expect(gate.canon.findings[0]!.claims).toEqual(['statement']);
+    expect(gate.canon.findings[0]?.claims).toEqual(['statement']);
     expect(gate.details[0]).toContain('statement "The component workshop, shown with fixtures."');
   });
 
@@ -331,15 +347,15 @@ describe('createCanon — the constituents (PRD 871)', () => {
     ['a judge-route error', { ok: false, error: 'refused', reason: 'galaxy answered 500' }, 'judge error: galaxy answered 500'],
     ['a missing secret', { ok: false, error: 'no-secret', reason: 'CONSTITUENT_JUDGE_SECRET is not set' }, 'judge not configured (CONSTITUENT_JUDGE_SECRET is not set)'],
   ])('neutral, never red, on %s', async (_, answer, reason) => {
-    const { canon } = constituentCanon({ judge: vi.fn<Judge>(async () => answer as JudgeAnswer) });
+    const { canon } = constituentCanon({ judge: vi.fn<Judge>(() => Promise.resolve(answer as JudgeAnswer)) });
     const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
     expect(gate).toMatchObject({ ok: true, neutral: true, reason });
   });
 
   it('neutral, never red, with no judge wired at all', async () => {
     const canon = createCanon({
-      readBusiness: async () => ({ ...BUSINESS, claims: [] }),
-      readConstituents: async () => CONSTITUENTS,
+      readBusiness: () => Promise.resolve({ ...BUSINESS, claims: [] }),
+      readConstituents: () => Promise.resolve(CONSTITUENTS),
       ask: modelAnswering(API_BREAK),
     });
     const gate = await canon.grade({ repo: 'acme/ux', spec: API_SPEC });
@@ -348,8 +364,8 @@ describe('createCanon — the constituents (PRD 871)', () => {
 
   it('neutral when the constituents read fails', async () => {
     const canon = createCanon({
-      readBusiness: async () => BUSINESS,
-      readConstituents: async () => { throw new Error('connection reset'); },
+      readBusiness: () => Promise.resolve(BUSINESS),
+      readConstituents: () => Promise.reject(new Error('connection reset')),
       judge: judgeAnswering(null),
       ask: modelAnswering(API_BREAK),
     });
