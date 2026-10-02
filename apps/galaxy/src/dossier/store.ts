@@ -88,7 +88,7 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
     /** Sends a PRD folder's artifacts; the dossier they went to and which versions were added. */
     async push({ repo, prd, kind = 'prd', title, draftId, artifacts }: DossierPush): Promise<DossierPushed> {
       // A PRD's push names no kind, as before PRD 627: the function reads a missing one as prd.
-      const pushed = settle<DossierPushed>('push the dossier', await db.rpc('dossier_push', {
+      const pushed = settle<Partial<DossierPushed>>('push the dossier', await db.rpc('dossier_push', {
         p_repo: repo, p_prd: prd, p_title: title, p_draft: draftId, p_artifacts: artifacts, ...(kind === 'prd' ? {} : { p_kind: kind }),
       }));
       if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the dossier', undefined, 'no dossier came back');
@@ -282,7 +282,8 @@ export type DossierPulse = { asked: number; answered: number; latest: Partial<Re
 
 /** The dossier's pulse, or null when the caller may not read it, or it is gone. */
 export async function dossierPulse(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierPulse | null> {
-  const row = (await dossierList(db, dossierId))[0];
+  // dossier_list()'s row as it came, unparsed: each field read is checked.
+  const row: Partial<Pick<DossierListRow, 'latest' | 'asked' | 'answered'>> | undefined = (await dossierList(db, dossierId))[0];
   if (!row) return null;
   const latest: Partial<Record<PulseKind, number>> = {};
   for (const kind of PULSE_KINDS) {
