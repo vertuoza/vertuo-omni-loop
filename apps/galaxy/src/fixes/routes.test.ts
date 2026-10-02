@@ -4,6 +4,8 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
+import { sure } from '../arcade/sure';
+import { settled as answering } from '../stages/settled';
 
 // The routes of PRD 627, called as the server calls them, reading as the viewer through the stubbed
 // client of ../dossier/store.fake.ts: /visual and /bugs list only their kind, /prd only PRDs; a fix's
@@ -15,7 +17,7 @@ const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.c
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
 
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   token: null as string | null,
   /** The signed-in person's GitHub login, when they signed in with GitHub (issue 674). */
   login: null as string | null,
@@ -60,10 +62,10 @@ const githubRead = (what: string) => {
 };
 vi.mock('../dossier/github/server', () => ({
   dossierGithub: () => ({
-    summary: vi.fn(async () => { githubRead('summary'); return null; }),
-    fix: vi.fn(async ({ prd }: { prd: number }) => { githubRead(`fix ${prd}`);
+    summary: vi.fn(() => answering(() => { githubRead('summary'); return null; })),
+    fix: vi.fn(({ prd }: { prd: number }) => answering(() => { githubRead(`fix ${prd}`);
       return given.approvalsUnread ? { ...summaryOf(prd), approvals: 'unread' } : summaryOf(prd);
-    }),
+    })),
   }),
 }));
 vi.mock('./facts/store', async (original) => ({
@@ -88,7 +90,7 @@ vi.mock('../data/supabase-server', () => ({
     // The claims a GitHub sign-in carries: its login in user_metadata, the provider in app_metadata.
     const meta = given.login ? { user_metadata: { user_name: given.login }, app_metadata: { provider: 'github', providers: ['github'] } } : {};
     const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email, ...meta } } : null;
-    return { ...client, auth: { getUser: async () => signedIn, getClaims: async () => ({ data: claims, error: null }) } };
+    return { ...client, auth: { getUser: () => Promise.resolve(signedIn), getClaims: () => Promise.resolve({ data: claims, error: null }) } };
   },
 }));
 
@@ -135,7 +137,10 @@ const list = async (route: (p: { searchParams: Promise<Record<string, string>> }
   renderToStaticMarkup(await settled(await route({ searchParams: query(q) }) as ReactElement));
 const page = async (route: (p: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) => unknown, id: string, q: Record<string, string> = {}) =>
   renderToStaticMarkup(await settled(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
-const redirectTo = (path: string) => ({ digest: expect.stringContaining(`;${path};`) });
+const redirectTo = (path: string) => {
+  const digest: unknown = expect.stringContaining(`;${path};`);
+  return { digest };
+};
 
 /** Stores what GitHub says of each fix, as the stages sync would have. */
 const stored = (...fixes: [string, number][]) => given.facts.writeFacts(fixes.map(([id, n]) => ({ dossier_id: id, workspace_id: FAKE_WORKSPACE, facts: summaryOf(n) })));
@@ -333,7 +338,7 @@ describe('a fix\'s page', () => {
     expect(html).toContain('<dt>State</dt>');
     expect(given.facts.rows).toEqual([]);
     expect(given.later).toHaveLength(1);
-    await given.later[0]!();
+    await sure(given.later[0], 'given.later[0]')();
     expect(given.facts.rows).toEqual([{ dossier_id: bug, workspace_id: FAKE_WORKSPACE, facts: summaryOf(571), synced_at: '2026-09-29T12:00:00Z' }]);
   });
 
@@ -341,14 +346,14 @@ describe('a fix\'s page', () => {
     await stored([visual, 548]);
     given.approvalsUnread = true;
     await page(VisualPage, visual);
-    await given.later[0]!();
-    expect(given.facts.rows[0]!.facts.approvals).toEqual(summaryOf(548).approvals);
+    await sure(given.later[0], 'given.later[0]')();
+    expect(sure(given.facts.rows[0], 'given.facts.rows[0]').facts.approvals).toEqual(summaryOf(548).approvals);
   });
 
   it('only logs a write it could not make (PRD 691)', async () => {
     given.facts.fail = 'down';
     await page(VisualPage, visual);
-    await expect(Promise.resolve(given.later[0]!())).resolves.toBeUndefined();
+    await expect(Promise.resolve(sure(given.later[0], 'given.later[0]')())).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalled();
   });
 

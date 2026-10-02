@@ -3,6 +3,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { GameModeButton } from './GameModeButton';
+import { sure } from '../arcade/sure';
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
 
@@ -120,8 +121,8 @@ describe('the stylesheets', () => {
   it('dims the page behind the Game mode dialog with the ground\'s colour on Omni, as on dark', () => {
     const css = readFileSync(new URL('./switch.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const onGround = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter((m) => m[2]!.includes('background: var(--ask-ground);'))
-      .flatMap((m) => m[1]!.split(',').map((one) => one.trim()));
+      .filter((m) => sure(m[2], 'group 2').includes('background: var(--ask-ground);'))
+      .flatMap((m) => sure(m[1], 'group 1').split(',').map((one) => one.trim()));
     for (const theme of ['omni', 'dark']) expect(onGround, theme).toContain(`.ask[data-ask-theme='${theme}'] .game-mode-dialog::backdrop`);
     expect(onGround.join()).not.toContain("data-ask-theme='light'");
   });

@@ -16,11 +16,11 @@ function db(answers: Array<{ data?: unknown; error?: unknown } | Error>) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   return {
     calls,
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
       const next = answers.shift() ?? { data: null };
-      if (next instanceof Error) throw next;
-      return { data: next.data ?? null, error: next.error ?? null };
+      if (next instanceof Error) return Promise.reject(next);
+      return Promise.resolve({ data: next.data ?? null, error: next.error ?? null });
     },
   };
 }

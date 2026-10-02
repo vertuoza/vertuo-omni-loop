@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { XP_LINE } from '../arcade/games/room';
 import { backFromGame, DOCK_KEY, DOCK_MIN_WIDTH, DOCK_TITLE, dockDoor, dockStart, dockView, pickerPress, readDock, readOpen, writeDock, writeOpen, type DockInput } from './dock';
+import { sure } from '../arcade/sure';
 
 const PLAYER = { linked: true, xp: { xp: 180, level: 3, unlocked: ['invaders'] } };
 const BOTH = { linked: true, xp: { xp: 400, level: 2, unlocked: ['invaders', 'platformer'] } };
@@ -119,7 +120,7 @@ describe('the open or folded state, kept for the tab', () => {
     const s = memory();
     expect(readOpen(() => s)).toBe(false);
     writeOpen(() => s, true);
-    expect(JSON.parse(s.getItem(DOCK_KEY)!)).toEqual({ open: true, game: null });
+    expect(JSON.parse(sure(s.getItem(DOCK_KEY), 's.getItem(DOCK_KEY)'))).toEqual({ open: true, game: null });
     expect(readOpen(() => s)).toBe(true);
     writeOpen(() => s, false);
     expect(readOpen(() => s)).toBe(false);
@@ -147,12 +148,12 @@ describe('the open or folded state, kept for the tab', () => {
   it('is folded when the storage throws, and writing to it never throws', () => {
     const refusing = () => { throw new Error('SecurityError'); };
     expect(readOpen(refusing)).toBe(false);
-    expect(() => writeOpen(refusing, true)).not.toThrow();
+    expect(() => { writeOpen(refusing, true); }).not.toThrow();
     const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('quota'); } };
     expect(readOpen(() => broken)).toBe(false);
-    expect(() => writeOpen(() => broken, true)).not.toThrow();
+    expect(() => { writeOpen(() => broken, true); }).not.toThrow();
     expect(readDock(refusing)).toEqual({ open: false, game: null });
-    expect(() => writeDock(refusing, { game: 'platformer' })).not.toThrow();
-    expect(() => writeDock(() => broken, { game: 'platformer' })).not.toThrow();
+    expect(() => { writeDock(refusing, { game: 'platformer' }); }).not.toThrow();
+    expect(() => { writeDock(() => broken, { game: 'platformer' }); }).not.toThrow();
   });
 });

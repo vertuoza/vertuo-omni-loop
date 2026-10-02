@@ -24,10 +24,10 @@ const summary = (more: Partial<FixSummary> = {}): FixSummary => ({ issue: issue(
 function stubReader(answers: Record<string, FixSummary | null>) {
   const reads: string[] = [];
   const reader: FixReader = {
-    async fix(r) {
+    fix(r) {
       reads.push(r.id);
-      if (!(r.id in answers)) throw new Error(`GitHub did not answer for ${r.id}`);
-      return answers[r.id]!;
+      if (!(r.id in answers)) return Promise.reject(new Error(`GitHub did not answer for ${r.id}`));
+      return Promise.resolve(answers[r.id] ?? null);
     },
   };
   return { reader, reads };

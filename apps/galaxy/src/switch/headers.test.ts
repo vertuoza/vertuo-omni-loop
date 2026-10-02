@@ -3,6 +3,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { APP_HOME } from './switch';
+import { sure } from '../arcade/sure';
 
 vi.mock('server-only', () => ({}));
 const at = { path: '/app' };
@@ -29,7 +30,7 @@ type Layout = (props: { children: React.ReactNode }) => ReactElement | Promise<R
 /** A layout around an empty page, rendered at a path. */
 const renderAt = async (layout: Layout, path: string) => {
   at.path = path;
-  return renderToStaticMarkup((await layout({ children: createElement('p') })) as ReactElement);
+  return renderToStaticMarkup(await layout({ children: createElement('p') }));
 };
 
 /** The part of the markup from one tag to its end. */
@@ -42,7 +43,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 /** What a person can press, in order, by name: links and buttons, the Game mode dialog's own left out
  * (it is closed until Game mode opens it). */
 const controls = (bar: string) =>
-  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]!));
+  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(sure(m[2], 'group 2')));
 
 /** The theme switch, Omni first (PRD 284), then Game mode. */
 const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
@@ -103,7 +104,8 @@ describe('every app page', () => {
     const up = controls(crumbs);
     expect(controls(shown).slice(0, 1 + up.length)).toEqual(['☰', ...up]);
     // Signed in, the bell (PRD 499) sits after Game mode, before you.
-    const bell = /class="bell-button"/.test(shown) ? [expect.stringMatching(/^\d*$/)] : [];
+    const count: unknown = expect.stringMatching(/^\d*$/);
+    const bell = /class="bell-button"/.test(shown) ? [count] : [];
     expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
