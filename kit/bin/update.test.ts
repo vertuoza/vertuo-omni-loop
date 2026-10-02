@@ -7,6 +7,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { planLaunch } from '../lib/launch/launch.ts';
 import { writeForms } from '../lib/playbook/write-forms.ts';
@@ -95,9 +96,23 @@ function fakeExec({ tags = ['v0.0.12', 'v0.0.15'], latest = 'v0.0.15', ghDown = 
   return { exec, calls };
 }
 
-const claudeCalls = (calls: any[]) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
+/** One process the fake was asked to run, git aside. */
+type Call = ReturnType<typeof fakeExec>['calls'][number];
+const claudeCalls = (calls: readonly Call[]) => calls.filter(({ file }) => file === 'claude').map(({ args }) => args.join(' '));
 const PLUGIN_CALLS = ['plugin marketplace update omni-loop', 'plugin update omni@omni-loop'];
-const gh = (calls: any[], area: string, verb: string) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
+const gh = (calls: readonly Call[], area: string, verb: string) => calls.filter(({ file, args }) => file === 'gh' && args[0] === area && args[1] === verb);
+/** The arguments of the first `gh <area> <verb>` call. */
+function ghArgs(calls: readonly Call[], area: string, verb: string): readonly string[] {
+  const [call] = gh(calls, area, verb);
+  assertDefined(call, `a gh ${area} ${verb} call`);
+  return call.args;
+}
+/** The hand-over to the new bundle: the `node` call. */
+function handOver(calls: readonly Call[]): Call {
+  const call = calls.find(({ file }) => file === 'node');
+  assertDefined(call, 'the hand-over');
+  return call;
+}
 
 /** A fake bundle file: the new version's `omni.mjs`, as `--apply` runs from it. */
 function newBundle() {
@@ -125,13 +140,14 @@ describe('omni update: the running bin finds the release and hands over to it', 
     const { root } = installedRepo();
     const { code, calls } = await update(root, [], { kit: { ...KIT, version: '0.0.13' } });
     expect(code).toBe(0);
-    expect(gh(calls, 'release', 'view')[0].args).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
-    const download = gh(calls, 'release', 'download')[0].args;
+    expect(ghArgs(calls, 'release', 'view')).toEqual(['release', 'view', '--repo', 'acme/kit', '--json', 'tagName', '--jq', '.tagName']);
+    const download = ghArgs(calls, 'release', 'download');
     expect(download.slice(0, 6)).toEqual(['release', 'download', 'v0.0.15', '--repo', 'acme/kit', '--pattern']);
-    const node = calls.find(({ file }) => file === 'node');
+    const node = handOver(calls);
     const dir = download[download.indexOf('--dir') + 1];
-    expect(node!.args).toEqual([join(dir, 'omni.mjs'), 'update', '--apply', '--from', '0.0.13']);
-    expect(node!.options.cwd).toBe(root);
+    assertDefined(dir, 'the download folder');
+    expect(node.args).toEqual([join(dir, 'omni.mjs'), 'update', '--apply', '--from', '0.0.13']);
+    expect(node.options.cwd).toBe(root);
     expect(existsSync(dir)).toBe(false);
   });
 
@@ -139,8 +155,9 @@ describe('omni update: the running bin finds the release and hands over to it', 
     for (const [bin, version] of [[OLD_BIN, '0.0.13'], [UNVERSIONED_BIN, null]] as const) {
       const { root } = installedRepo({ bin });
       const { calls } = await update(root, [], { kit: { ...KIT, version } });
-      const [bundle, ...argv] = calls.find(({ file }) => file === 'node')!.args;
-      expect(planLaunch(argv, { cwd: root, self: bundle! }), argv.join(' ')).toEqual({ kind: 'self' });
+      const [bundle, ...argv] = handOver(calls).args;
+      assertDefined(bundle, 'the bundle handed over to');
+      expect(planLaunch(argv, { cwd: root, self: bundle }), argv.join(' ')).toEqual({ kind: 'self' });
     }
   });
 
@@ -153,15 +170,15 @@ describe('omni update: the running bin finds the release and hands over to it', 
   it('an unversioned bin hands over with no --from', async () => {
     const { root } = installedRepo({ bin: UNVERSIONED_BIN });
     const { calls } = await update(root, [], { kit: { ...KIT, version: null } });
-    expect(calls.find(({ file }) => file === 'node')!.args.slice(1)).toEqual(['update', '--apply']);
+    expect(handOver(calls).args.slice(1)).toEqual(['update', '--apply']);
   });
 
   it('--to v0.0.12 targets that tag', async () => {
     const { root } = installedRepo();
     const { code, calls } = await update(root, ['--to', 'v0.0.12'], { kit: { ...KIT, version: '0.0.13' } });
     expect(code).toBe(0);
-    expect(gh(calls, 'release', 'view')[0].args.slice(0, 3)).toEqual(['release', 'view', 'v0.0.12']);
-    expect(gh(calls, 'release', 'download')[0].args[2]).toBe('v0.0.12');
+    expect(ghArgs(calls, 'release', 'view').slice(0, 3)).toEqual(['release', 'view', 'v0.0.12']);
+    expect(ghArgs(calls, 'release', 'download')[2]).toBe('v0.0.12');
   });
 
   it('an unknown tag stops before any write, exit 1', async () => {
@@ -240,8 +257,12 @@ describe('omni update --apply: the new version opens the pull request', () => {
     expect(message.split('\n').at(-1)).toBe('Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>');
 
     // The PR: into the default branch, with the compare link and the footer line.
-    const create = gh(calls, 'pr', 'create')[0].args;
-    const flag = (name: string) => create[create.indexOf(name) + 1];
+    const create = ghArgs(calls, 'pr', 'create');
+    const flag = (name: string) => {
+      const value = create[create.indexOf(name) + 1];
+      assertDefined(value, `the pull request's ${name}`);
+      return value;
+    };
     expect(flag('--base')).toBe('main');
     expect(flag('--head')).toBe(BRANCH);
     expect(flag('--title')).toBe('chore(omni): update to v0.0.15');
@@ -265,7 +286,7 @@ describe('omni update --apply: the new version opens the pull request', () => {
     const { code, out, calls } = await update(root, ['--apply', '--from', '0.0.13'], { fake });
     expect(code).toBe(0);
     expect(out).toMatch(new RegExp(`already open.*${PR_URL}`));
-    expect(gh(calls, 'pr', 'list')[0].args).toEqual(expect.arrayContaining(['--head', BRANCH, '--state', 'open']));
+    expect(ghArgs(calls, 'pr', 'list')).toEqual(expect.arrayContaining(['--head', BRANCH, '--state', 'open']));
     expect(gh(calls, 'pr', 'create')).toEqual([]);
     expect(remoteBranches(remote)).toEqual(['main']);
   });
@@ -290,7 +311,7 @@ describe('omni update --apply: the new version opens the pull request', () => {
     const { root } = installedRepo();
     const { out, calls } = await update(root, ['--apply']);
     expect(out.split('\n')[0]).toBe('unversioned → v0.0.15');
-    const body = gh(calls, 'pr', 'create')[0].args;
+    const body = ghArgs(calls, 'pr', 'create');
     expect(body[body.indexOf('--body') + 1]).toContain('https://github.com/acme/kit/releases/tag/v0.0.15');
   });
 
@@ -397,6 +418,6 @@ describe('omni update run by npx, in a repository installed before versions (s4)
   it('--to an older release hands over from the version the repository runs', async () => {
     const { root } = installedRepo();
     const { calls } = await update(root, ['--to', 'v0.0.12']);
-    expect(calls.find(({ file }) => file === 'node')!.args.slice(1)).toEqual(['update', '--apply', '--from', '0.0.13']);
+    expect(handOver(calls).args.slice(1)).toEqual(['update', '--apply', '--from', '0.0.13']);
   });
 });
