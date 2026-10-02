@@ -34,7 +34,7 @@ export type QuestionSource = { kind: 'database'; url: string; key: string } | { 
 type Props = {
   source: QuestionSource; initial: QuestionState; serverNow: number; me: string | null; members: Member[];
   /** The dossier the page was opened from (`?from=`), as given: back.ts ignores anything that is no dossier id. */
-  from?: string | null;
+  from?: string | null | undefined;
 };
 
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {

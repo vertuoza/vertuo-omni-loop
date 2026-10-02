@@ -61,7 +61,7 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
   return { words: { title: spec.record.title, description: '', pinned: false } };
 }
 
-export function readShipped(root: string, { git }: { git?: Git } = {}): ShippedReading {
+export function readShipped(root: string, { git }: { git?: Git | undefined } = {}): ShippedReading {
   const folders = shippedFolders(root);
   const refused: string[] = [];
   const waiting: string[] = [];

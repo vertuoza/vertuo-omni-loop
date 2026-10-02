@@ -128,7 +128,7 @@ describe('decide', () => {
     const asked: Array<{ key: string; state: unknown; question: JevQuestion }> = [];
     const logged: Array<[string, JevCall]> = [];
     const d: JevDecideDeps = {
-      settings(workspace, decision) {
+      settings(_workspace, decision) {
         if (settingsFail) return Promise.reject(new Error('db down'));
         return Promise.resolve({ ...settings(mode), decision });
       },

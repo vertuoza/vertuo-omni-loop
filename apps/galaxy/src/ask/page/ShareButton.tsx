@@ -19,7 +19,7 @@ type Props = {
   /** The page's origin, for the link; the browser's own when left out. */
   origin?: string;
   /** Where it starts: closed, unless a test shows another stage. */
-  initial?: ShareStage;
+  initial?: ShareStage | undefined;
 };
 
 export type ShareStage = { kind: 'closed' } | { kind: 'picking' } | { kind: 'sharing' } | { kind: 'shared'; with: string; copy: 'idle' | 'copied' | 'selected' };

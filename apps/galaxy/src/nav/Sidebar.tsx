@@ -38,7 +38,7 @@ import './drawer.css';
 // are not prefetched.
 
 /** A section's sprite (issue 653), at its native 16 px: decoration, its name already says what it is. */
-function SectionSprite({ name }: { name?: string }) {
+function SectionSprite({ name }: { name?: string | undefined }) {
   if (!name) return null;
   return <span className="app-sidebar-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: pixelSvg(spritePixels(name), { scale: 1, title: '' }) }} />;
 }

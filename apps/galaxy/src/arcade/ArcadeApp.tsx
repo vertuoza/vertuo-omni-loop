@@ -139,7 +139,7 @@ export interface ArcadeProps {
   /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
   /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
-  knowledge?: ChartSource;
+  knowledge?: ChartSource | undefined;
   /**
    * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
@@ -442,11 +442,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => { window.clearTimeout(id); }; };
     if (ui.leaving) return undefined;
     if (ui.scene === 'boot') return later(3200, () => { go({ scene: 'title' }); });
-    if (ui.scene === 'intro') return later(20200, () => { open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }); });
+    if (ui.scene === 'intro') return later(20200, () => { open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' }); });
     if (ui.scene === 'welcome') return later(3200, () => { open('menu'); });
     // The lock-in plays for 1.8 s, and moves on once the fleet is saved (whichever comes last).
     if (ui.scene === 'select' && ui.lockedAt !== null && ui.lockSaved) {
-      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => { open(nextStep('select', uiRef.current.flow, meRef.current, fleets)); });
+      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => { open(nextStep('select', uiRef.current.flow, fleets)); });
     }
     return undefined;
   }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open, fleets]);
@@ -501,15 +501,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // No fleet step came before (the workspace has no fleets): the name creates the player row, solo.
     const patch: PlayerPatch = meRef.current ? { display_name: value } : { display_name: value, team: null, hero: randomHero() };
     save(patch)
-      .then(() => { open(nextStep('name', u.flow, meRef.current, fleets), { flow: u.flow }, 'select'); })
+      .then(() => { open(nextStep('name', u.flow, fleets), { flow: u.flow }, 'select'); })
       .catch((err: unknown) => { go({ error: messageOf(err) }, 'buzz'); });
   }, [go, open, save, fleets]);
 
   const heroDone = useCallback(() => {
     const u = uiRef.current;
     save({ hero: u.hero })
-      .then((row) => {
-        const next = nextStep('hero', u.flow, row, fleets);
+      .then(() => {
+        const next = nextStep('hero', u.flow, fleets);
         open(next, next === 'menu' ? {} : { flow: u.flow }, 'select');
       })
       .catch((err: unknown) => { go({ error: messageOf(err) }, 'buzz'); });
@@ -584,7 +584,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'start') { open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start'); return; }
         return;
       case 'intro':
-        if (action === 'a' || action === 'start') { open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }, 'select'); return; }
+        if (action === 'a' || action === 'start') { open(nextStep('intro', 'onboard', fleets), { flow: 'onboard' }, 'select'); return; }
         return;
       case 'select': {
         if (u.lockedAt !== null) return;

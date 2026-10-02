@@ -96,7 +96,7 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       )).filter((i) => i.pull_request === undefined).map(({ number, created_at }) => ({ number, created_at }));
 
       // Since a sync: most recently updated first, up to the first one updated before it.
-      const before = (p: { updated_at?: string }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
+      const before = (p: { updated_at?: string | undefined }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
       const listed = (await pages(
         (page) => `/pulls?${new URLSearchParams({ state: 'all', sort: since ? 'updated' : 'created', direction: 'desc', per_page: '100', page: String(page) })}`,
         (data) => Pulls.parse(data),

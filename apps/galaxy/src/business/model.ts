@@ -34,7 +34,7 @@ export interface Claim {
   /** Who cited it last, with the run (`think-big concept #9`), or null when nobody has. */
   lastBy: string | null;
   /** Where evidence quoted it (PRD 774), newest first; none for a pick. */
-  receipts?: ClaimReceipt[];
+  receipts?: ClaimReceipt[] | undefined;
   /** The confirmed claim a proposed offering or size would replace (PRD 774), or null. */
   replaces?: string | null;
   /** When a source last quoted it (PRD 774), or when someone said ✓ Still true; left out, never. */

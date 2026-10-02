@@ -43,7 +43,7 @@ export interface JevViewProps {
   owner: boolean;
   on?: JevHandlers;
   /** Each decision's record (PRD 812 s4); null when it could not be read, none in the demo. */
-  records?: JevRecords | null;
+  records?: JevRecords | null | undefined;
 }
 
 function KeyForm({ state, on }: { state: JevState; on: JevHandlers }) {

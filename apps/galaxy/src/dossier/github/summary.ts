@@ -88,18 +88,18 @@ export type GithubSummary = {
   /** The sub-PRs merged into the feature branch. */
   mergedSlices: Read<number>;
   /** The outbox (PRD 426, s2); null when there is none yet. Left out by a summary made before it. */
-  outbox?: Read<Outbox | null>;
+  outbox?: Read<Outbox | null> | undefined;
   /** The feature PR's outbox comment, found by its marker; null when there is none. */
   outboxComment?: Read<string | null>;
   /** The numbering and the pending answers, from the feature PR's comments (PRD 251, s9); null when
    * there is no feature PR. Left out by a summary made before it. */
-  replies?: Read<OutboxReplies | null>;
+  replies?: Read<OutboxReplies | null> | undefined;
   /** The retro, `retro.md` as markdown (PRD 426, s3): from the retro branch while its PR is open, from the
    * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
-  retroText?: Read<string | null>;
+  retroText?: Read<string | null> | undefined;
   /** The feature PR's care state (PRD 790, s2, ./care.ts), read while it is open; null when there is no
    * open feature PR. Left out by a summary made before it. */
-  care?: Read<CareState | null>;
+  care?: Read<CareState | null> | undefined;
 };
 
 /** One GitHub read on its own, for `page`: its answer, or UNREAD (logged) when it failed. */

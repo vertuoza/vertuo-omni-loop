@@ -53,7 +53,7 @@ markdown.renderer.rules.image = (tokens, i, options, env, self) => {
 const renderBody = (body: string) => markdown.render(body).replace(/<p>(<figure [\s\S]*?<\/figure>)<\/p>/g, '$1');
 
 /** A page as the test hands it to the loader: its body as markdown-it's HTML. */
-type TestPage = { title?: string; html: string; toc: TOCItemType[] };
+type TestPage = { title?: string | undefined; html: string; toc: TOCItemType[] };
 
 /** docs/guide/ as a fumadocs source: its meta.json, and each page with a body markdown-it renders. */
 function source(): StaticSource<{ pageData: TestPage; metaData: MetaData }> {

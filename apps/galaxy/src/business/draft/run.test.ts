@@ -17,7 +17,7 @@ const PRICING = 'Pricing for contractors in France.';
 function fakeStore(held: StoredClaim[] = [], { failPropose }: { failPropose?: string } = {}) {
   const proposed: Proposed[] = [];
   const progress: Array<{ counts: DraftCounts; scanned: Scanned[] }> = [];
-  const finished: Array<{ state: string; counts: DraftCounts; scanned: Scanned[]; reason?: string }> = [];
+  const finished: Array<{ state: string; counts: DraftCounts; scanned: Scanned[]; reason?: string | undefined }> = [];
   const store: DraftStore = {
     running: () => Promise.resolve(null),
     start: () => Promise.reject(new Error('not here')),

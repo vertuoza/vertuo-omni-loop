@@ -19,7 +19,7 @@ export interface JevPageProps {
   keyStatus: JevKeyStatus;
   decisions: JevDecisionSettings[];
   /** Each decision's 30-day record (PRD 812 s4): null when it could not be read, none in the demo. */
-  records?: JevRecords | null;
+  records?: JevRecords | null | undefined;
 }
 
 export function JevPage({ source, owner, keyStatus, decisions, records }: JevPageProps) {

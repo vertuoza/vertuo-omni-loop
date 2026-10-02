@@ -11,7 +11,7 @@ import { sure } from '../sure';
 // The canvas in a workspace's theme: every sprite drawn, with the options it was drawn with, and
 // every colour the arcade's own code fills with (the sprite package's planets, stars and nebulae are
 // its own, and stubbed out here).
-const sprites = vi.hoisted(() => [] as { name: string; flat?: unknown; glow?: string | null }[]);
+const sprites = vi.hoisted(() => [] as { name: string; flat?: unknown; glow?: string | null | undefined }[]);
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return {

@@ -57,7 +57,7 @@ type Props = {
   /** The change check (PRD 384), shown below the tabs; none in the demo. */
   live?: ReactNode;
   /** The shown version of the User voice, read (PRD 822); null off that tab, or when it could not be read. */
-  voice?: VoiceView | null;
+  voice?: VoiceView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {

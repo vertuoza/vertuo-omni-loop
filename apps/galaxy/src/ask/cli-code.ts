@@ -149,7 +149,7 @@ export type TokenDeps = {
   revoke?: (accessToken: string) => Promise<void>;
   /** Where a call of this person for this repository goes (repo_workspace()): the workspace, or the
    * database's reason. Absent (no service role here), nobody is told. */
-  place?: (userId: string, repo: string) => Promise<Placement>;
+  place?: ((userId: string, repo: string) => Promise<Placement>) | undefined;
   /** The App's install link, added after the database's install hint. */
   installLink?: string | null;
 };

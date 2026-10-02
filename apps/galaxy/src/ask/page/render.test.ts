@@ -402,7 +402,7 @@ describe('what Claude wrote before asking, rendered (PRD 752)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const DESIGN = '## The design\n\nThree parts:\n\n- the reader\n- the hook\n- the page\n\n<script>alert(1)</script> and `kit/lib/ask/`';
   const LONG = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the plan.`).join('\n\n');
-  const withLead = <T extends { rounds: { lead?: string | null }[] }>(state: T, lead: string | null): T =>
+  const withLead = <T extends { rounds: { lead?: string | null | undefined }[] }>(state: T, lead: string | null): T =>
     ({ ...state, rounds: state.rounds.map((r, i) => (i === state.rounds.length - 1 ? { ...r, lead } : r)) });
   const session = (lead: string | null, scenario: 'open' | 'moved' = 'open', viewer: 'owner' | 'member' = 'owner') =>
     renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: withLead(demoState('s1', scenario, NOW), lead), serverNow: NOW, viewer }));

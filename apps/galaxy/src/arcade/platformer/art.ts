@@ -88,7 +88,7 @@ const sprite = (name: string, tint: Tint | null, frame = 0) => {
 /** Draws the art for a stage's palette and the player's hero, in their fleet's colour. Browser only. */
 export function drawArt(hero: Hero, team: string | null, palette: string): Art {
   const tint = STAGE_PALETTES[palette] ?? STAGE_PALETTES.grass;
-  const tiles = canvas(16 * TILES.length, 16, (ctx) => { TILES.forEach((name, i) => { ctx.drawImage(spriteImage(name, { tint }), i * 16, 0); }); });
+  const tiles = canvas(16 * TILES.length, 16, (ctx) => { TILES.forEach((name, i) => { ctx.drawImage(spriteImage(name, { tint: tint ?? null }), i * 16, 0); }); });
   const color = crewLook(team).color;
   const look = heroLook(hero, color);
   const run = heroPose(hero, 'omni-run', color);

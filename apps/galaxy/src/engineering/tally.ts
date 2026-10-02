@@ -48,7 +48,7 @@ export interface PullRequestRow {
   /** The base branch; optional so a profile's rows (PRD 698) build without it. */
   base?: string | null;
   /** The head branch; null until the collector re-reads the pull request (PRD 714). */
-  head?: string | null;
+  head?: string | null | undefined;
   /** Whether it is a draft, as last read (PRD 714 s2); optional so a profile's rows build without it. */
   draft?: boolean;
   /** Its label names, as last read (PRD 714 s2). */
@@ -57,7 +57,7 @@ export interface PullRequestRow {
   headCommittedAt?: string | null;
   /** The `state:` of the loop's status comment (PRD 714 s3), read only for open signed pull requests into
    * a main branch; null otherwise or with no status comment. */
-  statusState?: string | null;
+  statusState?: string | null | undefined;
   /** When omni:needs-fix was first added to it (PRD 714 s4); null when never or not read. */
   needsFixAt?: string | null;
 }

@@ -113,7 +113,7 @@ export type DossierRow = {
   /** Null while a draft. For a fix, its issue's number. */
   prd: number | null;
   /** What it is of (PRD 627); a row read without it is a PRD's. */
-  kind?: WorkKind;
+  kind?: WorkKind | undefined;
   title: string;
   /** Null when the fallback created it, or its opener's account is gone. */
   opened_by: string | null;

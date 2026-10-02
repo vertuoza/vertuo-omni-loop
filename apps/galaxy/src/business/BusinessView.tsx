@@ -120,7 +120,7 @@ export interface BusinessViewProps {
   state: BusinessState;
   /** The demo: sample claims, changed only in the page. */
   demo?: boolean;
-  on?: BusinessHandlers;
+  on?: BusinessHandlers | undefined;
   /** What "eight weeks ago" is counted from (PRD 774 s4); now, left out. */
   now?: number;
   /** The Personas section (PRD 799 s3), drawn below the claims of the tab shown. */

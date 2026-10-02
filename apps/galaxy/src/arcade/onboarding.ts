@@ -61,7 +61,7 @@ export function afterGate(me: Player | null, fleets: FleetRow[]): Step {
 }
 
 /** The screen after a step is done, in a flow: the intro leads to the fleets, or past them when there are none. */
-export function nextStep(step: Step, flow: Flow, me: Player | null, fleets: FleetRow[]): Step {
+export function nextStep(step: Step, flow: Flow, fleets: FleetRow[]): Step {
   switch (step) {
     case 'intro': return hasFleets(fleets) ? 'select' : 'name';
     case 'select': return flow === 'change' ? 'menu' : 'name';

@@ -45,9 +45,14 @@ const TeamRowSchema = z.object({
 });
 type TeamRow = z.infer<typeof TeamRowSchema>;
 
-/** A public.teams row as the page draws it. */
-export const fleetOfRow = (r: TeamRow): FleetRow =>
-  ({ name: r.name, ...lookOf(r.name, { ...r, home: r.home ?? null, motto: r.motto ?? '', retired: Boolean(r.retired_at) }) });
+/** A public.teams row as the page draws it. A field the row leaves out is left out of the look's
+ * input too, so @omni/galaxy's lookOf gives it its default. */
+export const fleetOfRow = ({ name, home, label, color, motto, mascot, sort, retired_at }: TeamRow): FleetRow =>
+  ({ name, ...lookOf(name, {
+    home: home ?? null, motto: motto ?? '', retired: Boolean(retired_at),
+    ...(label === undefined ? {} : { label }), ...(color === undefined ? {} : { color }),
+    ...(mascot === undefined ? {} : { mascot }), ...(sort === undefined ? {} : { sort }),
+  }) });
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 

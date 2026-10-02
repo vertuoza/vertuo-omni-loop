@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { describe, expect, it } from 'vitest';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import { hashToken } from '../tokens/token';
@@ -11,6 +12,19 @@ import { sure } from '../../arcade/sure';
 // workspace's business, 28000 for a token that does not work (unknown, revoked, or its maker left),
 // 22023 naming the tracked repositories when several products and no repository, 42501 another
 // workspace's repository.
+
+// The SDK's client transport, handed to its client as the Transport interface it implements: its
+// class reads `sessionId` as `string | undefined`, which the interface's optional `sessionId` does not
+// take under exactOptionalPropertyTypes. A stateless link never has a session id, so none is passed on.
+const asTransport = (inner: StreamableHTTPClientTransport): Transport => ({
+  start: () => inner.start(),
+  send: (message, options) => inner.send(message, options),
+  close: () => inner.close(),
+  setProtocolVersion: (version) => inner.setProtocolVersion(version),
+  set onclose(handler: NonNullable<Transport['onclose']>) { inner.onclose = handler; },
+  set onerror(handler: NonNullable<Transport['onerror']>) { inner.onerror = handler; },
+  set onmessage(handler: NonNullable<Transport['onmessage']>) { inner.onmessage = handler; },
+});
 
 const LIVE = 'omb_' + 'A'.repeat(43);
 const REVOKED = 'omb_' + 'R'.repeat(43);
@@ -77,7 +91,7 @@ async function world({ read = READ, products = 1, database = true, reported = 0,
       requestInit: token === null ? {} : { headers: { authorization: `Bearer ${token}` } },
       fetch: (url, init) => handleMcp(new Request(url, init), deps),
     });
-    await client.connect(transport);
+    await client.connect(asTransport(transport));
     return client;
   };
 
@@ -270,10 +284,10 @@ describe('/api/mcp, the MCP link', () => {
   it('a database failure answers one line, never the database\'s message', async () => {
     const deps: McpDeps = { connect: () => ({ rpc: () => Promise.resolve({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
     const client = new Client({ name: 't', version: '1' });
-    await client.connect(new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
+    await client.connect(asTransport(new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
       requestInit: { headers: { authorization: `Bearer ${LIVE}` } },
       fetch: (url, init) => handleMcp(new Request(url, init), deps),
-    }));
+    })));
     const errors: unknown[] = [];
     const original = console.error;
     console.error = (...args: unknown[]) => { errors.push(args); };

@@ -18,7 +18,7 @@ import { releasesTable, type ReleasesTable } from './sync-table.ts';
 export const SYNC_VARIABLES = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const;
 
 type Env = Record<string, string | undefined>;
-type Print = { out?: (line: string) => void; err?: (line: string) => void };
+type Print = { out?: ((line: string) => void) | undefined; err?: ((line: string) => void) | undefined };
 
 /** The variables `env` leaves unset or blank, in the order they are named above. */
 export function missingVariables(env: Env): string[] {

@@ -35,7 +35,7 @@ function answersOf(github: GithubSummary | null): string | null {
 }
 
 /** The dossier's pulse, and its GitHub part when there is one (a numbered dossier whose summary was read). */
-export type LivePulse = DossierPulse & { github?: GithubPulse };
+export type LivePulse = DossierPulse & { github?: GithubPulse | undefined };
 
 /** The GitHub part of a dossier's pulse: its stage and open outbox count, unknown when the summary
  * could not be read; none for a draft, or when the summary was not asked for (undefined). */
