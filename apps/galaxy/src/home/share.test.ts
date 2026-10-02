@@ -20,8 +20,12 @@ describe('HOME\'s metadata', () => {
 
   it('gives a shared link the same title and description, as a large image card', () => {
     expect(HOME_METADATA.openGraph).toMatchObject({ title: TITLE, description: DESCRIPTION, type: 'website' });
-    expect(HOME_METADATA.openGraph).not.toHaveProperty('url');
     expect(HOME_METADATA.twitter).toMatchObject({ card: 'summary_large_image', title: TITLE, description: DESCRIPTION });
+  });
+
+  it('names its canonical address and og:url on www.omni-loop.xyz, whichever host served it (PRD 983)', () => {
+    expect(HOME_METADATA.alternates).toEqual({ canonical: 'https://www.omni-loop.xyz/' });
+    expect(HOME_METADATA.openGraph).toMatchObject({ url: 'https://www.omni-loop.xyz/' });
   });
 
   it('no longer says JOIN THE LOOP! or hands a PRD to the loop', () => {

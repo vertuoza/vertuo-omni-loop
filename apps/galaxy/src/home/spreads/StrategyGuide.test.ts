@@ -1,59 +1,149 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LINGO } from '../lingo';
 import { heading, html, text } from './render';
-import { StrategyGuide } from './StrategyGuide';
-import { item, present } from '../../ask/test-item';
+import { KNOWLEDGE, LOOP, MOVERS, StrategyGuide } from './StrategyGuide';
 
-// The strategy guide (PRD 285, s5): seven levels, each naming the practice the loop builds in, and the
-// LOOP LINGO sidebar glossing the loop terms HOME uses, read from the lingo module.
+// The strategy guide is the loop (PRD 971, s2): IDEA to RETRO, with the KNOWLEDGE arrow back to IDEA,
+// each arrow coloured by who moves the work on, OmniMan running it, and the LOOP LINGO sidebar beside
+// the map glossing the loop terms HOME still says.
 
-const levels = (markup: string) =>
-  [...markup.matchAll(/<li class="home-stage[^"]*">([\s\S]*?)<\/li>/g)].map((m) => text(item(m, 1)));
+const css = readFileSync(new URL('./StrategyGuide.css', import.meta.url), 'utf8');
 
 const sidebar = (markup: string) => {
   const aside = markup.match(/<aside\b[^>]*class="home-lingo"[^>]*>([\s\S]*?)<\/aside>/);
   if (!aside) throw new Error('no LOOP LINGO sidebar');
-  return item(aside, 1);
+  return aside[1]!;
 };
 
-describe('the strategy guide', () => {
-  it('opens on its own h2', () => {
-    expect(heading(html(StrategyGuide()))).toBe('Strategy guide: the loop, level by level');
+/** The SVG drawings of the map: the wide one and the one-column one. */
+const maps = (markup: string) => [...markup.matchAll(/<svg\b[^>]*class="home-loop-map[^"]*"[^>]*>[\s\S]*?<\/svg>/g)].map(([s]) => s);
+
+describe('the loop', () => {
+  it('lists IDEA, PRD, INBOX, OUTBOX, SHIPPED and RETRO, levels 1-1 to 1-6', () => {
+    expect(LOOP.map((s) => s.name)).toEqual(['IDEA', 'PRD', 'INBOX', 'OUTBOX', 'SHIPPED', 'RETRO']);
+    expect(LOOP.map((s) => s.level)).toEqual(['1-1', '1-2', '1-3', '1-4', '1-5', '1-6']);
   });
 
-  it('walks the seven levels in order, SET UP to the KNOWLEDGE bonus, in the spec\'s words', () => {
-    expect(levels(html(StrategyGuide()))).toEqual([
-      '1-1 SET UP omni invade reads your repository and writes its harness: how you test, build, review and release. You merge it as one pull request of docs.',
-      '1-2 BRAINSTORM You and Claude turn an idea into a brief, the PRD, with a before/after page. A person approves it before any code exists.',
-      '1-3 PLAN The PRD is cut into thin slices, each with the files it may touch, grouped in waves that are built side by side.',
-      '1-4 BUILD One agent per slice, each on its own branch, test-first, each with its own pull request.',
-      '1-5 OUTBOX Every decision an agent took without asking is written down. You answer once, at the end.',
-      '1-6 SHIP The feature\'s pull request is ready once its checks pass. A person reviews and merges it, never an agent.',
-      '★ BONUS KNOWLEDGE The decisions you settle land in the knowledge base, so the next loop knows more.',
+  it('gives each stage its line, in the spec\'s words', () => {
+    expect(LOOP.map((s) => s.line)).toEqual([
+      'You talk an idea through with Claude. Nothing is written yet.',
+      'The idea becomes a brief and a before/after page. A person approves it before any code exists.',
+      'Approved and ready to build.',
+      'Agents build it in slices, test-first. Every decision they took without asking waits for your answer.',
+      'A person reviews and merges the feature, never an agent.',
+      'How the delivery went, and what it taught.',
     ]);
   });
 
-  it('names the command in code, not in prose', () => {
-    expect(html(StrategyGuide())).toContain('<code>omni invade</code>');
+  it('names who moves each arrow on: YOU, YOU, AGENTS, YOU, OMNI APP, and RETRO hands back KNOWLEDGE', () => {
+    expect(LOOP.map((s) => s.mover)).toEqual(['YOU', 'YOU', 'AGENTS', 'YOU', 'OMNI APP', null]);
+    for (const s of LOOP) if (s.mover) expect(MOVERS).toContain(s.mover);
+    expect(MOVERS).toEqual(['YOU', 'AGENTS', 'OMNI APP']);
   });
 
-  it('keeps OmniMan running the path', () => {
-    expect(html(StrategyGuide())).toMatch(/<[a-z]+ [^>]*data-pose="omni-run"[^>]*>/);
+  it('closes on KNOWLEDGE, from RETRO back to IDEA, as the bonus', () => {
+    expect(KNOWLEDGE).toEqual({
+      from: 'RETRO',
+      to: 'IDEA',
+      name: 'KNOWLEDGE',
+      level: '★ BONUS',
+      line: 'What you settled becomes the rules the next idea starts from.',
+    });
+  });
+});
+
+describe('the strategy guide', () => {
+  const markup = html(StrategyGuide());
+
+  it('opens on its own h2', () => {
+    expect(heading(markup)).toBe('Strategy guide: the loop');
   });
 
-  it('holds a LOOP LINGO sidebar: its h3, then the five terms and their glosses, in the loop\'s order', () => {
-    const aside = sidebar(html(StrategyGuide()));
-    expect(text(item(present(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/), 'its h3'), 1))).toBe('Loop lingo');
-    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map((m) => text(item(m, 1)));
-    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map((m) => text(item(m, 1)));
-    expect(terms).toEqual(['HARNESS', 'PRD', 'SLICE', 'WAVE', 'OUTBOX']);
+  it('draws the map twice, wide and as one column, each a titled picture', () => {
+    const svgs = maps(markup);
+    expect(svgs).toHaveLength(2);
+    expect(svgs[0]).toContain('home-loop-wide');
+    expect(svgs[1]).toContain('home-loop-tall');
+    for (const svg of svgs) {
+      expect(svg).toMatch(/role="img"/);
+      expect(svg).toMatch(/<svg\b[^>]*aria-labelledby="([^"]+)"[\s\S]*<title id="\1">The Omni Loop<\/title>/);
+    }
+  });
+
+  it('draws one arrow per stage handing on, coloured by its mover, and one dashed KNOWLEDGE arrow from RETRO to IDEA', () => {
+    for (const svg of maps(markup)) {
+      const arrows = [...svg.matchAll(/<g class="home-loop-arrow ([^"]*)" data-from="([^"]+)" data-to="([^"]+)"/g)]
+        .map(([, cls, from, to]) => ({ cls, from, to }));
+      expect(arrows).toEqual([
+        { cls: 'home-loop-you', from: 'IDEA', to: 'PRD' },
+        { cls: 'home-loop-you', from: 'PRD', to: 'INBOX' },
+        { cls: 'home-loop-agents', from: 'INBOX', to: 'OUTBOX' },
+        { cls: 'home-loop-you', from: 'OUTBOX', to: 'SHIPPED' },
+        { cls: 'home-loop-app', from: 'SHIPPED', to: 'RETRO' },
+        { cls: 'home-loop-knowledge', from: 'RETRO', to: 'IDEA' },
+      ]);
+    }
+  });
+
+  it('names YOU, AGENTS and OMNI APP in a legend', () => {
+    const legend = markup.match(/<ul class="home-loop-legend"[^>]*>([\s\S]*?)<\/ul>/);
+    expect(legend).not.toBeNull();
+    expect([...legend![1]!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!).split(':')[0]!.trim()))
+      .toEqual(['YOU', 'AGENTS', 'OMNI APP']);
+  });
+
+  it('lists the stages and their lines for a screen reader, the KNOWLEDGE bonus last', () => {
+    const list = markup.match(/<ol class="home-loop-list">([\s\S]*?)<\/ol>/);
+    expect(list).not.toBeNull();
+    const items = [...list![1]!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!));
+    expect(items).toEqual([
+      ...LOOP.map((s) => `${s.level} ${s.name}: ${s.line}`),
+      `${KNOWLEDGE.level} ${KNOWLEDGE.name}: ${KNOWLEDGE.line}`,
+    ]);
+  });
+
+  it('hides that list from the eye only, never from a screen reader', () => {
+    expect(css).toMatch(/\.home-loop-list \{[^}]*clip-path: inset\(50%\)/);
+    expect(css).not.toMatch(/\.home-loop-list \{[^}]*display: none/);
+  });
+
+  it('says every stage line in the DOM text', () => {
+    const page = text(markup);
+    for (const s of [...LOOP, KNOWLEDGE]) expect(page).toContain(s.line);
+  });
+
+  it('keeps OmniMan running the loop, under its caption', () => {
+    expect(markup).toMatch(/<[a-z]+ [^>]*data-pose="omni-run"[^>]*>/);
+    expect(text(markup)).toContain('OMNIMAN RUNS THE LOOP, ONE LEVEL AT A TIME');
+  });
+
+  it('animates OmniMan, and stands him still on IDEA under reduced motion', () => {
+    expect(css).toMatch(/\.home-loop-runner \{[^}]*animation: home-loop-run/);
+    expect(css).toMatch(/@keyframes home-loop-run\b/);
+    const reduce = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduce).toMatch(/\.home-loop-runner \{[^}]*animation: none/);
+  });
+
+  it('draws the loop as one column below 720px, and the wide map from 720px', () => {
+    const narrow = /@media \(max-width: 719px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(narrow).toMatch(/\.home-loop-wide \{[^}]*display: none/);
+    expect(narrow).toMatch(/\.home-loop-tall \{[^}]*display: block/);
+    expect(css).toMatch(/\.home-loop-tall \{[^}]*display: none/);
+  });
+
+  it('holds a LOOP LINGO sidebar: its h3, then the terms HOME still says, in the loop\'s order', () => {
+    const aside = sidebar(markup);
+    expect(text(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)![1]!)).toBe('Loop lingo');
+    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(t!));
+    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(d!));
+    expect(terms).toEqual(['PRD', 'SLICE', 'OUTBOX']);
     expect(glosses).toEqual(LINGO.map((e) => e.gloss));
   });
 
   it('puts the sidebar beside the map, in the same row as it', () => {
-    const markup = html(StrategyGuide());
     const board = markup.match(/<div class="home-guide">([\s\S]*)<\/div>/);
     expect(board).not.toBeNull();
-    expect(item(present(board, 'the guide'), 1)).toMatch(/<ol class="home-map">[\s\S]*<aside\b[^>]*class="home-lingo"/);
+    expect(board![1]).toMatch(/<div class="home-loop">[\s\S]*<aside\b[^>]*class="home-lingo"/);
   });
 });

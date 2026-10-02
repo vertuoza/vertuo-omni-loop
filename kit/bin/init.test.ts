@@ -242,11 +242,11 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const { root, read } = makeRepo({ git: true });
     await init(root);
     const config = readConfig(read);
-    expect(config.ask.url).toBe('https://vertuo-omni-loop-galaxy.vercel.app');
+    expect(config.ask.url).toBe('https://www.omni-loop.xyz');
     assertDefined(config.signature, 'the signature');
     expect(config.ask.url).toBe(config.signature.home);
     expect(config.dossier.enabled).toBe(true);
-    expect(read('.omni-loop/config.yml')).toContain('ask:\n  url: https://vertuo-omni-loop-galaxy.vercel.app\n');
+    expect(read('.omni-loop/config.yml')).toContain('ask:\n  url: https://www.omni-loop.xyz\n');
     expect(read('.omni-loop/config.yml')).toContain('dossier:\n  enabled: true\n');
   });
 
@@ -267,13 +267,13 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
       'signature:',
       '  name: Omni-man',
       '  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com',
-      '  home: https://vertuo-omni-loop-galaxy.vercel.app',
+      '  home: https://www.omni-loop.xyz',
       '  footer: 🦸 {name} by [Omni Loop]({home}) ©',
     ].join('\n'));
     expect(readConfig(read).signature).toEqual({
       name: 'Omni-man',
       email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
-      home: 'https://vertuo-omni-loop-galaxy.vercel.app',
+      home: 'https://www.omni-loop.xyz',
       footer: '🦸 {name} by [Omni Loop]({home}) ©',
     });
     expect(await omni(root, ['sign', 'trailer'])).toEqual({
@@ -283,7 +283,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     });
     expect(await omni(root, ['sign', 'footer'])).toEqual({
       code: 0,
-      out: '🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
+      out: '🦸 Omni-man by [Omni Loop](https://www.omni-loop.xyz) © <!-- omni-loop:signed -->\n',
       err: '',
     });
   });
@@ -687,7 +687,7 @@ const REMOVAL = [
 const REMOVAL_WITHOUT_KEY = 'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.';
 
 /** The host of the ask.url init writes: the Omni Loop home page. */
-const ASK_HOST = 'vertuo-omni-loop-galaxy.vercel.app';
+const ASK_HOST = 'www.omni-loop.xyz';
 
 /** What a first run on a bare repository prints, as `acme/widgets` on `trunk` sees it, with no terminal. */
 const FIRST_RUN = [

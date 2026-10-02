@@ -217,7 +217,7 @@ describe('the signature section (PRD #99, PRD #215)', () => {
   const DEFAULT = {
     name: 'Omni-man',
     email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
-    home: 'https://vertuo-omni-loop-galaxy.vercel.app',
+    home: 'https://www.omni-loop.xyz',
     footer: '🦸 {name} by [Omni Loop]({home}) ©',
   };
 
@@ -305,7 +305,7 @@ describe('omni config', () => {
     expect(JSON.parse(s.out.join(''))).toEqual({
       name: 'Omni-man',
       email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
-      home: 'https://vertuo-omni-loop-galaxy.vercel.app',
+      home: 'https://www.omni-loop.xyz',
       footer: '🦸 {name} by [Omni Loop]({home}) ©',
     });
   });
@@ -313,7 +313,7 @@ describe('omni config', () => {
   it('prints signature.home, and the footer as its template, unfilled (PRD #215)', async () => {
     const { root } = makeRepo({ git: true, files });
     for (const [key, value] of [
-      ['signature.home', 'https://vertuo-omni-loop-galaxy.vercel.app'],
+      ['signature.home', 'https://www.omni-loop.xyz'],
       ['signature.footer', '🦸 {name} by [Omni Loop]({home}) ©'],
     ] as const) {
       const s = io();

@@ -39,7 +39,7 @@ const ASKED: JudgeRequest = Object.freeze({
 describe('judgeUrl — galaxy\'s judge route', () => {
   it('on GALAXY_URL when set, else galaxy\'s production host', () => {
     expect(judgeUrl({ GALAXY_URL: 'https://preview.example/' })).toBe('https://preview.example/api/constituents/judge');
-    expect(judgeUrl({})).toBe('https://vertuo-omni-loop-galaxy.vercel.app/api/constituents/judge');
+    expect(judgeUrl({})).toBe('https://www.omni-loop.xyz/api/constituents/judge');
   });
 });
 

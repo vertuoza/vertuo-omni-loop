@@ -1,4 +1,5 @@
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -134,6 +135,31 @@ describe('a board', () => {
     const fleets = render().slice(render().indexOf('board-fleets'));
     expect(fleets).toMatch(/<th scope="col" class="board-rank">Rank<\/th>/);
     expect(fleets).toMatch(/<td class="board-rank"><span class="board-medal" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"[\s\S]*?<\/svg><\/span><span class="ask-sr">1<\/span><\/td>/);
+  });
+
+  it('draws every panel in the shared card: both charts, People, Repositories and Fleets (PRD 962)', () => {
+    const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"/g)].map((m) => m[1]!.split(' '));
+    for (const html of [render(), render({ activity: 'unreadable', roster: 'unreadable' })]) {
+      const panels = sections(html);
+      const kinds = panels.map((c) => c.find((k) => /^board-(chart|people|repos|fleets)$/.test(k)));
+      expect(kinds).toEqual(['board-chart', 'board-chart', 'board-people', 'board-repos', 'board-fleets']);
+      for (const classes of panels) expect(classes, classes.join(' ')).toContain('board-card');
+    }
+  });
+
+  it('frames a panel with the one .board-card rule only; tile figures end on one baseline (PRD 962)', () => {
+    const css = readFileSync(new URL('./board.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+    const card = rules.filter((r) => r.selector === '.board-card');
+    expect(card[0]!.body).toMatch(/border: 1px solid var\(--ask-line-strong\)/);
+    expect(card[0]!.body).toMatch(/border-radius: 12px/);
+    expect(card[0]!.body).toMatch(/background: var\(--ask-surface\)/);
+    expect(card[0]!.body).toMatch(/padding: 18px/);
+    expect(card.map((r) => r.body.trim())).toContain('padding: 12px;');
+    expect(card.map((r) => r.body.trim())).toContain('border-color: CanvasText;');
+    const framing = rules.filter((r) => /\.board-(chart|people|repos|fleets)\b(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
+    expect(framing.map((r) => r.selector)).toEqual([]);
+    expect(rules.find((r) => r.selector === '.board-tile')!.body).toMatch(/align-content: space-between/);
   });
 
   it('says so where a read failed, and draws the rest', () => {

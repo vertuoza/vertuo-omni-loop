@@ -5,12 +5,13 @@
 //
 // The script calls timings() with the real fetch, file reader and clock; the test passes fakes. It
 // runs on plain Node, so this module's imports name their extension.
+import { SITE } from '../releases/page/address.ts';
 import { summarise, type Sample } from './summarise.ts';
 
 /** The pages PRD 657 set out to make fast, in the order the table lists them. */
 export const PAGES = ['/prd', '/app', '/app/workspace', '/app/fleet'] as const;
 
-const PRODUCTION = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const PRODUCTION = SITE;
 const RUNS = 10;
 /** The heading every signed-out card carries (DashboardSignIn, DossierSignIn…): a signed-out page
  * answers 200 too, and timing it would measure the wrong page. */

@@ -102,7 +102,10 @@ describe('signStageEvent', () => {
 describe('stageEventUrl', () => {
   it('is galaxy’s event route, on GALAXY_URL when set', () => {
     expect(stageEventUrl({ GALAXY_URL: 'https://galaxy.example/' })).toBe('https://galaxy.example/api/stages/event');
-    expect(stageEventUrl({})).toMatch(/^https:\/\/.+\/api\/stages\/event$/);
+  });
+
+  it('is on galaxy’s own domain when GALAXY_URL is unset (PRD 983)', () => {
+    expect(stageEventUrl({})).toBe('https://www.omni-loop.xyz/api/stages/event');
   });
 });
 

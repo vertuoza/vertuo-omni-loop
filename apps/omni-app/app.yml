@@ -18,7 +18,7 @@ name: omni-loop
 description: Posts the omni-loop outbox check on every pull request, and a retro after every feature pull request merges.
 url: https://omni-loop.vercel.app
 public: true
-setup_url: https://vertuo-omni-loop-galaxy.vercel.app/signup/installed
+setup_url: https://www.omni-loop.xyz/signup/installed
 hook_attributes:
   url: https://omni-loop.vercel.app/api/github
   active: true

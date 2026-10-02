@@ -200,20 +200,57 @@ describe('the poster', () => {
   });
 });
 
-// The magazine spreads under the poster (PRD 285): value first, then the loop's proof, the game and
-// the order form. Each spread is its own component, with its own test beside it under spreads/.
+// No flash (PRD 1006, s2): the server draws no pill and no mark; a script that runs before the first
+// paint marks the page pending when the browser holds a Supabase auth cookie, and the CSS then holds
+// each SIGN UP WITH GITHUB button's box, hidden, until Controls settles the mark.
+describe('the signed-in mark', () => {
+  const render = async () => {
+    const { Home } = await import('./Home');
+    return renderToStaticMarkup(Home());
+  };
+
+  it('is not in the server markup: no pill, and no data-session on the page', async () => {
+    const html = await render();
+    const main = /<main\b[^>]*>/.exec(html)?.[0] ?? '';
+    expect(main).toContain('class="home"');
+    expect(main).not.toContain('data-session');
+    expect(html).not.toContain('home-signed-in');
+    expect(text(html)).not.toContain('CONTINUE YOUR GAME');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
+  it('is set by a script that runs after the forwarding of old links and before anything paints', async () => {
+    const html = await render();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: m.index ?? -1, body: m[1] ?? '' }));
+    const forward = scripts.findIndex((s) => s.body.includes("location.replace('/play'"));
+    const mark = scripts.findIndex((s) => s.body.includes('document.cookie'));
+    expect(forward).toBe(0);
+    expect(mark).toBe(1);
+    expect(scripts[mark]?.body).toContain("setAttribute('data-session','pending')");
+    expect(scripts[mark]?.at).toBeLessThan(html.indexOf('<h1'));
+  });
+
+  it('holds each SIGN UP WITH GITHUB button\'s box, hidden, while it is pending', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
+    const pending = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, sel]) => sel?.includes('[data-session="pending"]'));
+    const hides = (cls: string) => pending.some(([, sel, body]) => new RegExp(`\\.${cls}(?![-\\w])`).test(sel ?? '') && /visibility:\s*hidden/.test(body ?? ''));
+    expect(hides('home-signup')).toBe(true);
+    expect(hides('home-signup-hint')).toBe(true);
+    for (const [, , body] of pending) expect(body).not.toMatch(/display:\s*none/);
+  });
+});
+
+// The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the customers, the
+// fleet game with its proof, and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
     return renderToStaticMarkup(Home());
   };
   const HEADS = [
-    'What\'s in it for you?',
-    'Strategy guide: the loop, level by level',
-    'You see everything',
-    'Easy in, easy out',
-    'High scores: the loop built this',
-    'The game: Entropy you can see',
+    'Strategy guide: the loop',
+    'Built for your customers',
+    'The game: build your fleet',
     'Join the loop!',
   ];
 
@@ -227,20 +264,28 @@ describe('the spreads', () => {
   it('are composed by Spreads.tsx alone, one component per spread', () => {
     const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/<section\b|<h2\b/);
-    for (const name of ['ForYou', 'StrategyGuide', 'SeeEverything', 'InOut', 'HighScores', 'Game', 'OrderForm']) {
-      expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
-    }
+    const imports = [...source.matchAll(/from '\.\/(\w+)'/g)].map(([, name]) => name);
+    expect(imports).toEqual(['Customers', 'Game', 'OrderForm', 'StrategyGuide']);
+    for (const gone of ['ForYou', 'SeeEverything', 'InOut', 'HighScores']) expect(source, gone).not.toMatch(new RegExp(`'\\./${gone}'|<${gone}\\b`));
   });
 
-  it('link nowhere but the game at /play, the release notes at /releases and the docs at /docs (PRD 346), the pages open without signing in', async () => {
+  it('link nowhere but the game at /play and the docs at /docs (PRD 346; /releases left with You see everything, PRD 971), the pages open without signing in', async () => {
     const html = await render();
     const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
     expect(hrefs).toContain('/play');
-    expect(hrefs).toContain('/releases');
     expect(hrefs).toContain('/docs');
-    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases', '/docs']));
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
+  });
+
+  it('read HOME\'s own example fleets, never the demo galaxy\'s (PRD 971)', async () => {
+    const page = text(await render());
+    for (const name of ['BUILDERS', 'INKLINGS', 'COINERS', 'NIGHT OWLS', 'CORSAIRS', 'CAPES']) expect(page, name).not.toContain(name);
+    expect(page).toContain('DAM BUSTERS');
+    expect(page).toContain('FEATURES SHIPPED 21');
+    const source = readFileSync(new URL('./Home.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/demoFleets|load-galaxy/);
   });
 
   it('name no Nintendo game, console or mark', async () => {

@@ -34,7 +34,7 @@ describe('parseArgs', () => {
   });
 
   it('defaults to production and ten runs', () => {
-    expect(parseArgs(['--cookie', 'c.txt'])).toEqual({ cookie: 'c.txt', base: 'https://vertuo-omni-loop-galaxy.vercel.app', runs: 10 });
+    expect(parseArgs(['--cookie', 'c.txt'])).toEqual({ cookie: 'c.txt', base: 'https://www.omni-loop.xyz', runs: 10 });
   });
 });
 

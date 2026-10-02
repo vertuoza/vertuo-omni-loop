@@ -1,47 +1,74 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
-import { heroLook, spritePixels } from '@omni/design';
-import { pixelSvg } from '../../design/pixel-svg';
-import { demoFleets } from '../../data/load-galaxy';
+import { describe, expect, it } from 'vitest';
+import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { EXAMPLE_FLEETS } from './fleets';
 import { Game } from './Game';
 import { heading, html, text } from './render';
-import { item, present } from '../../ask/test-item';
 
-// The demo world's fleets are read on the server: the test reads them the same way.
-vi.mock('server-only', () => ({}));
-
+// The game: build your fleet (PRD 971, s4): HOME's own example fleets in three beats, and the loop's
+// real counts folded in as its proof.
 describe('the game', () => {
-  const markup = html(Game({ fleets: demoFleets() }));
+  // As the build would count them: two counters read, one out of reach.
+  const markup = html(Game({ scores: { prdsShipped: 21, slicesMerged: 134, decisionsAdopted: '—' } }));
+  const beats = markup.split('<li class="home-game-beat">').slice(1);
 
-  it('opens on its own h2, then a line that names Entropy', () => {
-    expect(heading(markup)).toBe('The game: Entropy you can see');
+  it('opens on its own h2, then the lead', () => {
+    expect(heading(markup)).toBe('The game: build your fleet');
     const line = /<p class="home-lead">([\s\S]*?)<\/p>/.exec(markup)?.[1] ?? '';
-    expect(text(line)).toBe('Every feature is a planet your teams terraform together. Unanswered questions, stuck work and shipped bugs are Entropy: they cost the owning fleet points until someone closes them.');
+    expect(text(line)).toBe('Ship value to your customers, and score for your fleet while you do.');
   });
 
-  it('deals one flipping card per demo fleet that is not retired, each a button', () => {
+  it('walks three numbered beats: create your fleet, ship value, climb the leaderboard', () => {
+    const heads = [...markup.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => text(h!));
+    expect(heads).toEqual(['CREATE YOUR FLEET', 'SHIP VALUE', 'CLIMB THE LEADERBOARD']);
+    expect(markup).toContain('<ol class="home-game-beats">');
+    expect(beats).toHaveLength(3);
+  });
+
+  it('deals one flipping card per example fleet, each a button with its mascot drawn', () => {
     const cards = [...markup.matchAll(/<button [^>]*class="home-card"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
-    const live = demoFleets().filter((f) => !f.retired);
-    expect(cards).toHaveLength(live.length);
-    live.forEach((f, i) => {
-      expect(text(item(cards, i))).toContain(f.label);
-      expect(text(item(cards, i))).toContain(f.motto);
-      expect(cards[i]).toMatch(/type="button"/);
-      expect(cards[i]).toMatch(/aria-pressed="false"/);
-      expect(cards[i]).toContain('data-flip=""');
-      expect(cards[i]).toContain(`--fleet:${f.color}`);
+    expect(cards).toHaveLength(EXAMPLE_FLEETS.length);
+    EXAMPLE_FLEETS.forEach((f, i) => {
+      const card = cards[i]!;
+      expect(text(card)).toContain(f.label);
+      expect(text(card)).toContain(f.motto);
+      expect(card).toMatch(/type="button"/);
+      expect(card).toMatch(/aria-pressed="false"/);
+      expect(card).toContain('data-flip=""');
+      expect(card).toContain(`--fleet:${f.color}`);
+      expect(card).toMatch(/<span class="home-card-front">[\s\S]*?<svg [\s\S]*?<span class="home-card-name">/);
+      expect(card).toContain(`aria-label="${f.label}'s mascot"`);
     });
-    for (const f of demoFleets().filter((d) => d.retired)) expect(text(markup)).not.toContain(f.label);
-    for (const name of ['BEAVER', 'OCTOPOD', 'PICSOU', 'C.I.A.', 'PIRATES', 'INVINCIBLE']) expect(text(markup)).not.toContain(name);
+    expect(beats[0]).toContain('class="home-card"');
   });
 
-  it('draws a sprite on every card front: a fleet with no mascot shows a bare hero in its colour (#963)', () => {
-    const fronts = [...markup.matchAll(/<span class="home-card-front">([\s\S]*?)<span class="home-card-name">/g)].map(([, f]) => f);
-    expect(fronts).toHaveLength(demoFleets().filter((f) => !f.retired).length);
-    for (const front of fronts) expect(front).toMatch(/<svg /);
-    const owls = present(demoFleets().find((f) => !f.retired && !f.mascot), 'a fleet with no mascot');
-    const { sprite, tint } = heroLook({ v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 0 }, owls.color);
-    expect(markup).toContain(pixelSvg(spritePixels(sprite, { frame: 0, tint }), { scale: 2, title: `${owls.label}'s mascot` }));
+  it('names no fleet of the demo galaxy', () => {
+    for (const name of ['BUILDERS', 'INKLINGS', 'COINERS', 'NIGHT OWLS', 'CORSAIRS', 'CAPES']) expect(text(markup)).not.toContain(name);
+  });
+
+  it('says how points come, every number read from the rulebook', () => {
+    const closes = Object.values(RULEBOOK.woundClose);
+    expect(text(beats[1]!)).toBe(
+      `SHIP VALUE A secured zone scores ${RULEBOOK.zoneSecured}. A rescue scores ${RULEBOOK.rescue}. `
+      + `Closing Entropy (an unanswered question, stuck work, a shipped bug) scores ${Math.min(...closes)} to ${Math.max(...closes)}, by its kind.`,
+    );
+  });
+
+  it('ranks the example fleets by points, labelled EXAMPLE', () => {
+    const board = /<ol class="home-board">([\s\S]*?)<\/ol>/.exec(beats[2]!)?.[1] ?? '';
+    const rows = [...board.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, r]) => text(r!));
+    const ranked = [...EXAMPLE_FLEETS].sort((a, b) => b.points - a.points);
+    expect(rows).toEqual(ranked.map((f, i) => `${i + 1} ${f.label} ${f.points}`));
+    expect(ranked.map((f) => f.label), 'the list is not already in rank order').not.toEqual(EXAMPLE_FLEETS.map((f) => f.label));
+    expect(beats[2]).toContain('<span class="home-example">EXAMPLE</span>');
+  });
+
+  it('shows the loop\'s real counts under THE LOOP BUILT THIS, and — for one it could not read', () => {
+    const proof = beats[2]!.slice(beats[2]!.indexOf('class="home-game-proof"'));
+    expect(text(`<div ${proof}`)).toMatch(/^THE LOOP BUILT THIS /);
+    const scores = [...proof.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s!));
+    expect(scores).toEqual(['FEATURES SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
+    expect(text(proof)).toContain('Counted from Omni Loop\'s own shipped work, each time this page is built.');
   });
 
   it('flips under reduced motion with a crossfade, never a turn', () => {
