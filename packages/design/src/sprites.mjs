@@ -125,6 +125,67 @@ function omniPose(pose, cape) {
   };
 }
 
+// Paints a sprite written as strings: each character a [material, tone] from `key`, '.' left empty.
+function rows(d, lines, key, x0 = 0, y0 = 0) {
+  lines.forEach((line, y) => [...line].forEach((c, x) => { if (key[c]) d.px(x0 + x, y0 + y, ...key[c]); }));
+}
+
+// The `</>` of the Omni app, its strokes two pixels wide.
+const CODE_MARK = [
+  '........cc........cccc........',
+  '.......cc........cc..cc.......',
+  '......cc........cc....cc......',
+  '.....cc.........cc.....cc.....',
+  '....cc.........cc.......cc....',
+  '...cc..........cc........cc...',
+  '....cc........cc........cc....',
+  '.....cc.......cc.......cc.....',
+  '......cc.....cc.......cc......',
+  '.......cc....cc......cc.......',
+  '........cc..cc......cc........',
+];
+
+// The arcade cabinet, front on: marquee, the screen in its bezel, the control panel with its
+// joystick and buttons, the coin door. The forge draws the outline around it.
+const CABINET = [
+  '..................',
+  '..mmmmmmmmmmmmmm..',
+  '..mmmmmmmmmmmmmm..',
+  '..mmmmmmmmmmmmmm..',
+  '..kkkkkkkkkkkkkk..',
+  '..vkkkkkkkkkkkkp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vksssssssssskp..',
+  '..vkkkkkkkkkkkkp..',
+  '.vvvvvvvvvvvvvvpp.',
+  '.kkkkkkkkkkkkkkkk.',
+  '.ppprpppppppypppp.',
+  '.pprrrppppppppppp.',
+  '.kkkkkkkkkkkkkkkk.',
+  '..vvvvvvvvvvvvvp..',
+  '..vvkkkkkkkkkvvp..',
+  '..vvkokkkkokkvvp..',
+  '..vvkkkkkkkkkvvp..',
+  '..vvvvvvvvvvvvvp..',
+  '..vvvvvvvvvvvvvp..',
+  '..................',
+];
+const CABINET_KEY = {
+  m: ['M', 1], // the marquee
+  k: ['X'], // the cabinet's seams and the bezel
+  v: ['V'], // the front
+  p: ['P'], // the side and the control panel
+  s: ['n', 2], // the dark screen
+  r: ['R'], // the joystick
+  y: ['Y', 1], // a button
+  o: ['Y', 0], // the coin slots
+};
+
 export const SPRITE_DEFS = Object.freeze({
   // The commander, as in the key art: navy-and-white suit, the four Vertuoza stripes on the chest,
   // black hair with a grey streak, the mustache, clenched fists.
@@ -508,6 +569,21 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
   cursor: { w: 8, h: 8, draw(d) { d.rect(0, 0, 4, 1, 'Y', 1).rect(0, 0, 1, 4, 'Y', 1); }, outline: false },
+
+  // SELECT YOUR APP's two pedestals (PRD 932). The Omni app's `</>` is the serious one: two tones,
+  // cyan on slate, no face and no animation, so both frames are the same.
+  'code-mark': { w: 30, h: 17, draw(d) {
+    d.rect(1, 1, 28, 15, 'A', 2);
+    rows(d, CODE_MARK, { c: ['C', 1] }, 0, 3);
+  } },
+  // The Arcade's cabinet: marquee, glowing screen, joystick and buttons. The marquee's lights chase
+  // and the screen's stars twinkle from one frame to the next.
+  'arcade-cabinet': { w: 18, h: 26, draw(d, f) {
+    rows(d, CABINET, CABINET_KEY);
+    for (let x = 3; x < 15; x++) if ((x + f) % 3 !== 0) d.px(x, 2, 'Y', 1);
+    d.pxs(f ? [[7, 7], [11, 10], [6, 11]] : [[6, 7], [10, 8], [7, 11], [12, 11]], 'C', 0);
+    d.px(10, 16, f ? 'C' : 'Y', 1).px(14, 16, f ? 'Y' : 'C', 1);
+  } },
 
   // The app sidebar's sections (issue 653), 16×16, drawn before each Dashboard and Work item's name.
   'menu-home': { w: 16, h: 16, draw(d, f) { // a domed habitat on a steel deck, a beacon on its mast
