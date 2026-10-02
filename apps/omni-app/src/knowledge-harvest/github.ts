@@ -11,13 +11,16 @@ import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { readKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
 import { readDecisions } from 'vertuo-omni-plan/kit/lib/playbook/decisions.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
+import { ListSchema } from '../retro/github.schema.ts';
 import { topicOf } from '../retro/qualify.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
 
 /** The one seam of GitHub the harvest reads and writes through: a REST route and its parameters. */
-export type RequestOctokit = { request: (route: string, params?: Record<string, unknown>) => Promise<{ data: unknown }> };
+const OPEN_PULLS_UNEXPECTED = 'GitHub answered the open pull requests unexpectedly';
+
+export type RequestOctokit ={ request: (route: string, params?: Record<string, unknown>) => Promise<{ data: unknown }> };
 
 /** A kit context over a tree on disk. */
 type Context = ReturnType<typeof createContext>;
@@ -106,9 +109,9 @@ export async function takenElsewhere(
         per_page: PER_PAGE,
         page,
       })
-      .then(({ data }) => data as readonly unknown[]), // ts-allow: a list route answers an array; the whole list is parsed just below, as before
+      .then(({ data }) => parsedOr(ListSchema, data, OPEN_PULLS_UNEXPECTED)),
   );
-  const branches = [...new Set(parsedOr(OpenPullSchema.array(), pulls, 'GitHub answered the open pull requests unexpectedly').map((pull) => pull.head?.ref))]
+  const branches = [...new Set(parsedOr(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))]
     .filter((ref): ref is string => typeof ref === 'string' && ref.length > 0 && ref !== own && topicOf(ref, config.branches.knowledge) !== null)
     .sort();
 
