@@ -15,6 +15,7 @@ import type { CareResponse } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
+import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
 import { buildBoard } from './board.ts';
@@ -82,7 +83,7 @@ function waveClaims(
     const claimed = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
     return { holdsClaims: claimed.length > 0, claimed };
   } catch (error) {
-    return { holdsClaims: null, claimed: [], unreadable: String((error as { message?: unknown } | null)?.message ?? error).split('\n')[0] ?? '' }; // ts-allow: whatever was thrown, read as `error?.message` reads it
+    return { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error, 'message') ?? error).split('\n')[0] ?? '' };
   }
 }
 
@@ -117,7 +118,7 @@ function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
 type ReplyFlags = { verdict?: string; body?: string; file?: string; thread?: string; repo?: string };
 
 function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
-  if (!(CARE_VERDICTS as readonly (string | undefined)[]).includes(flags.verdict)) { // ts-allow: widened to test any flag value
+  if (!isOneOf(CARE_VERDICTS, flags.verdict)) {
     throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(', ')}.`);
   }
   if ((flags.body === undefined) === (flags.file === undefined)) {

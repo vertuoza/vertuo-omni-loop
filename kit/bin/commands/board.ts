@@ -25,6 +25,7 @@ import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
 import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import { propertyOf } from '../../lib/narrow.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
@@ -223,8 +224,7 @@ function knownRepositories(ctx: Context, planSlug: string): Map<string, string> 
 
 /** What gh said when it could not read a repository, as one line. */
 function ghReason(error: unknown): string {
-  const failure = error as { stderr?: unknown; message?: unknown } | null | undefined; // ts-allow: whatever was thrown, read as `error?.stderr` and `error?.message` read it
-  const lines = `${failure?.stderr ?? ''}\n${failure?.message ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+  const lines = `${propertyOf(error, 'stderr') ?? ''}\n${propertyOf(error, 'message') ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? 'gh could not read it';
 }
 

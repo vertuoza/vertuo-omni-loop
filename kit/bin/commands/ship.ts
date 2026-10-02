@@ -2,7 +2,7 @@
 // paths that named them. Stages the moves; never commits. Exit 1 when refused, naming every reason;
 // exit 2, one line, when the delivery folder holds uncommitted changes.
 import { applyShip, DirtyDeliveryError, movedPath } from '../../lib/delivery/ship.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 
 export const ship: Command = {
@@ -15,7 +15,7 @@ export const ship: Command = {
       plan = applyShip(ctx, prd, { exec });
     } catch (error) {
       if (error instanceof DirtyDeliveryError) throw usageError(`omni ship: ${error.message}.`);
-      println(stderr, (error as Error).message); // ts-allow: applyShip throws only Error
+      println(stderr, errorMessage(error));
       return 1;
     }
     const lines = [`omni ship — PRD ${prd}:`];

@@ -39,6 +39,7 @@ import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
+import { isOneOf } from '../../lib/narrow.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
@@ -65,7 +66,7 @@ type VerbIo = {
 };
 
 const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
-const KINDS: readonly string[] = ['prd', 'visual', 'bug'];
+const KINDS = ['prd', 'visual', 'bug'] as const;
 /** How long asking GitHub for a fix's issue title may take. */
 const ISSUE_TITLE_MS = 5000;
 const NO_SIGN_IN = 'no sign-in (omni signin)';
@@ -222,9 +223,9 @@ async function link(prd: number, kind: string, { repo, client, home, stdout, std
 }
 
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
-function kindOf(flag: string | undefined, numbered: boolean): string {
+function kindOf(flag: string | undefined, numbered: boolean): 'prd' | FixKind {
   if (flag === undefined) return 'prd';
-  if (!numbered || !KINDS.includes(flag)) throw usageError(USAGE);
+  if (!numbered || !isOneOf(KINDS, flag)) throw usageError(USAGE);
   return flag;
 }
 
@@ -266,9 +267,10 @@ export const dossier = {
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
     const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    // `prd` is a number for `push` and `link`, the two verbs that read it.
-    if (verb === 'link') return link(prd!, kind, options); // ts-allow: link is numbered
-    if (verb === 'push' && kind !== 'prd') return pushFix(prd!, kind as FixKind, options); // ts-allow: push is numbered, and kindOf took only a known kind
-    return verb === 'open' ? open(title, options) : push(prd!, options); // ts-allow: push is numbered
+    // `prd` is a number for `push` and `link`, the two verbs that read it, and null for `open`.
+    if (prd === null) return open(title, options);
+    if (verb === 'link') return link(prd, kind, options);
+    if (verb === 'push' && kind !== 'prd') return pushFix(prd, kind, options);
+    return push(prd, options);
   },
 } satisfies FreeCommand;
