@@ -3,7 +3,8 @@
 // ```text github. When the guide is compiled (source.config.ts), rehypeCodeBadges turns those words
 // into badges set above the code, as real text a screen reader reads first; docs.css draws them as
 // arcade chips. The docs guard (guide.ts) refuses a block that names no kind, or names one wrongly,
-// through fenceProblem. Nothing here runs in the browser.
+// through fenceProblem. Each block also ends with a copy button (issue #931), on the code's line;
+// CodeCopy, in the browser, copies the block's code when it is pressed. Nothing here runs there.
 
 /** One kind of place a block goes. */
 export type CodeKind = { kind: 'terminal' } | { kind: 'agent' } | { kind: 'file'; path: string } | { kind: 'github' };
@@ -68,9 +69,25 @@ export function badges(kinds: readonly CodeKind[]): HastElement {
     element('span', { className: ['docs-badge'], dataKind: kind.kind }, [{ type: 'text', value: badgeLabel(kind) }])));
 }
 
-/** A block with its badges above its code: `pre` is the block as compiled, `kinds` where it goes. */
+const icon = (className: string, shapes: HastElement[]): HastElement => element('svg', {
+  className: [className], width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', ariaHidden: 'true',
+}, shapes);
+
+/** The copy button: the two-sheet icon, and the tick shown once the code is copied. */
+function copyButton(): HastElement {
+  return element('button', { type: 'button', className: ['docs-copy'], ariaLabel: 'Copy the code' }, [
+    icon('docs-copy-icon', [
+      element('rect', { x: 5, y: 5, width: 9, height: 9, rx: 1.5, strokeWidth: 1.5 }, []),
+      element('path', { d: 'M2 11V3a1 1 0 0 1 1-1h8', strokeWidth: 1.5 }, []),
+    ]),
+    icon('docs-copy-done', [element('path', { d: 'M3 8.5l3.5 3.5L13 4', strokeWidth: 2 }, [])]),
+  ]);
+}
+
+/** A block with its badges above its code and its copy button beside it: `pre` is the block as
+ * compiled, `kinds` where it goes. */
 export function badgedBlock(kinds: readonly CodeKind[], pre: HastNode): HastElement {
-  return element('div', { className: ['docs-code'] }, [badges(kinds), pre]);
+  return element('div', { className: ['docs-code'] }, [badges(kinds), pre, copyButton()]);
 }
 
 const isElement = (node: HastNode): node is HastElement => node.type === 'element';

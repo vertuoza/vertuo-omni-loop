@@ -72,6 +72,15 @@ describe('the compile step', () => {
     expect(code.tagName).toBe('pre');
   });
 
+  it('ends the block with a copy button, on the code\'s line (issue #931)', () => {
+    const tree = root(pre('terminal'));
+    rehypeCodeBadges()(tree);
+    const block = tree.children[0] as HastElement;
+    const copy = block.children[2] as HastElement;
+    expect(copy).toMatchObject({ tagName: 'button', properties: { type: 'button', className: ['docs-copy'], ariaLabel: 'Copy the code' } });
+    expect((copy.children as HastElement[]).map((icon) => icon.properties.className)).toEqual([['docs-copy-icon'], ['docs-copy-done']]);
+  });
+
   it('finds a block nested in a list, and leaves one with no meta alone', () => {
     const list: HastElement = { type: 'element', tagName: 'li', properties: {}, children: [pre('github'), pre()] };
     rehypeCodeBadges()(root(list));

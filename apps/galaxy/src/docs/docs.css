@@ -140,7 +140,13 @@
    arcade chip, the pixel face at 8 px in the kind's colour, a 2 px border and a hard 2 px shadow in
    the same colour, on the block's own sunk background. They sit in the flow, above the code, so they
    never cover it, even wrapped on a phone; and they are left out when the code is selected. */
+/* A block's copy button (issue #931) sits on the code's line, at its right: a quiet outlined icon,
+   ink on hover, a green tick for two seconds once copied. The block is a grid, so the code keeps its
+   own horizontal scroll and never runs under the button. */
 .docs-code {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   margin: 0 0 1em;
   min-width: 0;
   background: var(--ask-sunk);
@@ -148,6 +154,7 @@
   border-radius: 10px;
 }
 .docs-badges {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -169,6 +176,24 @@
 .docs-badge[data-kind='file'] { color: var(--ask-muted); }
 .docs-badge[data-kind='github'] { color: var(--ask-green); }
 .docs-md .docs-code > pre { margin: 0; padding-top: 10px; background: none; border: 0; border-radius: 0; }
+.docs-copy {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: 4px 14px 10px 0;
+  padding: 0;
+  color: var(--ask-muted);
+  background: none;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.docs-copy:hover { color: var(--ask-ink); border-color: var(--ask-ink); }
+.docs-copy[data-copied] { color: var(--ask-green); border-color: var(--ask-green); }
+.docs-copy-done,
+.docs-copy[data-copied] .docs-copy-icon { display: none; }
+.docs-copy[data-copied] .docs-copy-done { display: block; }
 .docs-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 15px; overflow-wrap: normal; }
 .docs-md th,
 .docs-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
