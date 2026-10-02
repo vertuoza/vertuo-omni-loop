@@ -49,8 +49,15 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
    page's one headline **AGENTS SHIP. YOU STEER.**, the pitch, the promise strip (ONE FOLDER IN, ONE
    FOLDER OUT · EVERY DECISION WRITTEN DOWN · A PERSON ALWAYS MERGES), OmniMan, the disabled sign-up,
    the invaded planet, the crest and PRESS START.
-2. **Strategy guide: the loop, level by level**: seven levels, SET UP to SHIP and the KNOWLEDGE bonus,
-   with OmniMan running the path and the LOOP LINGO sidebar.
+2. **Strategy guide: the loop**: the loop drawn as a map after the docs' own
+   (`docs/guide/diagrams/loop.svg`), in the arcade's look: IDEA → PRD → INBOX on top, down to OUTBOX,
+   back along OUTBOX → SHIPPED → RETRO, and the dashed ★ BONUS KNOWLEDGE arrow from RETRO up to IDEA.
+   Each level box carries its level (1-1 to 1-6), its name and one plain line; each arrow is coloured
+   by who moves the work on, named in the legend: YOU, AGENTS, OMNI APP. The stages are one list,
+   `LOOP` in `StrategyGuide.tsx`, which draws the map and the visually hidden list a screen reader
+   reads. Below 720px the map is redrawn as one column, KNOWLEDGE running back up its left edge.
+   OmniMan (`omni-run`) runs the loop in CSS and stands still on IDEA under reduced motion. The LOOP
+   LINGO sidebar sits beside the map.
 3. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
    counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
 4. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
@@ -61,12 +68,12 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
 nowhere but `/play` and `/docs`.
 
-**LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the five loop terms HOME
-uses (HARNESS, PRD, SLICE, WAVE, OUTBOX) and names the loop words it never says (phase-0, worktree,
-sub-PR, dossier, territory, yolo). Its guard, `lingo.test.ts`, renders HOME and reads the text a
-visitor reads, leaving out `<code>`, `<kbd>`, the fleet cards and the sidebar itself: every term it
-finds must be glossed, every gloss used, and no banned word said. A new sentence that trips it is
-reworded, or its term added to the sidebar.
+**LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the three loop terms HOME
+says (PRD, SLICE, OUTBOX; HARNESS and WAVE stay loop terms HOME no longer says) and names the loop
+words it never says (phase-0, worktree, sub-PR, dossier, territory, yolo). Its guard,
+`lingo.test.ts`, renders HOME and reads the text a visitor reads, leaving out `<code>`, `<kbd>`, the
+fleet cards and the sidebar itself: every term it finds must be glossed, every gloss used, and no
+banned word said. A new sentence that trips it is reworded, or its term added to the sidebar.
 
 Shared, a link to `/` previews as the ad: the title `OMNI LOOP · AGENTS SHIP. YOU STEER.`, its
 description, and an Open Graph image of the crest and AGENTS SHIP. YOU STEER. on the starfield
