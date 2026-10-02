@@ -1,4 +1,5 @@
 'use client';
+import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -55,7 +56,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
 
   const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const list = items();
-    const move = menuKey(event.key, Math.max(0, list.indexOf(document.activeElement as HTMLElement)), list.length); // ts-allow: indexOf only compares the element
+    const move = menuKey(event.key, Math.max(0, positionOf(list, document.activeElement)), list.length);
     if (move.kind === 'none') return;
     if (move.kind === 'focus') {
       event.preventDefault();

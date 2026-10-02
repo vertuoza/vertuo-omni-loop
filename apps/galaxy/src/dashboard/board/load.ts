@@ -2,7 +2,7 @@ import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { allPages, type Page } from '../../data/all-pages';
 import { workspaceDossiers } from '../../data/dossiers';
-import { STAGES, type StageId } from '../../stages/stage';
+import type { StageId } from '../../stages/stage';
 import { stageStore, type StageStore } from '../../stages/store';
 import { settle, UNREADABLE, type Read } from '../part';
 import { rankFleets, type FleetRank } from '../rankings/rank';
@@ -10,7 +10,7 @@ import { seasonBounds, type Season } from '../season';
 import { stageHref } from './links';
 import { periodWindow, type Period, type PeriodWindow } from './period';
 import {
-  answeredIn, circleOf, inCircle, SOLO, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
+  answeredIn, circleOf, inCircle, perStage, SOLO, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
   type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
@@ -160,7 +160,7 @@ export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
       repositories: tally((rows) => repositoriesOf(rows).length),
       answered: counts === UNREADABLE || circle === UNREADABLE ? UNREADABLE : answeredIn(counts, circle),
     },
-    stageLinks: Object.fromEntries(STAGES.map((s) => [s, stageHref(request.scope, s)])) as Record<StageId, string>,
+    stageLinks: perStage((s) => stageHref(request.scope, s)),
     merges: tally((rows) => mergesPerDay(rows, window.days)),
     prdEvents: tally((rows) => prdEventsPerDay(rows, window.days)),
     repositories: tally(repositoriesOf),
@@ -211,13 +211,13 @@ export function supabaseReads(
       .eq('kind', 'prd-opened')
       .order('repo', { ascending: true })
       .order('number', { ascending: true })
-      .range(from, to) as unknown as Page<Pick<Activity, 'repo' | 'number' | 'login'>>);
+      .range(from, to) as Page<Pick<Activity, 'repo' | 'number' | 'login'>>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
   }
   return {
     async roster() {
       const { data, error } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(`Supabase: could not read the workspace's members (${error.message})`);
-      return ((data ?? []) as RosterRow[]).map((r) => ({
+      return ((data ?? []) as RosterRow[]).map((r) => ({ // ts-allow: the client is untyped, so its rows are the ones workspace_roster returns, read as they are stored
         userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet, hero: r.hero ?? null,
       }));
     },
@@ -232,12 +232,12 @@ export function supabaseReads(
         .order('kind', { ascending: true })
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(first, last) as unknown as Page<Activity>);
+        .range(first, last) as Page<Activity>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
     },
     async answered(from, to) {
       const { data, error } = await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });
       if (error) throw new Error(`Supabase: could not read the questions answered (${error.message})`);
-      return ((data ?? []) as AnsweredCount[]).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) }));
+      return ((data ?? []) as AnsweredCount[]).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) })); // ts-allow: the client is untyped, so its rows are the ones answered_counts returns, read as they are stored
     },
     galaxy,
     async prds() {
