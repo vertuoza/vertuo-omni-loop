@@ -1,0 +1,13 @@
+{
+  "paths": [
+    "kit/test/",
+    "packages/",
+    "scripts/personas-import",
+    "scripts/settle-head",
+    "scripts/supabase-types",
+    "scripts/ts-rename",
+    "scripts/vercel-ignore",
+    "scripts/typescript-guard.test.ts"
+  ],
+  "ceiling": 418
+}

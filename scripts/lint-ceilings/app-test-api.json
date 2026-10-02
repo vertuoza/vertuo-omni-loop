@@ -1,0 +1,7 @@
+{
+  "paths": [
+    "apps/omni-app/test/",
+    "apps/omni-app/api/"
+  ],
+  "ceiling": 159
+}

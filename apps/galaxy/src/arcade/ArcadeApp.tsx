@@ -285,7 +285,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const moved = next.scene !== undefined && next.scene !== u.scene;
       return { ...u, page: moved ? 0 : u.page, ...next, since: moved ? now() : u.since };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Opens a joining step with what it needs: the fleet under the cursor, the name, the hero draft. */
@@ -369,7 +368,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // A deep link, through the one door; the menu's, like every route to it, through `go`.
     const link = landing(window.location.hash, { view, session: s });
     if (link) go(link);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The crew's tables the page did not bring (the demo's, the artifact's): the account's, once.
@@ -380,7 +378,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         .then((b) => setScores((all) => ({ ...all, [id]: b })))
         .catch(() => setScores((all) => ({ ...all, [id]: 'unreadable' })));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
@@ -395,7 +392,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     const door = allowed(ui.scene, session);
     if (door !== ui.scene) setUi((u) => ({ ...u, scene: door, since: now(), page: 0, away: false, error: null }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
   // The game room, once opened on this device, takes GAMES's NEW tag away.
@@ -449,7 +445,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => open(nextStep('select', uiRef.current.flow, meRef.current, fleets)));
     }
     return undefined;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open, fleets]);
   useEffect(() => {
     if (!ui.toast) return;
@@ -494,7 +489,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     save(patch)
       .then(() => go({ lockSaved: true }))
       .catch((err: Error) => go({ lockedAt: null, toast: err.message }, 'buzz'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, go, open, save]);
 
   const nameDone = useCallback(() => {
@@ -505,7 +499,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     save(patch)
       .then(() => open(nextStep('name', u.flow, meRef.current, fleets), { flow: u.flow }, 'select'))
       .catch((err: Error) => go({ error: err.message }, 'buzz'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [go, open, save, fleets]);
 
   const heroDone = useCallback(() => {
@@ -856,7 +849,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.

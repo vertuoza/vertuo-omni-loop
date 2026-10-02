@@ -1,0 +1,7 @@
+{
+  "paths": [
+    "apps/galaxy/src/dashboard/",
+    "apps/galaxy/src/jev/"
+  ],
+  "ceiling": 418
+}
