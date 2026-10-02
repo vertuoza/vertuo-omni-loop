@@ -20,7 +20,7 @@ import { messageOf } from '../outbox-check/github-schema.ts';
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
 /** Galaxy's production host, when `GALAXY_URL` is not set. */
-const DEFAULT_GALAXY_URL = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const DEFAULT_GALAXY_URL = 'https://www.omni-loop.xyz';
 
 /** The kit's default branch shapes and link lines. */
 const DEFAULT_SHAPES = (() => {

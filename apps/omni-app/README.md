@@ -335,7 +335,7 @@ None of these is taken by the code. Until they are done, stages come from galaxy
 
 1. **Set `STAGE_EVENT_SECRET`** in this app's Vercel project, the same value as in galaxy's (galaxy's
    README says where). Optionally set `GALAXY_URL` when galaxy is not at
-   `https://vertuo-omni-loop-galaxy.vercel.app`.
+   `https://www.omni-loop.xyz`.
 2. **Redeploy this project.** A merge is not live here until it redeploys, and a new variable is read
    only by a new deployment. No Inngest Resync is needed.
 
