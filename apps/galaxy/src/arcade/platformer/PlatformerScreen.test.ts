@@ -2,8 +2,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TALL, WIDE } from '../grid';
-import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, worldScenes, type ScreenDeps } from './PlatformerScreen';
+import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, worldScenes, type ScreenDeps, type ScreenStatus } from './PlatformerScreen';
 import type { SceneOptions } from './scene';
+import { sure } from '../sure';
 
 // The one way into Super Omni World (PRD 817), with Phaser replaced by a stub module: nothing here
 // loads Phaser. The controller is what the component runs on mount (start), on its props (pause,
@@ -34,45 +35,45 @@ afterEach(() => { StubGame.made = []; vi.restoreAllMocks(); });
 
 describe('startPlatformer', () => {
   it('imports Phaser, then starts one game on the grid it is given, in pixel-art mode, in its own box', async () => {
-    const onStatus = vi.fn();
-    const p = startPlatformer(host, opts(WIDE), deps(async () => STUB, onStatus));
+    const onStatus = vi.fn<(status: ScreenStatus) => void>();
+    const p = startPlatformer(host, opts(WIDE), deps(() => Promise.resolve(STUB), onStatus));
     expect(p.status()).toBe('loading');
     await p.ready;
     expect(StubGame.made).toHaveLength(1);
-    expect(StubGame.made[0]!.config).toMatchObject({ parent: host, width: 640, height: 360, pixelArt: true, scene: SCENE });
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').config).toMatchObject({ parent: host, width: 640, height: 360, pixelArt: true, scene: SCENE });
     expect(p.status()).toBe('ready');
     expect(onStatus.mock.calls.map(([s]) => s)).toEqual(['loading', 'ready']);
   });
 
   it('lays the game out on the tall grid too, and never lets Phaser read the keyboard or play sound', async () => {
-    const p = startPlatformer(host, opts(TALL), deps(async () => STUB));
+    const p = startPlatformer(host, opts(TALL), deps(() => Promise.resolve(STUB)));
     await p.ready;
-    expect(StubGame.made[0]!.config).toMatchObject({ width: 320, height: 288, audio: { noAudio: true } });
-    expect(StubGame.made[0]!.config.input).toMatchObject({ keyboard: false, mouse: false, touch: false, gamepad: false });
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').config).toMatchObject({ width: 320, height: 288, audio: { noAudio: true } });
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').config.input).toMatchObject({ keyboard: false, mouse: false, touch: false, gamepad: false });
   });
 
   it('passes pause and resume through to the game', async () => {
-    const p = startPlatformer(host, opts(), deps(async () => STUB));
+    const p = startPlatformer(host, opts(), deps(() => Promise.resolve(STUB)));
     await p.ready;
     p.pause();
     p.resume();
-    expect(StubGame.made[0]!.calls).toEqual(['pause', 'resume']);
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').calls).toEqual(['pause', 'resume']);
   });
 
   it('starts paused when told to pause before Phaser arrived', async () => {
-    const p = startPlatformer(host, opts(), deps(async () => STUB));
+    const p = startPlatformer(host, opts(), deps(() => Promise.resolve(STUB)));
     p.pause();
     await p.ready;
-    expect(StubGame.made[0]!.calls).toEqual(['pause']);
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').calls).toEqual(['pause']);
   });
 
   it('destroys the game and its canvas on unmount', async () => {
-    const p = startPlatformer(host, opts(), deps(async () => STUB));
+    const p = startPlatformer(host, opts(), deps(() => Promise.resolve(STUB)));
     await p.ready;
     p.destroy();
-    expect(StubGame.made[0]!.calls).toEqual(['destroy:true']);
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').calls).toEqual(['destroy:true']);
     p.pause();
-    expect(StubGame.made[0]!.calls).toEqual(['destroy:true']);
+    expect(sure(StubGame.made[0], 'StubGame.made[0]').calls).toEqual(['destroy:true']);
   });
 
   it('starts no game when unmounted before Phaser arrived', async () => {
@@ -87,7 +88,7 @@ describe('startPlatformer', () => {
   it('shows the retry line when the import fails, logs why, and retries the import on A', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const load = vi.fn<ScreenDeps['load']>().mockRejectedValueOnce(new Error('chunk missing')).mockResolvedValue(STUB);
-    const onStatus = vi.fn();
+    const onStatus = vi.fn<(status: ScreenStatus) => void>();
     const p = startPlatformer(host, opts(), deps(load, onStatus));
     await p.ready;
     expect(p.status()).toBe('failed');

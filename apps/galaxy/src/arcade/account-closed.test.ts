@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { closedAccount } from './account-closed';
+import { sure } from './sure';
 
 describe('closedAccount', () => {
   it('lets nobody in: no session, and every way in refuses', async () => {
     const a = closedAccount();
     expect(a.kind).toBe('closed');
-    expect(a.restore!()).toEqual({ session: null, me: null });
+    expect(sure(a.restore, 'a.restore')()).toEqual({ session: null, me: null });
     await expect(a.signIn()).rejects.toThrow(/not open/);
     await expect(a.linkGithub()).rejects.toThrow(/not open/);
     await expect(a.save({ team: 'pirates' }, null)).rejects.toThrow(/not open/);
