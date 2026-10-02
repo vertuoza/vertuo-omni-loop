@@ -13,6 +13,7 @@ import { AnswerList, History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
+import { item } from '../test-item';
 
 type Asked = ReturnType<typeof readQuestions>[number];
 
@@ -88,7 +89,7 @@ describe('the round, rendered', () => {
 
   it('keeps Send off until every question has an answer', () => {
     expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send to Claude<\/button>/);
-    const draft = [pickOption(storage, emptyDraft([storage])[0]!, 'Memory'), pickOption(checks, emptyDraft([checks])[0]!, 'RLS')];
+    const draft = [pickOption(storage, item(emptyDraft([storage]), 0), 'Memory'), pickOption(checks, item(emptyDraft([checks]), 0), 'RLS')];
     expect(round(draft, true)).toMatch(/<button type="button" class="ask-button">Send to Claude<\/button>/);
   });
 
@@ -163,7 +164,7 @@ describe('the shared-round page, answered with screenshots (PRD 620)', () => {
   const NOW = Date.parse('2026-09-26T10:00:00Z');
   const page = (shots: boolean) => {
     const initial = demoQuestion(NOW, true);
-    const question = Object.keys(initial.round.answers ?? {})[0]!;
+    const question = item(Object.keys(initial.round.answers ?? {}), 0);
     const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
     return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
   };

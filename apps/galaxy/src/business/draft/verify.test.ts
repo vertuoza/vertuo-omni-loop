@@ -38,7 +38,7 @@ describe('verified', () => {
   });
 
   it('drops a quote longer than a receipt holds', () => {
-    const long = `${'word '.repeat(80)}`.trim();
+    const long = 'word '.repeat(80).trim();
     expect(verified(long, [candidate({ quote: long })])).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@
 // of kind `never`, read like any other, and never an answer's kind.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { RpcAnswer } from '../business/answer';
 
 /** The kinds a person answers (PRD 822). */
 const ANSWERABLE_KINDS = ['region', 'offering', 'size', 'trade', 'rival'] as const;
@@ -86,7 +87,8 @@ export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
   return {
     /** The confirmed and contradicted claims, and the personas, agents in `repo` (owner/name) read. */
     async forRepo(repo: string): Promise<BusinessRead> {
-      const { data, error } = await db.rpc('business_for_repo', { p_repo: repo });
+      const answer: RpcAnswer = await db.rpc('business_for_repo', { p_repo: repo });
+      const { data, error } = answer;
       if (error) throw new BusinessStoreError(error.code, error.message);
       const read = businessReadSchema.safeParse(data);
       if (!read.success) throw new BusinessStoreError(undefined, `an unexpected answer: ${read.error.issues[0]?.message ?? 'malformed'}`);
@@ -95,7 +97,8 @@ export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
     /** Appends one citation per claim id (`rival#4`) to the business's log, as `by` (the skill) in the
      * run `ref`; all or none. The number appended. */
     async cite(repo: string, ids: string[], by: string, ref: string | null): Promise<number> {
-      const { data, error } = await db.rpc('claims_cite', { p_repo: repo, p_ids: ids, p_by: by, p_ref: ref });
+      const answer: RpcAnswer = await db.rpc('claims_cite', { p_repo: repo, p_ids: ids, p_by: by, p_ref: ref });
+      const { data, error } = answer;
       if (error) throw new BusinessStoreError(error.code, error.message);
       if (typeof data !== 'number') throw new BusinessStoreError(undefined, 'an unexpected answer: not a count');
       return data;
@@ -103,7 +106,8 @@ export function businessReader(db: Pick<SupabaseClient, 'rpc'>) {
     /** Stores a claim a person answered (PRD 822): source `answer`, `state` proposed or confirmed, the
      * receipt `ref` (the skill and the run), for the business agents in `repo` read. */
     async answer(repo: string, kind: AnswerKind, value: string, state: AnswerState, ref: string): Promise<StoredClaim> {
-      const { data, error } = await db.rpc('claim_answer', { p_repo: repo, p_kind: kind, p_value: value, p_state: state, p_ref: ref });
+      const answer: RpcAnswer = await db.rpc('claim_answer', { p_repo: repo, p_kind: kind, p_value: value, p_state: state, p_ref: ref });
+      const { data, error } = answer;
       if (error) throw new BusinessStoreError(error.code, error.message);
       const stored = storedClaimSchema.safeParse(data);
       if (!stored.success) throw new BusinessStoreError(undefined, `an unexpected answer: ${stored.error.issues[0]?.message ?? 'malformed'}`);

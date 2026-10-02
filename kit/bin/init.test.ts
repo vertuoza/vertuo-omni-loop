@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertDefined } from '../test/assert.ts';
 import { formText, makeRepo } from '../test/fixture.ts';
 import { parseConfig } from '../lib/config.ts';
 import { credentials } from '../lib/ask/credentials.ts';
@@ -35,7 +36,7 @@ function fakeExec({
   slug?: string; defaultBranch?: string; ghFails?: boolean; labels?: Record<string, string>[]; labelsFail?: boolean;
   realCommit?: boolean; pushFails?: boolean; openPr?: { url: string; number: number } | null; claude?: string;
 } = {}) {
-  const calls: any[] = [];
+  const calls: (readonly string[])[] = [];
   // Every `claude` call, as `claude args…`: never a real one. `claude` is `ok`, `installed` (the plugin
   // is there already), `missing` (no binary) or `fails` (the install is refused).
   const plugin: string[] = [];
@@ -86,9 +87,11 @@ function fakeExec({
 }
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept'];
-const labelCalls = (calls: any[], verb: string) => calls.filter((args: any[]) => args[0] === 'label' && args[1] === verb);
-const created = (calls: any[]) => labelCalls(calls, 'create').map((args: any[]) => args[2]);
-const edits = (calls: any[]) => calls.filter((args: string[]) => args[0] === 'label' && !['list', 'create'].includes(String(args[1])));
+/** The arguments of each `gh` call the fake was asked to run. */
+type Calls = readonly (readonly string[])[];
+const labelCalls = (calls: Calls, verb: string) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
+const created = (calls: Calls) => labelCalls(calls, 'create').map((args) => args[2]);
+const edits = (calls: Calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(String(args[1])));
 
 /** A fake bundle file the tests inject as "the running bundle". */
 function fakeBundle() {
@@ -240,7 +243,8 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     await init(root);
     const config = readConfig(read);
     expect(config.ask.url).toBe('https://vertuo-omni-loop-galaxy.vercel.app');
-    expect(config.ask.url).toBe(config.signature!.home);
+    assertDefined(config.signature, 'the signature');
+    expect(config.ask.url).toBe(config.signature.home);
     expect(config.dossier.enabled).toBe(true);
     expect(read('.omni-loop/config.yml')).toContain('ask:\n  url: https://vertuo-omni-loop-galaxy.vercel.app\n');
     expect(read('.omni-loop/config.yml')).toContain('dossier:\n  enabled: true\n');
@@ -331,7 +335,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
   it('a bare repository with no terminal: null for all three, never asks, exits 0', async () => {
     const { root, read } = makeRepo({ git: true });
     let asked = 0;
-    const { code } = await init(root, [], { options: { ask: async () => { asked += 1; return 'x'; } } });
+    const { code } = await init(root, [], { options: { ask: () => { asked += 1; return 'x'; } } });
     expect(code).toBe(0);
     expect(asked).toBe(0);
     expect(readConfig(read).commands).toMatchObject({ test: null, preflight: null, preflightFull: null });
@@ -347,8 +351,8 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     // real sign-in flow and wait on the browser whenever this computer is not signed in.
     const code = await main(['init'], {
       cwd: root, stdout: tty, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
-      home: freshHome(), signIn: async () => 1,
-      ask: async (question: any) => { questions.push(question); return answers.shift(); },
+      home: freshHome(), signIn: () => Promise.resolve(1),
+      ask: (question: string) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
     expect(questions).toHaveLength(3);
@@ -502,7 +506,9 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     await init(root, [], { fake });
     const lists = labelCalls(fake.calls, 'list');
     expect(lists).toHaveLength(1);
-    expect(Number(lists[0][lists[0].indexOf('--limit') + 1])).toBeGreaterThan(30);
+    const [list] = lists;
+    assertDefined(list, 'the label list call');
+    expect(Number(list[list.indexOf('--limit') + 1])).toBeGreaterThan(30);
   });
 
   it('a second run creates none, edits none and exits 0', async () => {
@@ -654,8 +660,11 @@ describe('omni init — the real bundle', () => {
     // plugin on this computer.
     const stubs = mkdtempSync(join(tmpdir(), 'no-claude-'));
     writeFileSync(join(stubs, 'claude'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
-    const env: Record<string, string | undefined> = { ...process.env, PATH: [stubs, dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
-    for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_REPO', 'GH_HOST']) delete env[key];
+    const hidden = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_REPO', 'GH_HOST'];
+    const env = Object.fromEntries(
+      Object.entries({ ...process.env, PATH: [stubs, dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) })
+        .filter(([key]) => !hidden.includes(key)),
+    );
     execFileSync('node', [dist, 'init'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'config', 'commands.test'], { cwd: root, env, encoding: 'utf8' });
@@ -865,7 +874,8 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
         const file = id === 'decisions' ? `${KNOWLEDGE}/adr/README.md` : `${KNOWLEDGE}/playbook/${id}.md`;
         const parsed = parseForm(read(file), { file });
         expect(parsed.errors ?? [], file).toEqual([]);
-        expect(parsed.form!.state, file).toBe('blank');
+        assertDefined(parsed.form, file);
+        expect(parsed.form.state, file).toBe('blank');
       }
       expect(readConfig(read).laws.source).toBe('none');
       expect(first.out).toContain('\n       /omni:invade\n');
@@ -1056,9 +1066,9 @@ describe('omni init — the install pull request (PRD 420)', () => {
     const { code, out } = await init(root, [], { fake });
     expect(code).toBe(0);
     expect(fake.install.map((step) => step.cmd)).toEqual(['git switch', 'git add', 'git commit', 'git push', 'gh pr list', 'gh pr create']);
-    expect(fake.install[0]!.args).toEqual(['switch', '-c', BRANCH]);
-    expect(fake.install[3]!.args).toEqual(['push', '-u', 'origin', BRANCH]);
-    expect(fake.install[5]!.args.slice(0, 8)).toEqual(['pr', 'create', '--base', 'trunk', '--head', BRANCH, '--title', 'chore: install the Omni Loop']);
+    expect(fake.install[0]?.args).toEqual(['switch', '-c', BRANCH]);
+    expect(fake.install[3]?.args).toEqual(['push', '-u', 'origin', BRANCH]);
+    expect(fake.install[5]?.args.slice(0, 8)).toEqual(['pr', 'create', '--base', 'trunk', '--head', BRANCH, '--title', 'chore: install the Omni Loop']);
     expect(git(root, 'branch', '--show-current')).toBe(BRANCH);
     expect(git(root, 'log', '-1', '--format=%s')).toBe('chore: install the Omni Loop');
     const committed = git(root, 'show', '--name-only', '--format=', 'HEAD').split('\n');
@@ -1149,7 +1159,7 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
   ) {
     const s = io();
     Object.assign(s.stdout, { isTTY: true });
-    const code = await main(['init'], { cwd: root, ...s, exec: fake.exec, bundle: fakeBundle(), home, signIn, stdin: { isTTY: true }, ask: async () => '' });
+    const code = await main(['init'], { cwd: root, ...s, exec: fake.exec, bundle: fakeBundle(), home, signIn, stdin: { isTTY: true }, ask: () => '' });
     return { code, out: s.out.join('') };
   }
 
@@ -1188,10 +1198,10 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
     const { root } = makeRepo({ git: true });
     const home = freshHome();
     let flows = 0;
-    const signIn = async () => {
+    const signIn = () => {
       flows += 1;
       credentials({ home }).write(ASK_HOST, ENTRY);
-      return 0;
+      return Promise.resolve(0);
     };
     const { code, out } = await onTerminal(root, { home, signIn });
     expect(code).toBe(0);
@@ -1207,14 +1217,14 @@ describe('omni init — the plugin and the sign-in (PRD 420)', () => {
     const home = freshHome();
     credentials({ home }).write(ASK_HOST, ENTRY);
     let flows = 0;
-    const { out } = await onTerminal(root, { home, signIn: async () => { flows += 1; return 0; } });
+    const { out } = await onTerminal(root, { home, signIn: () => { flows += 1; return Promise.resolve(0); } });
     expect(flows).toBe(0);
     expect(computerBlock(out)[1]).toBe(`  signin  signed in to ${ASK_HOST} already, as ${ENTRY.email}`);
   });
 
   it('a sign-in refused or timed out: exit 0, and omni signin as a later step', async () => {
     const { root } = makeRepo({ git: true });
-    const { code, out } = await onTerminal(root, { signIn: async () => 1 });
+    const { code, out } = await onTerminal(root, { signIn: () => Promise.resolve(1) });
     expect(code).toBe(0);
     expect(computerBlock(out).slice(1)).toEqual([
       `  signin  not signed in to ${ASK_HOST}: did not finish`,

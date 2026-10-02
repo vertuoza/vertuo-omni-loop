@@ -11,7 +11,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { CALL_TIMEOUT_MS } from '../lib/ask/client.ts';
 import { DOSSIERS_FILE, readDossiers } from '../lib/dossier/local.ts';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
+import { dig, digText } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
@@ -38,15 +40,20 @@ function memoryTokens(entries: Record<string, Tokens> = {}) {
 const config = ({ url, enabled = true }: { url: string | null; enabled?: boolean }) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${url ?? 'null'}\ndossier:\n  enabled: ${enabled}\n`;
 
+/** Matches an ISO instant, as a draft's `openedAt` is written. */
+const isoInstant: unknown = expect.stringMatching(/^\d{4}-\d\d-\d\dT/);
+
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
 
 /** A checkout holding PRD 7's folder, switched on against the fake server and signed in to it. */
 async function signedIn({ serverOptions = {}, files = FOLDER, enabled = true } = {}) {
   server = await startFakeAskServer(serverOptions);
+  started.push(server);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config({ url: server.url, enabled }), ...files } });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' } });
   return { ...repo, tokens };
@@ -67,29 +74,30 @@ describe('omni dossier open', () => {
 
     expect(run.err).toBe('');
     expect(run.code).toBe(0);
-    const [only] = [...server.dossiers.values()];
-    expect(run.out).toBe(`${server.url}/prd/${only.id}\n`);
-    expect(server.calls.map(({ path, body }) => ({ path, body }))).toEqual([
+    const only: unknown = [...server.dossiers.values()][0];
+    const id = digText(only, 'id');
+    expect(run.out).toBe(`${server.url}/prd/${id}\n`);
+    expect(server.calls.map(({ path, body }: { path: string; body: unknown }) => ({ path, body }))).toEqual([
       { path: '/api/dossiers', body: { title: 'A team inbox for every question', repo: 'acme/widgets', claudeSessionId: 'sess-a' } },
     ]);
     expect(readDossiers(root)).toEqual([
-      { id: only.id, url: `${server.url}/prd/${only.id}`, claudeSessionId: 'sess-a', prd: null, openedAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT/) },
+      { id, url: `${server.url}/prd/${id}`, claudeSessionId: 'sess-a', prd: null, openedAt: isoInstant },
     ]);
   });
 
   it('sends no session id when CLAUDE_CODE_SESSION_ID is not set, and records the draft without one', async () => {
     const { root, tokens } = await signedIn();
     expect((await dossier(['open', 'An idea'], { root, tokens, env: {} })).code).toBe(0);
-    expect(server.calls[0]!.body).toEqual({ title: 'An idea', repo: 'acme/widgets' });
-    expect(readDossiers(root)[0]!.claudeSessionId).toBeNull();
+    expect(server.calls[0]?.body).toEqual({ title: 'An idea', repo: 'acme/widgets' });
+    expect(readDossiers(root)[0]?.claudeSessionId).toBeNull();
     expect((await dossier(['open', 'Another'], { root, tokens, env: { CLAUDE_CODE_SESSION_ID: '' } })).code).toBe(0);
-    expect(server.calls[1]!.body).toEqual({ title: 'Another', repo: 'acme/widgets' });
+    expect(server.calls[1]?.body).toEqual({ title: 'Another', repo: 'acme/widgets' });
   });
 
   it('cuts a long idea to the 200 characters a title takes', async () => {
     const { root, tokens } = await signedIn();
     await dossier(['open', `  ${'i'.repeat(300)}  `], { root, tokens });
-    expect(server.calls[0]!.body.title).toBe('i'.repeat(200));
+    expect(dig(server.calls[0]?.body, 'title')).toBe('i'.repeat(200));
   });
 });
 
@@ -99,20 +107,21 @@ describe('omni dossier push', () => {
     const env = { CLAUDE_CODE_SESSION_ID: 'sess-a' };
     await dossier(['open', 'A team inbox'], { root, tokens, env });
     const [draft] = readDossiers(root);
+    assertDefined(draft, 'the draft');
 
     const run = await dossier(['push', '7'], { root, tokens, env });
 
     expect(run.err).toBe('');
     expect(run.code).toBe(0);
-    expect(run.out).toBe(`${draft!.url}\nadded: spec v1, plan v1, before-after v1\n`);
+    expect(run.out).toBe(`${draft.url}\nadded: spec v1, plan v1, before-after v1\n`);
     expect(server.calls[1]).toMatchObject({
       path: '/api/dossiers/push',
       body: {
-        repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft!.id,
+        repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft.id,
         artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'plan', content: PLAN }, { kind: 'before-after', content: PAGE }],
       },
     });
-    expect(server.dossiers.get(draft!.id)).toMatchObject({ prd: 7, title: 'Team inbox', claudeSessionId: 'sess-a' });
+    expect(server.dossiers.get(draft.id)).toMatchObject({ prd: 7, title: 'Team inbox', claudeSessionId: 'sess-a' });
     expect(readDossiers(root)).toEqual([{ ...draft, prd: 7 }]);
   });
 
@@ -125,9 +134,9 @@ describe('omni dossier push', () => {
 
     expect(again.code).toBe(0);
     expect(again.out.split('\n')[1]).toBe('added: none · unchanged: spec, plan, before-after');
-    expect(server.calls[2]!.body).not.toHaveProperty('draftId');
-    const [only] = [...server.dossiers.values()];
-    expect(only.versions).toHaveLength(3);
+    expect(server.calls[2]?.body).not.toHaveProperty('draftId');
+    const only: unknown = [...server.dossiers.values()][0];
+    expect(dig(only, 'versions')).toHaveLength(3);
   });
 
   it('adds a version of a changed file only', async () => {
@@ -144,8 +153,8 @@ describe('omni dossier push', () => {
     const { root, tokens } = await signedIn();
     const run = await dossier(['push', '7'], { root, tokens });
     expect(run.code).toBe(0);
-    expect(server.calls[0]!.body).not.toHaveProperty('draftId');
-    const [only] = [...server.dossiers.values()];
+    expect(server.calls[0]?.body).not.toHaveProperty('draftId');
+    const only: unknown = [...server.dossiers.values()][0];
     expect(only).toMatchObject({ repo: 'acme/widgets', prd: 7 });
     expect(readDossiers(root)).toEqual([]);
   });
@@ -156,12 +165,13 @@ describe('omni dossier push', () => {
     execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/team-inbox', tree], { cwd: root, stdio: 'ignore' });
     await dossier(['open', 'A team inbox'], { root: tree, tokens });
     const [draft] = readDossiers(root);
+    assertDefined(draft, 'the draft');
 
     const run = await dossier(['push', '7'], { root: tree, tokens });
 
     expect(run.code).toBe(0);
-    expect(server.calls[1]!.body.draftId).toBe(draft!.id);
-    expect(readDossiers(root)[0]!.prd).toBe(7);
+    expect(dig(server.calls[1]?.body, 'draftId')).toBe(draft.id);
+    expect(readDossiers(root)[0]?.prd).toBe(7);
   });
 
   it('with several drafts and no session id, numbers none', async () => {
@@ -169,7 +179,7 @@ describe('omni dossier push', () => {
     await dossier(['open', 'One idea'], { root, tokens });
     await dossier(['open', 'Another idea'], { root, tokens });
     await dossier(['push', '7'], { root, tokens });
-    expect(server.calls[2]!.body).not.toHaveProperty('draftId');
+    expect(server.calls[2]?.body).not.toHaveProperty('draftId');
     expect(readDossiers(root).map((entry) => entry.prd)).toEqual([null, null]);
   });
 
@@ -177,12 +187,13 @@ describe('omni dossier push', () => {
     const { root, tokens } = await signedIn();
     await dossier(['open', 'A team inbox'], { root, tokens });
     const [draft] = readDossiers(root);
-    server.dossiers.delete(draft!.id);
+    assertDefined(draft, 'the draft');
+    server.dossiers.delete(draft.id);
 
     const run = await dossier(['push', '7'], { root, tokens });
 
     expect(run.code).toBe(0);
-    expect(server.calls.slice(1).map((call) => call.body.draftId ?? null)).toEqual([draft!.id, null]);
+    expect(server.calls.slice(1).map((call) => dig(call.body, 'draftId') ?? null)).toEqual([draft.id, null]);
     expect(readDossiers(root)).toEqual([]);
     expect([...server.dossiers.values()]).toMatchObject([{ prd: 7 }]);
   });
@@ -194,7 +205,7 @@ describe('omni dossier push', () => {
     expect(run.code).toBe(1);
     expect(run.err).toBe(`too large: ${INBOX}/before-after.html\n`);
     expect(run.out.split('\n')[1]).toBe('added: spec v1, plan v1');
-    expect(server.calls[0]!.body.artifacts.map((a: { kind: string }) => a.kind)).toEqual(['spec', 'plan']);
+    expect((dig(server.calls[0]?.body, 'artifacts') as { kind: string }[]).map((a) => a.kind)).toEqual(['spec', 'plan']);
   });
 
   it('exits 2 for a PRD with no folder, and calls nothing', async () => {
@@ -291,7 +302,7 @@ describe('omni dossier never blocks: each skip exits 1 with its one line', () =>
     await dossier(['open', 'A team inbox'], { root, tokens });
     const [draft] = readDossiers(root);
     const run = await dossier(['push', '7'], { root, tokens, fetch: (url: string, init: FetchInit) => (
-      String(url).endsWith('/api/dossiers/push') ? Promise.resolve(new Response('{}', { status: 404 })) : fetch(url, init)
+      url.endsWith('/api/dossiers/push') ? Promise.resolve(new Response('{}', { status: 404 })) : fetch(url, init)
     ) });
     expect(run).toMatchObject({ code: 1, err: 'refused (404)\n' });
     expect(readDossiers(root)).toEqual([draft]);

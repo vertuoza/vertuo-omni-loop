@@ -20,4 +20,4 @@ export function Pips({ value, max = 5, label }: { value: number; max?: number; l
 }
 
 /** The crew by GitHub login, lower-cased: who a fleet member or a hero on the board is. */
-export const byLogin = (crew: Player[]) => new Map(crew.filter((p) => p.github_login).map((p) => [p.github_login!.toLowerCase(), p]));
+export const byLogin = (crew: Player[]) => new Map(crew.flatMap((p) => (p.github_login ? [[p.github_login.toLowerCase(), p] as const] : [])));

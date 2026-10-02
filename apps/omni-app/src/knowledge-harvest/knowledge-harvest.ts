@@ -32,10 +32,10 @@ import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
 import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
-import type { Classification, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import type { Classification } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { filesIn, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
-import { type CommitFile, commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
+import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
 import { CommitSchema, FailedHarvestEventSchema, HarvestEventSchema, parsedOr } from './schema.ts';
 
 /** The part of an Inngest step the harvest runs: one memoized, retried unit, its output as JSON. */
@@ -98,7 +98,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
         const merge = await readMerge(octokit, { owner, repo, prNumber });
         if (!merge.merged || !merge.sha) return { skip: `#${prNumber} was closed, not merged.` };
         const found = await qualify(octokit, { owner, repo, prNumber, mergeSha: merge.sha });
-        if (found.skip !== null) return { skip: found.skip ?? '' };
+        if (found.skip !== null) return { skip: found.skip };
         return {
           skip: null,
           config: found.config,
@@ -149,7 +149,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
           commit_sha: head,
         });
         const { message } = parsedOr(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
-        const already = head !== tip && String(message ?? '').includes(commitMarker(merge.pr));
+        const already = head !== tip && (message ?? '').includes(commitMarker(merge.pr));
         const commit = already
           ? head
           : await addCommit(octokit, {
@@ -232,9 +232,12 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
   };
 }
 
+/** The first line of whatever the failure said: Inngest hands the error over unparsed. */
 function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
+  const text = (reason === undefined || reason === null ? 'unknown error' : printed(reason)).trim();
   return text.split('\n')[0] || 'unknown error';
 }
+
+const printed = (value: unknown) => String(value);
 
 export const knowledgeHarvest = createKnowledgeHarvest({ client: inngest, octokitFor: installationOctokit });

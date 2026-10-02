@@ -160,7 +160,7 @@ export async function readPullRecords(
 ): Promise<PullRecord[]> {
   if (numbers.length === 0) return [];
   const [owner, repo] = fullName.split('/');
-  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${Number(number)}) { ${PULL_FIELDS} }`).join('\n    ');
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { ${PULL_FIELDS} }`).join('\n    ');
   const query = `query PullDetails($owner: String!, $repo: String!) {
   ${RATE_LIMIT}
   repository(owner: $owner, name: $repo) {
@@ -195,7 +195,7 @@ async function readStatusStates(
 ): Promise<Map<number, string>> {
   const states = new Map<number, string>();
   if (numbers.length === 0) return states;
-  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${Number(number)}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join('\n    ');
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join('\n    ');
   const query = `query PullStatus($owner: String!, $repo: String!) {
   ${RATE_LIMIT}
   repository(owner: $owner, name: $repo) {

@@ -94,10 +94,9 @@ describe('sending a game\'s score through the account (PRD 817)', () => {
     const calls: [string, number][] = [];
     return {
       calls,
-      submitScore: async (game: string, score: number) => {
+      submitScore: (game: string, score: number) => {
         calls.push([game, score]);
-        if (best instanceof Error) throw best;
-        return best;
+        return best instanceof Error ? Promise.reject(best) : Promise.resolve(best);
       },
     };
   };

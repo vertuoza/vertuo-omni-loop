@@ -3,9 +3,10 @@
 import { whereIs } from '../../lib/delivery/prd.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const prd: Command = {
-  async run(args: string[], { ctx, stdout, stderr }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
     const { positional } = parseArgs('prd', args);
     if (positional.length !== 1) throw usageError('usage: omni prd <n>');
     const number = positiveInt('prd', '<n>', positional[0]);
@@ -27,5 +28,5 @@ export const prd: Command = {
     ];
     println(stdout, lines.join('\n'));
     return 0;
-  },
+  }),
 };

@@ -28,6 +28,7 @@ import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/chec
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo, Exec, Out } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
@@ -167,7 +168,7 @@ function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: 
 const GUARDS: readonly string[] = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
 
 export const check: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const { ctx, stdout, exec } = io;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);
@@ -196,5 +197,5 @@ export const check: Command = {
     if (baseKnown) results.push(checkCoverage(io, { base, prd }));
     else println(stdout, `coverage: skipped — no ${base}`);
     return results.every(Boolean) ? 0 : 1;
-  },
+  }),
 };

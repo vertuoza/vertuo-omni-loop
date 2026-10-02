@@ -67,10 +67,10 @@ export function demoAccount(): Account {
       write({ ...s, github: login, me: s.me && { ...s.me, github_login: login } });
       return login;
     },
-    async save(patch: PlayerPatch, current: Player | null) {
+    save(patch: PlayerPatch, current: Player | null) {
       const s = read();
       // As in Supabase: no GitHub linked, no player row.
-      if (!current && !s.me && !s.github) throw new Error('Link your GitHub first: it is what makes you a player.');
+      if (!current && !s.me && !s.github) return Promise.reject(new Error('Link your GitHub first: it is what makes you a player.'));
       const base: Player = current ?? s.me ?? {
         id: GUEST.id, display_name: GUEST.givenName, team: null, team_since: null,
         hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, github_login: s.github ?? null,
@@ -80,25 +80,26 @@ export function demoAccount(): Account {
         team_since: patch.team && patch.team !== base.team ? new Date().toISOString() : base.team_since,
       };
       write({ ...s, signedIn: true, me });
-      return me;
+      return Promise.resolve(me);
     },
-    async submitScore(game: string, score: number) {
+    submitScore(game: string, score: number) {
       // As submit_score() does: a player only, a whole score from 0 to the cap, and the higher kept.
-      if (!Number.isInteger(score) || score < 0 || score > SCORE_CAP) throw new Error('A score is a whole number from 0 to 9,999,999.');
+      if (!Number.isInteger(score) || score < 0 || score > SCORE_CAP) return Promise.reject(new Error('A score is a whole number from 0 to 9,999,999.'));
       const s = read();
-      if (!s.me) throw new Error('Only a player may post a score: join a fleet first.');
+      if (!s.me) return Promise.reject(new Error('Only a player may post a score: join a fleet first.'));
       const best = Math.max(s.best?.[game] ?? score, score);
       write({ ...s, best: { ...s.best, [game]: best } });
-      return best;
+      return Promise.resolve(best);
     },
-    async scores(game: string): Promise<ScoreBoard> {
+    scores(game: string): Promise<ScoreBoard> {
       const { me, best } = read();
       const mine = best?.[game] ?? null;
-      if (mine === null || !me) return { top: [], mine: null };
-      return { top: [{ id: me.id, name: me.display_name, hero: me.hero, team: me.team, best: mine }], mine };
+      if (mine === null || !me) return Promise.resolve({ top: [], mine: null });
+      return Promise.resolve({ top: [{ id: me.id, name: me.display_name, hero: me.hero, team: me.team, best: mine }], mine });
     },
-    async signOut() {
+    signOut() {
       write({ ...read(), signedIn: false });
+      return Promise.resolve();
     },
   };
 }

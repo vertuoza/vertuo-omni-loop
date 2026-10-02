@@ -48,7 +48,9 @@ export function ThemeSwitch() {
   return (
     <div ref={self} className="ask-switch" role="group" aria-label="Theme">
       {THEME_CHOICES.map((c) => (
-        <button key={c} type="button" data-choice={c} aria-pressed={choice === c} onClick={() => choose(c)}>
+        <button key={c} type="button" data-choice={c} aria-pressed={choice === c} onClick={() => {
+          choose(c);
+        }}>
           {LABELS[c]}
         </button>
       ))}

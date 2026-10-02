@@ -2,7 +2,8 @@
 // Two pulse leads (25% and 12.5% duty), a triangle bass, noise drums, and one shared echo that gives
 // the "room". Browsers only allow sound after a key or a tap, so the context is created by `unlock()`
 // on the first action, and any music asked for before that starts then.
-import { freqOf, parseSong, SONGS, stepSeconds, type SongName, type Voice } from './score';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { freqOf, parseSong, SONGS, stepSeconds, type Song, type SongName, type Voice } from './score';
 
 export type Sfx =
   | 'move' | 'select' | 'back' | 'start' | 'tab'
@@ -27,13 +28,18 @@ let current: SongName | null = null;
 let pending: SongName | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
+/** The audio context, which `unlock()` created: every sound below is made only once it has. */
+const context = () => defined(ac, 'the audio context');
+/** The frequency of a note the arcade writes itself ('C5'): a token that is not one is a mistake in this file. */
+const hz = (token: string) => defined(freqOf(token), `the note ${token}`);
+
 function pulse(duty: number) {
   const n = 48, re = new Float32Array(n), im = new Float32Array(n);
   for (let k = 1; k < n; k++) {
     re[k] = Math.sin(2 * Math.PI * k * duty) / (k * Math.PI);
     im[k] = (1 - Math.cos(2 * Math.PI * k * duty)) / (k * Math.PI);
   }
-  return ac!.createPeriodicWave(re, im);
+  return context().createPeriodicWave(re, im);
 }
 
 /** Creates (or resumes) the audio context. Call it from a key press or a tap. */
@@ -41,7 +47,10 @@ export function unlock() {
   if (typeof window === 'undefined') return;
   if (ac) { if (ac.state === 'suspended') void ac.resume(); return; }
   try {
-    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext; // ts-allow: Safari names the constructor webkitAudioContext, which the DOM types do not carry
+    // Safari names the constructor webkitAudioContext, which the DOM types do not carry, and an old
+    // browser has neither: no constructor throws, as `new` on a missing one did.
+    const browser: { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext } = window;
+    const Ctor = defined(browser.AudioContext ?? browser.webkitAudioContext, 'the AudioContext constructor');
     ac = new Ctor();
   } catch {
     ac = null;
@@ -69,7 +78,7 @@ export function unlock() {
 }
 
 function note(dest: AudioNode, f: number, t: number, dur: number, wave: Wave, gain: number, { vib = 0, slideTo = 0 } = {}) {
-  const ctx = ac!;
+  const ctx = context();
   const o = ctx.createOscillator(), g = ctx.createGain();
   if (wave === 'p25' || wave === 'p12') o.setPeriodicWave(waves[wave]); else o.type = wave;
   o.frequency.setValueAtTime(f, t);
@@ -91,7 +100,7 @@ function note(dest: AudioNode, f: number, t: number, dur: number, wave: Wave, ga
 }
 
 function hiss(dest: AudioNode, t: number, dur: number, { type = 'bandpass', freq = 2000, q = 1, gain = 0.2 }: { type?: BiquadFilterType; freq?: number; q?: number; gain?: number } = {}) {
-  const ctx = ac!;
+  const ctx = context();
   const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
   src.buffer = noise;
   src.loop = true;
@@ -111,17 +120,18 @@ function drum(dest: AudioNode, token: string, t: number, k: number) {
 
 const parsed = new Map<SongName, ReturnType<typeof parseSong>>();
 function schedule(name: SongName, dest: AudioNode, t0: number) {
-  const song = SONGS[name];
-  if (!parsed.has(name)) parsed.set(name, parseSong(song));
-  const { notes, steps } = parsed.get(name)!;
+  const song: Song = SONGS[name];
+  let read = parsed.get(name);
+  if (!read) { read = parseSong(song); parsed.set(name, read); }
+  const { notes, steps } = read;
   const step = stepSeconds(song.bpm);
-  const gains: Partial<Record<Voice, number>> = 'gains' in song ? song.gains : {};
+  const gains: Partial<Record<Voice, number>> = song.gains ?? {};
   for (const n of notes) {
     const t = t0 + n.step * step, gain = gains[n.voice] ?? VOICE_GAIN[n.voice];
     if (n.voice === 'drums') drum(dest, n.token, t, gain);
     else {
       const dur = n.steps * step * 0.92;
-      note(dest, freqOf(n.token)!, t, dur, VOICE_WAVE[n.voice], gain, { vib: n.voice === 'lead' && dur > 0.3 ? 0.006 : 0 });
+      note(dest, hz(n.token), t, dur, VOICE_WAVE[n.voice], gain, { vib: n.voice === 'lead' && dur > 0.3 ? 0.006 : 0 });
     }
   }
   return steps * step;
@@ -135,7 +145,7 @@ export function music(name: SongName | null) {
   if (bus) {
     const old = bus;
     old.gain.setTargetAtTime(0, ac.currentTime, 0.06);
-    setTimeout(() => old.disconnect(), 400);
+    setTimeout(() => { old.disconnect(); }, 400);
   }
   bus = null;
   current = name;
@@ -143,12 +153,12 @@ export function music(name: SongName | null) {
   const mine = ac.createGain();
   mine.connect(master); mine.connect(echo);
   bus = mine;
-  const song = SONGS[name];
+  const song: Song = SONGS[name];
   const run = (t0: number) => {
     if (bus !== mine || !ac) return;
     const length = schedule(name, mine, t0);
     const ahead = Math.max(0, (t0 + length - ac.currentTime - 0.4) * 1000);
-    if ('loop' in song && song.loop) timer = setTimeout(() => run(t0 + length), ahead);
+    if (song.loop) timer = setTimeout(() => { run(t0 + length); }, ahead);
     else timer = setTimeout(() => { if (bus === mine) current = null; }, length * 1000);
   };
   run(ac.currentTime + 0.06);
@@ -160,54 +170,54 @@ const MOTIFS: Record<string, (o: AudioNode, t: number) => void> = {
   beaver(o, t) { // two woody knocks and a hop
     hiss(o, t, 0.05, { freq: 900, q: 6, gain: 0.7 });
     hiss(o, t + 0.12, 0.05, { freq: 800, q: 6, gain: 0.7 });
-    note(o, freqOf('C3')!, t + 0.26, 0.1, 'triangle', 0.2);
-    note(o, freqOf('G3')!, t + 0.38, 0.16, 'triangle', 0.2);
+    note(o, hz('C3'), t + 0.26, 0.1, 'triangle', 0.2);
+    note(o, hz('G3'), t + 0.38, 0.16, 'triangle', 0.2);
   },
   octopod(o, t) { // a bubbly rising arpeggio
-    ['C5', 'E5', 'G5', 'B5', 'D6'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.055, 0.07, 'p12', 0.05, { vib: 0.03 }));
+    ['C5', 'E5', 'G5', 'B5', 'D6'].forEach((n, i) => { note(o, hz(n), t + i * 0.055, 0.07, 'p12', 0.05, { vib: 0.03 }); });
   },
   picsou(o, t) { // ka-ching
-    note(o, freqOf('B5')!, t, 0.06, 'square', 0.04);
-    note(o, freqOf('E6')!, t + 0.07, 0.34, 'square', 0.04);
-    note(o, freqOf('E7')!, t + 0.09, 0.3, 'sine', 0.02);
+    note(o, hz('B5'), t, 0.06, 'square', 0.04);
+    note(o, hz('E6'), t + 0.07, 0.34, 'square', 0.04);
+    note(o, hz('E7'), t + 0.09, 0.3, 'sine', 0.02);
   },
   cia(o, t) { // a muted minor spy line
-    note(o, freqOf('E4')!, t, 0.13, 'p25', 0.05);
-    note(o, freqOf('G4')!, t + 0.16, 0.13, 'p25', 0.05);
-    note(o, freqOf('F#4')!, t + 0.32, 0.3, 'p25', 0.05, { vib: 0.01 });
+    note(o, hz('E4'), t, 0.13, 'p25', 0.05);
+    note(o, hz('G4'), t + 0.16, 0.13, 'p25', 0.05);
+    note(o, hz('F#4'), t + 0.32, 0.3, 'p25', 0.05, { vib: 0.01 });
   },
   pirate(o, t) { // yo-ho, and a cannon
     for (const [n, at, len] of [['D5', 0, 0.15], ['A4', 0.18, 0.26]] as const) {
-      note(o, freqOf(n)!, t + at, len, 'triangle', 0.16);
-      note(o, freqOf(n)!, t + at, len, 'p12', 0.03);
+      note(o, hz(n), t + at, len, 'triangle', 0.16);
+      note(o, hz(n), t + at, len, 'p12', 0.03);
     }
     hiss(o, t + 0.5, 0.4, { type: 'lowpass', freq: 220, gain: 1.4 });
     note(o, 90, t + 0.5, 0.25, 'sine', 0.45, { slideTo: 35 });
   },
   'atom-eve'(o, t) { // a sparkly rising shimmer: a glow sliding up under climbing bells
-    note(o, freqOf('A4')!, t, 0.34, 'p12', 0.02, { slideTo: freqOf('A5')! });
-    ['E5', 'A5', 'C#6', 'E6', 'A6', 'C#7'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.045, 0.12, 'sine', 0.05));
-    note(o, freqOf('E7')!, t + 0.3, 0.2, 'sine', 0.025, { vib: 0.03 });
+    note(o, hz('A4'), t, 0.34, 'p12', 0.02, { slideTo: hz('A5') });
+    ['E5', 'A5', 'C#6', 'E6', 'A6', 'C#7'].forEach((n, i) => { note(o, hz(n), t + i * 0.045, 0.12, 'sine', 0.05); });
+    note(o, hz('E7'), t + 0.3, 0.2, 'sine', 0.025, { vib: 0.03 });
     hiss(o, t + 0.26, 0.22, { type: 'highpass', freq: 8000, gain: 0.06 });
   },
   shark(o, t) { // dun-dun: two low notes, swelling as it closes in
     for (const [n, at, len, k] of [['E2', 0, 0.16, 1], ['F2', 0.22, 0.16, 1.4], ['E2', 0.5, 0.12, 1.9], ['F2', 0.64, 0.34, 2.6]] as const) {
-      note(o, freqOf(n)!, t + at, len, 'triangle', 0.1 * k);
-      note(o, freqOf(n)!, t + at, len, 'p25', 0.02 * k);
+      note(o, hz(n), t + at, len, 'triangle', 0.1 * k);
+      note(o, hz(n), t + at, len, 'p25', 0.02 * k);
     }
   },
   turtle(o, t) { // three slow, steady plods
     for (let i = 0; i < 3; i++) {
-      note(o, freqOf('C3')!, t + i * 0.28, 0.14, 'triangle', 0.22, { slideTo: freqOf('G2')! });
+      note(o, hz('C3'), t + i * 0.28, 0.14, 'triangle', 0.22, { slideTo: hz('G2') });
       hiss(o, t + i * 0.28, 0.1, { type: 'lowpass', freq: 400, gain: 0.8 });
     }
   },
   allen(o, t) { // a wobbly UFO warble, up and back down
-    note(o, freqOf('E5')!, t, 0.3, 'sine', 0.06, { vib: 0.05, slideTo: freqOf('B5')! });
-    note(o, freqOf('B5')!, t + 0.3, 0.36, 'sine', 0.06, { vib: 0.05, slideTo: freqOf('G5')! });
+    note(o, hz('E5'), t, 0.3, 'sine', 0.06, { vib: 0.05, slideTo: hz('B5') });
+    note(o, hz('B5'), t + 0.3, 0.36, 'sine', 0.06, { vib: 0.05, slideTo: hz('G5') });
   },
   robot(o, t) { // quick beeps and boops
-    ['A6', 'A5', 'E6', 'C5', 'A6'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.07, 0.045, 'square', 0.035));
+    ['A6', 'A5', 'E6', 'C5', 'A6'].forEach((n, i) => { note(o, hz(n), t + i * 0.07, 0.045, 'square', 0.035); });
   },
 };
 
@@ -216,13 +226,13 @@ const PENTATONIC = ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6'];
 export function motifNotes(fleet: string): string[] {
   let h = 2166136261;
   for (const c of fleet) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  return [0, 1, 2].map((i) => PENTATONIC[(h >>> (i * 5)) % PENTATONIC.length]!);
+  return [0, 1, 2].map((i) => at(PENTATONIC, (h >>> (i * 5)) % PENTATONIC.length, 'a pentatonic note'));
 }
 
 function out() {
-  const g = ac!.createGain();
+  const g = context().createGain();
   g.connect(master); g.connect(echo);
-  setTimeout(() => g.disconnect(), 3000);
+  setTimeout(() => { g.disconnect(); }, 3000);
   return g;
 }
 
@@ -236,8 +246,8 @@ export function motif(f: { name: string; mascot: string | null }) {
   if (!ac) return;
   const o = out(), t = ac.currentTime + 0.01;
   const written = writtenMotif(f);
-  if (written) return MOTIFS[written]!(o, t);
-  motifNotes(f.name).forEach((n, i) => note(o, freqOf(n)!, t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045));
+  if (written) { defined(MOTIFS[written], `the ${written} motif`)(o, t); return; }
+  motifNotes(f.name).forEach((n, i) => { note(o, hz(n), t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045); });
 }
 
 /** A sound effect. */
@@ -251,20 +261,20 @@ export function sfx(name: Sfx) {
     case 'select': note(o, 523, t, 0.06, 'square', 0.04); note(o, 784, t + 0.06, 0.08, 'square', 0.04); break;
     case 'back': note(o, 392, t, 0.05, 'square', 0.04); note(o, 262, t + 0.05, 0.08, 'square', 0.04); break;
     case 'start':
-      [523, 659, 784, 1047].forEach((f, i) => note(o, f, t + i * 0.07, 0.1, 'square', 0.04));
+      [523, 659, 784, 1047].forEach((f, i) => { note(o, f, t + i * 0.07, 0.1, 'square', 0.04); });
       note(o, 1568, t + 0.3, 0.25, 'triangle', 0.05);
       break;
-    case 'coin': note(o, freqOf('B5')!, t, 0.07, 'square', 0.045); note(o, freqOf('E6')!, t + 0.08, 0.4, 'square', 0.045); break;
+    case 'coin': note(o, hz('B5'), t, 0.07, 'square', 0.045); note(o, hz('E6'), t + 0.08, 0.4, 'square', 0.045); break;
     case 'type': note(o, 1320, t, 0.025, 'p12', 0.05); break;
     case 'erase': note(o, 440, t, 0.04, 'p25', 0.04); note(o, 330, t + 0.04, 0.05, 'p25', 0.04); break;
     case 'buzz': note(o, 110, t, 0.22, 'square', 0.05); note(o, 104, t, 0.22, 'square', 0.04); break;
     case 'random': for (let i = 0; i < 8; i++) note(o, 400 + Math.random() * 900, t + i * 0.03, 0.03, 'p12', 0.04); break;
     case 'linked':
-      note(o, freqOf('B5')!, t, 0.07, 'square', 0.04);
-      note(o, freqOf('E6')!, t + 0.08, 0.2, 'square', 0.04);
-      ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => note(o, freqOf(n)!, t + 0.3 + i * 0.08, 0.3, 'sine', 0.05));
+      note(o, hz('B5'), t, 0.07, 'square', 0.04);
+      note(o, hz('E6'), t + 0.08, 0.2, 'square', 0.04);
+      ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => { note(o, hz(n), t + 0.3 + i * 0.08, 0.3, 'sine', 0.05); });
       break;
-    case 'away': [300, 500, 700].forEach((f, i) => note(o, f, t + i * 0.09, 0.08, 'p12', 0.035)); break;
+    case 'away': [300, 500, 700].forEach((f, i) => { note(o, f, t + i * 0.09, 0.08, 'p12', 0.035); }); break;
     case 'fire': note(o, 1400, t, 0.09, 'p12', 0.035, { slideTo: 500 }); break;
     case 'hit':
       hiss(o, t, 0.16, { freq: 1200, q: 0.7, gain: 0.3 });
@@ -274,10 +284,10 @@ export function sfx(name: Sfx) {
       hiss(o, t, 0.6, { type: 'lowpass', freq: 600, gain: 0.9 });
       note(o, 220, t, 0.5, 'square', 0.05, { slideTo: 40 });
       break;
-    case 'wave': ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.06, 0.09, 'p25', 0.045)); break;
+    case 'wave': ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => { note(o, hz(n), t + i * 0.06, 0.09, 'p25', 0.045); }); break;
     case 'over':
-      ['G4', 'E4', 'C4', 'G3'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.22, i === 3 ? 0.7 : 0.2, 'p25', 0.05, { vib: i === 3 ? 0.02 : 0 }));
-      note(o, freqOf('C2')!, t + 0.66, 0.7, 'triangle', 0.12);
+      ['G4', 'E4', 'C4', 'G3'].forEach((n, i) => { note(o, hz(n), t + i * 0.22, i === 3 ? 0.7 : 0.2, 'p25', 0.05, { vib: i === 3 ? 0.02 : 0 }); });
+      note(o, hz('C2'), t + 0.66, 0.7, 'triangle', 0.12);
       break;
   }
 }
@@ -290,7 +300,7 @@ const MARCH = ['C2', 'Bb1', 'Ab1', 'G1'];
 export function march(step: number) {
   if (!ac) return;
   const o = out(), t = ac.currentTime + 0.01;
-  note(o, freqOf(MARCH[((step % MARCH.length) + MARCH.length) % MARCH.length]!)!, t, 0.09, 'triangle', 0.16);
+  note(o, hz(at(MARCH, ((step % MARCH.length) + MARCH.length) % MARCH.length, 'a march note')), t, 0.09, 'triangle', 0.16);
 }
 
 /** Mutes music and effects with a short fade. */

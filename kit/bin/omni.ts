@@ -70,7 +70,7 @@ export function prdNamedBy(argv: readonly string[]): number | null {
 function recordPrd(argv: readonly string[], { cwd, env, exec }: { cwd: string; env: Env; exec: Exec }): void {
   try {
     const prd = prdNamedBy(argv);
-    if (prd !== null) recordSession({ cwd, exec, sessionId: env?.CLAUDE_CODE_SESSION_ID, prd, now: Date.now() });
+    if (prd !== null) recordSession({ cwd, exec, sessionId: env.CLAUDE_CODE_SESSION_ID, prd, now: Date.now() });
   } catch {
     // A record that cannot be written changes nothing: the command runs as it does without one.
   }
@@ -119,7 +119,8 @@ const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSyn
 if (invoked) {
   const argv = process.argv.slice(2);
   const fail = (error: unknown) => {
-    process.stderr.write(`${propertyOf(error, 'stack') ?? error}\n`);
+    const stack = propertyOf(error, 'stack');
+    process.stderr.write(`${typeof stack === 'string' ? stack : String(error)}\n`);
     process.exit(1);
   };
   try {

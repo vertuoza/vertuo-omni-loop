@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { WaitingProvider } from '../../waiting/WaitingProvider';
 import type { WaitingQuestion } from '../../waiting/waiting';
 import { QuestionsTabs } from './QuestionsTabs';
+import { item } from '../test-item';
 
 // The Questions pages' tab row (PRD 733), as the server renders it inside the app shell's waiting
 // provider: Open questions · Shared with me · History, the page's own tab marked, Open questions
@@ -19,9 +20,9 @@ const render = (current: string, questions: WaitingQuestion[] = FIVE) =>
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
-  href: /href="([^"]*)"/.exec(m[1]!)?.[1],
-  current: /aria-current="page"/.test(m[1]!),
-  text: text(m[2]!),
+  href: /href="([^"]*)"/.exec(item(m, 1))?.[1],
+  current: /aria-current="page"/.test(item(m, 1)),
+  text: text(item(m, 2)),
 }));
 
 describe('the Questions tabs', () => {
