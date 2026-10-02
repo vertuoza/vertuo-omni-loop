@@ -3,6 +3,7 @@
 // the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
 import { xpForLevel, type GalaxyView, type WoundKind, type XpRules } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
+import { keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { crewLook, fleet, WOUND_LOOK } from '../fleets';
@@ -52,15 +53,18 @@ export function menuItems({ joined, signedIn, newGames = false, app = false, sol
 }): MenuItem[] {
   const change: MenuItem = { id: 'change', label: solo ? 'JOIN A FLEET' : 'CHANGE FLEET', fresh: true };
   const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
+  const play: MenuItem = { id: 'play', label: 'PLAY', fresh: true };
+  const myHero: MenuItem = { id: 'myhero', label: 'MY HERO', fresh: true };
+  const signOut: MenuItem = { id: 'signout', label: 'SIGN OUT' };
   return [
-    ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
+    ...(signedIn && !joined ? [play] : []),
     ...GALAXY,
     ...(signedIn ? [games] : []),
     BRIEFING,
-    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
+    ...(signedIn && joined ? [myHero] : []),
     ...(signedIn && joined && fleets ? [change] : []),
     ...(app ? [APP] : []),
-    ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
+    ...(signedIn ? [signOut] : []),
   ];
 }
 
@@ -149,7 +153,7 @@ const CURVE_SHOWN = 5;
 function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
   const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
   return {
-    credits: (Object.keys(XP_CREDITS) as (keyof XpRules['weights'])[]).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })), // ts-allow: Object.keys of the credits lists the XP kinds they name
+    credits: keysOf(XP_CREDITS).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })),
     curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
     cap: xp.cap,
     unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
@@ -167,7 +171,7 @@ const xpText = (n: number) => n.toLocaleString('en-US');
 export function BriefingOverlay({ view }: { view: GalaxyView }) {
   const { grid, page } = useScreen();
   const r = view.rules;
-  const kinds = Object.keys(WOUND_LOOK) as WoundKind[]; // ts-allow: Object.keys of a record lists its keys
+  const kinds = keysOf(WOUND_LOOK);
   const lv = briefingLevels(r.xp);
   const sections: Record<BriefingPage, React.ReactNode> = {
     earn: (

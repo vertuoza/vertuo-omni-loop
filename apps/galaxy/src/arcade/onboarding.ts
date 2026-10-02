@@ -93,7 +93,7 @@ const SIGNED_IN_ONLY = new Set([
  * Where a screen may be shown: past INSERT COIN needs a session. The one door every route goes
  * through (a deep link, a crafted return URL, a stale screen).
  */
-export function allowed(scene: string, session: Session | null): string {
+export function allowed<S extends string>(scene: S, session: Session | null): S | 'coin' {
   if (!session && SIGNED_IN_ONLY.has(scene)) return 'coin';
   return scene;
 }

@@ -1,5 +1,6 @@
 // The hero builder's rows, as a pure step: ◀ ▶ cycle the value of a row, wrapping around.
 import { HERO_PRESETS, type Hero } from '@omni/design';
+import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export const BUILDER_ROWS = ['BODY', 'SKIN', 'HAIR', 'SUIT', 'CAPE', 'RANDOM', 'DONE'] as const;
 export type BuilderRow = (typeof BUILDER_ROWS)[number];
@@ -8,8 +9,8 @@ const KEY = { SKIN: 'skin', HAIR: 'hair', SUIT: 'suit', CAPE: 'cape' } as const;
 
 export function cycleHero(hero: Hero, row: BuilderRow, dir: 1 | -1): Hero {
   if (row === 'BODY') return { ...hero, body: hero.body === 'girl' ? 'boy' : 'girl' };
-  if (!(row in KEY)) return hero;
-  const key = KEY[row as keyof typeof KEY]; // ts-allow: the line above checked that the row is one of KEY's
+  if (!isOneOf(keysOf(KEY), row)) return hero;
+  const key = KEY[row];
   const n = HERO_PRESETS[key].length;
   return { ...hero, [key]: (hero[key] + dir + n) % n };
 }
