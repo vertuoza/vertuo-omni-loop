@@ -50,7 +50,9 @@ export type Tray = {
 };
 
 const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((listener) => listener());
+const emit = () => {
+  for (const listener of listeners) listener();
+};
 
 export function newTray(): Tray {
   const tray: Tray = {
