@@ -23,6 +23,7 @@ import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
 import { NOBODY, type PeopleIn } from './people';
 import { readWho, whoParam, type HistoryWho, type Whom } from '../dossier/page/history';
 import { one, type Query } from '../nav/query';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
 
@@ -41,7 +42,7 @@ export type FixFilters = {
 };
 
 const STATES: readonly FixState[] = ['asked', 'in-review', 'merged'];
-const isFixState = (value: unknown): value is FixState => STATES.includes(value as FixState); // ts-allow: includes() checks any value
+const isFixState = (value: unknown): value is FixState => isOneOf(STATES, value);
 
 /** What the fix holds, and how much of it: `v1`, or `2 rounds` of variations. */
 export type FixArtifact = { kind: ArtifactKind; label: string; badge: string };

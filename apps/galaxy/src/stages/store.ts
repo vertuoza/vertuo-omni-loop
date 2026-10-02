@@ -87,8 +87,7 @@ const lower = (repository: string) => repository.toLowerCase();
 
 function stageRows(data: unknown): StageRow[] {
   return ((data ?? []) as Record<string, unknown>[]) // ts-allow: rows read as unknown; each field is checked below
-    .filter((row) => isStoredStage(row.stage))
-    .map((row) => ({ stage: row.stage as StoredStage, reached_at: String(row.reached_at), synced_at: String(row.synced_at) })) // ts-allow: isStoredStage() kept only stored stages
+    .flatMap(({ stage, reached_at, synced_at }): StageRow[] => (isStoredStage(stage) ? [{ stage, reached_at: String(reached_at), synced_at: String(synced_at) }] : []))
     .sort(byTrack);
 }
 

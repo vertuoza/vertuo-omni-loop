@@ -8,6 +8,7 @@
 // and before that lights nothing and reads Brainstorming. A numbered PRD with no row yet reads Syncing….
 // A PRD at building whose feature PR carries open outbox items (the red yolo gate) shows a badge,
 // N questions waiting, linking to where they are answered.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type StageId = 'idea' | 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 
@@ -18,8 +19,8 @@ export const STAGES: readonly StageId[] = ['idea', 'prd', 'inbox', 'building', '
 export type StoredStage = Exclude<StageId, 'idea'>;
 export const STORED_STAGES: readonly StoredStage[] = ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'];
 
-export const isStoredStage = (value: unknown): value is StoredStage => STORED_STAGES.includes(value as StoredStage); // ts-allow: includes() checks any value
-export const isStage = (value: unknown): value is StageId => STAGES.includes(value as StageId); // ts-allow: includes() checks any value
+export const isStoredStage = (value: unknown): value is StoredStage => isOneOf(STORED_STAGES, value);
+export const isStage = (value: unknown): value is StageId => isOneOf(STAGES, value);
 
 export const STAGE_LABELS: Readonly<Record<StageId, string>> = {
   idea: 'idea', prd: 'PRD', inbox: 'inbox', building: 'building', outbox: 'outbox', shipped: 'shipped', retro: 'retro',
@@ -53,9 +54,10 @@ const SYNCING = 'Syncing…';
 
 /** The latest stage on the track among `rows`; null when there is none. */
 export function currentStage(rows: readonly Pick<StageRow, 'stage'>[]): StoredStage | null {
-  let at = -1;
-  for (const { stage } of rows) at = Math.max(at, STORED_STAGES.indexOf(stage));
-  return at === -1 ? null : STORED_STAGES[at]!; // ts-allow: at is an index indexOf found
+  const rank = (stage: StoredStage | null) => (stage === null ? -1 : STORED_STAGES.indexOf(stage));
+  let current: StoredStage | null = null;
+  for (const { stage } of rows) if (rank(stage) > rank(current)) current = stage;
+  return current;
 }
 
 function trackOf(current: StageId | null): TrackStop[] {

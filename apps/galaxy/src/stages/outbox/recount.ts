@@ -9,12 +9,13 @@ import { UNREAD, type GithubSummary } from '../../dossier/github/summary';
 import type { StoredStage } from '../stage';
 import { prdKey, type PrdRef, type StageStore } from '../store';
 import type { OutboxCounts, OutboxRecord, PrdOutboxStore, WaitingQuestion } from './store';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** The stages whose outbox is counted: the feature is being built, or waits on its outbox. */
 const COUNTED: ReadonlySet<StoredStage> = new Set(['building', 'outbox']);
 
 /** The ranks that wait on a person. */
-const WAITING_RANKS: ReadonlySet<string> = new Set(['human-action', 'high']);
+const WAITING_RANKS: readonly WaitingQuestion['rank'][] = ['human-action', 'high'];
 
 const NONE: OutboxCounts = { open_questions: 0, waiting: [] };
 
@@ -23,8 +24,7 @@ export function countsOf(summary: GithubSummary | null): OutboxCounts | null {
   if (summary === null || summary.outbox === UNREAD || summary.feature === UNREAD) return null;
   const open = summary.outbox?.open ?? [];
   const waiting = summary.feature?.state === 'open'
-    ? open.filter((item) => WAITING_RANKS.has(item.rank))
-      .map((item): WaitingQuestion => ({ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question })) // ts-allow: WAITING_RANKS holds only the waiting ranks
+    ? open.flatMap(({ id, rank, question }): WaitingQuestion[] => (isOneOf(WAITING_RANKS, rank) ? [{ id, rank, question }] : []))
     : [];
   return { open_questions: open.length, waiting };
 }

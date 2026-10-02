@@ -33,6 +33,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';
 import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
+import { group, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
@@ -216,7 +217,7 @@ export function buildReply(questions: Question[], prd: number, picks: SendBody['
   if (kept.length === 0) {
     return { ok: false, reason: 'Every question you answered was settled meanwhile: nothing is left to send.', dropped };
   }
-  const written = writeReply({ prd, door: 'page', questions, picks: kept }) as { ok: true; reply: string } | { ok: false; reason: string }; // ts-allow: the kit's reply writer answers one of these two shapes
+  const written = writeReply({ prd, door: 'page', questions, picks: kept });
   return written.ok ? { ok: true, reply: written.reply, dropped } : { ok: false, reason: written.reason, dropped };
 }
 
@@ -297,7 +298,7 @@ export function failureWords(error: GitHubError, repo: string | null, number: nu
     case 'refused': return "GitHub's authorisation was refused, so nothing was posted.";
     case 'down': return 'GitHub did not answer, so nothing was posted. Try again in a moment.';
     case 'no-access': return `Your GitHub account may not comment on ${pr}, so nothing was posted.`;
-    case 'gone': return `${pr[0]!.toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`; // ts-allow: the words are never empty
+    case 'gone': return `${pr.charAt(0).toUpperCase()}${pr.slice(1)} is gone, or your GitHub account cannot see it, so nothing was posted.`;
   }
 }
 
@@ -316,8 +317,8 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
   const store = await deps.store();
   if (!store) return refused('signin', null);
   if (!state) return refused('state', null);
-  const sendId = state[1]!; // ts-allow: the pattern's groups always match
-  const nonce = state[2]!; // ts-allow: the pattern's groups always match
+  const sendId = group(state, 1);
+  const nonce = group(state, 2);
 
   // Someone else's send reads as none: nothing is posted, nothing recorded.
   const send = await store.read(sendId);
@@ -351,13 +352,13 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
     try {
       await deps.recount?.(send.dossier_id);
     } catch (error) {
-      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
+      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${messageOf(error)}`);
     }
   }
   try {
     await store.done(send.id, outcome);
   } catch (error) {
-    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${(error as Error).message}`); // ts-allow: a caught value is unknown; it is only logged
+    console.error(`outbox send ${send.id}: the outcome could not be recorded: ${messageOf(error)}`);
   }
   return tab(send.dossier_id, send.id);
 }

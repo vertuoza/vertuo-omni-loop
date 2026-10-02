@@ -1,5 +1,6 @@
 import { poll, type VisibilityDoc } from '../ask/page/poll';
 import type { WaitingOutbox } from './waiting';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The waiting list's Outbox part (PRD 499, s3): the open human-action and high outbox items of the PRDs
 // the person opened, read by the browser from GET /api/waiting/outbox (src/outbox-waiting/), never by
@@ -23,14 +24,14 @@ export type OutboxRead = { ok: true; items: WaitingOutbox[]; unreadPrds: number 
 
 type Fetch = (url: string, init: { cache: 'no-store' }) => Promise<Response>;
 
-const RANKS = new Set(['human-action', 'high']);
+const RANKS: readonly WaitingOutbox['rank'][] = ['human-action', 'high'];
 
 function itemOf(raw: unknown): WaitingOutbox | null {
   if (!raw || typeof raw !== 'object') return null;
-  const r = raw as Record<string, unknown>; // ts-allow: the line above refused anything but an object
-  if (typeof r.id !== 'string' || typeof r.prd !== 'number' || typeof r.dossierId !== 'string' || typeof r.title !== 'string'
-    || typeof r.question !== 'string' || typeof r.rank !== 'string' || !RANKS.has(r.rank)) return null;
-  return { kind: 'outbox', id: r.id, prd: r.prd, dossierId: r.dossierId, title: r.title, rank: r.rank as WaitingOutbox['rank'], question: r.question }; // ts-allow: the line above checked the rank is one of RANKS
+  const [id, prd, dossierId, title, question, rank] = ['id', 'prd', 'dossierId', 'title', 'question', 'rank'].map((key) => propertyOf(raw, key));
+  if (typeof id !== 'string' || typeof prd !== 'number' || typeof dossierId !== 'string' || typeof title !== 'string'
+    || typeof question !== 'string' || !isOneOf(RANKS, rank)) return null;
+  return { kind: 'outbox', id, prd, dossierId, title, rank, question };
 }
 
 /** Reads the route once. Never throws. */
@@ -48,11 +49,13 @@ export async function readOutbox(fetch: Fetch): Promise<OutboxRead> {
   } catch {
     return { ok: false, kind: 'shape' };
   }
-  const { items, unread } = (body ?? {}) as { items?: unknown; unread?: unknown }; // ts-allow: each field is checked on the next line
+  const items = propertyOf(body, 'items');
+  const unread = propertyOf(body, 'unread');
   if (!Array.isArray(items) || typeof unread !== 'number') return { ok: false, kind: 'shape' };
   const read = items.map(itemOf);
-  if (read.some((i) => i === null)) return { ok: false, kind: 'shape' };
-  return { ok: true, items: read as WaitingOutbox[], unreadPrds: unread }; // ts-allow: the line above refused any null, so every item is one
+  const kept = read.filter((i): i is WaitingOutbox => i !== null);
+  if (kept.length !== read.length) return { ok: false, kind: 'shape' };
+  return { ok: true, items: kept, unreadPrds: unread };
 }
 
 /** The part after a read: a read that works replaces it; one that fails keeps its items, unreadable. */
