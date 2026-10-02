@@ -87,11 +87,18 @@ function skipLine(error: unknown): string {
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
+/** One added version of the push's reply, `{ kind, version }`, or `null` when it is not one. */
+function versionOf(entry: unknown): { kind: string; version: number } | null {
+  const kind = field(entry, 'kind');
+  const version = field(entry, 'version');
+  return isText(kind) && typeof version === 'number' && Number.isInteger(version) ? { kind, version } : null;
+}
+
 /** `added: spec v2 · unchanged: before-after, plan`, from the push's reply. */
 export function addedLine({ added, unchanged }: { added?: unknown; unchanged?: unknown }): string {
-  const got = Array.isArray(added) ? added.filter((a: unknown) => isText(field(a, 'kind')) && Number.isInteger(field(a, 'version'))) : [];
+  const got = Array.isArray(added) ? added.flatMap((a: unknown) => versionOf(a) ?? []) : [];
   const kept = Array.isArray(unchanged) ? unchanged.filter(isText) : [];
-  const parts = [`added: ${got.length ? got.map((a: unknown) => `${field(a, 'kind')} v${field(a, 'version')}`).join(', ') : 'none'}`];
+  const parts = [`added: ${got.length ? got.map(({ kind, version }) => `${kind} v${version}`).join(', ') : 'none'}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(', ')}`);
   return parts.join(' · ');
 }
@@ -233,7 +240,7 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
     const [verb = '', ...rest] = positional;

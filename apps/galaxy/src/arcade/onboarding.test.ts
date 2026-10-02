@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isPlayer, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { arcadeFor } from '../data/arcade';
 import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, type FakeUser } from '../data/galaxy.fake';
 
@@ -37,7 +38,7 @@ describe('crew is membership', () => {
   /** The session the page hands the arcade, for one person, from their workspaces. */
   const sessionOf = async (person: FakeUser) => {
     const world = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
-    return (await arcadeFor(world.client(person) as unknown as SupabaseClient, authUser(person) as unknown as User)).session;
+    return (await arcadeFor(world.client(person) as unknown as SupabaseClient<Database>, authUser(person) as unknown as User)).session;
   };
 
   it('lets a session with a workspace in, whatever its email\'s domain', async () => {

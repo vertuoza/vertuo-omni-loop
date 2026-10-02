@@ -33,10 +33,10 @@ const SECTIONS = {
 };
 
 /** A `bug.md`, built from `SECTIONS` with any section replaced (a string) or left out (`null`). */
-function record(overrides = {}) {
+function record(overrides: Record<string, string | null> = {}) {
   const sections = { ...SECTIONS, ...overrides };
   const parts = ['# Bug 12: saving twice duplicates the row', ''];
-  for (const [name, body] of Object.entries(sections)) {
+  for (const [name, body] of Object.entries<string | null>(sections)) {
     if (body === null) continue;
     parts.push(`## ${name}`, '', body, '');
   }
@@ -141,12 +141,12 @@ describe('omni bug', () => {
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: missing.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name: any) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is missing', async (name: string) => {
     const { root, base } = fixBranch({ bug: record({ [name]: null }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: no "## ${name}" section.`);
   });
 
-  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name: any) => {
+  it.each(['Triage', 'Reproduction', 'Fix', 'Guard', 'Mutation'])('is not ok when the %s section is empty', async (name: string) => {
     const { root, base } = fixBranch({ bug: record({ [name]: '' }) });
     expect(await onlyFailure(root, base)).toBe(`- ${RECORD}: the "## ${name}" section is empty.`);
   });

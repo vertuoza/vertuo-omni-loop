@@ -125,7 +125,7 @@ describe('omni visual', () => {
   it.each([
     ['png', 'data:image/png;base64,iVBORw0KGgo='],
     ['jpeg', 'data:image/jpeg;base64,/9j/4AAQ'],
-  ])('is not ok, exit 1, when the page holds a base64 %s image', async (_kind: any, url: any) => {
+  ])('is not ok, exit 1, when the page holds a base64 %s image', async (_kind: string, url: string) => {
     const { root, write, base } = setup();
     write(PAGE, `<!doctype html><img src="${url}">\n`);
     commit(root, 'fix(app): sidebar darker (#12)');

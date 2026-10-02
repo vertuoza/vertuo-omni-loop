@@ -102,16 +102,14 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
   const rateLimit = () => ({ limit: budget.graphql.limit, remaining: budget.graphql.remaining, cost: 1, resetAt: '2026-09-29T13:23:00Z' });
 
   const octokit = {
-    async request(route: string, params: Params) {
+    request: (route: string, params: Params) => settled(() => {
       requests.push({ route, ...params });
       spend('core');
       switch (route) {
         case 'GET /repos/{owner}/{repo}/pulls':
-          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(({ reviews, commitMessages, comments, label_events, ...pull }) => pull) };
-        case 'GET /repos/{owner}/{repo}/pulls/{pull_number}': {
-          const { reviews, commitMessages, comments, label_events, ...pull } = pullOf(params, true);
-          return { headers: headers(), data: pull };
-        }
+          return { headers: headers(), data: page(newestFirst(repoOf(params).pulls), params).map(asRest) };
+        case 'GET /repos/{owner}/{repo}/pulls/{pull_number}':
+          return { headers: headers(), data: asRest(pullOf(params, true)) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews':
           return { headers: headers(), data: page(pullOf(params).reviews ?? [], params) };
         case 'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits':
@@ -119,9 +117,9 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
         default:
           throw new Error(`fake GitHub: unexpected ${route}`);
       }
-    },
+    }),
 
-    async graphql(query: string, variables: Partial<Variables> = {}): Promise<Record<string, unknown>> {
+    graphql: (query: string, variables: Partial<Variables> = {}): Promise<Record<string, unknown>> => settled(() => {
       const operation = /query\s+(\w+)/.exec(query)?.[1];
       const numbers = [...query.matchAll(/pullRequest\(number:\s*(\d+)\)/g)].map((match) => Number(match[1]));
       queries.push({ operation, ...variables, ...(numbers.length ? { numbers } : {}) });
@@ -129,23 +127,23 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
       const answer = operation === 'Budget' || operation === 'PullsUpdated' || operation === 'PullDetails' || operation === 'PullStatus' ? answers[operation] : undefined;
       if (!answer) throw new Error(`fake GitHub: unexpected GraphQL query ${operation}`);
       return { ...(/\brateLimit\b/.test(query) ? { rateLimit: rateLimit() } : {}), ...answer(variables, numbers) };
-    },
+    }),
   };
 
   /** What each of the collector's GraphQL queries answers, besides `rateLimit`. */
   const answers = {
-    Budget: (_variables: Partial<Variables>, _numbers: number[]) => ({}),
-    PullsUpdated(variables: Partial<Variables>, _numbers: number[]) {
+    Budget: () => ({}),
+    PullsUpdated: (variables: Partial<Variables>) => {
       const sorted = newestFirst(graphqlRepo(variables).pulls);
       const from = variables.after ? Number(variables.after) : 0;
       const nodes = sorted.slice(from, from + (variables.first ?? 100)).map((pull) => ({ number: pull.number, updatedAt: pull.updated_at }));
       const end = from + nodes.length;
       return { repository: { pullRequests: { pageInfo: { hasNextPage: end < sorted.length, endCursor: String(end) }, nodes } } };
     },
-    PullDetails(variables: Partial<Variables>, numbers: number[]) {
+    PullDetails: (variables: Partial<Variables>, numbers: number[]) => {
       return { repository: aliased(graphqlRepo(variables, true).pulls ?? [], numbers, asGraphql) };
     },
-    PullStatus(variables: Partial<Variables>, numbers: number[]) {
+    PullStatus: (variables: Partial<Variables>, numbers: number[]) => {
       const comments = (pull: FakePull) => ({ comments: { nodes: (pull.comments ?? []).slice(0, 100).map((body) => ({ body })) } });
       return { repository: aliased(graphqlRepo(variables).pulls ?? [], numbers, comments) };
     },
@@ -160,6 +158,23 @@ export function fakeGitHub(repos: Record<string, FakeRepo>, budgets: { core?: Li
   }
 
   return { octokit, requests, queries, budget };
+}
+
+/** `run`'s value as a promise and its throw as a rejection, as an `async` function makes them. */
+function settled<T>(run: () => T): Promise<T> {
+  return new Promise((resolve) => {
+    resolve(run());
+  });
+}
+
+/** A pull request as GitHub's REST API answers it: without the reviews, messages, comments and label events kept beside it. */
+function asRest(pull: FakePull): Partial<FakePull> {
+  const rest: Partial<FakePull> = { ...pull };
+  delete rest.reviews;
+  delete rest.commitMessages;
+  delete rest.comments;
+  delete rest.label_events;
+  return rest;
 }
 
 /** One aliased field per number, `p<number>`, as a query of several pull requests answers: each pull request as `shape` gives it, `null` when the repository has none by that number. */
@@ -198,8 +213,8 @@ function loopFactsOf(pull: FakePull) {
   return {
     baseRefName: pull.base?.ref ?? null,
     headRefName: pull.head?.ref ?? null,
-    isDraft: Boolean(pull.draft),
-    labels: { nodes: (pull.labels ?? []).map((label) => ({ name: label.name })) },
+    isDraft: pull.draft,
+    labels: { nodes: pull.labels.map((label) => ({ name: label.name })) },
     timelineItems: { nodes: (pull.label_events ?? []).slice(0, 100).map((event) => ({ createdAt: event.created_at, label: { name: event.name } })) },
   };
 }
@@ -246,25 +261,26 @@ export function fakeStore(repositories: FakeRepository[]) {
   };
 
   const store = {
-    async trackedRepositories() {
-      return state.repositories.flatMap(({ tracked, workspaceId, installationId, fullName, collectedUntil }) =>
-        tracked && installationId ? [{ workspaceId, installationId, fullName, collectedUntil: collectedUntil ?? null }] : [],
-      );
-    },
-    async savePull(...[row, reviews]: Parameters<PrStatsStore['savePull']>) {
+    trackedRepositories: () =>
+      settled(() =>
+        state.repositories.flatMap(({ tracked, workspaceId, installationId, fullName, collectedUntil }) =>
+          tracked && installationId ? [{ workspaceId, installationId, fullName, collectedUntil: collectedUntil ?? null }] : [],
+        ),
+      ),
+    savePull: (...[row, reviews]: Parameters<PrStatsStore['savePull']>) => settled(() => {
       state.writes += 1;
       state.pulls.set(`${row.workspace_id}|${row.repo}|${row.number}`, structuredClone(row));
       for (const review of reviews) {
         state.reviews.set(`${review.workspace_id}|${review.repo}|${review.number}|${review.reviewer}`, structuredClone(review));
       }
-    },
-    async updateRepository(workspaceId: string, fullName: string, patch: RepositoryPatch) {
+    }),
+    updateRepository: (workspaceId: string, fullName: string, patch: RepositoryPatch) => settled(() => {
       const repository = state.repositories.find((candidate) => candidate.workspaceId === workspaceId && candidate.fullName === fullName);
       if (!repository) throw new Error(`fake store: no repository ${workspaceId}/${fullName}`);
       if ('collected_at' in patch) repository.collectedAt = patch.collected_at;
       if ('collected_until' in patch) repository.collectedUntil = patch.collected_until;
       if ('collect_error' in patch) repository.collectError = patch.collect_error;
-    },
+    }),
   } satisfies PrStatsStore;
   return { state, ...store };
 }

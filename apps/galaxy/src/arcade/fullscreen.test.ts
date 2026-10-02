@@ -12,7 +12,9 @@ const toggle: FullscreenPress = { kind: 'toggle' };
  * A page as a browser shows it: every request is recorded, a granted one enters or leaves at once,
  * and `refuse` makes it refuse the way a browser does (a rejected promise, or a throw).
  */
-function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', api = true, form = 'handheld' as Form } = {}) {
+function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', api = true, form = 'handheld' }: {
+  enabled?: boolean; refuse?: null | 'reject' | 'throw'; api?: boolean; form?: Form;
+} = {}) {
   const asked: string[] = [];
   let clock = 0;
   const page: FullscreenPage & { fullscreenElement: unknown } = {

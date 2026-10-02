@@ -2,9 +2,10 @@
 import { propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const config: Command = {
-  async run(args: string[], { ctx, stdout }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout }: CommandIo): number => {
     const { positional } = parseArgs('config', args);
     if (positional.length > 1) throw usageError('usage: omni config [key.path]');
     const [key] = positional;
@@ -19,5 +20,5 @@ export const config: Command = {
     }
     println(stdout, typeof value === 'string' ? value : JSON.stringify(value, null, 2));
     return 0;
-  },
+  }),
 };

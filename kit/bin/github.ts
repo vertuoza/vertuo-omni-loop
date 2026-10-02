@@ -67,9 +67,7 @@ export function ghClient({
 export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = process.env }: { exec?: ExecText; env?: Env } = {}): Env | undefined {
   const user = ctx.config.github.user;
   if (!user) return undefined;
-  const token = String(
-    exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }),
-  ).trim();
+  const token = exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   return { ...env, GH_TOKEN: token };
 }
 
@@ -81,7 +79,7 @@ export function githubClientFor(
   ctx: GithubContext,
   { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }: { repo?: string | null; issue: number; exec?: ExecText; env?: Env },
 ): CommentClient {
-  const [owner, name] = String(repo ?? '').split('/');
+  const [owner, name] = (repo ?? '').split('/');
   let resolved: Env | undefined;
   let fetched = false;
   const lazyEnv = () => {

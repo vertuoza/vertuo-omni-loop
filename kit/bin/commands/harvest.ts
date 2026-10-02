@@ -45,7 +45,7 @@ export const harvest: Command = {
       println(stderr, `omni harvest: pull request #${number} merged into ${pr.base}, not into ${defaultBranch} — only a feature pull request is harvested.`);
       return 1;
     }
-    const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number ?? number, ...(pr.url ? { url: pr.url } : {}) };
+    const merge: Merge = { by: pr.mergedBy ?? '', at: pr.mergedAt ?? '', pr: pr.number, ...(pr.url ? { url: pr.url } : {}) };
 
     const prepared = prepareHarvest({ ctx, prd, merge });
     if (!prepared.ok) {
@@ -60,7 +60,7 @@ export const harvest: Command = {
     const result = finishHarvest({ ctx, prepared, classified, merge, date: today() });
     applyHarvestEdits({ root: ctx.root, edits: result.edits });
 
-    const lines = [`omni harvest — PRD ${prd}, pull request #${merge.pr} merged by @${merge.by} on ${String(merge.at).slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ''}:`];
+    const lines = [`omni harvest — PRD ${prd}, pull request #${merge.pr} merged by @${merge.by} on ${merge.at.slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ''}:`];
     if (prepared.settled.length > 0) {
       const open = prepared.settled.filter((entry) => entry.from === 'open').length;
       const drift = prepared.settled.length - open;

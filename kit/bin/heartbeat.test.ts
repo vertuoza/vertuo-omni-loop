@@ -3,8 +3,10 @@
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../test/fake-ask-server.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { HEARTBEAT_EVERY_MS } from '../lib/ask/heartbeat.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
@@ -21,9 +23,10 @@ function memoryTokens(entries: Record<string, Tokens> = {}) {
 }
 
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
 
 const configText = (url: string | null, { dossier = true } = {}) =>
@@ -31,6 +34,7 @@ const configText = (url: string | null, { dossier = true } = {}) =>
 
 async function signedIn(options: Parameters<typeof startFakeAskServer>[0] = {}, { dossier = true, askUrl }: { dossier?: boolean; askUrl?: string | null } = {}) {
   server = await startFakeAskServer(options);
+  started.push(server);
   const repo = makeRepo({
     git: true,
     files: {
@@ -66,7 +70,7 @@ describe('omni heartbeat', () => {
     await beat(root, { tokens, now: () => t0 + HEARTBEAT_EVERY_MS });
     expect(heartbeatCalls()).toHaveLength(2);
     await beat(root, { tokens, now: () => t0 + HEARTBEAT_EVERY_MS + 1, session: 'claude-b' });
-    expect(heartbeatCalls().map((call) => call.body.claudeSessionId)).toEqual(['claude-a', 'claude-a', 'claude-b']);
+    expect(heartbeatCalls().map((call) => dig(call.body, 'claudeSessionId'))).toEqual(['claude-a', 'claude-a', 'claude-b']);
   });
 
   it('sends exactly claudeSessionId, repo and work, with the bearer token', async () => {
@@ -74,15 +78,16 @@ describe('omni heartbeat', () => {
     spawnSync('git', ['checkout', '-q', '-b', 'feat/play-while-working--s1'], { cwd: root });
     await beat(root, { tokens });
     const [call] = heartbeatCalls();
-    expect(call!.authorization).toBe('Bearer access-1');
-    expect(call!.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: { kind: 'prd', number: 757 } });
+    assertDefined(call, 'the heartbeat');
+    expect(call.authorization).toBe('Bearer access-1');
+    expect(call.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: { kind: 'prd', number: 757 } });
     expect(server.heartbeats).toHaveLength(1);
   });
 
   it('sends work: null on a branch the loop does not know', async () => {
     const { root, tokens } = await signedIn();
     await beat(root, { tokens });
-    expect(heartbeatCalls()[0]!.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: null });
+    expect(heartbeatCalls()[0]?.body).toEqual({ claudeSessionId: 'claude-a', repo: 'acme/widgets', work: null });
   });
 
   it('--end sends ended: true once, with work null, inside the window too', async () => {
@@ -90,7 +95,7 @@ describe('omni heartbeat', () => {
     spawnSync('git', ['checkout', '-q', '-b', 'feat/play-while-working'], { cwd: root });
     await beat(root, { tokens });
     expect(await beat(root, { tokens, args: ['--end'] })).toEqual({ code: 0, out: '', err: '' });
-    expect(heartbeatCalls().map((call) => call.body)).toEqual([
+    expect(heartbeatCalls().map((call): unknown => call.body)).toEqual([
       { claudeSessionId: 'claude-a', repo: 'acme/widgets', work: { kind: 'prd', number: 757 } },
       { claudeSessionId: 'claude-a', repo: 'acme/widgets', work: null, ended: true },
     ]);

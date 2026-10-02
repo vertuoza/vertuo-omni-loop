@@ -18,6 +18,7 @@ import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } 
 import type { Context } from '../../lib/context.ts';
 import { githubEnv } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni plan check <prd> | omni plan moved <prd> [--json]';
 
@@ -80,7 +81,7 @@ function moved(rest: string[], { ctx, stdout, exec, env }: Omit<CommandIo, 'stde
 }
 
 export const plan: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'moved') return moved(rest, { ctx, stdout, exec, env });
     if (sub !== 'check') throw usageError(USAGE);
@@ -121,5 +122,5 @@ export const plan: Command = {
       formatPass(`omni plan check — PRD ${prd}: ${slices.length} slice(s), all territories and blocks well-formed.`),
     );
     return 0;
-  },
+  }),
 };

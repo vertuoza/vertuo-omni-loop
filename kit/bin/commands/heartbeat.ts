@@ -31,7 +31,7 @@ import { findRoot } from '../../lib/init/repo.ts';
 /** `fetch` held to one deadline shared by every request of the call, the renewal included. */
 function withDeadline(fetch: Fetch, ms: number): Fetch {
   const deadline = AbortSignal.timeout(ms);
-  return (url: string, init: RequestInit = {}) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
+  return (url: string, init: RequestInit) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline });
 }
 
 /** Where this checkout's heartbeats go, or `null` when dossiers are off or this computer is not signed in. */
@@ -39,7 +39,7 @@ function targetOf(cwd: string, exec: Exec, tokens: TokenStore | undefined) {
   const root = findRoot(cwd, exec);
   const config = loadConfig(root);
   const toggle = dossierSwitch(config);
-  const repo = config.repo?.slug;
+  const repo = config.repo.slug;
   if (!toggle.on || !repo) return null;
   const host = credentialsHost(toggle.askUrl);
   const store = tokens ?? homeTokens();

@@ -17,8 +17,8 @@ export function Sprite({ name, scale = 1, tint, flip, animate, className, title 
   const flat = useContext(Stripes);
   useEffect(() => {
     if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = window.setInterval(() => setFrame((f) => 1 - f), 420);
-    return () => window.clearInterval(id);
+    const id = window.setInterval(() => { setFrame((f) => 1 - f); }, 420);
+    return () => { window.clearInterval(id); };
   }, [animate]);
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');

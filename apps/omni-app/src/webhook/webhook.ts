@@ -140,7 +140,7 @@ export async function receiveWebhook({
     try {
       await forward(stageEvent);
     } catch (error) {
-      console.error(`stage event: could not forward — ${messageOf(error)}`);
+      console.error(`stage event: could not forward — ${String(messageOf(error))}`);
     }
   }
 
@@ -150,7 +150,7 @@ export async function receiveWebhook({
   try {
     await send(events);
   } catch (error) {
-    return reply(502, `could not send the event: ${messageOf(error)}`);
+    return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
   return reply(200, `sent ${events.length}`);
 }
@@ -226,7 +226,10 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
  * request itself, and decides in its step "qualify" whether it is a feature PR.
  */
 export function toHarvestRequests(event: string, payload: unknown): HarvestRequest[] {
-  return toRetroRequests(event, payload).map(({ data: { mergeSha, mergedAt, ...data } }) => ({ name: HARVEST_EVENT, data }));
+  return toRetroRequests(event, payload).map(({ data: { installationId, owner, repo, repository, prNumber } }) => ({
+    name: HARVEST_EVENT,
+    data: { installationId, owner, repo, repository, prNumber },
+  }));
 }
 
 /** The canon buttons' identifiers. */
@@ -302,10 +305,12 @@ async function verified(secret: string, body: string, signature: string): Promis
   }
 }
 
-function header(headers: HeadersIn, name: string): string | undefined {
+/** One header, by its lower-case name: a caller that hands no headers at all reads as none. */
+function header(headers: HeadersIn | null | undefined, name: string): string | undefined {
   if (headers instanceof Headers) return headers.get(name) ?? undefined;
-  const key = Object.keys(headers ?? {}).find((k) => k.toLowerCase() === name);
-  return key === undefined ? undefined : headers[key];
+  const fields = headers ?? {};
+  const key = Object.keys(fields).find((k) => k.toLowerCase() === name);
+  return key === undefined ? undefined : fields[key];
 }
 
 function reply(status: number, body: string): WebhookResponse {
