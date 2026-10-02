@@ -3,6 +3,7 @@ import type { PersonaFields } from './personas';
 import {
   COULD_NOT_SAVE, databasePersonas, demoPersonasPort, GONE, INVALID_FIELD, NOT_MEMBER, personaRefusalOf,
 } from './personas-store';
+import { sure } from '../arcade/sure';
 
 // Settings → Business → Personas' calls (PRD 799 s3): the persona functions, called as the signed-in
 // person (stubbed: no test calls Supabase), their refusals as the section says them, and the demo's
@@ -16,11 +17,11 @@ function db(answers: Array<{ data?: unknown; error?: unknown } | Error>) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   return {
     calls,
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
       const next = answers.shift() ?? { data: null };
-      if (next instanceof Error) throw next;
-      return { data: next.data ?? null, error: next.error ?? null };
+      if (next instanceof Error) return Promise.reject(next);
+      return Promise.resolve({ data: next.data ?? null, error: next.error ?? null });
     },
   };
 }
@@ -43,9 +44,9 @@ describe('the persona functions', () => {
     await port.remove('pe-1');
     await port.restore('pe-1');
     expect(d.calls.map(([fn]) => fn)).toEqual(['persona_edit', 'persona_delete', 'persona_restore']);
-    expect(d.calls[0]![1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
-    expect(d.calls[1]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
-    expect(d.calls[2]![1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(sure(d.calls[0], 'd.calls[0]')[1]).toMatchObject({ p_workspace: 'ws-1', p_persona: 'pe-1', p_name: 'Marc', p_avatar: AVATAR });
+    expect(sure(d.calls[1], 'd.calls[1]')[1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
+    expect(sure(d.calls[2], 'd.calls[2]')[1]).toEqual({ p_workspace: 'ws-1', p_persona: 'pe-1' });
   });
 
   it('says each refusal plainly: not a member, gone, the invalid field, anything else', async () => {

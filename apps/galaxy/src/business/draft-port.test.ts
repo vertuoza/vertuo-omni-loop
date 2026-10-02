@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { databaseDraft, demoDraftPort, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
 import { COULD_NOT_SAVE, NOT_MEMBER } from './store';
+import { sure } from '../arcade/sure';
+import { sentOf } from './json.fake';
 
 // The draft's calls from Settings › Business (PRD 774 s3): start a draft through its route, read the
 // latest draft row and the claims with their receipts again, add and remove a web page through the
@@ -28,18 +30,18 @@ function db(tables: Record<string, Answer>, rpc: Answer = {}) {
     reads,
     calls,
     from: (table: string) => ({ select: (cols: string) => query(table, cols) }),
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push([fn, args]);
-      return { data: rpc.data ?? null, error: rpc.error ?? null };
+      return Promise.resolve({ data: rpc.data ?? null, error: rpc.error ?? null });
     },
   } as unknown as DraftDb & { reads: typeof reads; calls: typeof calls };
 }
 
 function fetcher(status: number, body: unknown) {
   const sent: Array<{ url: string; init: RequestInit }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
+  const fetch = ((url: string, init: RequestInit) => {
     sent.push({ url, init });
-    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }));
   }) as unknown as typeof globalThis.fetch;
   return { sent, fetch };
 }
@@ -52,14 +54,14 @@ describe('starting a draft', () => {
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).start()).toEqual({
       ok: true, draft: { id: 'd-1', kind: 'draft', state: 'running', counts: {}, scanned: [], reason: null },
     });
-    expect(f.sent[0]!.url).toBe(DRAFT_ROUTE);
-    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1' });
+    expect(sure(f.sent[0], 'f.sent[0]').url).toBe(DRAFT_ROUTE);
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1' });
   });
 
   it('shows the route\'s refusal, and a plain one when the network fails', async () => {
     expect(await databaseDraft(db({}), 'ws-1', fetcher(403, { error: 'Only a member of the workspace can change its business.' }).fetch).start())
       .toEqual({ ok: false, message: 'Only a member of the workspace can change its business.' });
-    const broken = (async () => { throw new Error('offline'); }) as unknown as typeof globalThis.fetch;
+    const broken = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
     expect(await databaseDraft(db({}), 'ws-1', broken).start()).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 });
@@ -90,7 +92,7 @@ describe('web pages', () => {
     const f = fetcher(201, { source: { id: 'p-1', url: 'https://example.com/pricing', added_at: '2026-09-30T10:00:00Z' } });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).addPage('https://example.com/pricing')).toEqual({ ok: true, page: { id: 'p-1', url: 'https://example.com/pricing' } });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'POST' } });
-    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1', url: 'https://example.com/pricing' });
     expect(await databaseDraft(db({}), 'ws-1', fetcher(400, { error: 'Three web pages at most.' }).fetch).addPage('https://d.example'))
       .toEqual({ ok: false, message: 'Three web pages at most.' });
   });
@@ -99,7 +101,7 @@ describe('web pages', () => {
     const f = fetcher(200, { removed: 'p-1' });
     expect(await databaseDraft(db({}), 'ws-1', f.fetch).removePage('p-1')).toEqual({ ok: true });
     expect(f.sent[0]).toMatchObject({ url: SOURCES_ROUTE, init: { method: 'DELETE' } });
-    expect(JSON.parse(String(f.sent[0]!.init.body))).toEqual({ workspace: 'ws-1', source: 'p-1' });
+    expect(sentOf(sure(f.sent[0], 'f.sent[0]').init.body)).toEqual({ workspace: 'ws-1', source: 'p-1' });
   });
 });
 

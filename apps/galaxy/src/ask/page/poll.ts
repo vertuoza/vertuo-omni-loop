@@ -17,7 +17,7 @@ export function poll(tick: () => Promise<boolean>, doc: VisibilityDoc, every = P
   let stopped = false;
 
   const later = () => {
-    if (!stopped && timer === null) timer = setTimeout(run, every);
+    if (!stopped && timer === null) timer = setTimeout(() => void run(), every);
   };
   async function run() {
     timer = null;

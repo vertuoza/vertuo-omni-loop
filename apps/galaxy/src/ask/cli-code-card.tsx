@@ -32,7 +32,7 @@ export function CliSignInCard({ supabase, returnPath, error }: { supabase: Supab
           sign-in of its own, and this tab can be closed once it says so.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => void signIn()} disabled={busy}>
           {busy ? 'Opening GitHub…' : problem ? 'Try again with GitHub' : 'Sign in with GitHub'}
         </button>
       </section>

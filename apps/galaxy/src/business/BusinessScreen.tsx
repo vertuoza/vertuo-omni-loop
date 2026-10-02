@@ -130,7 +130,7 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
         </Notice>
       );
     case 'business': {
-      const { kind: _, agents, questions, ...props } = view;
+      const { agents, questions, ...props } = view;
       return (
         <>
           <BusinessPage {...props} />
