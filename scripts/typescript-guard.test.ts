@@ -2,7 +2,7 @@
 // opens with `@ts-nocheck`, a JavaScript source file, and an `any` or an `as` in source on a line
 // with no `// ts-allow: <reason>` comment (or one with no reason), in every folder. And the ratchet
 // (PRD 942): each area's count of `ts-allow` lines in source equals its ceiling in
-// kit/test/typescript-ceilings.json, failing above it and below it. The rules are proven on
+// scripts/typescript-ceilings.json, failing above it and below it. The rules are proven on
 // fixtures first, then the guard runs on every file git tracks, dot folders included.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 //   export alias, nor a non-null assertion (settled item s24-02).
 // - `empty-reason`: a `// ts-allow:` comment that gives no reason.
 
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 const one = (path: string, text: string): Violation[] => findViolations([{ path, text }]);
 const rules = (path: string, text: string): string[] => one(path, text).map((v) => v.rule);
@@ -131,33 +131,33 @@ describe('the ceilings, on fixtures', () => {
 
   it('fails an area above its ceiling, saying to remove one or raise it and say why', () => {
     expect(ceilingProblems(files, ceilings({ kit: 1 }))).toEqual([
-      'kit: 2 casts, ceiling 1 — remove one, or raise the ceiling in kit/test/typescript-ceilings.json and say why in the pull request',
+      'kit: 2 casts, ceiling 1 — remove one, or raise the ceiling in scripts/typescript-ceilings.json and say why in the pull request',
     ]);
   });
 
   it('fails an area below its ceiling, naming the ceiling to write', () => {
     expect(ceilingProblems(files, ceilings({ 'apps/galaxy': 140 }))).toEqual([
-      'apps/galaxy: 1 casts, ceiling 140 — lower the ceiling to 1 in kit/test/typescript-ceilings.json',
+      'apps/galaxy: 1 casts, ceiling 140 — lower the ceiling to 1 in scripts/typescript-ceilings.json',
     ]);
   });
 
   it('fails an area missing from the ceilings file, naming it', () => {
     const text = JSON.stringify({ kit: 2, game: 0, scripts: 0, packages: 0, 'apps/galaxy': 1 });
-    expect(ceilingProblems(files, text)).toEqual(['apps/omni-app: no ceiling in kit/test/typescript-ceilings.json']);
+    expect(ceilingProblems(files, text)).toEqual(['apps/omni-app: no ceiling in scripts/typescript-ceilings.json']);
   });
 
   it('fails a ceilings file that does not read, naming the field', () => {
     expect(ceilingProblems(files, ceilings({ packages: 'three' }))).toEqual([
-      'kit/test/typescript-ceilings.json: packages must be a whole number of casts, not "three"',
+      'scripts/typescript-ceilings.json: packages must be a whole number of casts, not "three"',
     ]);
     expect(ceilingProblems(files, ceilings({ game: -1 }))).toEqual([
-      'kit/test/typescript-ceilings.json: game must be a whole number of casts, not -1',
+      'scripts/typescript-ceilings.json: game must be a whole number of casts, not -1',
     ]);
     expect(ceilingProblems(files, ceilings({ apps: 3 }))).toEqual([
-      'kit/test/typescript-ceilings.json: apps is no area (kit, game, scripts, packages, apps/omni-app, apps/galaxy)',
+      'scripts/typescript-ceilings.json: apps is no area (kit, game, scripts, packages, apps/omni-app, apps/galaxy)',
     ]);
-    expect(ceilingProblems(files, '{ "kit": ')).toEqual(['kit/test/typescript-ceilings.json: not JSON']);
-    expect(ceilingProblems(files, '[1]')).toEqual(['kit/test/typescript-ceilings.json: not an object of area: ceiling']);
+    expect(ceilingProblems(files, '{ "kit": ')).toEqual(['scripts/typescript-ceilings.json: not JSON']);
+    expect(ceilingProblems(files, '[1]')).toEqual(['scripts/typescript-ceilings.json: not an object of area: ceiling']);
   });
 });
 
@@ -196,7 +196,7 @@ const GENERATED = [/^supabase\/database\.types\.ts$/];
 const TEST = [/\.(?:test|spec)\.[cm]?tsx?$/, /(?:^|\/)test\//];
 
 /** The committed ceilings, one per area: the ratchet (PRD 942). */
-const CEILINGS_FILE = 'kit/test/typescript-ceilings.json';
+const CEILINGS_FILE = 'scripts/typescript-ceilings.json';
 
 /** The areas a ceiling holds: a file counts toward the first whose folder it sits in. */
 const AREAS = ['kit', 'game', 'scripts', 'packages', 'apps/omni-app', 'apps/galaxy'] as const;
