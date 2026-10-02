@@ -10,7 +10,7 @@ const STORED = { stored: true, lastFour: '1a2b', setAt: '2026-09-30T10:00:00Z' }
 function stub(res: Response | Error) {
   const calls: Array<{ url: string; method: string; body: unknown }> = [];
   const fetch = ((url: string, init: RequestInit) => {
-    calls.push({ url, method: String(init.method), body: JSON.parse(String(init.body)) });
+    calls.push({ url, method: String(init.method), body: JSON.parse(typeof init.body === 'string' ? init.body : '') as unknown });
     if (res instanceof Error) return Promise.reject(res);
     return Promise.resolve(res);
   }) as unknown as typeof globalThis.fetch;

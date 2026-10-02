@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sure } from '../../arcade/sure';
 
@@ -8,20 +9,21 @@ vi.mock('server-only', () => ({}));
 // stands alone, so Waiting for you arrives while the player row is still being read, and a read that
 // fails leaves only its own part 'unreadable'.
 const reads = vi.hoisted(() => ({
-  me: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve({ display_name: 'ADA', github_login: 'Ada-GH', team: 'beaver', hero: null })),
-  fleets: vi.fn((..._args: unknown[]) => Promise.resolve([{ name: 'beaver', label: 'BEAVER', color: '#d08a4a' }])),
-  galaxy: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve({ heroes: [], teams: [] })),
-  board: vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve('the board')),
-  supabaseReads: vi.fn((..._args: unknown[]) => 'the reads'),
+  me: vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({ display_name: 'ADA', github_login: 'Ada-GH', team: 'beaver', hero: null })),
+  fleets: vi.fn<(...args: unknown[]) => Promise<{ name: string; label: string; color: string }[]>>(() => Promise.resolve([{ name: 'beaver', label: 'BEAVER', color: '#d08a4a' }])),
+  galaxy: vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({ heroes: [], teams: [] })),
+  board: vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve('the board')),
+  supabaseReads: vi.fn<(...args: unknown[]) => string>(() => 'the reads'),
 }));
 vi.mock('../../data/load-galaxy', () => ({ loadMe: reads.me, loadFleets: reads.fleets, loadGalaxy: reads.galaxy }));
 vi.mock('../board/load', () => ({ loadBoard: reads.board, supabaseReads: reads.supabaseReads }));
 
 const { homeParts } = await import('./home');
 
-const DB = {} as SupabaseClient;
+const DB = {} as SupabaseClient<Database>;
 const USER = { id: 'u-ada', email: 'ada@vertuoza.com', user_metadata: {}, identities: [] } as unknown as User;
 const NOW = new Date('2026-09-28T10:00:00Z');
+const A_STRING: unknown = expect.any(String);
 const QUESTION = { kind: 'question', id: 'r1', sessionTitle: 's', question: 'q', askedAt: 0, sharedBy: null } as const;
 
 /** A read that stays pending until `resolve` is called. */
@@ -39,7 +41,7 @@ describe('Home\'s parts, each on its own', () => {
     const me = pending<unknown>();
     reads.me.mockReturnValueOnce(me.read);
     const parts = homeParts(DB, USER, 'w1', '7d', NOW, () => Promise.resolve([QUESTION]));
-    expect(await parts.waiting).toEqual({ count: 1, href: expect.any(String) });
+    expect(await parts.waiting).toEqual({ count: 1, href: A_STRING });
     me.resolve(null);
   });
 

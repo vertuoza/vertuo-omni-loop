@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from '../../data/galaxy.fake';
 import type { PartInput } from '../part';
 import { seasonBounds } from '../season';
@@ -75,7 +76,7 @@ function world(arrange: (w: { game: ReturnType<typeof fakeGalaxyDb>; ask: Return
 function inputOf(person: FakeUser, w: ReturnType<typeof world>, over: Partial<PartInput> = {}): PartInput {
   const now = over.now ?? NOW;
   return {
-    db: w.ask.client(person) as unknown as SupabaseClient,
+    db: w.ask.client(person) as unknown as SupabaseClient<Database>,
     workspace: VERTUOZA, userId: person.id, login: person.github?.login.toLowerCase() ?? null, team: null,
     now, season: seasonBounds(now),
     galaxy: () => Promise.reject(new Error('Waiting for you never reads the galaxy')),

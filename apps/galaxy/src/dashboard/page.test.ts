@@ -7,15 +7,11 @@ import { sure } from '../arcade/sure';
 // it reads the period from the query (PRD 572), decides the situation once, top to bottom, and hands
 // it to the screen, with the query for the period switch to keep. PRD 657 s4: a member's dashboard
 // streams, each part in its own block, once the workspace is known.
-const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
-  user: null as null | { id: string; email: string },
-  load: { kind: 'no-workspace' } as unknown,
-  workspace: null as null | Error | { id: string },
-}));
-const homeParts = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ parts: 'streamed' })));
+type Given = { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string; email: string }; load: unknown; workspace: null | Error | { id: string } };
+const given = vi.hoisted((): Given => ({ mode: 'supabase', user: null, load: { kind: 'no-workspace' }, workspace: null }));
+const homeParts = vi.hoisted(() => vi.fn<(...args: unknown[]) => { parts: string }>(() => ({ parts: 'streamed' })));
 const demoDashboard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ period, demo: now.toISOString() })));
-const loadDashboard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));
+const loadDashboard = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(given.load)));
 const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id, email: given.user.email } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));

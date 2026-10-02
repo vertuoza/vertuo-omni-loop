@@ -124,7 +124,7 @@ describe('openKey', () => {
 });
 
 describe('decide', () => {
-  function deps({ mode = 'on' as JevMode, key = { kind: 'key', key: 'k' } as JevKey, outcome = answered('blue') as JevOutcome | Error, settingsFail = false, logFail = false } = {}) {
+  function deps({ mode = 'on', key = { kind: 'key', key: 'k' }, outcome = answered('blue'), settingsFail = false, logFail = false }: { mode?: JevMode; key?: JevKey; outcome?: JevOutcome | Error; settingsFail?: boolean; logFail?: boolean } = {}) {
     const asked: Array<{ key: string; state: unknown; question: JevQuestion }> = [];
     const logged: Array<[string, JevCall]> = [];
     const d: JevDecideDeps = {

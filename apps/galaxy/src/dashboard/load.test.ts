@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, LedgerEvent } from '@omni/galaxy';
 import { sure } from '../arcade/sure';
 
@@ -10,8 +11,8 @@ vi.mock('server-only', () => ({}));
 // with the page's galaxy (supabaseReads) and drawn with Home's request (loadBoard); boardOf, which
 // draws a board from reads that all failed, is the real one.
 const parts = vi.hoisted(() => ({
-  waiting: vi.fn((_input: unknown): Promise<unknown> => Promise.resolve('the waiting')),
-  board: vi.fn((_reads: { galaxy: () => Promise<GalaxyView> }, _request: unknown): Promise<unknown> => Promise.resolve('the board')),
+  waiting: vi.fn<(input: unknown) => Promise<unknown>>(() => Promise.resolve('the waiting')),
+  board: vi.fn<(reads: { galaxy: () => Promise<GalaxyView> }, request: unknown) => Promise<unknown>>(() => Promise.resolve('the board')),
   reads: vi.fn((_db: unknown, _workspace: string, galaxy: () => Promise<GalaxyView>) => ({ galaxy })),
 }));
 vi.mock('./counts/load', async (actual) => ({ ...(await actual<typeof import('./counts/load')>()), loadWaiting: parts.waiting }));
@@ -64,7 +65,7 @@ function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {})
 
 async function dashboardOf(person: FakeUser, arrange?: (w: ReturnType<typeof fakeGalaxyDb>) => void, period: '7d' | '30d' | 'season' = '7d') {
   const w = world(arrange);
-  const db = w.client(person) as unknown as SupabaseClient;
+  const db = w.client(person) as unknown as SupabaseClient<Database>;
   const load = await loadDashboard(db, authUser(person) as unknown as User, period, NOW);
   return { load, w, reads: w.calls.filter((c) => c.kind === 'from') };
 }
@@ -196,7 +197,7 @@ describe('one read failing', () => {
 
   it('Waiting for you from the questions the layout read (PRD 657): counted from them, the ask tables not read again', async () => {
     const w = world();
-    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
     const questions = vi.fn(() => Promise.resolve([
       { kind: 'question' as const, id: 'r1', sessionTitle: 'feat/ada', question: 'Which storage?', askedAt: 1, sharedBy: null },
       { kind: 'question' as const, id: 'r2', sessionTitle: 'feat/both', question: 'Who reads it?', askedAt: 2, sharedBy: 'BOTH' },
@@ -209,7 +210,7 @@ describe('one read failing', () => {
 
   it('Waiting for you from the layout\'s questions: their read failing reads unreadable alone', async () => {
     const w = world();
-    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
     const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, () => Promise.reject(new Error('questions are down')));
     expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: 'unreadable', board: 'the board' } });
     expect(errors().some((e) => e.includes('questions are down'))).toBe(true);

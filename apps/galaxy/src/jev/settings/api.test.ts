@@ -55,7 +55,7 @@ describe('POST /api/jev/key', () => {
     const { deps: d, tested, saved } = deps();
     const res = await saveKeyRoute(post({ workspace: W, key: `  ${KEY} ` }), d);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body: unknown = await res.json();
     expect(body).toEqual({ key: { stored: true, lastFour: '1a2b', setAt: '2026-09-30T10:00:00Z' } });
     expect(JSON.stringify(body)).not.toContain(KEY);
     expect(tested).toEqual([KEY]);
@@ -137,11 +137,12 @@ describe('the test call', () => {
   it('asks a Noul about a fixed text, nothing of the workspace\'s', async () => {
     const bodies: unknown[] = [];
     const fetch = ((_url: string, init: RequestInit) => {
-      bodies.push(JSON.parse(String(init.body)));
+      bodies.push(JSON.parse(typeof init.body === 'string' ? init.body : '') as unknown);
       return Promise.resolve(Response.json({ model: 'jev-1.13.0', answers: { q: { type: 'noul', noul: 0.4 } } }));
     }) as unknown as typeof globalThis.fetch;
     expect(await keyCheck(KEY, fetch)).toMatchObject({ kind: 'answered' });
-    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: expect.any(String), questions: { q: { type: 'noul', instructions: KEY_CHECK.type === 'noul' ? KEY_CHECK.statement : '' } } }]);
+    const A_STRING: unknown = expect.any(String);
+    expect(bodies).toEqual([{ model: 'jev-1.13.0', state: A_STRING, questions: { q: { type: 'noul', instructions: KEY_CHECK.type === 'noul' ? KEY_CHECK.statement : '' } } }]);
   });
 
   it('says why in plain words', () => {

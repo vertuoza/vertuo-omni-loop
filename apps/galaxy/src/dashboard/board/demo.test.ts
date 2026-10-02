@@ -30,7 +30,8 @@ describe('the demo board', () => {
   for (const period of ['7d', '30d', 'season'] as const) {
     it(`shows every part of the workspace's board over ${period}`, () => {
       const board = demoBoard(galaxy, { scope: { kind: 'workspace' }, people: { kind: 'workspace' }, period, now: NOW });
-      for (const value of [board.merges, board.prdEvents, board.repositories, board.people, board.fleets, ...Object.values(board.tiles)]) {
+      const tiles: Record<string, unknown> = { ...board.tiles };
+      for (const value of [board.merges, board.prdEvents, board.repositories, board.people, board.fleets, ...Object.values(tiles)]) {
         expect(value).not.toBe('unreadable');
       }
       expect(board.tiles.prs).toBeGreaterThan(0);

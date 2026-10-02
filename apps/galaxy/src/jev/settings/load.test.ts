@@ -3,12 +3,13 @@ import { sure } from '../../arcade/sure';
 
 vi.mock('server-only', () => ({}));
 
-const read = vi.hoisted(() => ({
-  workspace: (() => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+const read = vi.hoisted((): { workspace: () => Promise<unknown> } => ({
+  workspace: () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} }),
 }));
 vi.mock('../../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { loadJevPage } from './load';
 
 // Settings › Jev's read (PRD 812 s1, s2): the workspace, the caller's role, the key's status and the
@@ -17,7 +18,8 @@ import { loadJevPage } from './load';
 
 const USER = { id: 'u-1' } as User;
 
-type Answer = { data?: unknown; error?: { message: string; code?: string } | null } | Error;
+type Read = { data?: unknown; error?: { message: string; code?: string } | null };
+type Answer = Read | Error;
 
 const DECISION_ROWS = [{ decision: 'question-category', mode: 'shadow', threshold: '0.50', confidence_floor: '0.40' }];
 const NOW = new Date('2026-09-30T12:00:00Z');
@@ -27,11 +29,11 @@ const CALL_ROWS = [
 ];
 
 function db({
-  owner = { data: true } as Answer,
-  status = { data: [{ stored: true, last_four: '1a2b', set_at: '2026-09-30T10:00:00Z' }] } as Answer,
-  decisions = { data: DECISION_ROWS } as { data?: unknown; error?: { message: string; code?: string } | null },
-  calls: callsIn = { data: CALL_ROWS } as { data?: unknown; error?: { message: string; code?: string } | null },
-} = {}) {
+  owner = { data: true },
+  status = { data: [{ stored: true, last_four: '1a2b', set_at: '2026-09-30T10:00:00Z' }] },
+  decisions = { data: DECISION_ROWS },
+  calls: callsIn = { data: CALL_ROWS },
+}: { owner?: Answer; status?: Answer; decisions?: Read; calls?: Read } = {}) {
   const calls: unknown[] = [];
   return {
     calls,
@@ -59,7 +61,7 @@ function db({
           },
         }),
       }),
-    } as unknown as SupabaseClient,
+    } as unknown as SupabaseClient<Database>,
   };
 }
 

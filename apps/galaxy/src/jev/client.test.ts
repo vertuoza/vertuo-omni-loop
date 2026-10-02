@@ -24,7 +24,7 @@ type Call = { url: string; init: RequestInit; body: Record<string, unknown> };
 function stub(...replies: Array<Response | (() => Promise<Response>)>) {
   const calls: Call[] = [];
   const fetch = (async (url: string, init: RequestInit) => {
-    calls.push({ url, init, body: JSON.parse(String(init.body)) });
+    calls.push({ url, init, body: JSON.parse(typeof init.body === 'string' ? init.body : '') as Record<string, unknown> });
     const next = replies[Math.min(calls.length - 1, replies.length - 1)];
     return typeof next === 'function' ? next() : next;
   }) as unknown as typeof globalThis.fetch;
@@ -78,7 +78,9 @@ describe('the request', () => {
     const token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
     const { fetch, calls } = stub(noul(0.1));
     await askJev({ key: KEY, state: { body: `leaked ${token}` }, question: { type: 'noul', statement: `uses ${token}` }, fetch });
-    expect(String(sure(calls[0], 'calls[0]').init.body)).not.toContain(token);
+    const sent = sure(calls[0], 'calls[0]').init.body;
+    if (typeof sent !== 'string') throw new Error('the body sent was not text');
+    expect(sent).not.toContain(token);
     expect(sure(calls[0], 'calls[0]').body.state).toEqual({ body: 'leaked [masked]' });
   });
 

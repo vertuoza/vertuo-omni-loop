@@ -22,7 +22,7 @@ type Op = 'eq' | 'in' | 'gte' | 'lt';
 export type AskRead = { table: AskTable; filters: Array<{ column: string; op: Op; value: unknown }>; counting: boolean };
 
 const ASK_TABLES: readonly AskTable[] = ['ask_sessions', 'ask_rounds', 'ask_shares'];
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+const clone = <T>(value: T): T => structuredClone(value);
 
 /** Instants as instants; a range never holds a null. */
 const time = (value: unknown) => (typeof value === 'string' ? Date.parse(value) : Number.NaN);
@@ -63,7 +63,7 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
       this.me = me;
     }
 
-    select(_columns = '*', options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
+    select(_columns?: string, options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
       this.counting = options.count !== undefined;
       this.head = options.head ?? false;
       return this;

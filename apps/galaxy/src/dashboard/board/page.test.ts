@@ -5,13 +5,10 @@ import type { WorkspaceScreenProps } from './WorkspaceScreen';
 
 // /app/workspace (app/app/workspace/page.tsx), called as the server calls it, with its data sources
 // stubbed (PRD 572): it reads the period from the query and decides the situation once.
-const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
-  user: null as null | { id: string },
-  load: { kind: 'no-workspace' } as unknown,
-}));
+type Given = { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string }; load: unknown };
+const given = vi.hoisted((): Given => ({ mode: 'supabase', user: null, load: { kind: 'no-workspace' } }));
 const demoWorkspaceBoard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ kind: 'board', name: 'demo', board: { period, at: now.toISOString() } })));
-const loadWorkspaceBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve(given.load)));
+const loadWorkspaceBoard = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(given.load)));
 const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));

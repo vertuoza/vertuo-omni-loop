@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sure } from '../../arcade/sure';
 
@@ -46,7 +47,7 @@ const GALAXY = {
 function world() {
   const w = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
   const input = (over: Partial<PartInput> = {}): PartInput => ({
-    db: w.client(PEOPLE.both) as unknown as SupabaseClient, workspace: VERTUOZA, userId: PEOPLE.both.id,
+    db: w.client(PEOPLE.both) as unknown as SupabaseClient<Database>, workspace: VERTUOZA, userId: PEOPLE.both.id,
     login: 'both-gh', team: 'beaver', now: NOW, season, galaxy: () => Promise.resolve(GALAXY), ...over,
   });
   return { w, input };
