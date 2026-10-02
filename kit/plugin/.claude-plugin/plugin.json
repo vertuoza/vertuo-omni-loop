@@ -1,5 +1,5 @@
 {
   "name": "omni",
   "description": "The Omni Loop: turn an idea into a PRD, then build it wave by wave, recording every decision taken without asking as an outbox item.",
-  "version": "0.0.167"
+  "version": "0.0.168"
 }
