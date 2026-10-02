@@ -412,3 +412,21 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-55
+
+Jev never appears switched on when it cannot run; its on state and every decision follow from whether a key is actually stored.
+
+Why: A separate switch could show Jev or a decision as on with no key behind it, telling owners and members something that is not true.
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s1-02-jev-on-means-key-stored, PRD #812
+Merged: @pierrederval, 2026-09-30, PR #814
+Proposed: harvest 2026-09-30
+
+## P-PRODUCT-56
+
+A call that produced no answer is never scored as agreement or disagreement; it is left out of the comparison, not counted against either side.
+
+Why: Counting failures as disagreements would make the agreement rate measure outages rather than judgement, misleading anyone comparing Jev with the old way.
+Source: .omni-loop/delivery/shipped/0812-jev-decisions/outbox/settled.md, entry s4-01-agreement-counts-only-answered-calls, PRD #812
+Merged: @pierrederval, 2026-09-30, PR #814
+Proposed: harvest 2026-09-30
