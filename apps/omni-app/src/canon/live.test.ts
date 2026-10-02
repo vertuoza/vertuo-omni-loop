@@ -1,6 +1,6 @@
 // The canon gate's live ports, against a recording fetch: nothing here calls Supabase or OpenRouter.
 import { describe, expect, it } from 'vitest';
-import { CANON_MODEL, businessReader, canonFromEnv } from './live.ts';
+import { CANON_MODEL, businessReader, canonFromEnv, constituentsReader } from './live.ts';
 
 type Recorded = { url: URL; method: string; body: { model?: string } | null; headers: Headers };
 
@@ -70,5 +70,65 @@ describe('canonFromEnv — the gate bound to the environment', () => {
     const model = calls.requests.find((request) => request.url.hostname === 'openrouter.ai');
     expect(model?.body?.model).toBe(CANON_MODEL);
     expect(model?.headers.get('authorization')).toBe('Bearer k');
+  });
+});
+
+// ── PRD 871: the constituents read and the judge ──
+
+const CONSTITUENTS = {
+  state: 'ok',
+  product: { name: 'Vertuoza UX' },
+  statement: { id: 'statement', text: 'The component workshop, shown with fixtures.' },
+  never: [{ id: 'never#1', text: 'Calls real Vertuoza data or real Vertuoza APIs' }],
+  latestEventId: '7',
+};
+const API_SPEC = "The list loads with fetch('/api/v1/projects') and shows each project.";
+const API_BREAK = { findings: [{ quote: "fetch('/api/v1/projects')", claims: ['never#1'], why: 'a real API' }], persona: { name: '', line: '' } };
+
+/** Supabase, OpenRouter and galaxy's judge route, each answering as given. */
+const world = ({ judge = () => json({ answer: 'true', confidence: null, decidedBy: 'old' }) } = {}) =>
+  recordingFetch((url) => {
+    if (url.hostname === 'openrouter.ai') return json({ choices: [{ message: { content: JSON.stringify(API_BREAK) } }] });
+    if (url.pathname === '/api/constituents/judge') return judge();
+    if (url.pathname.endsWith('/constituents_for_repo_app')) return json(CONSTITUENTS);
+    return json({ ...BUSINESS, claims: [], personas: [] });
+  });
+
+const ENV = { SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 's', OPENROUTER_API_KEY: 'k', GALAXY_URL: 'https://galaxy.example' };
+
+describe('constituentsReader — the service-role read by repository', () => {
+  it('calls constituents_for_repo_app with the repository', async () => {
+    const db = recordingFetch(() => json(CONSTITUENTS));
+    const read = constituentsReader({ url: 'https://db.example', key: 'service-key', fetch: db.fetch });
+    expect(await read('acme/ux')).toEqual(CONSTITUENTS);
+    expect(db.requests[0]!.url.pathname).toBe('/rest/v1/rpc/constituents_for_repo_app');
+    expect(db.requests[0]!.body).toEqual({ p_repo: 'acme/ux' });
+  });
+});
+
+describe('canonFromEnv — the constituents judged through galaxy', () => {
+  it('a spec quoting a real API call against never#1 is red, naming the quote and the line, judged on GALAXY_URL', async () => {
+    const calls = world();
+    const gate = await canonFromEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: false, reason: 'canon ✗ 1' });
+    expect(gate.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
+    const judged = calls.requests.find((request) => request.url.pathname === '/api/constituents/judge');
+    expect(judged!.url.origin).toBe('https://galaxy.example');
+    expect(judged!.headers.get('x-omni-signature-256')).toMatch(/^sha256=[0-9a-f]{64}$/);
+    expect(judged!.body).toMatchObject({ repo: 'acme/ux', old: 'true' });
+  });
+
+  it('without CONSTITUENT_JUDGE_SECRET it is neutral, never red, and galaxy is not called', async () => {
+    const calls = world();
+    const gate = await canonFromEnv(ENV, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: true, reason: 'judge not configured (CONSTITUENT_JUDGE_SECRET is not set)' });
+    expect(calls.requests.some((request) => request.url.pathname === '/api/constituents/judge')).toBe(false);
+  });
+
+  it('a refused judge call (no Jev key, a Jev error) is neutral, never red', async () => {
+    const calls = world({ judge: () => json({ error: 'The workspace of this repository could not be looked up. Try again.' }, 500) });
+    const gate = await canonFromEnv({ ...ENV, CONSTITUENT_JUDGE_SECRET: 'j' }, { fetch: calls.fetch }).grade({ repo: 'acme/ux', spec: API_SPEC });
+    expect(gate).toMatchObject({ ok: true, neutral: true });
+    expect(gate.reason).toMatch(/^judge error: galaxy answered 500/);
   });
 });

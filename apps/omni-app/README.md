@@ -10,11 +10,11 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 | Situation | Conclusion |
 |---|---|
 | No `.omni-loop/config.yml` on the base branch | no check run and no comment: the app stays silent |
-| Not a feature PR (sub-PR, other branch, no PRD folder) | `skipped` — omni-loop is not active on this PR |
+| Not an Omni Loop feature PR (a sub-PR, a fix PR, a dependabot or hand-written PR, a `feat/` branch with no PRD folder) | `skipped` — omni-loop is not active on this PR, decided before any gate read; never `failure`, even when the run fails (issue 876) |
 | Outbox clear | `success` |
 | Open items, unreworked drift or unaccounted risky changes | `failure` |
 | Red, but labelled with the override label (`labels.outboxGo`) | `neutral` |
-| Broken base config, snapshot over its bound, or any failure after retries | `failure` |
+| Broken base config, or, on a feature PR, a snapshot over its bound or any failure after retries | `failure` |
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
 
@@ -30,7 +30,7 @@ as **omni-loop · inbox**). It grades the PR with the kit's own rules, one summa
 | inbox folder | the kit's inbox rules pass on **this PRD's folder only**; another PRD's broken folder never counts |
 | plan | `plan.md` exists and the kit's plan grading (what `omni plan check <n>` reads from it) finds nothing |
 | PRD issue | issue `<n>` exists, is open, and carries `labels.prd` |
-| canon (PRD 839) | the PRD's `spec.md` breaks no confirmed claim of its repository's business: see below |
+| canon (PRD 839, PRD 871) | the PRD's `spec.md` breaks no confirmed claim of its repository's business, nor its product's Statement or Never lines: see below |
 
 | Situation | Conclusion |
 |---|---|
@@ -40,22 +40,38 @@ as **omni-loop · inbox**). It grades the PR with the kit's own rules, one summa
 | Snapshot over its bound, or any failure after retries | `failure` with the reason |
 
 **The canon gate** (`src/canon/`) reads the PR's `spec.md` (the first 40,000 characters go to the
-model) and the business of the repository through `business_for_repo_app` as the service role: its
-product's confirmed claims, Never lines included, and its personas. It asks the small model
+model), the business of the repository through `business_for_repo_app` (its product's confirmed
+claims and its personas) and its product's constituents through `constituents_for_repo_app` (PRD 871:
+the Statement and the live Never lines, `never#<n>`), both as the service role. It asks the small model
 (`anthropic/claude-haiku-4.5`, whatever `OPENROUTER_MODEL` says for the retro) once for the spec's breaks
-of a Never line or of the size, trade or region claims, each quoting the spec and citing claim ids. A
-finding is kept only when its quote is in the spec word for word (whitespace and case aside) and it
-cites a claim the business holds.
+of the Statement, a Never line or the size, trade or region claims, each quoting the spec and citing
+ids. A finding is kept only when its quote is in the spec word for word (whitespace and case aside) and
+it cites a claim the business holds, a live `never#<n>` or the `statement`.
+
+When the product has constituents, whether they are broken is the workspace's `constituent-break` Jev
+decision's to say: the gate POSTs the spec, the constituents and the model's verdict to galaxy's
+`/api/constituents/judge` (on `GALAXY_URL` when set), signed with an HMAC-SHA256 of the body under
+`CONSTITUENT_JUDGE_SECRET` (header `x-omni-signature-256`), and reads the reply's `answer`
+(`src/canon/judge.ts`). Off: the model's verdict. Shadow: the model's verdict, Jev's logged beside it.
+On: Jev's when it is at or above the decision's floor, else the model's. When the answer is not broken,
+the constituents' citations leave the findings; when it is broken, the findings that quote the spec
+stay, and with none the gate is not red.
 
 | Canon | Line |
 |---|---|
-| red | `canon ✗ N`, each break listed under it: its claims, the spec's quoted words, and one line from the persona the spec fits worst |
-| green | `canon ✓ · N claims read` |
-| neutral, never red | no business (none tracks the repository, or `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` unset), no confirmed claim for the repository's product, `model not configured` (`OPENROUTER_API_KEY` unset), or a model error |
+| red | `canon ✗ N`, each break listed under it: what it breaks (`never#1 "…"`, `statement "…"`, a claim), the spec's quoted words, one line from the persona the spec fits worst, and `judged by Jev (…)` when Jev's answer counted |
+| green | `canon ✓ · N claims read`, or `canon ✓ · N claims, M constituents read` |
+| neutral, never red | no business (none tracks the repository, or `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` unset), neither a confirmed claim nor a constituent for the repository's product, a constituents read that failed, `model not configured` (`OPENROUTER_API_KEY` unset), a model error, `judge not configured` (`CONSTITUENT_JUDGE_SECRET` unset), or a judge error (galaxy refused or failed, no Jev key, a Jev error) |
 
-A verdict is cached in the running instance by the repository, the spec's hash and the claims' latest
-update (`updatedAt`), so a Re-run with nothing changed asks the model nothing; a cold instance asks
-once. The check run's JSON verdict also carries `canon` (state, findings, persona) for its actions.
+On a red canon the check run carries two buttons: **Rewrite for <persona>** posts the rework command,
+and **Change the line** links each cited line on galaxy's Settings › Business (a Never line at
+`#never-<n>`, the Statement at `#statement`).
+
+The model's verdict is cached in the running instance by the repository, the spec's hash, the claims'
+latest update (`updatedAt`) and the constituents' latest event id (`latestEventId`), so a Re-run with
+nothing changed asks the model nothing and any constituent change re-judges; a cold instance asks once.
+The judge is asked on every evaluation, so a change of the decision's mode counts at once. The check
+run's JSON verdict also carries `canon` (state, findings, persona, judge) for its actions.
 
 There is no override label and no comment: the check run's summary is the report. The function runs on
 the outbox check's own event, so every pull request action that re-evaluates one re-evaluates both;
@@ -212,7 +228,7 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.ts` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
-| the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
+| the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.ts`) |
 | `detect` — pure: plain records → the fact sheet | `src/retro/detect.ts` |
 | `narrate` and `guard` — the model's prose, and what of it is kept | `src/retro/narrate.ts`, `src/retro/guard.ts` |
 | `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.ts` |
@@ -255,6 +271,9 @@ None of these is taken by the code; a person does each once.
      unset the collector logs one line and writes nothing, and the canon gate is neutral.
    - `OPENROUTER_API_KEY` — the small model of the canon gate (and the retro's and the harvest's
      model, below). Unset, the canon gate is neutral, "model not configured".
+   - `CONSTITUENT_JUDGE_SECRET` — the secret the canon gate signs its call to galaxy's constituent
+     judge with (PRD 871), the same value as in galaxy's project. Unset, a product with constituents
+     gets a neutral canon gate, "judge not configured".
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.

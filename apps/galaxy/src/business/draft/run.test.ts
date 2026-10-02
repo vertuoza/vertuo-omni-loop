@@ -125,15 +125,13 @@ describe('runDraft', () => {
     expect(refused.finished[0]).toMatchObject({ state: 'failed', reason: 'The business database could not answer. Try again.' });
   });
 
-  it('proposes a Never line with its receipt from a source saying what the product does not do (PRD 839)', async () => {
+  it('never proposes a Never line, even one an extractor answers (PRD 871)', async () => {
     const { store, proposed, finished } = fakeStore();
     const page = 'Pricing for contractors in France. We don\'t answer public tenders.';
     const answers = { 'https://acme.com/pricing': [{ kind: 'never' as const, value: 'Answer public tenders', quote: 'we don\'t answer public tenders' }] };
     await runDraft(deps(store, answers, { page: async () => page }), 'ws-1', 'd-1');
-    expect(proposed).toEqual([
-      { product: 'p-1', kind: 'never', value: 'Answer public tenders', receipts: [{ kind: 'link', where: 'https://acme.com/pricing', quote: 'we don\'t answer public tenders' }] },
-    ]);
-    expect(finished[0]!.counts).toMatchObject({ kept: 1, added: 1 });
+    expect(proposed.filter((p) => p.kind === 'never')).toEqual([]);
+    expect(finished[0]!.counts).toMatchObject({ kept: 0, added: 0 });
   });
 
   it('proposes a value found twice once as new, then as seen', async () => {

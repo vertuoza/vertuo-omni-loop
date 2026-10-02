@@ -21,7 +21,7 @@
 //                           `DAY_WAIT` with none, and then "clock-day-14-<n>" reads the time
 //   the same steps, "-day-14" after each id, for the kinds of the day-14 run: an "After merge"
 //                           section, issues for its new findings, committed to the retro PR while it
-//                           is open, else to a new `<branch>-day-14` PR (`publish.mjs`)
+//                           is open, else to a new `<branch>-day-14` PR (`publish.ts`)
 //   onFailure               one comment on the merged PR: "The retro could not run: <reason>"
 //
 // A merge that is not a feature PR ends at "qualify" and posts nothing.

@@ -34,6 +34,168 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_question_reports: {
+        Row: {
+          id: number
+          question_id: string
+          reported_at: string
+          token_id: string
+        }
+        Insert: {
+          id?: never
+          question_id: string
+          reported_at?: string
+          token_id: string
+        }
+        Update: {
+          id?: never
+          question_id?: string
+          reported_at?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_question_reports_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "agent_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_question_reports_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_questions: {
+        Row: {
+          asked: number
+          brought_back_at: string | null
+          claim_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          file: string | null
+          first_asked_at: string
+          id: string
+          last_asked_at: string
+          match_key: string
+          question: string
+          repo: string | null
+          set_aside_at: string | null
+          state: string
+          token_id: string
+          workspace_id: string
+        }
+        Insert: {
+          asked?: number
+          brought_back_at?: string | null
+          claim_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          file?: string | null
+          first_asked_at?: string
+          id?: string
+          last_asked_at?: string
+          match_key: string
+          question: string
+          repo?: string | null
+          set_aside_at?: string | null
+          state?: string
+          token_id: string
+          workspace_id: string
+        }
+        Update: {
+          asked?: number
+          brought_back_at?: string | null
+          claim_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          file?: string | null
+          first_asked_at?: string
+          id?: string
+          last_asked_at?: string
+          match_key?: string
+          question?: string
+          repo?: string | null
+          set_aside_at?: string | null
+          state?: string
+          token_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_questions_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_questions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_questions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          last_four: string
+          last_used_at: string | null
+          made_by: string
+          name: string
+          revoked_at: string | null
+          revoked_by: string | null
+          token_hash: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_four: string
+          last_used_at?: string | null
+          made_by: string
+          name: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_four?: string
+          last_used_at?: string | null
+          made_by?: string
+          name?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          token_hash?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tokens_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arcade_scores: {
         Row: {
           at: string
@@ -531,6 +693,134 @@ export type Database = {
           },
           {
             foreignKeyName: "claims_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      constituent_events: {
+        Row: {
+          action: string
+          after: string | null
+          before: string | null
+          changed_at: string
+          changed_by: string | null
+          claim_id: string | null
+          constituent_id: string
+          id: number
+          note: string | null
+          product_id: string
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          after?: string | null
+          before?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          claim_id?: string | null
+          constituent_id: string
+          id?: never
+          note?: string | null
+          product_id: string
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          after?: string | null
+          before?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          claim_id?: string | null
+          constituent_id?: string
+          id?: never
+          note?: string | null
+          product_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constituent_events_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constituent_events_constituent_id_fkey"
+            columns: ["constituent_id"]
+            isOneToOne: false
+            referencedRelation: "constituents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constituent_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constituent_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      constituents: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          seq: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          product_id: string
+          removed_at?: string | null
+          removed_by?: string | null
+          seq?: number | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          product_id?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          seq?: number | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constituents_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "constituents_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1713,6 +2003,111 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      agent_link_workspace: { Args: { p_hash: string }; Returns: string }
+      agent_question_answer: {
+        Args: {
+          p_kind: string
+          p_product?: string
+          p_question: string
+          p_value: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      agent_question_bring_back: {
+        Args: { p_question: string; p_workspace: string }
+        Returns: Json
+      }
+      agent_question_dismiss: {
+        Args: { p_question: string; p_workspace: string }
+        Returns: Json
+      }
+      agent_question_for_jev: { Args: { p_question: string }; Returns: Json }
+      agent_question_open: {
+        Args: { p_question: string; p_workspace: string }
+        Returns: {
+          asked: number
+          brought_back_at: string | null
+          claim_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          file: string | null
+          first_asked_at: string
+          id: string
+          last_asked_at: string
+          match_key: string
+          question: string
+          repo: string | null
+          set_aside_at: string | null
+          state: string
+          token_id: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_questions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      agent_question_product: {
+        Args: {
+          p_product: string
+          q: Database["public"]["Tables"]["agent_questions"]["Row"]
+        }
+        Returns: string
+      }
+      agent_question_report: {
+        Args: {
+          p_file?: string
+          p_hash: string
+          p_question: string
+          p_repo?: string
+        }
+        Returns: Json
+      }
+      agent_question_set_aside: { Args: { p_question: string }; Returns: Json }
+      agent_questions_list: { Args: { p_workspace: string }; Returns: Json }
+      agent_questions_open: { Args: { p_workspace: string }; Returns: number }
+      agent_token_listed: {
+        Args: { t: Database["public"]["Tables"]["agent_tokens"]["Row"] }
+        Returns: Json
+      }
+      agent_token_make: {
+        Args: {
+          p_hash: string
+          p_last_four: string
+          p_name: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      agent_token_of: {
+        Args: { p_hash: string }
+        Returns: {
+          created_at: string
+          id: string
+          last_four: string
+          last_used_at: string | null
+          made_by: string
+          name: string
+          revoked_at: string | null
+          revoked_by: string | null
+          token_hash: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_tokens"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      agent_token_revoke: {
+        Args: { p_token: string; p_workspace: string }
+        Returns: Json
+      }
+      agent_tokens_list: { Args: { p_workspace: string }; Returns: Json }
       answered_counts: {
         Args: { from_at: string; to_at: string; workspace: string }
         Returns: {
@@ -1875,8 +2270,16 @@ export type Database = {
         }
       }
       business_first_product: { Args: { p_workspace: string }; Returns: string }
+      business_for_product: {
+        Args: { p_product: string; p_workspace: string }
+        Returns: Json
+      }
       business_for_repo: { Args: { p_repo: string }; Returns: Json }
       business_for_repo_app: { Args: { p_repo: string }; Returns: Json }
+      business_for_token: {
+        Args: { p_hash: string; p_repo?: string }
+        Returns: Json
+      }
       business_member_only: {
         Args: { p_workspace: string }
         Returns: undefined
@@ -2108,6 +2511,111 @@ export type Database = {
       claims_confirm_proposed: {
         Args: { p_rejected?: string[]; p_workspace: string }
         Returns: number
+      }
+      constituent_add: {
+        Args: {
+          p_kind: string
+          p_product: string
+          p_text: string
+          p_workspace: string
+        }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          seq: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "constituents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      constituent_edit: {
+        Args: { p_constituent: string; p_text: string; p_workspace: string }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          seq: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "constituents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      constituent_live: {
+        Args: { p_constituent: string; p_workspace: string }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          seq: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "constituents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      constituent_remove: {
+        Args: { p_constituent: string; p_workspace: string }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          seq: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "constituents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      constituent_text: {
+        Args: { p_kind: string; p_text: string }
+        Returns: string
+      }
+      constituents_for_repo: { Args: { p_repo: string }; Returns: Json }
+      constituents_for_repo_app: { Args: { p_repo: string }; Returns: Json }
+      constituents_move_never_claims: { Args: never; Returns: number }
+      constituents_of_product: { Args: { p_product: string }; Returns: Json }
+      constituents_owner_only: {
+        Args: { p_workspace: string }
+        Returns: undefined
       }
       create_fleet: {
         Args: {

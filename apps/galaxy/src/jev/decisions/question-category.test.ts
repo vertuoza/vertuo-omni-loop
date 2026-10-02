@@ -48,9 +48,9 @@ describe('question-category', () => {
 });
 
 describe('the registry', () => {
-  it('lists the three decisions in order, each registered', () => {
+  it('lists the five decisions in order, each registered', () => {
     expect(JEV_DECISIONS.map((d) => [d.name, Boolean(jevEntry(d.name))])).toEqual([
-      ['question-category', true], ['outbox-risk', true], ['bug-risk', true],
+      ['question-category', true], ['outbox-risk', true], ['bug-risk', true], ['unknown-worth-asking', true], ['constituent-break', true],
     ]);
     expect(JEV_DECISIONS.every((d) => d.title && d.sends)).toBe(true);
     expect(jevEntry('question-category')).toBe(questionCategory);

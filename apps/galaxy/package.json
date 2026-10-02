@@ -14,6 +14,7 @@
     "shots": "node scripts/shots.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
     "@supabase/ssr": "^0.12.7",

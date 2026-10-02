@@ -124,6 +124,28 @@ jobs:
         # learns only whether one is stored, the owner its last four. Removing the key sets every decision
         # Off; a decision stays Off without a key. Only the service role reads a key and appends a call.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql
+      - name: Who may make and revoke an agent's link, and what it reads
+        # Any member makes a link for themselves (20 live at most, a name unique among theirs) and lists
+        # the workspace's; only its maker or an owner revokes one; another workspace's member and anyone
+        # signed out are refused (42501). Only the token's hash and last four are stored, and the list
+        # never carries the hash. The link reads exactly what business_for_repo() answers a member for the
+        # same repository, the only product without one, never another workspace's repository; a revoked
+        # or unknown link, or one whose maker left, is refused (28000). Last used moves once a minute.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/agent_tokens.sql
+      - name: What a link reports, and how a member answers it
+        # A working link reports a question with its asker, repository and file; the same question (case
+        # and spaces aside) bumps one row; over 300 characters, or the 31st report in 24 hours, is refused.
+        # Any member answers an open question once as a confirmed claim (source answer) of the picked kind,
+        # on the question's product, which the next read through the link carries, or dismisses it with no
+        # claim; open questions are counted for the bell. Another workspace's member is refused (42501).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/agent_questions.sql
+      - name: Who may read and write the constituents
+        # Only a workspace's owner adds, edits and removes its products' Statement and Never lines; a
+        # member, another workspace's owner and anyone signed out are refused (42501). Each write logs
+        # exactly one event; a removed line keeps its row and id. Members read both tables and the
+        # terminal's read; the App's read is the service role's. The move turns confirmed `never`
+        # claims into Never lines and leaves the claims rejected.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

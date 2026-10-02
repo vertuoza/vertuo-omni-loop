@@ -310,7 +310,7 @@ describe('the plugin\'s hooks.json', () => {
   };
 
   it('wires PreToolUse and PostToolUse on AskUserQuestion, UserPromptSubmit and SessionEnd', () => {
-    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'SessionEnd', 'UserPromptSubmit']);
+    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'SessionEnd', 'SessionStart', 'UserPromptSubmit']);
     const pre = only('PreToolUse');
     const [post] = all('PostToolUse');
     const prompt = only('UserPromptSubmit');

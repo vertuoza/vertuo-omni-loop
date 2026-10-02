@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { JevDecisionEntry } from './entry';
+import { noulAtThreshold } from './noul';
 
 // `outbox-risk` (PRD 812 s3): whether a decision a slice took alone is hard to revert, as a Noul. Jev
 // answers only `hardToRevert` (decision 5): the kit still computes the item's rank, and its law floor
@@ -23,6 +24,10 @@ const STATE = z.object({
   paths: z.array(z.string().min(1).max(500)).max(200).default([]),
 }).strict();
 
+/** A Noul's answer as a yes or no: at or above `threshold` is true; anything but a number from 0 to 1 is null. */
+export const noulAt = (answer: string | number, threshold: number): boolean | null =>
+  typeof answer === 'number' && Number.isFinite(answer) && answer >= 0 && answer <= 1 ? answer >= threshold : null;
+
 const lines = (heading: string, items: string[]) => (items.length ? [heading, ...items.map((i) => `- ${i}`)] : []);
 
 export const outboxRisk: JevDecisionEntry<OutboxRiskInput, boolean> = {
@@ -41,8 +46,7 @@ export const outboxRisk: JevDecisionEntry<OutboxRiskInput, boolean> = {
       ...(input.slice ? [`Slice: ${input.slice}`] : []),
       ...lines('Paths the slice touches:', input.paths),
     ].join('\n'),
-  value: (answer, { threshold }) =>
-    typeof answer === 'number' && Number.isFinite(answer) && answer >= 0 && answer <= 1 ? answer >= threshold : null,
+  value: noulAtThreshold,
   show: (value) => String(value),
   terminal: {
     input: (state) => {

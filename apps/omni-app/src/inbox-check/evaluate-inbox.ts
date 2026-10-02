@@ -40,10 +40,17 @@ export type CanonGateFacts = {
   claimsRead: number;
   findings: { quote: string; claims: string[]; why: string }[];
   persona: { name: string; line: string } | null;
+  /** Who decided a constituents verdict (PRD 871), when the product has constituents. */
+  judge?: { decidedBy: string | null; confidence: number | null } | null;
 };
 
-/** The canon gate (../canon/canon.ts): grades a spec against the repository's business. */
-export type CanonGrader = { grade: (input: { repo: string; spec: string }) => Promise<Gate & { canon: CanonGateFacts }> };
+/**
+ * The canon gate (../canon/canon.ts): grades a spec against the repository's business and its
+ * product's constituents; `ref` (`PRD <n>`) is what a Jev call is recorded against.
+ */
+export type CanonGrader = {
+  grade: (input: { repo: string; spec: string; ref?: string | null }) => Promise<Gate & { canon: CanonGateFacts }>;
+};
 
 export type InboxVerdict = {
   name: string;
@@ -164,7 +171,7 @@ async function canonGateOf({
   if (!canon || !repo) return neutral('the canon gate is not wired here');
   const file = join(head, inFolder(ctx.layout.specPath(prd), prd));
   if (!existsSync(file)) return neutral(`no spec.md in ${placeOf(ctx, prd).dir}`);
-  return canon.grade({ repo, spec: readFileSync(file, 'utf8') });
+  return canon.grade({ repo, spec: readFileSync(file, 'utf8'), ref: `PRD ${prd}` });
 }
 
 /** Where the PRD's folder is; it is there, since its number was read from it. */

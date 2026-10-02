@@ -165,14 +165,14 @@ describe('inbox-check — the two actions on a red canon check (PRD 839)', () =>
   const runWith = (github: any, state: any) =>
     new InngestTestEngine({ function: createInboxCheck({ client: inngest, octokitFor: () => github.octokit, canon: canonGate(state) }), events: [event()] }).execute();
 
-  it('a red canon check run carries Rewrite for <persona> and Change the claim', async () => {
+  it('a red canon check run carries Rewrite for <persona> and Change the line', async () => {
     const github = inboxGitHub();
     const { ctx } = await runWith(github, 'red');
     expect(ctx.step.run.mock.calls.map(([id]: any) => id)).toEqual(['in-progress', 'evaluate', 'publish', 'actions']);
     expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
     expect(github.state.checkRuns[0]!.actions.map((a: any) => [a.label, a.identifier])).toEqual([
       ['Rewrite for Marc', 'canon-rewrite'],
-      ['Change the claim', 'canon-claim'],
+      ['Change the line', 'canon-claim'],
     ]);
   });
 

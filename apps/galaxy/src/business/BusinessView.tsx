@@ -40,12 +40,10 @@ import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './c
 // PRD 822: a claim a person answered in a skill run and left proposed (an overrule saved as a claim) waits
 // there too, between the additions and the faded claims, "answered in a run", with ✓ Right and ✗ Wrong.
 //
-// Never lines (PRD 839 s2) follow the claims: one row per line of the tab's product, each with the anchor
-// `#never-<seq>` the omni-loop App's Change the claim links to, its id, where it came from, its citations
-// and ✓ / ✗, then + Never line, which opens the one field (200 characters at most) and saves the line
-// confirmed at once. A line the draft or the recheck proposed waits there too, dashed, with its receipt
-// and ✓ Right / ✗ Wrong: never in What we found, never on top as an addition. A line marked wrong folds
-// under Marked wrong with the other claims.
+// The Constituents panel (PRD 871 s2, ./ConstituentsPanel.tsx) sits above the claims, the tab's
+// product's own: its Statement and its Never list, which only an owner changes. A Never line is no
+// claim any more: the claim editor offers no Never kind, and a claim of kind `never` (one the move left
+// rejected, or one a draft once proposed) is not drawn at all.
 //
 // The Personas section (PRD 799 s3, ./PersonasSection.tsx) follows the claims, the tab's own.
 
@@ -116,11 +114,6 @@ export const CHECK_TITLE = 'To check · what changed since you last looked';
 export const STILL_TRUE = '✓ Still true';
 /** What an answer to check says after its value (PRD 822): someone gave it in a skill run. */
 export const ANSWERED = 'answered in a run';
-// Never lines (PRD 839 s2).
-export const NEVER_TITLE = 'Never lines';
-export const ADD_NEVER = '+ Never line';
-export const NEVER_EMPTY = 'No Never line yet: add a line the team never crosses, and every agent reads it.';
-const NEVER_FIELD = 'A line the team never crosses';
 
 export interface BusinessViewProps {
   state: BusinessState;
@@ -131,6 +124,8 @@ export interface BusinessViewProps {
   now?: number;
   /** The Personas section (PRD 799 s3), drawn below the claims of the tab shown. */
   personas?: ReactNode;
+  /** The Constituents panel (PRD 871 s2), drawn above the claims of the tab shown. */
+  constituents?: ReactNode;
 }
 
 function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
@@ -319,13 +314,10 @@ function ProductTabs({ state, on }: { state: BusinessState; on: BusinessHandlers
   );
 }
 
-/** The anchor a Never line carries (PRD 839), which the App's Change the claim links to. */
-const neverAnchor = (claim: Pick<Claim, 'seq'>) => `never-${claim.seq}`;
-
-function Row({ claim, busy, on, never = false }: { claim: Claim; busy: boolean; on: BusinessHandlers; never?: boolean }) {
+function Row({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHandlers }) {
   const value = valueLabel(claim);
   return (
-    <li id={never ? neverAnchor(claim) : undefined} className={never ? 'business-row business-never-line' : 'business-row'} data-claim={displayId(claim)} data-state={claim.state}>
+    <li className="business-row" data-claim={displayId(claim)} data-state={claim.state}>
       <div className="business-row-main">
         <span className="business-kind">{KIND_LABEL[claim.kind]}</span>
         <strong>{value}</strong>
@@ -340,49 +332,6 @@ function Row({ claim, busy, on, never = false }: { claim: Claim; busy: boolean; 
         <button type="button" className="business-wrong" aria-pressed={claim.state === 'rejected'} aria-label={`Wrong: ${value}`} onClick={() => on.reject(claim)} disabled={busy || claim.state === 'rejected'}>✗</button>
       </div>
     </li>
-  );
-}
-
-/** A Never line the draft or the recheck proposed: dashed, with its receipt, ✓ Right / ✗ Wrong saved at once. */
-function ProposedNever({ claim, busy, on }: { claim: Claim; busy: boolean; on: BusinessHandlers }) {
-  const value = valueLabel(claim);
-  return (
-    <li id={neverAnchor(claim)} className="business-row business-never-line" data-claim={displayId(claim)} data-state={claim.state}>
-      <div className="business-row-main">
-        <span className="business-kind">{KIND_LABEL.never}</span>
-        <strong>{value}</strong>
-        <Receipts claim={claim} />
-      </div>
-      <div className="business-row-meta">
-        <code>{displayId(claim)}</code>
-        <span className="business-source">proposed</span>
-      </div>
-      <div className="business-found-verdict">
-        <button type="button" className="business-right" aria-label={`Right: ${value}`} onClick={() => on.confirm(claim)} disabled={busy}>✓ Right</button>
-        <button type="button" className="business-wrong" aria-label={`Wrong: ${value}`} onClick={() => on.reject(claim)} disabled={busy}>✗ Wrong</button>
-      </div>
-    </li>
-  );
-}
-
-/** The Never lines of the tab's product (PRD 839 s2), then + Never line or its field. */
-function NeverLines({ lines, state, on }: { lines: readonly Claim[]; state: BusinessState; on: BusinessHandlers }) {
-  return (
-    <section className="ask-card business-never" aria-labelledby="business-never-title">
-      <h2 id="business-never-title">{NEVER_TITLE}</h2>
-      {lines.length === 0
-        ? <p className="ask-muted">{NEVER_EMPTY}</p>
-        : (
-          <ul>
-            {lines.map((c) => (c.state === 'proposed'
-              ? <ProposedNever key={c.id} claim={c} busy={state.busy} on={on} />
-              : <Row key={c.id} claim={c} busy={state.busy} on={on} never />))}
-          </ul>
-        )}
-      {state.typing === 'never'
-        ? <TypeField kind="never" label={NEVER_FIELD} busy={state.busy} on={on} />
-        : <button type="button" className="ask-button quiet" onClick={() => on.type('never')} disabled={state.busy}>{ADD_NEVER}</button>}
-    </section>
   );
 }
 
@@ -650,18 +599,16 @@ function ClaimLists({ listed, wrong, busy, on }: { listed: readonly Claim[]; wro
   );
 }
 
-export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now(), personas = null }: BusinessViewProps) {
-  // Everything below reads the tab's claims: every claim while there is one product.
+export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now(), personas = null, constituents = null }: BusinessViewProps) {
+  // Everything below reads the tab's claims: every claim while there is one product. A claim of kind
+  // `never` is drawn nowhere (PRD 871): Never lines are the product's constituents now.
   const multi = hasProducts(whole.products);
-  const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current) };
+  const state = { ...whole, claims: viewClaims(whole.claims, whole.products, whole.current).filter((c) => c.kind !== 'never') };
   const sure = confirmed(state.claims);
   // What the recheck left (PRD 774 s4) sits on top, and leaves the list below.
   const toCheck = checkRows(state.claims, now);
   const onTop = checkIds(toCheck);
-  const listed = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id));
-  const listedRows = listed.filter((c) => c.kind !== 'never').sort(byOrder);
-  // Never lines (PRD 839 s2) have their own list, under the claims.
-  const neverLines = listed.filter((c) => c.kind === 'never').sort((a, b) => a.seq - b.seq);
+  const listedRows = state.claims.filter((c) => c.state !== 'rejected' && !isFound(c) && !onTop.has(c.id)).sort(byOrder);
   const wrong = state.claims.filter((c) => c.state === 'rejected').sort(byOrder);
   // The draft's finds (PRD 774 s3): until That's us, the title reads them in.
   const found = foundRows(state.claims);
@@ -674,6 +621,7 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
         </section>
       )}
       {multi && <ProductTabs state={state} on={on} />}
+      {constituents}
       {toCheck.length > 0 && <Check rows={toCheck} busy={state.busy} on={on} />}
       <Head state={state} sure={sure.length} demo={demo} thinking={thinking} on={on} />
 
@@ -682,8 +630,6 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
       {!state.skipped && <Picks state={state} region={!multi} on={on} />}
 
       <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
-
-      <NeverLines lines={neverLines} state={state} on={on} />
 
       {personas}
 

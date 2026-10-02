@@ -32,7 +32,7 @@ describe('/api/inngest', () => {
   it('describes the app on GET in dev mode', async () => {
     const response = await GET(new Request('https://omni-loop.example/api/inngest', { headers: { host: 'omni-loop.example' } }));
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body = (await response.json()) as { function_count: number };
     // Inngest registers each failure handler as a function of its own, beside its function; prStats and canonAction have none.
     expect(body.function_count).toBe(10);
   });

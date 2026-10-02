@@ -16,7 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { formatReport, gateResult, type GateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
@@ -60,7 +60,7 @@ export function evaluate({
   }
 
   const ctx = createContext(head, config);
-  const prd = featurePrd(pr, ctx);
+  const prd = featurePrd(pr, config, (dir) => folderNames(join(ctx.root, dir)));
   if ('skip' in prd) return skipped(NOT_ACTIVE_ON_PR, prd.skip);
 
   const labels = pr.labels ?? [];
@@ -85,9 +85,13 @@ function topicOf(headRef: string, featureTemplate: string): string | null {
   return topic || null;
 }
 
-/** The PRD a pull request is the feature pull request of — or why it is not one. */
-function featurePrd(pr: PrFacts, ctx: Context): { skip: string } | { number: number } {
-  const { repo, branches } = ctx.config;
+/**
+ * The topic a pull request is the feature pull request of — or why it is not one: its base is the
+ * default branch and its head matches `branches.feature`. Only such a pull request may be gated
+ * (issue 876); whether it is, `prdOfTopic` says from the head's delivery folders.
+ */
+export function featureTopic(pr: Pick<PrFacts, 'baseRef' | 'headRef'>, config: Config): { topic: string } | { skip: string } {
+  const { repo, branches } = config;
   if (pr.baseRef !== repo.defaultBranch) {
     return { skip: `The base \`${pr.baseRef}\` is not the default branch \`${repo.defaultBranch}\`.` };
   }
@@ -95,24 +99,35 @@ function featurePrd(pr: PrFacts, ctx: Context): { skip: string } | { number: num
   if (topic === null) {
     return { skip: `The head \`${pr.headRef}\` does not match \`${branches.feature}\`.` };
   }
-  const number = prdForTopic(topic, ctx);
-  if (number === null) {
-    return { skip: `No PRD folder for the topic \`${topic}\` under \`${ctx.config.paths.delivery}\`.` };
-  }
-  return { number };
+  return { topic };
 }
 
-/** The PRD number whose inbox or shipped folder carries `topic`, in the head snapshot. */
-function prdForTopic(topic: string, ctx: Context): number | null {
-  for (const dir of [ctx.layout.dirs.inbox, ctx.layout.dirs.shipped]) {
-    const absolute = join(ctx.root, dir);
-    if (!existsSync(absolute)) continue;
-    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
-      const parsed = entry.isDirectory() ? parseFolderName(entry.name) : null;
-      if (parsed?.topic === topic) return parsed.prd;
-    }
-  }
-  return null;
+/** The inbox and shipped folders a feature pull request's PRD folder lives in, under `paths.delivery`. */
+export function prdDirs(config: Config): string[] {
+  const { inbox, shipped } = foldersLayout('.', config.paths).dirs;
+  return [inbox, shipped];
+}
+
+/** The PRD whose folder carries `topic`, among the folder names read under `prdDirs` at the head. */
+export function prdOfTopic(topic: string, folderNames: string[], config: Config): { number: number } | { skip: string } {
+  const parsed = folderNames.map(parseFolderName).find((folder) => folder?.topic === topic);
+  if (parsed) return { number: parsed.prd };
+  return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
+}
+
+/** The PRD a pull request is the feature pull request of, read from the head snapshot — or why not. */
+function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: number } | { skip: string } {
+  const feature = featureTopic(pr, config);
+  if ('skip' in feature) return feature;
+  return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
+}
+
+/** The folder names directly under `absolute`, or none when it is missing. */
+function folderNames(absolute: string): string[] {
+  if (!existsSync(absolute)) return [];
+  return readdirSync(absolute, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 }
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;

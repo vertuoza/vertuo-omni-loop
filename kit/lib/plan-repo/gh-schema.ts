@@ -1,6 +1,7 @@
 // What `gh api` answers about a plan repository's target, as `omni targets` and `omni plan moved`
-// read it (PRD 725, s10), and the two YAML shapes they read out of the target's files. Each schema
-// names only the fields the readers use and lets every other field through: GitHub sends many more.
+// read it (PRD 725, s10); the YAML shapes read out of the target's files are playbook/schema.ts's
+// (PRD 893). Each schema names only the fields the readers use and lets every other field through:
+// GitHub sends many more.
 import { z } from 'zod';
 
 /** `repos/<owner>/<name>`: the repository. */
@@ -20,12 +21,6 @@ export const GhCompareSchema = z.looseObject({
   ahead_by: z.number().optional(),
   files: z.array(GhCompareFileSchema).optional(),
 });
-
-/** What a target's `.omni-loop/config.yml` is read for: its playbook folder, when it names one. */
-export const TargetConfigSchema = z.looseObject({ paths: z.looseObject({ playbook: z.unknown() }).nullish() });
-
-/** What a form's front matter is read for: whether it is filled. */
-export const FormStateSchema = z.looseObject({ state: z.unknown() });
 
 export type GhRepository = z.infer<typeof GhRepositorySchema>;
 export type GhContentEntry = z.infer<typeof GhContentEntrySchema>;

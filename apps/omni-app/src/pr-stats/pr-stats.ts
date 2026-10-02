@@ -1,6 +1,6 @@
 // `prStats`: the Inngest function that feeds the Engineering board (PRD 612). Every 15 minutes it
-// collects every tracked repository of every workspace with an installation of the app (`collect.mjs`),
-// through that installation, into the database (`supabase-store.mjs`), one Inngest step per repository
+// collects every tracked repository of every workspace with an installation of the app (`collect.ts`),
+// through that installation, into the database (`supabase-store.ts`), one Inngest step per repository
 // and batch, so a failure stays on its repository.
 //
 // It needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. With either unset it logs one line and

@@ -10,7 +10,8 @@
 // PRD 757 it says a Claude session is working (`POST /api/ask/heartbeat`). Since PRD 798 it sends a
 // proof run: asks for signed upload links (`POST /api/proofs/uploads`), puts each file to its link (a
 // signed link carries no token), and registers the run (`POST /api/proofs`). Since PRD 812 it asks a workspace's Jev decision
-// (`POST /api/decide/<decision>`), for `omni decide`.
+// (`POST /api/decide/<decision>`), for `omni decide`. Since PRD 871 it reads a repository's product's
+// constituents (`GET /api/constituents`), for `omni constituents`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -273,6 +274,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
     readBusiness: (repo: string) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
+    /** PRD 871: the live Statement and Never lines of the product agents in `repo` (owner/name) work on.
+     * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
+     *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
+    readConstituents: (repo: string) => call('GET', `/api/constituents?${new URLSearchParams({ repo })}`),
     /** PRD 748: appends one citation per claim id (`rival#4`) of the business agents in `repo` read, by
      * `by` (the skill) in the run `ref` (null when none). @returns {Promise<{ cited: number }>} */
     citeClaims: ({ repo, ids, by, ref = null }: { repo: unknown; ids: unknown; by: unknown; ref?: unknown }) => call('POST', '/api/business/citations', { body: { repo, ids, by, ref } }),

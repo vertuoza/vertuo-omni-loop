@@ -1,6 +1,7 @@
 // The GitHub reads the `outbox-check` function needs beyond `snapshot` and `publish`: the pull
-// request's facts, its comments, its changed files, the check's name from the base branch's config,
-// and the fail-closed completion its failure handler performs. Every call goes through the one
+// request's facts, its comments, its changed files, what the check is on it (its name from the base
+// branch's config, and whether the gate runs there), the skipped check of a pull request it does not
+// gate, and the fail-closed completion its failure handler performs. Every call goes through the one
 // Octokit seam the other units use, `octokit.request(route, params)`, so a test stubs one function.
 //
 // Nothing here runs repository code (PRD 28, decision 5): the base config is fetched through
@@ -10,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { featureTopic, NOT_ACTIVE_ON_PR, prdDirs, prdOfTopic } from '../evaluate/evaluate.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import {
@@ -19,6 +21,7 @@ import {
   CreatedSchema,
   labelName,
   PullSchema,
+  TreeSchema,
   type GitHubClient,
   type Repo,
 } from './github-schema.ts';
@@ -93,22 +96,61 @@ export async function readBaseConfig(
 }
 
 /**
- * Whether the base branch has the loop installed, and the check's name there: `ci.outboxContext`
- * from its config, or the kit's default when that config is broken (the check still has to appear,
- * to say so). A base branch with no config at all is not active: the app posts nothing there
- * (PRD 359), since a public app is installed on repositories that never asked for the loop.
+/** What the check is on a pull request: see `checkTarget`. */
+export type CheckTarget = { active: boolean; name: string; gated: boolean; reason: string | null };
+
+/**
+ * What the check is on this pull request, from its refs, the base branch's config and the folder
+ * names under the head's delivery folder — never a blob of the head, its comments or its compare.
+ * `active`: the base branch has the loop installed (PRD 359: the app posts nothing anywhere else).
+ * `name`: `ci.outboxContext`, or the kit's default when the config is broken (the check still has to
+ * appear, to say so). `gated`: an Omni Loop feature pull request, the only one the gate runs on
+ * (issue 876); `reason` says why another is not. A broken config is gated, so its check says what is
+ * wrong.
  */
 export async function checkTarget(
   octokit: GitHubClient,
-  { owner, repo, baseSha }: Repo & { baseSha: string },
-): Promise<{ active: boolean; name: string }> {
+  { owner, repo, prNumber, headSha }: Repo & { prNumber: number; headSha?: string | undefined },
+): Promise<CheckTarget> {
+  const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-name-'));
+  let read: BaseConfig;
   try {
-    const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha, dest: folder });
-    return { active: Boolean(config || error), name: config?.ci.outboxContext ?? DEFAULT_CHECK_NAME };
+    read = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: folder });
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
+  const { config, error } = read;
+  if (!config && !error) return { active: false, name: DEFAULT_CHECK_NAME, gated: false, reason: null };
+  if (!config) return { active: true, name: DEFAULT_CHECK_NAME, gated: true, reason: null };
+
+  const name = config.ci.outboxContext;
+  const feature = featureTopic(pr, config);
+  if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip };
+  const ref = headSha ?? pr.headSha;
+  const names: string[] = [];
+  for (const dir of prdDirs(config)) names.push(...(await folderNamesAt(octokit, { owner, repo, ref, dir })));
+  const prd = prdOfTopic(feature.topic, names, config);
+  return 'skip' in prd ? { active: true, name, gated: false, reason: prd.skip } : { active: true, name, gated: true, reason: null };
+}
+
+/**
+ * The names of the folders directly under `dir` at `ref`, walking GitHub's trees one segment at a
+ * time; none when `dir` is not there. Reads no blob.
+ */
+export async function folderNamesAt(
+  octokit: GitHubClient,
+  { owner, repo, ref, dir }: Repo & { ref: string; dir: string },
+): Promise<string[]> {
+  const treeAt = async (treeSha: string) =>
+    TreeSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}', { owner, repo, tree_sha: treeSha })).data).tree;
+  let treeSha = ref;
+  for (const segment of dir.split('/').filter(Boolean)) {
+    const entry = (await treeAt(treeSha)).find((candidate) => candidate.path === segment && candidate.type === 'tree');
+    if (!entry) return [];
+    treeSha = entry.sha;
+  }
+  return (await treeAt(treeSha)).filter((entry) => entry.type === 'tree').map((entry) => entry.path);
 }
 
 /** Every comment on the pull request, as `{ id, body }`. */
@@ -153,11 +195,13 @@ export async function changedFiles(
 }
 
 /**
- * Fail closed (PRD 28, decision 6): completes every check run of this name on the head SHA that is
- * not completed yet as `failure`, with the reason as its title. When there is none — the run failed
- * before it could create one — it creates the check already completed, so the failure is never
- * silent, unless `create` is false. A check run this app cannot write (another app's, of the same
- * name) is left alone. `externalId`: the one a created check run carries (the inbox check's).
+/**
+ * Fail closed (PRD 28, decision 6), on a gated pull request only (issue 876): completes every check
+ * run of this name on the head SHA that is not completed yet as `failure`, with the reason as its
+ * title. When there is none — the run failed before it could create one — it creates the check
+ * already completed, so the failure is never silent, unless `create` is false. A check run this app
+ * cannot write (another app's, of the same name) is left alone. `externalId`: the one a created check
+ * run carries (the inbox check's).
  * @returns the check run ids completed or created
  */
 export async function completeAsFailure(
@@ -174,6 +218,49 @@ export async function completeAsFailure(
 ): Promise<number[]> {
   const title = `omni-loop could not evaluate: ${firstLine(reason)}`;
   const output = { title, summary: title };
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: 'failure', output, create, externalId });
+}
+
+/**
+ * Skip the check on a pull request the gate does not run on (issue 876): completes its open check
+ * runs, or creates one, already `skipped`, with why as its summary. The function's first step posts
+ * it before any gate read, and its failure handler posts it again, so a failed run never leaves such
+ * a pull request red, missing or `in_progress`.
+ * @returns {Promise<number[]>}
+ */
+export async function completeAsSkipped(
+  octokit: GitHubClient,
+  { owner, repo, headSha, name, reason }: Repo & { headSha: string; name: string; reason: string | null },
+): Promise<number[]> {
+  return completeOpen(octokit, { owner, repo, headSha, name, conclusion: 'skipped', output: skippedOutput(reason), create: true });
+}
+
+/** The output of a skipped check: the title `evaluate` gives a pull request it does not gate. */
+export function skippedOutput(reason: string | null | undefined): { title: string; summary: string } {
+  return { title: NOT_ACTIVE_ON_PR, summary: reason ?? NOT_ACTIVE_ON_PR };
+}
+
+/** Completes the open check runs of this name as `conclusion`, or creates one completed unless `create` is false. */
+async function completeOpen(
+  octokit: GitHubClient,
+  {
+    owner,
+    repo,
+    headSha,
+    name,
+    conclusion,
+    output,
+    create,
+    externalId,
+  }: Repo & {
+    headSha: string;
+    name: string;
+    conclusion: 'failure' | 'skipped';
+    output: { title: string; summary: string };
+    create: boolean;
+    externalId?: string | undefined;
+  },
+): Promise<number[]> {
   const completed_at = new Date().toISOString();
 
   const { data } = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
@@ -193,7 +280,7 @@ export async function completeAsFailure(
         repo,
         check_run_id: run.id,
         status: 'completed',
-        conclusion: 'failure',
+        conclusion,
         completed_at,
         output,
       });
@@ -211,7 +298,7 @@ export async function completeAsFailure(
     head_sha: headSha,
     ...(externalId === undefined ? {} : { external_id: externalId }),
     status: 'completed',
-    conclusion: 'failure',
+    conclusion,
     completed_at,
     output,
   });

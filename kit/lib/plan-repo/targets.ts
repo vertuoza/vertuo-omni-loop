@@ -11,24 +11,17 @@
 //   evidence file of the copy), else `ok`. `detail` says why, and is `null` for `ok`.
 //
 // "A filled form" is a Markdown file under the target's `paths.playbook` (read from its own config,
-// the kit's default layout when unset) whose front matter says `state: filled`.
+// the kit's default layout when unset) whose front matter says `state: filled` (playbook/filled.ts).
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'yaml';
 import type { z } from 'zod';
 import type { Context } from '../context.ts';
+import { isFilled, playbookOf } from '../playbook/filled.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
-import {
-  firstIssue,
-  FormStateSchema,
-  GhCompareSchema,
-  GhContentEntrySchema,
-  GhRepositorySchema,
-  TargetConfigSchema,
-} from './gh-schema.ts';
+import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
 import type { GhCompare, GhContentEntry, GhRepository } from './gh-schema.ts';
 
 /** How `gh` is run: `execFileSync`, or a fake of it. */
@@ -63,8 +56,6 @@ type GhError = { stderr?: unknown; message?: unknown } | null | undefined;
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';
-const DEFAULT_PLAYBOOK = '.omni-loop/knowledge/playbook';
-const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 /** The error `gh` raised, as its one telling line. */
 function ghLine(error: GhError): string {
@@ -120,28 +111,6 @@ function answerOf<S extends z.ZodType>(schema: S, answer: unknown, what: string)
   const parsed = schema.safeParse(answer);
   if (!parsed.success) throw new Unreachable(`gh answered ${what} without what it needs — ${firstIssue(parsed.error)}`);
   return parsed.data;
-}
-
-/** The playbook folder a target's config names, the default layout's when it names none. */
-function playbookOf(configText: string): string {
-  try {
-    const read = TargetConfigSchema.safeParse(parse(configText));
-    const playbook = read.success ? read.data.paths?.playbook : undefined;
-    return typeof playbook === 'string' && playbook.trim() ? playbook.replace(/\/+$/, '') : DEFAULT_PLAYBOOK;
-  } catch {
-    return DEFAULT_PLAYBOOK;
-  }
-}
-
-function isFilled(text: string | null): boolean {
-  const block = FRONT_MATTER.exec(text ?? '');
-  if (!block) return false;
-  try {
-    const read = FormStateSchema.safeParse(parse(block[1] ?? ''));
-    return read.success && read.data.state === 'filled';
-  } catch {
-    return false;
-  }
 }
 
 function hasFilledForm(gh: GhReader, repo: string, playbook: string, ref: string): boolean {

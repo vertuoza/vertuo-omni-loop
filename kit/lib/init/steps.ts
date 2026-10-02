@@ -5,9 +5,13 @@
 // optional branch protection, filling the forms with /omni:invade — the commands it could not fill,
 // what it noticed and left alone, who sees the status line it switched on, how to update the loop later
 // (`omni update`), and how to remove it again (`closingSteps`). Only the repository's slug, its default
-// branch and the install pull request vary from one repository to the next.
+// branch and the install pull request vary from one repository to the next. A repository already
+// installed on its default branch (installed.ts, PRD 893) gets only `installedHeadline` and
+// `installedSteps` around the computer's lines: the steps already taken there are not repeated, and
+// an invaded one is pointed at `omni update` and `/omni:invade --refresh` instead of the forms.
 import { dirname } from 'node:path';
 import type { InstallPr } from './install-pr.ts';
+import type { Invasion } from './installed.ts';
 import type { LabelsResult } from './labels.ts';
 import type { FormatterNotice } from './notices.ts';
 import type { StepLines } from './plugin.ts';
@@ -35,6 +39,48 @@ const KIT_LINE_IN_PLACE: ReadonlySet<string> = new Set(['wrote', 'kept']);
 // The closing steps' numbers: the App, then the merge, then the labels step when there is one.
 const LABELS_STEP = 3;
 const formsStep = (labels: Pick<LabelsResult, 'byHand'>): number => (labels.byHand.length ? 5 : 4);
+
+/** The step that fills the forms in the front door `forms.dir`, with /omni:invade. */
+const fillStep = (forms: { dir: string }): [string, ...string[]] => [
+  `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
+  `     /${PLUGIN}:invade`,
+];
+
+/** The numbered steps only a person can take, under their heading. */
+function byHand(steps: readonly [string, ...string[]][]): string[] {
+  const lines = ['', 'Then, by hand:'];
+  steps.forEach(([first, ...rest], index) => {
+    lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
+  });
+  return lines;
+}
+
+/** The first line of a repository already installed on `defaultBranch`: nothing is written or opened. */
+export const installedHeadline = (defaultBranch: string): string => `Already installed on ${defaultBranch} — no install pull request.`;
+
+/** The line that says a repository is invaded, with its date when one is known. */
+const invadedLine = (invaded: Invasion): string => `Already invaded${invaded.date ? ` (${invaded.date})` : ''}.`;
+
+/**
+ * The closing lines of a repository already installed: the App, the merge, the labels and the
+ * required check are behind it, so only the forms are left — or, once it is invaded, how to update
+ * the loop and refresh the forms. `forms` is the forms' front door, as the default branch's config
+ * places it; `invaded` its invasion (installed.ts), `null` when no form is filled; `configPath` the
+ * config file, whose folder is the loop's.
+ */
+export function installedSteps({ forms, invaded = null, configPath }: {
+  forms: { dir: string };
+  invaded?: Invasion | null;
+  configPath: string;
+}): string[] {
+  if (!invaded) return byHand([fillStep(forms)]);
+  return [
+    '',
+    invadedLine(invaded),
+    `To update the loop: node ${dirname(configPath)}/bin/omni.mjs update`,
+    `To refresh the forms: /${PLUGIN}:invade --refresh`,
+  ];
+}
 
 /**
  * The first lines: what init wrote or kept. `slug` is the repository's `owner/name`, `null` when
@@ -149,14 +195,8 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
     '   is to remove the requirement, never to fake a status.',
   ]);
   // Last: the skill needs the plugin, and opens a pull request into the branch the forms were merged to.
-  steps.push([
-    `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
-    `     /${PLUGIN}:invade`,
-  ]);
-  lines.push('', 'Then, by hand:');
-  steps.forEach(([first, ...rest], index) => {
-    lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
-  });
+  steps.push(fillStep(forms));
+  lines.push(...byHand(steps));
 
   if (unfilled.length) {
     lines.push('', `Not filled — set them in ${configPath} or rerun with the flag:`);

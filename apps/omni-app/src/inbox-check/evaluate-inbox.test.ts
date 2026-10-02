@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createCanon } from '../canon/canon.ts';
+import { createCanon, neutral } from '../canon/canon.ts';
 import { readCanonMarker } from './canon-actions.ts';
 import { evaluateInbox, inboxPrd, phase0Topic, type InboxVerdict } from './evaluate-inbox.ts';
 
@@ -194,6 +194,12 @@ describe('evaluateInbox — the canon gate, fifth', () => {
     expect(readCanonMarker(verdict.summary)).toBeNull();
   });
 
+  it('grades with the PRD as its ref, so a Jev call is recorded against it', async () => {
+    const grade = vi.fn(async () => neutral('stub'));
+    const verdict = await graded(input({ canon: { grade } }));
+    expect(grade).toHaveBeenCalledWith(expect.objectContaining({ repo: 'acme/widgets', ref: `PRD ${verdict.prd}` }));
+  });
+
   it('red: "canon ✗ N", listing the claim, the quoted spec line and one persona line', async () => {
     const { canon } = stubbedCanon({ reply: BREAKS });
     const verdict = await graded(input({ canon }));
@@ -222,7 +228,7 @@ describe('evaluateInbox — the canon gate, fifth', () => {
 
   it.each([
     ['no business', { business: { state: 'none', business: null, claims: [], personas: [], updatedAt: null } }, 'no business: no workspace tracking acme/widgets has one'],
-    ['no product claims', { business: { ...BUSINESS, state: 'none', claims: [] } }, "no confirmed claim for this repository's product"],
+    ['no product claims', { business: { ...BUSINESS, state: 'none', claims: [] } }, "no confirmed claim or constituent for this repository's product"],
     ['no key', { answer: { ok: false, error: 'no-key', reply: null, reason: 'OPENROUTER_API_KEY is not set' } }, 'model not configured (OPENROUTER_API_KEY is not set)'],
     ['a model error', { answer: { ok: false, error: 'unavailable', reply: null, reason: 'model unavailable (503)' } }, 'model error: model unavailable (503)'],
   ])('neutral, never red, for %s, with its line', async (_, stub, reason) => {

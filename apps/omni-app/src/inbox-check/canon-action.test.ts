@@ -57,7 +57,7 @@ describe('canon-action — Rewrite for <persona>', () => {
   });
 });
 
-describe('canon-action — Change the claim', () => {
+describe('canon-action — Change the line', () => {
   it('posts one comment linking to the claim on Settings › Business, apart from the rewrite comment', async () => {
     const gh = github();
     await click(gh, CANON_ACTION.rewrite);

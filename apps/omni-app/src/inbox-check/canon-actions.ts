@@ -2,8 +2,10 @@
 // needs, and the one comment each action posts.
 //
 //   Rewrite for <persona>  posts "To rewrite the spec for <persona>, run `/omni:brainstorm --rework <n>`"
-//   Change the claim       posts a link to each cited claim on Settings › Business (a Never line at
-//                          its `#never-<seq>` anchor, the page itself for any other kind)
+//   Change the line        posts a link to each cited line on Settings › Business (a Never line at
+//                          its `#never-<seq>` anchor, the Statement at `#statement`, the page itself
+//                          for any other claim). Its identifier stays `canon-claim` (PRD 839), so a
+//                          button on a check run published before PRD 871 still answers
 //
 // GitHub's `requested_action` delivery carries only the button's identifier and the check run, so the
 // facts a comment needs (the PRD, the persona, the cited claims) ride in the check run's summary as a
@@ -44,7 +46,7 @@ export function canonActions(canon: Pick<CanonState, 'state' | 'persona'> | null
       description: 'Post the command that reworks the spec',
       identifier: CANON_ACTION.rewrite,
     },
-    { label: 'Change the claim', description: 'Open the claim on Settings › Business', identifier: CANON_ACTION.claim },
+    { label: 'Change the line', description: 'Open the line on Settings › Business', identifier: CANON_ACTION.claim },
   ];
 }
 
@@ -83,12 +85,16 @@ export function readCanonMarker(summary: unknown): CanonFacts | null {
 /** The line that marks the comment an action posted, so the next click finds it. */
 export const commentMarker = (action: string): string => `<!-- omni-canon-action:${action} -->`;
 
-/** Settings › Business at a claim: a Never line at its `#never-<seq>`, any other claim the page. */
+/** Settings › Business at a line: a Never line at its `#never-<seq>`, the Statement at `#statement`, any other claim the page. */
 function claimLink(galaxyUrl: string, id: string): string {
   const page = `${galaxyUrl.replace(/\/+$/, '')}/app/settings/business`;
+  if (id === 'statement') return `${page}#statement`;
   const never = /^never#(\d+)$/.exec(id);
   return never ? `${page}#never-${never[1]}` : page;
 }
+
+/** Whether a cited id is a constituent (the Statement or a Never line, PRD 871) rather than a claim. */
+const isConstituent = (id: string) => id === 'statement' || /^never#\d+$/.test(id);
 
 /** The one comment an action posts (`action`: the button's identifier), or `null` for one that is not a canon button. */
 export function canonComment(action: string, facts: CanonFacts, { galaxyUrl }: { galaxyUrl: string }): string | null {
@@ -98,12 +104,14 @@ export function canonComment(action: string, facts: CanonFacts, { galaxyUrl }: {
   }
   if (action === CANON_ACTION.claim) {
     const lines = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
-    return [
-      commentMarker(action),
-      'To change the claim, open it on Settings › Business. A new wording is saved as proposed and confirmed like any other; then re-run the inbox check.',
-      '',
-      ...lines,
-    ].join('\n');
+    const how: string[] = [];
+    if (facts.claims.some(isConstituent)) {
+      how.push('To change the Statement or a Never line, open it on Settings › Business: an owner of the workspace changes it on the Constituents panel; then re-run the inbox check.');
+    }
+    if (facts.claims.some((id) => !isConstituent(id))) {
+      how.push('To change the claim, open it on Settings › Business. A new wording is saved as proposed and confirmed like any other; then re-run the inbox check.');
+    }
+    return [commentMarker(action), ...how, '', ...lines].join('\n');
   }
   return null;
 }

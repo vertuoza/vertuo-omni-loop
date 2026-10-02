@@ -3,7 +3,8 @@ import { reply as json } from '../business-api/reply';
 // GET /api/waiting/business (PRD 774, s5): for the signed-in person, how many things wait to be checked
 // in the business of their workspace (the one joined first, as Settings › Business reads it):
 // business_to_check() counts the proposed evidence claims, the contradictions and the faded claims,
-// and since PRD 822 the proposed claims a person answered in a skill run (an overrule saved as a claim).
+// and since PRD 822 the proposed claims a person answered in a skill run (an overrule saved as a claim);
+// since PRD 855 (s3), agent_questions_open() adds the open questions agents couldn't answer.
 // Any member gets it, since any member can confirm (PRD 774, decision 4). With no workspace, 0. It
 // reads as the person (their cookie session), never with a service key (ADR-0032).
 
@@ -42,10 +43,13 @@ export async function waitingBusiness(deps: BusinessCountDeps): Promise<Response
   try {
     const workspace = await deps.workspace(who.db, who.user);
     if (!workspace) return json(200, { count: 0 } satisfies BusinessCount);
-    const { data, error } = await who.db.rpc('business_to_check', { p_workspace: workspace.id });
-    if (error) throw new Error(error.message);
-    const count = typeof data === 'number' && Number.isInteger(data) && data > 0 ? data : 0;
-    return json(200, { count } satisfies BusinessCount);
+    const counted = async (fn: string) => {
+      const { data, error } = await who.db.rpc(fn, { p_workspace: workspace.id });
+      if (error) throw new Error(error.message);
+      return typeof data === 'number' && Number.isInteger(data) && data > 0 ? data : 0;
+    };
+    const [toCheck, questions] = await Promise.all([counted('business_to_check'), counted('agent_questions_open')]);
+    return json(200, { count: toCheck + questions } satisfies BusinessCount);
   } catch (error) {
     console.error(`Waiting business: the count could not be read: ${why(error)}`);
     return json(500, { error: 'The business could not be read.' });
