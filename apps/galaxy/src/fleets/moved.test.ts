@@ -34,14 +34,14 @@ describe('fleetsMovedTo', () => {
 });
 
 describe('GET /app/fleets', () => {
-  it('redirects permanently to /app/settings/fleets, the query kept', async () => {
-    const response = await GET(new NextRequest('https://omni.example/app/fleets?x=1'));
+  it('redirects permanently to /app/settings/fleets, the query kept', () => {
+    const response = GET(new NextRequest('https://omni.example/app/fleets?x=1'));
     expect(response.status).toBe(308);
     expect(response.headers.get('location')).toBe('https://omni.example/app/settings/fleets?x=1');
   });
 
-  it('redirects with no query to the bare new path', async () => {
-    const response = await GET(new NextRequest('https://omni.example/app/fleets'));
+  it('redirects with no query to the bare new path', () => {
+    const response = GET(new NextRequest('https://omni.example/app/fleets'));
     expect(response.status).toBe(308);
     expect(response.headers.get('location')).toBe('https://omni.example/app/settings/fleets');
   });

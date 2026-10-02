@@ -30,7 +30,7 @@ export default async function DocsRoute({ params }: Params) {
     <DocsPage
       items={sidebarItems(guide.pageTree)}
       url={page.url}
-      title={page.data.title ?? ''}
+      title={page.data.title}
       description={page.data.description}
       toc={page.data.toc}
     >

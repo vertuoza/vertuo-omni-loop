@@ -4,7 +4,7 @@ import { sendScore } from './send';
 
 describe('sendScore: the dock sends a finished game\'s score through the arcade\'s score sending', () => {
   it('sends it once under Entropy Invaders\' key and shows saving, then saved as NEW BEST', async () => {
-    const submitScore = vi.fn(async (_game: string, score: number) => score);
+    const submitScore = vi.fn((_game: string, score: number) => Promise.resolve(score));
     const shown: ScoreSend[] = [];
     const done = await sendScore({ submitScore }, 'invaders', 1240, (s) => shown.push(s), 800);
     expect(submitScore).toHaveBeenCalledTimes(1);
@@ -17,19 +17,19 @@ describe('sendScore: the dock sends a finished game\'s score through the arcade\
   });
 
   it('sends under the key of the game it is given, SUPER OMNI WORLD\'s as well', async () => {
-    const submitScore = vi.fn(async (_game: string, score: number) => score);
+    const submitScore = vi.fn((_game: string, score: number) => Promise.resolve(score));
     await sendScore({ submitScore }, 'platformer', 700, () => {});
     expect(submitScore).toHaveBeenCalledWith('platformer', 700);
   });
 
   it('keeps the stored best when the game scored less', async () => {
-    const done = await sendScore({ submitScore: async () => 9210 }, 'invaders', 300, () => {}, 9210);
+    const done = await sendScore({ submitScore: () => Promise.resolve(9210) }, 'invaders', 300, () => {}, 9210);
     expect(done).toEqual({ state: 'saved', score: 300, best: 9210, newBest: false });
   });
 
   it('shows not saved when the account refuses it, or when there is none, and never throws', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
-    await expect(sendScore({ submitScore: async () => { throw new Error('refused'); } }, 'invaders', 50, () => {})).resolves.toEqual({ state: 'failed', score: 50, tries: 1 });
+    await expect(sendScore({ submitScore: () => Promise.reject(new Error('refused')) }, 'invaders', 50, () => {})).resolves.toEqual({ state: 'failed', score: 50, tries: 1 });
     await expect(sendScore(null, 'invaders', 50, () => {}, null, 2)).resolves.toEqual({ state: 'failed', score: 50, tries: 2 });
     err.mockRestore();
   });

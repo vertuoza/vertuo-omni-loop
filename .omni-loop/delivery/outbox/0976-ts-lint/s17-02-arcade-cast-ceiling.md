@@ -36,7 +36,7 @@ Whether a slice may lower the arcade's shared count of type escapes in scripts/t
 
 ## What I did meanwhile
 
-The arcade's count in scripts/typescript-ceilings.json went down by fourteen, from 134 to 120, and to 118 once the feature branch, with its two fewer, was merged in; nothing else in that file changed.
+The arcade's count in scripts/typescript-ceilings.json went down by fourteen, from 134 to 120, and to 113 once the feature branch, with seven fewer from its sibling slices, was merged in; nothing else in that file changed.
 
 ## What it costs to change later
 

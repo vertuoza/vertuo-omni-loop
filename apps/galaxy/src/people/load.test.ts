@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadPeople, peopleOf } from './load';
+import { sure } from '../arcade/sure';
 
 // The people directory (PRD 652), on a fake client: one roster read and one fleets read per page, then
 // every person a screen names resolves by account id or by GitHub login, with their face and fleet.
@@ -13,9 +14,11 @@ const ROSTER = [
 ];
 const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod', home: null, motto: '', sort: 1, retired_at: null }];
 
-function fakeDb({ roster = ROSTER as unknown, rosterError = null as { message: string } | null, fleetsError = null as { message: string } | null } = {}) {
-  const rpc = vi.fn(async () => ({ data: rosterError ? null : roster, error: rosterError }));
-  const eq = vi.fn(async () => ({ data: fleetsError ? null : FLEETS, error: fleetsError }));
+type Refused = { message: string } | null;
+
+function fakeDb({ roster = ROSTER, rosterError = null, fleetsError = null }: { roster?: unknown; rosterError?: Refused; fleetsError?: Refused } = {}) {
+  const rpc = vi.fn(() => Promise.resolve({ data: rosterError ? null : roster, error: rosterError }));
+  const eq = vi.fn(() => Promise.resolve({ data: fleetsError ? null : FLEETS, error: fleetsError }));
   const from = vi.fn(() => ({ select: () => ({ eq }) }));
   return { db: { rpc, from } as never, rpc, from, eq };
 }
@@ -79,8 +82,8 @@ describe('loadPeople', () => {
     log.mockRestore();
   });
 
-  it('carries a member\'s login in lower case, by id or by login, so their chip links to their profile (PRD 698)', async () => {
-    const people = peopleOf([{ ...ROSTER[0]!, github_login: 'Ada-GH' }, ...ROSTER.slice(1)], FLEETS);
+  it('carries a member\'s login in lower case, by id or by login, so their chip links to their profile (PRD 698)', () => {
+    const people = peopleOf([{ ...sure(ROSTER[0], 'ROSTER[0]'), github_login: 'Ada-GH' }, ...ROSTER.slice(1)], FLEETS);
     expect(people.byId('u-ada', 'ADA').login).toBe('ada-gh');
     expect(people.byLogin('ADA-gh').login).toBe('ada-gh');
     expect(people.byId('u-sol', 'Sol')).not.toHaveProperty('login');

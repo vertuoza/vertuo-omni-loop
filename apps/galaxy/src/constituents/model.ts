@@ -5,11 +5,9 @@
 // leaves (GET /api/constituents) or is used.
 import { z } from 'zod';
 
-const CONSTITUENT_KINDS = ['statement', 'never'] as const;
-export type ConstituentKind = (typeof CONSTITUENT_KINDS)[number];
+export type ConstituentKind = 'statement' | 'never';
 
-const EVENT_ACTIONS = ['added', 'edited', 'removed', 'moved'] as const;
-export type EventAction = (typeof EVENT_ACTIONS)[number];
+export type EventAction = 'added' | 'edited' | 'removed' | 'moved';
 
 /** The longest Statement and Never line the database takes, on one line. */
 export const STATEMENT_MAX = 400;

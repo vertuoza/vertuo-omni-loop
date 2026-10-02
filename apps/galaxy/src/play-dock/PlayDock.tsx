@@ -84,10 +84,10 @@ const PLAYING: ReadonlyArray<DockView['kind']> = ['playing', 'asking', 'done'];
 function useWindowWidth(): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const measure = () => setWidth(window.innerWidth);
+    const measure = () => { setWidth(window.innerWidth); };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => { window.removeEventListener('resize', measure); };
   }, []);
   return width;
 }
@@ -98,7 +98,7 @@ function useGameCode(playing: boolean, load: () => Promise<ComponentType<DockGam
   useEffect(() => {
     if (!playing || Game) return;
     let live = true;
-    load().then((g) => { if (live) setGame(() => g); }).catch((err) => console.error(err));
+    load().then((g) => { if (live) setGame(() => g); }).catch((err: unknown) => { console.error(err); });
     return () => { live = false; };
   }, [playing, Game, load]);
   return Game;
@@ -142,9 +142,9 @@ export function PlayDock({ state, player, hero = null, team = null, answerHref, 
   }, [keepOpen]);
 
   return (
-    <DockFrame view={view} answerHref={answerHref} onOpen={() => show(true)} onFold={() => show(false)}>
+    <DockFrame view={view} answerHref={answerHref} onOpen={() => { show(true); }} onFold={() => { show(false); }}>
       {Game && playing
-        ? <Game games={games} chosen={chosen} onChoose={choose} asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => show(false)} />
+        ? <Game games={games} chosen={chosen} onChoose={choose} asking={view.kind === 'asking'} hero={hero} team={team} values={values} supabase={supabase} workspace={workspace} account={account} onFold={() => { show(false); }} />
         : <p className="pd-loading">LOADING…</p>}
     </DockFrame>
   );

@@ -156,7 +156,7 @@ function appInPage(): AppSeen {
   return {
     theme: document.querySelector('.ask')?.getAttribute('data-ask-theme') ?? null,
     dashboard: Boolean(h1?.classList.contains('dash-name')),
-    heading: h1?.textContent?.trim() ?? null,
+    heading: h1?.textContent.trim() ?? null,
     width,
     scrollWidth: page.scrollWidth,
     out: out.slice(0, 5).map((el) => el.tagName.toLowerCase() + [...el.classList].map((c) => `.${c}`).join('')),
@@ -540,7 +540,7 @@ function unreachable(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
   const cause: unknown = err.cause;
   const code = typeof cause === 'object' && cause !== null && 'code' in cause ? cause.code : undefined;
-  return String(code ?? err.message);
+  return typeof code === 'string' || typeof code === 'number' ? String(code) : err.message;
 }
 
 async function main(): Promise<number> {

@@ -39,7 +39,7 @@ export const ratio = (n: number) => `${n.toFixed(1)}:1`;
 export const TYPE_STEPS = keysOf(TYPE_SCALE).map((name) => ({ name, ...TYPE_SCALE[name] }));
 
 /** The icons: the 16×16 sprites, and the cursor. */
-export const ICONS = Object.keys(SPRITE_DEFS).filter((name) => SPRITE_DEFS[name]!.w <= 16);
+export const ICONS = Object.entries(SPRITE_DEFS).filter(([, def]) => def.w <= 16).map(([name]) => name);
 /** The cast: every other sprite (OmniMan and his poses, the heroes, the fleet mascots, Entropy). */
 export const CAST = Object.keys(SPRITE_DEFS).filter((name) => !ICONS.includes(name));
 
