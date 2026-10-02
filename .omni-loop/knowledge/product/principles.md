@@ -412,3 +412,21 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-59
+
+Each product owns its own Statement and Never list, and another product's lines never shift or claim its numbers.
+
+Why: People cite Never lines by number, so numbering must stay local to a product and stable once cited.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01
+
+## P-PRODUCT-60
+
+A check turns red only on a finding it can show. A model's judgement may confirm or clear that finding, but never raises one on its own.
+
+Why: Every red can then be checked by a person against quoted text, rather than taken on a model's word.
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01

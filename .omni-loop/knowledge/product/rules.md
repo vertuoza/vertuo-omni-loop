@@ -583,3 +583,27 @@ Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-67
+
+A product's Statement is a single line of at most 400 characters, and its owner can remove it and write a new one. Never line numbers count per product, so each product's first Never line is number one.
+
+Serves: P-PRODUCT-59
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s1-02-statement-shape-and-never-numbers, PRD #871
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01
+
+## BR-PRODUCT-68
+
+The inbox check turns red for a spec break only when it can quote the spec sentence and name the Never line or Statement it breaks. Jev's answer can only confirm or clear a quoted break; with no quoted finding, the check stays green whatever Jev says.
+
+Serves: P-PRODUCT-60
+Source: .omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md, entry s5-02-jev-broken-without-quote-is-not-red, PRD #871
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #874
+Proposed: harvest 2026-10-01
