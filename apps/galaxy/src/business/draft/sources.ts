@@ -41,8 +41,8 @@ export function repoFiles(listing: RepoListing): RepoFile[] {
   for (const name of listing.docs.filter((n) => /\.md$/i.test(n)).sort(byName)) files.push({ path: `docs/${name}`, kind: 'doc' });
   if (listing.delivery !== null) {
     const shipped = listing.shipped
-      .map((name) => ({ name, parsed: parseFolderName(name) as { prd: number } | null }))
-      .filter((f): f is { name: string; parsed: { prd: number } } => f.parsed !== null)
+      .map((name) => ({ name, parsed: parseFolderName(name) }))
+      .filter((f): f is { name: string; parsed: { prd: number; topic: string } } => f.parsed !== null)
       .sort((a, b) => b.parsed.prd - a.parsed.prd)
       .slice(0, MAX_SPECS);
     for (const { name } of shipped) files.push({ path: `${listing.delivery}/shipped/${name}/spec.md`, kind: 'prd' });

@@ -24,7 +24,7 @@ async function settled<T>(what: string, read: () => PromiseLike<{ data: unknown;
   try {
     const { data, error } = await read();
     if (error) throw new Error(error.message);
-    return (data ?? none) as T;
+    return (data ?? none) as T; // ts-allow: T is the shape the caller's select or function names; the client answers its rows untyped
   } catch (err) {
     console.error(`business: could not read ${what} (${err instanceof Error ? err.message : String(err)})`);
     return none;
@@ -33,7 +33,7 @@ async function settled<T>(what: string, read: () => PromiseLike<{ data: unknown;
 
 export async function loadConstituentsPanel(db: SupabaseClient, workspace: string, products: readonly string[]): Promise<ConstituentsPanelData> {
   const [load, owner, roster, fleets] = await Promise.all([
-    loadConstituents(db as unknown as ConstituentsDb, products),
+    loadConstituents(db as unknown as ConstituentsDb, products), // ts-allow: loadConstituents() takes only the narrow port it calls; the client is too deep for TypeScript to compare with it
     settled<unknown>('your role', () => db.rpc('is_owner', { workspace }), false),
     settled<RosterRow[]>('the workspace\'s members', () => db.rpc('workspace_roster', { workspace }), []),
     settled<FleetLookRow[]>('the fleets', () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace), []),

@@ -47,10 +47,12 @@ const NOT_JSON = Symbol('not JSON');
 
 const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
 
+const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+
 async function bodyOf(request: Request): Promise<Record<string, unknown> | Response> {
   const sent: unknown = await request.json().catch(() => NOT_JSON);
-  if (sent === NOT_JSON || !sent || typeof sent !== 'object' || Array.isArray(sent)) return refuse(400, 'The body must be a JSON object.');
-  return sent as Record<string, unknown>;
+  if (sent === NOT_JSON || !isRecord(sent)) return refuse(400, 'The body must be a JSON object.');
+  return sent;
 }
 
 /** The store as the signed-in person and what `parse` reads of the request's JSON object, or the

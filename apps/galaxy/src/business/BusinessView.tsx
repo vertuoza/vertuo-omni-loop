@@ -10,6 +10,7 @@ import {
   type Mark, type Reveal, type WebPage,
 } from './reveal';
 import { additionText, checkIds, checkRows, seenSince, type CheckRow } from './check';
+import { cssVars } from '../arcade/css-vars';
 
 // Settings → Business drawn from its state (PRD 748 s2). The title is the sentence the confirmed
 // claims write, with a blank for each kind still empty. Below it, Skip (which stores nothing and folds
@@ -210,13 +211,13 @@ function SizeSlider({ state, on }: { state: BusinessState; on: BusinessHandlers 
   return (
     <div className="business-group" role="group" aria-labelledby="business-size-title" data-kind="size">
       <h2 id="business-size-title">Customer size · <span className="business-size-said">{said}</span></h2>
-      <div className="business-slider" style={{ ['--lo' as string]: lo / last, ['--hi' as string]: hi / last }}>
+      <div className="business-slider" style={cssVars({ '--lo': lo / last, '--hi': hi / last })}>
         {handle('lo', lo, 'Smallest customer')}
         {handle('hi', hi, 'Largest customer')}
       </div>
       <ol className="business-stops" aria-hidden="true">
         {SIZE_STOPS.map((s, i) => (
-          <li key={s} style={{ ['--at' as string]: i / last }} data-end={i === lo || i === hi ? '' : undefined}>{s}</li>
+          <li key={s} style={cssVars({ '--at': i / last })} data-end={i === lo || i === hi ? '' : undefined}>{s}</li>
         ))}
       </ol>
     </div>

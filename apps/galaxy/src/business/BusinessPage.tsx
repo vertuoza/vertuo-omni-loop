@@ -82,7 +82,7 @@ function useConstituents(source: BusinessSource, read: Constituents | undefined,
   const port = useRef<ConstituentPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoConstituentsPort({ products: known.current, by: read?.me ?? 'demo' })
-    : databaseConstituents(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls
+    : databaseConstituents(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
   const write = async (w: Parameters<typeof writeConstituent>[1]) => {
     if (state.busy) return;
     act({ type: 'busy' });
@@ -143,7 +143,7 @@ function usePersonas(source: BusinessSource, personas: Persona[], newProduct: st
   const castPort = useRef<PersonaPort | null>(null);
   const getCast = () => (castPort.current ??= source.kind === 'demo'
     ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls
+    : databasePersonas(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
   // Undo goes once its 5 seconds have passed.
   const until = cast.undo?.until ?? null;
   useEffect(() => {
@@ -154,11 +154,11 @@ function usePersonas(source: BusinessSource, personas: Persona[], newProduct: st
   const save = async () => {
     const drawer = cast.drawer;
     if (cast.busy || !drawer) return;
-    if (drawer.editing === null && !drawer.product) return;
+    const { editing, product, fields } = drawer;
+    const write = editing !== null ? () => getCast().edit(editing, fields) : product ? () => getCast().add(product, fields) : null;
+    if (!write) return;
     act({ type: 'busy' });
-    const saved = drawer.editing === null
-      ? await getCast().add(drawer.product as string, drawer.fields)
-      : await getCast().edit(drawer.editing, drawer.fields);
+    const saved = await write();
     act(saved.ok ? { type: 'saved', persona: saved.persona } : { type: 'refused', message: saved.message });
   };
   const remove = async () => {
@@ -198,11 +198,11 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   const port = useRef<BusinessPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoBusinessPort(held.current.claims, held.current.products)
-    : databaseBusiness(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace, source.product)); // ts-allow: the store takes only the narrow port it calls
+    : databaseBusiness(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace, source.product)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
   const drafts = useRef<DraftPort | null>(null);
   const getDrafts = () => (drafts.current ??= source.kind === 'demo'
     ? demoDraftPort(() => held.current.claims)
-    : databaseDraft(createBrowserClient<Database>(source.url, source.key) as unknown as DraftDb, source.workspace)); // ts-allow: the store takes only the narrow port it calls
+    : databaseDraft(createBrowserClient<Database>(source.url, source.key) as unknown as DraftDb, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
   /** In the demo, the claims store starts again from the page after a draft or That's us. */
   const renew = () => {
     if (source.kind === 'demo') port.current = null;

@@ -1,4 +1,5 @@
 import { claimOf, maxValue, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
 // supabase/migrations/20261019090000_business_store.sql, called as the signed-in person: claim_pick()
@@ -37,7 +38,7 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
 export function refusalOf(error: unknown): string {
-  const { code } = (error ?? {}) as { code?: unknown };
+  const code = propertyOf(error, 'code');
   if (code === '42501') return NOT_MEMBER;
   if (code === 'P0002') return GONE;
   if (code === '22023') return INVALID;
@@ -57,7 +58,7 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return refused(error);
-      return { ok: true, claim: claimOf(data as StoredClaim) };
+      return { ok: true, claim: claimOf(data as StoredClaim) }; // ts-allow: claim_pick and claim_set_state answer the public.claims row they wrote
     } catch (err) {
       return refused(err);
     }
@@ -70,9 +71,9 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     async addProduct(name) {
       try {
         const { data, error } = await db.rpc('product_add', { p_workspace: workspace, p_name: name });
-        const made = data as { id?: unknown; name?: unknown } | null;
-        if (error || typeof made?.id !== 'string') return { ok: false, message: refusalOf(error) };
-        return { ok: true, product: { id: made.id, name: String(made.name) } };
+        const id = propertyOf(data, 'id');
+        if (error || typeof id !== 'string') return { ok: false, message: refusalOf(error) };
+        return { ok: true, product: { id, name: String(propertyOf(data, 'name')) } };
       } catch (err) {
         return { ok: false, message: refusalOf(err) };
       }
@@ -86,8 +87,8 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
           body: JSON.stringify({ workspace, product: on }),
         });
         if (!response.ok) return [];
-        const body = (await response.json()) as { claims?: unknown } | null;
-        const rows = Array.isArray(body?.claims) ? (body.claims as StoredClaim[]) : [];
+        const claims = propertyOf(await response.json(), 'claims');
+        const rows = Array.isArray(claims) ? (claims as StoredClaim[]) : []; // ts-allow: the suggest route answers public.claims rows (suggest-api.ts)
         return rows.map((row) => claimOf(row)).filter(isGuess);
       } catch {
         return [];
@@ -143,9 +144,9 @@ export type Step = { type: 'saved'; claim: Claim } | { type: 'refused'; message:
 
 /** The calls a plan of model.ts makes, in order: each rejection, then the pick, on `product` when
  * given. */
-export const callsOf = (port: BusinessPort, kind: ClaimKind, plan: { reject: Claim[]; pick: string | null }, product?: string): Array<() => Promise<Saved>> => [
-  ...plan.reject.map((claim) => () => port.setState(claim, 'rejected')),
-  ...(plan.pick === null ? [] : [() => port.pick(kind, plan.pick as string, product)]),
+export const callsOf = (port: BusinessPort, kind: ClaimKind, { reject, pick }: { reject: Claim[]; pick: string | null }, product?: string): Array<() => Promise<Saved>> => [
+  ...reject.map((claim) => () => port.setState(claim, 'rejected')),
+  ...(pick === null ? [] : [() => port.pick(kind, pick, product)]),
 ];
 
 /** The calls ✓ on a row makes: the rejections planConfirm() names, then the confirmation. */
