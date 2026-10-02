@@ -7,7 +7,6 @@
 // [--repo <owner/name>]` — the reply's body, ending with the care marker. Without --thread it only
 // prints the body; with --thread it posts it on that review thread and, for fixed and pushed-back,
 // resolves the thread (an asked thread stays open for the PM), then prints what it did as JSON.
-import { execFileSync } from 'node:child_process';
 import { decideRound } from '../../lib/care/decide.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
 import { CARE_QUERY, careState } from '../../lib/care/state.ts';
@@ -21,6 +20,7 @@ import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } f
 import { buildBoard } from './board.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhGraphqlSchema, GhPrStatesSchema, GhReplyMutationSchema } from '../schema.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE =
   'usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n' +
@@ -125,7 +125,7 @@ function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
     throw usageError('omni care reply: give the text with exactly one of --body or --file.');
   }
   const text = flags.body ?? readUserFile('care', ctx, flags.file ?? '');
-  if (!String(text).trim()) throw usageError('omni care reply: the reply is empty.');
+  if (!text.trim()) throw usageError('omni care reply: the reply is empty.');
   return careReplyBody(text, flags.verdict ?? '');
 }
 
@@ -158,10 +158,10 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
 }
 
 export const care: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec = execFileSync, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'state') return runState(rest, { ctx, stdout, stderr, exec, env });
     if (sub === 'reply') return runReply(rest, { ctx, stdout, stderr, exec, env });
     throw usageError(USAGE);
-  },
+  }),
 };

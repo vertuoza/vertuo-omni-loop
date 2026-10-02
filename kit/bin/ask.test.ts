@@ -8,10 +8,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../test/fake-ask-server.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { activeMode } from '../lib/ask/hook.ts';
 import { LOCAL_DIR, readMode, readRound, readTerminal, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
 import { ASK_URL_UNSET } from './commands/signin.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
@@ -61,14 +63,24 @@ const WHERE = 'GET /api/ask/workspace';
 const whereCalls = () => server.calls.filter((call) => `${call.method} ${call.path}` === WHERE);
 
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
+
+/** Starts the test's fake server, as `server`. */
+async function startServer(options: Parameters<typeof startFakeAskServer>[0] = {}) {
+  server = await startFakeAskServer(options);
+  started.push(server);
+}
+
+/** The fake page answering each round with every question's first option. */
+const answerFirst = (round: unknown) => firstOptionAnswers(dig(round, 'questions'));
 
 /** A checkout whose `ask.url` is the fake server, signed in to it. */
 async function signedIn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
-  server = await startFakeAskServer(options);
+  await startServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(server.url) } });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' } });
   return { ...repo, tokens };
@@ -114,17 +126,19 @@ describe('omni ask on', () => {
   });
 
   it('in a second terminal, leaves the first terminal\'s session open and its mode on', async () => {
-    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await signedIn({ answer: answerFirst });
     await ask('on', { root, tokens });
     expect((await hook('pre', preFrom('term-a'), { root, tokens })).code).toBe(0);
-    const { sessionId } = readTerminal(root, 'term-a')!;
+    const terminal = readTerminal(root, 'term-a');
+    assertDefined(terminal, 'the first terminal');
+    const { sessionId } = terminal;
 
     await ask('on', { root, tokens });
 
-    expect(server.sessions.get(sessionId).status).toBe('open');
+    expect(dig(server.sessions.get(sessionId), 'status')).toBe('open');
     expect(readTerminal(root, 'term-a')).toEqual({ sessionId, host: server.host });
     const again = await hook('pre', preFrom('term-a', 'toolu_02'), { root, tokens });
-    expect(JSON.parse(again.out()).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(dig(JSON.parse(again.out()), 'hookSpecificOutput', 'updatedInput', 'answers')).toEqual({ [QUESTION.question]: 'System (Recommended)' });
     expect(server.sessions.size).toBe(1);
   });
 
@@ -148,7 +162,7 @@ describe('omni ask on', () => {
 
   it('asks for the checkout\'s repository, repo.slug', async () => {
     const asked: unknown[] = [];
-    const { root, tokens } = await signedIn({ place: (repo: any) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
+    const { root, tokens } = await signedIn({ place: (repo: unknown) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
     await ask('on', { root, tokens });
     expect(asked).toEqual(['acme/widgets']);
   });
@@ -209,7 +223,7 @@ describe('omni ask on', () => {
 
 describe('each terminal\'s session', () => {
   it('is titled <repo slug> · <branch>, opened by its first question', async () => {
-    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await signedIn({ answer: answerFirst });
     execFileSync('git', ['switch', '-q', '-c', 'feat/theme-switch'], { cwd: root });
     await ask('on', { root, tokens });
     expect((await hook('pre', PRE, { root, tokens })).code).toBe(0);
@@ -218,18 +232,18 @@ describe('each terminal\'s session', () => {
   });
 
   it('two terminals asking open two sessions', async () => {
-    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await signedIn({ answer: answerFirst });
     await ask('on', { root, tokens });
     await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
     await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
     expect(server.sessions.size).toBe(2);
-    expect(readTerminal(root, 'term-a')!.sessionId).not.toBe(readTerminal(root, 'term-b')!.sessionId);
+    expect(readTerminal(root, 'term-a')?.sessionId).not.toBe(readTerminal(root, 'term-b')?.sessionId);
   });
 });
 
 describe('omni ask off', () => {
   it('closes every terminal\'s session, deletes ask.json and ask/, and prints off', async () => {
-    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await signedIn({ answer: answerFirst });
     await ask('on', { root, tokens });
     await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
     await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
@@ -240,7 +254,7 @@ describe('omni ask off', () => {
     expect(run.err()).toBe('');
     expect(run.code).toBe(0);
     expect(run.out()).toBe('off\n');
-    expect([...server.sessions.values()].map((session) => session.status)).toEqual(['closed', 'closed']);
+    expect([...server.sessions.values()].map((session: unknown) => dig(session, 'status'))).toEqual(['closed', 'closed']);
     expect(readMode(root)).toBeNull();
     expect(existsSync(join(root, LOCAL_DIR, 'ask'))).toBe(false);
     expect(readRound(root, 'toolu_c')).toBeNull();
@@ -258,7 +272,7 @@ describe('omni ask off', () => {
 
     expect(run.err()).toBe('');
     expect(run.out()).toBe('off\n');
-    expect(server.sessions.get(id).status).toBe('closed');
+    expect(dig(server.sessions.get(id), 'status')).toBe('closed');
     expect(readMode(root)).toBeNull();
     expect(existsSync(join(root, LOCAL_DIR, 'ask-round.json'))).toBe(false);
   });
@@ -373,16 +387,16 @@ describe('omni ask status', () => {
 
 describe('ask mode, whole', () => {
   it('on, a question answered on the page, off — and the hooks go quiet', async () => {
-    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await signedIn({ answer: answerFirst });
     expect((await ask('on', { root, tokens })).code).toBe(0);
 
     const pre = await hook('pre', PRE, { root, tokens });
     expect(pre.code).toBe(0);
-    expect(JSON.parse(pre.out()).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(dig(JSON.parse(pre.out()), 'hookSpecificOutput', 'updatedInput', 'answers')).toEqual({ [QUESTION.question]: 'System (Recommended)' });
 
     expect((await ask('off', { root, tokens })).code).toBe(0);
     const [session] = server.sessions.values();
-    expect(session.status).toBe('closed');
+    expect(dig(session, 'status')).toBe('closed');
     const calls = server.calls.length;
     const quiet = await hook('pre', PRE, { root, tokens });
     expect(quiet.code).toBe(0);
@@ -391,7 +405,7 @@ describe('ask mode, whole', () => {
   });
 
   it('runs as a process, reading the sign-in from the home folder', async () => {
-    server = await startFakeAskServer();
+    await startServer();
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(server.url) } });
     const home = mkdtempSync(join(tmpdir(), 'omni-home-'));
     mkdirSync(join(home, '.config', 'omni'), { recursive: true });

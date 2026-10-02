@@ -4,6 +4,8 @@ import type { Action } from '../keys';
 import {
   alienAt, FIELDS, hudOf, LIVES, marchEvery, newGame, pause, press, rowKinds, SCORE_CAP, step, type Game,
 } from './invaders';
+import { sure } from '../sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The close values the view passes in: made up here, so a test sees the engine pay what it is given.
 const VALUES: Record<WoundKind, number> = {
@@ -57,14 +59,14 @@ describe('a new game', () => {
     const g = newGame({ layout: 'wide', values: VALUES, seed: 1 });
     expect(hudOf(g)).toMatchObject({ phase: 'ready', score: 0, lives: LIVES, wave: 1 });
     expect(LIVES).toBe(3);
-    expect(hudOf(run(g, NONE, 200).at(-1)!).phase).toBe('play');
+    expect(hudOf(sure(run(g, NONE, 200).at(-1), 'run(g, NONE, 200).at(-1)')).phase).toBe('play');
     expect(hudOf(press(g, 'a').game).phase).toBe('play');
     expect(press(g, 'b').leave).toBe(true);
   });
 
   it('plays the same game from the same seed', () => {
-    const a = run({ ...playing(), bombIn: 0.1 }, hold('right', 'a'), 400).at(-1)!;
-    const b = run({ ...playing(), bombIn: 0.1 }, hold('right', 'a'), 400).at(-1)!;
+    const a = sure(run({ ...playing(), bombIn: 0.1 }, hold('right', 'a'), 400).at(-1), 'run({ ...playing(), bombIn: 0.1 }, hold("right", "a"), 400).at(-1)');
+    const b = sure(run({ ...playing(), bombIn: 0.1 }, hold('right', 'a'), 400).at(-1), 'run({ ...playing(), bombIn: 0.1 }, hold("right", "a"), 400).at(-1)');
     expect(b).toEqual(a);
   });
 });
@@ -72,19 +74,19 @@ describe('a new game', () => {
 describe('the hero', () => {
   it('moves while a direction is held, and stands still otherwise', () => {
     const g = playing();
-    const right = run(g, hold('right'), 30).at(-1)!;
+    const right = sure(run(g, hold('right'), 30).at(-1), 'run(g, hold("right"), 30).at(-1)');
     expect(right.heroX).toBeGreaterThan(g.heroX);
-    const left = run(g, hold('left'), 30).at(-1)!;
+    const left = sure(run(g, hold('left'), 30).at(-1), 'run(g, hold("left"), 30).at(-1)');
     expect(left.heroX).toBeLessThan(g.heroX);
-    expect(run(g, NONE, 30).at(-1)!.heroX).toBe(g.heroX);
-    expect(run(g, hold('left', 'right'), 30).at(-1)!.heroX).toBe(g.heroX);
+    expect(sure(run(g, NONE, 30).at(-1), 'run(g, NONE, 30).at(-1)').heroX).toBe(g.heroX);
+    expect(sure(run(g, hold('left', 'right'), 30).at(-1), 'run(g, hold("left", "right"), 30).at(-1)').heroX).toBe(g.heroX);
   });
 
   it('stays on the field', () => {
     const g = playing();
     const f = FIELDS.wide;
-    expect(run(g, hold('left'), 600).at(-1)!.heroX).toBeGreaterThanOrEqual(0);
-    const far = run(g, hold('right'), 600).at(-1)!;
+    expect(sure(run(g, hold('left'), 600).at(-1), 'run(g, hold("left"), 600).at(-1)').heroX).toBeGreaterThanOrEqual(0);
+    const far = sure(run(g, hold('right'), 600).at(-1), 'run(g, hold("right"), 600).at(-1)');
     expect(far.heroX + f.hero.w).toBeLessThanOrEqual(f.w);
   });
 
@@ -94,7 +96,7 @@ describe('the hero', () => {
     const fired = frames.filter((g) => g.events.includes('fire')).length;
     expect(fired).toBeGreaterThanOrEqual(1);
     // A new bolt leaves only once the last one is gone.
-    frames.forEach((g, i) => { if (g.events.includes('fire') && i > 0) expect(frames[i - 1]!.bolt).toBeNull(); });
+    frames.forEach((g, i) => { if (g.events.includes('fire') && i > 0) expect(sure(frames[i - 1], 'frames[i - 1]').bolt).toBeNull(); });
   });
 });
 
@@ -122,12 +124,13 @@ describe('a hit', () => {
   it('wears a shield away, from below and from above', () => {
     const g = playing();
     const s = g.shields[0];
-    const cells = (x: Game) => x.shields[0]!.cells.filter(Boolean).length;
+    assertDefined(s, 's');
+    const cells = (x: Game) => sure(x.shields[0], 'x.shields[0]').cells.filter(Boolean).length;
     const f = FIELDS.wide.shields;
-    const up = step({ ...g, bolt: { x: s!.x + 20, y: s!.y + f.rows * f.cell - 4 } }, NONE, FRAME);
+    const up = step({ ...g, bolt: { x: s.x + 20, y: s.y + f.rows * f.cell - 4 } }, NONE, FRAME);
     expect(cells(up)).toBeLessThan(cells(g));
     expect(up.bolt).toBeNull();
-    const down = step({ ...g, bombs: [{ x: s!.x + 20, y: s!.y - 6 }] }, NONE, FRAME);
+    const down = step({ ...g, bombs: [{ x: s.x + 20, y: s.y - 6 }] }, NONE, FRAME);
     expect(cells(down)).toBeLessThan(cells(g));
     expect(down.bombs).toEqual([]);
   });
@@ -211,16 +214,16 @@ describe('lives and the end of the game', () => {
 
   it('stops everything at game over, and leaves on a key once the score has shown for a moment', () => {
     const over = playing({ over: true, overAt: 10, t: 10 });
-    const later = run(over, hold('right', 'a'), 30).at(-1)!;
+    const later = sure(run(over, hold('right', 'a'), 30).at(-1), 'run(over, hold("right", "a"), 30).at(-1)');
     expect([later.heroX, later.bolt, later.fx, later.score]).toEqual([over.heroX, over.bolt, over.fx, over.score]);
     expect(press(over, 'a').leave).toBe(false);
-    expect(press(run(over, NONE, 90).at(-1)!, 'a').leave).toBe(true);
+    expect(press(sure(run(over, NONE, 90).at(-1), 'run(over, NONE, 90).at(-1)'), 'a').leave).toBe(true);
   });
 });
 
 describe('pause', () => {
   it('leaves a paused game as it was, whatever is held', () => {
-    const g = pause(run(playing({ bombIn: 0.1 }), hold('right', 'a'), 30).at(-1)!);
+    const g = pause(sure(run(playing({ bombIn: 0.1 }), hold('right', 'a'), 30).at(-1), 'run(playing({ bombIn: 0.1 }), hold("right", "a"), 30).at(-1)'));
     expect(hudOf(g).phase).toBe('paused');
     expect(step(g, hold('left', 'a'), FRAME)).toBe(g);
     expect(run(g, hold('left', 'a'), 120).at(-1)).toBe(g);

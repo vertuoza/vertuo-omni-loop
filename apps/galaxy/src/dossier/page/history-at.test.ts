@@ -64,10 +64,10 @@ describe('coming back from the sign-in', () => {
 
   it('exchanges the code, joins, and goes back to the same short address', async () => {
     const calls: string[] = [];
-    const to = await atSignInReturn(back('?code=c1'), ORIGIN, key, async (code) => {
+    const to = await atSignInReturn(back('?code=c1'), ORIGIN, key, (code) => {
       calls.push(`exchange ${code}`);
-      return { error: null };
-    }, async () => calls.push('join'));
+      return Promise.resolve({ error: null });
+    }, () => Promise.resolve(calls.push('join')));
     expect(to).toBe(`${ORIGIN}/prd/at/vertuoza/vertuo-omni-loop/251`);
     expect(calls).toEqual(['exchange c1', 'join']);
   });

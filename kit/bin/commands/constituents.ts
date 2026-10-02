@@ -73,7 +73,7 @@ const CARRY_ON = '— agents carry on';
 
 /** `fetch` held to one deadline shared by every request of the read, the renewal included. */
 function withDeadline(fetch: Fetch, signal: AbortSignal): Fetch {
-  return (url, init = {}) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, signal]) : signal });
+  return (url, init) => fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, signal]) : signal });
 }
 
 /** The read as `--json` prints it. */

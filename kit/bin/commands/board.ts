@@ -25,10 +25,11 @@ import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
 import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
-import { propertyOf } from '../../lib/narrow.ts';
+import { defined, propertyOf } from '../../lib/narrow.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
@@ -135,7 +136,7 @@ type Unreadable = { repo: string | null | undefined; slug: string | null; reason
 
 function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
-  const repoCol = row.repo === undefined ? '' : `${row.repo!.padEnd(repoWidth)}  `; // ts-allow: boardFor sets `repo` to a name or leaves it out
+  const repoCol = row.repo === undefined ? '' : `${defined(row.repo, `the repository of ${row.id}`).padEnd(repoWidth)}  `;
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 
@@ -222,14 +223,20 @@ function knownRepositories(ctx: Context, planSlug: string): Map<string, string> 
   return known;
 }
 
+/** What a process wrote, as text: a string as it is, a buffer decoded, nothing for anything else. */
+function textOf(value: unknown): string {
+  if (typeof value === 'string') return value;
+  return Buffer.isBuffer(value) ? value.toString() : '';
+}
+
 /** What gh said when it could not read a repository, as one line. */
 function ghReason(error: unknown): string {
-  const lines = `${propertyOf(error, 'stderr') ?? ''}\n${propertyOf(error, 'message') ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+  const lines = `${textOf(propertyOf(error, 'stderr'))}\n${textOf(propertyOf(error, 'message'))}`.split('\n').map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? 'gh could not read it';
 }
 
 export const board: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('board', '<prd>', positional[0]);
@@ -262,5 +269,5 @@ export const board: Command = {
       }
     }
     return 0;
-  },
+  }),
 };

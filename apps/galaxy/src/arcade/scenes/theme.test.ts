@@ -6,6 +6,7 @@ import { DEFAULT_THEME, resolveTheme, stripesOf, TOKENS, type Theme, type Token 
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
+import { sure } from '../sure';
 
 // The canvas in a workspace's theme: every sprite drawn, with the options it was drawn with, and
 // every colour the arcade's own code fills with (the sprite package's planets, stars and nebulae are
@@ -63,7 +64,7 @@ function frame(scene: SceneName, grid: Grid, theme: Theme, sceneT: number): Fram
   return {
     scene, grid, page: 0, view, layout: layoutMap(view, grid), sel, fleetSel: 0, t: 5.3, sceneT, reduced: false,
     mark: markFor('Vertuoza', theme), theme,
-    join: { fleets, pick: 1, lockedAt: null, team: fleets[1]!.name, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
+    join: { fleets, pick: 1, lockedAt: null, team: sure(fleets[1], 'fleets[1]').name, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
 

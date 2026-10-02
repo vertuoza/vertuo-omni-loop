@@ -62,7 +62,7 @@ export function canonMarker({ prd, canon }: { prd: number | null; canon: CanonSt
 
 /** The facts `canonMarker` hid in a summary, or `null` when there are none. */
 export function readCanonMarker(summary: unknown): CanonFacts | null {
-  const match = FACTS.exec(String(summary ?? ''));
+  const match = FACTS.exec(summary === undefined || summary === null ? '' : printed(summary));
   if (!match) return null;
   let parsed: unknown;
   try {
@@ -81,6 +81,9 @@ export function readCanonMarker(summary: unknown): CanonFacts | null {
     claims: claims.filter((id): id is string => typeof id === 'string'),
   };
 }
+
+/** A summary, as `String` prints it: the webhook hands it over as GitHub sent it, unparsed. */
+const printed = (value: unknown) => String(value);
 
 /** The line that marks the comment an action posted, so the next click finds it. */
 export const commentMarker = (action: string): string => `<!-- omni-canon-action:${action} -->`;

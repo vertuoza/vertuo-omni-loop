@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { renderMarkdown } from '../markdown';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
@@ -64,12 +65,19 @@ const rounds = [
   asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
 ];
 
+type PageOptions = {
+  dossier?: DossierRow; rows?: typeof versions; pick?: DossierPick; me?: string; markdown?: string | null;
+  supabase?: typeof SUPABASE | null; questions?: DossierRoundRow[] | null;
+  answerable?: string[]; now?: number; github?: GithubSummary | null; slices?: number | null;
+  repos?: string[] | null; stages?: StageRow[] | null;
+};
+
 function page({
-  dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
-  supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
-  answerable = [] as string[], now = Date.now(), github = undefined as GithubSummary | null | undefined, slices = null as number | null,
-  repos = null as string[] | null, stages = undefined as StageRow[] | null | undefined,
-} = {}) {
+  dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null,
+  supabase = SUPABASE, questions = rounds,
+  answerable = [], now = Date.now(), github, slices = null,
+  repos = null, stages,
+}: PageOptions = {}) {
   const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
@@ -146,7 +154,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(await copyCommand('/omni:yolo 216', { writeText })).toBe('copied');
     expect(writeText).toHaveBeenCalledWith('/omni:yolo 216');
     expect(COPY_WORDS.copied).toBe('Copied');
-    expect(await copyCommand('/omni:yolo 216', { writeText: async () => { throw new Error('denied'); } })).toBe('refused');
+    expect(await copyCommand('/omni:yolo 216', { writeText: () => Promise.reject(new Error('denied')) })).toBe('refused');
     expect(await copyCommand('/omni:yolo 216', undefined)).toBe('refused');
   });
 
@@ -283,7 +291,9 @@ describe('the header box (PRD 476)', () => {
       expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
       expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
       expect(cell(html, 'Repo')).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
-      expect(textOf(cell(html, 'Opened')!)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+      const opened = cell(html, 'Opened');
+      assertDefined(opened, 'the Opened cell');
+      expect(textOf(opened)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     }
   });
 
@@ -331,7 +341,7 @@ describe('Delete', () => {
 
 describe('the tabs', () => {
   const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
-    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2]!.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
+    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2]?.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -471,7 +481,9 @@ describe('the Questions tab', () => {
   });
 
   it('folds an answered round: a closed <details> whose <summary> is its line (PRD 498)', () => {
-    const html = questions({ questions: [rounds[0]!] });
+    const [answered] = rounds;
+    assertDefined(answered, 'the answered round');
+    const html = questions({ questions: [answered] });
     expect(html).toMatch(/<li id="r1" class="dossier-round" data-rule="brainstorm" data-state="answered"><details class="dossier-fold"><summary class="dossier-round-line">/);
     expect(html).not.toMatch(/<details[^>]* open/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
@@ -537,7 +549,9 @@ describe('the Questions tab', () => {
   });
 
   it('folds a round moved to the terminal, its line saying so, with no option', () => {
-    const html = questions({ questions: [rounds[1]!] });
+    const [, moved] = rounds;
+    assertDefined(moved, 'the moved round');
+    const html = questions({ questions: [moved] });
     expect(html).toMatch(/<li id="r2" class="dossier-round" data-rule="delivery" data-state="moved"><details class="dossier-fold"><summary class="dossier-round-line">/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
     expect(line).toContain('<span class="dossier-round-count">moved to the terminal</span>');

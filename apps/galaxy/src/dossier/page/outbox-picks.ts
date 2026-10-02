@@ -11,7 +11,7 @@
 // a convenience only: what comes back is read defensively, and a pick on a question the tab no longer
 // shows is dropped.
 
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type Pick = { pick: string; reason: string };
 /** By question number. */
@@ -46,7 +46,8 @@ export function recommend(questions: Pickable[], picks: Picks): Picks {
   const next: Picks = { ...picks };
   for (const q of questions) {
     if (q.kind !== 'decision' || q.adopted || !q.letters.includes('A')) continue;
-    next[q.number] = picks[q.number]?.pick === 'A' ? picks[q.number]! : { pick: 'A', reason: '' };
+    const kept = picks[q.number];
+    next[q.number] = kept?.pick === 'A' ? kept : { pick: 'A', reason: '' };
   }
   return next;
 }
@@ -83,7 +84,7 @@ export function answers(questions: Pickable[], picks: Picks): Array<{ number: nu
     .filter((q) => isAnswer(q, picks[q.number]))
     .sort((a, b) => a.number - b.number)
     .map(({ number }) => {
-      const { pick, reason } = picks[number]!;
+      const { pick, reason } = defined(picks[number], `the pick for question ${number}`);
       return reason.trim() ? { number, pick, reason } : { number, pick };
     });
 }
