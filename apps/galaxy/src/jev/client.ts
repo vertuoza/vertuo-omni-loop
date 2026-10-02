@@ -1,3 +1,4 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { maskSecrets, maskState } from './mask';
 
@@ -166,9 +167,10 @@ async function reasonOf(response: Response): Promise<string> {
   const text = (await response.text().catch(() => '')).trim();
   if (text) {
     try {
-      const body = JSON.parse(text) as { error?: unknown; message?: unknown };
-      const error = body.error as { message?: unknown } | string | undefined;
-      const message = typeof error === 'string' ? error : typeof error?.message === 'string' ? error.message : body.message;
+      const body: unknown = JSON.parse(text);
+      const error = propertyOf(body, 'error');
+      const inner = propertyOf(error, 'message');
+      const message = typeof error === 'string' ? error : typeof inner === 'string' ? inner : propertyOf(body, 'message');
       if (typeof message === 'string' && message.trim()) return message.trim().slice(0, 300);
     } catch {
       return text.slice(0, 300);

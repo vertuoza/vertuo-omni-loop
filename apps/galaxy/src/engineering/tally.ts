@@ -1,3 +1,4 @@
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
@@ -222,7 +223,7 @@ export const SORTS: readonly { id: SortKey; label: string }[] = [
 
 /** The sort a query value names: merged, for anything unknown. */
 export function sortOf(value: string | string[] | null | undefined): SortKey {
-  return SORTS.some((s) => s.id === value) ? (value as SortKey) : 'merged';
+  return isOneOf(SORTS.map((s) => s.id), value) ? value : 'merged';
 }
 
 const COUNT_OF: Record<Exclude<SortKey, 'repo' | 'time'>, (r: RepositoryStats) => number> = {

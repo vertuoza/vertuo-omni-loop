@@ -28,7 +28,7 @@ const ROUTE = '/api/jev/key';
 async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<KeySaved> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const answer = (await res.json().catch(() => null)) as { key?: JevKeyStatus; error?: string } | null;
+    const answer = (await res.json().catch(() => null)) as { key?: JevKeyStatus; error?: string } | null; // ts-allow: the key route's own JSON, or null on a failed read; error is checked to be text below
     if (res.ok && answer?.key) return { ok: true, key: answer.key };
     return { ok: false, message: typeof answer?.error === 'string' ? answer.error : COULD_NOT_SAVE };
   } catch {
