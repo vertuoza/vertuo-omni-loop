@@ -1,0 +1,727 @@
+{
+  "prd": 871,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "8dd18a1cdbc4e7deb34e6fb765f8c51cd920b427",
+        "mergedAt": "2026-10-01T12:08:56Z",
+        "number": 874,
+        "openedAt": "2026-10-01T08:31:53Z",
+        "title": "feat(constituents): Product constituents (PRD 871)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/874"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\n                                                             set_jev_decision                                                             \n------------------------------------------------------------------------------------------------------------------------------------------\n (449dae79-1609-44ef-ad8f-720572dd14c6,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/304bf24c-3236-4d75-bd6b-b0186ac1c02a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "label": "check on 331e710 in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36842199431/job/110303697695"
+            },
+            {
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\n                                                             set_jev_decision                                                             \n------------------------------------------------------------------------------------------------------------------------------------------\n (1c86fe44-25f8-45c7-b38f-8b2af9faab5a,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/1ad230a1-98c0-4f0d-8ee7-71a8abd11a2c' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "label": "check on d9cb54f in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36842984528/job/110306220335"
+            },
+            {
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key              \n---------------------------------------\n (1a2b,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\n                                                            set_jev_decision                                                             \n-----------------------------------------------------------------------------------------------------------------------------------------\n (f64c42ea-1804-4c3e-83ad-eaff2f99333d,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key              \n---------------------------------------\n (1a2b,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/07273644-f7da-4028-9096-fdc94bedb080' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "label": "check on cd15cf5 in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36844170755/job/110310199164"
+            }
+          ],
+          "happened": "The check `check` was red on 3 commits in 1 slice (s1): 3 of its 3 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "id": "repeated-red:check",
+          "kind": "repeated-red",
+          "ref": "F1",
+          "source": "ci",
+          "title": "Check check was red again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#877",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/877/files"
+            }
+          ],
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `.github/workflows/supabase.yml`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#882",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/882/files"
+            }
+          ],
+          "happened": "Slice s3 changed 3 paths outside its territory and off the plan’s shared ground: `kit/bin/ask-hook.test.mjs`, `kit/lib/ask/client.mjs`, `kit/lib/help/entries.test.mjs`.",
+          "id": "territory:s3",
+          "kind": "territory",
+          "ref": "F3",
+          "source": "delivery",
+          "title": "Slice s3 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#883",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/883/files"
+            }
+          ],
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/jev/settings/render.test.ts`.",
+          "id": "territory:s4",
+          "kind": "territory",
+          "ref": "F4",
+          "source": "delivery",
+          "title": "Slice s4 changed files outside its territory"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 4232,
+          "churn": 63,
+          "commits": 26,
+          "files": [
+            {
+              "added": 114,
+              "churn": 27,
+              "commits": 2,
+              "finalAdded": 87,
+              "path": "apps/galaxy/src/jev/decisions/judge-route.ts",
+              "percent": 31
+            },
+            {
+              "added": 89,
+              "churn": 12,
+              "commits": 2,
+              "finalAdded": 77,
+              "path": "apps/galaxy/src/business/BusinessPage.tsx",
+              "percent": 16
+            },
+            {
+              "added": 149,
+              "churn": 8,
+              "commits": 2,
+              "finalAdded": 141,
+              "path": "apps/omni-app/src/canon/canon.mjs",
+              "percent": 6
+            },
+            {
+              "added": 191,
+              "churn": 6,
+              "commits": 2,
+              "finalAdded": 185,
+              "path": "apps/galaxy/src/business/ConstituentsPanel.tsx",
+              "percent": 3
+            },
+            {
+              "added": 149,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 146,
+              "path": "apps/galaxy/src/constituents/model.ts",
+              "percent": 2
+            },
+            {
+              "added": 83,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 80,
+              "path": "apps/galaxy/src/jev/decisions/constituent-break.ts",
+              "percent": 4
+            },
+            {
+              "added": 77,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 75,
+              "path": "kit/lib/constituents/read.mjs",
+              "percent": 3
+            },
+            {
+              "added": 148,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 147,
+              "path": "apps/galaxy/src/business/constituents-panel.ts",
+              "percent": 1
+            },
+            {
+              "added": 80,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 79,
+              "path": "apps/galaxy/src/constituents/api.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 4175,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0871-product-constituents/accounts/s2.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s1-01-constituents-check-in-ci.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s1-02-statement-shape-and-never-numbers.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s2-01-hide-never-claims.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s2-02-history-times-in-utc.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s3-01-constituents-call-in-shared-client.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s4-01-judge-reply-always-carries-answer.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s4-02-settings-test-outside-territory.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s5-01-judge-asked-on-every-check.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/s5-02-jev-broken-without-quote-is-not-red.md",
+              ".omni-loop/delivery/outbox/0871-product-constituents/settled.md"
+            ],
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 6,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 3,
+              "redCommits": [
+                "331e710",
+                "d9cb54f",
+                "cd15cf5"
+              ],
+              "redSlices": [
+                "s1"
+              ],
+              "redThenGreen": [],
+              "runs": 3
+            }
+          ],
+          "redRuns": [
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "331e710",
+              "counts": null,
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\n                                                             set_jev_decision                                                             \n------------------------------------------------------------------------------------------------------------------------------------------\n (449dae79-1609-44ef-ad8f-720572dd14c6,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:23:04.217034+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/304bf24c-3236-4d75-bd6b-b0186ac1c02a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 110303697695,
+              "log": "read",
+              "reporter": null,
+              "slice": "s1",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36842199431/job/110303697695"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "d9cb54f",
+              "counts": null,
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\n                                                             set_jev_decision                                                             \n------------------------------------------------------------------------------------------------------------------------------------------\n (1c86fe44-25f8-45c7-b38f-8b2af9faab5a,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key               \n----------------------------------------\n (1a2b,\"2026-10-01 09:30:04.916055+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/1ad230a1-98c0-4f0d-8ee7-71a8abd11a2c' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 110306220335,
+              "log": "read",
+              "reporter": null,
+              "slice": "s1",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36842984528/job/110306220335"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "cd15cf5",
+              "counts": null,
+              "excerpt": "        set_config         \n---------------------------\n {\"role\" : \"service_role\"}\n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\nDO\nRESET\nSET\nDO\nRESET\nDO\nROLLBACK\npersonas: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/jev.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nINSERT 0 4\nINSERT 0 1\nINSERT 0 3\nDO\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key              \n---------------------------------------\n (1a2b,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\n                                                            set_jev_decision                                                             \n-----------------------------------------------------------------------------------------------------------------------------------------\n (f64c42ea-1804-4c3e-83ad-eaff2f99333d,outbox-risk,shadow,0.50,0.40,00000000-0000-4000-8000-0000000081a1,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\nRESET\nCREATE TABLE\nINSERT 0 2\nCREATE TABLE\nINSERT 0 4\nGRANT\nCREATE TABLE\nINSERT 0 9\nGRANT\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nDO\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\n              set_jev_key              \n---------------------------------------\n (1a2b,\"2026-10-01 09:41:20.12412+00\")\n(1 row)\n\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nROLLBACK\njev: every check passed\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\nDO\nINSERT 0 4\nINSERT 0 1\nUPDATE 0\nINSERT 0 3\nINSERT 0 1\nCREATE FUNCTION\nCREATE TABLE\nINSERT 0 2\nGRANT\nCREATE FUNCTION\nCREATE TABLE\nGRANT\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nCREATE FUNCTION\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSELECT 1\nGRANT\nSET\n sign_in \n---------\n \n(1 row)\n\nDO\nRESET\nSET\nDO\nRESET\nDO\nSET\npsql:supabase/checks/constituents.sql:313: ERROR:  permission denied for function constituents_of_product\nCONTEXT:  SQL expression \"got <> (select public.constituents_of_product(pg_temp.made('product'))) or got->>'state' <> 'ok'\"\nPL/pgSQL function inline_code_block line 7 at IF\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/07273644-f7da-4028-9096-fdc94bedb080' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 110310199164,
+              "log": "read",
+              "reporter": null,
+              "slice": "s1",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36844170755/job/110310199164"
+            }
+          ],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "settle"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 3,
+            "red": 3,
+            "runs": 3,
+            "slices": 1
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 8,
+            "agreed": 1,
+            "byRank": {
+              "high": 1,
+              "medium": 8
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0871-product-constituents/outbox/settled.md",
+            "raised": 9,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  877
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  881
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  882
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  883
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  884
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  886
+                ],
+                "slice": "settle",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 7,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 874,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/874"
+              },
+              {
+                "pr": 877,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/877"
+              },
+              {
+                "pr": 881,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/881"
+              },
+              {
+                "pr": 882,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/882"
+              },
+              {
+                "pr": 883,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/883"
+              },
+              {
+                "pr": 884,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/884"
+              },
+              {
+                "pr": 886,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "settle",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/886"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 5,
+              "graded": 5,
+              "shared": 0,
+              "unplanned": 1,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  ".github/workflows/supabase.yml"
+                ],
+                "files": 16,
+                "pr": 877,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/877"
+              },
+              {
+                "breaches": [],
+                "files": 19,
+                "pr": 881,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/881"
+              },
+              {
+                "breaches": [
+                  "kit/bin/ask-hook.test.mjs",
+                  "kit/lib/ask/client.mjs",
+                  "kit/lib/help/entries.test.mjs"
+                ],
+                "files": 12,
+                "pr": 882,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/882"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/jev/settings/render.test.ts"
+                ],
+                "files": 14,
+                "pr": 883,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/883"
+              },
+              {
+                "breaches": [],
+                "files": 16,
+                "pr": 884,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/884"
+              },
+              {
+                "breaches": null,
+                "files": 2,
+                "pr": 886,
+                "shared": null,
+                "slice": "settle",
+                "status": "unplanned",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/886"
+              }
+            ],
+            "reason": null,
+            "sharedGround": []
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-10-01T12:08:56Z",
+            "minutes": 217,
+            "number": 874,
+            "openedAt": "2026-10-01T08:31:53Z",
+            "readyAt": "2026-10-01T11:55:35Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/874"
+          },
+          "medianMinutes": 30,
+          "sliceCount": 6,
+          "slices": [
+            {
+              "closedAt": "2026-10-01T09:40:56Z",
+              "mergedAt": "2026-10-01T09:40:55Z",
+              "mergedWave": 1,
+              "minutes": 31,
+              "openedAt": "2026-10-01T09:09:37Z",
+              "plannedWave": 1,
+              "pr": 877,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/877"
+            },
+            {
+              "closedAt": "2026-10-01T10:28:26Z",
+              "mergedAt": "2026-10-01T10:28:26Z",
+              "mergedWave": 2,
+              "minutes": 39,
+              "openedAt": "2026-10-01T09:49:45Z",
+              "plannedWave": 2,
+              "pr": 881,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/881"
+            },
+            {
+              "closedAt": "2026-10-01T10:15:32Z",
+              "mergedAt": "2026-10-01T10:15:32Z",
+              "mergedWave": 2,
+              "minutes": 26,
+              "openedAt": "2026-10-01T09:49:54Z",
+              "plannedWave": 2,
+              "pr": 882,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/882"
+            },
+            {
+              "closedAt": "2026-10-01T10:23:35Z",
+              "mergedAt": "2026-10-01T10:23:35Z",
+              "mergedWave": 2,
+              "minutes": 34,
+              "openedAt": "2026-10-01T09:50:03Z",
+              "plannedWave": 2,
+              "pr": 883,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/883"
+            },
+            {
+              "closedAt": "2026-10-01T11:01:58Z",
+              "mergedAt": "2026-10-01T11:01:57Z",
+              "mergedWave": 3,
+              "minutes": 29,
+              "openedAt": "2026-10-01T10:32:35Z",
+              "plannedWave": 3,
+              "pr": 884,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/884"
+            },
+            {
+              "closedAt": "2026-10-01T11:22:54Z",
+              "mergedAt": "2026-10-01T11:22:54Z",
+              "mergedWave": 4,
+              "minutes": 0,
+              "openedAt": "2026-10-01T11:22:45Z",
+              "plannedWave": null,
+              "pr": 886,
+              "slice": "settle",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/886"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 4,
+            "planned": 3
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0871-product-constituents",
+        "number": 871,
+        "state": "shipped",
+        "title": "Product constituents",
+        "topic": "product-constituents"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "reason": 300,
+          "summary": 1200,
+          "title": 90,
+          "why": 300,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The repeated red check exposes a missing execute grant on a new database function, a cause not recorded in the knowledge or earlier lessons."
+      },
+      "lessons": [
+        {
+          "text": "A slice that adds a database function called by a check under a signed-in role must grant execute to that role in the same change. When a check repeats the same error, fix that error before pushing again.",
+          "findings": [
+            "repeated-red:check"
+          ]
+        }
+      ],
+      "issues": {
+        "repeated-red:check": {
+          "number": 887,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/887",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
