@@ -27,7 +27,7 @@ describe('timeline — gather', () => {
   });
 
   it('reads no ready time for a feature PR opened ready, or whose events cannot be read', async () => {
-    const opened = replay({ events: { 12: [FEATURE_EVENTS[0]] } });
+    const opened = replay({ events: { 12: [FEATURE_EVENTS[0]!] } });
     expect(await gather(opened.octokit, { owner: OWNER, repo: REPO, pr })).toEqual({ readyAt: null });
     const unreadable = replay();
     expect(await gather(unreadable.octokit, { owner: OWNER, repo: REPO, pr })).toEqual({ readyAt: null });
