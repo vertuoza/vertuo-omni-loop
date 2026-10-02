@@ -32,6 +32,7 @@ import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import type { AccountEntry, AccountLine } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
+import { isList } from '../outbox/plain-text.ts';
 import type { Laws } from '../laws.ts';
 import type { Layout, PrdNumber } from '../layout.ts';
 import type { Rank } from '../types.ts';
@@ -471,12 +472,12 @@ export function renderOutboxItem({
   if (!RANK_VALUES.some((value: string) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(', ')} — got "${rank}"`);
   }
-  if (!(questionPlain ?? '').trim()) {
+  if (!questionPlain.trim()) {
     throw new Error(
       'an item states its question in plain words too — "## The question, in plain words" — before it says what was decided',
     );
   }
-  if (!(decisionPlain ?? '').trim()) {
+  if (!decisionPlain.trim()) {
     throw new Error(
       'an item states its decision in plain words too — "## The decision, in plain words" — before the four sections a developer reads',
     );
@@ -549,7 +550,7 @@ function renderFun(introFun: string | null | undefined, punchlineFun: string | n
  * for carrying too few or too many.
  */
 function renderOptions(options: readonly (string | null | undefined)[] | null | undefined): string[] {
-  const list = (Array.isArray(options) ? options : [])
+  const list = (isList(options) ? options : [])
     .map((text) => (text ?? '').trim())
     .filter((text) => text.length > 0);
   if (list.length < 2 || list.length > 4) {
@@ -661,10 +662,11 @@ function accountLine(account: GivenAccount): string {
   const form = kind === 'item' || kind === 'spec' ? ACCOUNT_FORMS[kind] : undefined;
   if (!form) {
     throw new Error(
-      `an account is "item <id>" or "spec <where>", and no third form — got "${account?.kind}"`,
+      `an account is "item <id>" or "spec <where>", and no third form — got "${typeof kind === 'string' ? kind : kind === undefined ? 'undefined' : JSON.stringify(kind)}"`,
     );
   }
-  const value = String(account?.[form.field] ?? '').trim();
+  const given = account?.[form.field];
+  const value = (typeof given === 'string' ? given : '').trim();
   if (value.length === 0) {
     throw new Error(`an "${form.kind}" account needs its ${form.field} — ${form.why}`);
   }
@@ -690,7 +692,7 @@ export function renderAccount({
   graded: string;
   entries: readonly (RiskyPath & { account: GivenAccount })[] | null | undefined;
 }): string {
-  if (!Array.isArray(entries) || entries.length === 0) {
+  if (!isList(entries) || entries.length === 0) {
     throw new Error(
       'an account file with no risky change is not written at all — a slice that touched nothing risky owes nothing',
     );

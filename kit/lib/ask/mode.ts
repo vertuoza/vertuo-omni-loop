@@ -11,6 +11,7 @@
 import type { StdioOptions } from 'node:child_process';
 import { basename } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { defined, messageOf } from '../narrow.ts';
 import { askClient } from './client.ts';
 import type { Fetch, TokenStore } from './client.ts';
 import { activeMode } from './hook.ts';
@@ -74,12 +75,11 @@ export function turnOn({ root, askUrl, tokens }: { root: string; askUrl: string;
 async function closeSession(client: ReturnType<typeof askClient> | null, sessionId: string): Promise<string | null> {
   try {
     // No client throws here, as it always has: the session is then named as left open.
-    await client!.closeSession(sessionId);
+    await defined(client, 'the ask client').closeSession(sessionId);
     return null;
   } catch (error) {
     if (field(error, 'status') === 404) return null;
-    const message = field(error, 'message');
-    return message === undefined || message === null ? String(error) : String(message);
+    return messageOf(error);
   }
 }
 
