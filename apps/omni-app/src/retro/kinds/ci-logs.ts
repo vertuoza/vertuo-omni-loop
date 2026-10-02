@@ -7,6 +7,8 @@
 // its reporter names it, with the separators made one (` > `) and the line numbers Playwright adds
 // left out, so the same test failing on two commits carries one name.
 
+import { plainText } from 'vertuo-omni-plan/kit/lib/outbox/plain-text.ts';
+
 /** The timestamp GitHub Actions puts at the start of every line of a job's log. */
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?/;
 /** Terminal colour and cursor codes. */
@@ -35,7 +37,7 @@ const COUNT_KEYS: Readonly<Record<string, string>> = Object.freeze({
 
 /** A log as a person reads it: no byte-order mark, no Actions timestamps, no colour codes. */
 export function cleanLog(text: unknown): string {
-  return String(text ?? '')
+  return plainText(text)
     .replace(/^﻿/, '')
     .split(/\r?\n/)
     .map((line) => line.replace(TIMESTAMP, '').replace(ANSI, ''))
@@ -44,7 +46,7 @@ export function cleanLog(text: unknown): string {
 
 /** The last `count` lines of `text`, a final newline not counted as a line. */
 export function tailOf(text: unknown, count: number): string {
-  const lines = String(text ?? '').split('\n');
+  const lines = plainText(text).split('\n');
   if (lines.at(-1) === '') lines.pop();
   return lines.slice(-count).join('\n');
 }

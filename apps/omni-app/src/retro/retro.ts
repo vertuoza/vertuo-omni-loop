@@ -57,6 +57,7 @@ import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts'
 import { inngest, RETRO_EVENT } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { listComments } from '../outbox-check/github.ts';
+import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
@@ -111,7 +112,8 @@ export const DAY_WAIT = 2 * DAY_MS;
 export const FOLLOW_UP_STEP = 'wait-day-14';
 export const CLOCK_STEP = 'clock-day-14';
 
-const SCHEDULED = internalEvents.ScheduledTimer;
+/** The name of the event a cron trigger sends, as the event's name reads it: text, not the enum. */
+const SCHEDULED: string = internalEvents.ScheduledTimer;
 
 /**
  * One retro at a time per repository. The spec asks for one per repository and PRD; the PRD is known
@@ -192,7 +194,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, env = process.env, fetch = undefined, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, env = process.env, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -315,7 +317,7 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
   const narration = {
     model: narrated.model ?? null,
     reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
-    dropped: guarded.dropped ?? [],
+    dropped: guarded.dropped,
   };
   const base: RunRecord = { ...sheet, narration, verdict: prose?.verdict ?? null, lessons: lessonsOf(prose) };
   const runs = [...(earlier ? [earlier.record] : []), base];
@@ -340,7 +342,7 @@ async function runRetro({ step, github, env, fetch, owner, repo, pr, prd, config
     publishIssues(await github(), { owner, repo, config, sheet: issueSheet, prose, retroPath }),
   );
 
-  const record = { ...base, issues: issues ?? {} };
+  const record = { ...base, issues };
   const published = await step.run(id('publish'), async () =>
     publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
@@ -364,8 +366,8 @@ export function verdictOf(prose: Prose | null, narrationReason?: string | null):
 /** The lessons `guard` accepted, as `retro.json` keeps them for the retros after this one. */
 function lessonsOf(prose: Prose | null): Lesson[] {
   return (prose?.lessons ?? [])
-    .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && !lesson.text.startsWith('_Dropped: '))
-    .map((lesson) => ({ text: lesson.text, findings: [...(lesson.findings ?? [])] }));
+    .filter((lesson) => lesson.text && !lesson.text.startsWith('_Dropped: '))
+    .map((lesson) => ({ text: lesson.text, findings: [...lesson.findings] }));
 }
 
 /**
@@ -452,7 +454,7 @@ export function retroFolder(prd: { folder: string }, config: Config): string {
 
 /** The fact sheet naming `folder` as the one its retro is written into. */
 function inFolder(sheet: FactSheet, folder: string): FactSheet {
-  return sheet.prd?.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
+  return sheet.prd.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
 
 /** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
@@ -509,11 +511,6 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
       return { commentId: parseGitHub(CreatedCommentSchema, data, COMMENT).id, reason, created: true };
     });
   };
-}
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
 }
 
 export const retro = createRetro({ client: inngest, octokitFor: installationOctokit, followUp: true });

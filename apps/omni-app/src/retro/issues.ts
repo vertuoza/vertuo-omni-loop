@@ -73,7 +73,7 @@ export async function publishIssues(
 
 /** Whether the judge kept the finding `id`: only a verdict `guard` accepted carries a `keep`. */
 export function isKept(prose: Prose | null | undefined, id: string): boolean {
-  return prose?.findings?.[id]?.keep === true;
+  return prose?.findings[id]?.keep === true;
 }
 
 /**
@@ -105,9 +105,9 @@ export function renderIssue({
   prefix: string;
 }): { title: string; body: string } {
   const prd = sheet.prd.number;
-  const words: ProseFinding = prose?.findings?.[finding.id] ?? {};
+  const words: ProseFinding = prose?.findings[finding.id] ?? {};
   const refs = [`#${prd}`, `feature PR #${sheet.featurePr.number}`, retroPr ? `retro PR #${retroPr.number}` : null].filter(Boolean);
-  const evidence = finding.evidence ?? [];
+  const evidence = finding.evidence;
 
   const lines = [
     issueMarker(prefix, prd, finding.id),
@@ -145,7 +145,7 @@ export function renderIssue({
 function lessonOf(finding: SheetFinding, words: ProseFinding, prose: Prose | null): string {
   const own = field(words.lesson);
   const cited = (prose?.lessons ?? [])
-    .filter((lesson) => typeof lesson?.text === 'string' && lesson.text && (lesson.findings ?? []).includes(finding.id))
+    .filter((lesson) => lesson.text && lesson.findings.includes(finding.id))
     .map((lesson) => `- ${lesson.text}`);
   const parts = [own, cited.length > 0 ? cited.join('\n') : null].filter(Boolean);
   if (parts.length > 0) return parts.join('\n\n');
@@ -161,7 +161,7 @@ function titleOf(finding: SheetFinding, words: ProseFinding): string {
 function field(value: ProseField | null | undefined): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value === 'object' && 'dropped' in value) return `_Dropped: ${value.dropped}._`;
-  return String(value);
+  return value;
 }
 
 const PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
