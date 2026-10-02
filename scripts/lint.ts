@@ -50,29 +50,31 @@ function perRule(findings: readonly Finding[]): string {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([rule, n]) => `${String(n).padStart(6)}  ${rule}`).join('\n');
 }
 
-async function main(prefixes: readonly string[]): Promise<number> {
-  const tracked = trackedTypeScript();
-  if (prefixes.length > 0) {
-    const files = tracked.filter((path) => prefixes.some((prefix) => path.startsWith(prefix)));
-    const { findings, text } = await lint(files);
-    process.stdout.write(`${text}\n${perRule(findings)}\n${findings.length} findings in ${files.length} files\n`);
-    return findings.length === 0 ? 0 : 1;
-  }
+/** `pnpm lint <prefix>…`: every finding under the prefixes, then the count per rule. */
+async function lintPrefixes(prefixes: readonly string[]): Promise<number> {
+  const files = trackedTypeScript().filter((path) => prefixes.some((prefix) => path.startsWith(prefix)));
+  const { findings, text } = await lint(files);
+  process.stdout.write(`${text}\n${perRule(findings)}\n${findings.length} findings in ${files.length} files\n`);
+  return findings.length === 0 ? 0 : 1;
+}
+
+/** `pnpm lint`: every tracked file, each area held at its ceiling. */
+async function lintAreas(): Promise<number> {
   const { areas, problems: unread } = readAreas();
-  if (unread.length > 0) {
-    process.stderr.write(`${unread.join('\n')}\n`);
-    return 1;
-  }
-  const { findings } = await lint(tracked);
+  if (unread.length > 0) return fail(unread);
+  const { findings } = await lint(trackedTypeScript());
   const { counts } = countByArea(findings, areas);
-  for (const area of areas) process.stdout.write(`${area.name}: ${counts.get(area.name) ?? 0} / ${area.ceiling}\n`);
+  process.stdout.write(areas.map((area) => `${area.name}: ${counts.get(area.name) ?? 0} / ${area.ceiling}\n`).join(''));
   const problems = ceilingProblems(findings, areas);
-  if (problems.length > 0) {
-    process.stderr.write(`\npnpm lint: ${problems.length} problems\n${problems.join('\n')}\n`);
-    return 1;
-  }
+  if (problems.length > 0) return fail(problems);
   process.stdout.write(`pnpm lint: ${findings.length} findings, every area at its ceiling\n`);
   return 0;
 }
 
-process.exitCode = await main(process.argv.slice(2));
+function fail(problems: readonly string[]): number {
+  process.stderr.write(`\npnpm lint: ${problems.length} problems\n${problems.join('\n')}\n`);
+  return 1;
+}
+
+const prefixes = process.argv.slice(2);
+process.exitCode = prefixes.length > 0 ? await lintPrefixes(prefixes) : await lintAreas();
