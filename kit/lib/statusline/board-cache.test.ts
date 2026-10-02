@@ -24,6 +24,7 @@ import {
 import { assertDefined } from '../../test/assert.ts';
 
 const NOW = Date.parse('2026-09-28T12:00:00Z');
+const anyText: unknown = expect.any(String);
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 const SLICES = [
@@ -98,7 +99,7 @@ describe('the board file', () => {
     }
     for (const slices of [[{ id: 's1', wave: '1', state: 'merged' }], [{ id: 's1', wave: null, state: 'merged' }], [{ wave: 1, state: 'merged' }], 'all']) {
       plantBoard(root, 7, 0, { slices });
-      expect(readBoard(root, 7)).toMatchObject({ at: NOW, error: expect.any(String) });
+      expect(readBoard(root, 7)).toMatchObject({ at: NOW, error: anyText });
     }
   });
 

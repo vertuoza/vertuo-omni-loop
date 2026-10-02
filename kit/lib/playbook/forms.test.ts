@@ -4,6 +4,9 @@ import { main } from '../../bin/omni.ts';
 import { FORM_IDS, FORMS, parseForm, readForm, resolvePlaybookId } from './forms.ts';
 import { assertDefined } from '../../test/assert.ts';
 
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+const containing = (text: string): unknown => expect.stringContaining(text);
+
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
   frontMatter?: Record<string, unknown>;
@@ -79,7 +82,7 @@ describe('the briefing — the links rule (PRD 413, Decision 7)', () => {
     const { root } = makeRepo({ git: true, files: { ...config, ...files } });
     const out: string[] = [];
     const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write() {} } };
-    const code = await main(['kb', 'show', 'briefing'], io as never);
+    const code = await main(['kb', 'show', 'briefing'], io);
     return { code, out: out.join('') };
   }
 
@@ -354,17 +357,17 @@ describe('resolvePlaybookId — a settled entry’s Became: playbook/<form>#<slo
 
   it('refuses a form the kit does not have, a missing form file, a missing slot and a blank body, each with a reason', () => {
     const { ctx, write } = makeRepo();
-    expect(resolvePlaybookId('playbook/tests#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/no form "tests"/) });
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringContaining(`no form file at ${FILE}`) });
+    expect(resolvePlaybookId('playbook/tests#never', { ctx })).toEqual({ ok: false, reason: matching(/no form "tests"/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: containing(`no form file at ${FILE}`) });
     write(FILE, formText({ slots: [{ id: 'levels', body: 'x' }] }));
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/has no slot "never"/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/has no slot "never"/) });
     write(FILE, never(''));
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/"never" is blank/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/"never" is blank/) });
   });
 
   it('refuses a form file that does not parse, and an id that is not playbook/<form>#<slot>', () => {
     const { ctx } = makeRepo({ files: { [FILE]: '# Testing\n' } });
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/front matter/) });
-    expect(resolvePlaybookId('playbook/testing', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/playbook\/<form>#<slot>/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/front matter/) });
+    expect(resolvePlaybookId('playbook/testing', { ctx })).toEqual({ ok: false, reason: matching(/playbook\/<form>#<slot>/) });
   });
 });

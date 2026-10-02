@@ -150,7 +150,9 @@ function candidate() {
   });
   const ctx = { config: { paths: { delivery: '.omni-loop/delivery' } } };
   const text = `${settledHeader(28, { ctx })}\n${entry}`;
-  return candidatesFromLedger(text, { markers, ledgerFile: 'shipped/0028/outbox/settled.md' })[0]!;
+  const [candidate] = candidatesFromLedger(text, { markers, ledgerFile: 'shipped/0028/outbox/settled.md' });
+  assertDefined(candidate, 'the candidate');
+  return candidate;
 }
 
 describe('knowledgeSummary', () => {
@@ -263,12 +265,14 @@ describe('classificationSchema', () => {
   });
 
   it('refuses a rule with no serves', () => {
-    const { serves, ...reply } = VALID.ruleExisting;
+    const reply: Record<string, unknown> = { ...VALID.ruleExisting };
+    delete reply.serves;
     expect(refusal(reply)).toMatch(/serves is required/);
   });
 
   it('refuses serves: new without a principle, and a principle without serves: new', () => {
-    const { principle, ...noPrinciple } = VALID.ruleNew;
+    const noPrinciple: Record<string, unknown> = { ...VALID.ruleNew };
+    delete noPrinciple.principle;
     expect(refusal(noPrinciple)).toMatch(/needs the principle it proposes/);
     expect(refusal({ ...VALID.ruleExisting, principle: VALID.ruleNew.principle })).toMatch(/only with serves "new"/);
   });
@@ -307,9 +311,11 @@ describe('classificationSchema', () => {
   it('refuses a field the kind does not carry, and one it misses', () => {
     expect(refusal({ ...VALID.coveredEntry, statement: 'extra' })).toMatch(/Unrecognized key/);
     expect(refusal({ ...VALID.staysHere, place: 'product' })).toMatch(/Unrecognized key/);
-    const { title, ...noTitle } = VALID.adr;
+    const noTitle: Record<string, unknown> = { ...VALID.adr };
+    delete noTitle.title;
     expect(refusal(noTitle)).toMatch(/title is required/);
-    const { reason, ...noReason } = VALID.staysHere;
+    const noReason: Record<string, unknown> = { ...VALID.staysHere };
+    delete noReason.reason;
     expect(refusal(noReason)).toMatch(/reason is required/);
   });
 

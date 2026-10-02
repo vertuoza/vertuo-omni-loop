@@ -25,11 +25,17 @@ async function omni(root: string, argv: string[]) {
   const out: string[] = [];
   const err: string[] = [];
   const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
-  const code = await main(argv, io as never);
+  const code = await main(argv, io);
   return { code, out: out.join(''), err: err.join('') };
 }
 
-const slotText = (id: string) => parseForm(formTemplate('review')).form!.slots.find((slot) => slot.id === id)!.body.text;
+const slotText = (id: string) => {
+  const { form } = parseForm(formTemplate('review'));
+  assertDefined(form, 'the review form');
+  const slot = form.slots.find((candidate) => candidate.id === id);
+  assertDefined(slot, `the ${id} slot`);
+  return slot.body.text;
+};
 
 describe('the review form', () => {
   it('is an extended form with its three slots, fix, push-back and ask, each required', () => {

@@ -30,19 +30,24 @@ const notesSlot = () => {
 };
 
 /** Every fenced block of `text`, as its inner text. */
-const fencedBlocks = (text: string) => [...text.matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm)].map(([, inner]) => inner!);
+const fencedBlocks = (text: string) => [...text.matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm)].map(([, inner]) => {
+  assertDefined(inner, 'a fenced block');
+  return inner;
+});
 
 async function omni(root: string, argv: string[]) {
   const out: string[] = [];
   const err: string[] = [];
   const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
-  const code = await main(argv, io as never);
+  const code = await main(argv, io);
   return { code, out: out.join(''), err: err.join('') };
 }
 
 describe('the releasing form’s notes slot', () => {
   it('is the form’s last slot, optional', () => {
-    expect(FORMS.find((form) => form.id === 'releasing')!.slots.at(-1)).toEqual({ id: 'notes', required: false });
+    const releasing = FORMS.find((form) => form.id === 'releasing');
+    assertDefined(releasing, 'the releasing form');
+    expect(releasing.slots.at(-1)).toEqual({ id: 'notes', required: false });
     expect(notesSlot()).toMatchObject({ id: 'notes', heading: 'Release notes', required: false });
   });
 

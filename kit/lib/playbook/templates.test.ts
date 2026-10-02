@@ -86,7 +86,9 @@ describe('every template — provenance, and the config it names', () => {
 
   it('the testing form’s commands default names the repository’s test command', () => {
     const config = ConfigSchema.parse({ kit: 1, commands: { test: 'make check' } });
-    const commands = parseForm(formTemplate('testing')).form!.slots.find((slot) => slot.id === 'commands');
+    const { form } = parseForm(formTemplate('testing'));
+    assertDefined(form, 'the testing form');
+    const commands = form.slots.find((slot) => slot.id === 'commands');
     assertDefined(commands, 'commands');
     expect(fillConfig(commands.body.text, config).text).toContain('make check');
   });

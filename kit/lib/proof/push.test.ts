@@ -26,9 +26,9 @@ type Reply = (...args: never[]) => Promise<unknown>;
 function fakeClient(over: Record<string, Reply> = {}) {
   const calls: [string, ...unknown[]][] = [];
   const replies: Record<string, Reply> = {
-    requestProofUploads: async () => ({ run: 'r-1', files: LINKS }),
-    upload: async () => undefined,
-    registerProof: async () => ({ url: TAB }),
+    requestProofUploads: () => Promise.resolve({ run: 'r-1', files: LINKS }),
+    upload: () => Promise.resolve(undefined),
+    registerProof: () => Promise.resolve({ url: TAB }),
     ...over,
   };
   const client = Object.fromEntries(Object.entries(replies).map(([name, reply]) => [name, (...args: never[]) => {
@@ -53,7 +53,7 @@ describe('pushProof', () => {
 
   it('a run that sent preview.gif also hands back the GIF\'s stable link, on the tab\'s origin', async () => {
     const { client } = fakeClient({
-      requestProofUploads: async () => ({ run: 'r-1', files: [...LINKS, { name: 'preview.gif', path: 'd/r-1/preview.gif', url: 'https://files.example/3' }] }),
+      requestProofUploads: () => Promise.resolve({ run: 'r-1', files: [...LINKS, { name: 'preview.gif', path: 'd/r-1/preview.gif', url: 'https://files.example/3' }] }),
     });
     const withGif: ProofRun = { ...RUN, files: [...RUN.files, { name: 'preview.gif', path: '/run/preview.gif', bytes: 5, type: 'image/gif' }] };
     expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: withGif, read }))
@@ -72,23 +72,23 @@ describe('pushProof', () => {
   });
 
   it('a refused call stops the push there, as the AskCallError it is', async () => {
-    const refused = new AskCallError('POST /api/proofs/uploads: 404', { status: 404 } as never);
-    const { client, calls } = fakeClient({ requestProofUploads: async () => { throw refused; } });
+    const refused = new AskCallError('POST /api/proofs/uploads: 404', { status: 404 });
+    const { client, calls } = fakeClient({ requestProofUploads: () => Promise.reject(refused) });
     await expect(pushProof({ client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toBe(refused);
     expect(calls).toHaveLength(1);
 
-    const upload = fakeClient({ upload: async () => { throw new AskCallError('PUT: 400', { status: 400 } as never); } });
+    const upload = fakeClient({ upload: () => Promise.reject(new AskCallError('PUT: 400', { status: 400 })) });
     await expect(pushProof({ client: upload.client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toMatchObject({ status: 400 });
     expect(upload.calls.map(([name]) => name)).toEqual(['requestProofUploads', 'upload']);
   });
 
   it('a reply missing the run, a file\'s link or the tab is a ProofReplyError', async () => {
-    const noRun = fakeClient({ requestProofUploads: async () => ({ files: LINKS }) });
+    const noRun = fakeClient({ requestProofUploads: () => Promise.resolve({ files: LINKS }) });
     await expect(pushProof({ client: noRun.client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toBeInstanceOf(ProofReplyError);
-    const noLink = fakeClient({ requestProofUploads: async () => ({ run: 'r-1', files: LINKS.slice(0, 1) }) });
+    const noLink = fakeClient({ requestProofUploads: () => Promise.resolve({ run: 'r-1', files: LINKS.slice(0, 1) }) });
     await expect(pushProof({ client: noLink.client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toThrow('no upload link for 1.spec.ts in the reply');
     expect(noLink.calls.map(([name]) => name)).toEqual(['requestProofUploads']);
-    const noTab = fakeClient({ registerProof: async () => ({}) });
+    const noTab = fakeClient({ registerProof: () => Promise.resolve({}) });
     await expect(pushProof({ client: noTab.client, repo: 'acme/widgets', prd: 7, run: RUN, read })).rejects.toThrow('no link in the reply');
   });
 });

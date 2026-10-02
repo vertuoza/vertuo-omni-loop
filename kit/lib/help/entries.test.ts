@@ -8,10 +8,11 @@ import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../status/format.ts';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.ts';
+import { isOneOf, propertyOf } from '../narrow.ts';
 import { assertDefined } from '../../test/assert.ts';
 
 /** An entry as the guard reads it: the live table's, or a fixture broken on purpose, field by field. */
-type Fixture = Record<string, any>; // ts-allow: a fixture entry may carry any field of any type, to break a rule
+type Fixture = Record<string, unknown>;
 
 const SKILLS_DIR = fileURLToPath(new URL('../../plugin/skills', import.meta.url));
 const skillFolders = () => readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
@@ -30,19 +31,19 @@ function docsViolations(entry: Fixture, what: string): string[] {
     return carried.length ? [`${what}: a command has no ${carried.join(', ')}`] : [];
   }
   const out = [];
-  if (!GROUP_IDS.includes(entry.group)) out.push(`${what}: group "${entry.group}" is not one of SKILL_GROUPS`);
+  if (!isOneOf(GROUP_IDS, entry.group)) out.push(`${what}: group "${String(entry.group)}" is not one of SKILL_GROUPS`);
   if (!oneLine(entry.when) || !entry.when.startsWith('Use it when ')) out.push(`${what}: its when is not one line starting "Use it when"`);
-  const example = entry.example ?? {};
-  const typed = new RegExp(`^/omni:${escape(entry.name)}(\\s|$)`);
-  if (!oneLine(example.type) || !typed.test(example.type)) out.push(`${what}: its example type is not one line starting /omni:${entry.name}`);
-  if (!oneLine(example.result)) out.push(`${what}: its example result is not one line`);
+  const type = propertyOf(entry.example, 'type');
+  const typed = new RegExp(`^/omni:${escape(String(entry.name))}(\\s|$)`);
+  if (!oneLine(type) || !typed.test(type)) out.push(`${what}: its example type is not one line starting /omni:${String(entry.name)}`);
+  if (!oneLine(propertyOf(entry.example, 'result'))) out.push(`${what}: its example result is not one line`);
   return out;
 }
 
 /** Every way one entry's own fields fail, whatever the table holds. */
 function fieldViolations(entry: Fixture, what: string): string[] {
   const out: string[] = [];
-  if (!WHO.includes(entry.who)) out.push(`${what}: who is "${entry.who}", not you or skills`);
+  if (!isOneOf(WHO, entry.who)) out.push(`${what}: who is "${String(entry.who)}", not you or skills`);
   if (!Array.isArray(entry.usage) || entry.usage.length === 0 || !entry.usage.every(oneLine)) out.push(`${what}: no usage`);
   if (!oneLine(entry.summary)) out.push(`${what}: its summary is not one line`);
   if (!isText(entry.detail)) out.push(`${what}: no detail`);
@@ -61,8 +62,12 @@ function rowViolations(entry: Fixture, what: string): string[] {
 function countViolations(known: Record<string, Set<string>>, seen: Record<string, Map<string, number>>): string[] {
   const out: string[] = [];
   for (const kind of KINDS) {
-    for (const name of known[kind]!) {
-      const count = seen[kind]!.get(name) ?? 0;
+    const knownOfKind = known[kind];
+    const seenOfKind = seen[kind];
+    assertDefined(knownOfKind, `the known ${kind}s`);
+    assertDefined(seenOfKind, `the ${kind}s seen`);
+    for (const name of knownOfKind) {
+      const count = seenOfKind.get(name) ?? 0;
       if (count === 0) out.push(`${kind} ${name}: no entry`);
       if (count > 1) out.push(`${kind} ${name}: ${count} entries`);
     }
@@ -76,19 +81,25 @@ function entryViolations(entries: readonly Fixture[], { commands, skills }: { co
   const known: Record<string, Set<string>> = { command: new Set(commands), skill: new Set(skills) };
   const seen: Record<string, Map<string, number>> = { command: new Map(), skill: new Map() };
   for (const entry of entries) {
-    const what = `${entry.kind} ${entry.name}`;
-    if (!KINDS.includes(entry.kind)) {
-      out.push(`${entry.name}: kind "${entry.kind}" is neither command nor skill`);
+    const name = String(entry.name);
+    const what = `${String(entry.kind)} ${name}`;
+    if (!isOneOf(KINDS, entry.kind)) {
+      out.push(`${name}: kind "${String(entry.kind)}" is neither command nor skill`);
       continue;
     }
-    seen[entry.kind]!.set(entry.name, (seen[entry.kind]!.get(entry.name) ?? 0) + 1);
-    if (!known[entry.kind]!.has(entry.name)) out.push(`${what}: no such ${entry.kind}`);
+    const seenOfKind = seen[entry.kind];
+    const knownOfKind = known[entry.kind];
+    assertDefined(seenOfKind, `the ${entry.kind}s seen`);
+    assertDefined(knownOfKind, `the known ${entry.kind}s`);
+    seenOfKind.set(name, (seenOfKind.get(name) ?? 0) + 1);
+    if (!knownOfKind.has(name)) out.push(`${what}: no such ${entry.kind}`);
     out.push(...fieldViolations(entry, what), ...rowViolations(entry, what), ...docsViolations(entry, what));
   }
   return [...out, ...countViolations(known, seen)];
 }
 
 const EXAMPLE = { type: '/omni:s', result: 'does s' };
+const anyText: unknown = expect.any(String);
 const entry = (over: Fixture): Fixture => ({ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'does x', detail: 'Does x.', ...over });
 
 describe('the help table in this repository', () => {
@@ -110,7 +121,7 @@ describe('the help table in this repository', () => {
     expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
     expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
     expect(prCare.when).toMatch(/^Use it when\b/);
-    expect(prCare.example).toEqual({ type: '/omni:pr-care 790', result: expect.any(String) });
+    expect(prCare.example).toEqual({ type: '/omni:pr-care 790', result: anyText });
     expect(prCare.detail).toMatch(/\bfeature PR\b/);
     expect(prCare.detail).toMatch(/\breview\b/);
     expect(prCare.detail).toMatch(/never merges/);

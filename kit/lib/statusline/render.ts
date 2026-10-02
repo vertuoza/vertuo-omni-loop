@@ -167,7 +167,7 @@ export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { 
 }
 
 /** `text` cut to `length` characters, the last one `…`. */
-const cutTo = (text: string, length: number): string => `${[...text].slice(0, length - 1).join('')}${CUT}`;
+const cutTo = (text: string, length: number): string => `${Array.from(text).slice(0, length - 1).join('')}${CUT}`;
 
 /**
  * Line 2 for a PRD, within `width`: its topic cut first (never below 8 characters), then the line at
@@ -187,7 +187,7 @@ export function prdLine(
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;
-  const length = [...topic].length;
+  const length = Array.from(topic).length;
   if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
   return fit(draw(cutTo(topic, Math.max(TOPIC_FLOOR, length - over))), width);
 }

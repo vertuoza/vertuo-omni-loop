@@ -48,7 +48,9 @@ describe('omni status facts — a concept in the inbox (PRD 686)', () => {
     git(root, 'commit', '-q', '-m', 'docs(prd): topic');
     git(root, 'update-ref', 'refs/remotes/origin/docs/phase-0-topic', 'HEAD');
 
-    const [phase0] = readFacts({ ctx })!.phase0;
+    const read = readFacts({ ctx });
+    assertDefined(read, 'the facts');
+    const [phase0] = read.phase0;
     assertDefined(phase0, 'phase0');
     expect(phase0.topic).toBe('topic');
     assertDefined(phase0, 'phase0');

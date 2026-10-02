@@ -6,6 +6,7 @@ import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.t
 import type { ExecRaw } from '../context.ts';
 import type { Target, TargetRow } from './targets.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { firstPart } from '../narrow.ts';
 
 /** One faked repository: `null` for one gh cannot read. */
 type FakeRepo = { branch?: string; files?: Record<string, string>; compare?: { ahead: number; files: string[] } };
@@ -30,7 +31,7 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
     const endpoint = args[args.length - 1];
     assertDefined(endpoint, 'endpoint');
     calls.push(endpoint);
-    const [, owner, name, kind, ...rest] = endpoint.split('?')[0]!.split('/');
+    const [, owner, name, kind, ...rest] = firstPart(endpoint, '?').split('/');
     const repo = world[`${owner}/${name}`];
     if (!repo) {
       throw Object.assign(new Error('Command failed: gh api\ngh: Could not resolve to a Repository (HTTP 404)'), {
@@ -82,7 +83,8 @@ describe('readTarget', () => {
   it('reads the loop as installed when the bin carries no version, or is missing', () => {
     const noStamp = { ...WITH_LOOP, '.omni-loop/bin/omni.mjs': 'console.log(1);\n' };
     expect(read(OWN, { 'acme/front': { files: noStamp } }).loop).toBe('installed');
-    const { '.omni-loop/bin/omni.mjs': _, ...noBin } = WITH_LOOP;
+    const noBin: Record<string, string> = { ...WITH_LOOP };
+    delete noBin['.omni-loop/bin/omni.mjs'];
     expect(read(OWN, { 'acme/front': { files: noBin } }).loop).toBe('installed');
   });
 

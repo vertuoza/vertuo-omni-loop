@@ -145,8 +145,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s4  | D     | \`d/\`           | s1 s3      | 2    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices.find((slice) => slice.id === 's2')!.blockedBy).toEqual(['s1', 's3']);
-    expect(slices.find((slice) => slice.id === 's4')!.blockedBy).toEqual(['s1', 's3']);
+    const [s2, s4] = [slices.find((slice) => slice.id === 's2'), slices.find((slice) => slice.id === 's4')];
+    assertDefined(s2, 'slice s2');
+    assertDefined(s4, 'slice s4');
+    expect(s2.blockedBy).toEqual(['s1', 's3']);
+    expect(s4.blockedBy).toEqual(['s1', 's3']);
   });
 
   it('reads a bare hyphen or an empty cell as no blockers', () => {

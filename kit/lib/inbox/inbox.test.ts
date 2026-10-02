@@ -6,7 +6,7 @@ import { assertDefined } from '../../test/assert.ts';
 
 const IN = '.omni-loop/delivery/inbox';
 
-function specText({ frontMatter = {} } = {}) {
+function specText({ frontMatter = {} }: { frontMatter?: Record<string, unknown> } = {}) {
   const fm = {
     prd: 42,
     title: 'The inbox, and a planner that ranks it',
@@ -14,9 +14,9 @@ function specText({ frontMatter = {} } = {}) {
     spec: 'file',
     ...frontMatter,
   };
-  const fmLines = Object.entries(fm)
+  const fmLines = Object.entries<unknown>(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : value}`);
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? `[${value.join(', ')}]` : String(value)}`);
   return ['---', ...fmLines, '---', ''].join('\n');
 }
 

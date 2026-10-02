@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { CONFIG_FILE, ConfigError, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
+import { messageOf } from './narrow.ts';
 import { assertDefined } from '../test/assert.ts';
 
 describe('parseConfig', () => {
@@ -149,10 +150,10 @@ describe('parseConfig', () => {
   });
 
   it('refuses the renamed branch key, naming the key that replaced it', () => {
-    let error: any;
+    let error: unknown;
     try { parseConfig('kit: 1\nbranches:\n  terraform: docs/omni-terraform\n', 'c.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error.message.split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
+    expect(messageOf(error).split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
   });
 
   it('still refuses a key the schema does not hold beside the new ones', () => {
@@ -166,12 +167,12 @@ describe('parseConfig', () => {
   });
 
   it('names the file, the key path and the unknown key for a typo', () => {
-    let error: any;
+    let error: unknown;
     try { parseConfig('kit: 1\nlabels:\n  outboxgo: go\n', '.omni-loop/config.yml'); } catch (e) { error = e; }
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error.message).toContain('.omni-loop/config.yml');
-    expect(error.message).toContain('labels');
-    expect(error.message).toContain('outboxgo');
+    expect(messageOf(error)).toContain('.omni-loop/config.yml');
+    expect(messageOf(error)).toContain('labels');
+    expect(messageOf(error)).toContain('outboxgo');
   });
 
   it('refuses acceptance enabled without a directory', () => {
@@ -369,8 +370,8 @@ describe('branches.update and the migration step (PRD 347)', () => {
 
   it("runs each migration from the file's kit up, keeping every value", () => {
     const migrations = [
-      { from: 1, migrate: (raw: any) => ({ ...raw, kit: 2, moved: raw.old }) },
-      { from: 2, migrate: (raw: any) => ({ ...raw, kit: 3 }) },
+      { from: 1, migrate: (raw: Record<string, unknown>) => ({ ...raw, kit: 2, moved: raw.old }) },
+      { from: 2, migrate: (raw: Record<string, unknown>) => ({ ...raw, kit: 3 }) },
     ];
     expect(migrateConfig({ kit: 1, old: 'x' }, migrations)).toEqual({ kit: 3, old: 'x', moved: 'x' });
     expect(migrateConfig({ kit: 2 }, migrations)).toEqual({ kit: 3 });
@@ -390,8 +391,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   const firstLine = (source: string) => {
     try {
       parseConfig(source, 'c.yml');
-    } catch (error: any) {
-      return error.message.split('\n')[0];
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
     }
     throw new Error('it parsed');
   };
@@ -463,7 +464,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
 
 describe('the proof section (PRD 798)', () => {
   const firstLine = (source: string) => {
-    try { parseConfig(source, 'c.yml'); } catch (error: any) { return error.message.split('\n')[0]; }
+    try { parseConfig(source, 'c.yml'); } catch (error) { return messageOf(error).split('\n')[0]; }
     return 'parsed';
   };
 

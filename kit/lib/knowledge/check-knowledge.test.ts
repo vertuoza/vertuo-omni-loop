@@ -8,6 +8,8 @@ import { gradeKnowledge } from './check-knowledge.ts';
 import { readKnowledge } from './registers.ts';
 import { assertDefined } from '../../test/assert.ts';
 
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+
 /** Each fixture domain's glossary term; the fixture glossary holds every one. */
 const TERMS: Record<string, string> = {
   advisor: 'Advisor',
@@ -21,7 +23,7 @@ const GLOSSARY_TEXT = Object.values(TERMS)
 
 const roots: string[] = [];
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 /**
@@ -421,7 +423,9 @@ describe('strictness — every line leads somewhere real', () => {
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-FOLDER-1' }),
     });
     expect(idsFailed(grade(root))).toEqual(['BR-ADVISOR-1']);
-    expect(parseLine(grade(root).violations[0]!).detail).toMatch(/cross-domain/);
+    const [violation] = grade(root).violations;
+    assertDefined(violation, 'the violation');
+    expect(parseLine(violation).detail).toMatch(/cross-domain/);
   });
 
   it('accepts a domain rule serving a product principle', () => {
@@ -545,8 +549,8 @@ describe('Feature: a proposed entry (PRD #68)', () => {
     const result = grade(root);
     expect(result.violations).toEqual([]);
     expect(result.proposals.map(parseLine)).toEqual([
-      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
+      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: matching(/proposed by invade on 2026-09-25/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/proposed by invade on 2026-09-25/) },
     ]);
   });
 
@@ -582,7 +586,7 @@ describe('Feature: a proposed entry (PRD #68)', () => {
       }).replace('Source: PRD #1081', 'Source: docs/business-rules.md#quote-renewal'),
     });
     expect(grade(root).violations.map(parseLine)).toEqual([
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/has no heading with that anchor/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/has no heading with that anchor/) },
     ]);
   });
 
@@ -604,7 +608,7 @@ describe('Feature: a proposed entry (PRD #68)', () => {
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1', extra: ['Proposed: invade'] }),
     });
     expect(grade(root).violations.map(parseLine)).toEqual([
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/is not "Proposed: <who> <YYYY-MM-DD>"/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/is not "Proposed: <who> <YYYY-MM-DD>"/) },
     ]);
   });
 });

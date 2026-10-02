@@ -10,7 +10,7 @@ const DESCRIPTION =
 /** A note's text: front matter in the order given (a key set to `undefined` is left out), then the body. */
 function note({ fields = {}, body = DESCRIPTION }: { fields?: Record<string, string | number | undefined>; body?: string } = {}) {
   const front = { prd: 238, title: TITLE, ...fields };
-  const lines = Object.entries(front)
+  const lines = Object.entries<string | number | undefined>(front)
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
   return ['---', ...lines, '---', body, ''].join('\n');

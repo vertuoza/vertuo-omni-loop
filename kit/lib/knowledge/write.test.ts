@@ -270,7 +270,9 @@ describe('writeKnowledge', () => {
       ].join('\n'),
     );
     expect(files[`${K}/product/principles.md`]).not.toContain('Decided: @grace');
-    expect(files[`${K}/product/principles.md`]!.startsWith(FILES[`${K}/product/principles.md`])).toBe(true);
+    const principles = files[`${K}/product/principles.md`];
+    assertDefined(principles, 'the product principles');
+    expect(principles.startsWith(FILES[`${K}/product/principles.md`])).toBe(true);
   });
 
   it('puts an invariant in its domain, confirmed when a person answered', () => {
@@ -298,15 +300,22 @@ describe('writeKnowledge', () => {
     const ledger = byPath(result)[LEDGER];
     assertDefined(ledger, 'ledger');
     const entries = Object.fromEntries(parseSettledEntries(ledger, ctx.markers).map((entry) => [entry.id, entry]));
-    expect(entries['s1-01-two-snapshots']!.became).toEqual(['ADR-0002']);
-    expect(entries['s1-02-intro-cap']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
-    expect(entries['s1-03-one-run']!.became).toEqual(['N-BILLING-1']);
-    expect(entries['s1-04-already']!.became).toEqual(['ADR-0001']);
-    expect(entries['s1-05-local']!.fields['Stays here']).toBe('a local choice, nothing lasting');
-    expect(entries['s1-06-reworked']!.became).toEqual(['BR-BILLING-1']);
-    expect(entries['s1-07-refused']!.became).toEqual([]);
-    expect(entries['s1-07-refused']!.fields['Stays here']).toBeUndefined();
-    expect(ledger.startsWith(ledgerText.split('<!-- omni-outbox-settled')[0]!)).toBe(true);
+    const entry = (id: string) => {
+      const found = entries[id];
+      assertDefined(found, `the ledger entry ${id}`);
+      return found;
+    };
+    expect(entry('s1-01-two-snapshots').became).toEqual(['ADR-0002']);
+    expect(entry('s1-02-intro-cap').became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
+    expect(entry('s1-03-one-run').became).toEqual(['N-BILLING-1']);
+    expect(entry('s1-04-already').became).toEqual(['ADR-0001']);
+    expect(entry('s1-05-local').fields['Stays here']).toBe('a local choice, nothing lasting');
+    expect(entry('s1-06-reworked').became).toEqual(['BR-BILLING-1']);
+    expect(entry('s1-07-refused').became).toEqual([]);
+    expect(entry('s1-07-refused').fields['Stays here']).toBeUndefined();
+    const [header] = ledgerText.split('<!-- omni-outbox-settled');
+    assertDefined(header, "the ledger's header");
+    expect(ledger.startsWith(header)).toBe(true);
     expect(result.notPlaced).toEqual([{ id: 's1-07-refused', reason: "the model's reply was refused twice" }]);
     expect(result.placed.map((entry) => [entry.id, entry.landedAs])).toEqual([
       ['s1-01-two-snapshots', ['ADR-0002']],
@@ -325,10 +334,11 @@ describe('writeKnowledge', () => {
         [LEDGER]: [ledgerText, answered('s1-01-two-snapshots', { verdict: 'agreed', channel: FEATURE_PR })].join('\n'),
       },
     });
-    const candidates = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-01-two-snapshots');
+    const [first] = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-01-two-snapshots');
+    assertDefined(first, 'the candidate s1-01-two-snapshots');
     const result = writeKnowledge({
       ctx: repo.ctx,
-      classified: [{ candidate: candidates[0]!, reply: REPLIES['s1-01-two-snapshots'] ?? null }],
+      classified: [{ candidate: first, reply: REPLIES['s1-01-two-snapshots'] ?? null }],
       merge: MERGE,
       date: DATE,
     });
@@ -337,7 +347,9 @@ describe('writeKnowledge', () => {
     const blocks = ledger.split('<!-- omni-outbox-settled: s1-01-two-snapshots -->');
     expect(blocks[1]).not.toContain('Became:');
     expect(blocks[2]).toContain('- Wave: 1\n- Became: ADR-0002\n');
-    const record = Object.entries(byPath(result)).find(([path]) => path.includes('/adr/0002-'))![1];
+    const found = Object.entries(byPath(result)).find(([path]) => path.includes('/adr/0002-'));
+    assertDefined(found, 'the decision record written');
+    const record = found[1];
     expect(record).toContain('**Status:** accepted');
     expect(record).toContain('**Decided:** @ada via feature pull request #12, 2026-09-22');
   });
@@ -348,7 +360,9 @@ describe('writeKnowledge', () => {
     const reply: ClassificationReply = { kind: 'adr', title: 'Invoices read the head', statement: 'Invoices are read from the head.', reason: 'how it is built' };
     assertDefined(candidate, 'candidate');
     const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate: candidate, reply }], merge: MERGE, date: DATE });
-    const record = writes.find((write) => write.path.includes('/adr/'))!.text;
+    const recordWrite = writes.find((write) => write.path.includes('/adr/'));
+    assertDefined(recordWrite, 'the decision record written');
+    const record = recordWrite.text;
     expect(record).toContain('**Status:** accepted');
     expect(record).toContain('Invoices are read from the head.\n\nThe answer, as it was given: No, read the head instead.\n');
     expect(record).not.toContain('The option chosen');

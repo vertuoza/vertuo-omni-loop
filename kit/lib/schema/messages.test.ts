@@ -37,8 +37,8 @@ describe('the kit messages', () => {
 
   it('words a format, a union and a refinement the way Zod 3 did', () => {
     expect(message(z.string().regex(/a/), 'b')).toBe('Invalid');
-    expect(message(z.string().url(), 'b')).toBe('Invalid url');
-    expect(message(z.string().datetime(), 'b')).toBe('Invalid datetime');
+    expect(message(z.url(), 'b')).toBe('Invalid url');
+    expect(message(z.iso.datetime(), 'b')).toBe('Invalid datetime');
     expect(message(z.union([z.string(), z.number()]), true)).toBe('Invalid input');
     expect(message(z.string().refine(() => false), 'a')).toBe('Invalid input');
     const kinds = z.discriminatedUnion('kind', [z.object({ kind: z.literal('a') }), z.object({ kind: z.literal('b') })]);

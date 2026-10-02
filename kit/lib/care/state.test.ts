@@ -44,7 +44,7 @@ function response(over: Record<string, unknown> = {}): CareResponse {
         },
       },
     },
-  } as CareResponse;
+  };
 }
 
 const rollup = (state: string, contexts: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { state, contexts: { nodes: contexts } } } }] });
