@@ -98,9 +98,34 @@ html:has(.home) body {
 }
 .home-omni { width: 128px; }
 
-.home-signup {
+/* The button and, under it once a pick is remembered (PRD 932), the line saying where it opens,
+   drawn by Controls in the browser only. */
+.home-signup-slot {
   align-self: center;
   justify-self: start;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.home-signup-hint {
+  display: block;
+  font: 12px/1.4 var(--font-body);
+  color: var(--white);
+}
+.home-signup-change {
+  font: inherit;
+  color: var(--yellow);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.home-signup-change:hover { text-decoration-thickness: 2px; }
+.home-signup-change:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.home-signup {
   font: 9px/1.5 var(--font-pixel);
   letter-spacing: 0.04em;
   color: var(--white);

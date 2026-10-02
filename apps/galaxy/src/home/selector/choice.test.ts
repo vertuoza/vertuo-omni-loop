@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CHOICE_KEY, clearChoice, readChoice, saveChoice, type ChoiceStorage } from './choice';
+import type { AppPick } from '../sign-up';
+import {
+  answerSignUp, changeChoice, CHOICE_KEY, clearChoice, hintLine, readChoice, saveChoice, type ChoiceStorage, type SignUpClickPorts,
+} from './choice';
 
 // The pick REMEMBER MY CHOICE saves (PRD 932, s3): kept in this browser under its own key, read and
 // written in try/catch like the arcade's mute, so a browser that refuses storage still works.
@@ -54,5 +57,75 @@ describe('the saved pick', () => {
     expect(readChoice(null)).toBeNull();
     expect(() => saveChoice(null, 'arcade')).not.toThrow();
     expect(() => clearChoice(null)).not.toThrow();
+  });
+});
+
+// A remembered pick (PRD 932, s4): the line under SIGN UP WITH GITHUB says where it opens, a click goes
+// straight to GitHub with the pick, and change forgets it and opens the overlay.
+describe('the hint line under the button', () => {
+  it.each([
+    ['app', 'Opens the Omni app · change'],
+    ['arcade', 'Opens the Arcade · change'],
+  ] as const)('reads %j as %j', (pick, line) => {
+    const words = hintLine(pick);
+    expect(words).not.toBeNull();
+    expect(`${words?.opens} · ${words?.change}`).toBe(line);
+  });
+
+  it('is not there without a saved pick', () => {
+    expect(hintLine(null)).toBeNull();
+  });
+});
+
+describe('a click on SIGN UP WITH GITHUB', () => {
+  function ports(storage: ChoiceStorage | null): SignUpClickPorts & { opened: number; went: AppPick[] } {
+    const p = {
+      storage,
+      opened: 0,
+      went: [] as AppPick[],
+      open: () => { p.opened += 1; },
+      go: (pick: AppPick) => { p.went.push(pick); },
+    };
+    return p;
+  }
+
+  it.each(['app', 'arcade'] as const)('with %j saved, starts the sign-in with it and never opens the overlay', (pick) => {
+    const storage = memory();
+    saveChoice(storage, pick);
+    const p = ports(storage);
+    answerSignUp(p);
+    expect(p.went).toEqual([pick]);
+    expect(p.opened).toBe(0);
+    expect(readChoice(storage)).toBe(pick);
+  });
+
+  it('with no saved pick, an unknown one or storage that refuses, opens the overlay and starts nothing', () => {
+    const unknown = memory();
+    unknown.items.set(CHOICE_KEY, 'play');
+    for (const storage of [memory(), unknown, refusing, null]) {
+      const p = ports(storage);
+      answerSignUp(p);
+      expect(p.opened).toBe(1);
+      expect(p.went).toEqual([]);
+    }
+  });
+
+  it('change clears the pick and opens the overlay, and a later click opens it again', () => {
+    const storage = memory();
+    saveChoice(storage, 'app');
+    const p = ports(storage);
+    changeChoice(p);
+    expect(readChoice(storage)).toBeNull();
+    expect(p.opened).toBe(1);
+    expect(p.went).toEqual([]);
+    answerSignUp(p);
+    expect(p.opened).toBe(2);
+    expect(p.went).toEqual([]);
+  });
+
+  it('change with storage that refuses still opens the overlay, without throwing', () => {
+    const p = ports(refusing);
+    expect(() => changeChoice(p)).not.toThrow();
+    expect(p.opened).toBe(1);
   });
 });
