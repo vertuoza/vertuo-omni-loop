@@ -543,7 +543,7 @@ export function plainWordsProblems(text: string | null | undefined): string[] {
 export function funLineProblems(text: string | null | undefined): string[] {
   const value = (text ?? '').trim();
   const problems = plainWordsProblems(value);
-  const length = [...value].length;
+  const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
     problems.push(
       `is ${length} characters long — keep it to ${FUN_LINE_MAX_LENGTH} characters at most`,

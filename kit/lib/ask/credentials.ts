@@ -90,7 +90,9 @@ export function credentials({ home = homedir() }: { home?: string } = {}): Token
     /** The host's entry, or `null`. */
     read: (host: string): Tokens | null => tokens.read(host),
     /** Keeps the host's entry, and every other host's, at mode 0600. */
-    write: (host: string, entry: Tokens): void => tokens.write(host, entry),
+    write: (host: string, entry: Tokens): void => {
+      tokens.write(host, entry);
+    },
     /** Forgets the host; `true` when it had an entry. The file goes with its last host. */
     remove(host: string): boolean {
       let all: Record<string, unknown> | null;
@@ -100,7 +102,7 @@ export function credentials({ home = homedir() }: { home?: string } = {}): Token
         return false;
       }
       if (!all || !Object.hasOwn(all, host)) return false;
-      delete all[host];
+      Reflect.deleteProperty(all, host);
       if (Object.keys(all).length === 0) {
         rmSync(file, { force: true });
       } else {

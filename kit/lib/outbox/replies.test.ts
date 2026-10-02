@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { Context } from '../context.ts';
+import { assertDefined } from '../../test/assert.ts';
 import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 import { makeMarkers } from '../markers.ts';
 import { formatNumbersMarker } from './comment.ts';
@@ -194,11 +195,13 @@ describe('readReplies — one reply answers several questions', () => {
         ['s1-01-country', 'agreed'],
         ['s2-01-currency', 'drifted'],
       ]);
-      expect(entries[0]!.fields.Channel).toMatch(/feature pull request #1080/);
-      expect(entries[0]!.fields['Approved by']).toBe('pierre');
-      expect(entries[0]!.fields['Approved at']).toBe('2026-09-23T10:00:00Z');
-      expect(entries[0]!.answerText).toBe('ok');
-      expect(entries[1]!.answerText).toBe('no, because the quote should decide');
+      assertDefined(entries[0], 'entries[0]');
+      expect(entries[0].fields.Channel).toMatch(/feature pull request #1080/);
+      expect(entries[0].fields['Approved by']).toBe('pierre');
+      expect(entries[0].fields['Approved at']).toBe('2026-09-23T10:00:00Z');
+      expect(entries[0].answerText).toBe('ok');
+      assertDefined(entries[1], 'entries[1]');
+      expect(entries[1].answerText).toBe('no, because the quote should decide');
       expect(result.round).toBeNull();
       expect(client.createComment).not.toHaveBeenCalled();
     });
@@ -251,10 +254,12 @@ describe('readReplies — a numbered answer beats approve all', () => {
     withFixtureRoot((root) => {
       writeItem(root, 's1-01-country');
       writeItem(root, 's2-01-currency');
+      assertDefined(firstBody, 'the first reply');
+      assertDefined(secondBody, 'the second reply');
       const client = fakeClient([
         prComment(numbering('s1-01-country', 's2-01-currency')),
-        reply(firstBody!, { at: '2026-09-23T10:00:00Z' }),
-        reply(secondBody!, { at: '2026-09-23T10:05:00Z' }),
+        reply(firstBody, { at: '2026-09-23T10:00:00Z' }),
+        reply(secondBody, { at: '2026-09-23T10:05:00Z' }),
       ]);
 
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
@@ -300,8 +305,9 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
       expect(existsSync(join(root, file))).toBe(true);
       expect(settledOf(root)).toEqual([]);
       expect(result.round).not.toBeNull();
-      expect(result.round!.number).toBe(2);
-      const body = result.round!.body;
+      assertDefined(result.round, 'the round');
+      expect(result.round.number).toBe(2);
+      const body = result.round.body;
       expect(body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
       expect(body).toContain('**Outbox round 2**');
       expect(body).toContain('**Question 1** · needs a person');
@@ -323,7 +329,8 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR, post: true }, client);
 
       expect(client.createComment).toHaveBeenCalledTimes(1);
-      expect(client.createComment).toHaveBeenCalledWith(result.round!.body);
+      assertDefined(result.round, 'the round');
+      expect(client.createComment).toHaveBeenCalledWith(result.round.body);
       expect(client.updateComment).not.toHaveBeenCalled();
     });
   });
@@ -341,9 +348,10 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
 
       const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
 
-      expect(result.round!.number).toBe(4);
-      expect(result.round!.body.split('\n')[0]!).toBe('<!-- vertuo-outbox-round: 4 1 -->');
-      expect(result.round!.body).toContain('You answered: “still unsure”');
+      assertDefined(result.round, 'the round');
+      expect(result.round.number).toBe(4);
+      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 4 1 -->');
+      expect(result.round.body).toContain('You answered: “still unsure”');
     });
   });
 
@@ -717,9 +725,10 @@ describe('readReplies — options and recommendation', () => {
 
       expect(result.settled.map((s) => [s.number, s.verdict])).toEqual([[2, 'drifted']]);
       const [entry] = settledOf(root);
-      expect(entry!.id).toBe('s2-01-cost');
-      expect(entry!.verdict).toBe('drifted');
-      expect(entry!.answerText).toBe('B. Always return it — because the cost is confidential');
+      assertDefined(entry, 'the entry');
+      expect(entry.id).toBe('s2-01-cost');
+      expect(entry.verdict).toBe('drifted');
+      expect(entry.answerText).toBe('B. Always return it — because the cost is confidential');
     });
   });
 
@@ -733,7 +742,8 @@ describe('readReplies — options and recommendation', () => {
       expect(result.settled).toEqual([]);
       expect(existsSync(join(root, file))).toBe(true);
       expect(result.held.map((h) => [h.number, h.answer, h.due])).toEqual([[1, 'D', true]]);
-      expect(result.round!.body.split('\n')[0]!).toBe('<!-- vertuo-outbox-round: 2 1 -->');
+      assertDefined(result.round, 'the round');
+      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
     });
   });
 });
@@ -762,12 +772,13 @@ describe('readReplies — an adopted item', () => {
       expect(after.startsWith(before)).toBe(true);
       expect(rawEntryCount(root)).toBe(2);
       const [entry] = settledOf(root);
-      expect(entry!.verdict).toBe('drifted');
-      expect(entry!.closed).toBe(false);
-      expect(entry!.answerText).toBe('B. All of them, costs hidden — because we need all of them');
-      expect(entry!.fields['Approved by']).toBe('pierre');
-      expect(entry!.fields.Channel).toMatch(/feature pull request #1080/);
-      expect(entry!.itemText).toBe(
+      assertDefined(entry, 'the entry');
+      expect(entry.verdict).toBe('drifted');
+      expect(entry.closed).toBe(false);
+      expect(entry.answerText).toBe('B. All of them, costs hidden — because we need all of them');
+      expect(entry.fields['Approved by']).toBe('pierre');
+      expect(entry.fields.Channel).toMatch(/feature pull request #1080/);
+      expect(entry.itemText).toBe(
         optionedText('s3-01-components', {
           rank: 'medium',
           options: ['None, and it says so', 'All of them, costs hidden'],
@@ -799,7 +810,7 @@ describe('readReplies — an adopted item', () => {
         expect(result.round).toBeNull();
         const after = settledText(root);
         expect(after.slice(0, before.length)).toBe(before);
-        expect(settledOf(root).find((e) => e.id === 's3-01-components')!.verdict).toBe('adopted');
+        expect(settledOf(root).find((e) => e.id === 's3-01-components')?.verdict).toBe('adopted');
       });
     },
   );
@@ -814,7 +825,8 @@ describe('readReplies — an adopted item', () => {
       expect(result.settled).toEqual([]);
       expect(rawEntryCount(root)).toBe(1);
       expect(result.held.map((h) => [h.number, h.due])).toEqual([[1, true]]);
-      expect(result.round!.body).toContain('**Question 1** · medium');
+      assertDefined(result.round, 'the round');
+      expect(result.round.body).toContain('**Question 1** · medium');
     });
   });
 });
