@@ -1,23 +1,23 @@
-// LOOP LINGO (PRD 285): HOME speaks plain words first. The five loop terms it uses are glossed once,
-// in the strategy guide's sidebar; the other loop words never appear in its prose. The checks here
-// read a text and name what breaks that rule, so a test can hold the page to it.
+// LOOP LINGO (PRD 285, trimmed by PRD 971): HOME speaks plain words first. The loop terms it uses are
+// glossed once, in the strategy guide's sidebar; the other loop words never appear in its prose. The
+// checks here read a text and name what breaks that rule, so a test can hold the page to it.
 
 export interface LingoEntry {
   term: string;
   gloss: string;
 }
 
-/** The sidebar, in the loop's order. */
+/** The sidebar, in the loop's order: the terms HOME's prose still says (HARNESS left with SET UP, and
+ * WAVE with the old PLAN level, PRD 971). */
 export const LINGO: readonly LingoEntry[] = [
-  { term: 'HARNESS', gloss: 'Your repository\'s rules for agents: how to test, build, review and release.' },
   { term: 'PRD', gloss: 'The brief for one feature: the problem, the stories, and what done means.' },
   { term: 'SLICE', gloss: 'One small piece of a feature, built test-first, with its own pull request.' },
-  { term: 'WAVE', gloss: 'The slices that can be built at the same time.' },
   { term: 'OUTBOX', gloss: 'The decisions the agents took without asking, waiting for your answer.' },
 ];
 
-/** The loop terms HOME may use, each only once glossed. */
-export const LOOP_TERMS: readonly string[] = LINGO.map((e) => e.term);
+/** The loop terms HOME may use, each only once glossed: a term out of the sidebar is still one, so a
+ * sentence that brings it back must bring its gloss back too. */
+export const LOOP_TERMS: readonly string[] = ['HARNESS', 'PRD', 'SLICE', 'WAVE', 'OUTBOX'];
 
 /** The loop words HOME's prose never says. */
 export const BANNED_WORDS: readonly string[] = ['phase-0', 'worktree', 'sub-PR', 'dossier', 'territory', 'yolo'];

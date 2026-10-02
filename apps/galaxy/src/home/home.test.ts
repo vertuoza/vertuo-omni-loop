@@ -207,7 +207,7 @@ describe('the spreads', () => {
     return renderToStaticMarkup(Home());
   };
   const HEADS = [
-    'Strategy guide: the loop, level by level',
+    'Strategy guide: the loop',
     'High scores: the loop built this',
     'The game: Entropy you can see',
     'Join the loop!',
