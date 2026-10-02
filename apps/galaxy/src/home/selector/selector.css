@@ -65,7 +65,7 @@ html:has(.home .home-select) body { overflow: hidden; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 260px));
   gap: clamp(14px, 5vw, 56px);
-  align-items: end;
+  align-items: start;
 }
 
 /* A pedestal: one button, its sprite in a frame, the plinth, the name, the stat and the line. */
@@ -99,7 +99,7 @@ html:has(.home .home-select) body { overflow: hidden; }
 .home-select-frame {
   display: grid;
   place-items: center;
-  min-height: 200px;
+  height: 230px;
   padding: 12px;
   border: 4px solid transparent;
 }
@@ -140,23 +140,11 @@ html:has(.home .home-select) body { overflow: hidden; }
   font: 9px/1 var(--font-pixel);
   color: var(--white);
 }
-.home-select-bar { display: flex; gap: 2px; }
-.home-select-bar i {
-  width: 7px;
-  height: 10px;
-  background: var(--cyan);
-  animation: home-select-fill 0.08s steps(1) both;
-}
+/* The bar fills cell by cell as the pedestals land. */
+.home-select-bar { display: flex; gap: 2px; animation: home-select-fill 0.48s steps(8, jump-start) 0.3s both; }
+.home-select-bar i { width: 7px; height: 10px; background: var(--cyan); }
 .home-select-slot:last-child .home-select-bar i { background: var(--magenta); }
-.home-select-bar i:nth-child(2) { animation-delay: 0.36s; }
-.home-select-bar i:nth-child(3) { animation-delay: 0.42s; }
-.home-select-bar i:nth-child(4) { animation-delay: 0.48s; }
-.home-select-bar i:nth-child(5) { animation-delay: 0.54s; }
-.home-select-bar i:nth-child(6) { animation-delay: 0.6s; }
-.home-select-bar i:nth-child(7) { animation-delay: 0.66s; }
-.home-select-bar i:nth-child(8) { animation-delay: 0.72s; }
-.home-select-bar i:nth-child(1) { animation-delay: 0.3s; }
-@keyframes home-select-fill { from { opacity: 0; } }
+@keyframes home-select-fill { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 
 .home-select-what {
   max-width: 24ch;
@@ -215,13 +203,13 @@ html:has(.home .home-select) body { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .home-select, .home-select-slot:first-child, .home-select-slot:last-child, .home-select-cursor,
-  .home-select-bar i, .home-select-slot[data-chosen] .home-select-frame { animation: none; }
+  .home-select-bar, .home-select-slot[data-chosen] .home-select-frame { animation: none; }
   .home-select-cabinet > span:last-child { animation: none; visibility: hidden; }
 }
 
 @media (max-width: 520px) {
   .home-select-cast { gap: 10px; }
-  .home-select-frame { min-height: 140px; padding: 6px; }
+  .home-select-frame { height: 150px; padding: 6px; }
   .home-select-frame svg { max-height: 120px; width: auto; }
   .home-select-what { font-size: 12px; }
   .home-select-keys .home-select-arrows { display: none; }
