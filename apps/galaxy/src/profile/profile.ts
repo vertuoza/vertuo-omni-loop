@@ -1,4 +1,5 @@
 import 'server-only';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { demoGalaxy, loadGalaxy } from '../data/load-galaxy';
@@ -47,7 +48,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
     async tracked() {
       const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name);
+      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
     },
     async pullRequests(login, from, to, repos) {
       const [a, b] = [`"${from.toISOString()}"`, `"${to.toISOString()}"`];
@@ -60,7 +61,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
         .or(`and(opened_at.gte.${a},opened_at.lt.${b}),and(merged_at.gte.${a},merged_at.lt.${b})`)
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end) as unknown as Page<StoredPullRequest>);
+        .range(start, end) as Page<StoredPullRequest>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
       return rows.map((r): PullRequestRow => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
@@ -77,7 +78,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
         .lt('first_at', to.toISOString())
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end) as unknown as Page<StoredReview>);
+        .range(start, end) as Page<StoredReview>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
       return rows.map((r): ReviewRow => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
     async dossiers() {
@@ -99,7 +100,7 @@ export async function loadProfileBoard(db: SupabaseClient, user: Pick<User, 'id'
   try {
     workspace = await memberWorkspace(db, user.id);
   } catch (error) {
-    console.error(`profile: your workspace could not be read (${(error as Error).message})`);
+    console.error(`profile: your workspace could not be read (${messageOf(error)})`);
     return { kind: 'unreadable', login };
   }
   if (!workspace) return { kind: 'no-workspace' };

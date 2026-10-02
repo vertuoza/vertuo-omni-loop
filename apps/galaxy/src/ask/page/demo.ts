@@ -2,6 +2,8 @@
 // arcade's demo galaxy): three made-up terminals, one of them asking, played in the browser, so the
 // page can be seen and tried. `?demo=working|moved|closed|empty` shows the other states on the
 // first one. Nothing here is ever sent.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { readQuestions } from '../answer-model';
 import type { QuestionState } from './question';
 import type { AskPort, QuestionPort } from './source';
 import type { RoundRow, SessionRow, SessionState } from './view';
@@ -10,7 +12,7 @@ import type { HistoryRow } from './workspace-history';
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
 const SCENARIOS: DemoScenario[] = ['open', 'working', 'moved', 'closed', 'empty'];
 
-export const readScenario = (value: unknown): DemoScenario => (SCENARIOS.includes(value as DemoScenario) ? (value as DemoScenario) : 'open');
+export const readScenario = (value: unknown): DemoScenario => (isOneOf(SCENARIOS, value) ? value : 'open');
 
 const MIN = 60_000;
 
@@ -256,7 +258,7 @@ export const DEMO_TEAMMATE = DEMO_MEMBERS[1]!.user_id;
 export function demoQuestion(now: number, answered = false): QuestionState {
   const { session, rounds } = demoState('demo', 'open', now);
   const open = rounds[rounds.length - 1]!;
-  const answers = Object.fromEntries((open.questions as Array<{ question: string; options: Array<{ label: string }> }>).map((q) => [q.question, q.options[0]!.label]));
+  const answers = Object.fromEntries(readQuestions(open.questions).map((q) => [q.question, q.options[0]!.label]));
   const round = answered
     ? { ...open, status: 'answered' as const, answers, answered_via: 'terminal' as const, answered_at: iso(now - 20_000), answered_by: DEMO_OWNER }
     : open;

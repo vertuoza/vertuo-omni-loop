@@ -1,3 +1,4 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { validPersonaAvatar } from '@omni/design';
 import type { Db } from './source';
 import { readVoice, voiceView, type VoiceCast, type VoiceView } from './voice';
@@ -13,18 +14,16 @@ type PersonasDb = {
   };
 };
 
-type Row = { name?: unknown; trade?: unknown; avatar?: unknown };
-
 /** The workspace's personas, in its order, as far as their portraits need; none when they cannot be read. */
 export async function readVoiceCast(db: Pick<Db, 'from'>, workspace: string): Promise<VoiceCast[]> {
   try {
     const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal'); // ts-allow: the personas table is read through the narrow port it declares
-    if (error) throw new Error(`read the personas: ${(error as { message?: string }).message ?? 'failed'}`); // ts-allow: a PostgREST error is an object; the `??` covers one without a message
-    return ((data ?? []) as Row[]).flatMap((row) => // ts-allow: each row field is checked on the next line before use
-      typeof row.name === 'string' && typeof row.trade === 'string' && validPersonaAvatar(row.avatar)
-        ? [{ name: row.name, trade: row.trade, avatar: row.avatar }]
-        : [],
-    );
+    if (error) throw new Error(`read the personas: ${propertyOf(error, 'message') ?? 'failed'}`);
+    const rows: readonly unknown[] = Array.isArray(data) ? data : [];
+    return rows.flatMap((row) => {
+      const name = propertyOf(row, 'name'), trade = propertyOf(row, 'trade'), avatar = propertyOf(row, 'avatar');
+      return typeof name === 'string' && typeof trade === 'string' && validPersonaAvatar(avatar) ? [{ name, trade, avatar }] : [];
+    });
   } catch (error) {
     console.error(error);
     return [];

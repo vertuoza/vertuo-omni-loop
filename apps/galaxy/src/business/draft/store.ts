@@ -19,7 +19,7 @@ type Answer = { data: unknown; error: { code?: string; message: string } | null 
 
 function answered<T>(what: string, { data, error }: Answer): T {
   if (error) throw new DraftStoreError(what, error.code, error.message);
-  return data as T;
+  return data as T; // ts-allow: T is the shape the caller's select or function names; the client answers its rows untyped
 }
 
 function rowOf<T>(what: string, answer: Answer): T {
@@ -29,11 +29,11 @@ function rowOf<T>(what: string, answer: Answer): T {
 }
 
 export function draftStore(db: Db): DraftStore & SourcesStore {
-  const call = async (fn: string, args: Record<string, unknown>) => (await db.rpc(fn, args)) as Answer;
+  const call = async (fn: string, args: Record<string, unknown>): Promise<Answer> => await db.rpc(fn, args);
   return {
     async running(workspace) {
       const answer = await db.from('business_drafts').select(DRAFT_COLUMNS).eq('workspace_id', workspace).eq('state', 'running').maybeSingle();
-      return answered<DraftRow | null>('read the running draft', answer as Answer);
+      return answered<DraftRow | null>('read the running draft', answer);
     },
     async start(workspace, kind) {
       return rowOf<DraftRow>('start a draft', await call('business_draft_start', { p_workspace: workspace, p_kind: kind }));
@@ -48,19 +48,19 @@ export function draftStore(db: Db): DraftStore & SourcesStore {
     },
     async repositories(workspace) {
       const answer = await db.from('repositories').select('full_name, product_id').eq('workspace_id', workspace).eq('tracked', true).order('full_name');
-      return answered<Array<{ full_name: string; product_id: string | null }> | null>('read the repositories', answer as Answer) ?? [];
+      return answered<Array<{ full_name: string; product_id: string | null }> | null>('read the repositories', answer) ?? [];
     },
     async webPages(workspace) {
       const answer = await db.from('business_sources').select('url').eq('workspace_id', workspace).order('added_at');
-      return (answered<Array<{ url: string }> | null>('read the web pages', answer as Answer) ?? []).map((r) => r.url);
+      return (answered<Array<{ url: string }> | null>('read the web pages', answer) ?? []).map((r) => r.url);
     },
     async firstProduct(workspace) {
       const answer = await db.from('products').select('id').eq('workspace_id', workspace).order('ordinal').limit(1);
-      return (answered<Array<{ id: string }> | null>('read the products', answer as Answer) ?? [])[0]?.id ?? null;
+      return (answered<Array<{ id: string }> | null>('read the products', answer) ?? [])[0]?.id ?? null;
     },
     async claims(workspace) {
       const answer = await db.from('claims').select('id, seq, kind, value, source, state, product_id').eq('workspace_id', workspace);
-      return answered<StoredClaim[] | null>('read the claims', answer as Answer) ?? [];
+      return answered<StoredClaim[] | null>('read the claims', answer) ?? [];
     },
     async propose(workspace, product, kind, value, receipts) {
       const made = rowOf<{ outcome?: unknown }>('propose a claim', await call('claim_propose_evidence', {

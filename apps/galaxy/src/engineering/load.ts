@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import { allPages, type Page } from '../data/all-pages';
@@ -71,7 +72,7 @@ async function peopleFor(reads: EngineeringReads): Promise<People> {
   try {
     return await reads.people();
   } catch (error) {
-    console.error(`engineering: the faces could not be read, GitHub photos instead (${(error as Error).message})`);
+    console.error(`engineering: the faces could not be read, GitHub photos instead (${messageOf(error)})`);
     return peopleOf([], []);
   }
 }
@@ -84,7 +85,7 @@ async function workspaceOf(db: SupabaseClient, user: Pick<User, 'id'>): Promise<
   try {
     return await memberWorkspace(db, user.id);
   } catch (error) {
-    console.error(`engineering: your workspace could not be read (${(error as Error).message})`);
+    console.error(`engineering: your workspace could not be read (${messageOf(error)})`);
     return 'unreadable';
   }
 }
@@ -126,11 +127,11 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
     async tracked() {
       const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name);
+      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the untyped client answers any rows; the select names full_name, a text column
     },
     async pullRequests(from, repos) {
       const at = `"${from.toISOString()}"`;
-      const rows = await allPages('the pull requests', (start, end) => db
+      const rows = await allPages<StoredPullRequest>('the pull requests', (start, end) => db
         .from('pull_requests')
         .select(PR_COLUMNS)
         .eq('workspace_id', workspace)
@@ -138,7 +139,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .or(`opened_at.gte.${at},merged_at.gte.${at},and(merged_at.is.null,closed_at.is.null)`)
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end) as unknown as Page<StoredPullRequest>);
+        .range(start, end));
       return rows.map((r) => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
@@ -147,7 +148,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
       }));
     },
     async reviews(from, to, repos) {
-      const rows = await allPages('the reviews', (start, end) => db
+      const rows = await allPages<StoredReview>('the reviews', (start, end) => db
         .from('pull_request_reviews')
         .select('repo, number, reviewer, first_at')
         .eq('workspace_id', workspace)
@@ -157,7 +158,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
         .order('reviewer', { ascending: true })
-        .range(start, end) as unknown as Page<StoredReview>);
+        .range(start, end));
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
     people() {

@@ -59,7 +59,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
 import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
-import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
+import { CATEGORIES, isCategory, type Classifier, type ClassifyInput } from './classify';
 import type { CategoryDecider } from './classify-jev';
 import { costUsd } from './prices';
 import {
@@ -194,9 +194,9 @@ async function touch(who: Signed, session: AskSession) {
 }
 
 /** A context field: missing or null reads as null; `ok` says whether a value it holds is fine. */
-type Field<T> = { value: T | null } | { problem: string };
+type Field<T> = { value: T } | { problem: string };
 
-function field<T>(context: Record<string, unknown>, key: string, ok: (value: unknown) => value is T, shape: string): Field<T> {
+function field<T>(context: Record<string, unknown>, key: string, ok: (value: unknown) => value is T, shape: string): Field<T | null> {
   const value = context[key];
   if (value === undefined || value === null) return { value: null };
   return ok(value) ? { value } : { problem: `\`context.${key}\` must be ${shape}, or null.` };
@@ -205,21 +205,30 @@ function field<T>(context: Record<string, unknown>, key: string, ok: (value: unk
 const text = (max: number) => (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const isRepo = (value: unknown): value is string => text(200)(value) && REPO.test(value);
-const isPrd = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0;
-const count = (value: unknown) => Number.isInteger(value) && (value as number) >= 0;
+const isPrd = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
+const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const TOKEN_KEYS = ['cacheRead', 'cacheWrite', 'input', 'output'];
 const isTokens = (value: unknown): value is AskTokens =>
   isRecord(value) && Object.keys(value).sort().join() === TOKEN_KEYS.join() && Object.values(value).every(count);
 
 type RoundContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null;
   skill: string | null; model: string | null; tokens: AskTokens | null };
+type ContextFields = { [K in keyof RoundContext]: Field<RoundContext[K]> };
+
+/** Copies field `key` into `context`, or says why it is refused. */
+function copyField<K extends keyof RoundContext>(context: RoundContext, fields: ContextFields, key: K): string | null {
+  const got = fields[key];
+  if ('problem' in got) return got.problem;
+  context[key] = got.value;
+  return null;
+}
 
 /** The context a body carries — every field null when it carries none — or why it is refused. */
 function readContext(sent: Record<string, unknown>, keys: Array<keyof RoundContext>): { context: RoundContext } | { problem: string } {
   const empty: RoundContext = { repo: null, branch: null, prd: null, claudeSessionId: null, skill: null, model: null, tokens: null };
   if (sent.context === undefined || sent.context === null) return { context: empty };
   if (!isRecord(sent.context)) return { problem: '`context`, when sent, must be a JSON object.' };
-  const fields: Record<keyof RoundContext, Field<unknown>> = {
+  const fields: ContextFields = {
     repo: field(sent.context, 'repo', isRepo, 'owner/name'),
     branch: field(sent.context, 'branch', text(250), 'a branch name of 1 to 250 characters'),
     prd: field(sent.context, 'prd', isPrd, 'a PRD number'),
@@ -230,9 +239,8 @@ function readContext(sent: Record<string, unknown>, keys: Array<keyof RoundConte
   };
   const context = { ...empty };
   for (const key of keys) {
-    const got = fields[key];
-    if ('problem' in got) return { problem: got.problem };
-    (context as Record<string, unknown>)[key] = got.value;
+    const problem = copyField(context, fields, key);
+    if (problem !== null) return { problem };
   }
   return { context };
 }
@@ -282,11 +290,12 @@ export function deleteSession(request: Request, id: string, deps: AskDeps): Prom
   });
 }
 
-/** AskUserQuestion's `questions`: a non-empty list of objects, each with its question text. */
-function questionsProblem(questions: unknown): string | null {
-  if (!Array.isArray(questions) || questions.length === 0) return 'A round needs `questions`: AskUserQuestion\'s list, as given.';
-  const fine = questions.every((q) => isRecord(q) && typeof q.question === 'string' && q.question.trim() !== '');
-  return fine ? null : 'Each question needs its `question` text.';
+/** AskUserQuestion's `questions`: a non-empty list of objects, each with its question text — or why it is refused. */
+function readQuestions(questions: unknown): { questions: unknown[] } | { problem: string } {
+  if (!Array.isArray(questions) || questions.length === 0) return { problem: 'A round needs `questions`: AskUserQuestion\'s list, as given.' };
+  const list: unknown[] = questions;
+  const fine = list.every((q) => isRecord(q) && typeof q.question === 'string' && q.question.trim() !== '');
+  return fine ? { questions: list } : { problem: 'Each question needs its `question` text.' };
 }
 
 /** The lead a round body carries — null when it carries none — or why it is refused. */
@@ -301,8 +310,9 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
-    const problem = questionsProblem(sent.questions);
-    if (problem) return refuse(400, problem);
+    const sentQuestions = readQuestions(sent.questions);
+    if ('problem' in sentQuestions) return refuse(400, sentQuestions.problem);
+    const { questions } = sentQuestions;
     const read = readContext(sent, ROUND_KEYS);
     if ('problem' in read) return refuse(400, read.problem);
     const { context } = read;
@@ -320,14 +330,14 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
       lead: sentLead.lead,
     };
     try {
-      const round = await who.store.addRound(session.id, sent.questions as unknown[], facts);
+      const round = await who.store.addRound(session.id, questions, facts);
       await touch(who, session);
       await who.store.placeSession(session.id, {
         ...(context.branch !== null && { branch: context.branch }),
         ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
       });
       sortLater(who, deps, round.id, session.workspace_id, {
-        questions: sent.questions as unknown[],
+        questions,
         context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
       });
       return reply(200, { roundId: round.id });
@@ -343,11 +353,11 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
  * null reply, an error or a timeout leaves it unsorted, and nothing retries. */
 function sortLater(who: Signed, deps: AskDeps, roundId: string, workspace: string | null, input: ClassifyInput) {
   const classify = deps.classify ?? null;
-  const viaJev = workspace && deps.decideCategory ? deps.decideCategory : null;
-  if (!classify && !viaJev) return;
+  const viaJev = deps.decideCategory ?? null;
+  if (!classify && !(workspace && viaJev)) return;
   const task = async () => {
     try {
-      const category = viaJev ? await viaJev({ workspace: workspace as string, roundId, input, classify }) : await classify!(input);
+      const category = workspace && viaJev ? await viaJev({ workspace, roundId, input, classify }) : classify ? await classify(input) : null;
       if (category) await who.categories.classified(roundId, category);
     } catch (error) {
       console.error(`ask: round ${roundId} stays unsorted: ${error instanceof Error ? error.message : String(error)}`);
@@ -467,7 +477,7 @@ export function categorizeRound(request: Request, id: string, deps: AskDeps): Pr
       return refuse(400, `\`category\` must be one of ${CATEGORIES.join(', ')}, or null to leave the round unsorted.`);
     }
     if (!UUID.test(id)) return notFound('round');
-    const set = await who.categories.set(id, category as Category | null);
+    const set = await who.categories.set(id, category);
     if (!set) return notFound('round');
     return reply(200, { id, category: set.category, category_by: set.category_by });
   });

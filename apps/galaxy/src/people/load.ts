@@ -1,3 +1,4 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -62,7 +63,7 @@ async function settled<T>(what: string, row: z.ZodType<T>, read: () => PromiseLi
     if (error) throw new Error(error.message);
     return z.array(row).parse(data ?? []);
   } catch (err) {
-    console.error(`people: ${what} could not be read (${(err as Error).message})`); // ts-allow: whatever was thrown, its message is logged as it always was
+    console.error(`people: ${what} could not be read (${messageOf(err)})`);
     return [];
   }
 }

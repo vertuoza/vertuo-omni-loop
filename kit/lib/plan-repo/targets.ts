@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import type { z } from 'zod';
 import type { Context, ExecRaw } from '../context.ts';
 import { isFilled, playbookOf } from '../playbook/filled.ts';
+import { propertyOf } from '../narrow.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
 import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
@@ -48,19 +49,20 @@ export type GhReader = {
 };
 
 /** What a failed `gh` call carries: its stderr, when it ran. */
-type GhError = { stderr?: unknown; message?: unknown } | null | undefined;
+/** What `gh` said, as whatever it threw carries it: its stderr, then its message. */
+const ghText = (error: unknown): string => `${propertyOf(error, 'stderr') ?? ''}\n${propertyOf(error, 'message') ?? ''}`;
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';
 
 /** The error `gh` raised, as its one telling line. */
-function ghLine(error: GhError): string {
-  const text = `${error?.stderr ?? ''}\n${error?.message ?? ''}`;
+function ghLine(error: unknown): string {
+  const text = ghText(error);
   const line = text.split('\n').map((l) => l.trim()).find((l) => l.startsWith('gh:')) ?? text.split('\n').map((l) => l.trim()).find(Boolean);
   return line ?? 'gh could not read it';
 }
 
-const isNotFound = (error: GhError): boolean => /HTTP 404/.test(`${error?.stderr ?? ''}\n${error?.message ?? ''}`);
+const isNotFound = (error: unknown): boolean => /HTTP 404/.test(ghText(error));
 
 export class Unreachable extends Error {}
 
@@ -72,8 +74,8 @@ export function ghReader({ exec, env }: { exec: ExecRaw; env?: NodeJS.ProcessEnv
     try {
       return api(args);
     } catch (error) {
-      if (isNotFound(error as GhError)) return null; // ts-allow: whatever exec threw is read only for its stderr and message
-      throw new Unreachable(ghLine(error as GhError)); // ts-allow: whatever exec threw is read only for its stderr and message
+      if (isNotFound(error)) return null;
+      throw new Unreachable(ghLine(error));
     }
   };
   const contents = (repo: string, path: string, ref: string): string => `repos/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`;
@@ -84,7 +86,7 @@ export function ghReader({ exec, env }: { exec: ExecRaw; env?: NodeJS.ProcessEnv
       try {
         answer = JSON.parse(api([`repos/${repo}`]));
       } catch (error) {
-        throw new Unreachable(ghLine(error as GhError)); // ts-allow: whatever exec or JSON.parse threw is read only for its stderr and message
+        throw new Unreachable(ghLine(error));
       }
       return answerOf(GhRepositorySchema, answer, `repos/${repo}`);
     },

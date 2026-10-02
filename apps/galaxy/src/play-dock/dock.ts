@@ -4,6 +4,7 @@
 // door (games/room.ts): the dock never has a rule of its own on levels or XP. With more than one game
 // open (PRD 817: SUPER OMNI WORLD from LV 2), the device opens on a picker between them.
 import { GAMES } from '../arcade/games/index';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { cabinetDoor, cabinets, xpStatus } from '../arcade/games/room';
 import type { Action } from '../arcade/keys';
 import type { XpRead } from '../arcade/types';
@@ -19,9 +20,8 @@ const DOCK_GAMES = ['invaders', 'platformer'] as const;
 export type DockGameId = (typeof DOCK_GAMES)[number];
 
 /** Each game's name in the picker: its cabinet's marquee. */
-export const DOCK_TITLE = Object.fromEntries(
-  DOCK_GAMES.map((id) => [id, GAMES.find((g) => g.id === id)?.title ?? id.toUpperCase()]),
-) as Record<DockGameId, string>; // ts-allow: Object.fromEntries over every game builds one property per game
+const titleOf = (id: DockGameId): string => GAMES.find((g) => g.id === id)?.title ?? id.toUpperCase();
+export const DOCK_TITLE: Record<DockGameId, string> = { invaders: titleOf('invaders'), platformer: titleOf('platformer') };
 
 /** Who is at the page, as the dock needs it: whether GitHub is linked, and their XP. None: a visitor. */
 export interface DockPlayer { linked: boolean; xp: XpRead }
@@ -136,8 +136,9 @@ export function readDock(storage: () => Pick<Storage, 'getItem'>): DockKept {
   }
   if (raw === 'open' || raw === 'folded') return { open: raw === 'open', game: null }; // kept before the picker
   try {
-    const kept = JSON.parse(raw ?? 'null') as Partial<DockKept> | null; // ts-allow: whatever the tab kept is read for two fields, each checked on the next line
-    return { open: kept?.open === true, game: typeof kept?.game === 'string' ? kept.game : null };
+    const kept: unknown = JSON.parse(raw ?? 'null');
+    const game = propertyOf(kept, 'game');
+    return { open: propertyOf(kept, 'open') === true, game: typeof game === 'string' ? game : null };
   } catch {
     return NOTHING_KEPT;
   }

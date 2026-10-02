@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 const TABLE = 'prd_outbox';
 
@@ -25,15 +26,17 @@ export type PrdOutboxStore = {
   countsOf(workspace: string, prds: readonly PrdRef[]): Promise<Map<string, OutboxCounts>>;
 };
 
-const RANKS = new Set(['human-action', 'high']);
+const RANKS: readonly WaitingQuestion['rank'][] = ['human-action', 'high'];
 
 /** The waiting items a row holds, dropping any that is not one. */
 export function waitingOf(value: unknown): WaitingQuestion[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((raw): WaitingQuestion[] => {
-    const item = (raw ?? {}) as Record<string, unknown>; // ts-allow: each field is checked on the next line
-    if (typeof item.id !== 'string' || typeof item.question !== 'string' || typeof item.rank !== 'string' || !RANKS.has(item.rank)) return [];
-    return [{ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }]; // ts-allow: RANKS holds only the waiting ranks, checked above
+    const id = propertyOf(raw, 'id');
+    const rank = propertyOf(raw, 'rank');
+    const question = propertyOf(raw, 'question');
+    if (typeof id !== 'string' || typeof question !== 'string' || !isOneOf(RANKS, rank)) return [];
+    return [{ id, rank, question }];
   });
 }
 

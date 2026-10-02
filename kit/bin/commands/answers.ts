@@ -15,6 +15,7 @@
 import { CONFIG_FILE } from '../../lib/config.ts';
 import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumbersMarker } from '../../lib/outbox/comment.ts';
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
+import { propertyOf } from '../../lib/narrow.ts';
 import { githubClientFor } from '../github.ts';
 import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
@@ -32,7 +33,7 @@ function fail(stderr: Out, message: string): number {
 }
 
 function firstLine(error: unknown): string {
-  const message = (error as { message?: unknown } | null | undefined)?.message; // ts-allow: whatever was thrown, read as `error?.message` reads it
+  const message = propertyOf(error, 'message');
   return (String(message ?? error).split('\n')[0] ?? '').trim();
 }
 

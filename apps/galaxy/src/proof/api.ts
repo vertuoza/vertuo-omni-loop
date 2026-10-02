@@ -18,6 +18,7 @@
 // the three, a file not uploaded), 401 no valid sign-in, 403 the database's refusal by membership, 404 a
 // PRD without a dossier the caller may read (or, for the GIF, no such run or no GIF), 409 a run registered
 // already, 413 a body over its cap or a file over 50 MB, 503 no database here.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { randomUUID } from 'node:crypto';
 import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
@@ -99,30 +100,35 @@ function prdOf(sent: Record<string, unknown>): { repo: string; prd: number } | {
   const repo = sent.repo;
   if (typeof repo !== 'string' || repo.length > 200 || !REPO.test(repo)) return { problem: 'A proof names its repository as owner/name.' };
   const prd = sent.prd;
-  if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return { problem: '`prd` is the PRD\'s number.' };
-  return { repo, prd: prd as number };
+  if (!isWhole(prd) || prd <= 0 || prd > PRD_MAX) return { problem: '`prd` is the PRD\'s number.' };
+  return { repo, prd };
 }
+
+/** `Number.isInteger`, as the type guard it is: true only for a number. */
+const isWhole = (value: unknown): value is number => Number.isInteger(value);
 
 const extensionOf = (name: string) => name.slice(name.lastIndexOf('.') + 1).toLowerCase();
 
 type FileProblem = { status: 400 | 413; problem: string };
 const malformed = (problem: string): FileProblem => ({ status: 400, problem });
 
-/** Why one file of an upload call is refused, or null when it is well formed. */
-function fileProblem(file: unknown, names: readonly string[]): FileProblem | null {
+type UploadFile = { name: string; bytes: number };
+
+/** One file of an upload call, as its name and size, or why it is refused. */
+function fileOf(file: unknown, names: readonly string[]): UploadFile | FileProblem {
   if (!isRecord(file) || typeof file.name !== 'string' || !PROOF_FILE_NAME.test(file.name)) {
     return malformed('Each file is {name, bytes, type}, its name a plain file name of at most 128 characters.');
   }
-  const { name } = file;
-  if (!Number.isInteger(file.bytes) || (file.bytes as number) < 0) return malformed(`${name}: \`bytes\` is its size, a whole number.`);
+  const { name, bytes } = file;
+  if (!isWhole(bytes) || bytes < 0) return malformed(`${name}: \`bytes\` is its size, a whole number.`);
   if (!isProofType(file.type)) {
     return malformed(`${name}: a proof takes ${Object.keys(PROOF_TYPES).join(', ')}, not ${String(file.type)}.`);
   }
-  if (!(PROOF_TYPES[file.type] as readonly string[]).includes(extensionOf(name))) {
+  if (!isOneOf(PROOF_TYPES[file.type], extensionOf(name))) {
     return malformed(`${name}: a ${file.type} file is named .${PROOF_TYPES[file.type].join(' or .')}.`);
   }
   if (names.includes(name)) return malformed(`Each file is sent once: ${name} came twice.`);
-  return null;
+  return { name, bytes };
 }
 
 /** The files an upload call asks for, or why they are refused: `status` 400 or 413. */
@@ -130,12 +136,14 @@ function filesOf(value: unknown): { names: string[] } | FileProblem {
   if (!Array.isArray(value) || value.length === 0) return malformed('`files` is a list of 1 to 25 {name, bytes, type}.');
   if (value.length > PROOF_FILES_MAX) return malformed(`A run uploads ${PROOF_FILES_MAX} files at most: this one has ${value.length}.`);
   const names: string[] = [];
-  for (const file of value) {
-    const problem = fileProblem(file, names);
-    if (problem) return problem;
+  const files: UploadFile[] = [];
+  for (const sent of value) {
+    const file = fileOf(sent, names);
+    if ('problem' in file) return file;
     names.push(file.name);
+    files.push(file);
   }
-  const large = value.find((file) => (file.bytes as number) > PROOF_FILE_MAX_BYTES);
+  const large = files.find((file) => file.bytes > PROOF_FILE_MAX_BYTES);
   if (large) return { status: 413, problem: `A proof file holds ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB at most: ${large.name} is larger.` };
   return { names };
 }

@@ -8,7 +8,7 @@ import { formatReport, gateResult } from '../../lib/outbox/status.ts';
 import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
-import { list, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorMessage, list, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 
 const USAGE = 'usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]';
@@ -44,7 +44,7 @@ export const status: Command = {
       try {
         changes = rangeChanges({ ctx, base, exec });
       } catch (error) {
-        throw usageError((error as Error).message.split('\n')[0] ?? ''); // ts-allow: rangeChanges throws an Error
+        throw usageError(errorMessage(error).split('\n')[0] ?? '');
       }
     }
     const result = gateResult(prd, { ctx, labels, changes });

@@ -43,6 +43,7 @@
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
 import { createHash } from 'node:crypto';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, latestVersions, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
   type RoundRule, type WorkKind,
@@ -96,18 +97,25 @@ const refuse = (code: string, message: string): Result => ({ data: null, error: 
  * @param orgs each workspace's github_org, by workspace id: a workspace not named owns no organisation
  */
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
-  const tables = {
-    dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[], // ts-allow: a test fake: each table starts empty, with its row type
-    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[], ask_shares: [] as FakeAskShare[], // ts-allow: a test fake: each table starts empty, with its row type
-    ledger_events: [] as FakeLedgerEvent[], // ts-allow: a test fake: each table starts empty, with its row type
+  const tables: {
+    dossiers: FakeDossier[]; dossier_versions: FakeVersion[];
+    ask_sessions: FakeAskSession[]; ask_rounds: FakeAskRound[]; ask_shares: FakeAskShare[];
+    ledger_events: FakeLedgerEvent[];
     /** Each workspace's plan repository, a bare name, by workspace id. */
-    plan_repos: {} as Record<string, string>, // ts-allow: a test fake: the map starts empty, with its value type
+    plan_repos: Record<string, string>;
     /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
-    players: {} as Record<string, Record<string, FakePlayer>>, // ts-allow: a test fake: the map starts empty, with its value type
-    teams: [] as FakeFleet[], // ts-allow: a test fake: the table starts empty, with its row type
+    players: Record<string, Record<string, FakePlayer>>;
+    teams: FakeFleet[];
+  } = {
+    dossiers: [], dossier_versions: [],
+    ask_sessions: [], ask_rounds: [], ask_shares: [],
+    ledger_events: [],
+    plan_repos: {},
+    players: {},
+    teams: [],
   };
   /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
-  const state = { fail: null as Failure | null, calls: 0, rosterDown: false }; // ts-allow: a test fake: no failure is set until a test sets one
+  const state: { fail: Failure | null; calls: number; rosterDown: boolean } = { fail: null, calls: 0, rosterDown: false };
   let next = 0;
   let tick = 0;
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
@@ -156,7 +164,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     if (!place) return refuse('42501', 'Join a workspace first: a dossier belongs to one.');
     const row: FakeDossier = {
       id: newId(), workspace_id: place, home_repo: repo, prd: null, kind: 'prd', title, opened_by: me.id,
-      claude_session_id: session as string | null, created_at: stamp(), numbered_at: null, // ts-allow: a test fake: it keeps the session argument as its callers pass it
+      claude_session_id: session, created_at: stamp(), numbered_at: null,
     };
     tables.dossiers.push(row);
     return { data: row.id, error: null };
@@ -169,21 +177,24 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const title = typeof args.p_title === 'string' ? args.p_title.trim() : '';
     const draftId = args.p_draft ?? null;
     const artifacts = args.p_artifacts;
-    const kind = (args.p_kind ?? 'prd') as WorkKind; // ts-allow: a test fake: the next line refuses an unknown kind
-    if (!WORK_KINDS.includes(kind)) return refuse('22023', 'A dossier\'s kind is prd, visual or bug.');
+    const kind = args.p_kind ?? 'prd';
+    if (!isOneOf(WORK_KINDS, kind)) return refuse('22023', 'A dossier\'s kind is prd, visual or bug.');
     if (!REPO.test(repo)) return refuse('22023', 'A dossier needs its repository as owner/name.');
-    if (!Number.isInteger(prd) || (prd as number) <= 0) return refuse('22023', 'A PRD number is a positive whole number.'); // ts-allow: a test fake: Number.isInteger, first on this line, proved it a number
+    if (typeof prd !== 'number' || !Number.isInteger(prd) || prd <= 0) return refuse('22023', 'A PRD number is a positive whole number.');
     if (title.length < 1 || title.length > TITLE_MAX) return refuse('22023', 'A dossier needs a title of 1 to 200 characters.');
     if (!Array.isArray(artifacts)) return refuse('22023', 'The artifacts are a list.');
     const seen = new Set<string>();
-    for (const item of artifacts as Row[]) { // ts-allow: a test fake: the line above proved it a list; each item is checked on the next line
-      if (!item || typeof item !== 'object' || !ARTIFACT_KINDS.includes(item.kind as never) || typeof item.content !== 'string') { // ts-allow: a test fake: includes() only compares the value
+    const sent: Array<{ kind: ArtifactKind; content: string }> = [];
+    for (const item of artifacts) {
+      const itemKind = propertyOf(item, 'kind'), content = propertyOf(item, 'content');
+      if (!item || typeof item !== 'object' || !isOneOf(ARTIFACT_KINDS, itemKind) || typeof content !== 'string') {
         return refuse('22023', `Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
       }
-      if (item.kind !== 'variations' && seen.has(item.kind as string)) return refuse('22023', 'Each kind is sent once.'); // ts-allow: a test fake: the line above checked the kind is a known one
-      if (!KIND_ARTIFACTS[kind].includes(item.kind as ArtifactKind)) return refuse('22023', `A ${kind} dossier takes no ${item.kind as string} version.`); // ts-allow: a test fake: the lines above checked the kind is a known one
-      seen.add(item.kind as string); // ts-allow: a test fake: the lines above checked the kind is a known one
-      if (Buffer.byteLength(item.content as string, 'utf8') > ARTIFACT_MAX_BYTES) return refuse('54000', 'An artifact holds 512 KiB at most.'); // ts-allow: a test fake: the check above proved the content a string
+      if (itemKind !== 'variations' && seen.has(itemKind)) return refuse('22023', 'Each kind is sent once.');
+      if (!KIND_ARTIFACTS[kind].includes(itemKind)) return refuse('22023', `A ${kind} dossier takes no ${itemKind} version.`);
+      seen.add(itemKind);
+      if (Buffer.byteLength(content, 'utf8') > ARTIFACT_MAX_BYTES) return refuse('54000', 'An artifact holds 512 KiB at most.');
+      sent.push({ kind: itemKind, content });
     }
 
     let dossier: FakeDossier;
@@ -215,7 +226,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         dossier = keyed;
       } else {
         dossier = {
-          id: newId(), workspace_id: place, home_repo: repo, prd: prd as number, kind, title, opened_by: me.id, // ts-allow: a test fake: the prd was checked a positive whole number above
+          id: newId(), workspace_id: place, home_repo: repo, prd, kind, title, opened_by: me.id,
           claude_session_id: null, created_at: stamp(), numbered_at: stamp(),
         };
         tables.dossiers.push(dossier);
@@ -225,7 +236,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const added: Array<{ kind: string; version: number }> = [];
     const unchanged: string[] = [];
-    for (const { kind, content } of artifacts as Array<{ kind: string; content: string }>) { // ts-allow: a test fake: every artifact was checked in the loop above
+    for (const { kind, content } of sent) {
       const version = addVersion(dossier, kind, content, { source: 'kit', uploadedBy: me.id });
       if (version === null) unchanged.push(kind);
       else added.push({ kind, version });
@@ -248,7 +259,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
-      if (table === 'teams') return isMember(me, row.workspace_id as string); // ts-allow: a test fake: a teams row always carries its workspace
+      if (table === 'teams') return typeof row.workspace_id === 'string' && isMember(me, row.workspace_id);
       if (table === 'ask_shares') {
         // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
         const round = tables.ask_rounds.find((r) => r.id === row.round_id);
@@ -272,7 +283,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     function run(): Result {
       state.calls += 1;
       if (state.fail) return { data: null, error: state.fail };
-      const rows = (tables[table] as Row[]).filter((row) => readable(row) && filters.every((f) => f(row))); // ts-allow: a test fake: every table but the maps is a list of rows
+      const all: readonly Row[] = tables[table];
+      const rows = all.filter((row) => readable(row) && filters.every((f) => f(row)));
       if (!removing) return { data: [...rows].sort(compare).slice(0, most).map(project), error: null };
       const gone = new Set(rows.filter(deletable).map((row) => row.id));
       tables.dossiers = tables.dossiers.filter((d) => !gone.has(d.id));

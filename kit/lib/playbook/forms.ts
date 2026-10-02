@@ -49,6 +49,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import type { Context } from '../context.ts';
+import { messageOf } from '../narrow.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 
 /** One slot of a form's template: its id, and whether a filled form must carry it. */
@@ -195,7 +196,7 @@ function readFrontMatter(raw: string): { data: FormFrontMatter; errors?: undefin
   try {
     data = parse(raw);
   } catch (error) {
-    return { errors: [`front matter is not YAML — ${(error as Error).message.split('\n')[0]}`] }; // ts-allow: the yaml parser throws only Error
+    return { errors: [`front matter is not YAML — ${messageOf(error).split('\n')[0]}`] };
   }
   if (data === null || typeof data !== 'object' || Array.isArray(data)) {
     return { errors: ['front matter is not a set of keys'] };

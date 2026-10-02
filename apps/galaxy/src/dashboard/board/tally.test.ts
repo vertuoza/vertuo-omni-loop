@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { STAGES } from '../../stages/stage';
 import { periodWindow } from './period';
 import {
-  circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
+  circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, perStage, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
   type Activity, type Member, type PrdNow,
 } from './tally';
 
@@ -227,6 +228,14 @@ describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it',
     expect(tally).toEqual({ idea: 1, prd: 1, inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
     expect(groupsOf([{ stage: 'shipped', login: null, userId: null }, { stage: 'retro', login: null, userId: null }]))
       .toEqual({ open: 0, building: 0, shipped: 2 });
+  });
+
+  it('one value per stage, every stage in track order, each asked for once', () => {
+    const asked: string[] = [];
+    const record = perStage((stage) => { asked.push(stage); return stage.length; });
+    expect(Object.keys(record)).toEqual([...STAGES]);
+    expect(asked).toEqual([...STAGES]);
+    expect(record).toEqual({ idea: 4, prd: 3, inbox: 5, building: 8, outbox: 6, shipped: 7, retro: 5 });
   });
 
   it('who opened a PRD: you by login or account, a fleet by its members\', the workspace every PRD', () => {

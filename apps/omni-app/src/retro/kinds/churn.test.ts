@@ -35,7 +35,7 @@ const commitUrl = (tag: string) => `https://github.com/${OWNER}/${REPO}/commit/$
 type Options = { missing?: ChurnMissing; gitattributes?: string | null };
 
 function github({ missing, gitattributes = GITATTRIBUTES }: Options = {}) {
-  const files = gitattributes === null ? {} : { '.gitattributes': gitattributes };
+  const files: Record<string, string> = gitattributes === null ? {} : { '.gitattributes': gitattributes };
   return replay({
     commits: { [MERGE_SHA]: files },
     pulls: [FEATURE, UNMERGED, ...SUB_PULLS],

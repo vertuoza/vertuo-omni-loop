@@ -91,12 +91,21 @@ type SectorOf = (repo: string | null | undefined) => string | null;
 // A planet as its events alone make it, before buildGalaxy adds its home sector and its season's points.
 type Derived = Omit<Planet, 'sector' | 'earned'>;
 
+// A planet while derive reads its events: each field starts empty and the events fill it.
+type Draft = {
+  prd: number; title: string; captain: string | null; ownerTeam: string | null; chartedAt: string | null;
+  regions: string[]; blockers: Set<number>; zones: Map<string, Zone>; wounds: Map<string, Scar>;
+  distress: Map<string, string>; rescues: Set<string>;
+  ready: boolean; terraformedAt: string | null; lostAt: string | null; lostReason: string | null; decommissioned: boolean;
+  expeditions: Set<string>; rescuers: Map<string, string | null>;
+};
+
 function derive(prd: number, home: string | null, events: readonly LedgerEvent[], { sectorOf, now }: { sectorOf: SectorOf; now: Date }): Derived {
-  const p = {
-    prd, title: `PRD #${prd}`, captain: null as string | null, ownerTeam: null as string | null, chartedAt: null as string | null, // ts-allow: widens a null start to the field's type
-    regions: [] as string[], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(), // ts-allow: widens an empty list to the field's type
+  const p: Draft = {
+    prd, title: `PRD #${prd}`, captain: null, ownerTeam: null, chartedAt: null,
+    regions: [], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(),
     distress: new Map<string, string>(), rescues: new Set<string>(),
-    ready: false, terraformedAt: null as string | null, lostAt: null as string | null, lostReason: null as string | null, decommissioned: false, // ts-allow: widens a null start to the field's type
+    ready: false, terraformedAt: null, lostAt: null, lostReason: null, decommissioned: false,
     expeditions: new Set<string>(), rescuers: new Map<string, string | null>(),
   };
   const zoneOf = (region: string, id: string): Zone => {

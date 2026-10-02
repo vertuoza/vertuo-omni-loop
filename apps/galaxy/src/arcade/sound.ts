@@ -90,7 +90,7 @@ function note(dest: AudioNode, f: number, t: number, dur: number, wave: Wave, ga
   o.start(t); o.stop(t + dur + 0.08);
 }
 
-function hiss(dest: AudioNode, t: number, dur: number, { type = 'bandpass' as BiquadFilterType, freq = 2000, q = 1, gain = 0.2 } = {}) { // ts-allow: the default names one of the filter types
+function hiss(dest: AudioNode, t: number, dur: number, { type = 'bandpass', freq = 2000, q = 1, gain = 0.2 }: { type?: BiquadFilterType; freq?: number; q?: number; gain?: number } = {}) {
   const ctx = ac!;
   const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
   src.buffer = noise;

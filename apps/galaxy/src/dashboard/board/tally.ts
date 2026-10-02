@@ -1,6 +1,6 @@
 import { faceOf, type Face } from '../../people/face';
 import { SOLO, type FleetTag } from '../../people/types';
-import { STAGES, type StageId, type StoredStage } from '../../stages/stage';
+import type { StageId, StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
 
@@ -183,8 +183,16 @@ export function openedBy(circle: Circle, prd: PrdNow): boolean {
 /** How many PRDs sit at each of the seven stages now, in track order. */
 export type StageTally = Record<StageId, number>;
 
+/** One value for each of the seven stages, in track order: a record the compiler holds to every stage. */
+export function perStage<T>(value: (stage: StageId) => T): Record<StageId, T> {
+  return {
+    idea: value('idea'), prd: value('prd'), inbox: value('inbox'), building: value('building'),
+    outbox: value('outbox'), shipped: value('shipped'), retro: value('retro'),
+  };
+}
+
 export function stageTally(prds: readonly PrdNow[]): StageTally {
-  const tally = Object.fromEntries(STAGES.map((s) => [s, 0])) as StageTally;
+  const tally = perStage(() => 0);
   for (const p of prds) tally[p.stage] += 1;
   return tally;
 }

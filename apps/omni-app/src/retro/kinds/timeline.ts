@@ -8,11 +8,13 @@
 import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
+import { ListSchema, parseGitHub } from '../github.schema.ts';
 import type { Kind, RetroPull } from './index.ts';
 import { IssueEventSchema } from './schema.ts';
 import { sliceOf } from './slice-of.ts';
 
 const MINUTE = 60 * 1000;
+const EVENTS = 'GET /repos/{owner}/{repo}/issues/{issue_number}/events';
 
 type Records = { readyAt: string | null };
 
@@ -47,14 +49,14 @@ export const timeline: Kind<Records, Facts> = Object.freeze({
     try {
       events = await paginate((page: number) =>
         octokit
-          .request('GET /repos/{owner}/{repo}/issues/{issue_number}/events', {
+          .request(EVENTS, {
             owner,
             repo,
             issue_number: pr.number,
             per_page: PER_PAGE,
             page,
           })
-          .then(({ data }) => data as readonly unknown[]), // ts-allow: a list route answers an array; each event is parsed just below, as before
+          .then(({ data }) => parseGitHub(ListSchema, data, EVENTS)),
       );
     } catch (error) {
       // Events this installation cannot read leave the ready time unknown; anything else is retried.

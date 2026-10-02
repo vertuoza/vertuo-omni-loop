@@ -21,6 +21,7 @@ import { updatePlugin } from '../../lib/update/plugin.ts';
 import { UpdateError, downloadBundle, findTarget } from '../../lib/update/release.ts';
 import { parseVersion } from '../../lib/version/version.ts';
 import type { RunningKit } from '../../lib/init/bundle.ts';
+import { propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
@@ -36,7 +37,7 @@ function handOver({ cwd, home, from, target, exec }: { cwd: string; home: string
       exec('node', [bundle, 'update', '--apply', ...fromFlag], { cwd, stdio: 'inherit' });
       return 0;
     } catch (error) {
-      const status = (error as { status?: unknown } | null)?.status; // ts-allow: execFileSync's error carries the exit status
+      const status = propertyOf(error, 'status');
       return typeof status === 'number' && Number.isInteger(status) ? status : 1;
     }
   } finally {

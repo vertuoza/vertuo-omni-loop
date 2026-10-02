@@ -448,7 +448,7 @@ export function readReplies(
   client: { listComments: () => object[]; createComment: (body: string) => unknown },
 ) {
   const comments = client.listComments();
-  const items = openItemsForPrd(prd, { ctx }) as OutboxItem[]; // ts-allow: comment.ts is typed by its own slice; it lists parsed open items
+  const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
   const plan = planReplies({ comments, items, adopted, markers: ctx.markers });
 

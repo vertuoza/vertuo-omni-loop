@@ -205,9 +205,9 @@ export function hyperlanes(view: GalaxyView, layout: MapSlot[]): Array<[MapSlot,
   const bySlot = new Map(layout.map((l) => [view.planets[l.index]?.key, l]));
   return layout.flatMap((slot) => {
     const p = view.planets[slot.index]!;
-    return p.blockers.flatMap((b) => {
+    return p.blockers.flatMap((b): Array<[MapSlot, MapSlot]> => {
       const to = bySlot.get(p.home ? `${p.home}#${b}` : String(b));
-      return to ? [[slot, to] as [MapSlot, MapSlot]] : []; // ts-allow: a pair, as the lanes are typed
+      return to ? [[slot, to]] : [];
     });
   });
 }

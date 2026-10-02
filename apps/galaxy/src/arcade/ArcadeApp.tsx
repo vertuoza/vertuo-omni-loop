@@ -301,7 +301,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (step === 'name') extra.name = nameInit(m?.display_name ?? foldName(s?.givenName ?? ''));
     if (step === 'hero') { extra.hero = m?.hero ?? randomHero(); extra.heroRow = 0; }
     if (step === 'menu') extra.flow = 'onboard';
-    go({ ...extra, ...patch, scene: step as SceneName }, effect); // ts-allow: a step is a scene the scene table names
+    go({ ...extra, ...patch, scene: step }, effect);
   }, [active, go]);
 
   /** A on the unlocked cabinet: a new game, laid out for the grid it is shown on, each alien paying the rules' close value. */
@@ -394,7 +394,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
     const door = allowed(ui.scene, session);
-    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null })); // ts-allow: a door is a scene the scene table names
+    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door, since: now(), page: 0, away: false, error: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);

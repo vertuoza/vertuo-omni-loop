@@ -1,5 +1,6 @@
 import { PERSONA_TRADES, personaVariations, randomAvatar, type PersonaAvatar } from '@omni/design';
 import { hasProducts, type Product } from './model';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas (PRD 799 s3): a product's cast, the team's own picture of its
 // customers. Each persona has a name, a stance, a trade, an avatar into that trade's sprite variations
@@ -58,7 +59,7 @@ export const PICKER_SIZE = 24;
 export const NAME_MAX = 40;
 export const TEXT_MAX = 400;
 
-const isStance = (s: unknown): s is Stance => STANCES.includes(s as Stance);
+const isStance = (s: unknown): s is Stance => isOneOf(STANCES, s);
 
 export function personaOf(row: StoredPersona): Persona {
   return {
@@ -178,7 +179,7 @@ const HANDLERS: Handlers = {
 };
 
 export function personasReducer(state: PersonasState, action: PersonasAction): PersonasState {
-  const handle = HANDLERS[action.type] as (state: PersonasState, action: PersonasAction) => PersonasState;
+  const handle = HANDLERS[action.type] as (state: PersonasState, action: PersonasAction) => PersonasState; // ts-allow: HANDLERS keys each handler by the action type it takes, which TypeScript cannot correlate
   return handle(state, action);
 }
 

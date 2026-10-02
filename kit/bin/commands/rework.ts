@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { closeDriftedEntry, planRework } from '../../lib/policy/rework.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Rework, ReworkPlan } from '../../lib/policy/rework.ts';
@@ -22,7 +22,7 @@ function readIfExists(ctx: Context, path: string): string {
   try {
     return readFileSync(join(ctx.root, path), 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') return ''; // ts-allow: readFileSync throws a system error
+    if (errorCode(error) === 'ENOENT') return '';
     throw error;
   }
 }
@@ -112,7 +112,7 @@ async function runClose(args: string[], { ctx, stdout }: CommandIo): Promise<num
   try {
     closedText = closeDriftedEntry(text, { id, pullRequest, markers: ctx.markers });
   } catch (error) {
-    throw usageError((error as Error).message.split('\n')[0] ?? ''); // ts-allow: closeDriftedEntry throws only Error
+    throw usageError(errorMessage(error).split('\n')[0] ?? '');
   }
 
   writeFileSync(join(ctx.root, settledFile), closedText);

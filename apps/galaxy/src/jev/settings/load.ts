@@ -22,7 +22,7 @@ export async function loadJevPage(db: SupabaseClient, user: User, now: Date = ne
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };
-    const store = jevStore(db as unknown as Parameters<typeof jevStore>[0]);
+    const store = jevStore(db);
     const [owner, keyStatus, decisions, records] = await Promise.all([
       store.isOwner(workspace.id).catch((err: unknown) => {
         console.error(`jev: your role could not be read (${why(err)})`);

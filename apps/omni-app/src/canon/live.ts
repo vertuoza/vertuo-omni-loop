@@ -11,7 +11,7 @@
 //   Galaxy's host is `GALAXY_URL` when set, as for the stage events.
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { askModel as untypedAskModel, KEY_VAR, MODEL_CALL, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import { askModel, KEY_VAR, MODEL_CALL, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { type Ask, createCanon } from './canon.ts';
 import { constituentJudge, JUDGE_SECRET_VAR, judgeUrl } from './judge.ts';
@@ -24,15 +24,6 @@ const CanonEnvSchema = z.looseObject({
   [KEY_VAR]: z.string().optional(),
   [JUDGE_SECRET_VAR]: z.string().optional(),
 });
-
-/** The kit's OpenRouter client, as the gate calls it. */
-type AskModel = (input: Parameters<Ask>[0] & {
-  env: Record<string, string | undefined>;
-  fetch: typeof globalThis.fetch;
-  call: { attempts: number; backoffMs: readonly number[]; budgetMs: number; maxTokens: number };
-  title: string;
-}) => ReturnType<Ask>;
-const askModel = untypedAskModel as unknown as AskModel; // ts-allow: openrouter is untyped (its JSDoc is not read in a .ts file); this is the shape it takes and returns
 
 /** The small model galaxy's business draft and ask classifier use. */
 export const CANON_MODEL = 'anthropic/claude-haiku-4.5';

@@ -2,6 +2,7 @@ import {
   constituentOf, NEVER_MAX, STATEMENT_MAX,
   type Constituent, type ConstituentEvent, type ConstituentKind, type StoredConstituent,
 } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The constituents' writes (PRD 871). In production, the functions of
 // supabase/migrations/20261029090000_constituents.sql, called as the signed-in person:
@@ -36,7 +37,8 @@ const INVALID = 'That can’t be saved. Check the text.';
 
 /** An error as PostgREST answers it, or anything thrown, as the panel says it. */
 export function constituentRefusalOf(error: unknown): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown }; // ts-allow: each field is compared, never trusted
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
   if (code === '42501') return NOT_OWNER;
   if (code === 'P0002') return GONE;
   if (code === '22023') return INVALID_FIELD[String(hint)] ?? INVALID;

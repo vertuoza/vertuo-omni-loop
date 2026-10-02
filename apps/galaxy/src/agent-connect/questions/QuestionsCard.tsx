@@ -3,6 +3,7 @@ import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '
 import { dayLabel } from '../tokens/model';
 import type { AgentQuestion } from './model';
 import type { Answering, QuestionsState } from './state';
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings › Business › Questions agents couldn't answer, drawn from its state (PRD 855 s3). One row per
 // open question, the latest asked first: the question, the link that asked it, the repository and file,
@@ -62,7 +63,7 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
         <span className="business-type-label">Kind</span>
         <select
           name="kind" value={answering.kind} disabled={busy}
-          onChange={(e) => on.kind(e.currentTarget.value as ClaimKind)} // ts-allow: the select offers only KIND_ORDER's kinds
+          onChange={(e) => { const kind = e.currentTarget.value; if (isOneOf(KIND_ORDER, kind)) on.kind(kind); }}
         >
           {KIND_ORDER.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
         </select>

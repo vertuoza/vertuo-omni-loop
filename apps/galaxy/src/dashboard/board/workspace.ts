@@ -1,4 +1,5 @@
 import 'server-only';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { demoGalaxy, loadGalaxy } from '../../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
@@ -21,7 +22,7 @@ export async function loadWorkspaceBoard(db: SupabaseClient, user: Pick<User, 'i
   try {
     workspace = await memberWorkspace(db, user.id);
   } catch (error) {
-    console.error(`dashboard: your workspace could not be read (${(error as Error).message})`);
+    console.error(`dashboard: your workspace could not be read (${messageOf(error)})`);
     const none = { roster: UNREADABLE, activity: UNREADABLE, answered: UNREADABLE, galaxy: UNREADABLE } as const;
     return { kind: 'board', name: 'Workspace', board: boardOf(none, { ...WHOLE, viewerId: user.id, period, now }) };
   }

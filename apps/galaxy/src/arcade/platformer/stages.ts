@@ -3,6 +3,7 @@
 // on the bottom row. `stageProblems` holds each stage to the checks that make it playable, and
 // stages.test.ts runs them on every stage here.
 import { longestPit } from './rules';
+import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /**
  * The legend, for every map below:
@@ -78,8 +79,8 @@ export function parseStage(id: string, palette: string, text: string): Stage {
     stage.tiles.push([...line].map((c, col) => {
       if (!isMark(c)) throw new StageError(id, c, row + 1, col + 1);
       const mark = LEGEND[c];
-      if (mark in places) { places[mark as keyof typeof places].push({ col, row }); return 'empty'; } // ts-allow: the `in` test on this line proves it a key of places
-      return mark as Tile; // ts-allow: every legend mark that is not a place is a tile
+      if (isOneOf(keysOf(places), mark)) { places[mark].push({ col, row }); return 'empty'; }
+      return mark;
     }));
   });
   return stage;

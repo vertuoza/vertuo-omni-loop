@@ -13,7 +13,7 @@ export async function signedInStore() {
   if (!supabaseEnv()) return null;
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();
-  return user ? jevStore(db as unknown as Parameters<typeof jevStore>[0]) : null;
+  return user ? jevStore(db) : null;
 }
 
 export function keyRouteDeps(): KeyRouteDeps {

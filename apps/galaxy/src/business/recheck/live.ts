@@ -14,7 +14,7 @@ import { rechecked, type RecheckDeps } from './recheck';
 export function recheckDeps(env: Record<string, string | undefined> = process.env): RecheckDeps {
   return {
     secret: env.BUSINESS_RECHECK_SECRET?.trim() || undefined,
-    businesses: () => rechecked(serviceDb() as unknown as Parameters<typeof rechecked>[0]),
+    businesses: () => rechecked(serviceDb() as unknown as Parameters<typeof rechecked>[0]), // ts-allow: rechecked() takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
     start: (workspace) => draftStore(serviceDb()).start(workspace, 'recheck'),
     run: (workspace, draft) => runDraft(runDeps(serviceDb()), workspace, draft),
     now: () => new Date().toISOString(),
