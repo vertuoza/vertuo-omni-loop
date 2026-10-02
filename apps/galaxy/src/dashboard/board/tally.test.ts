@@ -151,9 +151,35 @@ describe('peopleRows', () => {
     expect(people.find((p) => p.userId === 'u-bob')).toMatchObject({ prs: 0, points: 300, answered: 0 });
   });
 
-  it('sorts by PRs merged, then points, then name', () => {
+  it('sorts by points, then PRs merged, then name; a dash in points sorts last (PRD 1017)', () => {
     const people = peopleRows(ROSTER, input(), 'u-ada');
-    expect(people.map((p) => p.userId)).toEqual(['u-paul', 'u-ada', 'u-bob', 'u-sol', 'u-nog']);
+    expect(people.map((p) => p.userId)).toEqual(['u-bob', 'u-ada', 'u-paul', 'u-sol', 'u-nog']);
+  });
+
+  // Five people on 125, 50, 50, 0 and 0 points; the 50s and the 0s split by PRs, then by name.
+  const scored = (heroes: Parameters<typeof peopleRows>[1]['heroes'], activity = inPeriod([
+    act('pr-merged', 'c-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 1),
+    act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 2),
+  ], WEEK)) => peopleRows(
+    [member('a', 'a-gh', null, 'alma'), member('b', 'b-gh', null, 'Bea'), member('c', 'c-gh', null, 'cyd'),
+      member('d', 'd-gh', null, 'Dan'), member('e', 'e-gh', null, 'eve'), member('n', null, null, 'Nobody')],
+    { activity, answered: new Map(), heroes, fleets: [], prds: [] }, null);
+  const POINTS = [{ name: 'a-gh', points: 0 }, { name: 'b-gh', points: 50 }, { name: 'c-gh', points: 50 }, { name: 'd-gh', points: 125 }];
+
+  it('ties on points fall back to PRs merged, then to the name, A to Z ignoring case', () => {
+    expect(scored(POINTS).map((p) => p.name)).toEqual(['Dan', 'cyd', 'Bea', 'eve', 'alma', 'Nobody']);
+    expect(scored(POINTS, []).map((p) => p.name)).toEqual(['Dan', 'Bea', 'cyd', 'alma', 'eve', 'Nobody']);
+  });
+
+  it('ranks by points in standard competition ranking: 1, 2, 2, 4, 4; no rank for a dash', () => {
+    expect(scored(POINTS).map((p) => [p.name, p.rank])).toEqual([
+      ['Dan', 1], ['cyd', 2], ['Bea', 2], ['eve', 4], ['alma', 4], ['Nobody', null],
+    ]);
+    expect(peopleRows(ROSTER, input(), null).map((p) => p.rank)).toEqual([1, 2, 3, 3, null]);
+  });
+
+  it('no rank for anyone when the points could not be read', () => {
+    expect(scored('unreadable').map((p) => p.rank)).toEqual([null, null, null, null, null, null]);
   });
 
   it('marks the viewer, reads SOLO with no fleet, and dashes the GitHub-counted columns with no login', () => {
