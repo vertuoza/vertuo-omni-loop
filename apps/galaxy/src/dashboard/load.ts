@@ -1,6 +1,7 @@
 import 'server-only';
 import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { Player } from '../arcade/types';
 import { loadFleets, loadGalaxy, loadMe } from '../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../data/workspace';
@@ -44,7 +45,7 @@ const NONE = { roster: UNREADABLE, activity: UNREADABLE, answered: UNREADABLE, g
  * PRD 657): Waiting for you is counted from it, not read again. Without it, Waiting for you reads the
  * ask tables itself. */
 export async function loadDashboard(
-  db: SupabaseClient, user: User, period: Period, now: Date, questions?: () => Promise<WaitingQuestion[]>,
+  db: SupabaseClient<Database>, user: User, period: Period, now: Date, questions?: () => Promise<WaitingQuestion[]>,
 ): Promise<DashboardLoad> {
   const season = seasonBounds(now);
   let workspace: Workspace | null;

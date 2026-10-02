@@ -20,6 +20,10 @@ const STATE = {
 };
 const CALL = { repo: 'acme/widgets', state: STATE, old: 'false', ref: 'acme/widgets#12' };
 
+// The matchers, as values: vitest types each `expect.<matcher>` as any.
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+const near = (n: number): unknown => expect.closeTo(n, 5);
+
 function world({ mode = 'off', noul = 0.9, jev = true, secret = SECRET, outcome, lookup }: {
   mode?: JevMode; noul?: number; jev?: boolean; secret?: string | undefined; outcome?: JevOutcome; lookup?: () => Promise<string | null>;
 } = {}) {
@@ -27,19 +31,20 @@ function world({ mode = 'off', noul = 0.9, jev = true, secret = SECRET, outcome,
   const logged: JevCall[] = [];
   const lines: string[] = [];
   const deps: JevDecideDeps = {
-    settings: async (_w, decision): Promise<JevDecisionSettings> => ({ decision, mode, threshold: 0.5, floor: 0.4 }),
-    key: async () => ({ kind: 'key', key: 'ts-key' }),
-    ask: async (_key, state, question) => {
+    settings: (_w, decision): Promise<JevDecisionSettings> => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+    key: () => Promise.resolve({ kind: 'key', key: 'ts-key' }),
+    ask: (_key, state, question) => {
       asked.push({ state, question });
-      return outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 80 };
+      return Promise.resolve(outcome ?? { kind: 'answered', model: 'jev-1.13.0', answer: noul, confidence: Math.abs(2 * noul - 1), probabilities: null, ms: 80 });
     },
-    log: async (_w, call) => {
+    log: (_w, call) => {
       logged.push(call);
+      return Promise.resolve();
     },
   };
   const route: JudgeRouteDeps = {
     secret,
-    workspaceOf: lookup ?? (async (repo) => (repo === 'acme/widgets' ? ACME : null)),
+    workspaceOf: lookup ?? ((repo) => Promise.resolve((repo === 'acme/widgets' ? ACME : null))),
     jev: jev ? deps : null,
     log: (line) => lines.push(line),
   };
@@ -57,7 +62,8 @@ async function send(w: ReturnType<typeof world>, body: unknown = CALL, { signatu
     body: text,
   });
   const response = await judgeRoute(request, w.route);
-  return { status: response.status, body: await response.json() };
+  const answer: unknown = await response.json();
+  return { status: response.status, body: answer };
 }
 
 describe('POST /api/constituents/judge', () => {
@@ -80,10 +86,10 @@ describe('POST /api/constituents/judge', () => {
   it('refuses a signed body that is not a judge call, saying which field', async () => {
     const w = world({ mode: 'on' });
     expect(await send(w, 'not json')).toMatchObject({ status: 400 });
-    expect(await send(w, { ...CALL, repo: 'widgets' })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/repo/) } });
-    expect(await send(w, { ...CALL, state: { spec: 'x' } })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/state/) } });
-    expect(await send(w, { ...CALL, old: 'red' })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/old/) } });
-    expect(await send(w, { ...CALL, ref: 7 })).toMatchObject({ status: 400, body: { error: expect.stringMatching(/ref/) } });
+    expect(await send(w, { ...CALL, repo: 'widgets' })).toMatchObject({ status: 400, body: { error: matching(/repo/) } });
+    expect(await send(w, { ...CALL, state: { spec: 'x' } })).toMatchObject({ status: 400, body: { error: matching(/state/) } });
+    expect(await send(w, { ...CALL, old: 'red' })).toMatchObject({ status: 400, body: { error: matching(/old/) } });
+    expect(await send(w, { ...CALL, ref: 7 })).toMatchObject({ status: 400, body: { error: matching(/ref/) } });
     expect(await send(w, { ...CALL, state: { ...STATE, spec: 'x'.repeat(200_000) } })).toMatchObject({ status: 413 });
     expect(w.asked).toEqual([]);
   });
@@ -108,8 +114,8 @@ describe('POST /api/constituents/judge', () => {
     const above = world({ mode: 'on', noul: 0.9 });
     const sent = await send(above);
     expect(sent.status).toBe(200);
-    expect(sent.body).toEqual({ answer: 'true', confidence: expect.closeTo(0.8, 5), decidedBy: 'jev' });
-    expect(String((above.asked[0] as { state: string }).state)).toContain('never#1');
+    expect(sent.body).toEqual({ answer: 'true', confidence: near(0.8), decidedBy: 'jev' });
+    expect((above.asked[0] as { state: string }).state).toContain('never#1');
 
     const under = world({ mode: 'on', noul: 0.6 });
     expect(await send(under)).toEqual({ status: 200, body: { answer: 'false', confidence: null, decidedBy: 'old' } });
@@ -131,7 +137,7 @@ describe('POST /api/constituents/judge', () => {
   });
 
   it('answers 500 when the workspace cannot be looked up', async () => {
-    const w = world({ mode: 'on', lookup: async () => { throw new Error('db down'); } });
+    const w = world({ mode: 'on', lookup: () => Promise.reject(new Error('db down')) });
     expect(await send(w)).toMatchObject({ status: 500 });
     expect(w.lines.join('\n')).toMatch(/db down/);
   });

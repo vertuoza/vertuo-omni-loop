@@ -2,6 +2,7 @@ import 'server-only';
 import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { demoGalaxy, loadGalaxy } from '../../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
 import { once, UNREADABLE } from '../part';
@@ -16,7 +17,7 @@ import { fleetOf, loadFleet, type FleetValue } from './load';
 
 export type FleetBoard = { kind: 'no-workspace' } | FleetValue;
 
-export async function loadFleetBoard(db: SupabaseClient, user: Pick<User, 'id'>, asked: string | null, period: Period, now: Date): Promise<FleetBoard> {
+export async function loadFleetBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, asked: string | null, period: Period, now: Date): Promise<FleetBoard> {
   const request = { asked, viewerId: user.id, period, now };
   let workspace: Workspace | null;
   try {

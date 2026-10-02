@@ -1,7 +1,7 @@
 ---
-id: s16-01-arcade-cast-ceiling
+id: s15-01-arcade-cast-ceiling
 prd: 976
-slice: s16
+slice: s15
 rank: medium
 bears-on: none
 raised: 2026-10-02
@@ -10,15 +10,15 @@ wave: 3
 
 ## The question, in plain words
 
-Clearing the data and navigation findings removed two type escapes the earlier clean-up had counted, and that count lives in a shared file outside this slice's ground. Who lowers it?
+Clearing the dashboard's and Jev's findings removed five type escapes the earlier clean-up had counted, and that count lives in a shared file outside this slice's ground. Who lowers it?
 
 ## The decision, in plain words
 
-This slice lowered the arcade's count of type escapes by the two it removed, so the existing check stays exact and green.
+This slice lowered the arcade's count of type escapes by the five it removed, so the existing check stays exact and green.
 
 ## The intro, for fun
 
-Two more escape hatches were sealed, and their ledger still sits on someone else's desk.
+Five escape hatches were sealed, and the ledger that counts them sits on someone else's desk.
 
 ## The punchline, for fun
 
@@ -26,8 +26,8 @@ The slice wrote the new number down itself rather than leave the ledger wrong.
 
 ## The options, in plain words
 
-A. This slice lowers the arcade's type-escape count by the two escapes it removed.
-B. Keep the two removed escapes as they were, leaving two lint findings in this area.
+A. This slice lowers the arcade's type-escape count by the five escapes it removed.
+B. Keep the five removed escapes as they were, leaving lint findings in this area.
 C. Leave the count as it was and let the wave's merge lower it once for every slice.
 
 ## What I had to decide
@@ -36,7 +36,7 @@ Whether a slice may lower the arcade's shared count of type escapes when its own
 
 ## What I did meanwhile
 
-The arcade's count in the type-escape ceiling file went from 134 to 132 (149 to 147 before the wave's earlier merges); nothing else in that file changed.
+The arcade's count in the type-escape ceiling file went down by five, from 149 to 144, and to 134 once the siblings merged before it were merged in; nothing else in that file changed.
 
 ## What it costs to change later
 

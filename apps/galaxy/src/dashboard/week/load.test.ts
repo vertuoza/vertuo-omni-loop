@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { ACME, contribution, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from '../../data/galaxy.fake';
 import { settle, type PartInput } from '../part';
 import { seasonBounds } from '../season';
@@ -22,11 +23,11 @@ function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {})
   return w;
 }
 
-const galaxyUntouched = vi.fn(async () => { throw new Error('the week read the galaxy'); });
+const galaxyUntouched = vi.fn(() => Promise.reject(new Error('the week read the galaxy')));
 
 function inputOf(w: ReturnType<typeof fakeGalaxyDb>, person: FakeUser, workspace: string, login: string | null): PartInput {
   return {
-    db: w.client(person) as unknown as SupabaseClient, workspace, userId: person.id, login, team: null,
+    db: w.client(person) as unknown as SupabaseClient<Database>, workspace, userId: person.id, login, team: null,
     now: NOW, season: seasonBounds(NOW), galaxy: galaxyUntouched,
   };
 }
