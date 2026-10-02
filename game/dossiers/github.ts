@@ -28,7 +28,8 @@ export const ghWhy = (err: unknown): string => {
 };
 const notFound = (err: unknown): boolean => {
   const { stderr, message } = failureOf(err);
-  return /\bHTTP 404\b/.test(String(stderr ?? message ?? ''));
+  const said: unknown = stderr ?? message ?? ''; // whatever gh's error carried, read as text
+  return /\bHTTP 404\b/.test(String(said));
 };
 
 /** The default branch, its head commit and that commit's tree. */
@@ -64,7 +65,7 @@ export async function readBlob(exec: Exec, slug: string, sha: string): Promise<s
 /** Issue `n`'s title (a fix's dossier is titled after it), or null when there is no such issue. */
 export async function readIssueTitle(exec: Exec, slug: string, n: number): Promise<string | null> {
   try {
-    return (await exec(['api', `repos/${slug}/issues/${Number(n)}`, '--jq', '.title'])).trim() || null;
+    return (await exec(['api', `repos/${slug}/issues/${n}`, '--jq', '.title'])).trim() || null;
   } catch (err) {
     if (notFound(err)) return null;
     throw err;

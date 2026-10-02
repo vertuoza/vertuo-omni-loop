@@ -70,7 +70,7 @@ export function projectEvents(
 // Validates and keeps one event, or reports it skipped.
 function pusher(events: GameEvent[], teams: Readonly<Record<string, string>>, onSkip: (skip: Skip) => void): Push {
   // Logins are case-insensitive; the roster is keyed in lower case.
-  const teamOf = (login: string): string | undefined => teams[login] ?? teams[String(login).toLowerCase()];
+  const teamOf = (login: string): string | undefined => teams[login] ?? teams[login.toLowerCase()];
   // Controller ruling: EventSchema accepts `contributor` as a string or absent, never `null`.
   // When a login is null/undefined (e.g. an unclaimed zone's author, a wound's closedBy),
   // omit both `contributor` and `team` instead of passing `null`.
