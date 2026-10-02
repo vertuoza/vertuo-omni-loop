@@ -142,7 +142,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
   function pings() {
     const asked: string[] = [];
     const rows: Record<string, typeof FRESH> = { 'claude-this-tab': FRESH, 'claude-other-tab': OTHER };
-    return { asked, read: async (id: string) => { asked.push(id); return rows[id] ?? null; } };
+    return { asked, read: (id: string) => { asked.push(id); return Promise.resolve(rows[id] ?? null); } };
   }
 
   it('each poll carries the heartbeat of this tab\'s Claude session, and of no other terminal', async () => {
@@ -173,7 +173,7 @@ describe('whether the tab\'s terminal is working (PRD 757)', () => {
     const w = await world();
     await w.ask();
     item(w.fake.tables.ask_sessions, 0).claude_session_id = 'claude-this-tab';
-    const state = await sessionReader(w.recording('ada'), w.sessionId, null, async () => { throw new Error('connection lost'); })();
+    const state = await sessionReader(w.recording('ada'), w.sessionId, null, () => Promise.reject(new Error('connection lost')))();
     expect(state?.ping).toBeNull();
     expect(state?.rounds).toHaveLength(1);
   });
@@ -215,13 +215,13 @@ describe('sending with screenshots (PRD 620)', () => {
     const uploads: string[] = [];
     const removed: string[][] = [];
     const bucket: Bucket = {
-      async upload(path) {
+      upload(path) {
         uploads.push(path);
-        return { error: null };
+        return Promise.resolve({ error: null });
       },
-      async remove(paths) {
+      remove(paths) {
         removed.push(paths);
-        return { error: null };
+        return Promise.resolve({ error: null });
       },
     };
     const client = w.fake.client(token) as unknown as Db;

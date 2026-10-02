@@ -18,15 +18,15 @@ function stubBucket(fail: (path: string, attempt: number) => { message: string; 
   const calls: Call[] = [];
   const attempts = new Map<string, number>();
   const bucket: Bucket = {
-    async upload(path, _file, options) {
+    upload(path, _file, options) {
       calls.push({ op: 'upload', path, contentType: options.contentType });
       const attempt = (attempts.get(path) ?? 0) + 1;
       attempts.set(path, attempt);
-      return { error: fail(path, attempt) };
+      return Promise.resolve({ error: fail(path, attempt) });
     },
-    async remove(paths) {
+    remove(paths) {
       calls.push({ op: 'remove', paths });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
   };
   return { bucket, calls };
@@ -38,10 +38,10 @@ function recorder(outcome: 'answered' | 'taken' = 'answered') {
   return {
     recorded,
     order,
-    record: async (attachments?: AskAttachments) => {
+    record: (attachments?: AskAttachments) => {
       recorded.push(attachments);
       order.push('record');
-      return outcome;
+      return Promise.resolve(outcome);
     },
   };
 }
@@ -95,7 +95,7 @@ describe('sending with screenshots', () => {
     const { bucket, calls } = stubBucket();
     const tray = newTray();
     tray.shots = { 'Which one?': [shot('a')] };
-    await expect(sendWithShots(bucket, ROUND, tray, async () => { throw new Error('offline'); }, () => {})).rejects.toThrow('offline');
+    await expect(sendWithShots(bucket, ROUND, tray, () => Promise.reject(new Error('offline')), () => {})).rejects.toThrow('offline');
     calls.length = 0;
     const r = recorder();
     expect(await sendWithShots(bucket, ROUND, tray, r.record, () => {})).toBe('answered');

@@ -17,15 +17,15 @@ vi.mock('server-only', () => ({}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
+  supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
-vi.mock('./for-me-live', () => ({ readForMeLive: async () => given.read }));
-vi.mock('./history-live', () => ({ readHistoryLive: async () => given.read }));
+vi.mock('./for-me-live', () => ({ readForMeLive: () => Promise.resolve(given.read) }));
+vi.mock('./history-live', () => ({ readHistoryLive: () => Promise.resolve(given.read) }));
 vi.mock('./source', () => ({
-  readTabs: async () => [],
-  readSession: async () => given.pane,
-  readMembers: async () => [],
-  sessionPings: () => async () => null,
+  readTabs: () => Promise.resolve([]),
+  readSession: () => Promise.resolve(given.pane),
+  readMembers: () => Promise.resolve([]),
+  sessionPings: () => () => Promise.resolve(null),
 }));
 
 const { QuestionsTabs } = await import('./QuestionsTabs');

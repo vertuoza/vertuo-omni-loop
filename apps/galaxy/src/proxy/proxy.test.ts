@@ -31,14 +31,14 @@ function fakeCreate() {
     cookies = options.cookies;
     return {
       auth: {
-        async getClaims() {
+        getClaims() {
           calls.getClaims += 1;
           cookies?.setAll([{ name: 'sb-token', value: 'fresh', options: { path: '/' } }]);
-          return { data: null, error: null };
+          return Promise.resolve({ data: null, error: null });
         },
-        async getUser() {
+        getUser() {
           calls.getUser += 1;
-          throw new Error('the proxy never calls getUser');
+          return Promise.reject(new Error('the proxy never calls getUser'));
         },
       },
     };

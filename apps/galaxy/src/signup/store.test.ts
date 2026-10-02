@@ -17,7 +17,7 @@ function stubDb(answer: { data?: unknown; error?: { message: string } | null } =
     return q;
   };
   const db = {
-    rpc: async (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return result; },
+    rpc: (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return Promise.resolve(result); },
     from: (table: string) => { calls.push({ op: 'from', args: [table] }); return chain(); },
   };
   return { db: db as unknown as SupabaseClient, calls };

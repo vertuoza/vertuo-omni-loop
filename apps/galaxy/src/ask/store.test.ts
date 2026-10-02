@@ -25,7 +25,7 @@ describe('addRound (PRD 752)', () => {
     const query = {
       insert(values: Record<string, unknown>) { sent.push(values); return query; },
       select() { return query; },
-      single: async () => ({ data: { id: 'r1' }, error: null }),
+      single: () => Promise.resolve({ data: { id: 'r1' }, error: null }),
     };
     return { sent, db: { from: () => query } as unknown as Parameters<typeof askStore>[0] };
   }
@@ -54,7 +54,7 @@ describe('moveRound (PRD 620)', () => {
       eq() { return query; },
       in() { return query; },
       select() { return query; },
-      maybeSingle: async () => ({ data: { id: 'r1', ...sent[0] }, error: null }),
+      maybeSingle: () => Promise.resolve({ data: { id: 'r1', ...sent[0] }, error: null }),
     };
     return { sent, db: { from: () => query } as unknown as Parameters<typeof askStore>[0] };
   }
@@ -80,7 +80,7 @@ describe('askAttachments (PRD 620)', () => {
     const db = {
       storage: {
         from: (bucket: string) => ({
-          createSignedUrls: async (paths: string[], expiresIn: number) => { asked.push({ bucket, paths, expiresIn }); return reply; },
+          createSignedUrls: (paths: string[], expiresIn: number) => { asked.push({ bucket, paths, expiresIn }); return Promise.resolve(reply); },
         }),
       },
     } as unknown as Parameters<typeof askAttachments>[0];

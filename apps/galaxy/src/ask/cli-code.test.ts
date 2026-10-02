@@ -66,13 +66,13 @@ function world() {
 
   const client: TokenClient = {
     auth: {
-      async refreshSession({ refresh_token }) {
+      refreshSession({ refresh_token }) {
         calls.refresh.push(refresh_token);
-        if (state.authDown) return { data: { session: null }, error: { status: 503, message: 'upstream' } };
+        if (state.authDown) return Promise.resolve({ data: { session: null }, error: { status: 503, message: 'upstream' } });
         const account = refreshTokens.get(refresh_token);
-        if (!account) return { data: { session: null }, error: { status: 400, message: 'Invalid Refresh Token: Already Used' } };
+        if (!account) return Promise.resolve({ data: { session: null }, error: { status: 400, message: 'Invalid Refresh Token: Already Used' } });
         refreshTokens.delete(refresh_token);
-        return { data: { session: newSession(account) }, error: null };
+        return Promise.resolve({ data: { session: newSession(account) }, error: null });
       },
     },
     async rpc(fn, args) {
@@ -87,41 +87,43 @@ function world() {
   };
 
   const callbackDeps: CliCallbackDeps = {
-    async exchange(code) {
+    exchange(code) {
       calls.exchange.push(code);
       const account = googleCodes.get(code);
       googleCodes.delete(code);
-      if (!account) return { session: null, error: { message: 'invalid flow state, no valid flow state found' } };
-      return { session: newSession(account), error: null };
+      if (!account) return Promise.resolve({ session: null, error: { message: 'invalid flow state, no valid flow state found' } });
+      return Promise.resolve({ session: newSession(account), error: null });
     },
-    async issue(session, codeHash) {
+    issue(session, codeHash) {
       calls.issue.push(codeHash);
-      if (state.issueFails) return { error: { message: 'permission denied' } };
-      if (outside.has(session.user.id)) return { error: { message: 'Sign in with an account of a workspace first.', code: '42501' } };
+      if (state.issueFails) return Promise.resolve({ error: { message: 'permission denied' } });
+      if (outside.has(session.user.id)) return Promise.resolve({ error: { message: 'Sign in with an account of a workspace first.', code: '42501' } });
       codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
-    async issueOutsideWorkspaces(session, codeHash) {
+    issueOutsideWorkspaces(session, codeHash) {
       calls.issue.push(`server:${codeHash}`);
       codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
-    async revoke(session) {
+    revoke(session) {
       revoked.push(session.access_token);
+      return Promise.resolve();
     },
   };
 
   const tokenDeps: TokenDeps = {
     connect: () => client,
     now: () => clock.now,
-    async revoke(accessToken) {
+    revoke(accessToken) {
       revoked.push(accessToken);
+      return Promise.resolve();
     },
-    async place(userId, repo) {
+    place(userId, repo) {
       calls.place.push(`${userId} ${repo}`);
-      if (state.placeFails) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+      if (state.placeFails) return Promise.reject(new Error('SUPABASE_SERVICE_ROLE_KEY is not set'));
       const pick = places[userId]?.[repo] ?? { workspace_id: null, refusal: `no workspace owns ${repo} yet — install the Omni App` };
-      return { workspace: pick.workspace_id ? workspaces[pick.workspace_id]! : null, reason: pick.refusal };
+      return Promise.resolve({ workspace: pick.workspace_id ? workspaces[pick.workspace_id]! : null, reason: pick.refusal });
     },
     installLink: INSTALL,
   };
