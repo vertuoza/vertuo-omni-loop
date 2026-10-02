@@ -101,7 +101,7 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {
-      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: deps.log }, syncedAt);
+      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: (line) => { deps.log(line); } }, syncedAt);
     } catch (error) {
       deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
@@ -112,13 +112,14 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
 /** Reads and stores the facts of the workspace's fixes that have no stored release; logs, never throws. */
 async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
   if (!deps.fixes) return;
-  const { dossiers, reader, store } = deps.fixes;
+  const fixDeps = deps.fixes;
+  const { reader, store } = fixDeps;
   try {
-    const fixes = await dossiers(workspace);
+    const fixes = await fixDeps.dossiers(workspace);
     if (fixes.length === 0) return;
     const stored = await store.readFacts(workspace.id, fixes.map((f) => f.id));
     const unreleased = fixes.filter((f) => !isFinal(stored.get(f.id)));
-    const log = (error: unknown) => deps.log(`stages sync: a fix of ${workspace.slug} was not read — ${why(error)}`);
+    const log = (error: unknown) => { deps.log(`stages sync: a fix of ${workspace.slug} was not read — ${why(error)}`); };
     await refreshFixFacts(workspace.id, unreleased, { reader, store, now: () => syncedAt, log });
   } catch (error) {
     deps.log(`stages sync: the fix facts of ${workspace.slug} were not refreshed — ${why(error)}`);

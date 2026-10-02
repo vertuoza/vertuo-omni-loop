@@ -7,6 +7,7 @@ import { borrowedXp, demoEvents } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { PlayerXp, XpRead } from '../arcade/types';
+import { listOf, numberOf } from './unparsed';
 
 /** The login's row in the workspace, or null when the workflow has written none for it. */
 export async function loadXp(db: Pick<SupabaseClient<Database>, 'from'>, workspace: string, login: string): Promise<PlayerXp | null> {
@@ -18,7 +19,7 @@ export async function loadXp(db: Pick<SupabaseClient<Database>, 'from'>, workspa
     .maybeSingle();
   if (error) throw new Error(`Supabase: could not read your XP (${error.message})`);
   const row = data;
-  return row ? { xp: Number(row.xp), level: Number(row.level), unlocked: row.unlocked ?? [] } : null;
+  return row ? { xp: numberOf(row.xp), level: numberOf(row.level), unlocked: listOf(row.unlocked) } : null;
 }
 
 /**

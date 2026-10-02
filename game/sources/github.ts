@@ -113,9 +113,9 @@ const OUTBOX_RANKS = new Set<string | undefined>(['medium', 'high', 'human-actio
 // F4: every timestamp read from GitHub or a delivery file goes through here, so one malformed value
 // never reaches the projector as a crash. Empty, missing, jq's "null" and unparseable → null; anything
 // else → UTC ISO without milliseconds (`2026-09-22T10:00:00Z`). A date-only value is UTC midnight.
-export function toIso(value: unknown): string | null {
+export function toIso(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
-  const text = String(value).trim();
+  const text = value.trim();
   if (!text || text === 'null') return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date.toISOString().replace(/\.\d{3}Z$/, 'Z');

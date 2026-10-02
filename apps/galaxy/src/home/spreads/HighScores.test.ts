@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HighScores } from './HighScores';
 import { heading, html, text } from './render';
+import { item } from '../../ask/test-item';
 
 describe('the high scores', () => {
   // As the build would count them: two counters read, one out of reach.
@@ -12,7 +13,7 @@ describe('the high scores', () => {
   });
 
   it('show the three counters as the build counted them, and — for one it could not read', () => {
-    const scores = [...markup.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s!));
+    const scores = [...markup.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map((m) => text(item(m, 1)));
     expect(scores).toEqual(['FEATURES SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
   });
 

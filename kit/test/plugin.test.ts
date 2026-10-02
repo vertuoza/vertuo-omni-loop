@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { COMMAND_TABLE } from '../bin/commands/index.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.ts';
+import { dig } from '../bin/dig.ts';
+import { assertDefined } from './assert.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const PLUGIN_DIR = 'kit/plugin';
@@ -26,12 +28,15 @@ function skillFiles(root: string) {
     .map((entry) => join(PLUGIN_DIR, 'skills', entry.name, 'SKILL.md'));
 }
 
-function frontmatter(text: string) {
+/** A value YAML or JSON parsed into an object (a list included), whose fields are read one by one. */
+const isFields = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+function frontmatter(text: string): Record<string, unknown> | null {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   if (!match) return null;
   try {
-    const data = parseYaml(String(match[1]));
-    return data && typeof data === 'object' ? data : null;
+    const data: unknown = parseYaml(String(match[1]));
+    return isFields(data) ? data : null;
   } catch {
     return null;
   }
@@ -51,7 +56,8 @@ function skillFrontmatterViolations(root: string) {
       continue;
     }
     for (const key of ['name', 'description']) {
-      if (typeof data[key] !== 'string' || data[key].trim() === '') out.push(`${file}: frontmatter lacks ${key}`);
+      const value = data[key];
+      if (typeof value !== 'string' || value.trim() === '') out.push(`${file}: frontmatter lacks ${key}`);
     }
   }
   return out;
@@ -67,8 +73,9 @@ function retiredSkillViolations(root: string) {
     const folder = String(file.split('/').at(-2));
     if (Object.hasOwn(RETIRED_SKILLS, folder)) out.push(`${file}: the ${folder} skill was renamed ${RETIRED_SKILLS[folder]}`);
     const data = existsSync(join(root, file)) ? frontmatter(readFileSync(join(root, file), 'utf8')) : null;
-    if (data && Object.hasOwn(RETIRED_SKILLS, data.name) && data.name !== folder) {
-      out.push(`${file}: names itself ${data.name}, renamed ${RETIRED_SKILLS[data.name]}`);
+    const name = data?.name;
+    if (typeof name === 'string' && Object.hasOwn(RETIRED_SKILLS, name) && name !== folder) {
+      out.push(`${file}: names itself ${name}, renamed ${RETIRED_SKILLS[name]}`);
     }
   }
   return out;
@@ -149,9 +156,10 @@ function signingViolations(root: string) {
   return out;
 }
 
-function readJson(root: string, file: string, out: string[]) {
+function readJson(root: string, file: string, out: string[]): unknown {
   try {
-    return JSON.parse(readFileSync(join(root, file), 'utf8'));
+    const parsed: unknown = JSON.parse(readFileSync(join(root, file), 'utf8'));
+    return parsed;
   } catch (caught) {
     const error = caught as NodeJS.ErrnoException;
     out.push(`${file}: ${error.code === 'ENOENT' ? 'missing' : `does not parse (${error.message})`}`);
@@ -166,12 +174,17 @@ function manifestViolations(root: string) {
   const manifest = readJson(root, manifestFile, out);
   const marketplace = readJson(root, MARKETPLACE, out);
   if (!manifest || !marketplace) return out;
-  const entry = (marketplace.plugins ?? []).find(
-    (plugin: { source?: unknown }) => typeof plugin.source === 'string' && resolve(root, plugin.source) === resolve(root, PLUGIN_DIR),
-  );
+  const plugins = dig(marketplace, 'plugins') ?? [];
+  if (!Array.isArray(plugins)) return [...out, `${MARKETPLACE}: plugins is not a list`];
+  const entry: unknown = plugins.find((plugin: unknown) => {
+    const source = dig(plugin, 'source');
+    return typeof source === 'string' && resolve(root, source) === resolve(root, PLUGIN_DIR);
+  });
   if (!entry) return [...out, `${MARKETPLACE}: no plugin entry has source ./${PLUGIN_DIR}`];
-  if (entry.name !== manifest.name) {
-    out.push(`${MARKETPLACE}: entry names the plugin "${entry.name}", ${manifestFile} names it "${manifest.name}"`);
+  const entryName = dig(entry, 'name');
+  const manifestName = dig(manifest, 'name');
+  if (entryName !== manifestName) {
+    out.push(`${MARKETPLACE}: entry names the plugin "${String(entryName)}", ${manifestFile} names it "${String(manifestName)}"`);
   }
   return out;
 }
@@ -226,7 +239,7 @@ describe('the omni plugin in this repository', () => {
 
   it('no skill carries a retired name, and /omni:invade is there', () => {
     expect(retiredSkillViolations(repoRoot)).toEqual([]);
-    expect(frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8')).name).toBe('invade');
+    expect(frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8'))?.name).toBe('invade');
   });
 
   // PRD 774: invade drafts nothing of the business itself; its hand-off points at the page that does.
@@ -812,13 +825,20 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
   };
 
   /** The stage words each line under the track starts with, in order. */
-  const stageLines = (block: string[] | undefined) => block!.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
+  const stageLines = (block: string[] | undefined) => {
+    assertDefined(block, 'the block that holds the track');
+    return block.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
+  };
 
   /** The track word above the marker of "you are here". */
   const here = (block: string[] | undefined) => {
-    const track = block!.find((line: string) => line.trim() === TRACK);
-    const at = block!.find((line: string) => line.includes('└─ you are here'))!.indexOf('└─ you are here');
-    for (const word of track!.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
+    assertDefined(block, 'the block that holds the track');
+    const track = block.find((line: string) => line.trim() === TRACK);
+    assertDefined(track, 'the track line');
+    const marker = block.find((line: string) => line.includes('└─ you are here'));
+    assertDefined(marker, 'the "you are here" line');
+    const at = marker.indexOf('└─ you are here');
+    for (const word of track.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
     return null;
   };
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live cache is never reached in a test'); } }));
@@ -29,7 +30,7 @@ function twins(home: string, who: string) {
 function world(ledger: Record<string, unknown>[]) {
   const seed = twoWorkspaces();
   const fake = fakeGalaxyDb({ ...seed, ledger_events: ledger }, Object.values(PEOPLE));
-  return fake.client(PEOPLE.ada) as unknown as SupabaseClient;
+  return fake.client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
 }
 
 describe('loadGalaxy keys a planet by its home (PRD 728)', () => {

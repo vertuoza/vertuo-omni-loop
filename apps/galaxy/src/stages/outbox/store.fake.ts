@@ -5,6 +5,7 @@
 // database holds the same rules is proved by supabase/checks/prd_outbox.sql, not here.
 import { prdKey } from '../store';
 import type { OutboxCounts, OutboxRecord, PrdOutboxStore } from './store';
+import { settled } from '../settled';
 
 export type FakePrdOutboxStore = PrdOutboxStore & {
   rows: (OutboxRecord & { synced_at: string })[];
@@ -22,26 +23,30 @@ export function fakePrdOutboxStore(now: () => string = () => new Date().toISOStr
     reads: [],
     fail: null,
 
-    async record(rows, syncedAt = now()) {
-      check();
-      for (const r of rows) {
-        const row = { ...r, repository: r.repository.toLowerCase(), synced_at: syncedAt };
-        fake.rows = [...fake.rows.filter((k) => !(k.workspace_id === row.workspace_id && prdKey(k) === prdKey(row))), row];
-        fake.writes.push(`${row.workspace_id} ${prdKey(row)} ${row.open_questions}`);
-      }
+    record(rows, syncedAt = now()) {
+      return settled(() => {
+        check();
+        for (const r of rows) {
+          const row = { ...r, repository: r.repository.toLowerCase(), synced_at: syncedAt };
+          fake.rows = [...fake.rows.filter((k) => !(k.workspace_id === row.workspace_id && prdKey(k) === prdKey(row))), row];
+          fake.writes.push(`${row.workspace_id} ${prdKey(row)} ${row.open_questions}`);
+        }
+      });
     },
 
-    async countsOf(workspace, prds) {
-      check();
-      fake.reads.push(`${workspace} ${prds.length}`);
-      const wanted = new Set(prds.map(prdKey));
-      const counts = new Map<string, OutboxCounts>();
-      for (const row of fake.rows) {
-        if (row.workspace_id === workspace && wanted.has(prdKey(row))) {
-          counts.set(prdKey(row), { open_questions: row.open_questions, waiting: row.waiting });
+    countsOf(workspace, prds) {
+      return settled(() => {
+        check();
+        fake.reads.push(`${workspace} ${prds.length}`);
+        const wanted = new Set(prds.map(prdKey));
+        const counts = new Map<string, OutboxCounts>();
+        for (const row of fake.rows) {
+          if (row.workspace_id === workspace && wanted.has(prdKey(row))) {
+            counts.set(prdKey(row), { open_questions: row.open_questions, waiting: row.waiting });
+          }
         }
-      }
-      return counts;
+        return counts;
+      });
     },
   };
   function check() {

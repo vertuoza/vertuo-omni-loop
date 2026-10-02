@@ -8,7 +8,7 @@
 // content is already there. Anything else is refused, so a store that
 // strays from the grants fails its test. Every other table goes to game/test/fake-supabase.ts.
 import { createHash, randomUUID } from 'node:crypto';
-import { fakeSupabase, header, serve, type Headers, type Init, type Reply, type Row, type Served, type Tables } from '../test/fake-supabase.ts';
+import { fakeSupabase, header, serve, textOf, Written, type Headers, type Init, type Reply, type Row, type Served, type Tables } from '../test/fake-supabase.ts';
 
 /** A row of public.dossiers, as the fake holds it. */
 export type DossierRow = Row & { id: string; kind: string; prd: unknown; title: unknown; created_at: string };
@@ -30,9 +30,9 @@ const VERSION_KINDS: readonly unknown[] = ['spec', 'plan', 'before-after', 'vari
 const SOURCES: readonly unknown[] = ['kit', 'github'];
 const NONE: readonly unknown[] = [];
 
-const reply = (status: number, body: unknown): Reply => ({ ok: status < 300, status, json: async () => body, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
+const reply = (status: number, body: unknown): Reply => ({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)) });
 const refuse = (status: number, code: string, message: string): Reply => reply(status, { code, message });
-const chars = (s: string): number => [...s].length;
+const chars = (s: string): number => Array.from(s).length; // in code points, as Postgres counts
 
 // `a,b,rel(c,d)` → { columns: ['a', 'b'], embeds: { rel: ['c', 'd'] } }
 function parseSelect(select: string | null): { columns: string[]; embeds: Record<string, string[]> } {
@@ -53,7 +53,7 @@ function filtered<R extends Row>(rows: R[], params: URLSearchParams): R[] {
   for (const [key, value] of params) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key) || key.includes('.')) continue;
     if (value === 'not.is.null') out = out.filter((r) => r[key] !== null && r[key] !== undefined);
-    else if (value.startsWith('eq.')) out = out.filter((r) => r[key] !== null && r[key] !== undefined && String(r[key]) === value.slice(3));
+    else if (value.startsWith('eq.')) out = out.filter((r) => r[key] !== null && r[key] !== undefined && textOf(r[key]) === value.slice(3));
     else throw new Error(`the fake does not know the filter ${key}=${value}`);
   }
   return out;
@@ -63,7 +63,8 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
   const dossiers: DossierRow[] = (given.dossiers ??= []);
   const versions: VersionRow[] = (given.dossier_versions ??= []);
   const tables = given;
-  for (const d of dossiers) d.kind ??= 'prd'; // the column's default
+  // The column's default, on a row a test gave without one: read as any row is, its kind unproven.
+  for (const d of dossiers) { const row: Row = d; row.kind ??= 'prd'; }
   const others = fakeSupabase(tables);
   const calls: DossierCall[] = [];
   let clock = Date.parse('2026-09-27T10:00:00Z');
@@ -94,10 +95,10 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     for (const row of rows) {
       const denied = Object.keys(row).find((c) => !INSERTABLE.has(c));
       if (denied) return refuse(403, '42501', `permission denied for column ${denied} of table dossiers`);
-      const kind = String(row.kind ?? 'prd');
+      const kind = textOf(row.kind ?? 'prd');
       if (!(kind in TAKES)) return refuse(400, '23514', 'dossiers_kind_check');
       if (kind !== 'prd' && (row.prd ?? null) === null) return refuse(400, '23514', 'dossiers_fix_numbered');
-      if (!HOME_REPO.test(String(row.home_repo ?? '')) || String(row.home_repo).length > 200) return refuse(400, '23514', 'dossiers_home_repo_check');
+      if (!HOME_REPO.test(textOf(row.home_repo ?? '')) || String(row.home_repo).length > 200) return refuse(400, '23514', 'dossiers_home_repo_check');
       if (row.prd !== null && row.prd !== undefined && !(typeof row.prd === 'number' && Number.isInteger(row.prd) && row.prd > 0)) return refuse(400, '23514', 'dossiers_prd_check');
       if (typeof row.title !== 'string' || chars(row.title) < 1 || chars(row.title) > 200) return refuse(400, '23514', 'dossiers_title_check');
       if (((row.prd ?? null) === null) !== ((row.numbered_at ?? null) === null)) return refuse(400, '23514', 'dossiers_numbered');
@@ -126,16 +127,16 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     if (unknown) return refuse(404, 'PGRST202', `no dossier_add_version with the argument ${unknown}`);
     const { p_dossier, p_kind, p_content, p_source, p_uploaded_by = null, p_commit_sha = null, p_git_blob = null } = args;
     if (p_content === null || p_content === undefined) return refuse(400, '22023', 'A version needs its content.');
-    const content = String(p_content);
+    const content = textOf(p_content);
     const bytes = Buffer.byteLength(content, 'utf8');
-    if (bytes > MAX_BYTES) return refuse(400, '54000', `An artifact holds 512 KiB at most: this ${p_kind} is ${bytes} bytes.`);
+    if (bytes > MAX_BYTES) return refuse(400, '54000', `An artifact holds 512 KiB at most: this ${textOf(p_kind)} is ${bytes} bytes.`);
     const dossier = dossiers.find((d) => d.id === p_dossier);
     if (!dossier) return refuse(400, 'P0002', 'No such dossier.');
     if (!VERSION_KINDS.includes(p_kind)) return refuse(400, '23514', 'dossier_versions_kind_check');
-    if (!(TAKES[dossier.kind] || NONE).includes(p_kind)) return refuse(400, '22023', `A ${dossier.kind} dossier takes no ${p_kind} version.`);
+    if (!(TAKES[dossier.kind] || NONE).includes(p_kind)) return refuse(400, '22023', `A ${dossier.kind} dossier takes no ${textOf(p_kind)} version.`);
     if (!SOURCES.includes(p_source)) return refuse(400, '23514', 'dossier_versions_source_check');
     if (p_source === 'github' && p_commit_sha === null) return refuse(400, '23514', 'dossier_versions_github_commit');
-    if ((p_commit_sha !== null && !HEX.test(String(p_commit_sha))) || (p_git_blob !== null && !HEX.test(String(p_git_blob)))) return refuse(400, '23514', 'dossier_versions_hex_check');
+    if ((p_commit_sha !== null && !HEX.test(textOf(p_commit_sha))) || (p_git_blob !== null && !HEX.test(textOf(p_git_blob)))) return refuse(400, '23514', 'dossier_versions_hex_check');
     const sha256 = createHash('sha256').update(content, 'utf8').digest('hex');
     const ofKind = versions.filter((v) => v.dossier_id === p_dossier && v.kind === p_kind);
     const latest = [...ofKind].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))[0];
@@ -147,7 +148,7 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     return reply(200, ofKind.length + 1);
   }
 
-  const fetch = async (href: string, init: Init = {}): Promise<Reply> => {
+  const answer = (href: string, init: Init): Promise<Reply> | Reply => {
     const url = new URL(href);
     const path = url.pathname.replace(/^.*\/rest\/v1\//, '');
     const method = init.method ?? 'GET';
@@ -157,7 +158,7 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     if (path === 'rpc/dossier_add_version') return method === 'POST' ? addVersion(sent) : refuse(405, 'PGRST101', 'POST only');
     if (path === 'dossiers') {
       if (method === 'GET') return reply(200, readDossiers(url));
-      if (method === 'POST') return insertDossiers(url, init.headers, Array.isArray(body) ? body : [sent]);
+      if (method === 'POST') return insertDossiers(url, init.headers, Array.isArray(body) ? Written.parse(body) : [sent]);
       if (method === 'PATCH') return updateDossiers(url, sent);
       return refuse(403, '42501', `permission denied: ${method} on dossiers`);
     }
@@ -168,6 +169,8 @@ export function fakeDossiers(given: DossierTables = {}): { fetch: (href: string,
     }
     return others.fetch(href, init);
   };
+  // Answers at once, as an async function's body did; a request it cannot read rejects.
+  const fetch = (href: string, init: Init = {}): Promise<Reply> => new Promise((resolve) => { resolve(answer(href, init)); });
   return { fetch, calls, tables };
 }
 

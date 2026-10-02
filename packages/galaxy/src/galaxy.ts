@@ -166,11 +166,13 @@ function derive(prd: number, home: string | null, events: readonly LedgerEvent[]
   }
 
   const zones = [...p.zones.values()].sort((a, b) => (a.wave ?? 99) - (b.wave ?? 99) || a.region.localeCompare(b.region) || a.id.localeCompare(b.id, 'en', { numeric: true }));
+  // A wound's kind comes from the ledger: one the rulebook does not price decays by nothing.
+  const decayOf: Partial<Record<string, number>> = RULEBOOK.decayPerTranche;
   const openWounds: Wound[] = [...p.wounds.values()].filter((w): w is OpenScar => !w.closedAt).map((w) => ({
     ...w,
     ageTranches: tranchesBetween(new Date(w.openedAt), now, RULEBOOK.trancheMinutes),
     ageHours: Math.max(0, Math.round((now.getTime() - new Date(w.openedAt).getTime()) / 3600000)),
-    decayPerTranche: RULEBOOK.decayPerTranche[w.kind] ?? 0,
+    decayPerTranche: decayOf[w.kind] ?? 0,
   })).sort((a, b) => b.decayPerTranche - a.decayPerTranche || a.openedAt.localeCompare(b.openedAt));
   const unanswered = [...p.distress.entries()].filter(([k]) => !p.rescues.has(k)).map(([, at]) => at).sort();
   const secured = zones.filter((z) => z.state === 'secured').length;
@@ -226,7 +228,7 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
   const repoSector = new Map<string, string>();
   for (const [name, { repos }] of Object.entries(projects.sectors)) for (const r of repos) repoSector.set(r, name);
   // A sector names a repository by its full name or its bare one.
-  const sectorOf: SectorOf = (repo) => (repo ? repoSector.get(repo) ?? repoSector.get(String(repo).split('/').pop() ?? '') ?? null : null);
+  const sectorOf: SectorOf = (repo) => (repo ? repoSector.get(repo) ?? repoSector.get(repo.split('/').pop() ?? '') ?? null : null);
 
   const byPlanet = new Map<string, LedgerEvent[]>();
   // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 are two planets.

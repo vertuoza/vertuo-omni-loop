@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { dig } from '../kit/bin/dig.ts';
 
 const SCRIPT = fileURLToPath(new URL('./ts-rename.mjs', import.meta.url));
 
@@ -109,9 +110,9 @@ describe('scripts/ts-rename.mjs', () => {
     expect(read(root, '.github/workflows/release.yml')).toContain('node kit/build.ts');
     expect(read(root, 'tools/entry.jsonc')).toBe('{ "entry": ["game/cli/*.ts", "kit/bin/omni.ts"] }\n');
     expect(read(root, 'docs/notes.md')).toBe('Run `node kit/build.ts`; another repository runs `lib/other.mjs`.\n');
-    const pkg = JSON.parse(read(root, 'package.json'));
-    expect(pkg.scripts).toEqual({ build: 'node kit/build.ts', play: 'node --env-file-if-exists=.env game/cli/play.ts' });
-    expect(pkg.exports['.'].default).toBe('./src/index.ts');
+    const pkg: unknown = JSON.parse(read(root, 'package.json'));
+    expect(dig(pkg, 'scripts')).toEqual({ build: 'node kit/build.ts', play: 'node --env-file-if-exists=.env game/cli/play.ts' });
+    expect(dig(pkg, 'exports', '.', 'default')).toBe('./src/index.ts');
   });
 
   it('leaves the delivery and decision records as they were written, and rewrites the playbook', () => {

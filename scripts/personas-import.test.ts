@@ -46,12 +46,13 @@ function fakeStore({ workspace = { id: WS, name: 'Acme Builders' }, products = P
   const added: Array<Record<string, unknown>> = [];
   return {
     added,
-    async workspace(id: string) { return id === WS ? workspace : null; },
-    async products() { return products; },
-    async personas() { return personas; },
-    async add(workspaceId: string, p: { name: string }) {
-      if (failOn === p.name) throw new Error('Supabase refused');
+    workspace(id: string) { return Promise.resolve(id === WS ? workspace : null); },
+    products() { return Promise.resolve(products); },
+    personas() { return Promise.resolve(personas); },
+    add(workspaceId: string, p: { name: string }) {
+      if (failOn === p.name) return Promise.reject(new Error('Supabase refused'));
       added.push({ workspaceId, ...p });
+      return Promise.resolve();
     },
   };
 }
@@ -60,7 +61,7 @@ async function run(args: string[], store = fakeStore(), env: Record<string, stri
   const out: string[] = [];
   const err: string[] = [];
   const code = await importPersonas({
-    argv: args, env, connect: () => store as unknown as ReturnType<typeof restStore>, out: (l) => out.push(l), err: (l) => err.push(l),
+    argv: args, env, connect: () => store, out: (l) => out.push(l), err: (l) => err.push(l),
   });
   return { code, out: out.join('\n'), err: err.join('\n'), store };
 }
@@ -200,10 +201,10 @@ describe('importPersonas', () => {
 describe('restStore', () => {
   function stub(responses: Array<[number, unknown]>) {
     const calls: Array<{ url: string; init: RequestInit & { headers?: unknown; body?: unknown } }> = [];
-    const fetch = async (url: unknown, init: RequestInit = {}) => {
+    const fetch = (url: unknown, init: RequestInit = {}) => {
       calls.push({ url: String(url), init });
       const [status, body] = responses.shift() ?? [500, null];
-      return { ok: status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
+      return Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
     };
     return { calls, fetch: fetch as unknown as typeof globalThis.fetch };
   }
@@ -225,7 +226,9 @@ describe('restStore', () => {
     expect(calls[0]?.init.headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
     expect(calls[3]?.url).toBe('http://db/rest/v1/rpc/persona_add');
     expect(calls[3]?.init.method).toBe('POST');
-    expect(JSON.parse(String(calls[3]?.init.body))).toEqual({
+    const sent = calls[3]?.init.body;
+    expect(typeof sent).toBe('string');
+    expect(JSON.parse(typeof sent === 'string' ? sent : '')).toEqual({
       p_workspace: WS, p_product: 'p-app', p_name: 'Ada', p_stance: 'neutral', p_trade: 'nurse',
       p_avatar: AVATAR, p_who: '', p_usage: '',
     });

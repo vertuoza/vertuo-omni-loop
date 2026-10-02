@@ -171,7 +171,7 @@ function luminance(hex: string): number {
 
 /** The WCAG 2 contrast ratio of two #rrggbb colours, from 1 to 21. */
 export function contrast(a: string, b: string): number {
-  const sorted = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  const hi = sorted[0]!, lo = sorted[1]!;
+  const la = luminance(a), lb = luminance(b);
+  const hi = Math.max(la, lb), lo = Math.min(la, lb);
   return (hi + 0.05) / (lo + 0.05);
 }

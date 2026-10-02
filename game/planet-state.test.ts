@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { DerivedZone, SnapshotPlanet } from './types.ts';
+import { nth } from './test/present.ts';
 
 const config = configFrom({
   sectors: [{ name: 'ai', repos: ['ai-repo'] }, { name: 'core', repos: ['core-repo'] }],
@@ -46,13 +47,13 @@ describe('derivePlanet', () => {
   it('derives zone states from blockers and labels', () => {
     const p = derivePlanet(planet(), ctx());
     expect(p.zones.map((z) => [z.id, z.state])).toEqual([['s1', 'secured'], ['s2', 'open']]);
-    expect(p.zones[1]!.openedAt).toBe('2026-09-21T12:00:00Z'); // when s1 merged
+    expect(nth(p.zones, 1, 'the zone').openedAt).toBe('2026-09-21T12:00:00Z'); // when s1 merged
     const sealed = derivePlanet(planet({ zones: [
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: null },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ] }), ctx());
     expect(sealed.zones.map((z) => z.state)).toEqual(['open', 'sealed']);
-    expect(sealed.zones[0]!.openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
+    expect(nth(sealed.zones, 0, 'the zone').openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
   });
 
   it('opens a zone at its own region\'s feature PR creation (F3)', () => {

@@ -5,6 +5,7 @@ import { pixelSvg } from '../../design/pixel-svg';
 import { demoFleets } from '../../data/load-galaxy';
 import { Game } from './Game';
 import { heading, html, text } from './render';
+import { item, present } from '../../ask/test-item';
 
 // The demo world's fleets are read on the server: the test reads them the same way.
 vi.mock('server-only', () => ({}));
@@ -23,8 +24,8 @@ describe('the game', () => {
     const live = demoFleets().filter((f) => !f.retired);
     expect(cards).toHaveLength(live.length);
     live.forEach((f, i) => {
-      expect(text(cards[i]!)).toContain(f.label);
-      expect(text(cards[i]!)).toContain(f.motto);
+      expect(text(item(cards, i))).toContain(f.label);
+      expect(text(item(cards, i))).toContain(f.motto);
       expect(cards[i]).toMatch(/type="button"/);
       expect(cards[i]).toMatch(/aria-pressed="false"/);
       expect(cards[i]).toContain('data-flip=""');
@@ -38,7 +39,7 @@ describe('the game', () => {
     const fronts = [...markup.matchAll(/<span class="home-card-front">([\s\S]*?)<span class="home-card-name">/g)].map(([, f]) => f);
     expect(fronts).toHaveLength(demoFleets().filter((f) => !f.retired).length);
     for (const front of fronts) expect(front).toMatch(/<svg /);
-    const owls = demoFleets().find((f) => !f.retired && !f.mascot)!;
+    const owls = present(demoFleets().find((f) => !f.retired && !f.mascot), 'a fleet with no mascot');
     const { sprite, tint } = heroLook({ v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 0 }, owls.color);
     expect(markup).toContain(pixelSvg(spritePixels(sprite, { frame: 0, tint }), { scale: 2, title: `${owls.label}'s mascot` }));
   });

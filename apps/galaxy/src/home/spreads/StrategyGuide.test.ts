@@ -2,17 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { LINGO } from '../lingo';
 import { heading, html, text } from './render';
 import { StrategyGuide } from './StrategyGuide';
+import { item, present } from '../../ask/test-item';
 
 // The strategy guide (PRD 285, s5): seven levels, each naming the practice the loop builds in, and the
 // LOOP LINGO sidebar glossing the loop terms HOME uses, read from the lingo module.
 
 const levels = (markup: string) =>
-  [...markup.matchAll(/<li class="home-stage[^"]*">([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!));
+  [...markup.matchAll(/<li class="home-stage[^"]*">([\s\S]*?)<\/li>/g)].map((m) => text(item(m, 1)));
 
 const sidebar = (markup: string) => {
   const aside = markup.match(/<aside\b[^>]*class="home-lingo"[^>]*>([\s\S]*?)<\/aside>/);
   if (!aside) throw new Error('no LOOP LINGO sidebar');
-  return aside[1];
+  return item(aside, 1);
 };
 
 describe('the strategy guide', () => {
@@ -42,9 +43,9 @@ describe('the strategy guide', () => {
 
   it('holds a LOOP LINGO sidebar: its h3, then the five terms and their glosses, in the loop\'s order', () => {
     const aside = sidebar(html(StrategyGuide()));
-    expect(text(aside!.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)![1]!)).toBe('Loop lingo');
-    const terms = [...aside!.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map(([, t]) => text(t!));
-    const glosses = [...aside!.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map(([, d]) => text(d!));
+    expect(text(item(present(aside.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/), 'its h3'), 1))).toBe('Loop lingo');
+    const terms = [...aside.matchAll(/<dt>([\s\S]*?)<\/dt>/g)].map((m) => text(item(m, 1)));
+    const glosses = [...aside.matchAll(/<dd>([\s\S]*?)<\/dd>/g)].map((m) => text(item(m, 1)));
     expect(terms).toEqual(['HARNESS', 'PRD', 'SLICE', 'WAVE', 'OUTBOX']);
     expect(glosses).toEqual(LINGO.map((e) => e.gloss));
   });
@@ -53,6 +54,6 @@ describe('the strategy guide', () => {
     const markup = html(StrategyGuide());
     const board = markup.match(/<div class="home-guide">([\s\S]*)<\/div>/);
     expect(board).not.toBeNull();
-    expect(board![1]).toMatch(/<ol class="home-map">[\s\S]*<aside\b[^>]*class="home-lingo"/);
+    expect(item(present(board, 'the guide'), 1)).toMatch(/<ol class="home-map">[\s\S]*<aside\b[^>]*class="home-lingo"/);
   });
 });

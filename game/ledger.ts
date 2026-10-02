@@ -42,19 +42,24 @@ export function appendEvents(dir: string, events: unknown[]): GameEvent[] {
 }
 
 export function fileLedger(dir: string): Ledger {
-  return { read: async () => readLedger(dir), append: async (events: unknown[]) => appendEvents(dir, events) };
+  // Each read or append runs at once, as an async function's body did, and a throw rejects the promise.
+  return {
+    read: () => new Promise((resolve) => { resolve(readLedger(dir)); }),
+    append: (events: unknown[]) => new Promise((resolve) => { resolve(appendEvents(dir, events)); }),
+  };
 }
 
 export function memoryLedger(initial: unknown[] = []): Ledger {
   const events = new Map<string, GameEvent>();
   for (const e of initial.map((x) => makeEvent(x))) events.set(e.id, e);
   return {
-    read: async () => [...events.values()].sort(byTime),
-    async append(list: unknown[]) {
+    read: () => Promise.resolve([...events.values()].sort(byTime)),
+    // An invalid event rejects the promise, as it did when this was an async function.
+    append: (list: unknown[]) => new Promise((resolve) => {
       const valid = list.map((x) => makeEvent(x));
       const appended: GameEvent[] = [];
       for (const e of valid) if (!events.has(e.id)) { events.set(e.id, e); appended.push(e); }
-      return appended;
-    },
+      resolve(appended);
+    }),
   };
 }

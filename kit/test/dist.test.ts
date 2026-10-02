@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { dig } from '../bin/dig.ts';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = 'kit/dist/omni.mjs';
@@ -24,9 +25,9 @@ describe('the committed bundle (AC 10)', () => {
   });
 
   it('is the root package.json bin.omni, and the only file the package ships', () => {
-    const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
-    expect(pkg.bin).toEqual({ omni: DIST });
-    expect(pkg.files).toEqual([DIST]);
+    const pkg: unknown = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+    expect(dig(pkg, 'bin')).toEqual({ omni: DIST });
+    expect(dig(pkg, 'files')).toEqual([DIST]);
   });
 
   it('is tracked, not gitignored', () => {

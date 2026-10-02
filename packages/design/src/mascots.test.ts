@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { MASCOTS, SPRITE_DEFS } from './sprites.ts';
 import { spritePixels } from './draw.ts';
+import { assertDefined } from '../../../kit/test/assert.ts';
 
 // The mascot library (PRD 517): the keys an owner may pick for a fleet, in the order the picker shows
 // them. The database holds the same list in public.fleet_mascots(), and these tests keep the two in step.
@@ -17,7 +18,14 @@ function mascotKeys(sql: string): string[] | null {
   const at = sql.search(DEFINES);
   if (at < 0) return null;
   const list = /array\s*\[([^\]]*)\]/i.exec(sql.slice(at));
-  return list ? [...list[1]!.matchAll(/'([^']*)'/g)].map((m) => m[1]!) : [];
+  if (!list) return [];
+  const body = list[1];
+  assertDefined(body, 'the array fleet_mascots() returns');
+  return [...body.matchAll(/'([^']*)'/g)].map((m) => {
+    const key = m[1];
+    assertDefined(key, 'a mascot key');
+    return key;
+  });
 }
 
 // What differs between a fleet_mascots() definition and the library: [] when they agree, key for key.
@@ -34,7 +42,8 @@ function drift(sql: string, library: readonly string[] = MASCOTS): string[] {
 function newestDefinition() {
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
   const defining = files.filter((f) => DEFINES.test(readFileSync(new URL(f, MIGRATIONS), 'utf8')));
-  const file = defining.at(-1)!;
+  const file = defining.at(-1);
+  assertDefined(file, 'a migration that defines fleet_mascots()');
   return { file, sql: readFileSync(new URL(file, MIGRATIONS), 'utf8') };
 }
 
@@ -48,7 +57,7 @@ describe('the mascot library', () => {
     for (const key of MASCOTS) {
       const def = SPRITE_DEFS[key];
       expect(def, key).toBeDefined();
-      expect([def!.w, def!.h], key).toEqual([32, 32]);
+      expect([def?.w, def?.h], key).toEqual([32, 32]);
       const [a, b] = [0, 1].map((frame) => spritePixels(key, { frame }).pixels.join());
       expect(a === b, `${key}: both frames are the same`).toBe(false);
     }
@@ -80,7 +89,7 @@ $$;`;
     expect(drift(define(LIBRARY), LIBRARY)).toEqual([]);
     expect(drift(define(LIBRARY.filter((k) => k !== 'turtle')), LIBRARY)).toEqual(['missing turtle']);
     expect(drift(define([...LIBRARY, 'dragon']), LIBRARY)).toEqual(['extra dragon']);
-    expect(drift(define([...LIBRARY.slice(1), LIBRARY[0]!]), LIBRARY)).toEqual(['another order']);
+    expect(drift(define([...LIBRARY.slice(1), ...LIBRARY.slice(0, 1)]), LIBRARY)).toEqual(['another order']);
     expect(drift('select 1;', LIBRARY)).toHaveLength(LIBRARY.length);
   });
 });

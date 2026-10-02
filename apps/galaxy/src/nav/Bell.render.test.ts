@@ -7,6 +7,7 @@ import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
+import { item } from '../ask/test-item';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.
@@ -54,7 +55,7 @@ describe('the bell', () => {
     const body = panel(html);
     expect(body).toContain('>Questions<');
     expect(body).not.toContain('>Outbox<');
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2]!)]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
     expect(links).toEqual([
       ['/ask/q/theirs', 'vertuo-omni-loop · theirs Which theirs? 2 h · shared by Bob'],
       ['/ask/q/mine', 'vertuo-omni-loop · mine Which mine? 3 min'],
@@ -78,7 +79,7 @@ describe('the bell', () => {
   it('lists each outbox item\'s PRD, title, question and rank, linking to its PRD\'s Outbox tab', () => {
     const body = panel(render({ questions: [q('a', MIN)], outbox: [o('i1', 459, 'human-action'), o('i2', 460, 'high')] }));
     expect(body.indexOf('>Questions<')).toBeLessThan(body.indexOf('>Outbox<'));
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1]!.replace(/&amp;/g, '&'), text(m[2]!)]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [item(m, 1).replace(/&amp;/g, '&'), text(item(m, 2))]);
     expect(links.slice(1)).toEqual([
       ['/prd/d-459?tab=outbox', 'PRD 459 · Gate 459 Keep i1? human-action'],
       ['/prd/d-460?tab=outbox', 'PRD 460 · Gate 460 Keep i2? high'],
@@ -104,7 +105,7 @@ describe('its New documents group (PRD 579)', () => {
   it('lists each PRD after Outbox, linking to its page, with the kinds and how long ago', () => {
     const body = panel(withDocs({ questions: [], outbox: [o('i1', 459, 'high')] }, [doc]));
     expect(body.indexOf('>Outbox<')).toBeLessThan(body.indexOf('>New documents<'));
-    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2]!)]);
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
     expect(links.at(-1)).toEqual(['/prd/d-579', 'PRD 579 · New documents alert New spec, before/after 3 min']);
   });
 
@@ -125,7 +126,7 @@ describe('its New documents group (PRD 579)', () => {
 describe('its Business group (PRD 774, s5)', () => {
   const withBusiness = (list: WaitingList, business: number, unread: BellUnread = {}) =>
     renderToStaticMarkup(createElement(BellView, { list, unread, now: NOW, business }));
-  const links = (html: string) => [...panel(html).matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2]!)]);
+  const links = (html: string) => [...panel(html).matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(item(m, 2))]);
 
   it('with things to check, shows one "Business · N to check" line linking to Settings › Business, last', () => {
     const html = withBusiness({ questions: [], outbox: [o('i1', 459, 'high')] }, 2);

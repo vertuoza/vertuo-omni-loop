@@ -1,4 +1,5 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { FleetRow } from '../../arcade/types';
 
 // COLLECT ALL THE FLEETS! (PRD 261): the demo world's fleets as trading cards. The front is the fleet's mascot,
@@ -42,7 +43,8 @@ export function cardsOf(fleets: readonly FleetRow[]): Card[] {
   return fleets
     .filter((f) => !f.retired)
     .map((f, i) => {
-      const own = f.mascot && Object.hasOwn(RULE_BY_MASCOT, f.mascot) ? RULES.find((r) => r.key === RULE_BY_MASCOT[f.mascot!]) : undefined;
-      return { name: f.name, label: f.label, motto: f.motto, color: f.color, mascot: f.mascot, rule: (own ?? RULES[i % RULES.length]!).text };
+      const mascot = f.mascot;
+      const own = mascot && Object.hasOwn(RULE_BY_MASCOT, mascot) ? RULES.find((r) => r.key === RULE_BY_MASCOT[mascot]) : undefined;
+      return { name: f.name, label: f.label, motto: f.motto, color: f.color, mascot: f.mascot, rule: (own ?? at(RULES, i % RULES.length, 'a rule')).text };
     });
 }

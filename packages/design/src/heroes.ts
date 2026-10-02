@@ -4,6 +4,7 @@
 // ranges in the database (supabase/migrations/*_fleets_and_players.sql).
 import type { Tint } from './forge.ts';
 import { SPRITE_DEFS } from './sprites.ts';
+import { at, defined } from '../../../kit/lib/narrow.ts';
 
 /** A stored hero: preset numbers into HERO_PRESETS, the body a girl's or a boy's. */
 export interface Hero { v: 1; body: 'girl' | 'boy'; skin: number; hair: number; suit: number; cape: number }
@@ -112,13 +113,16 @@ export function heroLook(hero: Hero, fleetColor = '#2f3fc4'): Look {
   const hit = looks.get(key);
   if (hit) return hit;
   const tint: Tint = { Y: rampFrom(fleetColor) };
-  if (hero.skin !== 1) tint.S = rampFrom(HERO_PRESETS.skin[hero.skin]!);
-  const hair = HERO_PRESETS.hair[hero.hair]![1];
+  if (hero.skin !== 1) tint.S = rampFrom(at(HERO_PRESETS.skin, hero.skin, `skin preset ${hero.skin}`));
+  const hair = at(HERO_PRESETS.hair, hero.hair, `hair preset ${hero.hair}`)[1];
   if (hair) tint.H = rampFrom(hair);
-  const [suit, main, trim] = HERO_PRESETS.suit[hero.suit]!;
+  const [suit, main, trim] = at(HERO_PRESETS.suit, hero.suit, `suit preset ${hero.suit}`);
   if (suit === 'FLEET') tint.W = rampFrom(fleetColor);
-  else if (suit !== 'OMNI') { tint.W = rampFrom(main!); tint.N = rampFrom(trim!); tint.n = rampFrom(darker(trim!)); }
-  const cape = HERO_PRESETS.cape[hero.cape]![1];
+  else if (suit !== 'OMNI') {
+    const colour = defined(main, `the colour of suit ${suit}`), edge = defined(trim, `the trim of suit ${suit}`);
+    tint.W = rampFrom(colour); tint.N = rampFrom(edge); tint.n = rampFrom(darker(edge));
+  }
+  const cape = at(HERO_PRESETS.cape, hero.cape, `cape preset ${hero.cape}`)[1];
   if (cape) tint.P = rampFrom(cape);
   const look = Object.freeze({ sprite: `hero-${hero.body}${cape ? '' : '-nc'}`, tint: Object.freeze(tint) });
   looks.set(key, look);
@@ -135,7 +139,7 @@ export const OMNI_POSES: readonly OmniPose[] = Object.freeze(['omni-point', 'omn
 export function heroPose(hero: Hero, pose: OmniPose, fleetColor = '#2f3fc4'): Look {
   if (!OMNI_POSES.includes(pose)) throw new Error(`heroPose: ${pose} is not one of ${OMNI_POSES.join(', ')}`);
   const { tint } = heroLook(hero, fleetColor);
-  return { sprite: HERO_PRESETS.cape[hero.cape]![1] ? `${pose}-cape` : pose, tint };
+  return { sprite: at(HERO_PRESETS.cape, hero.cape, `cape preset ${hero.cape}`)[1] ? `${pose}-cape` : pose, tint };
 }
 
 /**

@@ -21,6 +21,9 @@
 // and an optional `ended: true`, else 400; each accepted one is kept in `heartbeats`. With
 // `heartbeat`, it answers what `heartbeat(body)` returns, `{ status, delayMs }`; without it, 204.
 //
+// Every body it receives is read as `unknown` (PRD 976), field by field, as the real server's handlers
+// parse theirs; what it holds (sessions, rounds, dossiers) has its own type.
+//
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.ts [--port <p>] [--answer first|none] [--token <t>]
 //              prints one JSON line `{ url, host, sessionId, accessToken, refreshToken }`, then one
@@ -28,12 +31,14 @@
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { realpathSync } from 'node:fs';
+import { text as readText } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
+import { isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
+import { assertDefined } from './assert.ts';
 
-/** A request body, a round, a dossier: JSON the fake reads field by field and refuses as the server does. */
-export type Json = any; // ts-allow: a test fake reads whatever JSON a test sends, as the real server's handlers do
+/** A request body, a round's questions, a session's context: JSON the fake reads field by field. */
+export type Json = unknown;
 
 /** A handler's answer: its status (200 when not given) and its body. */
 type Reply = { status?: number; body: unknown };
@@ -41,24 +46,47 @@ type Reply = { status?: number; body: unknown };
 /** What the fake records of each call. */
 type Call = { method: string | undefined; path: string; body: Json; authorization: string | null };
 
-const json = (response: ServerResponse, status: number, body?: unknown) => {
-  response.writeHead(status, { 'content-type': 'application/json' });
-  response.end(body === undefined ? '' : JSON.stringify(body));
+/** A session as the fake holds it. */
+type Session = { id: string; title: string; status: 'open' | 'closed'; context: unknown };
+
+/** A round as the fake holds it: its questions as posted, and its answers once given. */
+type Round = {
+  id: string;
+  sessionId: string;
+  questions: unknown[];
+  context: unknown;
+  lead: unknown;
+  status: 'open' | 'answered' | 'abandoned';
+  answers: unknown;
+  answeredVia: unknown;
 };
 
-async function readText(request: IncomingMessage): Promise<string> {
-  let text = '';
-  for await (const chunk of request) text += chunk;
-  return text;
-}
+/** One version of one kind of a dossier's artifacts. */
+type Version = { kind: string; content: string; sha256: string };
+
+/** A dossier as the fake holds it: a draft has no PRD yet. */
+type Dossier = { id: string; repo: string; prd: number | null; title: string; claudeSessionId: unknown; versions: Version[] };
+
+const json = (response: ServerResponse, status: number, body?: unknown): ServerResponse => {
+  response.writeHead(status, { 'content-type': 'application/json' });
+  return response.end(body === undefined ? '' : JSON.stringify(body));
+};
 
 function parseBody(text: string): Json {
   if (!text) return undefined;
   try {
-    return JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    return parsed;
   } catch {
     return null;
   }
+}
+
+/** A list read from JSON: nothing reads as no item, and anything else but a list is refused. */
+function listOf(value: unknown): unknown[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new TypeError(`expected a list, got ${typeof value}`);
+  return value;
 }
 
 /**
@@ -67,35 +95,53 @@ function parseBody(text: string): Json {
  */
 export function firstOptionAnswers(questions: Json): Record<string, string> {
   const answers: Record<string, string> = {};
-  for (const question of questions ?? []) {
-    const labels = (question.options ?? []).map((option: Json) => option.label);
-    answers[question.question] = question.multiSelect ? labels.slice(0, 2).join(', ') : labels[0];
+  for (const question of listOf(questions)) {
+    const labels = listOf(propertyOf(question, 'options')).map((option) => propertyOf(option, 'label'));
+    const answer = propertyOf(question, 'multiSelect') ? labels.slice(0, 2).join(', ') : labels[0];
+    if (typeof answer === 'string') answers[String(propertyOf(question, 'question'))] = answer;
   }
   return answers;
 }
 
 const HEARTBEAT_FIELDS = ['claudeSessionId', 'repo', 'work', 'ended'];
+const REPO = /^[\w.-]+\/[\w.-]+$/;
 
-const isObject = (value: unknown): boolean => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** A heartbeat's body as the contract has it: its session, its repository, what it works on. */
 function isHeartbeat(body: Json): boolean {
   if (!isObject(body) || Object.keys(body).some((key) => !HEARTBEAT_FIELDS.includes(key))) return false;
-  if (typeof body.claudeSessionId !== 'string' || !body.claudeSessionId) return false;
-  if (typeof body.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return false;
-  return (body.ended === undefined || body.ended === true) && isWork(body.work);
+  const { claudeSessionId, repo, ended, work } = body;
+  if (typeof claudeSessionId !== 'string' || !claudeSessionId) return false;
+  if (typeof repo !== 'string' || !REPO.test(repo)) return false;
+  return (ended === undefined || ended === true) && isWork(work);
 }
 
 /** A heartbeat's work: null, a draft by its id, or a PRD or fix by its number. */
 function isWork(work: Json): boolean {
   if (work === null) return true;
   if (!isObject(work) || Object.keys(work).length !== 2) return false;
-  if (work.kind === 'draft') return typeof work.draftId === 'string' && work.draftId !== '';
-  return ['prd', 'visual', 'bug'].includes(work.kind) && Number.isInteger(work.number) && work.number > 0;
+  const { kind, draftId, number } = work;
+  if (kind === 'draft') return typeof draftId === 'string' && draftId !== '';
+  return isOneOf(['prd', 'visual', 'bug'], kind) && typeof number === 'number' && Number.isInteger(number) && number > 0;
 }
 
 const DOSSIER_KINDS = ['spec', 'plan', 'before-after'];
 const sha256 = (content: string): string => createHash('sha256').update(content, 'utf8').digest('hex');
+
+/** One artifact of a push, or null when its kind is none of the dossier's or its content is not text. */
+function artifactOf(value: unknown): { kind: string; content: string } | null {
+  const kind = propertyOf(value, 'kind');
+  const content = propertyOf(value, 'content');
+  return isOneOf(DOSSIER_KINDS, kind) && typeof content === 'string' ? { kind, content } : null;
+}
+
+/** A field of a body that is text, or undefined. */
+function textField(body: Json, key: string): string | undefined {
+  const value = propertyOf(body, key);
+  return typeof value === 'string' ? value : undefined;
+}
 
 /**
  * The options, each with its default below:
@@ -131,7 +177,7 @@ export async function startFakeAskServer({
   codes = [],
   email = 'person@example.com',
   answer = () => null,
-  onCall = () => {},
+  onCall = () => undefined,
   dossierBodyBytes = 2 * 1024 * 1024,
   artifactBytes = 512 * 1024,
   place = null,
@@ -147,7 +193,7 @@ export async function startFakeAskServer({
   refreshToken?: string;
   codes?: string[];
   email?: string;
-  answer?: (round: Json) => Record<string, string> | null;
+  answer?: (round: Round) => Record<string, string> | null;
   onCall?: (call: Call) => void;
   dossierBodyBytes?: number;
   artifactBytes?: number;
@@ -161,11 +207,11 @@ export async function startFakeAskServer({
   const access = new Set([accessToken]);
   const refresh = new Set([refreshToken]);
   const oneTimeCodes = new Set(codes);
-  const sessions = new Map<string, Json>();
-  const rounds = new Map<string, Json>();
+  const sessions = new Map<string, Session>();
+  const rounds = new Map<string, Round>();
   const waiters = new Map<string, (() => void)[]>();
   const calls: Call[] = [];
-  const dossiers = new Map<string, Json>();
+  const dossiers = new Map<string, Dossier>();
   const heartbeats: Json[] = [];
   let issued = 1;
   let denied = false;
@@ -185,7 +231,7 @@ export async function startFakeAskServer({
     return tokens;
   }
 
-  function openSession(title: string = 'fake session', context: unknown = null) {
+  function openSession(title = 'fake session', context: unknown = null) {
     const id = `sess-${nextId++}`;
     sessions.set(id, { id, title, status: 'open', context });
     return { id, url: `${base}/ask/${id}` };
@@ -193,48 +239,65 @@ export async function startFakeAskServer({
 
   function answerRound(roundId: string, answers: unknown, via: unknown = 'page') {
     const round = rounds.get(roundId);
+    assertDefined(round, `round ${roundId}`);
     Object.assign(round, { status: 'answered', answers, answeredVia: via });
     settle(roundId);
   }
 
   function closeSession(id: string) {
-    sessions.get(id).status = 'closed';
+    const session = sessions.get(id);
+    assertDefined(session, `session ${id}`);
+    session.status = 'closed';
     for (const round of rounds.values()) if (round.sessionId === id) settle(round.id);
   }
 
-  function waitResult(round: Json) {
+  function waitResult(round: Round) {
     if (sessions.get(round.sessionId)?.status === 'closed') return { status: 'closed' };
     if (round.status === 'answered') return { status: 'answered', answers: round.answers };
     return { status: round.status };
   }
 
   /** A dossier as the contract answers it. */
-  const dossierReply = (dossier: Json, more: Record<string, unknown> = {}) => ({ id: dossier.id, url: `${base}/prd/${dossier.id}`, ...more });
+  const dossierReply = (dossier: Dossier, more: Record<string, unknown> = {}) => ({ id: dossier.id, url: `${base}/prd/${dossier.id}`, ...more });
 
-  function openDossier(body: Json): Json {
-    const title = typeof body?.title === 'string' ? body.title.trim() : '';
-    if (!title || title.length > 200 || typeof body?.repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(body.repo)) return null;
+  function openDossier(body: Json): Dossier | null {
+    const title = textField(body, 'title')?.trim() ?? '';
+    const repo = textField(body, 'repo');
+    if (!title || title.length > 200 || repo === undefined || !REPO.test(repo)) return null;
     const id = `dossier-${nextId++}`;
-    dossiers.set(id, {
-      id, repo: body.repo.toLowerCase(), prd: null, title, claudeSessionId: body.claudeSessionId ?? null, versions: [],
-    });
-    return dossiers.get(id);
+    const dossier: Dossier = {
+      id, repo: repo.toLowerCase(), prd: null, title, claudeSessionId: propertyOf(body, 'claudeSessionId') ?? null, versions: [],
+    };
+    dossiers.set(id, dossier);
+    return dossier;
+  }
+
+  /** The push's fields, or null when any is malformed. */
+  function readPush(body: Json): { repo: string; prd: number; title: string; draftId: unknown; artifacts: { kind: string; content: string }[] } | null {
+    const repo = textField(body, 'repo');
+    const prd = propertyOf(body, 'prd');
+    const title = textField(body, 'title');
+    const draftId = propertyOf(body, 'draftId') ?? null;
+    const given = propertyOf(body, 'artifacts');
+    if (repo === undefined || !REPO.test(repo) || typeof prd !== 'number' || !Number.isInteger(prd) || prd <= 0) return null;
+    if (title === undefined || !title.trim() || !Array.isArray(given)) return null;
+    const artifacts = given.map(artifactOf);
+    if (!artifacts.every((artifact) => artifact !== null)) return null;
+    return { repo, prd, title, draftId, artifacts };
   }
 
   /** The push: `{ status, body }`, as the real server answers it. */
   function pushDossier(body: Json, raw: string): { status: number; body: unknown } {
     if (Buffer.byteLength(raw) > dossierBodyBytes) return { status: 413, body: { error: 'too large' } };
-    const { repo, prd, title, draftId = null, artifacts } = body ?? {};
-    const fine = typeof repo === 'string' && /^[\w.-]+\/[\w.-]+$/.test(repo) && Number.isInteger(prd) && prd > 0
-      && typeof title === 'string' && title.trim() && Array.isArray(artifacts)
-      && artifacts.every((a: Json) => DOSSIER_KINDS.includes(a?.kind) && typeof a.content === 'string');
-    if (!fine) return { status: 400, body: { error: 'malformed push' } };
-    if (artifacts.some((a: Json) => Buffer.byteLength(a.content) > artifactBytes)) return { status: 413, body: { error: 'artifact too large' } };
+    const push = readPush(body);
+    if (!push) return { status: 400, body: { error: 'malformed push' } };
+    const { repo, prd, title, draftId, artifacts } = push;
+    if (artifacts.some((a) => Buffer.byteLength(a.content) > artifactBytes)) return { status: 413, body: { error: 'artifact too large' } };
     const home = repo.toLowerCase();
-    const keyed = () => [...dossiers.values()].find((d: Json) => d.repo === home && d.prd === prd);
-    let dossier: Json;
+    const keyed = () => [...dossiers.values()].find((d) => d.repo === home && d.prd === prd);
+    let dossier: Dossier | undefined;
     if (draftId !== null) {
-      const draft = dossiers.get(draftId);
+      const draft = typeof draftId === 'string' ? dossiers.get(draftId) : undefined;
       if (!draft) return { status: 404, body: { error: 'no such draft' } };
       dossier = draft;
       if (draft.prd === null) {
@@ -261,7 +324,7 @@ export async function startFakeAskServer({
     const added: { kind: string; version: number }[] = [];
     const unchanged: string[] = [];
     for (const { kind, content } of artifacts) {
-      const ofKind = dossier.versions.filter((v: Json) => v.kind === kind);
+      const ofKind = dossier.versions.filter((v) => v.kind === kind);
       const hash = sha256(content);
       if (ofKind.at(-1)?.sha256 === hash) {
         unchanged.push(kind);
@@ -273,15 +336,17 @@ export async function startFakeAskServer({
     return { status: 200, body: dossierReply(dossier, { added, unchanged }) };
   }
 
-  async function route(method: string | undefined, path: string, body: Json, request: IncomingMessage, response: ServerResponse, raw: string): Promise<unknown> {
+  async function route(method: string | undefined, path: string, body: Json, request: IncomingMessage, response: ServerResponse, raw: string): Promise<ServerResponse | undefined> {
     let match: RegExpExecArray | null;
     if (method === 'POST' && path === '/api/ask/token') {
-      if (body?.refresh_token && refresh.has(body.refresh_token)) {
-        refresh.delete(body.refresh_token);
+      const grant = textField(body, 'refresh_token');
+      if (grant && refresh.has(grant)) {
+        refresh.delete(grant);
         return json(response, 200, issueTokens());
       }
-      if (body?.code && oneTimeCodes.has(body.code)) {
-        oneTimeCodes.delete(body.code);
+      const code = textField(body, 'code');
+      if (code && oneTimeCodes.has(code)) {
+        oneTimeCodes.delete(code);
         return json(response, 200, issueTokens());
       }
       return json(response, 401, { error: 'invalid grant' });
@@ -299,7 +364,7 @@ export async function startFakeAskServer({
     }
     if (method === 'GET' && path === '/api/business' && business) {
       const repo = new URL(String(request.url), 'http://fake').searchParams.get('repo') ?? '';
-      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
+      if (!REPO.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       const { status = 200, body: reply } = business(repo);
       return json(response, status, reply);
     }
@@ -313,7 +378,7 @@ export async function startFakeAskServer({
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {
       const repo = new URL(String(request.url), 'http://fake').searchParams.get('repo') ?? '';
-      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
+      if (!REPO.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
       return json(response, 200, place(repo));
     }
     if (method === 'POST' && path === '/api/ask/heartbeat') {
@@ -325,7 +390,9 @@ export async function startFakeAskServer({
       response.writeHead(status);
       return response.end();
     }
-    if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
+    if (method === 'POST' && path === '/api/ask/sessions') {
+      return json(response, 200, openSession(textField(body, 'title'), propertyOf(body, 'context') ?? null));
+    }
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {
       const id = String(match[1]);
       if (!sessions.has(id)) return json(response, 404, { error: 'not found' });
@@ -336,9 +403,10 @@ export async function startFakeAskServer({
       const session = sessions.get(String(match[1]));
       if (!session) return json(response, 404, { error: 'not found' });
       if (session.status === 'closed') return json(response, 409, { error: 'session closed' });
-      if (!Array.isArray(body?.questions)) return json(response, 400, { error: 'questions' });
-      const round = {
-        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null, lead: body.lead ?? null,
+      const questions = propertyOf(body, 'questions');
+      if (!Array.isArray(questions)) return json(response, 400, { error: 'questions' });
+      const round: Round = {
+        id: `round-${nextId++}`, sessionId: session.id, questions, context: propertyOf(body, 'context') ?? null, lead: propertyOf(body, 'lead') ?? null,
         status: 'open', answers: null, answeredVia: null,
       };
       rounds.set(round.id, round);
@@ -362,7 +430,7 @@ export async function startFakeAskServer({
         return json(response, 200, waitResult(round));
       }
       if (method === 'POST' && action === 'answers') {
-        answerRound(round.id, body?.answers, body?.via);
+        answerRound(round.id, propertyOf(body, 'answers'), propertyOf(body, 'via'));
         return json(response, 200, {});
       }
       if (method === 'POST' && action === 'abandon') {
@@ -374,7 +442,7 @@ export async function startFakeAskServer({
     return json(response, 404, { error: 'no such call' });
   }
 
-  const server = createServer(async (request, response) => {
+  async function serve(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const path = new URL(String(request.url), 'http://fake').pathname;
     const raw = await readText(request);
     const body = parseBody(raw);
@@ -384,11 +452,17 @@ export async function startFakeAskServer({
     try {
       await route(request.method, path, body, request, response, raw);
     } catch (error) {
-      json(response, 500, { error: String((error as Json)?.message ?? error) }); // ts-allow: whatever a handler threw
+      json(response, 500, { error: messageOf(error) });
     }
+  }
+
+  const server = createServer((request, response) => {
+    void serve(request, response);
   });
   await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
-  const { port: bound } = server.address() as AddressInfo; // ts-allow: a server listening on a port has an address
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('the fake ask server listens on no port');
+  const bound = address.port;
   base = `http://127.0.0.1:${bound}`;
 
   return {
@@ -406,14 +480,14 @@ export async function startFakeAskServer({
     answerRound,
     closeSession,
     /** Every access token issued so far stops working; the refresh tokens still do. */
-    expireAccess: () => access.clear(),
+    expireAccess: () => { access.clear(); },
     /** Every refresh token stops working as well. */
-    expireRefresh: () => refresh.clear(),
+    expireRefresh: () => { refresh.clear(); },
     /** Every call but the token exchange gets a 401, even with a token the exchange just issued. */
     denyAccess: () => { denied = true; },
     close: () => new Promise<void>((resolve) => {
       server.closeAllConnections();
-      server.close(() => resolve());
+      server.close(() => { resolve(); });
     }),
   };
 }
@@ -423,7 +497,8 @@ function flag<T>(argv: string[], name: string, fallback: T): string | T | undefi
   return index === -1 ? fallback : argv[index + 1];
 }
 
-const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+const script = process.argv[1];
+const invoked = script !== undefined && script !== '' && realpathSync(script) === realpathSync(fileURLToPath(import.meta.url));
 if (invoked) {
   const argv = process.argv.slice(2);
   const mode = flag(argv, 'answer', 'first');
@@ -432,7 +507,7 @@ if (invoked) {
     holdMs: 50_000,
     accessToken: flag(argv, 'token', 'access-1'),
     answer: mode === 'first' ? (round) => firstOptionAnswers(round.questions) : () => null,
-    onCall: (call) => process.stdout.write(`${JSON.stringify({ at: new Date().toISOString(), ...call })}\n`),
+    onCall: (call) => { process.stdout.write(`${JSON.stringify({ at: new Date().toISOString(), ...call })}\n`); },
   });
   const { id } = server.openSession('tracer');
   process.stdout.write(`${JSON.stringify({ url: server.url, host: server.host, sessionId: id, accessToken: flag(argv, 'token', 'access-1'), refreshToken: 'refresh-1' })}\n`);

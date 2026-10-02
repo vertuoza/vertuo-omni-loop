@@ -9,5 +9,5 @@
     "scripts/vercel-ignore",
     "scripts/typescript-guard.test.ts"
   ],
-  "ceiling": 418
+  "ceiling": 0
 }
