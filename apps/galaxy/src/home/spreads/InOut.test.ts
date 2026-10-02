@@ -7,12 +7,12 @@ import { heading, html, text } from './render';
 const column = (markup: string, title: string) => {
   const found = [...markup.matchAll(/<div class="home-inout-col">([\s\S]*?)<\/div>/g)]
     .map(([, body]) => body)
-    .find((body) => new RegExp(`<h3\\b[^>]*>${title}</h3>`).test(body));
+    .find((body) => new RegExp(`<h3\\b[^>]*>${title}</h3>`).test(body!));
   if (!found) throw new Error(`no column headed ${title}`);
   return found;
 };
 
-const items = (markup: string) => [...markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => li);
+const items = (markup: string) => [...markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => li!);
 
 describe('Easy in, easy out', () => {
   it('opens on its own h2', () => {

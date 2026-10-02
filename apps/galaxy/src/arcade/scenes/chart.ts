@@ -80,7 +80,7 @@ export function drawChart(ctx: CanvasRenderingContext2D, s: FrameState) {
   const t = s.reduced ? 0 : s.t;
   // Lanes first: a cross-domain file between two suns.
   for (const lane of lanes) {
-    const a = suns[lane.from], b = suns[lane.to];
+    const a = suns[lane.from]!, b = suns[lane.to]!;
     dotted(ctx, a.x, a.y, b.x, b.y, { skipA: a.r * 1.4 + 3, skipB: b.r * 1.4 + 3, every: 7, size: 2, color: '#a88cff', shade: '#2a1f5c', t });
   }
   for (const sun of suns) drawSun(ctx, { cx: sun.x, cy: sun.y, r: sun.r, seed: sun.seed, t });

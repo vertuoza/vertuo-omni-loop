@@ -77,7 +77,7 @@ describe('the fleet cards', () => {
     const html = render('handheld', TALL, select(0));
     expect(html.match(/class="j-card"/g)).toHaveLength(fleets.length + 1); // and PLAY SOLO
     const many = render('handheld', TALL, createElement(SelectOverlay, {
-      fleets: Array.from({ length: 9 }, (_, i) => ({ ...fleets[i % fleets.length], name: `f${i}`, label: `F${i}` })),
+      fleets: Array.from({ length: 9 }, (_, i) => ({ ...fleets[i % fleets.length]!, name: `f${i}`, label: `F${i}` })),
       pick: 8, change: false, locked: false, confirm: false, current: null, disbanded: false, crew: {}, onPick: () => {},
     }));
     expect(many.match(/class="j-card"/g)).toHaveLength(cardRow(10, 8, TALL).count);
@@ -105,9 +105,9 @@ describe('the fleet step, a fleet optional (PRD 400)', () => {
 
   it('says SOLO! when solo is locked in, and warns a fleet player that leaving keeps their past points', () => {
     expect(text(render('full', WIDE, pickOf(fleets.length, { locked: true })))).toContain('SOLO!');
-    const confirm = text(render('full', WIDE, pickOf(fleets.length, { change: true, confirm: true, current: fleets[0].name })));
+    const confirm = text(render('full', WIDE, pickOf(fleets.length, { change: true, confirm: true, current: fleets[0]!.name })));
     expect(confirm).toContain('YOUR FUTURE POINTS ARE YOUR OWN.');
-    expect(confirm).toContain(`YOUR PAST POINTS STAY WITH ${fleets[0].label}`);
+    expect(confirm).toContain(`YOUR PAST POINTS STAY WITH ${fleets[0]!.label}`);
   });
 
   it('marks SOLO as a solo player\'s own choice when they come to join a fleet', () => {

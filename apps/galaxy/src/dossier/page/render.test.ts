@@ -331,7 +331,7 @@ describe('Delete', () => {
 
 describe('the tabs', () => {
   const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
-    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2].replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
+    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2]!.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -471,7 +471,7 @@ describe('the Questions tab', () => {
   });
 
   it('folds an answered round: a closed <details> whose <summary> is its line (PRD 498)', () => {
-    const html = questions({ questions: [rounds[0]] });
+    const html = questions({ questions: [rounds[0]!] });
     expect(html).toMatch(/<li id="r1" class="dossier-round" data-rule="brainstorm" data-state="answered"><details class="dossier-fold"><summary class="dossier-round-line">/);
     expect(html).not.toMatch(/<details[^>]* open/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
@@ -537,7 +537,7 @@ describe('the Questions tab', () => {
   });
 
   it('folds a round moved to the terminal, its line saying so, with no option', () => {
-    const html = questions({ questions: [rounds[1]] });
+    const html = questions({ questions: [rounds[1]!] });
     expect(html).toMatch(/<li id="r2" class="dossier-round" data-rule="delivery" data-state="moved"><details class="dossier-fold"><summary class="dossier-round-line">/);
     const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
     expect(line).toContain('<span class="dossier-round-count">moved to the terminal</span>');

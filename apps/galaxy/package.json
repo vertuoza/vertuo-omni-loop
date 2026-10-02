@@ -8,10 +8,10 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "artifact": "node artifact/build.mjs",
-    "seed": "node scripts/seed.mjs",
-    "shots": "node scripts/shots.mjs"
+    "typecheck": "fumadocs-mdx && tsc --noEmit",
+    "artifact": "node artifact/build.ts",
+    "seed": "node scripts/seed.ts",
+    "shots": "node scripts/shots.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.31.0",
@@ -28,7 +28,7 @@
     "react-dom": "^19.2.0",
     "server-only": "^0.0.1",
     "vertuo-omni-plan": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.14",

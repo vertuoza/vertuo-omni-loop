@@ -163,7 +163,7 @@ describe('POST /api/decide/<decision>', () => {
     const w = world({ mode: 'shadow' });
     const { ref: _ref, ...noRef } = CALL;
     expect((await send(w, noRef)).status).toBe(200);
-    expect(w.logged[0].ref).toBeNull();
+    expect(w.logged[0]!.ref).toBeNull();
   });
 });
 

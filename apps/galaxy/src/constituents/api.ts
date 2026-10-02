@@ -33,8 +33,12 @@ const isRepo = (repo: string) => repo.length <= 200 && REPO.test(repo);
 /** The database refused or failed; `code` is Postgres's (42501 not the caller's repository, 22023 a
  * malformed one), or undefined for an answer the schema refused. */
 class ConstituentsStoreError extends Error {
-  constructor(readonly code: string | undefined, readonly reason: string) {
+  readonly code: string | undefined;
+  readonly reason: string;
+  constructor(code: string | undefined, reason: string) {
     super(`read the constituents: ${reason}`);
+    this.code = code;
+    this.reason = reason;
   }
 }
 

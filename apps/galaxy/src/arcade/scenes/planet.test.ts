@@ -45,7 +45,12 @@ function recorder() {
 }
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 
@@ -178,7 +183,7 @@ describe('the planet\'s tabs', () => {
   const p = view.planets.find((x) => x.state === 'distress')!;
   const tabs = (grid: Grid) => {
     const html = htmlOf(createElement(PlanetOverlay, { view, planet: p, tab: 0, onTab: () => {}, dossier: 'none' }), grid);
-    return [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((m) => m[1].replace(/ \d+$/, ''));
+    return [...html.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((m) => m[1]!.replace(/ \d+$/, ''));
   };
 
   it('read STATUS · ZONES · ENTROPY · LOG · DOSSIER, on the wide grid and the tall one', () => {
@@ -276,17 +281,17 @@ describe('dossierOf', () => {
 
     it('gives each of two repositories\' PRD 88 the dossier of its own home', () => {
       const byHome: DossiersRead = { 'acme/plan#88': DOSSIER, 'acme/tools#88': other };
-      expect(dossierOf(byHome, plan, twins.planets)).toBe(DOSSIER);
-      expect(dossierOf(byHome, tools, twins.planets)).toBe(other);
-      expect(dossierLink(byHome, tools, DOSSIER_TAB, twins.planets)).toBe('/prd/d-tools-88');
+      expect(dossierOf(byHome, plan!, twins.planets)).toBe(DOSSIER);
+      expect(dossierOf(byHome, tools!, twins.planets)).toBe(other);
+      expect(dossierLink(byHome, tools!, DOSSIER_TAB, twins.planets)).toBe('/prd/d-tools-88');
     });
 
     it('reads a dossier kept by number alone only when no other planet holds that number', () => {
       const byNumber: DossiersRead = { 88: DOSSIER };
-      expect(dossierOf(byNumber, plan, twins.planets)).toBe('none');
-      expect(dossierOf(byNumber, tools, twins.planets)).toBe('none');
+      expect(dossierOf(byNumber, plan!, twins.planets)).toBe('none');
+      expect(dossierOf(byNumber, tools!, twins.planets)).toBe('none');
       const one = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob'));
-      expect(dossierOf(byNumber, one.planets[0], one.planets)).toBe(DOSSIER);
+      expect(dossierOf(byNumber, one.planets[0]!, one.planets)).toBe(DOSSIER);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { MASCOTS as LIBRARY } from '@omni/design';
 import { lookOf } from '@omni/galaxy';
+import { z } from 'zod';
 import type { FleetRow } from '../arcade/types';
 import { refusalOf, type Refusal } from './refusal';
 
@@ -30,7 +31,18 @@ export interface FleetsPort {
  * page's when that function cannot be read. The one list is @omni/design's mascot library. */
 export const MASCOTS: readonly string[] = LIBRARY;
 
-type TeamRow = { name: string; home?: string | null; label?: string; color?: string; motto?: string | null; mascot?: string | null; sort?: number; retired_at?: string | null };
+/** A public.teams row, as each fleet function answers it. */
+const TeamRowSchema = z.object({
+  name: z.string(),
+  home: z.string().nullable().optional(),
+  label: z.string().optional(),
+  color: z.string().optional(),
+  motto: z.string().nullable().optional(),
+  mascot: z.string().nullable().optional(),
+  sort: z.number().optional(),
+  retired_at: z.string().nullable().optional(),
+});
+type TeamRow = z.infer<typeof TeamRowSchema>;
 
 /** A public.teams row as the page draws it. */
 export const fleetOfRow = (r: TeamRow): FleetRow =>
@@ -45,7 +57,7 @@ export function databaseFleets(db: Rpc, workspace: string): FleetsPort {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, refusal: refusalOf(error) };
-      return { ok: true, fleet: fleetOfRow(data as TeamRow) };
+      return { ok: true, fleet: fleetOfRow(TeamRowSchema.parse(data)) };
     } catch (err) {
       return { ok: false, refusal: refusalOf(err) };
     }

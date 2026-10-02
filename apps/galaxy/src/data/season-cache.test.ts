@@ -138,7 +138,7 @@ describe('the season cache', () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
     await loadGalaxy(w.viewer.db, WS, NOW, deps);
-    w.tables.teams[0].color = '#ff0000';
+    w.tables.teams[0]!.color = '#ff0000';
     const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
     expect(w.service.ledgerPages()).toHaveLength(2);
     expect(after.teams.find((t) => t.name === 'beaver')?.color).toBe('#ff0000');

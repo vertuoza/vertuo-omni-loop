@@ -21,7 +21,7 @@ const STATIC = /(?:^|\n)\s*(import|export)\s+(type\s+)?(?:[^'";]*?\sfrom\s*)?['"
 /** The specifiers a file imports at run time. */
 export function runtimeImports(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(STATIC)) if (!m[2]) out.push(m[3]);
+  for (const m of text.matchAll(STATIC)) if (!m[2]) out.push(m[3]!);
   return out;
 }
 

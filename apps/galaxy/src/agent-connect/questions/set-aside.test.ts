@@ -24,8 +24,8 @@ const render = (questions: AgentQuestion[], demo = false) =>
 
 describe('set aside by Jev', () => {
   it('reads `setAside` from the database, and a list without it as open', () => {
-    expect(questionsOf([SKY])?.[0].setAside).toBe(true);
-    expect(questionsOf([OPEN])?.[0].setAside).toBeUndefined();
+    expect(questionsOf([SKY])?.[0]!.setAside).toBe(true);
+    expect(questionsOf([OPEN])?.[0]!.setAside).toBeUndefined();
   });
 
   it('folds the set-aside questions under "Jev set aside N", each with Bring back, below the open ones', () => {
@@ -37,7 +37,7 @@ describe('set aside by Jev', () => {
     expect(openPart).not.toContain('Is the sky blue?');
     expect(folded).toContain('Is the sky blue?');
     expect(folded).toContain('test test');
-    expect(folded.match(new RegExp(`>${BRING_BACK}<`, 'g'))).toHaveLength(2);
+    expect(folded!.match(new RegExp(`>${BRING_BACK}<`, 'g'))).toHaveLength(2);
     expect(folded).not.toContain('Answer once');
   });
 

@@ -102,7 +102,7 @@ describe('docs/guide', () => {
     const steps = (markdown: string) => markdown.split(/^## /m).slice(1).filter((section) => /^\d+\. /.test(section));
     /** The lines of code a section shows in its fenced blocks. */
     const codeLines = (section: string) =>
-      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => m[1].split('\n').map((line) => line.trim()));
+      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => m[1]!.split('\n').map((line) => line.trim()));
 
     it('takes everyone, on Install, through four steps: omni globally, the skills in Claude Code, the sign-in, the questions', () => {
       const found = steps(body('install'));
@@ -153,6 +153,28 @@ describe('what a page names', () => {
   });
 });
 
+describe('the order file', () => {
+  let dir = '';
+  afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
+
+  const guideWith = (meta: unknown) => {
+    dir = mkdtempSync(join(tmpdir(), 'omni-guide-'));
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+    writeFileSync(join(dir, 'index.md'), '---\ntitle: A\n---\n');
+    return () => readGuide(dir);
+  };
+
+  it('reads the pages it lists, and none when it lists none', () => {
+    expect(guideWith({ pages: ['index'] })().order).toEqual(['index']);
+    expect(guideWith({})().order).toEqual([]);
+  });
+
+  it('refuses pages that are not a list of slugs, naming the field', () => {
+    expect(guideWith({ pages: 'index' })).toThrow(/meta\.json: pages: /);
+    expect(guideWith({ pages: ['index', 7] })).toThrow(/meta\.json: pages\.1: /);
+  });
+});
+
 describe('the guard', () => {
   let dir = '';
   afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); });
@@ -164,7 +186,7 @@ describe('the guard', () => {
     const kit = { skills: join(dir, 'skills'), commands: join(dir, 'commands') };
     mkdirSync(join(kit.skills, 'plan'), { recursive: true });
     mkdirSync(kit.commands);
-    writeFileSync(join(kit.commands, 'config.mjs'), '');
+    writeFileSync(join(kit.commands, 'config.ts'), '');
     mkdirSync(join(dir, 'guide'));
     writeFileSync(join(dir, 'guide/meta.json'), JSON.stringify({ pages: order }));
     for (const [slug, text] of Object.entries(pages)) writeFileSync(join(dir, 'guide', `${slug}.md`), text);

@@ -1,9 +1,9 @@
-import type { CSSProperties } from 'react';
 import { OMNI_LOOP, logoSvg, spritePixels, type FontRole, type Tint } from '@omni/design';
 import {
   CAST, COLOURS, FLEETS, FRAMES, ICONS, LOGOS, LOGO_NOTES, LOGO_SCALES, LOGO_SHOWINGS, POSES, POSTER_SCALE,
   TYPE_STEPS, fleetHero, ratio,
 } from './catalogue';
+import { cssVars } from '../arcade/css-vars';
 import { pixelSvg } from './pixel-svg';
 
 // /design: the Omni Loop design system, rendered on the server straight from @omni/design: every
@@ -105,8 +105,8 @@ export function DesignScreen() {
                     fontFamily: `var(--type-${step.name}-family)`,
                     fontSize: `var(--type-${step.name}-size)`,
                     lineHeight: `var(--type-${step.name}-line)`,
-                    '--slant': `var(--type-${step.name}-slant)`,
-                  } as CSSProperties}
+                    ...cssVars({ '--slant': `var(--type-${step.name}-slant)` }),
+                  }}
                 >
                   {SAMPLE[step.role]}
                 </p>

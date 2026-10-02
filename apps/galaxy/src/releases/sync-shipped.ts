@@ -10,12 +10,12 @@
 // main later. A folder main does not hold yet (a checkout ahead of main) is only waiting.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-releases.mjs';
-import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.mjs';
+import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-releases.ts';
+import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
 import { firstAdded, type Git } from './git.ts';
 import type { ShippedPrd } from './sync.ts';
 
@@ -49,12 +49,12 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
   const read = (file: string) => readFileSync(join(root, file), 'utf8');
   if (existsSync(join(root, folder.note))) {
     const text = read(folder.note);
-    const broken = gradeReleaseNote(text, { prd: folder.prd }) as string[];
+    const broken = gradeReleaseNote(text, { prd: folder.prd });
     if (broken.length) return { refused: broken.map((rule) => `${folder.note}: ${rule}`) };
-    const { note } = parseReleaseNote(text) as { note: { title: string; description: string; version: string | null } };
+    const note = parseReleaseNote(text).note!; // ts-allow: a note the grade passed parses
     return { words: { title: note.title, description: note.description, pinned: note.version === INITIAL_VERSION } };
   }
-  const spec = parseSpec(read(folder.spec), { file: folder.spec }) as { ok: true; record: { title: string } } | { ok: false; errors: string[] };
+  const spec = parseSpec(read(folder.spec), { file: folder.spec });
   if (!spec.ok) return { refused: spec.errors };
   return { words: { title: spec.record.title, description: '', pinned: false } };
 }

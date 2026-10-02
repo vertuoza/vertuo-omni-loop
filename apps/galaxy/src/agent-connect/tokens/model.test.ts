@@ -21,8 +21,8 @@ describe('the setups', () => {
       expect(s.text, s.label).toContain('Authorization');
       expect(s.text, s.label).toContain(`Bearer ${token}`);
     }
-    expect(JSON.parse(setups[0].text)).toEqual({ mcpServers: { 'omni-business': { url, headers: { Authorization: `Bearer ${token}` } } } });
-    expect(setups[1].text).toBe(`claude mcp add --transport http omni-business ${url} --header "Authorization: Bearer ${token}"`);
+    expect(JSON.parse(setups[0]!.text)).toEqual({ mcpServers: { 'omni-business': { url, headers: { Authorization: `Bearer ${token}` } } } });
+    expect(setups[1]!.text).toBe(`claude mcp add --transport http omni-business ${url} --header "Authorization: Bearer ${token}"`);
   });
 });
 

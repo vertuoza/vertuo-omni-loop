@@ -50,8 +50,16 @@ export interface Stage {
 
 /** A map with a character the legend does not know, named with its row and column (from 1). */
 export class StageError extends Error {
-  constructor(readonly stage: string, readonly char: string, readonly row: number, readonly col: number) {
+  readonly stage: string;
+  readonly char: string;
+  readonly row: number;
+  readonly col: number;
+  constructor(stage: string, char: string, row: number, col: number) {
     super(`stage ${stage}: unknown tile "${char}" at row ${row}, column ${col}`);
+    this.stage = stage;
+    this.char = char;
+    this.row = row;
+    this.col = col;
     this.name = 'StageError';
   }
 }
@@ -70,8 +78,8 @@ export function parseStage(id: string, palette: string, text: string): Stage {
     stage.tiles.push([...line].map((c, col) => {
       if (!isMark(c)) throw new StageError(id, c, row + 1, col + 1);
       const mark = LEGEND[c];
-      if (mark in places) { places[mark as keyof typeof places].push({ col, row }); return 'empty'; }
-      return mark as Tile;
+      if (mark in places) { places[mark as keyof typeof places].push({ col, row }); return 'empty'; } // ts-allow: the `in` test on this line proves it a key of places
+      return mark as Tile; // ts-allow: every legend mark that is not a place is a tile
     }));
   });
   return stage;

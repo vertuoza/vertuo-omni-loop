@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
 import type { DossierDeps } from './api';
@@ -14,7 +15,7 @@ export function dossierDeps(): DossierDeps {
   if (!env) return { connect: null };
   return {
     connect: (token) =>
-      createClient(env.url, env.key, {
+      createClient<Database>(env.url, env.key, {
         global: { headers: { Authorization: `Bearer ${token}` } },
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       }),

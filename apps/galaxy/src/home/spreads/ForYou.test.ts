@@ -8,9 +8,9 @@ describe('What\'s in it for you?', () => {
 
   // Each card as a visitor reads it: its h3, its promise and its three proofs.
   const cards = [...markup.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/g)].map(([, card]) => ({
-    role: text(card.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? ''),
-    promise: text(card.match(/<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ''),
-    proofs: [...card.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li)),
+    role: text(card!.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/)?.[1] ?? ''),
+    promise: text(card!.match(/<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ''),
+    proofs: [...card!.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => text(li!)),
   }));
 
   it('opens on its own h2', () => {

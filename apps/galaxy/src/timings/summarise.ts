@@ -1,6 +1,6 @@
 // The numbers the timings script prints (PRD 657): over one page's loads, the median and p75 of the
 // time to first byte and to the full document, in milliseconds. Pure, so it is tested on a fixed
-// sample. It runs on plain Node (scripts/timings.mjs), so its imports name their extension.
+// sample. It runs on plain Node (scripts/timings.ts), so its imports name their extension.
 
 /** One load of one page: when the first byte arrived, and when the whole document had. */
 export type Sample = { ttfb: number; total: number };
@@ -16,7 +16,7 @@ export function percentile(values: readonly number[], q: number): number {
   const rank = (sorted.length - 1) * q;
   const low = Math.floor(rank);
   const high = Math.ceil(rank);
-  return sorted[low] + (sorted[high] - sorted[low]) * (rank - low);
+  return sorted[low]! + (sorted[high]! - sorted[low]!) * (rank - low);
 }
 
 const spread = (values: number[]): Spread => ({ median: percentile(values, 0.5), p75: percentile(values, 0.75) });

@@ -31,8 +31,8 @@ const TODAY: Record<Token, string> = {
 function rootColours(css: string): Record<string, string> {
   const root = /:root\s*\{([^}]*)\}/.exec(uncommented(css))?.[1] ?? '';
   return Object.fromEntries([...root.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)]
-    .map(([, name, value]) => [name, value.trim()])
-    .filter(([, value]) => /^(#|rgba?\(|hsla?\()/.test(value)));
+    .map(([, name, value]) => [name, value!.trim()])
+    .filter(([, value]) => /^(#|rgba?\(|hsla?\()/.test(value!)));
 }
 
 /** The token names `valid_theme()` accepts, in the latest migration that defines it. */
@@ -44,7 +44,7 @@ function databaseTokens(): string[] {
     .at(-1)!;
   const body = latest.slice(latest.search(/function\s+public\.valid_theme\s*\(/));
   const list = /array\[([^\]]*)\]/.exec(body)![1];
-  return [...list.matchAll(/'([^']+)'/g)].map(([, name]) => name);
+  return [...list!.matchAll(/'([^']+)'/g)].map(([, name]) => name!);
 }
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -95,8 +95,8 @@ describe('the theme\'s tokens', () => {
     const shell = uncommented(read('./shell.css'));
     expect(shell.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
     for (const [, name] of shell.matchAll(/var\(--([a-z0-9-]+)/g)) {
-      const layout = /^(gutter|safe-(top|right|bottom|left)|lens-[xy])$/.test(name);
-      expect(layout || name in TOKENS, `--${name} is a token or a length`).toBe(true);
+      const layout = /^(gutter|safe-(top|right|bottom|left)|lens-[xy])$/.test(name!);
+      expect(layout || name! in TOKENS, `--${name} is a token or a length`).toBe(true);
     }
   });
 
@@ -141,7 +141,7 @@ describe('a workspace\'s theme', () => {
     expect(flat).toEqual({ 1: '#010101', 2: '#020202', 3: '#030303', 4: '#040404' });
     const was = spritePixels('hero-girl').pixels;
     const now = spritePixels('hero-girl', { flat }).pixels;
-    const back = { [FLAT[1]]: '#010101', [FLAT[2]]: '#020202', [FLAT[3]]: '#030303', [FLAT[4]]: '#040404' } as Record<string, string>;
+    const back = { [FLAT[1]!]: '#010101', [FLAT[2]!]: '#020202', [FLAT[3]!]: '#030303', [FLAT[4]!]: '#040404' } as Record<string, string>;
     // A stripe's colour can be a shaded material's too (stripe-3 is the plasma ramp's base), so a
     // pixel either keeps its colour or was a stripe and takes that stripe's override.
     expect(now.some((c, i) => c !== was[i])).toBe(true);

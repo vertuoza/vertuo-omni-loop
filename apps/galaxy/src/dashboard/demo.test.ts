@@ -61,7 +61,7 @@ describe('the demo dashboard', () => {
     expect(d.board.window.period).toBe('30d');
     expect(d.board.window.days).toHaveLength(30);
     if (d.board.people === 'unreadable') throw new Error('people unreadable');
-    const me = d.board.people[0];
+    const me = d.board.people[0]!;
     expect(d.board.tiles.prs).toBe(me.prs);
   });
 

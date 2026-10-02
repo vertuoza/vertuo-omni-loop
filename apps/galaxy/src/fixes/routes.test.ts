@@ -333,7 +333,7 @@ describe('a fix\'s page', () => {
     expect(html).toContain('<dt>State</dt>');
     expect(given.facts.rows).toEqual([]);
     expect(given.later).toHaveLength(1);
-    await given.later[0]();
+    await given.later[0]!();
     expect(given.facts.rows).toEqual([{ dossier_id: bug, workspace_id: FAKE_WORKSPACE, facts: summaryOf(571), synced_at: '2026-09-29T12:00:00Z' }]);
   });
 
@@ -341,14 +341,14 @@ describe('a fix\'s page', () => {
     await stored([visual, 548]);
     given.approvalsUnread = true;
     await page(VisualPage, visual);
-    await given.later[0]();
-    expect(given.facts.rows[0].facts.approvals).toEqual(summaryOf(548).approvals);
+    await given.later[0]!();
+    expect(given.facts.rows[0]!.facts.approvals).toEqual(summaryOf(548).approvals);
   });
 
   it('only logs a write it could not make (PRD 691)', async () => {
     given.facts.fail = 'down';
     await page(VisualPage, visual);
-    await expect(Promise.resolve(given.later[0]())).resolves.toBeUndefined();
+    await expect(Promise.resolve(given.later[0]!())).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalled();
   });
 

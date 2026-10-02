@@ -8,8 +8,8 @@
 // merge (shipped) and the retro PR's creation (retro). A folder's place is the repository's truth: a
 // folder in `inbox/` or `shipped/` whose PR is not found is recorded at the sync's time. No branch name,
 // path or label is written here: each comes from the repository's own config.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
@@ -54,12 +54,7 @@ export type SeenTopic = { repository: string; prd: number; topic: string };
 
 /** The sync's reading of a repository's config. Throws, naming the repository, when it is not valid. */
 export function syncConfig(text: string, repository: string): SyncConfig {
-  const config = parseConfig(text, `${repository}:${CONFIG_PATH}`) as unknown as {
-    repo: { defaultBranch: string };
-    paths: { delivery: string };
-    labels: { prd: string };
-    branches: { phase0: string; slice: string; feature: string; retro: string };
-  };
+  const config = parseConfig(text, `${repository}:${CONFIG_PATH}`);
   return {
     defaultBranch: config.repo.defaultBranch,
     delivery: config.paths.delivery.replace(/^\.\/+/, '').replace(/\/+$/, ''),
@@ -91,7 +86,7 @@ function foldersOf(snapshot: RepoSnapshot): Folder[] {
   const folders = new Map<number, Folder>();
   for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
     for (const name of names) {
-      const parsed = parseFolderName(name) as { prd: number; topic: string } | null;
+      const parsed = parseFolderName(name);
       if (parsed && !folders.has(parsed.prd)) folders.set(parsed.prd, { prd: parsed.prd, topic: parsed.topic, place });
     }
   }

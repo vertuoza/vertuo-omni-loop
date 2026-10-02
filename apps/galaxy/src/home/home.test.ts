@@ -196,7 +196,7 @@ describe('the spreads', () => {
 
   it('come under the poster, in the spec\'s order, each under its own h2', async () => {
     const html = await render();
-    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h));
+    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h!));
     expect(heads).toEqual(HEADS);
     expect(html.indexOf('<h2')).toBeGreaterThan(html.indexOf('</h1>'));
   });

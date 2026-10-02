@@ -83,7 +83,7 @@ describe('the Timeline', () => {
       { id: 'released', label: 'Released v1', state: 'done', who: null, when: '29 Sep 2026', href: null },
     ],
   };
-  const lines = (html: string) => [...html.matchAll(/<li class="fix-moment fix-moment-done">(.*?)<\/li>/gs)].map((m) => m[1]);
+  const lines = (html: string) => [...html.matchAll(/<li class="fix-moment fix-moment-done">(.*?)<\/li>/gs)].map((m) => m[1]!);
 
   it('draws a member\'s hero and an outsider\'s GitHub photo beside "by @login", the text unchanged', () => {
     const html = renderToStaticMarkup(createElement(TimelinePane, { fix: view, people: peopleOf([ANNA], FLEETS) }));

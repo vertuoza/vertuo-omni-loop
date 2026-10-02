@@ -42,7 +42,7 @@ export function rankWindow(heroes: readonly Pick<Hero, 'name' | 'points' | 'rank
   let last = -1;
   for (const i of [...shown].sort((a, b) => a - b)) {
     if (i > last + 1) rows.push(GAP);
-    const h = ladder[i];
+    const h = ladder[i]!;
     rows.push({ rank: h.rank, login: h.name, points: h.points, you: i === me });
     last = i;
   }

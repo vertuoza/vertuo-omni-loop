@@ -79,8 +79,8 @@ describe('loadEngineering', () => {
     const board = await loadEngineering(reads({ people: async () => { throw new Error('players down'); } }), REQUEST);
     if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
     expect(board.tiles.merged).toBe(1);
-    expect(board.people.opened[0].face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
-    expect(board.people.merged[0].face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
+    expect(board.people.opened[0]!.face).toEqual({ kind: 'photo', url: 'https://github.com/ada.png?size=48' });
+    expect(board.people.merged[0]!.face).toEqual({ kind: 'photo', url: 'https://github.com/bob.png?size=48' });
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('players down'));
   });
 
@@ -164,7 +164,7 @@ describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: answers[table].shift(), error: null }).then(ok);
+        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: answers[table]!.shift(), error: null }).then(ok);
         return q;
       },
     } as unknown as SupabaseClient;
@@ -192,7 +192,7 @@ describe('supabaseEngineeringReads', () => {
         calls.push(call);
         const q: Record<string, unknown> = {};
         for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range', 'limit']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
-        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(answers[table].shift()).then(ok, ko);
+        q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(answers[table]!.shift()).then(ok, ko);
         return q;
       },
     };

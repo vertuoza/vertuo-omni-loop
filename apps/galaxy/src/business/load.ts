@@ -89,7 +89,7 @@ export async function loadBusinessPage(db: SupabaseClient, user: User): Promise<
     ]);
     const claims = stored.map((c) => claimOf(c, citations, receipts)).sort((a, b) => a.seq - b.seq);
     return {
-      kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0], products, claims,
+      kind: 'business', workspace: { id: workspace.id, name: workspace.name }, product: products[0]!, products, claims,
       draft: drafts[0] ? draftOf(drafts[0]) : null,
       pages: pages.map(({ id, url }) => ({ id, url })),
       personas: cast.map(personaOf),

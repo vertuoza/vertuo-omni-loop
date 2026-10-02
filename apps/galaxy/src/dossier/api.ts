@@ -202,7 +202,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const repo = repoOf(sent.repo);
     if (!repo) return refuse(400, 'A push names its repository as owner/name.');
     const prd = sent.prd;
-    if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.');
+    if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.'); // ts-allow: Number.isInteger, first on this line, proved it a number
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
     const which = kindAndDraftOf(sent);
@@ -210,7 +210,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const { kind, draftId } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts });
+    const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts }); // ts-allow: the prd was checked a positive whole number earlier in this handler
     return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
   });
 }

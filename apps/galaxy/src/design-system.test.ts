@@ -31,9 +31,9 @@ const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 /** The colour custom properties a stylesheet declares on `:root`, as `--name: value`. */
 function rootColours(css: string): string[] {
   const blocks = [...uncommented(css).matchAll(/:root\b[^{]*\{([^}]*)\}/g)].map(([, body]) => body);
-  return blocks.flatMap((body) => [...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);?/g)]
-    .filter(([, , value]) => /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i.test(value))
-    .map(([, name, value]) => `${name}: ${value.trim()}`));
+  return blocks.flatMap((body) => [...body!.matchAll(/(--[\w-]+)\s*:\s*([^;]+);?/g)]
+    .filter(([, , value]) => /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i.test(value!))
+    .map(([, name, value]) => `${name}: ${value!.trim()}`));
 }
 
 /** Whether a source links or imports a font from Google Fonts. */

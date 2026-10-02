@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useReducer, useRef, type ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types.ts';
 import {
   planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
 } from './model';
@@ -81,7 +82,7 @@ function useConstituents(source: BusinessSource, read: Constituents | undefined,
   const port = useRef<ConstituentPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoConstituentsPort({ products: known.current, by: read?.me ?? 'demo' })
-    : databaseConstituents(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseConstituents(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls
   const write = async (w: Parameters<typeof writeConstituent>[1]) => {
     if (state.busy) return;
     act({ type: 'busy' });
@@ -142,7 +143,7 @@ function usePersonas(source: BusinessSource, personas: Persona[], newProduct: st
   const castPort = useRef<PersonaPort | null>(null);
   const getCast = () => (castPort.current ??= source.kind === 'demo'
     ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databasePersonas(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls
   // Undo goes once its 5 seconds have passed.
   const until = cast.undo?.until ?? null;
   useEffect(() => {
@@ -197,11 +198,11 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   const port = useRef<BusinessPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoBusinessPort(held.current.claims, held.current.products)
-    : databaseBusiness(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace, source.product));
+    : databaseBusiness(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace, source.product)); // ts-allow: the store takes only the narrow port it calls
   const drafts = useRef<DraftPort | null>(null);
   const getDrafts = () => (drafts.current ??= source.kind === 'demo'
     ? demoDraftPort(() => held.current.claims)
-    : databaseDraft(createBrowserClient(source.url, source.key) as unknown as DraftDb, source.workspace));
+    : databaseDraft(createBrowserClient<Database>(source.url, source.key) as unknown as DraftDb, source.workspace)); // ts-allow: the store takes only the narrow port it calls
   /** In the demo, the claims store starts again from the page after a draft or That's us. */
   const renew = () => {
     if (source.kind === 'demo') port.current = null;

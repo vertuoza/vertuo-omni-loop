@@ -33,8 +33,8 @@ export async function loadConstituents(db: ConstituentsDb, products: readonly st
     if (error) return { ok: false, reason: `Supabase: could not read the constituents (${error.message})` };
     return {
       ok: true,
-      constituents: ((rows.data ?? []) as StoredConstituent[]).map(constituentOf),
-      events: ((history.data ?? []) as StoredConstituentEvent[]).map(eventOf),
+      constituents: ((rows.data ?? []) as StoredConstituent[]).map(constituentOf), // ts-allow: the select names CONSTITUENT_COLUMNS, the columns of StoredConstituent
+      events: ((history.data ?? []) as StoredConstituentEvent[]).map(eventOf), // ts-allow: the select names EVENT_COLUMNS, the columns of StoredConstituentEvent
     };
   } catch (err) {
     return { ok: false, reason: `Supabase: could not read the constituents (${err instanceof Error ? err.message : String(err)})` };

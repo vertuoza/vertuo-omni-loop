@@ -65,3 +65,15 @@ describe('the demo\'s high scores', () => {
     expect(await a.scores('invaders')).toEqual({ top: [], mine: null });
   });
 });
+
+describe('the demo\'s saved guest', () => {
+  it('comes back as it was saved, after a reload', async () => {
+    await player();
+    expect(demoAccount().restore!()).toMatchObject({ session: { id: 'guest', github: 'guest-gh' }, me: { display_name: 'INKY', team: 'octopod', hero: HERO } });
+  });
+
+  it('starts a fresh guest when what this browser kept is not a guest', () => {
+    storage.set('omni-loop:guest', JSON.stringify({ signedIn: true, me: { id: 'guest', display_name: 'INKY', hero: 'not a hero' } }));
+    expect(demoAccount().restore!()).toEqual({ session: null, me: null });
+  });
+});

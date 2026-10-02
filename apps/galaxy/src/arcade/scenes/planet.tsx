@@ -15,6 +15,7 @@ import { Pips, StateChip } from './common.tsx';
 import { TALL_BAND } from './planet.ts';
 import './common.css';
 import './planet.css';
+import { cssVars } from '../css-vars';
 
 function Bar({ value, segments = 10, label }: { value: number; segments?: number; label: string }) {
   const on = Math.round(value * segments);
@@ -100,7 +101,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
   const tall = useScreen().grid.name === 'tall';
   const rows = statusRows(p, view);
   // On the tall grid a paired row shares its line with the row before it (planet.css places them).
-  const paired = (i: number) => (tall && rows[i].pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
+  const paired = (i: number) => (tall && rows[i]!.pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
   return (
     <dl className="stats">
       {rows.map((r, i) => (
@@ -132,8 +133,8 @@ function ZonesTab({ p }: { p: Planet }) {
           <span className="wave-label">PHASE {w || '?'}</span>
           <div className="wave-tiles">
             {p.zones.filter((z) => (z.wave ?? 0) === w).map((z) => (
-              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state].label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
-                <Sprite name={ZONE_ICON[z.state].sprite} scale={1} animate={z.state !== 'secured'} />
+              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state]!.label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
+                <Sprite name={ZONE_ICON[z.state]!.sprite} scale={1} animate={z.state !== 'secured'} />
                 <span className="tile-id">{z.id}</span>
                 {z.team && <span className="tile-team" style={{ background: fleet(z.team).color }} />}
               </span>
@@ -233,7 +234,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
 }) {
   const { grid } = useScreen();
   return (
-    <div className="planet" style={grid.name === 'tall' ? { ['--band' as string]: `${TALL_BAND}px` } : undefined}>
+    <div className="planet" style={grid.name === 'tall' ? cssVars({ '--band': `${TALL_BAND}px` }) : undefined}>
       <header className="planet-head">
         <span className="dialog-prd">#{p.prd}</span>
         <h2>{p.title.toUpperCase()}</h2>

@@ -1,5 +1,5 @@
 // The mask (PRD 812, decision 10): every token-shaped string is masked before anything is sent to Jev.
-// The rules are the kit's (kit/lib/openrouter.mjs › maskSecrets), ported here so Galaxy's server code
+// The rules are the kit's (kit/lib/openrouter.ts › maskSecrets), ported here so Galaxy's server code
 // does not load the kit's OpenRouter client; mask.test.ts holds the two to the same output. GitHub
 // tokens, `sk-` keys, AWS key ids and JWTs become `[masked]`, and so does a bearer credential after its
 // `Bearer`. Masking twice changes nothing.

@@ -14,7 +14,8 @@ const SHOWN_MS = 2000;
 export function CodeCopy() {
   useEffect(() => {
     const onClick = async (event: MouseEvent) => {
-      const button = (event.target as Element | null)?.closest?.('.docs-copy');
+      const target = event.target;
+      const button = target instanceof Element ? target.closest('.docs-copy') : null;
       const pre = button?.closest('.docs-code')?.querySelector('pre');
       if (!(button instanceof HTMLElement) || !pre) return;
       const done = await copyLink(codeToCopy(pre.textContent ?? ''), navigator.clipboard, () => {

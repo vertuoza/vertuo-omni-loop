@@ -76,7 +76,7 @@ async function dashboard(person: FakeUser, arrange?: (w: ReturnType<typeof fakeG
 }
 
 /** The request the board was drawn for. */
-const request = () => parts.board.mock.calls[0][1] as Record<string, unknown>;
+const request = () => parts.board.mock.calls[0]![1] as Record<string, unknown>;
 const errors = () => vi.mocked(console.error).mock.calls.map((c) => String(c[0]));
 
 beforeEach(() => {
@@ -113,12 +113,12 @@ describe('Home', () => {
 
   it('reads the board in the workspace shown', async () => {
     await dashboard(PEOPLE.ada);
-    expect(parts.reads.mock.calls[0][1]).toBe(VERTUOZA);
+    expect(parts.reads.mock.calls[0]![1]).toBe(VERTUOZA);
   });
 
   it('hands Waiting for you the database, the workspace, the person, their lower-cased login and fleet, now and the season', async () => {
     const d = await dashboard(PEOPLE.ada);
-    const input = parts.waiting.mock.calls[0][0] as PartInput;
+    const input = parts.waiting.mock.calls[0]![0] as PartInput;
     expect(input).toMatchObject({ workspace: VERTUOZA, userId: PEOPLE.ada.id, login: 'ada-gh', team: 'pirates', now: NOW });
     expect(input.season).toEqual(d.season);
   });

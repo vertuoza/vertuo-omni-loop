@@ -38,7 +38,7 @@ export function brusselsDay(at: Date | string | number): string | null {
 
 const HOUR = 3_600_000;
 const utcDate = (date: string) => {
-  const [y, m, d] = date.split('-').map(Number);
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
   return Date.UTC(y, m - 1, d);
 };
 const shift = (date: string, days: number) => new Date(utcDate(date) + days * 24 * HOUR).toISOString().slice(0, 10);
@@ -79,5 +79,5 @@ export function periodWindow(period: Period, now: Date): PeriodWindow {
     const length = period === '30d' ? 30 : 7;
     days = daysBetween(shift(today, 1 - length), today);
   }
-  return { period, days, from: brusselsMidnight(days[0]), to: brusselsMidnight(shift(days.at(-1)!, 1)) };
+  return { period, days, from: brusselsMidnight(days[0]!), to: brusselsMidnight(shift(days.at(-1)!, 1)) };
 }

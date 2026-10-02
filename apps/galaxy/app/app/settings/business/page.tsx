@@ -38,7 +38,7 @@ async function viewOf(): Promise<BusinessScreenView> {
   if (session.kind !== 'signed-in') return session;
   const load = await loadBusinessPage(session.db, session.user);
   if (load.kind !== 'business') return load;
-  const db = session.db as unknown as Parameters<typeof loadTokens>[0];
+  const db = session.db as unknown as Parameters<typeof loadTokens>[0]; // ts-allow: the loaders take only the narrow rpc port they call
   const [tokens, questions, constituents] = await Promise.all([
     loadTokens(db, load.workspace.id),
     loadQuestions(db, load.workspace.id),

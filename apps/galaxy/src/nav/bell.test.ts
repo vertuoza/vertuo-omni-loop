@@ -43,11 +43,11 @@ describe('the panel', () => {
     const panel = bellPanel({ questions: [q('late', MIN), q('early', 5 * MIN, 'Bob')], outbox: [o('i1', 459), o('i2', 460, 'human-action')] }, {}, NOW);
     expect(panel.empty).toBe(false);
     expect(panel.groups.map((g) => g.label)).toEqual(['Questions', 'Outbox']);
-    expect(panel.groups[0].lines).toEqual([
+    expect(panel.groups[0]!.lines).toEqual([
       { id: 'early', href: '/ask/q/early', head: 'terminal early', text: 'question early', meta: '5 min', sharedBy: { name: 'Bob', face: { kind: 'initial', letter: 'B' } } },
       { id: 'late', href: '/ask/q/late', head: 'terminal late', text: 'question late', meta: '1 min' },
     ]);
-    expect(panel.groups[1].lines).toEqual([
+    expect(panel.groups[1]!.lines).toEqual([
       { id: 'i1', href: '/prd/d-459?tab=outbox', head: 'PRD 459 · PRD title 459', text: 'outbox i1?', meta: 'high' },
       { id: 'i2', href: '/prd/d-460?tab=outbox', head: 'PRD 460 · PRD title 460', text: 'outbox i2?', meta: 'human-action' },
     ]);
@@ -56,7 +56,7 @@ describe('the panel', () => {
   it('carries who shared a question with the face the list read for them (PRD 652)', () => {
     const face = { kind: 'photo' as const, url: 'https://a.test/bob.png' };
     const panel = bellPanel({ questions: [{ ...q('x', MIN, 'Bob'), sharedByFace: face }], outbox: [] }, {}, NOW);
-    expect(panel.groups[0].lines[0]).toMatchObject({ meta: '1 min', sharedBy: { name: 'Bob', face } });
+    expect(panel.groups[0]!.lines[0]).toMatchObject({ meta: '1 min', sharedBy: { name: 'Bob', face } });
   });
 
   it('shows only a group that has items', () => {
@@ -73,13 +73,13 @@ describe('the panel', () => {
     ]);
     const kept = bellPanel({ questions: [q('a', MIN)], outbox: [] }, { questions: true }, NOW);
     expect(kept.groups[0]).toMatchObject({ label: 'Questions', problem: 'Questions couldn\'t be read — retrying.' });
-    expect(kept.groups[0].lines).toHaveLength(1);
+    expect(kept.groups[0]!.lines).toHaveLength(1);
   });
 
   it('says how many PRDs could not be read beside the outbox items it did read', () => {
     const panel = bellPanel({ questions: [], outbox: [o('i1', 459)] }, { outboxPrds: 2 }, NOW);
     expect(panel.groups[0]).toMatchObject({ label: 'Outbox', problem: '2 PRDs couldn\'t be read' });
-    expect(bellPanel({ questions: [], outbox: [] }, { outboxPrds: 1 }, NOW).groups[0].problem).toBe('1 PRD couldn\'t be read');
+    expect(bellPanel({ questions: [], outbox: [] }, { outboxPrds: 1 }, NOW).groups[0]!.problem).toBe('1 PRD couldn\'t be read');
   });
 });
 

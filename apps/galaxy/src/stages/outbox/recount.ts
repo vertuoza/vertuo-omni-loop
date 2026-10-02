@@ -24,7 +24,7 @@ export function countsOf(summary: GithubSummary | null): OutboxCounts | null {
   const open = summary.outbox?.open ?? [];
   const waiting = summary.feature?.state === 'open'
     ? open.filter((item) => WAITING_RANKS.has(item.rank))
-      .map((item): WaitingQuestion => ({ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question }))
+      .map((item): WaitingQuestion => ({ id: item.id, rank: item.rank as WaitingQuestion['rank'], question: item.question })) // ts-allow: WAITING_RANKS holds only the waiting ranks
     : [];
   return { open_questions: open.length, waiting };
 }

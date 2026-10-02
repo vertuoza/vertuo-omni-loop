@@ -133,7 +133,7 @@ describe('/api/mcp, the MCP link', () => {
     const { isError, text } = await w.call(LIVE, 'get_business');
     expect(isError).toBe(false);
     expect(JSON.parse(text)).toEqual(READ);
-    expect(w.calls[0].args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
+    expect(w.calls[0]!.args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
   });
 
   it('several products and no repository: an error naming the tracked repositories', async () => {
@@ -209,7 +209,7 @@ describe('/api/mcp, the MCP link', () => {
     } }]);
     const bare = await w.call(LIVE, 'report_unknown', { question: 'Who are our rivals?' });
     expect(bare.text).toBe(REPORTED);
-    expect(w.calls[1].args).toEqual({ p_hash: await hashToken(LIVE), p_question: 'Who are our rivals?', p_repo: null, p_file: null });
+    expect(w.calls[1]!.args).toEqual({ p_hash: await hashToken(LIVE), p_question: 'Who are our rivals?', p_repo: null, p_file: null });
   });
 
   it('report_unknown says it was asked before when the same question came again', async () => {
@@ -276,7 +276,7 @@ describe('/api/mcp, the MCP link', () => {
     console.error = (...args: unknown[]) => { errors.push(args); };
     try {
       const result = await client.callTool({ name: 'get_business', arguments: {} });
-      const text = (result.content as Array<{ text: string }>)[0].text;
+      const text = (result.content as Array<{ text: string }>)[0]!.text;
       expect(result.isError).toBe(true);
       expect(text).toBe('The business database could not answer. Try again.');
     } finally {

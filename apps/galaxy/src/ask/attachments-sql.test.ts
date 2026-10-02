@@ -12,7 +12,7 @@ const oneLine = MIGRATION.replace(/\s+/g, ' ');
 /** Every rule the migration creates on storage.objects: its command and its whole text. */
 function storageRules() {
   return [...MIGRATION.matchAll(/create policy "([^"]+)" on storage\.objects\s+for (\w+)([\s\S]*?);/g)]
-    .map(([, name, command, rest]) => ({ name, command, text: rest.replace(/\s+/g, ' ') }));
+    .map(([, name, command, rest]) => ({ name: name!, command, text: rest!.replace(/\s+/g, ' ') }));
 }
 
 describe('the ask-attachments migration', () => {

@@ -113,7 +113,7 @@ describe('the confirm on the screen', () => {
   });
 
   it('makes its hints buttons a tap presses, as every key hint is', () => {
-    const buttons = [...html(TALL, 'handheld').matchAll(/<button type="button" class="j-hit">(.*?)<\/button>/g)].map(([, b]) => text(b));
+    const buttons = [...html(TALL, 'handheld').matchAll(/<button type="button" class="j-hit">(.*?)<\/button>/g)].map(([, b]) => text(b!));
     expect(buttons).toEqual([['A', 'YES'], ['B', 'NO']]);
   });
 });

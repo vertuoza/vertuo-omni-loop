@@ -69,7 +69,7 @@ describe('loadKnowledge — the graph of the deployed checkout, through the kit'
     const log = vi.fn();
     expect(loadKnowledge({ cwd: app, log })).toBeNull();
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toMatch(/^knowledge map: out of reach — no \.omni-loop\/config\.yml in .*apps\/galaxy or above$/);
+    expect(log.mock.calls[0]![0]).toMatch(/^knowledge map: out of reach — no \.omni-loop\/config\.yml in .*apps\/galaxy or above$/);
   });
 
   it('returns null, logging one line, when the config cannot be read', () => {
@@ -77,7 +77,7 @@ describe('loadKnowledge — the graph of the deployed checkout, through the kit'
     const log = vi.fn();
     expect(loadKnowledge({ cwd: app, log })).toBeNull();
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toMatch(/^knowledge map: out of reach — \.omni-loop\/config\.yml: not valid YAML/);
+    expect(log.mock.calls[0]![0]).toMatch(/^knowledge map: out of reach — \.omni-loop\/config\.yml: not valid YAML/);
   });
 
   it('returns null, logging one line, when the knowledge folder is missing', () => {
@@ -85,6 +85,6 @@ describe('loadKnowledge — the graph of the deployed checkout, through the kit'
     const log = vi.fn();
     expect(loadKnowledge({ cwd: app, log })).toBeNull();
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toBe(`knowledge map: out of reach — .omni-loop/knowledge is missing in ${root}`);
+    expect(log.mock.calls[0]![0]).toBe(`knowledge map: out of reach — .omni-loop/knowledge is missing in ${root}`);
   });
 });

@@ -110,7 +110,7 @@ describe('the rankings\' read', () => {
 
   it('with no fleets: no Fleets heading and no table, only the individuals', () => {
     const html = render({ ...VALUE, fleets: [] });
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]))).toEqual(['Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Individuals · September']);
     expect(text(html)).not.toContain('Fleets');
     expect([...html.matchAll(/<table\b/g)]).toHaveLength(1);
   });
@@ -156,7 +156,7 @@ const tableOf = (html: string, title: string) => {
   const id = new RegExp(`<h2 id="([^"]+)"[^>]*>${title}</h2>`).exec(html)?.[1];
   return new RegExp(`<table [^>]*aria-labelledby="${id}"[^>]*>([\\s\\S]*?)</table>`).exec(html)?.[1] ?? '';
 };
-const rowsOf = (table: string) => [...table.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].flatMap((b) => [...b[1].matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)]);
+const rowsOf = (table: string) => [...table.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)].flatMap((b) => [...b[1]!.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)]);
 /** A body row as it reads, with the ask pages' visually hidden words left out. */
 const seen = (row: string) => text(row.replace(/<span class="ask-sr">[\s\S]*?<\/span>/g, ''));
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
@@ -164,25 +164,25 @@ const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
 describe('the rankings, drawn', () => {
   it('two tables under their headings, this season: Fleets · September, then Individuals · September', () => {
     const html = render(VALUE);
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]))).toEqual(['Fleets · September', 'Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Fleets · September', 'Individuals · September']);
     expect(html).not.toMatch(/<h1\b|<script|<canvas/);
   });
 
   it('the fleets: each with its rank, its label and its points, yours marked', () => {
     const rows = rowsOf(tableOf(render(VALUE), 'Fleets · September'));
-    expect(rows.map((r) => seen(r[2]))).toEqual(['1 OCTOPOD 2,300', '2 BEAVER 1,900 ◀', '3 PICSOU 1,400']);
-    const marked = rows.filter((r) => r[1].includes('aria-current="true"'));
-    expect(marked.map((r) => seen(r[2]))).toEqual(['2 BEAVER 1,900 ◀']);
-    expect(text(marked[0][2])).toContain('your fleet');
+    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 OCTOPOD 2,300', '2 BEAVER 1,900 ◀', '3 PICSOU 1,400']);
+    const marked = rows.filter((r) => r[1]!.includes('aria-current="true"'));
+    expect(marked.map((r) => seen(r[2]!))).toEqual(['2 BEAVER 1,900 ◀']);
+    expect(text(marked[0]![2]!)).toContain('your fleet');
   });
 
   it('the individuals: the top 3, ⋯ for the ranks skipped, then you and your neighbours, you marked', () => {
     const rows = rowsOf(tableOf(render(VALUE), 'Individuals · September'));
-    expect(rows.map((r) => seen(r[2]))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820', '⋯', '6 MAX 1,300', '7 PIERRE 1,240 ◀', '8 LEA 120']);
-    const marked = rows.filter((r) => r[1].includes('aria-current="true"'));
-    expect(marked.map((r) => seen(r[2]))).toEqual(['7 PIERRE 1,240 ◀']);
-    expect(text(marked[0][2])).toContain('you');
-    expect(text(rows[3][2])).toContain('ranks skipped');
+    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820', '⋯', '6 MAX 1,300', '7 PIERRE 1,240 ◀', '8 LEA 120']);
+    const marked = rows.filter((r) => r[1]!.includes('aria-current="true"'));
+    expect(marked.map((r) => seen(r[2]!))).toEqual(['7 PIERRE 1,240 ◀']);
+    expect(text(marked[0]![2]!)).toContain('you');
+    expect(text(rows[3]![2]!)).toContain('ranks skipped');
   });
 
   it('the marks are read out, not drawn: the arrow is hidden from a screen reader', () => {
@@ -193,8 +193,8 @@ describe('the rankings, drawn', () => {
   it('with no points this season: the top 3, then No points yet this season', () => {
     const html = render({ ...VALUE, individuals: VALUE.individuals.slice(0, 3), you: 'no-points' });
     const rows = rowsOf(tableOf(html, 'Individuals · September'));
-    expect(rows.map((r) => seen(r[2]))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820']);
-    expect(rows.some((r) => r[1].includes('aria-current'))).toBe(false);
+    expect(rows.map((r) => seen(r[2]!))).toEqual(['1 INKY 980', '2 DIME 870', '3 OTTO 820']);
+    expect(rows.some((r) => r[1]!.includes('aria-current'))).toBe(false);
     expect(text(html.slice(html.indexOf('Individuals')))).toMatch(/OTTO 820 No points yet this season$/);
   });
 
@@ -212,7 +212,7 @@ describe('the rankings, drawn', () => {
 
   it('when the galaxy cannot be read: both tables read Couldn\'t load this, and nothing else', () => {
     const html = render('unreadable');
-    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]))).toEqual(['Fleets · September', 'Individuals · September']);
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]!))).toEqual(['Fleets · September', 'Individuals · September']);
     expect(html.split(UNREADABLE_LINE)).toHaveLength(3);
     expect(html).not.toContain('<table');
   });

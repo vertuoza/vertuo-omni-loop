@@ -111,7 +111,7 @@ describe('the rows', () => {
       activity: 'last activity 29 Sep 2026, 09:30 UTC', at: SIDEBAR.last_activity,
       askedBy: null, state: null, stateLabel: '—', risk: null, regression: false,
     });
-    expect(topbar.artifacts).toEqual([]);
+    expect(topbar!.artifacts).toEqual([]);
     const [crash] = fixItems(ROWS, 'bug', { who: 'all' }, ME);
     expect(crash).toMatchObject({ href: `/bugs/${CRASH.id}`, heading: '#571', artifacts: [{ kind: 'bug-record', label: 'Bug record', badge: 'v1' }] });
   });
@@ -138,11 +138,11 @@ describe('the rows', () => {
     const asked: string[] = [];
     const peopleIn = (workspace: string) => { asked.push(workspace); return peopleOf([anna], []); };
     const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME, facts, peopleIn);
-    expect(sidebar.askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
-    expect(topbar.askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
+    expect(sidebar!.askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
+    expect(topbar!.askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
     expect(asked).toEqual(['w1', 'w1']);
     // With no directory, a login still gets its GitHub photo.
-    expect(fixItems(ROWS, 'visual', { who: 'all' }, ME, facts)[0].askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
+    expect(fixItems(ROWS, 'visual', { who: 'all' }, ME, facts)[0]!.askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
   });
 
   it('reads and writes the state filter', () => {

@@ -79,7 +79,7 @@ describe('/app decides once', () => {
     expect(page.type).toBe(HomeStream);
     expect((page.props as { parts: unknown }).parts).toEqual({ parts: 'streamed' });
     expect((page.props as { query: unknown }).query).toEqual({ period: '30d', x: '1' });
-    const [db, user, workspace, period, now, questions] = homeParts.mock.calls[0];
+    const [db, user, workspace, period, now, questions] = homeParts.mock.calls[0]!;
     expect((db as { auth: unknown }).auth).toBeTruthy();
     expect(user).toMatchObject(given.user!);
     expect(workspace).toBe('w1');
@@ -96,7 +96,7 @@ describe('/app decides once', () => {
     given.load = { kind: 'dashboard', dashboard: { name: 'ADA' } };
     const { view } = await propsOf();
     expect(view).toEqual(given.load);
-    const [db, user, period, now] = loadDashboard.mock.calls[0];
+    const [db, user, period, now] = loadDashboard.mock.calls[0]!;
     expect((db as { auth: unknown }).auth).toBeTruthy();
     expect(user).toMatchObject(given.user!);
     expect(period).toBe('7d');

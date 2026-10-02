@@ -24,7 +24,7 @@ const DRUMS = new Set(['k', 's', 'h', 'c']);
 export function freqOf(token: string): number | null {
   const m = NOTE.exec(token);
   if (!m) return null;
-  const n = SEMITONE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  const n = SEMITONE[m[1]!]! + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
   return 440 * 2 ** ((12 * (Number(m[3]) + 1) + n - 69) / 12);
 }
 

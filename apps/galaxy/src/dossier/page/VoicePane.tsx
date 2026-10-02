@@ -70,7 +70,7 @@ function Grid({ view }: { view: VoiceView }) {
               </th>
               {row.cells.map((cell, i) => (
                 <td key={cell.stage} className={cell.objected ? 'voice-cell voice-objected' : 'voice-cell'}>
-                  <Score cell={cell} name={row.name} round={view.rounds[i].label} />
+                  <Score cell={cell} name={row.name} round={view.rounds[i]!.label} />
                 </td>
               ))}
             </tr>

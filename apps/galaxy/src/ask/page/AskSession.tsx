@@ -20,6 +20,7 @@ import {
 } from './view';
 import { PlayDock } from '../../play-dock/PlayDock';
 import type { AskDock } from './dock-player';
+import type { Database } from '../../../../../supabase/database.types';
 
 // One ask session: the open round at the top (or Claude is working, moved to the terminal, session
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
@@ -56,7 +57,7 @@ type Props = {
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
-  return databasePort(createBrowserClient(source.url, source.key), seed);
+  return databasePort(createBrowserClient<Database>(source.url, source.key), seed);
 }
 
 export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState, dock = null }: Props) {

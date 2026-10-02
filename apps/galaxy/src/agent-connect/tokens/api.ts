@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { refuse, reply } from '../../business-api/reply';
-import { mcpUrlOf, nameOf, NAME_MAX } from './model';
+import { mcpUrlOf, nameOf, TOKEN_NAME_MAX } from './model';
 import { AgentTokenStoreError, type AgentTokenStore } from './store';
 import type { MadeToken } from './token';
 
@@ -19,7 +19,7 @@ import type { MadeToken } from './token';
 export const ONLY_MEMBER = 'Only a member of the workspace can make or see its links.';
 export const ONLY_MAKER = 'Only the person who made a link, or the workspace’s owner, can revoke it.';
 export const TOO_MANY = 'You hold 20 links already: revoke one to make another.';
-export const NAME_RULE = `A name: 1 to ${NAME_MAX} characters, on one line.`;
+export const NAME_RULE = `A name: 1 to ${TOKEN_NAME_MAX} characters, on one line.`;
 export const GONE = 'That link is no longer here. Reload the page.';
 const COULD_NOT = 'The database could not answer. Try again.';
 

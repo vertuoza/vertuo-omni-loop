@@ -105,7 +105,7 @@ export function rehypeCodeBadges() {
       parent.children = parent.children.map((child) => {
         const kinds = codeKinds(metaOf(child));
         if (kinds.length > 0) return badgedBlock(kinds, child);
-        if ('children' in child && Array.isArray(child.children)) walk(child as HastParent);
+        if ('children' in child && Array.isArray(child.children)) walk(child as HastParent); // ts-allow: a node with a children array is a parent
         return child;
       });
     };

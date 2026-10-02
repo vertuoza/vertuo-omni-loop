@@ -35,10 +35,10 @@ export const COLOURS = Object.entries(INK).map(([name, hex]) => ({
 
 export const ratio = (n: number) => `${n.toFixed(1)}:1`;
 
-export const TYPE_STEPS = (Object.entries(TYPE_SCALE) as [TypeStepName, TypeStep][]).map(([name, step]) => ({ name, ...step }));
+export const TYPE_STEPS = (Object.entries(TYPE_SCALE) as [TypeStepName, TypeStep][]).map(([name, step]) => ({ name, ...step })); // ts-allow: Object.entries of the type scale lists its steps
 
 /** The icons: the 16×16 sprites, and the cursor. */
-export const ICONS = Object.keys(SPRITE_DEFS).filter((name) => SPRITE_DEFS[name].w <= 16);
+export const ICONS = Object.keys(SPRITE_DEFS).filter((name) => SPRITE_DEFS[name]!.w <= 16);
 /** The cast: every other sprite (OmniMan and his poses, the heroes, the fleet mascots, Entropy). */
 export const CAST = Object.keys(SPRITE_DEFS).filter((name) => !ICONS.includes(name));
 

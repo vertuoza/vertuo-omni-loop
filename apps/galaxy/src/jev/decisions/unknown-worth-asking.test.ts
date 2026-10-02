@@ -42,7 +42,7 @@ describe('unknown-worth-asking', () => {
   });
 
   it('is the fourth decision on Settings › Jev, registered, with what it sends', () => {
-    const row = JEV_DECISIONS[3];
+    const row = JEV_DECISIONS[3]!;
     expect(row.name).toBe('unknown-worth-asking');
     expect(row.title).toBe('Unknown worth asking');
     expect(row.sends).toMatch(/question/i);

@@ -15,6 +15,7 @@ import { gamesHint, levelTag, type XpStatus } from '../games/room';
 import { GAMES, type Game } from '../games/index';
 import './common.css';
 import './menu.css';
+import { cssVars } from '../css-vars';
 
 function SourceChip({ view }: { view: GalaxyView }) {
   return view.source === 'supabase'
@@ -52,14 +53,14 @@ export function menuItems({ joined, signedIn, newGames = false, app = false, sol
   const change: MenuItem = { id: 'change', label: solo ? 'JOIN A FLEET' : 'CHANGE FLEET', fresh: true };
   const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
   return [
-    ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
     ...GALAXY,
     ...(signedIn ? [games] : []),
     BRIEFING,
-    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
     ...(signedIn && joined && fleets ? [change] : []),
     ...(app ? [APP] : []),
-    ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
+    ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []), // ts-allow: a literal item, typed as the menu's items
   ];
 }
 
@@ -90,7 +91,7 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
     chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
-    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0].name).label} lead` : 'No fleets yet',
+    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0]!.name).label} lead` : 'No fleets yet',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     games: gamesHint(xp),
     briefing: 'How points are won and lost',
@@ -105,8 +106,8 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
       {me
-        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
-        : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
+        ? <span className="j-badge" style={cssVars({ '--fc': f.color })}>{badgeOf(me, xp)}</span>
+        : <span className="j-badge" style={cssVars({ '--fc': '#8a90d6' })}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>
@@ -148,7 +149,7 @@ const CURVE_SHOWN = 5;
 function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
   const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
   return {
-    credits: (Object.keys(XP_CREDITS) as (keyof XpRules['weights'])[]).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })),
+    credits: (Object.keys(XP_CREDITS) as (keyof XpRules['weights'])[]).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })), // ts-allow: Object.keys of the credits lists the XP kinds they name
     curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
     cap: xp.cap,
     unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
@@ -166,7 +167,7 @@ const xpText = (n: number) => n.toLocaleString('en-US');
 export function BriefingOverlay({ view }: { view: GalaxyView }) {
   const { grid, page } = useScreen();
   const r = view.rules;
-  const kinds = Object.keys(WOUND_LOOK) as WoundKind[];
+  const kinds = Object.keys(WOUND_LOOK) as WoundKind[]; // ts-allow: Object.keys of a record lists its keys
   const lv = briefingLevels(r.xp);
   const sections: Record<BriefingPage, React.ReactNode> = {
     earn: (
@@ -230,7 +231,7 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
       <h2>HOW TO PLAY</h2>
       {tall && <p className="brief-page"><span aria-hidden="true">◀</span> {`PAGE ${at + 1}/${BRIEFING_PAGES.length}`} <span aria-hidden="true">▶</span></p>}
       <div className="brief-cols">
-        {tall ? sections[BRIEFING_PAGES[at]] : BRIEFING_PAGES.map((p) => sections[p])}
+        {tall ? sections[BRIEFING_PAGES[at]!] : BRIEFING_PAGES.map((p) => sections[p])}
       </div>
       <p className="hint">RUN /omni-yolo &lt;prd&gt; TO LEND YOUR AGENT TO A PLANET · B · MENU</p>
     </div>

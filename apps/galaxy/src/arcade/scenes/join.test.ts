@@ -45,7 +45,12 @@ function recorder() {
 }
 
 class FakeOffscreenCanvas {
-  constructor(public width: number, public height: number) {}
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
   getContext() { return recorder().ctx; }
 }
 
@@ -57,7 +62,7 @@ const JOIN: SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'ready',
 function frame(scene: SceneName, sceneT: number, grid: Grid, away = false, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
     scene, grid, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark, theme: DEFAULT_THEME,
-    join: { fleets, pick: 0, lockedAt: null, team: fleets[1].name, away, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
+    join: { fleets, pick: 0, lockedAt: null, team: fleets[1]!.name, away, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
 
@@ -116,7 +121,7 @@ describe('the join scenes drawn on the tall grid', () => {
     const { boxes } = spritesOf(frame('intro', 16.3, TALL));
     const mascots = boxes.filter((b) => b.name !== 'omni');
     expect(mascots).toHaveLength(Math.min(5, fleets.length));
-    for (let i = 1; i < mascots.length; i++) expect(mascots[i].x, `fleet ${i}`).toBeGreaterThanOrEqual(mascots[i - 1].x + mascots[i - 1].w);
+    for (let i = 1; i < mascots.length; i++) expect(mascots[i]!.x, `fleet ${i}`).toBeGreaterThanOrEqual(mascots[i - 1]!.x + mascots[i - 1]!.w);
   });
 
   it('opens the intro with the brand\'s letter, as the boot drew it', () => {
@@ -127,7 +132,7 @@ describe('the join scenes drawn on the tall grid', () => {
     for (const name of ['Vertuoza', 'Acme']) {
       const { runs } = markFor(name);
       const lines = runs.map(([x, y, w]) => [x, y, w]);
-      expect(drawn(markFor(name)), name).toEqual([...lines.map(([x, y, w]) => [x, y + 1, w]), ...lines]); // the shade, then the gradient
+      expect(drawn(markFor(name)), name).toEqual([...lines.map(([x, y, w]) => [x, y! + 1, w]), ...lines]); // the shade, then the gradient
     }
   });
 
@@ -160,8 +165,8 @@ describe('the join group\'s text layer', () => {
     ['gate', createElement(GateOverlay, { name: null }), ['WELCOME, RECRUIT', 'PRESS START', 'Browsers need a key press before they play sound.']],
     ['gate, a player back', createElement(GateOverlay, { name: 'ADA' }), ['WELCOME BACK, ADA', 'PRESS START']],
     ['intro', createElement(IntroOverlay, { fleets }), ['ENTROPY IS WINNING.', 'THE GALAXY NEEDS HEROES.', 'CHOOSE YOUR FLEET.', ...fleets.slice(0, 5).map((f) => f.label), 'SKIP']],
-    ['ready', createElement(ReadyOverlay, { name: 'ADA', team: fleets[1].name }), ['PLAYER 1 READY', `ADA · ${fleets[1].label}`, 'PRESS ANY KEY']],
-    ['welcome', createElement(WelcomeOverlay, { name: 'ADA', team: fleets[1].name }), ['WELCOME BACK,', 'ADA', fleets[1].label]],
+    ['ready', createElement(ReadyOverlay, { name: 'ADA', team: fleets[1]!.name }), ['PLAYER 1 READY', `ADA · ${fleets[1]!.label}`, 'PRESS ANY KEY']],
+    ['welcome', createElement(WelcomeOverlay, { name: 'ADA', team: fleets[1]!.name }), ['WELCOME BACK,', 'ADA', fleets[1]!.label]],
   ];
 
   it.each(states)('shows every word of %s on the tall grid, the same as on the wide one', (_, el, expected) => {

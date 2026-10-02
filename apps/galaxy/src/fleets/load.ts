@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import type { FleetRow } from '../arcade/types';
 import { loadFleets } from '../data/load-galaxy';
 import { memberWorkspace } from '../data/workspace';
@@ -16,9 +17,9 @@ export type FleetsLoad =
   | { kind: 'unreadable' }
   | { kind: 'fleets'; workspace: { id: string; name: string }; owner: boolean; fleets: FleetRow[]; mascots: readonly string[] };
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err)); // ts-allow: anything thrown is read for a message, which String() prints whatever it is
 
-async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> {
+async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise<boolean> {
   try {
     const { data, error } = await db.rpc('is_owner', { workspace });
     if (error) throw error;
@@ -29,9 +30,9 @@ async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> 
   }
 }
 
-async function mascotsOf(db: SupabaseClient): Promise<readonly string[]> {
+async function mascotsOf(db: SupabaseClient<Database>): Promise<readonly string[]> {
   try {
-    const { data, error } = await db.rpc('fleet_mascots', {});
+    const { data, error } = await db.rpc('fleet_mascots');
     if (error) throw error;
     return Array.isArray(data) && data.every((m) => typeof m === 'string') ? data : MASCOTS;
   } catch (err) {
@@ -40,7 +41,7 @@ async function mascotsOf(db: SupabaseClient): Promise<readonly string[]> {
   }
 }
 
-export async function loadFleetsPage(db: SupabaseClient, user: User): Promise<FleetsLoad> {
+export async function loadFleetsPage(db: SupabaseClient<Database>, user: User): Promise<FleetsLoad> {
   try {
     const workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { kind: 'no-workspace' };

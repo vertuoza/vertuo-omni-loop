@@ -3,10 +3,10 @@
   "framework": null,
   "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh",
   "functions": {
-    "api/github.mjs": {
+    "api/github.ts": {
       "maxDuration": 60
     },
-    "api/inngest.mjs": {
+    "api/inngest.ts": {
       "maxDuration": 300
     }
   }

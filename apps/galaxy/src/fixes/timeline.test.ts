@@ -104,6 +104,6 @@ describe('the Timeline', () => {
     expect(states(null)).toEqual(['unknown', 'unknown', 'unknown', 'unknown']);
     expect(states({ issue: UNREAD, pull: UNREAD, approvals: UNREAD, release: UNREAD })).toEqual(['unknown', 'unknown', 'unknown', 'unknown']);
     expect(states({ ...shipped, approvals: UNREAD, release: UNREAD })).toEqual(['done', 'unknown', 'done', 'unknown']);
-    expect(timelineOf('visual', null, PICKED)[1].state).toBe('done');
+    expect(timelineOf('visual', null, PICKED)[1]!.state).toBe('done');
   });
 });

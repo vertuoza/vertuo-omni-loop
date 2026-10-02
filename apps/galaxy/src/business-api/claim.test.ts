@@ -21,7 +21,7 @@ function world({ database = true } = {}) {
     },
     rpc: async (fn: string, args: Args) => {
       calls.push({ fn, args });
-      if (!users[token].member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (!users[token]!.member) return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
       if (args.p_kind === 'size' && !/^\d+\+?-\d+\+?$/.test(args.p_value)) {
         return { data: null, error: { code: '22023', message: 'Size: <min>-<max>, each one of 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000+.' } };
       }

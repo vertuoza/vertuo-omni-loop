@@ -79,7 +79,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
  * GitHub could not be read, the stages null when they could not be read. */
 function prdReads(db: Db, read: DossierRead): DossierReads {
   const { dossier } = read;
-  const prd = dossier.prd as number;
+  const prd = dossier.prd as number; // ts-allow: prdReads runs for a numbered PRD dossier only, as its comment says
   const reader = dossierGithub();
   const logged = (error: unknown) => {
     console.error(error);

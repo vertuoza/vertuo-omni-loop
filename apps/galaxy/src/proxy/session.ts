@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import type { Database } from '../../../../supabase/database.types';
 
 // Keeps the Supabase session fresh before a page renders (proxy.ts): an expired access token is
 // refreshed here, and the new cookies go both to the render (request) and to the browser (response).
@@ -16,7 +17,7 @@ export async function refreshSession(
 ): Promise<NextResponse> {
   let response = NextResponse.next({ request });
   if (!env) return response;
-  const supabase = create(env.url, env.key, {
+  const supabase = create<Database>(env.url, env.key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(list) {

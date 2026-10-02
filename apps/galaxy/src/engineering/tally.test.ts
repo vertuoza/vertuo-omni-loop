@@ -96,7 +96,7 @@ describe('the tiles', () => {
 describe('an untracked repository', () => {
   it('counts nowhere on the board: tiles, table, people, Omni Loop, chart', () => {
     const rows = [merged(3, { repo: 'acme/old', author: 'zed', mergedBy: 'zed', omniSigned: true, commits: 9 })];
-    const value = board(read({ tracked: ['acme/widgets'], pullRequests: rows, reviews: [review({ repo: 'acme/old', number: rows[0].number, reviewer: 'zed' })] }));
+    const value = board(read({ tracked: ['acme/widgets'], pullRequests: rows, reviews: [review({ repo: 'acme/old', number: rows[0]!.number, reviewer: 'zed' })] }));
     expect(value.tiles).toMatchObject({ opened: 0, merged: 0, openNow: 0, commits: 0 });
     expect(value.repositories.map((r) => r.repo)).toEqual(['acme/widgets']);
     expect(value.people).toEqual({ opened: [], merged: [], reviews: [] });
@@ -282,7 +282,7 @@ describe('only merges into main count (PRD 714 s1)', () => {
   it('leaves sub-PRs out of every part of the board but the reviews', () => {
     const real = merged(3, { author: 'bob', mergedBy: 'carl', commits: 1, additions: 10, deletions: 1 });
     const subs = [sub(), sub({ repo: 'acme/gears' }), sub({ mergedAt: null, closedAt: null, mergedBy: null })];
-    const value = board(read({ pullRequests: [real, ...subs], reviews: [review({ number: subs[0].number, reviewer: 'dora' })] }));
+    const value = board(read({ pullRequests: [real, ...subs], reviews: [review({ number: subs[0]!.number, reviewer: 'dora' })] }));
     expect(value.tiles).toEqual({ opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, additions: 10, deletions: 1 });
     expect(value.repositories).toEqual([
       { repo: 'acme/widgets', opened: 1, merged: 1, openNow: 0, medianToMerge: 3 * HOUR, commits: 1, lines: 11 },
@@ -369,7 +369,7 @@ describe('Loop health, right now (PRD 714 s2)', () => {
     const rows = Array.from({ length: 11 }, (_, i) => stuck(100 + i * 10));
     const value = health(rows);
     expect(value.rows).toHaveLength(10);
-    expect(value.rows[0].number).toBe(rows[10].number);
+    expect(value.rows[0]!.number).toBe(rows[10]!.number);
     expect(value.rows.map((r) => r.age)).toEqual([...value.rows.map((r) => r.age)].sort((a, b) => b - a));
     expect(value.more).toBe(1);
   });

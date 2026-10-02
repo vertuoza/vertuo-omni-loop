@@ -70,7 +70,7 @@ function fakeGithub(repo: {
       const under = Object.keys(files).filter((k) => k.startsWith(`${key}/`)).map((k) => k.slice(key.length + 1));
       if (!under.length) return json({ message: 'Not Found' }, 404);
       const names = [...new Set(under.map((rest) => rest.split('/')[0]))];
-      return json(names.map((name) => ({ name, type: under.includes(name) ? 'file' : 'dir' })));
+      return json(names.map((name) => ({ name, type: under.includes(name!) ? 'file' : 'dir' })));
     },
     (url) => {
       const n = /^\/repos\/acme\/widgets\/issues\/(\d+)\/comments$/.exec(url.pathname)?.[1];

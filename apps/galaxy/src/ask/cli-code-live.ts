@@ -5,6 +5,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
+import type { Database } from '../../../../supabase/database.types';
 
 // The terminal's sign-in, wired to the real Supabase (src/ask/cli-code.ts says what each step does).
 // The callback acts as the sign-in it just made, and /api/ask/token trades codes and tokens acting as
@@ -24,7 +25,7 @@ const CODE_VERIFIER = /-code-verifier$/;
 
 /** A client that keeps nothing: acting as nobody, or as `accessToken`. */
 function detached({ url, key }: Env, accessToken?: string) {
-  return createClient(url, key, {
+  return createClient<Database>(url, key, {
     ...(accessToken ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } } : {}),
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
@@ -48,7 +49,7 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
   const deps: CliCallbackDeps = {
     exchange: env
       ? async (code) => {
-          const client = createServerClient(env.url, env.key, {
+          const client = createServerClient<Database>(env.url, env.key, {
             cookies: {
               getAll: () => verifier,
               setAll(list) {

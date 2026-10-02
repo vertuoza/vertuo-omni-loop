@@ -6,8 +6,16 @@ import { tokenOf, tokensOf, type AgentToken } from './model';
 // (its field in the hint), 54000 the 21st live link, P0002 a link the workspace does not hold.
 
 export class AgentTokenStoreError extends Error {
-  constructor(readonly what: string, readonly code: string | undefined, readonly hint: string | undefined, readonly reason: string) {
+  readonly what: string;
+  readonly code: string | undefined;
+  readonly hint: string | undefined;
+  readonly reason: string;
+  constructor(what: string, code: string | undefined, hint: string | undefined, reason: string) {
     super(`${what}: ${reason}`);
+    this.what = what;
+    this.code = code;
+    this.hint = hint;
+    this.reason = reason;
   }
 }
 
@@ -16,7 +24,7 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
 type PgError = { code?: unknown; hint?: unknown; message?: unknown };
 
 function failed(what: string, error: unknown): AgentTokenStoreError {
-  const e = (error ?? {}) as PgError;
+  const e = (error ?? {}) as PgError; // ts-allow: each field is checked a string on the next lines
   return new AgentTokenStoreError(
     what,
     typeof e.code === 'string' ? e.code : undefined,

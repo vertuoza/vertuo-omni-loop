@@ -88,7 +88,7 @@ describe('a fix\'s Timeline and state (PRD 627, s5)', () => {
 
   it('opens on the Timeline: each moment with who and when, linked, then not yet', () => {
     const html = withFix('visual', fixPageView('visual', summary, { letter: 'C', login: 'pierre-derval', date: '2026-09-29' }));
-    const moments = [...html.matchAll(/<li class="fix-moment fix-moment-([a-z-]+)">(.*?)<\/li>/g)].map((m) => [m[1], m[2].replace(/<[^>]+>/g, '')]);
+    const moments = [...html.matchAll(/<li class="fix-moment fix-moment-([a-z-]+)">(.*?)<\/li>/g)].map((m) => [m[1], m[2]!.replace(/<[^>]+>/g, '')]);
     expect(moments).toEqual([
       ['done', 'Asked by @anna · 29 Sep 2026, 08:00 UTC'],
       ['done', 'Picked C by @pierre-derval · 29 Sep 2026'],

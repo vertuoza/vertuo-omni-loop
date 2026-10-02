@@ -1,11 +1,11 @@
 import 'server-only';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.mjs';
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.mjs';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
+import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { checkoutRoot } from '../data/load-knowledge';
 
 // HOME's high scores (PRD 261): what the loop has shipped building itself, counted from the shipped
@@ -29,7 +29,7 @@ export type HighScores = {
 
 const UNREAD: HighScores = { prdsShipped: NO_SCORE, slicesMerged: NO_SCORE, decisionsAdopted: NO_SCORE };
 
-const firstLine = (err: unknown) => (err instanceof Error ? err.message.split('\n')[0] : String(err));
+const firstLine = (err: unknown) => (err instanceof Error ? err.message.split('\n')[0]! : String(err));
 
 /** The high scores of the checkout at or above `cwd`; one line logged per counter it cannot read. */
 export function countHighScores({ cwd = process.cwd(), log = console.error }: { cwd?: string; log?: (line: string) => void } = {}): HighScores {

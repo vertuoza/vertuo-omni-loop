@@ -10,20 +10,21 @@
     "kit/dist/omni.mjs"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc -p . && pnpm --filter @omni/galaxy-app typecheck",
     "fallow:audit": "fallow audit",
-    "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.mjs",
-    "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.mjs",
-    "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.mjs",
-    "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.mjs",
-    "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.mjs",
-    "game:dossiers": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.mjs",
-    "game:contributions": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.mjs",
-    "releases:sync": "node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.mjs",
-    "kit:build": "node kit/build.mjs",
+    "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.ts",
+    "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.ts",
+    "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts",
+    "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.ts",
+    "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.ts",
+    "game:dossiers": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/dossiers.ts",
+    "game:contributions": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.ts",
+    "releases:sync": "node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.ts",
+    "kit:build": "node kit/build.ts",
     "galaxy:dev": "pnpm --filter @omni/galaxy-app dev",
     "galaxy:build": "pnpm --filter @omni/galaxy-app build",
     "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
@@ -32,12 +33,14 @@
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",
+    "@types/node": "^22.20.4",
     "esbuild": "^0.28.1",
     "fallow": "3.30.0",
+    "typescript": "^5.9.3",
     "vite": "^8.3.1",
     "vitest": "^4.1.11",
     "yaml": "^2.5.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.5"
   },
   "pnpm": {
     "ignoredOptionalDependencies": [

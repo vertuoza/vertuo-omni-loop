@@ -54,10 +54,10 @@ describe('the mark', () => {
       const bars: { x: number; y: number; w: number; row: number }[] = [];
       for (let i = 0; i < runs.length; i += 6) {
         const pill = runs.slice(i, i + 6);
-        const [x, y, , row] = pill[2];
-        const w = pill[2][2];
+        const [x, y, , row] = pill[2]!;
+        const w = pill[2]![2];
         pill.forEach(([px, py, pw, prow], line) => {
-          expect([px, py, pw, prow], `${letter}, bar at ${x},${y}, line ${line}`).toEqual([x + CAP[line], y - 2 + line, w - 2 * CAP[line], row]);
+          expect([px, py, pw, prow], `${letter}, bar at ${x},${y}, line ${line}`).toEqual([x + CAP[line]!, y - 2 + line, w - 2 * CAP[line]!, row]);
         });
         bars.push({ x, y: y - 2, w, row });
       }
@@ -69,7 +69,7 @@ describe('the mark', () => {
       }
       // Rows go down the box one after the other, never overlapping.
       const tops = [...new Set(bars.map((b) => b.row))].sort((m, n) => m - n).map((row) => bars.find((b) => b.row === row)!.y);
-      tops.slice(1).forEach((top, i) => expect(top - tops[i], `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6));
+      tops.slice(1).forEach((top, i) => expect(top - tops[i]!, `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6));
     }
   });
 

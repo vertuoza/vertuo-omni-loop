@@ -117,7 +117,7 @@ describe('the stages a repository shows', () => {
   });
 
   it('keeps each row\'s repository in lower case', () => {
-    expect(stagesOfRepo(snapshot({ shipped: ['0042-dark-mode'] }), SYNC).stages[0].repository).toBe('acme/widgets');
+    expect(stagesOfRepo(snapshot({ shipped: ['0042-dark-mode'] }), SYNC).stages[0]!.repository).toBe('acme/widgets');
   });
 
   it('refuses a config that is not a valid Omni Loop config, naming the repository', () => {

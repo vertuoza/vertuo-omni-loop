@@ -116,8 +116,8 @@ describe('their PRDs and fixes (s5)', () => {
     expect(down.lists).toBe('unreadable');
     const bare = await loadProfile(reads({ stages: true, fixFacts: true }), request());
     if (bare.kind !== 'profile' || bare.lists === 'unreadable') throw new Error('no lists');
-    expect(bare.lists.prd.rows[0].stage).toBeNull();
-    expect(bare.lists.bug.rows[0].stateLabel).toBe('—');
+    expect(bare.lists.prd.rows[0]!.stage).toBeNull();
+    expect(bare.lists.bug.rows[0]!.stateLabel).toBe('—');
   });
 });
 

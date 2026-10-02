@@ -90,7 +90,7 @@ describe('a board', () => {
 
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
-    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(m[1]));
+    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(m[1]!));
     expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
     expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
     expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
@@ -104,7 +104,7 @@ describe('a board', () => {
         { ...member('u-paul', 'paetienne', null, 'Paul Etienne'), avatarUrl: 'https://a.test/paul.png' }, member('u-nog', null, null, 'NOGIT')],
     }, {}, {}, false);
     const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
-    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]);
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]!);
     expect(names.find((n) => n.includes('ADA'))).toMatch(/^<a class="person-chip is-table" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg /);
     expect(names.find((n) => n.includes('Paul'))).toContain('<img class="person-face is-photo" src="https://a.test/paul.png" alt=""');
     expect(names.find((n) => n.includes('NOGIT'))).toContain('data-initial="N"');

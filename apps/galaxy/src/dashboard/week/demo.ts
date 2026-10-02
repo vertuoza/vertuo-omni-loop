@@ -11,5 +11,5 @@ export const DEMO_MERGES = [2, 1, 3, 1, 0, 0, 2] as const;
 
 export const demoWeek: PartDemo<WeekValue> = ({ now }) => ({
   kind: 'week',
-  days: weekDays(now).map((date, i) => ({ date, count: DEMO_MERGES[i] })),
+  days: weekDays(now).map((date, i) => ({ date, count: DEMO_MERGES[i]! })),
 });

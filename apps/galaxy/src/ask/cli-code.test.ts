@@ -121,7 +121,7 @@ function world() {
       calls.place.push(`${userId} ${repo}`);
       if (state.placeFails) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
       const pick = places[userId]?.[repo] ?? { workspace_id: null, refusal: `no workspace owns ${repo} yet — install the Omni App` };
-      return { workspace: pick.workspace_id ? workspaces[pick.workspace_id] : null, reason: pick.refusal };
+      return { workspace: pick.workspace_id ? workspaces[pick.workspace_id]! : null, reason: pick.refusal };
     },
     installLink: INSTALL,
   };

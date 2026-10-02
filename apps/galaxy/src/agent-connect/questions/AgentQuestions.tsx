@@ -1,5 +1,6 @@
 'use client';
 import { createBrowserClient } from '@supabase/ssr';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { useReducer, useRef } from 'react';
 import type { Product } from '../../business/model';
 import type { AgentQuestion } from './model';
@@ -28,7 +29,7 @@ export function AgentQuestions({ source, questions, products }: AgentQuestionsPr
   const port = useRef<QuestionsPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoQuestions(source.lastSeq)
-    : databaseQuestions(createBrowserClient(source.url, source.key) as unknown as Rpc, source.workspace));
+    : databaseQuestions(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the port takes only the narrow rpc it calls
 
   const save = async () => {
     const answering = state.answering;

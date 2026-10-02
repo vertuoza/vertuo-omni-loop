@@ -94,7 +94,7 @@ describe('the hero', () => {
     const fired = frames.filter((g) => g.events.includes('fire')).length;
     expect(fired).toBeGreaterThanOrEqual(1);
     // A new bolt leaves only once the last one is gone.
-    frames.forEach((g, i) => { if (g.events.includes('fire') && i > 0) expect(frames[i - 1].bolt).toBeNull(); });
+    frames.forEach((g, i) => { if (g.events.includes('fire') && i > 0) expect(frames[i - 1]!.bolt).toBeNull(); });
   });
 });
 
@@ -122,12 +122,12 @@ describe('a hit', () => {
   it('wears a shield away, from below and from above', () => {
     const g = playing();
     const s = g.shields[0];
-    const cells = (x: Game) => x.shields[0].cells.filter(Boolean).length;
+    const cells = (x: Game) => x.shields[0]!.cells.filter(Boolean).length;
     const f = FIELDS.wide.shields;
-    const up = step({ ...g, bolt: { x: s.x + 20, y: s.y + f.rows * f.cell - 4 } }, NONE, FRAME);
+    const up = step({ ...g, bolt: { x: s!.x + 20, y: s!.y + f.rows * f.cell - 4 } }, NONE, FRAME);
     expect(cells(up)).toBeLessThan(cells(g));
     expect(up.bolt).toBeNull();
-    const down = step({ ...g, bombs: [{ x: s.x + 20, y: s.y - 6 }] }, NONE, FRAME);
+    const down = step({ ...g, bombs: [{ x: s!.x + 20, y: s!.y - 6 }] }, NONE, FRAME);
     expect(cells(down)).toBeLessThan(cells(g));
     expect(down.bombs).toEqual([]);
   });

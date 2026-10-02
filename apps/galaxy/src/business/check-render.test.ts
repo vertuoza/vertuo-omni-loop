@@ -45,7 +45,7 @@ const row = (html: string, id: string) => {
   const from = html.indexOf(`data-check="${id}"`);
   return from < 0 ? '' : html.slice(from, html.indexOf('</li>', from));
 };
-const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
+const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(m[2]!) }));
 
 describe('what the recheck found, on top', () => {
   it('comes first on the page, before the sentence', () => {
@@ -111,7 +111,7 @@ describe('settling what the recheck found', () => {
 
   it('wires ✓ and ✗ to settle, ✓ Still true to stillTrue and ✗ Wrong on a faded claim to reject', () => {
     const html = render(RECHECKED, { on });
-    const names = buttons(card(html)).map((b) => /aria-label="([^"]+)"/.exec(b.attrs)?.[1]);
+    const names = buttons(card(html)).map((b) => /aria-label="([^"]+)"/.exec(b.attrs!)?.[1]);
     expect(names).toEqual([
       'Right: CRM replaces ERP', 'Wrong: CRM replaces ERP',
       'Right: add France', 'Wrong: add France',
@@ -121,11 +121,11 @@ describe('settling what the recheck found', () => {
   });
 
   it('✓ on a replacement confirms the new and rejects the old; ✗ the reverse', () => {
-    const right = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3], state: 'confirmed' } }] });
+    const right = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3]!, state: 'confirmed' } }] });
     expect(row(right, 'offering#4')).toBe('');
     expect(right).toContain('data-claim="offering#4" data-state="confirmed"');
     expect(right).not.toContain('data-claim="offering#3" data-state="confirmed"');
-    const wrong = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3], state: 'rejected' } }] });
+    const wrong = render(RECHECKED, { actions: [{ type: 'settled', claim: { ...RECHECKED[3]!, state: 'rejected' } }] });
     expect(wrong).toContain('data-claim="offering#3" data-state="confirmed"');
   });
 

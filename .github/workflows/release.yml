@@ -1,5 +1,5 @@
 # The kit's release (PRD 347): every push to main cuts the next version, v0.0.1, v0.0.2, … The logic
-# lives in kit/release/release.mjs, with its tests; this workflow only checks out main with its whole
+# lives in kit/release/release.ts, with its tests; this workflow only checks out main with its whole
 # history and tags, installs, and calls it. The script stamps the version in package.json, plugin.json
 # and the bundle, commits them to main as `chore(release): v0.0.N`, tags it and publishes the GitHub
 # Release with the bundle attached. That commit is the one push to main a person does not make (the
@@ -38,4 +38,4 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: node kit/release/release.mjs
+      - run: node kit/release/release.ts

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   if (params.get('next') === 'ask-cli') {
     const { deps, spent } = cliCallbackDeps(request.cookies.getAll());
-    const joining = joinBeforeIssue(deps, (session) => settleSignIn(supabaseAs(session.access_token), session as SignedIn, signInDeps));
+    const joining = joinBeforeIssue(deps, (session) => settleSignIn(supabaseAs(session.access_token), session as SignedIn, signInDeps)); // ts-allow: a session Supabase issued carries what SignedIn names
     const response = NextResponse.redirect(await cliSignInReturn(request.nextUrl, origin(request), joining));
     for (const { name, value, options } of spent) response.cookies.set(name, value, options);
     return response;
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return back('signin_error', 'That sign-in could not be finished. Start again from this browser.');
   }
 
-  const session = (data?.session as SignedIn | null | undefined) ?? null;
+  const session = (data?.session as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
   const [key, value] = await afterSignIn(db, session, signInDeps, params.get('next'));
   // Someone still in no workspace goes straight on to sign-up, not to the arcade's dead end.
   if (session && key === 'signin' && (await landingAfterSignIn(db, session.user.id)) === '/signup') {

@@ -27,7 +27,7 @@ type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data:
 
 /** A refusal as the card says it: the product to pick, a Never line's own length, or the business's words. */
 function said(error: unknown, kind: ClaimKind | null): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
+  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown }; // ts-allow: each field is compared, never trusted
   if (code === '22023' && hint === 'product') return PICK_PRODUCT;
   if (code === '22023' && kind === 'never') return NEVER_INVALID;
   return refusalOf(error);
@@ -38,7 +38,7 @@ export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
   const call = async (fn: string, args: Record<string, unknown>, kind: ClaimKind | null): Promise<Called> => {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
-      return error || !data ? { ok: false, message: said(error, kind) } : { ok: true, data: data as { claim?: unknown } };
+      return error || !data ? { ok: false, message: said(error, kind) } : { ok: true, data: data as { claim?: unknown } }; // ts-allow: the claim is read through String() below
     } catch (err) {
       return { ok: false, message: said(err, kind) };
     }

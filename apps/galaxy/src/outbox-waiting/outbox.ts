@@ -78,7 +78,7 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
     console.error(`Waiting outbox: the dossiers could not be read: ${error.message}`);
     return json(500, { error: 'The dossiers could not be read.' });
   }
-  const dossiers = ((data ?? []) as WaitingDossier[]).filter((d) => typeof d.prd === 'number');
+  const dossiers = ((data ?? []) as WaitingDossier[]).filter((d) => typeof d.prd === 'number'); // ts-allow: the select names this shape columns; the prd is checked on this line
 
   const store = deps.outbox(who.db);
   if (!store) return json(200, { items: [], unread: dossiers.length } satisfies WaitingOutbox);
@@ -91,7 +91,7 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
       return own.map((dossier) => ({ dossier, items: waitingItems(dossier, counts.get(prdKey({ repository: dossier.home_repo, prd: dossier.prd }))), unread: false }));
     } catch (error) {
       console.error(`Waiting outbox: the outboxes of workspace ${workspace} could not be read: ${error instanceof Error ? error.message : String(error)}`);
-      return own.map((dossier) => ({ dossier, items: [] as WaitingOutboxItem[], unread: true }));
+      return own.map((dossier) => ({ dossier, items: [] as WaitingOutboxItem[], unread: true })); // ts-allow: a dossier with no items starts with an empty list
     }
   }))).flat();
 

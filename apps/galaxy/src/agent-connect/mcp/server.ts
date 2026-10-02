@@ -55,7 +55,8 @@ const repoInput = z.string().max(200).regex(REPO, 'the repository as owner/name'
 /** The token's SHA-256, or null when the header carries no token of the shape a link has. */
 async function hashOf(header: string | null): Promise<string | null> {
   const match = /^Bearer\s+(\S+)\s*$/i.exec(header ?? '');
-  return match && isTokenShaped(match[1]) ? hashToken(match[1]) : null;
+  const token = match?.[1];
+  return token && isTokenShaped(token) ? hashToken(token) : null;
 }
 
 const text = (body: string, isError = false) => ({ content: [{ type: 'text' as const, text: body }], ...(isError ? { isError: true } : {}) });
@@ -76,7 +77,7 @@ const reportSchema = z.object({ id: z.string().optional(), asked: z.number().cat
 /** The report the database stored, or its refusal thrown as a BusinessStoreError. */
 function reportOf({ data, error }: { data: unknown; error: unknown }) {
   if (error) {
-    const { code, message } = error as { code?: string; message?: string };
+    const { code, message } = error as { code?: string; message?: string }; // ts-allow: a PostgREST error carries its code and message
     throw new BusinessStoreError(code, message ?? 'no answer');
   }
   return reportSchema.parse(data ?? {});
@@ -97,7 +98,7 @@ function server(hash: string | null, deps: McpDeps): McpServer {
     // businessReader() asks for business_for_repo(); the link reads business_for_token(), same body.
     const reader = businessReader({
       rpc: ((_fn: string, args: { p_repo: string }) =>
-        db.rpc('business_for_token', { p_hash: hash, p_repo: args.p_repo || null })) as never,
+        db.rpc('business_for_token', { p_hash: hash, p_repo: args.p_repo || null })) as never, // ts-allow: the reader's rpc port, answered by business_for_token() instead
     });
     return reader.forRepo(repo ?? '');
   };

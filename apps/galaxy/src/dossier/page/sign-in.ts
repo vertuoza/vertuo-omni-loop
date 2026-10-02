@@ -43,7 +43,7 @@ async function signInReturn(url: URL, back: URL, exchange: Exchange | null, join
       try {
         await join();
       } catch (failure) {
-        console.error(`dossier sign-in: ${(failure as Error).message}`);
+        console.error(`dossier sign-in: ${(failure as Error).message}`); // ts-allow: the sign-in call throws only Error
       }
     }
   }

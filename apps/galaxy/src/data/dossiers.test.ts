@@ -227,8 +227,8 @@ describe('demoDossiers', () => {
     const distress = view.planets.find((p) => p.state === 'distress')!;
     const d = demoDossiers(NOW)[distress.prd];
     expect(d).toBeDefined();
-    expect(d.last.length).toBeGreaterThan(0);
-    expect(Object.values(d.latest)).toContain(null);
+    expect(d!.last.length).toBeGreaterThan(0);
+    expect(Object.values(d!.latest)).toContain(null);
   });
 
   it('keeps every demo dossier as the tab takes it: at most three answers, never more answered than asked, dated no later than now', () => {
