@@ -4,12 +4,21 @@
 // PRESS START (an element carrying `data-press-start`) start the game, flips a trading card on a
 // click (spreads/flip.ts), flashes CHEAT ACTIVATED!, and makes a click on SIGN UP WITH GITHUB (an
 // element carrying `data-sign-up`) start the GitHub sign-in (sign-up.ts, PRD 359).
+// SELECT YOUR APP (PRD 932): that click first opens the character select (selector/Selector.tsx),
+// drawn here in the browser only, and its pick starts the sign-in, saved first when REMEMBER MY
+// CHOICE is on. While it is open it owns the keyboard: Enter picks, and never starts the game.
+// A remembered pick skips the overlay: the click goes straight to GitHub with it, and the line under
+// each button, drawn here in its wrapper, says where it opens; its **change** forgets the pick and
+// opens the overlay (selector/choice.ts).
 // Without JavaScript, PRESS START is still a plain link to /play.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
 import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
-import { SIGN_UP_ATTR, signUp } from './sign-up';
+import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice } from './selector/choice';
+import { Selector } from './selector/Selector';
+import { SIGN_UP_ATTR, signUp, type AppPick } from './sign-up';
 import { flipCard } from './spreads/flip';
 import { PRESS_START_ATTR, pressStart, startsOnKey } from './start';
 
@@ -33,8 +42,57 @@ function storage(): Storage | null {
 export function Controls() {
   const [cheat, setCheat] = useState(false);
   const [signUpError, setSignUpError] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  /** The remembered pick, read once the page is in the browser: the server never draws its line. */
+  const [saved, setSaved] = useState<AppPick | null>(null);
+  /** The wrappers of the SIGN UP WITH GITHUB buttons, where the hint line is drawn. */
+  const [slots, setSlots] = useState<Element[]>([]);
   const started = useRef(false);
   const signingUp = useRef(false);
+  /** The SIGN UP WITH GITHUB button that opened the overlay: it takes the focus back on close. */
+  const opener = useRef<Element | null>(null);
+  const open = useRef(false);
+
+  const closeSelector = () => {
+    open.current = false;
+    setSelecting(false);
+    if (opener.current instanceof HTMLElement) opener.current.focus();
+  };
+
+  const go = (pick: AppPick, save: boolean) => {
+    const button = opener.current;
+    if (signingUp.current || !button) return;
+    if (save) {
+      saveChoice(storage(), pick);
+      setSaved(readChoice(storage()));
+    }
+    signingUp.current = true;
+    button.setAttribute('aria-busy', 'true');
+    setSignUpError(null);
+    void signUp({
+      supabase: supabase(),
+      origin: window.location.origin,
+      start: startGithubSignIn,
+      go: (href) => window.location.assign(href),
+    }, pick).then((failure) => {
+      if (!failure) return;
+      signingUp.current = false;
+      button.removeAttribute('aria-busy');
+      closeSelector();
+      setSignUpError(failure);
+    });
+  };
+
+  const openSelector = () => {
+    open.current = true;
+    setSignUpError(null);
+    setSelecting(true);
+  };
+
+  useEffect(() => {
+    setSaved(readChoice(storage()));
+    setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
+  }, []);
 
   useEffect(() => {
     const start = (holdMs = 0) => {
@@ -50,6 +108,7 @@ export function Controls() {
     const code = konami();
 
     const onKey = (e: KeyboardEvent) => {
+      if (open.current) return;
       if (code(e.key)) {
         setCheat(true);
         start(CHEAT_MS);
@@ -66,26 +125,24 @@ export function Controls() {
       if (e.defaultPrevented || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (flipCard(target)) return;
+      const change = target?.closest(`[${CHANGE_ATTR}]`);
+      if (change) {
+        e.preventDefault();
+        if (signingUp.current || open.current) return;
+        opener.current = change.closest(`[${HINT_SLOT_ATTR}]`)?.querySelector(`[${SIGN_UP_ATTR}]`) ?? null;
+        changeChoice({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
+        setSaved(null);
+        return;
+      }
       const button = target?.closest(`[${SIGN_UP_ATTR}]`);
       if (button) {
         e.preventDefault();
-        if (signingUp.current) return;
-        signingUp.current = true;
-        button.setAttribute('aria-busy', 'true');
-        setSignUpError(null);
-        void signUp({
-          supabase: supabase(),
-          origin: window.location.origin,
-          start: startGithubSignIn,
-          go: (href) => window.location.assign(href),
-        }).then((failure) => {
-          if (!failure) return;
-          signingUp.current = false;
-          button.removeAttribute('aria-busy');
-          setSignUpError(failure);
-        });
+        if (signingUp.current || open.current) return;
+        opener.current = button;
+        answerSignUp({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
         return;
       }
+      if (open.current) return;
       if (!target?.closest(`[${PRESS_START_ATTR}]`)) return;
       e.preventDefault();
       start();
@@ -99,12 +156,22 @@ export function Controls() {
     };
   }, []);
 
+  const hint = hintLine(saved);
+
   return (
     <>
       <div className="home-cheat" role="status" aria-live="assertive" hidden={!cheat}>
         {cheat ? 'CHEAT ACTIVATED!' : null}
       </div>
+      {selecting ? <Selector onGo={go} onClose={closeSelector} /> : null}
       {signUpError ? <p className="home-signup-error" role="alert">{signUpError}</p> : null}
+      {hint ? slots.map((slot, i) => createPortal(
+        <span className="home-signup-hint">
+          {hint.opens} · <button type="button" className="home-signup-change" {...{ [CHANGE_ATTR]: '' }}>{hint.change}</button>
+        </span>,
+        slot,
+        `hint-${i}`,
+      )) : null}
     </>
   );
 }

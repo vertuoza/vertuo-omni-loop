@@ -20,7 +20,11 @@ vi.mock('../data/supabase-server', () => ({
   supabaseServer: async () => { await supabase.server(); return { auth: { exchangeCodeForSession: supabase.exchange } }; },
   supabaseAs: () => { throw new Error('not in this test'); },
 }));
-vi.mock('../data/sign-in', () => ({ afterSignIn, joinBeforeIssue: () => { throw new Error('not in this test'); } }));
+vi.mock('../data/sign-in', async (actual) => ({
+  appLanding: (await actual<typeof import('../data/sign-in')>()).appLanding,
+  afterSignIn,
+  joinBeforeIssue: () => { throw new Error('not in this test'); },
+}));
 vi.mock('../data/workspace', () => ({ joinByDomain: () => { throw new Error('not in this test'); } }));
 vi.mock('./scores', async (actual) => ({ ...(await actual<typeof import('./scores')>()), countHighScores: highScores }));
 vi.mock('../ask/cli-code-live', () => ({ cliCallbackDeps: () => { throw new Error('not in this test'); } }));
@@ -150,6 +154,24 @@ describe('the poster', () => {
     }
   });
 
+  it('leaves SELECT YOUR APP out of the server markup: the controls draw it in the browser, on a click (PRD 932)', async () => {
+    const html = await render();
+    expect(html).not.toContain('SELECT YOUR APP');
+    expect(html).not.toContain('home-select');
+    expect(html).not.toContain('REMEMBER MY CHOICE');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
+  it('carries no hint line under the sign-up buttons, only the empty place the browser draws it in (PRD 932, s4)', async () => {
+    const html = await render();
+    expect(html).not.toMatch(/Opens the (Omni app|Arcade)/);
+    expect(html).not.toContain('data-sign-up-change');
+    expect(html).not.toContain('home-signup-hint');
+    const slots = [...html.matchAll(/<span\b[^>]*data-sign-up-hint=""[^>]*>([\s\S]*?)<\/span>/g)];
+    expect(slots).toHaveLength(2);
+    for (const [, inner] of slots) expect(text(inner ?? '')).toBe('SIGN UP WITH GITHUB');
+  });
+
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
     const html = await render();
     const starts = [...html.matchAll(/<a\b[^>]*>PRESS START<\/a>/g)].map(([a]) => a);
@@ -257,6 +279,30 @@ describe('coming back to the game', () => {
 
   it('sends a refused sign-in back to /play, with the reason', async () => {
     const back = await callback('?error=access_denied&error_description=Nope');
+    expect(back.pathname).toBe('/play');
+    expect(back.searchParams.get('signin_error')).toBe('Nope');
+  });
+
+  it('lands a finished sign-in that picked the Omni app on /app (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    supabase.server.mockResolvedValueOnce(undefined as never);
+    const back = await callback('?code=github&next=app');
+    expect(back.pathname).toBe('/app');
+    expect(back.origin).toBe('https://galaxy.example');
+  });
+
+  it('never lands on a path taken from next (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    for (const next of ['//evil.example', 'https%3A%2F%2Fevil.example', '%2Fapp%2F..%2Fx', 'arcade']) {
+      supabase.server.mockResolvedValueOnce(undefined as never);
+      const back = await callback(`?code=github&next=${next}`);
+      expect(back.origin).toBe('https://galaxy.example');
+      expect(back.pathname).toBe('/play');
+    }
+  });
+
+  it('sends a refused sign-in that picked the Omni app back to /play, with the reason (PRD 932)', async () => {
+    const back = await callback('?next=app&error=access_denied&error_description=Nope');
     expect(back.pathname).toBe('/play');
     expect(back.searchParams.get('signin_error')).toBe('Nope');
   });
