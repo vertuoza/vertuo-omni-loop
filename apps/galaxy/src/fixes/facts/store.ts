@@ -9,6 +9,7 @@ import type { Database } from '../../../../../supabase/database.types.ts';
 import { z } from 'zod';
 import type { FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
+import { textOf } from '../../data/unparsed';
 import { settle } from '../../stages/store';
 
 const TABLE = 'fix_facts';
@@ -24,7 +25,7 @@ export type FixFactsStore = {
 };
 
 /** A part as stored: its value, or UNREAD. */
-const read = <T extends z.ZodTypeAny>(part: T) => z.union([z.literal(UNREAD), part]);
+const read = <T extends z.ZodType>(part: T) => z.union([z.literal(UNREAD), part]);
 
 const Summary = z.object({
   issue: read(z.object({
@@ -54,7 +55,7 @@ export function fixFactsStore(db: Pick<SupabaseClient<Database>, 'from'>): FixFa
       settle('read the fix facts', error);
       for (const row of data ?? []) {
         const summary = factsOf(row.facts);
-        if (summary) facts.set(String(row.dossier_id), summary);
+        if (summary) facts.set(textOf(row.dossier_id), summary);
       }
       return facts;
     },

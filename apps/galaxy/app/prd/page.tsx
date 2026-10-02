@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { arcadeMode } from '../../src/data/mode';
+import { listOf } from '../../src/data/unparsed';
 import type { DossierListRow } from '../../src/dossier/store';
 import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
@@ -45,10 +46,10 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 
 /** The demo's stored outboxes: the demo dossier's PRD, counted from its built-in summary. */
 const DEMO_READER: Pick<PrdOutboxStore, 'countsOf'> = {
-  countsOf: async (_workspace, prds) => {
+  countsOf: (_workspace, prds) => {
     const demo = countsOf(DEMO_GITHUB);
     const key = prdKey({ repository: DEMO_GITHUB.repo, prd: DEMO_GITHUB.prd });
-    return new Map(demo ? prds.filter((p) => prdKey(p) === key).map((p): [string, OutboxCounts] => [prdKey(p), demo]) : []);
+    return Promise.resolve(new Map(demo ? prds.filter((p) => prdKey(p) === key).map((p): [string, OutboxCounts] => [prdKey(p), demo]) : []));
   },
 };
 
@@ -85,7 +86,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
     const whom = login ? await readLoginIds(rows, login, async (workspace) => {
       const { data, error } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return listOf(data);
     }) : undefined;
     const [open, stages] = await Promise.all([
       readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),

@@ -60,11 +60,11 @@ function PickerScreen({ games, sel, asking, onMove, onPlay, onFold }: {
     if (l.asking && action !== 'b') return; // the question comes first: ANSWER, or fold
     const r = pickerPress(l.games, l.sel, action);
     if (!r) return;
-    if ('fold' in r) return l.onFold();
-    if ('play' in r) return l.onPlay(r.play);
+    if ('fold' in r) { l.onFold(); return; }
+    if ('play' in r) { l.onPlay(r.play); return; }
     l.onMove(r.sel);
   }, []);
-  const fold = useCallback(() => live.current.onFold(), []);
+  const fold = useCallback(() => { live.current.onFold(); }, []);
   const nothing = useCallback(() => {}, []);
   useDockKeys(act, null, fold, nothing);
   return (
@@ -91,10 +91,10 @@ export default function DockGame({ games = INVADERS_ONLY, chosen = null, onChoos
   }, [games, onFold]);
 
   if (screen.kind === 'picker') {
-    return <PickerScreen games={games} sel={screen.sel} asking={asking} onMove={(sel) => setScreen({ kind: 'picker', sel })} onPlay={play} onFold={onFold} />;
+    return <PickerScreen games={games} sel={screen.sel} asking={asking} onMove={(sel) => { setScreen({ kind: 'picker', sel }); }} onPlay={play} onFold={onFold} />;
   }
   if (screen.game === 'platformer') {
-    return <DockPlatformer asking={asking} hero={ship} team={team} back={back} onBack={() => leave('platformer')} onFold={onFold} />;
+    return <DockPlatformer asking={asking} hero={ship} team={team} back={back} onBack={() => { leave('platformer'); }} onFold={onFold} />;
   }
-  return <DockInvaders asking={asking} hero={ship} team={team} values={values} scores={scores} back={back} onBack={() => leave('invaders')} onFold={onFold} />;
+  return <DockInvaders asking={asking} hero={ship} team={team} values={values} scores={scores} back={back} onBack={() => { leave('invaders'); }} onFold={onFold} />;
 }

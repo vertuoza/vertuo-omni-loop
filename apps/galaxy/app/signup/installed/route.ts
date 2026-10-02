@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   back.search = setupQuery(setup).toString();
   const db = await supabaseServer();
   const { data, error } = await db.auth.signInWithOAuth(githubSignIn(back.toString(), { fromServer: true }));
-  if (error || !data?.url) {
+  if (error || !data.url) {
     console.error(`sign-up: GitHub sign-in could not start (${error?.message ?? 'no address'})`);
     return NextResponse.redirect(setupReturn({ kind: 'error', reason: 'github' }, origin));
   }

@@ -74,11 +74,12 @@ export function pullRequestsOf(rows: readonly PullRequestRow[], login: string, w
   const who = login.toLowerCase();
   const chosen = rows.flatMap((r): ProfilePullRequest[] => {
     if (r.author?.toLowerCase() !== who) return [];
-    const merged = within(r.mergedAt, window);
+    // When it merged, if that falls within the period.
+    const merged = within(r.mergedAt, window) ? r.mergedAt : null;
     if (!merged && !within(r.openedAt, window)) return [];
     return [{
       repo: r.repo, number: r.number, url: githubPullUrl(r.repo, r.number), event: merged ? 'merged' : 'opened',
-      at: merged ? r.mergedAt! : r.openedAt, additions: r.additions, deletions: r.deletions,
+      at: merged ?? r.openedAt, additions: r.additions, deletions: r.deletions,
     }];
   });
   return capped(chosen.sort(newestFirst));

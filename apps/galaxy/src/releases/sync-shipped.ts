@@ -11,6 +11,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
@@ -36,10 +37,11 @@ function shippedFolders(root: string): Folder[] {
   const shipped: string = ctx.layout.dirs.shipped;
   if (!existsSync(join(root, shipped))) return [];
   return readdirSync(join(root, shipped), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && parseFolderName(entry.name))
-    .map((entry) => {
+    .flatMap((entry) => {
+      const folder = entry.isDirectory() ? parseFolderName(entry.name) : null;
+      if (!folder) return [];
       const dir = `${shipped}/${entry.name}`;
-      return { prd: parseFolderName(entry.name)!.prd, dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) };
+      return [{ prd: folder.prd, dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) }];
     })
     .sort((a, b) => a.prd - b.prd);
 }
@@ -51,7 +53,7 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
     const text = read(folder.note);
     const broken = gradeReleaseNote(text, { prd: folder.prd });
     if (broken.length) return { refused: broken.map((rule) => `${folder.note}: ${rule}`) };
-    const note = parseReleaseNote(text).note!; // ts-allow: a note the grade passed parses
+    const note = defined(parseReleaseNote(text).note, `${folder.note}, a note the grade passed,`);
     return { words: { title: note.title, description: note.description, pinned: note.version === INITIAL_VERSION } };
   }
   const spec = parseSpec(read(folder.spec), { file: folder.spec });

@@ -44,9 +44,9 @@ class ConstituentsStoreError extends Error {
 
 /** A read of the database function `fn` for `repo`, checked against the contract's schema. */
 async function readFor(db: Pick<SupabaseClient, 'rpc'>, fn: string, repo: string): Promise<ConstituentsRead> {
-  const { data, error } = await db.rpc(fn, { p_repo: repo });
-  if (error) throw new ConstituentsStoreError(error.code, error.message);
-  const read = constituentsReadSchema.safeParse(data);
+  const answer = await db.rpc(fn, { p_repo: repo });
+  if (answer.error) throw new ConstituentsStoreError(answer.error.code, answer.error.message);
+  const read = constituentsReadSchema.safeParse(answer.data);
   if (!read.success) throw new ConstituentsStoreError(undefined, `an unexpected answer: ${read.error.issues[0]?.message ?? 'malformed'}`);
   return read.data;
 }
