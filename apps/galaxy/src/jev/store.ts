@@ -1,4 +1,6 @@
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { isRecord } from './is-record';
 
 // The one way into Jev's three tables (supabase/migrations/20261022090000_jev_decisions.sql, PRD 812).
@@ -75,10 +77,9 @@ export class JevStoreError extends Error {
 }
 
 type Failure = { message?: string; code?: string } | null | undefined;
-type Result = { data: unknown; error: Failure };
 
-/** The Supabase client's calls this store makes, loosely typed so a test can record them. */
-type Db = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<Result>; from(table: string): any }; // ts-allow: the query chain is Supabase's builder, whose typed form a test's recording fake cannot match
+/** The Supabase client's calls this store makes; a test hands it a recording fake. */
+type Db = Pick<SupabaseClient<Database>, 'rpc' | 'from'>;
 
 function settle(what: string, error: Failure): void {
   if (error) throw new JevStoreError(what, error.code, error.message ?? 'no reason given');
@@ -111,7 +112,7 @@ const DECISION_COLUMNS = 'decision, mode, threshold, confidence_floor';
 const CALL_COLUMNS = 'id, decision, mode, outcome, model, jev_answer, confidence, old_answer, counted, decided_by, ref, reason, ms, called_at';
 
 const first = (data: unknown): Record<string, unknown> | null => {
-  const row = Array.isArray(data) ? data[0] : data;
+  const row: unknown = Array.isArray(data) ? data[0] : data;
   return isRecord(row) ? row : null;
 };
 
