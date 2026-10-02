@@ -35,7 +35,7 @@ describe('the Proof tab read', () => {
   it('reads the runs newest first, and signs and fetches the shown run only', async () => {
     const w = world();
     await seed(w);
-    const text = vi.fn(async (url: string) => `// script at ${url}`);
+    const text = vi.fn((url: string) => Promise.resolve(`// script at ${url}`));
     const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: true, version: null }, text);
     expect(read?.runs.map((r) => r.id)).toEqual([NEW, OLD]);
     expect(read?.shown).toEqual({
@@ -53,7 +53,7 @@ describe('the Proof tab read', () => {
   it('signs the run the picker names', async () => {
     const w = world();
     await seed(w);
-    const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: true, version: 1 }, async () => '');
+    const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: true, version: 1 }, () => Promise.resolve(''));
     expect(read?.shown?.id).toBe(OLD);
     expect(Object.keys(read?.shown?.links ?? {})).toEqual(['1-a.webm']);
   });
@@ -61,7 +61,7 @@ describe('the Proof tab read', () => {
   it('signs nothing off the Proof tab', async () => {
     const w = world();
     await seed(w);
-    const text = vi.fn(async () => '');
+    const text = vi.fn(() => Promise.resolve(''));
     const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: false, version: null }, text);
     expect(read).toMatchObject({ shown: null });
     expect(read?.runs).toHaveLength(2);
@@ -71,9 +71,7 @@ describe('the Proof tab read', () => {
   it('keeps a script whose text could not be fetched as null, and the run shown', async () => {
     const w = world();
     await seed(w);
-    const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: true, version: null }, async () => {
-      throw new Error('offline');
-    });
+    const read = await readProofs(w.client('tok-pierre').proofs, D, { sign: true, version: null }, () => Promise.reject(new Error('offline')));
     expect(read?.shown?.scripts).toEqual({ '1-a.spec.ts': null });
     expect(read?.shown?.links['1-a.webm']).toMatch(/^https:/);
   });
@@ -81,14 +79,14 @@ describe('the Proof tab read', () => {
   it('reads no run for a viewer of another workspace, and none on a dossier without one', async () => {
     const w = world();
     await seed(w);
-    expect(await readProofs(w.client('tok-stranger').proofs, D, { sign: true, version: null }, async () => '')).toEqual({ runs: [], shown: null });
-    expect(await readProofs(world().client('tok-pierre').proofs, D, { sign: true, version: null }, async () => '')).toEqual({ runs: [], shown: null });
+    expect(await readProofs(w.client('tok-stranger').proofs, D, { sign: true, version: null }, () => Promise.resolve(''))).toEqual({ runs: [], shown: null });
+    expect(await readProofs(world().client('tok-pierre').proofs, D, { sign: true, version: null }, () => Promise.resolve(''))).toEqual({ runs: [], shown: null });
   });
 
   it('is null when the runs could not be read, so the tab stays hidden and the page stands', async () => {
-    const store = { runs: async () => { throw new Error('down'); }, links: async () => [] };
+    const store = { runs: () => Promise.reject(new Error('down')), links: () => Promise.resolve([]) };
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(await readProofs(store, D, { sign: true, version: null }, async () => '')).toBeNull();
+    expect(await readProofs(store, D, { sign: true, version: null }, () => Promise.resolve(''))).toBeNull();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });

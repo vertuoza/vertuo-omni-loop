@@ -159,8 +159,8 @@ async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnT
   const elsewhere = misrouted('prd', route, id, query);
   if (elsewhere) redirect(elsewhere);
   const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
-  const content = async (shownId: string) => demoContent(shownId);
-  const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, async () => DEMO_VOICE_CAST)]);
+  const content = (shownId: string) => Promise.resolve(demoContent(shownId));
+  const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, () => Promise.resolve(DEMO_VOICE_CAST))]);
   return <DossierPage view={view} markdown={markdown} voice={voice} supabase={null} />;
 }
 

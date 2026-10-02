@@ -18,7 +18,7 @@ export function PinnedHead({ children }: { children: ReactNode }) {
     const box = head.current;
     const page = box?.parentElement;
     if (!box || !page || typeof ResizeObserver === 'undefined') return;
-    const write = () => page.style.setProperty('--dossier-head-h', headHeight(box.getBoundingClientRect().height));
+    const write = () => { page.style.setProperty('--dossier-head-h', headHeight(box.getBoundingClientRect().height)); };
     write();
     const observer = new ResizeObserver(write);
     observer.observe(box);

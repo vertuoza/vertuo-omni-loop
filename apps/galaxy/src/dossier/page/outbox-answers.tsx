@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { answered, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
 import type { Face } from '../../people/face';
 import { LoginChip } from './LoginChip';
@@ -93,7 +94,7 @@ function Reason({ card, pick, readOnly, onPick, label }: CardProps & { label: st
   return (
     <label className="outbox-reason">
       <span className="ask-hint">{label}</span>
-      <textarea rows={2} value={pick.reason} disabled={readOnly} maxLength={500} onChange={(e) => onPick(number, { ...pick, reason: e.target.value })} />
+      <textarea rows={2} value={pick.reason} disabled={readOnly} maxLength={500} onChange={(e) => { onPick(number, { ...pick, reason: e.target.value }); }} />
     </label>
   );
 }
@@ -113,7 +114,7 @@ function Options({ card, pick, readOnly, onPick, letters }: CardProps & { letter
             name={nameOf(card)}
             value={option.letter}
             checked={pick?.pick === option.letter}
-            onChange={() => number !== null && onPick(number, { pick: option.letter, reason: pick?.reason ?? '' })}
+            onChange={() => { if (number !== null) onPick(number, { pick: option.letter, reason: pick?.reason ?? '' }); }}
           />
           <span className="outbox-option-letter">{option.letter}</span>
           {option.built && <span className="ask-rec">built · recommended</span>}
@@ -137,7 +138,7 @@ function Done({ card, pick, readOnly, onPick }: CardProps) {
             name={nameOf(card)}
             value={choice.value}
             checked={pick?.pick === choice.value}
-            onChange={() => number !== null && onPick(number, { pick: choice.value, reason: pick?.reason ?? '' })}
+            onChange={() => { if (number !== null) onPick(number, { pick: choice.value, reason: pick?.reason ?? '' }); }}
           />
           <span className="outbox-option-letter">{choice.label}</span>
         </label>
@@ -217,12 +218,12 @@ function Card(props: CardProps) {
           <>
             <Options {...props} letters={others} />
             <Reason {...props} label="Why you object (optional)" />
-            <button type="button" className="ask-button quiet" onClick={() => { setObjecting(false); onPick(card.number!, null); }}>
+            <button type="button" className="ask-button quiet" onClick={() => { setObjecting(false); onPick(defined(card.number, 'the question number'), null); }}>
               Withdraw the objection
             </button>
           </>
         ) : (
-          <button type="button" className="ask-button quiet" onClick={() => setObjecting(true)}>Object</button>
+          <button type="button" className="ask-button quiet" onClick={() => { setObjecting(true); }}>Object</button>
         )
       )}
       <Details card={card} />
@@ -272,21 +273,20 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
   }
 
   // Picks answered by a posted send, or settled meanwhile (PRD 251, s11): read against the latest picks.
-  const drop = (numbers: number[]) => setPicks((current) => {
-    const next = dropPicks(current, numbers);
-    try {
-      window.localStorage.setItem(key, JSON.stringify(next));
-    } catch {
-      // As above.
-    }
-    return next;
-  });
+  const drop = (numbers: number[]) => {
+    setPicks((current) => {
+      const next = dropPicks(current, numbers);
+      try {
+        window.localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        // As above.
+      }
+      return next;
+    });
+  };
 
   const onPick = (number: number, pick: Pick | null) => {
-    const next = { ...picks };
-    if (pick) next[number] = pick;
-    else delete next[number];
-    change(next);
+    change(pick ? { ...picks, [number]: pick } : dropPicks(picks, [number]));
   };
 
   const count = answered(questions, picks);
@@ -299,7 +299,7 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
       {!note && signIn && <p className="outbox-note" role="status">{signIn}</p>}
       {!readOnly && (
         <div className="outbox-toolbar" role="toolbar" aria-label="Answers">
-          <button type="button" className="ask-button quiet" onClick={() => change(recommend(questions, picks))} disabled={!openDecisions}>
+          <button type="button" className="ask-button quiet" onClick={() => { change(recommend(questions, picks)); }} disabled={!openDecisions}>
             Select every recommendation
           </button>
           <OutboxSend dossierId={dossierId} questions={questions} picks={picks} count={count} sendOff={sendOff} onDrop={drop} sender={sender} />

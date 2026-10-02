@@ -73,6 +73,7 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
@@ -549,7 +550,7 @@ function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
   const numbered = read.dossier.prd === null ? undefined : read.github;
   const kindTabs = work === 'prd' && read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS[work];
   const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
-  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0]!;
+  const fallback = work === 'prd' ? defaultTab(read.rounds) : at(tabs, 0, 'the first tab');
   const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
   const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
   return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered };
@@ -597,7 +598,7 @@ function versionEntries({ read, tab, work, href }: Page, version: number | null)
 function railSpecOf({ read, href }: Page): VersionEntry | null {
   const specs = read.versions.filter((v) => v.kind === 'spec');
   if (!specs.length) return null;
-  return { id: specs[specs.length - 1]!.id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+  return { id: at(specs, -1, 'the latest spec').id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
 }
 
 /** `DRAFT`, `PRD #216`, or a fix's `#548`. */

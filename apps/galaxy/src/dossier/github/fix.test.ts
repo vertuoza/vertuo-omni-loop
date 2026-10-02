@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { readFix, type FixGet } from './fix';
 import { UNREAD } from './summary';
 
@@ -24,11 +25,12 @@ function fixture(routes: Record<string, unknown>, fail: RegExp | null = null): {
   const calls: string[] = [];
   return {
     calls,
-    get: async (route) => {
+    get: (route) => {
       calls.push(route);
-      if (fail?.test(route)) throw new Error(`GitHub answered 502 to ${route}`);
-      const key = route.split('?')[0];
-      return key! in routes ? routes[key!] : null;
+      if (fail?.test(route)) return Promise.reject(new Error(`GitHub answered 502 to ${route}`));
+      const [key] = route.split('?');
+      assertDefined(key, 'the route\'s path');
+      return Promise.resolve(key in routes ? routes[key] : null);
     },
   };
 }

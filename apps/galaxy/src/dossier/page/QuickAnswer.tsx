@@ -42,7 +42,7 @@ export function QuickAnswer({ supabase, roundId, quick }: Props) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [sent, setSent] = useState<Sent>({ kind: 'idle' });
-  useEffect(() => setReady(true), []);
+  useEffect(() => { setReady(true); }, []);
 
   async function answer(value: string) {
     setSent({ kind: 'sending' });
