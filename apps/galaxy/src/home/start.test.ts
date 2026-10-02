@@ -3,13 +3,15 @@ import { isMuted, PLAY_HREF, pressStart, startsOnKey, type StartPorts } from './
 
 // PRESS START on HOME (PRD 261, s3): the start sound, unless the player muted the game, then /play.
 
-function ports(muted: string | null) {
+function ports(muted: string | null, choice: string | null = null) {
   const calls: string[] = [];
+  const stored: Record<string, string | null> = { 'omni-loop:muted': muted, 'omni-loop:app-choice': choice };
   const at: StartPorts = {
-    storage: { getItem: (key) => (key === 'omni-loop:muted' ? muted : null) },
+    storage: { getItem: (key) => stored[key] ?? null },
     playStart: () => { calls.push('sound'); },
     wait: async (ms) => { calls.push(`wait ${ms}`); },
     go: (href) => { calls.push(`go ${href}`); },
+    open: () => { calls.push('select your app'); },
   };
   return { at, calls };
 }
@@ -34,13 +36,13 @@ describe('pressing START', () => {
 
   it('muted, plays nothing and still opens /play, at once', async () => {
     const { at, calls } = ports('1');
-    await pressStart(at);
+    await pressStart(at, { pick: 'arcade' });
     expect(calls).toEqual(['go /play']);
   });
 
   it('unmuted, plays the start sound first, lets it ring, then opens /play', async () => {
     const { at, calls } = ports(null);
-    await pressStart(at);
+    await pressStart(at, { pick: 'arcade' });
     expect(calls[0]).toBe('sound');
     expect(calls.at(-1)).toBe('go /play');
     expect(calls).toHaveLength(3);
@@ -49,8 +51,42 @@ describe('pressing START', () => {
 
   it('holds a flash before anything else when one is asked (the Konami code)', async () => {
     const { at, calls } = ports('1');
-    await pressStart(at, { holdMs: 900 });
+    await pressStart(at, { holdMs: 900, pick: 'arcade' });
     expect(calls).toEqual(['wait 900', 'go /play']);
+  });
+});
+
+// #955: PRESS START opens SELECT YOUR APP (PRD 932) as SIGN UP WITH GITHUB does, and a remembered
+// pick skips it. The Arcade is the game as before; the Omni app opens /app, without the jingle.
+describe('PRESS START and SELECT YOUR APP (#955)', () => {
+  it('without a remembered pick, opens SELECT YOUR APP: no sound, and it goes nowhere yet', async () => {
+    const { at, calls } = ports(null);
+    await pressStart(at);
+    expect(calls).toEqual(['select your app']);
+  });
+
+  it('with the Omni app remembered, opens /app at once, without the start sound', async () => {
+    const { at, calls } = ports(null, 'app');
+    await pressStart(at);
+    expect(calls).toEqual(['go /app']);
+  });
+
+  it('with the Arcade remembered, starts the game as before', async () => {
+    const { at, calls } = ports('1', 'arcade');
+    await pressStart(at);
+    expect(calls).toEqual(['go /play']);
+  });
+
+  it('a value that is not a pick reads as none, and the overlay opens', async () => {
+    const { at, calls } = ports(null, 'galaxy');
+    await pressStart(at);
+    expect(calls).toEqual(['select your app']);
+  });
+
+  it('the Omni app picked in the overlay opens /app', async () => {
+    const { at, calls } = ports(null);
+    await pressStart(at, { pick: 'app' });
+    expect(calls).toEqual(['go /app']);
   });
 });
 

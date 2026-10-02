@@ -6,7 +6,7 @@
 // SELECT YOUR APP (PRD 932): the sign-up carries the app the person picked. The Omni app puts
 // `next=app` on the callback address, and the callback lands them on /app; the Arcade adds nothing,
 // and lands on /play as before (appLanding() in src/data/sign-in.ts).
-import { PLAY_HREF } from './start';
+import { APP_HREF, PLAY_HREF } from './start';
 
 /** Marks an element SIGN UP WITH GITHUB: `Controls` makes a click on it start the sign-in. */
 export const SIGN_UP_ATTR = 'data-sign-up';
@@ -16,9 +16,6 @@ export const CALLBACK_PATH = '/auth/callback';
 
 /** The two apps a person can pick at sign-up: the Omni app (the board, on /app) or the Arcade. */
 export type AppPick = 'app' | 'arcade';
-
-/** The Omni app's own address, where its pick lands. */
-const APP_HREF = '/app';
 
 export interface SignUpPorts {
   /** The galaxy's Supabase, as the browser reads it; null on the demo, which has none. */

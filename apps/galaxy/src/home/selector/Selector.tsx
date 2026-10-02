@@ -1,6 +1,6 @@
 'use client';
 // SELECT YOUR APP (PRD 932, s3): the character select a click on SIGN UP WITH GITHUB opens, before
-// the GitHub sign-in starts. Controls mounts it in the browser only, so HOME's server markup never
+// the GitHub sign-in starts, and PRESS START opens before the game (#955). Controls mounts it in the browser only, so HOME's server markup never
 // carries it. Its state is the reducer in state.ts; this component draws it, keeps the focus inside
 // the dialog (the two pedestals and the toggle), and hands the effect a step returns to Controls:
 // go with a pick, saving it first when REMEMBER MY CHOICE is on, or close. Its styles are in
