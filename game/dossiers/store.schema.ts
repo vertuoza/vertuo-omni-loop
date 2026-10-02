@@ -1,6 +1,6 @@
 // A dossier and its versions as Supabase answers them (PRD 725, s3): a row of public.dossiers with
 // its public.dossier_versions embedded (supabase/migrations/20260928090000_dossiers.sql).
-// `game/dossiers/store.ts` reads them into a `Dossier` (`kit/lib/types.ts`).
+// `game/dossiers/store.ts` reads them. They live with the game: the kit never names it (ADR-0002).
 import { z } from 'zod';
 
 /** The kinds of version a dossier holds, as the dossier_versions table names them. */

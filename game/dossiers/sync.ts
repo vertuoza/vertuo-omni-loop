@@ -20,9 +20,8 @@
 // and a PRD or a fix that cannot be stored are skipped and logged: nothing fails the run.
 import { ARTIFACT_MAX_BYTES, CONFIG_FILE, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf, type FixFile, type FixFolder, type PrdFolder, type TreeEntry, type TreeFile } from './folders.ts';
 import { ghWhy, readBlob, readConfig, readHead, readIssueTitle, readTree } from './github.ts';
-import type { Dossier, DossierVersion } from '../../kit/lib/types.ts';
 import type { Exec } from '../sources/github.ts';
-import type { DossierStore } from './store.ts';
+import type { Dossier, DossierStore, DossierVersion } from './store.ts';
 
 type Log = Pick<Console, 'log' | 'warn'>;
 type Head = { branch: string; commit: string; tree: string };

@@ -3,7 +3,6 @@
 // shape the kit only builds itself is written here as a type. Types only: this file holds no value.
 import type { z } from 'zod';
 import type { ConfigSchema } from './schema/config.ts';
-import type { VERSION_KINDS } from './schema/dossier.ts';
 import type { OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES, SPEC_VALUES, SpecFrontMatterSchema } from './schema/front-matter.ts';
 
 /** `.omni-loop/config.yml`, parsed: every key present, defaults filled in. */
@@ -88,31 +87,4 @@ export type OutboxItem = Pick<OutboxItemFrontMatter, 'id' | 'prd' | 'slice' | 'r
   sections: OutboxSections;
   /** The item's path, when it was read from one. */
   file: string | null;
-};
-
-export type DossierVersionKind = (typeof VERSION_KINDS)[number];
-
-/** One version of a dossier's artifact, as the store returns it. */
-export type DossierVersion = { id: string; gitBlob: string | null; bytes: number };
-
-/** A dossier, read from its row (`game/dossiers/store.ts`): the latest version of each kind. */
-export type Dossier = {
-  id: string;
-  prd: number;
-  title: string;
-  latest: Partial<Record<DossierVersionKind, DossierVersion>>;
-  /** A visual fix's only: every `variations` version, since each round is its own. */
-  rounds?: DossierVersion[];
-};
-
-/** A fleet, folded from its row (`configFrom`, `game/config.ts`). */
-export type Fleet = {
-  /** The sector the fleet calls home, or `null`. */
-  home: string | null;
-  label?: string;
-  color?: string;
-  motto?: string;
-  mascot?: string | null;
-  sort?: number;
-  retired: boolean;
 };
