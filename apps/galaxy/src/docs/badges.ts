@@ -3,7 +3,8 @@
 // ```text github. When the guide is compiled (source.config.ts), rehypeCodeBadges turns those words
 // into badges set above the code, as real text a screen reader reads first; docs.css draws them as
 // arcade chips. The docs guard (guide.ts) refuses a block that names no kind, or names one wrongly,
-// through fenceProblem. Nothing here runs in the browser.
+// through fenceProblem. The badge row ends with a copy chip (issue #931); CodeCopy, in the browser,
+// copies the block's code when it is pressed. Nothing here runs there.
 
 /** One kind of place a block goes. */
 export type CodeKind = { kind: 'terminal' } | { kind: 'agent' } | { kind: 'file'; path: string } | { kind: 'github' };
@@ -62,10 +63,25 @@ export function fenceProblem(meta: string | null | undefined): string | null {
 const element = (tagName: string, properties: Record<string, unknown>, children: HastNode[]): HastElement =>
   ({ type: 'element', tagName, properties, children });
 
-/** The badges of a block: one chip per kind, in a row. */
+/** The badges of a block: one chip per kind, in a row, then the copy chip. */
 export function badges(kinds: readonly CodeKind[]): HastElement {
   return element('div', { className: ['docs-badges'] }, kinds.map((kind) =>
-    element('span', { className: ['docs-badge'], dataKind: kind.kind }, [{ type: 'text', value: badgeLabel(kind) }])));
+    element('span', { className: ['docs-badge'], dataKind: kind.kind }, [{ type: 'text', value: badgeLabel(kind) }])).concat(copyButton()));
+}
+
+const icon = (className: string, shapes: HastElement[]): HastElement => element('svg', {
+  className: [className], width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', ariaHidden: 'true',
+}, shapes);
+
+/** The copy button: the two-sheet icon, and the tick shown once the code is copied. */
+function copyButton(): HastElement {
+  return element('button', { type: 'button', className: ['docs-copy'], ariaLabel: 'Copy the code' }, [
+    icon('docs-copy-icon', [
+      element('rect', { x: 5, y: 5, width: 9, height: 9, rx: 1.5, strokeWidth: 1.5 }, []),
+      element('path', { d: 'M2 11V3a1 1 0 0 1 1-1h8', strokeWidth: 1.5 }, []),
+    ]),
+    icon('docs-copy-done', [element('path', { d: 'M3 8.5l3.5 3.5L13 4', strokeWidth: 2 }, [])]),
+  ]);
 }
 
 /** A block with its badges above its code: `pre` is the block as compiled, `kinds` where it goes. */

@@ -45,7 +45,18 @@ export function skillToc(page: SkillPageModel): TOCItemType[] {
 function AgentBlock({ lines }: { lines: readonly string[] }) {
   return (
     <div className="docs-code">
-      <div className="docs-badges"><span className="docs-badge" data-kind="agent">{badgeLabel({ kind: 'agent' })}</span></div>
+      <div className="docs-badges">
+        <span className="docs-badge" data-kind="agent">{badgeLabel({ kind: 'agent' })}</span>
+        <button type="button" className="docs-copy" aria-label="Copy the code">
+          <svg className="docs-copy-icon" width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <rect x={5} y={5} width={9} height={9} rx={1.5} strokeWidth={1.5} />
+            <path d="M2 11V3a1 1 0 0 1 1-1h8" strokeWidth={1.5} />
+          </svg>
+          <svg className="docs-copy-done" width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M3 8.5l3.5 3.5L13 4" strokeWidth={2} />
+          </svg>
+        </button>
+      </div>
       <pre><code>{lines.join('\n')}</code></pre>
     </div>
   );
