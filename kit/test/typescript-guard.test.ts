@@ -257,9 +257,11 @@ function countAllows(files: readonly File[]): Record<Area, number> {
   return counts;
 }
 
-/** The ceilings file read, or the one line that says which field does not read. */
-function readCeilings(text: string): { ceilings: Partial<Record<Area, number>> } | { problem: string } {
-  const problem = (why: string) => ({ problem: `${CEILINGS_FILE}: ${why}` });
+type Read<T> = { value: T } | { problem: string };
+const problem = (why: string): { problem: string } => ({ problem: `${CEILINGS_FILE}: ${why}` });
+
+/** The ceilings file's top level: an object, or why it is not one. */
+function readObject(text: string): Read<object> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -267,16 +269,29 @@ function readCeilings(text: string): { ceilings: Partial<Record<Area, number>> }
     return problem('not JSON');
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return problem('not an object of area: ceiling');
+  return { value: parsed };
+}
+
+/** One field of the ceilings file: an area and its whole number, or why it is not. */
+function readField(field: string, value: unknown): Read<[Area, number]> {
+  const area = AREAS.find((a) => a === field);
+  if (!area) return problem(`${field} is no area (${AREAS.join(', ')})`);
+  const whole = typeof value === 'number' && Number.isInteger(value) && value >= 0;
+  if (!whole) return problem(`${field} must be a whole number of casts, not ${JSON.stringify(value)}`);
+  return { value: [area, value] };
+}
+
+/** The ceilings file read, or the one line that says which field does not read. */
+function readCeilings(text: string): Read<Partial<Record<Area, number>>> {
+  const top = readObject(text);
+  if ('problem' in top) return top;
   const ceilings: Partial<Record<Area, number>> = {};
-  for (const [field, value] of Object.entries(parsed)) {
-    const area = AREAS.find((a) => a === field);
-    if (!area) return problem(`${field} is no area (${AREAS.join(', ')})`);
-    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-      return problem(`${field} must be a whole number of casts, not ${JSON.stringify(value)}`);
-    }
-    ceilings[area] = value;
+  for (const [field, value] of Object.entries(top.value)) {
+    const read = readField(field, value);
+    if ('problem' in read) return read;
+    ceilings[read.value[0]] = read.value[1];
   }
-  return { ceilings };
+  return { value: ceilings };
 }
 
 /** Every area whose count differs from its ceiling, each with what to do. */
@@ -285,7 +300,7 @@ function ceilingProblems(files: readonly File[], ceilingsText: string): string[]
   if ('problem' in read) return [read.problem];
   const counts = countAllows(files);
   return AREAS.flatMap((area) => {
-    const ceiling = read.ceilings[area];
+    const ceiling = read.value[area];
     const n = counts[area];
     if (ceiling === undefined) return [`${area}: no ceiling in ${CEILINGS_FILE}`];
     if (n > ceiling) {
