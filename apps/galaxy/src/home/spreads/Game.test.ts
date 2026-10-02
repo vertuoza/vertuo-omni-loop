@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { heroLook, spritePixels } from '@omni/design';
+import { pixelSvg } from '../../design/pixel-svg';
 import { demoFleets } from '../../data/load-galaxy';
 import { Game } from './Game';
 import { heading, html, text } from './render';
@@ -30,6 +32,15 @@ describe('the game', () => {
     });
     for (const f of demoFleets().filter((d) => d.retired)) expect(text(markup)).not.toContain(f.label);
     for (const name of ['BEAVER', 'OCTOPOD', 'PICSOU', 'C.I.A.', 'PIRATES', 'INVINCIBLE']) expect(text(markup)).not.toContain(name);
+  });
+
+  it('draws a sprite on every card front: a fleet with no mascot shows a bare hero in its colour (#963)', () => {
+    const fronts = [...markup.matchAll(/<span class="home-card-front">([\s\S]*?)<span class="home-card-name">/g)].map(([, f]) => f);
+    expect(fronts).toHaveLength(demoFleets().filter((f) => !f.retired).length);
+    for (const front of fronts) expect(front).toMatch(/<svg /);
+    const owls = demoFleets().find((f) => !f.retired && !f.mascot)!;
+    const { sprite, tint } = heroLook({ v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 0 }, owls.color);
+    expect(markup).toContain(pixelSvg(spritePixels(sprite, { frame: 0, tint }), { scale: 2, title: `${owls.label}'s mascot` }));
   });
 
   it('flips under reduced motion with a crossfade, never a turn', () => {

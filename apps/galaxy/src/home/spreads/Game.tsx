@@ -1,11 +1,17 @@
 import type { CSSProperties } from 'react';
-import { spritePixels } from '@omni/design';
+import { heroLook, spritePixels } from '@omni/design';
 import type { FleetRow } from '../../arcade/types';
 import { pixelSvg } from '../../design/pixel-svg';
 import { Svg } from '../poster/Poster';
-import { cardsOf } from './cards';
+import { cardsOf, type Card } from './cards';
 import { FLIP_ATTR } from './flip';
 import './Game.css';
+
+// A card's art: the fleet's mascot, or a bare hero in its colour when it flies none (#963).
+function artOf(c: Card): string {
+  const { sprite, tint } = c.mascot ? { sprite: c.mascot, tint: null } : heroLook({ v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 0 }, c.color);
+  return pixelSvg(spritePixels(sprite, { frame: 0, tint }), { scale: 2, title: `${c.label}'s mascot` });
+}
 
 // The game: Entropy you can see (PRD 285, was COLLECT ALL THE FLEETS! in PRD 261): why the game
 // exists, then the demo world's invented fleets as trading cards. Controls flips a card on a click.
@@ -30,7 +36,7 @@ export function Game({ fleets }: { fleets: readonly FleetRow[] }) {
           >
             <span className="home-card-in">
               <span className="home-card-front">
-                {c.mascot ? <Svg svg={pixelSvg(spritePixels(c.mascot, { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` })} /> : null}
+                <Svg svg={artOf(c)} />
                 <span className="home-card-name">{c.label}</span>
                 <span className="home-card-motto">{c.motto}</span>
               </span>
