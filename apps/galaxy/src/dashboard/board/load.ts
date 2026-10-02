@@ -202,7 +202,7 @@ function unkey(key: string): { repository: string; prd: number } {
 /** The board's reads of one workspace, as the signed-in person. `galaxy` is the page's, read once;
  * the stored stages are read through the stage store, as that person. */
 export function supabaseReads(
-  db: SupabaseClient<Database>, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
+  db: Pick<SupabaseClient<Database>, 'rpc' | 'from'>, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
 ): BoardReads {
   function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
     return allPages('who opened the PRDs', (from, to) => db
