@@ -1,11 +1,12 @@
 import { ThemeSwitch } from '../ask/theme-switch';
 import { GameModeButton } from '../switch/GameModeButton';
 import { APP_HOME } from '../switch/switch';
+import { BrandLogo } from './BrandLogo';
 import { MENU, type MenuId } from './menu';
 import './nav.css';
 
 // The public bar (PRD 346, reshaped by PRD 438), on /docs and /releases only: the app's pages sit in
-// the app shell (AppShell) instead. It reads, in order: the OMNI LOOP mark linking to /app, the
+// the app shell (AppShell) instead. It reads, in order: the OMNI LOOP logo (BrandLogo) linking to /app, the
 // page's sub-title, the menu of Omni's own pages, Open the app → to /app, then the theme switch, and
 // Game mode last, at the top right (PRD 238). Open the app → is shown to everyone, so these pages
 // never read the session and stay static; a signed-out visitor lands on /app's sign-in card. The
@@ -22,7 +23,7 @@ export function TopBar({ sub, current }: TopBarProps) {
   return (
     <header className="ask-bar top-bar">
       <span className="ask-brand">
-        <a className="ask-mark" href={APP_HOME}>OMNI LOOP</a>
+        <BrandLogo />
         <span className="ask-brand-sub">{sub}</span>
       </span>
       <span className="ask-bar-end top-bar-end">

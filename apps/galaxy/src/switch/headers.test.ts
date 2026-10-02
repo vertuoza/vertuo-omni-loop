@@ -80,7 +80,7 @@ describe('every app page', () => {
 
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
-    expect(side).toMatch(new RegExp(`<a class="app-sidebar-crest" href="${APP_HOME}">`));
+    expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
     expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Workspace', 'Engineering', 'PRDs', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
@@ -129,7 +129,7 @@ describe('the public pages', () => {
 
   it.each(PUBLIC)('%s: the OMNI LOOP mark leads to /app, then the menu, Open the app →, the theme switch and Game mode, last', async (name, layout) => {
     const bar = part(await renderAt(layout, name), '<header', '</header>');
-    expect(bar).toMatch(new RegExp(`<a class="ask-mark" href="${APP_HOME}">OMNI LOOP</a>`));
+    expect(bar).toMatch(new RegExp(`<a class="brand-logo" href="${APP_HOME}">[\\s\\S]*?<span class="ask-mark">OMNI LOOP</span></a>`));
     expect(controls(bar).slice(-7)).toEqual(MENU_THEN_THEME);
     expect(bar).toContain(`<a class="top-bar-open" href="${APP_HOME}">Open the app →</a>`);
     expect(controls(bar)).not.toContain('PRDs');
