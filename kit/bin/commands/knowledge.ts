@@ -4,9 +4,10 @@ import { describeEntry } from '../../lib/knowledge/describe.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const knowledge: Command = {
-  async run(args: string[], { ctx, stdout, stderr }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
     const { positional } = parseArgs('knowledge', args);
     if (positional.length !== 1) throw usageError('usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1');
     const [id = ''] = positional;
@@ -17,5 +18,5 @@ export const knowledge: Command = {
     }
     println(stdout, text);
     return 0;
-  },
+  }),
 };

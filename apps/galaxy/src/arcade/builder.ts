@@ -1,6 +1,6 @@
 // The hero builder's rows, as a pure step: ◀ ▶ cycle the value of a row, wrapping around.
 import { HERO_PRESETS, type Hero } from '@omni/design';
-import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined, isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export const BUILDER_ROWS = ['BODY', 'SKIN', 'HAIR', 'SUIT', 'CAPE', 'RANDOM', 'DONE'] as const;
 export type BuilderRow = (typeof BUILDER_ROWS)[number];
@@ -19,15 +19,15 @@ export function cycleHero(hero: Hero, row: BuilderRow, dir: 1 | -1): Hero {
 export function rowValue(hero: Hero, row: BuilderRow, fleetColor: string): { label: string; swatches: string[] } {
   switch (row) {
     case 'BODY': return { label: hero.body.toUpperCase(), swatches: [] };
-    case 'SKIN': return { label: `${hero.skin + 1} / ${HERO_PRESETS.skin.length}`, swatches: [HERO_PRESETS.skin[hero.skin]!] };
-    case 'HAIR': { const [label, c] = HERO_PRESETS.hair[hero.hair]!; return { label, swatches: [c ?? '#2a2436'] }; }
+    case 'SKIN': return { label: `${hero.skin + 1} / ${HERO_PRESETS.skin.length}`, swatches: [at(HERO_PRESETS.skin, hero.skin, 'the skin swatch')] };
+    case 'HAIR': { const [label, c] = at(HERO_PRESETS.hair, hero.hair, 'the hair swatch'); return { label, swatches: [c ?? '#2a2436'] }; }
     case 'SUIT': {
-      const [label, main, trim] = HERO_PRESETS.suit[hero.suit]!;
+      const [label, main, trim] = at(HERO_PRESETS.suit, hero.suit, 'the suit');
       if (label === 'FLEET') return { label, swatches: [fleetColor] };
       if (label === 'OMNI') return { label, swatches: ['#e4e8ff', '#3346cc'] };
-      return { label, swatches: [main!, trim!] };
+      return { label, swatches: [defined(main, `the ${label} suit's colour`), defined(trim, `the ${label} suit's trim`)] };
     }
-    case 'CAPE': { const [label, c] = HERO_PRESETS.cape[hero.cape]!; return { label, swatches: c ? [c] : [] }; }
-    default: return { label: row, swatches: [] };
+    case 'CAPE': { const [label, c] = at(HERO_PRESETS.cape, hero.cape, 'the cape swatch'); return { label, swatches: c ? [c] : [] }; }
+    case 'RANDOM': case 'DONE': return { label: row, swatches: [] };
   }
 }

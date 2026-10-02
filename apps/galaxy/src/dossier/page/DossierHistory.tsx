@@ -50,9 +50,10 @@ function Who({ filters }: { filters: HistoryFilters }) {
 
 function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilters }) {
   const folded = Boolean(filters.repo || filters.state || filters.needsAnswer);
+  const who = whoParam(filters.who);
   return (
     <form className="dossier-history-find" method="get" action={HISTORY_PATH} role="search">
-      {whoParam(filters.who) && <input type="hidden" name="who" value={whoParam(filters.who)!} />}
+      {who && <input type="hidden" name="who" value={who} />}
       {filters.stage && <input type="hidden" name="stage" value={filters.stage} />}
       <div className="dossier-history-line">
         <div className="dossier-history-bar">
