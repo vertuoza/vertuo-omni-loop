@@ -11,12 +11,12 @@ export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'faul
 export interface LedgerEvent {
   id: string; at: string; type: string; planet: number;
   /** The PRD's home, `owner/name` (PRD 728); absent on the events written before it. */
-  home?: string;
-  region?: string; contributor?: string; team?: string; data: Record<string, unknown>;
+  home?: string | undefined;
+  region?: string | undefined; contributor?: string | undefined; team?: string | undefined; data: Record<string, unknown>;
 }
 /** A fleet as stored in Supabase (public.teams). Only `home` is required; the rest has defaults. */
 export interface FleetConfig {
-  home: string | null; label?: string; color?: string; motto?: string; mascot?: string | null; sort?: number; retired?: boolean;
+  home: string | null; label?: string | undefined; color?: string | undefined; motto?: string | undefined; mascot?: string | null | undefined; sort?: number | undefined; retired?: boolean | undefined;
 }
 export interface FleetLook { home: string | null; label: string; color: string; motto: string; mascot: string | null; sort: number; retired: boolean }
 export interface Projects {

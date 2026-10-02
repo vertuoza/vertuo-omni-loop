@@ -49,7 +49,7 @@ type InitOptions = {
   bundle?: string | null;
   ask?: Ask;
   home?: string | undefined;
-  signIn?: (() => Promise<number | { code: number; line?: string }>) | undefined;
+  signIn?: (() => Promise<number | { code: number; line?: string | undefined }>) | undefined;
 };
 
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');

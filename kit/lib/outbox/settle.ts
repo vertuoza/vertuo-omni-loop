@@ -395,7 +395,7 @@ export function renderSettledEntry({
   answer: EntryAnswer;
   judgement: Judgement;
   markers: Pick<Markers, 'settledOpen' | 'settledClose'>;
-  closed?: string | null;
+  closed?: string | null | undefined;
 }): string {
   const lines = [
     markers.settledOpen(item.id),

@@ -10,10 +10,10 @@ import type { StepLines } from './plugin.ts';
 /** What the sign-in step did, and who and where for. */
 export type SignInResult = {
   outcome: 'signed-in' | 'already' | 'later' | 'unset';
-  host?: string;
-  email?: string | null;
-  line?: string;
-  why?: string;
+  host?: string | undefined;
+  email?: string | null | undefined;
+  line?: string | undefined;
+  why?: string | undefined;
 };
 
 /** A kept sign-in, the fields that say who it is. */
@@ -28,9 +28,9 @@ const textOf = (value: unknown): string | null | undefined =>
  */
 export async function signInStep({ askUrl, home, interactive, signIn }: {
   askUrl: string | null;
-  home?: string;
+  home?: string | undefined;
   interactive: boolean;
-  signIn: () => Promise<number | { code: number; line?: string }>;
+  signIn: () => Promise<number | { code: number; line?: string | undefined }>;
 }): Promise<SignInResult> {
   if (!askUrl) return { outcome: 'unset' };
   const host = credentialsHost(askUrl);

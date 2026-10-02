@@ -49,7 +49,7 @@ export type ReworkBranches = Pick<Config['branches'], 'feature' | 'slice' | 'rew
 /** One settled entry of the ledger, as `parseSettledEntries` reads it (`kit/lib/outbox/settle.ts`). */
 export type ReworkEntry = {
   id: string;
-  verdict?: string;
+  verdict?: string | undefined;
   closed: boolean;
   fields: Record<string, string | undefined>;
   answerText: string;

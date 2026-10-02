@@ -113,10 +113,10 @@ export type SettledEntryView = SettledEntry;
 export type Numbering = { number: number; id: string; since: string };
 
 /** One comment of an issue or a pull request, as the client lists it. */
-export type IssueComment = { id: number; body?: string | null; html_url?: string | null };
+export type IssueComment = { id: number; body?: string | null | undefined; html_url?: string | null | undefined };
 
 /** The comment as the client hands it back after a create or an update. */
-type WrittenComment = { id?: number | null; html_url?: string | null } | null | undefined;
+type WrittenComment = { id?: number | null | undefined; html_url?: string | null | undefined } | null | undefined;
 
 /** The client a comment writer goes through, scoped to one issue or pull request. */
 export type CommentClient = {
@@ -433,7 +433,7 @@ export function assignNumbers({
  * @returns {Map<number, number>}
  */
 export function parseRoundMarkers(
-  comments: readonly { id?: number; body?: string | null }[] | null | undefined,
+  comments: readonly { id?: number | undefined; body?: string | null | undefined }[] | null | undefined,
   markers: Markers,
 ): Map<number, number> {
   const rounds = new Map<number, number>();

@@ -55,28 +55,28 @@
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
-export type PrLabel = string | { name?: string | null } | null | undefined;
+export type PrLabel = string | { name?: string | null | undefined } | null | undefined;
 
 /**
  * One pull request of a `gh pr list` payload, as far as the board reads it. Every field but the
  * head branch is optional: the board reads a missing one as "not known", as it always has.
  */
 export type BoardPr = {
-  number?: number;
-  title?: string;
-  headRefName?: string;
-  baseRefName?: string;
-  state?: string;
-  isDraft?: boolean;
-  mergedAt?: string | null;
-  body?: string;
-  labels?: readonly PrLabel[] | null;
-  updatedAt?: string;
-  createdAt?: string | null;
+  number?: number | undefined;
+  title?: string | undefined;
+  headRefName?: string | undefined;
+  baseRefName?: string | undefined;
+  state?: string | undefined;
+  isDraft?: boolean | undefined;
+  mergedAt?: string | null | undefined;
+  body?: string | undefined;
+  labels?: readonly PrLabel[] | null | undefined;
+  updatedAt?: string | undefined;
+  createdAt?: string | null | undefined;
   /** The head commit's own date, when known. */
-  headCommitDate?: string | null;
+  headCommitDate?: string | null | undefined;
   /** In a plan repository: the repository the pull request was read from. */
-  slug?: string | null;
+  slug?: string | null | undefined;
 };
 
 /** One slice of the plan, as the board reads it. */
@@ -97,8 +97,8 @@ export type SliceState = 'merged' | 'stuck' | 'claimed-stale' | 'in-flight' | 'r
 export type BoardRow<S extends BoardSlice = BoardSlice> = Omit<S, 'repo'> & {
   pr: BoardPr | null;
   state: SliceState;
-  repo?: string | null;
-  slug?: string | null;
+  repo?: string | null | undefined;
+  slug?: string | null | undefined;
 };
 
 /** What the board's frontier reads of a row. */

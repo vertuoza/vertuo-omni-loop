@@ -20,7 +20,7 @@ type Markers = Context['markers'];
 /** What the harvest reads of one settled entry (`parseSettledEntries`). */
 export type HarvestedEntry = {
   id: string;
-  verdict?: string | null;
+  verdict?: string | null | undefined;
   fields: Record<string, string | undefined>;
   answerText: string;
   itemText: string;
