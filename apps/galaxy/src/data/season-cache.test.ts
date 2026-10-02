@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live cache is never reached in a test'); } }));
 
+import { item } from '../ask/test-item';
 import { loadGalaxy } from './load-galaxy';
 import { seasonKey, type SeasonCache } from './season-cache';
 
@@ -55,7 +57,7 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
       return q;
     },
   };
-  return { db: client as unknown as SupabaseClient, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
+  return { db: client as unknown as SupabaseClient<Database>, calls, ledgerPages: () => calls.filter((c) => c.table === 'ledger_events' && c.range) };
 }
 
 /** A data cache in memory, as Next's is: one value per key, computed on the first read. */
@@ -138,7 +140,7 @@ describe('the season cache', () => {
     const w = world();
     const deps = { cache: w.memory.cache, service: w.service.db };
     await loadGalaxy(w.viewer.db, WS, NOW, deps);
-    w.tables.teams[0]!.color = '#ff0000';
+    item(w.tables.teams, 0).color = '#ff0000';
     const after = await loadGalaxy(w.viewer.db, WS, NOW, deps);
     expect(w.service.ledgerPages()).toHaveLength(2);
     expect(after.teams.find((t) => t.name === 'beaver')?.color).toBe('#ff0000');

@@ -3,7 +3,7 @@
  * a rejection, never a throw, when `run` throws. The fake stores answer through it, so a refused call
  * reaches its caller exactly as before.
  */
-export function settled<T>(run: () => T): Promise<T> {
+export function settled<T>(run: () => T | PromiseLike<T>): Promise<T> {
   return new Promise((resolve) => {
     resolve(run());
   });

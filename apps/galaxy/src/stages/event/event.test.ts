@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { item } from '../../ask/test-item';
 import type { GithubSummary } from '../../dossier/github/summary';
 import { recountOutboxes } from '../outbox/recount';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
@@ -20,7 +21,7 @@ function setup(over: Partial<StageEventDeps> = {}) {
   const deps: StageEventDeps = {
     secret: SECRET,
     store: () => store,
-    workspacesOf: async (repository) => (repository.toLowerCase().startsWith('acme/') ? [WS] : []),
+    workspacesOf: (repository) => Promise.resolve(repository.toLowerCase().startsWith('acme/') ? [WS] : []),
     log,
     ...over,
   };
@@ -58,7 +59,7 @@ describe('the stage event route', () => {
     await post(event({ at: '2026-09-30T10:00:00Z' }));
     expect(store.writes.length).toBe(writes);
     expect(store.stages).toHaveLength(1);
-    expect(store.stages[0]!.reached_at).toBe('2026-09-29T10:00:00Z');
+    expect(item(store.stages, 0).reached_at).toBe('2026-09-29T10:00:00Z');
   });
 
   it('answers 401 and writes nothing to a bad, missing or foreign signature', async () => {
@@ -99,7 +100,7 @@ describe('the stage event route', () => {
   });
 
   it('places the event in every workspace that owns the repository', async () => {
-    const { store, post } = setup({ workspacesOf: async () => ['ws-a', 'ws-b'] });
+    const { store, post } = setup({ workspacesOf: () => Promise.resolve(['ws-a', 'ws-b']) });
     await post(event());
     expect(store.stages.map((s) => s.workspace_id)).toEqual(['ws-a', 'ws-b']);
   });
@@ -135,14 +136,12 @@ describe('the open outbox questions (PRD 657, s5)', () => {
   function withRecount(recountFails = false) {
     const outbox = fakePrdOutboxStore(() => '2026-09-29T12:00:00Z');
     const asked: number[] = [];
-    let stages: ReturnType<typeof fakeStageStore> | undefined;
     const set = setup({
       recount: async (workspace, prds) => {
         if (recountFails) throw new Error('GitHub is down');
-        return recountOutboxes(workspace, prds, { stages: stages!, store: outbox, summary: async (ref) => { asked.push(ref.prd); return summary; } });
+        return recountOutboxes(workspace, prds, { stages: set.store, store: outbox, summary: (ref) => { asked.push(ref.prd); return Promise.resolve(summary); } });
       },
     });
-    stages = set.store;
     return { ...set, outbox, asked };
   }
 
