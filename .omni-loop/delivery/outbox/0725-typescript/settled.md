@@ -3996,3 +3996,84 @@ Cheap: each change is behaviour-neutral and its own commit; reverting one restor
 ```
 
 <!-- /omni-outbox-settled: s29-02-last-unchecked-files-typed-here -->
+
+<!-- omni-outbox-settled: s3-03-fleet-schema-in-the-kit -->
+
+## s3-03-fleet-schema-in-the-kit — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-02T07:56:07Z
+- Channel: feature pull request #726
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/726#issuecomment-5947762035
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Stays here: ADR-0002 already says the kit never names the game; this answer upholds it and adds no new rule
+- Bears on: ADR-0002
+- Raised: 2026-10-01
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+B. Keep the team's shape with the game, and leave it out of the tool's shared types, as the earlier rule reads — because ADR-0002 is there for a reason: the kit never names the game. Nothing in the kit uses these shapes, so the fleet and dossier schemas go back under game/
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-fleet-schema-in-the-kit
+prd: 725
+slice: s3
+rank: high
+bears-on: ADR-0002
+raised: 2026-10-01
+wave: 3
+---
+
+## The question, in plain words
+
+The plan asks for the shape of a team to live with the tool's shared shapes, but an earlier rule says the tool never knows about the game. Which wins?
+
+## The decision, in plain words
+
+The team's shape now lives with the tool's shared shapes, as the plan asks, and the game reads it from there. The tool itself still never uses it.
+
+## The intro, for fun
+
+The plan asked the toolbox to hold the game's team jerseys.
+
+## The punchline, for fun
+
+The toolbox agreed, on condition it never has to wear them.
+
+## The options, in plain words
+
+A. The team's shape lives with the tool's shared shapes, as the plan asks, and the tool never uses it
+B. Keep the team's shape with the game, and leave it out of the tool's shared types, as the earlier rule reads
+C. Amend the earlier rule to say the tool may describe a game shape but never read the game's data
+
+## What I had to decide
+
+The spec's s3 asks kit/lib/types.ts to export Fleet, and every shape read from outside to be a schema in kit/lib/schema/. A fleet is a row of the game's public.teams. ADR-0002 says the kit never names the game and reads none of its tables.
+
+## What I did meanwhile
+
+Wrote kit/lib/schema/fleet.ts (the sector, fleet, roster and repository rows game/config.ts parsed) and kit/lib/schema/dossier.ts (the dossier rows game/dossiers/store.ts parsed); game/ now imports them from the kit, and kit/lib/types.ts exports Fleet, FleetRow, Dossier and DossierRow. No kit code reads them: the kit still reads none of the game's tables.
+
+## What it costs to change later
+
+Cheap: move kit/lib/schema/fleet.ts back under game/ and drop Fleet from kit/lib/types.ts; two imports change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the PRD's author meant to amend ADR-0002 by listing Fleet among the kit's types (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-fleet-schema-in-the-kit -->
