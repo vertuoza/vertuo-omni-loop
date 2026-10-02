@@ -102,5 +102,5 @@ export interface Account {
   scores(game: string): Promise<ScoreBoard>;
   signOut(): Promise<void>;
   /** The demo's remembered guest; Supabase answers from the server render instead. */
-  restore?(): { session: Session | null; me: Player | null };
+  restore?: () => { session: Session | null; me: Player | null };
 }

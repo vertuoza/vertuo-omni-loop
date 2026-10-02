@@ -134,7 +134,11 @@ describe('a planet named by its home (PRD 728)', () => {
   });
 
   it('names a planet with no home by its number alone, as before', () => {
-    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map(({ home: _home, ...e }) => e));
+    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map((event) => {
+      const e = { ...event };
+      delete e.home;
+      return e;
+    }));
     expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });

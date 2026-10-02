@@ -60,10 +60,10 @@ function recorder() {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createLinearGradient' || prop === 'createRadialGradient') {
-        return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.join()})`); return { addColorStop: (...b: unknown[]) => calls.push(`stop(${b.join()})`) }; };
+        return (...a: unknown[]) => { calls.push(`${prop}(${a.join()})`); return { addColorStop: (...b: unknown[]) => calls.push(`stop(${b.join()})`) }; };
       }
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
-      return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.map((v) => (typeof v === 'number' ? v.toFixed(3) : typeof v === 'object' ? 'img' : v)).join()})`); };
+      return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.map((v) => (typeof v === 'number' ? v.toFixed(3) : typeof v === 'object' ? 'img' : typeof v === 'string' ? v : typeof v === 'boolean' ? String(v) : v === undefined ? '' : typeof v)).join()})`); };
     },
     set(target, prop, value) { calls.push(`${String(prop)}=${value}`); target[prop] = value; return true; },
   });

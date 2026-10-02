@@ -32,9 +32,12 @@ const TODAY: Record<Token, string> = {
 /** The colour custom properties declared on a stylesheet's `:root`, name (without `--`) to value. */
 function rootColours(css: string): Record<string, string> {
   const root = /:root\s*\{([^}]*)\}/.exec(uncommented(css))?.[1] ?? '';
-  return Object.fromEntries([...root.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)]
-    .map(([, name, value]) => [name, sure(value, 'value').trim()])
-    .filter(([, value]) => /^(#|rgba?\(|hsla?\()/.test(sure(value, 'value'))));
+  const colours: [string, string][] = [];
+  for (const [, name, value] of root.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    const colour = sure(value, 'value').trim();
+    if (/^(#|rgba?\(|hsla?\()/.test(colour)) colours.push([sure(name, 'name'), colour]);
+  }
+  return Object.fromEntries(colours);
 }
 
 /** The token names `valid_theme()` accepts, in the latest migration that defines it. */

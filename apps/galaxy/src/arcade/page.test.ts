@@ -18,21 +18,21 @@ vi.mock('server-only', () => ({}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
+  supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
 // Crew is membership of a workspace: here, the vertuoza workspace holds every @vertuoza.com account.
 vi.mock('../data/workspace', () => ({
-  memberWorkspace: async (_db: unknown, id: string) =>
-    (given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
+  memberWorkspace: (_db: unknown, id: string) =>
+    Promise.resolve(given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
   brandOf: ({ name, theme }: { name: string; theme: Record<string, string> }) => ({ name, theme }),
 }));
 vi.mock('../data/load-galaxy', () => ({
   demoGalaxy: () => given.view,
   demoFleets: () => [],
-  loadFleets: async () => [],
-  loadGalaxy: async () => { if (given.galaxyDown) throw new Error('Supabase: down'); return given.view; },
-  loadMe: async () => null,
-  loadCrew: async () => [],
+  loadFleets: () => Promise.resolve([]),
+  loadGalaxy: () => (given.galaxyDown ? Promise.reject(new Error('Supabase: down')) : Promise.resolve(given.view)),
+  loadMe: () => Promise.resolve(null),
+  loadCrew: () => Promise.resolve([]),
 }));
 vi.mock('../data/load-knowledge', () => ({ loadKnowledge }));
 

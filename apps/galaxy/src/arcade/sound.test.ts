@@ -65,13 +65,15 @@ class Osc extends Node {
   setPeriodicWave() {}
 }
 let audio: FakeAudio;
+/** The context sound.ts made last, which the tests read. */
+const made = (context: FakeAudio) => { audio = context; };
 class FakeAudio {
   currentTime = 0;
   sampleRate = 8000;
   state = 'running';
   destination = new Node();
   oscs: Osc[] = [];
-  constructor() { audio = this; }
+  constructor() { made(this); }
   resume() {}
   createGain() { return Object.assign(new Node(), { gain: new Param() }); }
   createDelay() { return Object.assign(new Node(), { delayTime: new Param() }); }
