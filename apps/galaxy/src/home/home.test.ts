@@ -154,6 +154,14 @@ describe('the poster', () => {
     }
   });
 
+  it('leaves SELECT YOUR APP out of the server markup: the controls draw it in the browser, on a click (PRD 932)', async () => {
+    const html = await render();
+    expect(html).not.toContain('SELECT YOUR APP');
+    expect(html).not.toContain('home-select');
+    expect(html).not.toContain('REMEMBER MY CHOICE');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
     const html = await render();
     const starts = [...html.matchAll(/<a\b[^>]*>PRESS START<\/a>/g)].map(([a]) => a);
