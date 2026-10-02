@@ -199,8 +199,8 @@ describe('the poster', () => {
   });
 });
 
-// The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the proof, the game
-// and the order form. Each spread is its own component, with its own test beside it under spreads/.
+// The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the customers, the
+// proof, the game and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
@@ -208,6 +208,7 @@ describe('the spreads', () => {
   };
   const HEADS = [
     'Strategy guide: the loop',
+    'Built for your customers',
     'High scores: the loop built this',
     'The game: Entropy you can see',
     'Join the loop!',
@@ -223,7 +224,7 @@ describe('the spreads', () => {
   it('are composed by Spreads.tsx alone, one component per spread', () => {
     const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/<section\b|<h2\b/);
-    for (const name of ['StrategyGuide', 'HighScores', 'Game', 'OrderForm']) {
+    for (const name of ['StrategyGuide', 'Customers', 'HighScores', 'Game', 'OrderForm']) {
       expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
     }
     for (const gone of ['ForYou', 'SeeEverything', 'InOut']) expect(source, gone).not.toContain(gone);

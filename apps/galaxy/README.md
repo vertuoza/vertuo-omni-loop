@@ -58,11 +58,18 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
    reads. Below 720px the map is redrawn as one column, KNOWLEDGE running back up its left edge.
    OmniMan (`omni-run`) runs the loop in CSS and stands still on IDEA under reduced motion. The LOOP
    LINGO sidebar sits beside the map.
-3. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
+3. **Built for your customers**: the agents build for a team's customers, from what the team writes
+   down once. A chain of three steps, BUSINESS → PRODUCTS → PERSONAS (one column below 720px), filled
+   by one invented company labelled EXAMPLE, *Brick & Bolt* (`EXAMPLE_BUSINESS` in `Customers.tsx`):
+   its business, its site diary app, and three personas, each a pixel portrait from `personaGrid`
+   (`@omni/design`) with a name, a trade and a stance (EXCITED, NEUTRAL, SKEPTICAL). The closing
+   step, THE AGENTS READ THEM ON EVERY RUN, shows the skeptical persona's objection, the answer, and
+   the fact the agents keep from it. No real company's name appears in it.
+4. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
    counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
-4. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
+5. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
    trading cards.
-5. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
+6. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
    line: "Leave any time: delete one folder and commit. Nothing to migrate."
 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
