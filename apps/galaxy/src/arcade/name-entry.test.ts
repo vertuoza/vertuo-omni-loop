@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 
 const run = (s: NameState, ...actions: NameAction[]) => actions.reduce((st, a) => nameReduce(st, a).state, s);
-const type = (text: string): NameAction[] => [...text].map((char) => ({ type: 'type', char }));
+const type = (text: string): NameAction[] => Array.from(text).map((char) => ({ type: 'type', char }));
 
 describe('folding', () => {
   it('turns a key into a name character, or nothing', () => {

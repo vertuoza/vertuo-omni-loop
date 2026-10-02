@@ -47,15 +47,15 @@ describe('the workspace\'s personas, for the portraits', () => {
 
 describe('the shown voice version', () => {
   it('is the tab\'s grid, the portraits from the cast', async () => {
-    const view = await readShownVoice(async () => VOICE, async () => [{ name: 'Marc', trade: 'plumber', avatar: { ...AVATAR, v: 1 as const } }]);
+    const view = await readShownVoice(() => Promise.resolve(VOICE), () => Promise.resolve([{ name: 'Marc', trade: 'plumber', avatar: { ...AVATAR, v: 1 as const } }]));
     expect(view?.rows[0]).toMatchObject({ name: 'Marc', portrait: { trade: 'plumber' } });
   });
 
   it('is null when the version cannot be read, or is no voice record', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const cast = async () => [];
-    expect(await readShownVoice(async () => null, cast)).toBeNull();
-    expect(await readShownVoice(async () => '{"rounds": []}', cast)).toBeNull();
+    const cast = () => Promise.resolve([]);
+    expect(await readShownVoice(() => Promise.resolve(null), cast)).toBeNull();
+    expect(await readShownVoice(() => Promise.resolve('{"rounds": []}'), cast)).toBeNull();
     expect(await readShownVoice(() => Promise.reject(new Error('down')), cast)).toBeNull();
   });
 });

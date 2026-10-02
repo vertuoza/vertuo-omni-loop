@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
   ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
@@ -21,7 +22,20 @@ const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase
 function parameters(name: string, migration = MIGRATION): string[] {
   const match = new RegExp(`create function public\\.${name}\\(([^)]*)\\)`).exec(migration);
   if (!match) throw new Error(`the migration declares no ${name}()`);
-  return match[1]!.split(',').map((part) => part.trim().split(/\s+/)[0]!);
+  const list = match[1];
+  assertDefined(list, `${name}()'s parameters`);
+  return list.split(',').map((part) => {
+    const [word] = part.trim().split(/\s+/);
+    assertDefined(word, `a parameter of ${name}()`);
+    return word;
+  });
+}
+
+/** The arguments of the first rpc call recorded. */
+function firstArgs(calls: ReadonlyArray<{ args: Record<string, unknown> }>): Record<string, unknown> {
+  const [call] = calls;
+  assertDefined(call, 'a recorded rpc call');
+  return call.args;
 }
 
 /** A client that records each rpc call and answers `answer`. */
@@ -39,7 +53,7 @@ describe('the dossier store', () => {
     const { calls, db } = recording({ data: '00000000-0000-4000-8000-000000000001', error: null });
     expect(await dossierStore(db).open({ title: 'An idea', repo: 'acme/widgets', claudeSessionId: null })).toEqual({ id: '00000000-0000-4000-8000-000000000001' });
     expect(calls).toEqual([{ name: 'dossier_open', args: { p_title: 'An idea', p_repo: 'acme/widgets', p_claude_session_id: null } }]);
-    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_open'));
+    expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_open'));
   });
 
   it('pushes through dossier_push(), with the migration\'s parameters, and hands back what it did', async () => {
@@ -48,7 +62,7 @@ describe('the dossier store', () => {
     const push = { repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
     expect(await dossierStore(db).push(push)).toEqual(pushed);
     // A PRD's push names no kind: the function's last parameter defaults to prd.
-    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
+    expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
     expect(calls[0]).toEqual({
       name: 'dossier_push',
       args: { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: 'x' }] },
@@ -59,13 +73,13 @@ describe('the dossier store', () => {
   it('pushes a fix with its kind, as the last of the migration\'s parameters', async () => {
     const { calls, db } = recording({ data: { id: 'd9', added: [], unchanged: [] }, error: null });
     await dossierStore(db).push({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
-    expect(Object.keys(calls[0]!.args)).toEqual(parameters('dossier_push', FIX_MIGRATION));
-    expect(calls[0]!.args.p_kind).toBe('visual');
+    expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION));
+    expect(firstArgs(calls).p_kind).toBe('visual');
   });
 
   it('turns a refusal into a DossierStoreError carrying Postgres\'s code and reason', async () => {
     const { db } = recording({ data: null, error: { code: 'P0002', message: 'No such draft dossier.' } });
-    const error = await dossierStore(db).push({ repo: 'a/b', prd: 1, title: 't', draftId: null, artifacts: [] }).catch((e) => e);
+    const error = await dossierStore(db).push({ repo: 'a/b', prd: 1, title: 't', draftId: null, artifacts: [] }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: 'P0002', reason: 'No such draft dossier.' });
   });
@@ -86,7 +100,11 @@ describe('the dossier store', () => {
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
   const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
-  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => m[1]!.split(',').map((c) => c.trim())));
+  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
+    const list = m[1];
+    assertDefined(list, `the columns granted on ${table}`);
+    return list.split(',').map((c) => c.trim());
+  }));
   if (!columns.length) throw new Error(`the migrations grant no columns of ${table}`);
   return columns;
 }
@@ -163,7 +181,7 @@ describe('reading a dossier as its members do (the page to share)', () => {
   });
 
   it('turns a failed read into a DossierStoreError', async () => {
-    const error = await dossierReader(querying({ data: null, error: { code: '42501', message: 'permission denied' } }).db).dossier('d1').catch((e) => e);
+    const error = await dossierReader(querying({ data: null, error: { code: '42501', message: 'permission denied' } }).db).dossier('d1').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42501' });
   });
@@ -179,8 +197,8 @@ describe('reading a dossier\'s rounds', () => {
     const { calls, db } = recording({ data: [row], error: null });
     expect(await dossierRounds(db, 'd1')).toEqual([row]);
     expect(calls).toEqual([{ name: 'dossier_rounds', args: { p_dossier: 'd1' } }]);
-    const declared = /create function public\.dossier_rounds\(([^)]*)\)/.exec(ROUNDS_MIGRATION)?.[1]!.split(',').map((p) => p.trim().split(/\s+/)[0]);
-    expect(Object.keys(calls[0]!.args)).toEqual(declared);
+    const declared = /create function public\.dossier_rounds\(([^)]*)\)/.exec(ROUNDS_MIGRATION)?.[1]?.split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(firstArgs(calls))).toEqual(declared);
   });
 
   it('expects exactly the columns the function returns', () => {
@@ -192,7 +210,7 @@ describe('reading a dossier\'s rounds', () => {
 
   it('reads no rows as none, and turns a failure into a DossierStoreError', async () => {
     expect(await dossierRounds(recording({ data: null, error: null }).db, 'd1')).toEqual([]);
-    const error = await dossierRounds(recording({ data: null, error: { code: '42883', message: 'no such function' } }).db, 'd1').catch((e) => e);
+    const error = await dossierRounds(recording({ data: null, error: { code: '42883', message: 'no such function' } }).db, 'd1').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42883' });
   });
@@ -213,8 +231,8 @@ describe('reading the history', () => {
       { name: 'dossier_list', args: { p_dossier: null } },
       { name: 'dossier_list', args: { p_dossier: 'd1' } },
     ]);
-    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1]!.split(',').map((p) => p.trim().split(/\s+/)[0]);
-    expect(Object.keys(calls[0]!.args)).toEqual(declared);
+    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1]?.split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(firstArgs(calls))).toEqual(declared);
   });
 
   it('expects exactly the columns the function returns, and it runs as its caller on dossier_rounds()', () => {
@@ -227,7 +245,7 @@ describe('reading the history', () => {
 
   it('reads no rows as none, and turns a failure into a DossierStoreError', async () => {
     expect(await dossierList(recording({ data: null, error: null }).db)).toEqual([]);
-    const error = await dossierList(recording({ data: null, error: { code: '42501', message: 'permission denied' } }).db).catch((e) => e);
+    const error = await dossierList(recording({ data: null, error: { code: '42501', message: 'permission denied' } }).db).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42501' });
   });
@@ -254,7 +272,7 @@ describe('reading the change check', () => {
 
   it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {
     expect(await dossierPulse(recording({ data: [], error: null }).db, 'd1')).toBeNull();
-    const error = await dossierPulse(recording({ data: null, error: { message: 'down' } }).db, 'd1').catch((e) => e);
+    const error = await dossierPulse(recording({ data: null, error: { message: 'down' } }).db, 'd1').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
   });
 });
