@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { KnowledgeGraph } from './knowledge';
 
 // The knowledge map's data (PRD 149): the knowledge of the checkout the app is deployed from, read at
@@ -32,6 +33,6 @@ export function loadKnowledge({ cwd = process.cwd(), log = console.error }: { cw
     if (!existsSync(/*turbopackIgnore: true*/ folder)) return outOfReach(`${ctx.layout.knowledgeRoot} is missing in ${root}`);
     return readGraph({ ctx }) as KnowledgeGraph; // ts-allow: the kit's one parser reads the folder; the map reads its graph's narrower view
   } catch (err) {
-    return outOfReach(err instanceof Error ? err.message.split('\n')[0]! : String(err)); // ts-allow: split always yields a first part
+    return outOfReach(err instanceof Error ? firstPart(err.message, '\n') : String(err));
   }
 }
