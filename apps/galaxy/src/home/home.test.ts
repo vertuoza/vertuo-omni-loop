@@ -199,6 +199,46 @@ describe('the poster', () => {
   });
 });
 
+// No flash (PRD 1006, s2): the server draws no pill and no mark; a script that runs before the first
+// paint marks the page pending when the browser holds a Supabase auth cookie, and the CSS then holds
+// each SIGN UP WITH GITHUB button's box, hidden, until Controls settles the mark.
+describe('the signed-in mark', () => {
+  const render = async () => {
+    const { Home } = await import('./Home');
+    return renderToStaticMarkup(Home());
+  };
+
+  it('is not in the server markup: no pill, and no data-session on the page', async () => {
+    const html = await render();
+    const main = /<main\b[^>]*>/.exec(html)?.[0] ?? '';
+    expect(main).toContain('class="home"');
+    expect(main).not.toContain('data-session');
+    expect(html).not.toContain('home-signed-in');
+    expect(text(html)).not.toContain('CONTINUE YOUR GAME');
+    expect(supabase.server).not.toHaveBeenCalled();
+  });
+
+  it('is set by a script that runs after the forwarding of old links and before anything paints', async () => {
+    const html = await render();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: m.index ?? -1, body: m[1] ?? '' }));
+    const forward = scripts.findIndex((s) => s.body.includes("location.replace('/play'"));
+    const mark = scripts.findIndex((s) => s.body.includes('document.cookie'));
+    expect(forward).toBe(0);
+    expect(mark).toBe(1);
+    expect(scripts[mark]?.body).toContain("setAttribute('data-session','pending')");
+    expect(scripts[mark]?.at).toBeLessThan(html.indexOf('<h1'));
+  });
+
+  it('holds each SIGN UP WITH GITHUB button\'s box, hidden, while it is pending', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
+    const pending = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, sel]) => sel?.includes('[data-session="pending"]'));
+    const hides = (cls: string) => pending.some(([, sel, body]) => new RegExp(`\\.${cls}(?![-\\w])`).test(sel ?? '') && /visibility:\s*hidden/.test(body ?? ''));
+    expect(hides('home-signup')).toBe(true);
+    expect(hides('home-signup-hint')).toBe(true);
+    for (const [, , body] of pending) expect(body).not.toMatch(/display:\s*none/);
+  });
+});
+
 // The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the customers, the
 // fleet game with its proof, and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
