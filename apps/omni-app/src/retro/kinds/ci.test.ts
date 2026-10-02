@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
+import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { at as itemAt, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { inngest } from '../../inngest-client.ts';
 import { FEATURE, JUDGE_ENV, OWNER, PLAN, REPO, SUB_PULLS, judge } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';
@@ -36,6 +38,11 @@ const VITEST_RERUN = [
 ].join('\n');
 
 const jobUrl = (run: number, id: number) => `https://github.com/${OWNER}/${REPO}/actions/runs/${run}/job/${id}`;
+/** The log kept of job `id`, which the test expects to be there. */
+function logRecord<T>(logs: Readonly<Record<number, T | undefined>>, id: number): T {
+  return defined(logs[id], `the log of job ${String(id)}`);
+}
+
 const run = (id: number, branch: string, sha: string, name = 'CI') => ({ id, name, head_branch: branch, head_sha: sha, run_attempt: 1, status: 'completed' });
 const job = (id: number, runId: number, name: string, sha: string, conclusion: string, completedAt: string, attempt = 1, workflow = 'CI') => ({
   id,
@@ -146,7 +153,7 @@ describe('ci — gather', () => {
   it(`cuts a long log to its last ${LIMITS.logTailLines} lines`, async () => {
     const long = Array.from({ length: 500 }, (_, index) => `2026-09-20T09:20:00.0000000Z line ${index + 1}`).join('\n');
     const github = replay({
-      pulls: [FEATURE, SUB_PULLS[0]!],
+      pulls: [FEATURE, itemAt(SUB_PULLS, 0, 'the first sub-PR')],
       recording: [
         runsOf('feat/widget--s1', [run(101, 'feat/widget--s1', SHA.a)]),
         jobsOf(101, [job(1011, 101, 'unit', SHA.a, 'failure', at(9, 20))]),
@@ -155,11 +162,11 @@ describe('ci — gather', () => {
     });
     const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
     const records = await gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls });
-    const lines = records.logs[1011]!.tail!.split('\n');
+    const lines = defined(logRecord(records.logs, 1011).tail, 'the tail of job 1011').split('\n');
     expect(lines).toHaveLength(LIMITS.logTailLines);
     expect(lines[0]).toBe(`line ${500 - LIMITS.logTailLines + 1}`);
     expect(lines.at(-1)).toBe('line 500');
-    expect(records.logs[1011]!.tail).toBe(tailOf(cleanLog(long), LIMITS.logTailLines));
+    expect(logRecord(records.logs, 1011).tail).toBe(tailOf(cleanLog(long), LIMITS.logTailLines));
   });
 
   it('keeps going when GitHub refuses a slice’s runs, and says which', async () => {
@@ -217,14 +224,14 @@ describe('ci — detect', () => {
       { id: 2014, check: 'py', slice: 's2', commit: 'ccc3333', attempt: 1, reporter: 'pytest', tests: 2, counts: { failed: 2, passed: 10, skipped: 1 }, log: 'read' },
       { id: 3011, check: 'py', slice: 's3', commit: 'eee5555', attempt: 1, reporter: null, tests: 0, counts: null, log: 'not read (410)' },
     ]);
-    expect(facts.redRuns[0]!.url).toBe(jobUrl(101, 1011));
+    expect(itemAt(facts.redRuns, 0, 'the first red run').url).toBe(jobUrl(101, 1011));
   });
 
   it('keeps a log in no known format as an excerpt with no count, and no excerpt for the others', async () => {
     const { records, context } = await gathered();
     const { facts } = detect(records, context);
-    const lint = facts.redRuns.find((redRun) => redRun.id === 2013)!;
-    expect(lint.excerpt).toBe(records.logs[2013]!.tail);
+    const lint = defined(facts.redRuns.find((redRun) => redRun.id === 2013), 'the red run of job 2013');
+    expect(lint.excerpt).toBe(logRecord(records.logs, 2013).tail);
     expect(lint.excerpt).toContain('test colour::reads_it_back ... FAILED');
     expect(facts.redRuns.filter((redRun) => 'excerpt' in redRun).map((redRun) => redRun.id)).toEqual([2013]);
   });
@@ -260,7 +267,7 @@ describe('ci — detect', () => {
       ['unit on aaa1111 in s1, attempt 2', jobUrl(101, 1015)],
       ['unit on ccc3333 in s2', jobUrl(201, 2011)],
     ]);
-    expect(unit.evidence[0]!.excerpt).toBe(records.logs[1011]!.tail);
+    expect(itemAt(unit.evidence, 0, 'the first evidence').excerpt).toBe(logRecord(records.logs, 1011).tail);
 
     expect(py.evidence.map((item) => [item.label, 'excerpt' in item])).toEqual([
       ['py on ccc3333 in s2', true],
@@ -275,8 +282,8 @@ describe('ci — detect', () => {
       ['e2e red on aaa1111 in s1', jobUrl(101, 1012)],
       ['e2e green on aaa1111 in s1, attempt 2', jobUrl(101, 1016)],
     ]);
-    expect(e2e.evidence[0]!.excerpt).toBe(records.logs[1012]!.tail);
-    expect('excerpt' in e2e.evidence[1]!).toBe(false);
+    expect(itemAt(e2e.evidence, 0, 'the first evidence').excerpt).toBe(logRecord(records.logs, 1012).tail);
+    expect('excerpt' in itemAt(e2e.evidence, 1, 'the second evidence')).toBe(false);
 
     expect(test.title).toBe('Test “adds an item” failed in several runs');
     expect(test.happened).toBe(
@@ -360,7 +367,7 @@ describe('ci — through the retro function', () => {
     const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, env: JUDGE_ENV, fetch: judge() });
     const { error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
     const files = widget.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
-    return { error, github: widget.github, markdown: files[`${FOLDER}/retro.md`]!, json: files[`${FOLDER}/retro.json`]! };
+    return { error, github: widget.github, markdown: defined(files[`${FOLDER}/retro.md`], 'retro.md'), json: defined(files[`${FOLDER}/retro.json`], 'retro.json') };
   }
 
   it('writes the Checks section and its findings into retro.md, and keeps its facts in retro.json', async () => {
@@ -371,8 +378,7 @@ describe('ci — through the retro function', () => {
     expect(markdown).toContain('— `flaky:e2e`');
     expect(markdown).toContain('— `failing-test:src/cart/cart.test.ts > cart > adds an item`');
     expect(markdown).toMatch(/Findings: F\d · Check unit was red again and again(?: · \[#\d+\]\([^)]+\))?; /);
-    const doc = JSON.parse(json);
-    expect(doc.runs[0].kinds.ci.totals).toEqual({ runs: 13, red: 7, checks: 4, commits: 4, slices: 3 });
+    expect(dig(JSON.parse(json), 'runs', 0, 'kinds', 'ci', 'totals')).toEqual({ runs: 13, red: 7, checks: 4, commits: 4, slices: 3 });
   });
 
   it('keeps the logs’ last lines out of retro.md: they are evidence for the model, in retro.json', async () => {
