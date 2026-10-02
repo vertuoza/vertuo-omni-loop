@@ -24,6 +24,7 @@
 // their workspaces before it issues the code (joinBeforeIssue, src/data/sign-in.ts), and when the
 // database still will not issue it for someone in none, the server does.
 import { createHash, randomBytes } from 'node:crypto';
+import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';
 
 /** How long a one-time code works. */
@@ -166,11 +167,12 @@ const AUTH_DOWN = 'The sign-in service could not be reached. Try again.';
 
 /** A failure of the Auth server itself (unreachable: status 0, or 5xx), not a verdict on a token. */
 function authDown(error: unknown) {
-  const status = (error as { status?: unknown } | null)?.status;
+  const status = propertyOf(error, 'status');
   return typeof status === 'number' && (status === 0 || status >= 500);
 }
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 type Grant = ({ code: string } | { refresh_token: string }) & { repo: string | null };
 
@@ -187,11 +189,11 @@ async function grant(request: Request): Promise<Grant | Response> {
     body = null;
   }
   const wrong = () => refuse(400, 'The body must be {"code": "…"} or {"refresh_token": "…"}, with "repo": "owner/name" if you like.');
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return wrong();
-  const { code, refresh_token: refreshToken, repo, ...rest } = body as Record<string, unknown>;
+  if (!isRecord(body)) return wrong();
+  const { code, refresh_token: refreshToken, repo, ...rest } = body;
   if (Object.keys(rest).length > 0 || (code === undefined) === (refreshToken === undefined)) return wrong();
   if (repo !== undefined && (typeof repo !== 'string' || !REPO.test(repo))) return wrong();
-  const named = { repo: (repo as string | undefined) ?? null };
+  const named = { repo: typeof repo === 'string' ? repo : null };
   if (code !== undefined) return isText(code) ? { code, ...named } : wrong();
   return isText(refreshToken) ? { refresh_token: refreshToken, ...named } : wrong();
 }
@@ -222,9 +224,12 @@ async function placement(deps: TokenDeps, userId: string, repo: string | null): 
 async function redeem(client: TokenClient, code: string) {
   const { data, error } = await client.rpc('ask_cli_code_redeem', { p_code_hash: hashCode(code) });
   if (error) throw Object.assign(new Error(`ask_cli_code_redeem: ${error.message}`), { name: 'AskCodeStoreError' });
-  const row = (Array.isArray(data) ? data[0] : data) as { owner?: unknown; refresh_token?: unknown; expires_at?: unknown } | undefined | null;
-  if (!row || !isText(row.owner) || !isText(row.refresh_token) || !isText(row.expires_at)) return null;
-  return { owner: row.owner, refresh_token: row.refresh_token, expires_at: Date.parse(row.expires_at) };
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  const owner = propertyOf(row, 'owner');
+  const refreshToken = propertyOf(row, 'refresh_token');
+  const expiresAt = propertyOf(row, 'expires_at');
+  if (!isText(owner) || !isText(refreshToken) || !isText(expiresAt)) return null;
+  return { owner, refresh_token: refreshToken, expires_at: Date.parse(expiresAt) };
 }
 
 /** The contract's token exchange: a one-time code or a refresh token in, the account's tokens out,
@@ -247,7 +252,7 @@ export async function exchangeToken(request: Request, deps: TokenDeps): Promise<
     try {
       row = await redeem(client, given.code);
     } catch (error) {
-      console.error(`ask token: ${(error as Error).message}`);
+      console.error(`ask token: ${messageOf(error)}`);
       return refuse(500, 'The ask database could not answer. Try again.');
     }
     if (!row) return refuse(401, CODE_INVALID);

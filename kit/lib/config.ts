@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { messageOf } from './narrow.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -302,7 +303,7 @@ export function parseConfig(source: string, file: string = CONFIG_FILE, { migrat
   try {
     raw = parse(source) ?? {};
   } catch (error) {
-    throw new ConfigError(`${file}: not valid YAML — ${(error as Error).message.split('\n')[0]}`); // ts-allow: the yaml parser throws only Error
+    throw new ConfigError(`${file}: not valid YAML — ${messageOf(error).split('\n')[0]}`);
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);

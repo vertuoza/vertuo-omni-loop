@@ -45,7 +45,7 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
   },
 ]);
 
-const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.freeze({
+const REGISTRY: Readonly<Record<string, JevDecisionEntry<any, any>>> = Object.freeze({ // ts-allow: each entry has its own input and value types; jevEntry hands them out as unknown
   [questionCategory.name]: questionCategory,
   [outboxRisk.name]: outboxRisk,
   [bugRisk.name]: bugRisk,

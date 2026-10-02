@@ -1,4 +1,5 @@
 import { tokenOf, tokensOf, type AgentToken } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The links' store (PRD 855 s1): the functions of supabase/migrations/20261028090000_agent_tokens.sql,
 // called as the signed-in person, so the database decides who may make, list and revoke. A refusal
@@ -21,15 +22,15 @@ export class AgentTokenStoreError extends Error {
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
-type PgError = { code?: unknown; hint?: unknown; message?: unknown };
-
 function failed(what: string, error: unknown): AgentTokenStoreError {
-  const e = (error ?? {}) as PgError; // ts-allow: each field is checked a string on the next lines
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
+  const message = propertyOf(error, 'message');
   return new AgentTokenStoreError(
     what,
-    typeof e.code === 'string' ? e.code : undefined,
-    typeof e.hint === 'string' ? e.hint : undefined,
-    typeof e.message === 'string' ? e.message : 'no answer',
+    typeof code === 'string' ? code : undefined,
+    typeof hint === 'string' ? hint : undefined,
+    typeof message === 'string' ? message : 'no answer',
   );
 }
 

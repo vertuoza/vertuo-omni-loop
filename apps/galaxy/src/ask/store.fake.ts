@@ -15,9 +15,14 @@
 // shared with may then answer it on the page while it is open, and nothing else. `ask_members` lists
 // a workspace's members to anyone in it.
 
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { isCategory } from './classify';
 
 type Row = Record<string, unknown>;
+
+/** A value the fake's rows and calls hold as text, or undefined. */
+const textOf = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
@@ -32,7 +37,7 @@ const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON
 export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => number = Date.now) {
   const tables: FakeTables = { ask_sessions: [], ask_rounds: [], ask_shares: [] };
   let next = 0;
-  const state = { fail: null as Failure | null, queries: 0 };
+  const state: { fail: Failure | null; queries: number } = { fail: null, queries: 0 };
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
   const stamp = () => new Date(now()).toISOString();
 
@@ -47,7 +52,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
   const visible = (table: keyof FakeTables, row: Row, me: FakeAccount | null) => {
     const session = sessionOf(row, table);
     if (table === 'ask_shares' && me && row.shared_with === me.id) return true;
-    return Boolean(me && session && workspacesOf(me).includes(session.workspace_id as string));
+    return Boolean(me && session && isOneOf(workspacesOf(me), session.workspace_id));
   };
   /** A round shared with the caller, who still belongs to its session's workspace. */
   const sharedWithMe = (round: Row, me: FakeAccount | null) =>
@@ -139,7 +144,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
         };
         // Like the trigger (repo_workspace(), PRD 459): a session with nowhere to go is refused with the reason.
         if (!row.workspace_id) {
-          return { error: { code: '42501', message: `no workspace owns ${(row.repo as string | null) ?? 'this repository'} yet — install the Omni App` } };
+          return { error: { code: '42501', message: `no workspace owns ${typeof row.repo === 'string' ? row.repo : 'this repository'} yet — install the Omni App` } };
         }
         tables.ask_sessions.push(row);
         return [row];
@@ -187,8 +192,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
   function call(me: FakeAccount | null, name: string, args: Record<string, unknown> & { round_id?: string; new_category?: unknown }): Result {
     state.queries += 1;
     if (state.fail) return { data: null, error: state.fail };
-    if (name === 'ask_round_share') return share(me, args as { p_round_id?: string; p_member?: string });
-    if (name === 'ask_members') return members(me, (args as { workspace?: string }).workspace);
+    if (name === 'ask_round_share') return share(me, { p_round_id: textOf(args.p_round_id), p_member: textOf(args.p_member) });
+    if (name === 'ask_members') return members(me, textOf(args.workspace));
     const { round_id: id, new_category: category } = args;
     if (category !== null && !isCategory(category)) {
       return { data: null, error: { code: '23514', message: 'new row for relation "ask_rounds" violates check constraint "ask_rounds_category_check"' } };
@@ -211,7 +216,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
   function share(me: FakeAccount | null, { p_round_id: id, p_member: member }: { p_round_id?: string; p_member?: string }): Result {
     const round = tables.ask_rounds.find((r) => r.id === id);
     const session = round && sessionOf(round, 'ask_rounds');
-    const place = session?.workspace_id as string | undefined;
+    const place = textOf(session?.workspace_id);
     const target = Object.values(accounts).find((a) => a.id === member);
     const ok = Boolean(me && round && place && owned('ask_rounds', round, me) && target && target.id !== me.id && workspacesOf(target).includes(place));
     if (ok && !tables.ask_shares.some((s) => s.round_id === id && s.shared_with === member)) {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { memberWorkspace } from '../data/workspace';
 import { installationSettingsUrl } from '../signup/github-app';
@@ -44,7 +45,7 @@ async function ownerOf(db: SupabaseClient, workspace: string): Promise<boolean> 
   return data === true;
 }
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err));
+const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 /** A role that cannot be read reads as a member's. */
 function asMember(err: unknown): boolean {
@@ -58,7 +59,7 @@ async function rowsOf(db: SupabaseClient, workspace: string): Promise<Repository
     .select('full_name, tracked, collected_at, collect_error, product_id')
     .eq('workspace_id', workspace);
   if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
-  return ((data ?? []) as StoredRepository[]).map(rowOf);
+  return ((data ?? []) as StoredRepository[]).map(rowOf); // ts-allow: the untyped client answers any rows; the select names the columns of StoredRepository
 }
 
 type GithubOf = { github_org: string | null; github_installation_id: number | string | null };
@@ -66,14 +67,14 @@ type GithubOf = { github_org: string | null; github_installation_id: number | st
 async function githubOf(db: SupabaseClient, workspace: string): Promise<GithubOf> {
   const { data, error } = await db.from('workspaces').select('github_org, github_installation_id').eq('id', workspace).maybeSingle();
   if (error) throw new Error(`Supabase: could not read the workspace's GitHub installation (${error.message})`);
-  return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null };
+  return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null }; // ts-allow: the untyped client answers any; the select names GithubOf's two columns
 }
 
 /** The business's products, first first (PRD 748 s4). None when there is no business yet. */
 async function productsOf(db: SupabaseClient, workspace: string): Promise<Product[]> {
   const { data, error } = await db.from('products').select('id, name').eq('workspace_id', workspace).order('ordinal');
   if (error) throw error;
-  return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name }));
+  return ((data ?? []) as Product[]).map(({ id, name }) => ({ id, name })); // ts-allow: the untyped client answers any rows; the select names id and name
 }
 
 /** Products that cannot be read: the page then shows no product select, never no list. */

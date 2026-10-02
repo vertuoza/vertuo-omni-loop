@@ -46,6 +46,9 @@ workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox
 - The GitHub App's Inngest plan caps how long a run may sleep at 7 days (answered on #75, PRD 72):
   anything that waits longer, like the retro's second look 14 days after a merge, runs from a daily
   scheduled function, never from one long sleep.
+- `kit/` holds only the kit that ships to other repositories. A check or tool about this
+  repository as a whole (its TypeScript guard, its ceilings) lives in `scripts/`, never under
+  `kit/`, so the kit's rule against naming the game needs no exception (settled item s11-01, PRD 942).
 
 ## Patterns
 <!-- slot: patterns · optional -->

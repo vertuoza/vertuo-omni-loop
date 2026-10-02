@@ -16,20 +16,17 @@ export function handles<Records, Facts>(kind: Kind<Records, Facts>) {
   };
 }
 
-/**
- * The stubbed GitHub over any fixtures. `replayGitHub` is typed by its own slice; until then the
- * options it infers from its defaults take only empty lists and maps.
- */
-export function replay(fixtures: object = {}): ReturnType<typeof replayGitHub> {
-  return replayGitHub(fixtures as Parameters<typeof replayGitHub>[0]); // ts-allow: the options its own slice will type
+/** The stubbed GitHub over a test's fixtures. */
+export function replay(fixtures: Parameters<typeof replayGitHub>[0] = {}): ReturnType<typeof replayGitHub> {
+  return replayGitHub(fixtures);
 }
 
-/** The widget scenario over any parts, for the same reason. */
-export function scenario(parts: object = {}): ReturnType<typeof widgetScenario> {
-  return widgetScenario(parts as Parameters<typeof widgetScenario>[0]); // ts-allow: the options its own slice will type
+/** The widget scenario over a test's parts. */
+export function scenario(parts: Parameters<typeof widgetScenario>[0] = {}): ReturnType<typeof widgetScenario> {
+  return widgetScenario(parts);
 }
 
-/** The retro's Inngest function over a test's stubs, for the same reason. */
-export function retroFunction(options: object): ReturnType<typeof createRetro> {
-  return createRetro(options as Parameters<typeof createRetro>[0]); // ts-allow: the options its own slice will type
+/** The retro's Inngest function over a test's stubs. */
+export function retroFunction(options: Parameters<typeof createRetro>[0]): ReturnType<typeof createRetro> {
+  return createRetro(options);
 }

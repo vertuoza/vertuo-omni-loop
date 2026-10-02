@@ -1,5 +1,6 @@
 import { validPersonaAvatar } from '@omni/design';
 import { NAME_MAX, personaOf, STANCES, TEXT_MAX, type Persona, type PersonaFields, type StoredPersona } from './personas';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas' calls (PRD 799 s3). In production, the functions of
 // supabase/migrations/20261022090000_personas.sql, called as the signed-in person: persona_add(),
@@ -35,7 +36,8 @@ const INVALID = 'That can’t be saved. Check each field.';
 
 /** An error as PostgREST answers it, or anything thrown, as the section says it. */
 export function personaRefusalOf(error: unknown): string {
-  const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
+  const code = propertyOf(error, 'code');
+  const hint = propertyOf(error, 'hint');
   if (code === '42501') return NOT_MEMBER;
   if (code === 'P0002') return GONE;
   if (code === '22023') return INVALID_FIELD[String(hint)] ?? INVALID;
@@ -53,7 +55,7 @@ export function databasePersonas(db: Rpc, workspace: string): PersonaPort {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: personaRefusalOf(error) };
-      return { ok: true, persona: personaOf(data as StoredPersona) };
+      return { ok: true, persona: personaOf(data as StoredPersona) }; // ts-allow: each persona function answers the public.personas row it wrote
     } catch (err) {
       return { ok: false, message: personaRefusalOf(err) };
     }

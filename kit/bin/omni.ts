@@ -12,6 +12,7 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.ts';
 import { loadContext } from '../lib/context.ts';
+import { propertyOf } from '../lib/narrow.ts';
 import { handOver, planLaunch } from '../lib/launch/launch.ts';
 import { recordSession } from '../lib/statusline/sessions.ts';
 import { positiveInt } from './args.ts';
@@ -118,7 +119,7 @@ const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSyn
 if (invoked) {
   const argv = process.argv.slice(2);
   const fail = (error: unknown) => {
-    process.stderr.write(`${(error as { stack?: unknown } | null)?.stack ?? error}\n`); // ts-allow: whatever was thrown, its stack when it has one
+    process.stderr.write(`${propertyOf(error, 'stack') ?? error}\n`);
     process.exit(1);
   };
   try {

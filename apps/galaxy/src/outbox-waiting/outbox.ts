@@ -53,6 +53,9 @@ export function waitingItems(dossier: Pick<WaitingDossier, 'id' | 'prd' | 'title
   }));
 }
 
+/** A dossier whose outbox could not be read starts with no items. */
+const noItems = (): WaitingOutboxItem[] => [];
+
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 
 async function signedIn(deps: WaitingDeps): Promise<{ db: WaitingDb; user: string } | null> {
@@ -91,7 +94,7 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
       return own.map((dossier) => ({ dossier, items: waitingItems(dossier, counts.get(prdKey({ repository: dossier.home_repo, prd: dossier.prd }))), unread: false }));
     } catch (error) {
       console.error(`Waiting outbox: the outboxes of workspace ${workspace} could not be read: ${error instanceof Error ? error.message : String(error)}`);
-      return own.map((dossier) => ({ dossier, items: [] as WaitingOutboxItem[], unread: true })); // ts-allow: a dossier with no items starts with an empty list
+      return own.map((dossier) => ({ dossier, items: noItems(), unread: true }));
     }
   }))).flat();
 

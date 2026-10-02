@@ -1,4 +1,5 @@
 // `omni config [key.path]` — the resolved config as JSON, or one value (a string printed bare).
+import { propertyOf } from '../../lib/narrow.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 
@@ -13,7 +14,7 @@ export const config: Command = {
         if (value === null || typeof value !== 'object' || !Object.hasOwn(value, part)) {
           throw usageError(`omni config: no key ${key}.`);
         }
-        value = (value as Record<string, unknown>)[part]; // ts-allow: an object that owns `part`, checked just above
+        value = propertyOf(value, part);
       }
     }
     println(stdout, typeof value === 'string' ? value : JSON.stringify(value, null, 2));

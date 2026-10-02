@@ -47,6 +47,11 @@ describe('the sign-up store, as the service role', () => {
     ]);
   });
 
+  it('reads no pending requests as none, and throws on an odd shape', async () => {
+    expect(await signupStore(stubDb().db).pendingRequests('user-mia')).toEqual([]);
+    await expect(signupStore(stubDb({ data: [{ org: 'acme' }] }).db).pendingRequests('user-mia')).rejects.toThrow(/shape/);
+  });
+
   it('records a request once, however often it is made', async () => {
     const { db, calls } = stubDb();
     await signupStore(db).recordRequest('user-mia', 'acme');

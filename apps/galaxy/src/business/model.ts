@@ -86,14 +86,14 @@ export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] =
   const quoted = receipts
     .filter((r) => r.claim_id === row.id)
     .sort((a, b) => Date.parse(b.seen_at) - Date.parse(a.seen_at))
-    .map((r): ClaimReceipt => ({ kind: r.kind as ClaimReceipt['kind'], where: r.location, quote: r.quote, seenAt: r.seen_at }));
+    .map((r): ClaimReceipt => ({ kind: r.kind as ClaimReceipt['kind'], where: r.location, quote: r.quote, seenAt: r.seen_at })); // ts-allow: the column's check constraint holds only file, pr and link
   return {
     id: row.id,
     seq: row.seq,
-    kind: row.kind as ClaimKind,
+    kind: row.kind as ClaimKind, // ts-allow: the column's check constraint holds only ClaimKind's values
     value: row.value,
-    source: row.source as ClaimSource,
-    state: row.state as ClaimState,
+    source: row.source as ClaimSource, // ts-allow: the column's check constraint holds only ClaimSource's values
+    state: row.state as ClaimState, // ts-allow: the column's check constraint holds only ClaimState's values
     product: row.product_id ?? null,
     cited: mine.length,
     lastBy: last ? [last.cited_by, last.ref].filter(Boolean).join(' ') : null,
@@ -250,7 +250,7 @@ export const othersOf = (claims: readonly Claim[], kind: ClaimKind, list: readon
 export function sizeOf(claims: readonly Claim[]): { stops: [number, number]; picked: boolean } {
   const size = confirmedOf(claims, 'size')[0];
   const stops = size ? sizeStops(size.value) : null;
-  return stops ? { stops, picked: true } : { stops: [...DEFAULT_SIZE] as [number, number], picked: false };
+  return stops ? { stops, picked: true } : { stops: [DEFAULT_SIZE[0], DEFAULT_SIZE[1]], picked: false };
 }
 
 // ── Products (PRD 748 s4) ────────────────────────────────────────────────────────

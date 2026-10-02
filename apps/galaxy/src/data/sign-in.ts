@@ -16,6 +16,7 @@
 //   4. links GitHub (link_github()), so the account is a player at once.
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
@@ -84,7 +85,8 @@ export async function linkGithub(db: Rpc): Promise<Linked> {
   try {
     const { data, error } = await db.rpc('link_github');
     if (error) return { login: null, error: error.message };
-    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null }; // ts-allow: link_github() answers JSON holding the login it linked
+    const login = propertyOf(data, 'github_login');
+    return { login: typeof login === 'string' ? login : '', error: null };
   } catch (err) {
     return { login: null, error: err instanceof Error ? err.message : String(err) };
   }

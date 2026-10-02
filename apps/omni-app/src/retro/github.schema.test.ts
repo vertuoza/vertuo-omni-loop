@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ContentSchema,
   IssuesSchema,
+  ListSchema,
   PullSchema,
   PullsSchema,
   RetroDocSchema,
@@ -40,6 +41,11 @@ describe('parseGitHub — what the retro reads from GitHub', () => {
   it('reads a folder or one file from the contents API', () => {
     expect(parseGitHub(ContentSchema, [{ name: 'a' }], 'GET contents')).toEqual([{ name: 'a' }]);
     expect(parseGitHub(ContentSchema, { type: 'file', content: 'aGk=', encoding: 'base64' }, 'GET contents')).toMatchObject({ type: 'file' });
+  });
+
+  it('reads a page of a list route as its items, and fails an answer that is no list', () => {
+    expect(parseGitHub(ListSchema, [{ id: 1 }, 'two'], 'GET events')).toEqual([{ id: 1 }, 'two']);
+    expect(() => parseGitHub(ListSchema, { message: 'Not Found' }, 'GET events')).toThrow(/^GET events answered an unexpected shape: /);
   });
 
   it('fails an issue whose number is not a number, naming it', () => {

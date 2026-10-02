@@ -1,6 +1,7 @@
 import { claimOf, type StoredClaim } from './model';
 import { refuse, reply } from '../business-api/reply';
 import { suggestInput, type Suggester } from './suggest';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // POST /api/business/suggest-rivals {workspace, product} → 200 {claims} (PRD 748 s3), as a plain
 // function of a Request so app/api/business/suggest-rivals/route.ts stays one line. Settings › Business
@@ -38,7 +39,7 @@ export type SuggestDeps = {
   suggest: Suggester | null;
 };
 
-const NOTHING = { claims: [] as StoredClaim[] };
+const NOTHING: { claims: StoredClaim[] } = { claims: [] };
 
 const id = (value: unknown) => (typeof value === 'string' && value.length > 0 && value.length <= 64 ? value : null);
 
@@ -57,9 +58,8 @@ const NOT_JSON = Symbol('not JSON');
 async function targetOf(request: Request): Promise<Target | Response> {
   const sent: unknown = await request.json().catch(() => NOT_JSON);
   if (sent === NOT_JSON) return refuse(400, 'The body must be a JSON object.');
-  const { workspace, product } = (sent && typeof sent === 'object' ? sent : {}) as Record<string, unknown>;
-  const ws = id(workspace);
-  const pr = id(product);
+  const ws = id(propertyOf(sent, 'workspace'));
+  const pr = id(propertyOf(sent, 'product'));
   if (!ws || !pr) return refuse(400, '`workspace` and `product` must be the ids the page shows.');
   return { ws, pr };
 }

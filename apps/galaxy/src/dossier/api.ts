@@ -51,6 +51,8 @@ export type DossierDeps = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const PRD_MAX = 2 ** 31 - 1;
+/** A PRD's number: a whole number from 1 to the database's largest integer. */
+const isPrdNumber = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= PRD_MAX;
 
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 const refuse = (status: number, error: string) => reply(status, { error });
@@ -202,7 +204,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const repo = repoOf(sent.repo);
     if (!repo) return refuse(400, 'A push names its repository as owner/name.');
     const prd = sent.prd;
-    if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.'); // ts-allow: Number.isInteger, first on this line, proved it a number
+    if (!isPrdNumber(prd)) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
     const which = kindAndDraftOf(sent);
@@ -210,7 +212,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const { kind, draftId } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts }); // ts-allow: the prd was checked a positive whole number earlier in this handler
+    const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts });
     return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
   });
 }

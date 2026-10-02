@@ -1,3 +1,4 @@
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { FakeUser, fakeGalaxyDb } from '../../data/galaxy.fake';
 
 // A stubbed Supabase client for the counts' loader tests (PRD 328): the galaxy's fake database
@@ -20,14 +21,14 @@ type Op = 'eq' | 'in' | 'gte' | 'lt';
 /** One read of an ask table, as the fake received it. */
 export type AskRead = { table: AskTable; filters: Array<{ column: string; op: Op; value: unknown }>; counting: boolean };
 
-const ASK_TABLES: readonly string[] = ['ask_sessions', 'ask_rounds', 'ask_shares'];
+const ASK_TABLES: readonly AskTable[] = ['ask_sessions', 'ask_rounds', 'ask_shares'];
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
 /** Instants as instants; a range never holds a null. */
 const time = (value: unknown) => (typeof value === 'string' ? Date.parse(value) : Number.NaN);
 const passes = (cell: unknown, op: Op, value: unknown) =>
   op === 'eq' ? cell === value
-    : op === 'in' ? (value as unknown[]).includes(cell)
+    : op === 'in' ? Array.isArray(value) && value.includes(cell)
       : op === 'gte' ? time(cell) >= time(value)
         : time(cell) < time(value);
 
@@ -35,7 +36,7 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
   const tables: AskTables = { ask_sessions: [], ask_rounds: [], ask_shares: [], ...clone(seed) };
   const reads: AskRead[] = [];
   /** `failWhen`: the reads that fail, as a database out of reach for them. */
-  const state = { failWhen: null as ((read: AskRead) => boolean) | null };
+  const state: { failWhen: ((read: AskRead) => boolean) | null } = { failWhen: null };
 
   const member = (me: FakeUser, workspace: unknown) =>
     world.tables.workspace_members.some((m) => m.workspace_id === workspace && m.user_id === me.id);
@@ -95,7 +96,7 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
     const game = world.client(user);
     return {
       ...game,
-      from: (table: string) => (ASK_TABLES.includes(table) ? new Query(table as AskTable, user) : game.from(table as never)),
+      from: (table: string) => (isOneOf(ASK_TABLES, table) ? new Query(table, user) : game.from(table as never)), // ts-allow: a test fake hands every other table to the galaxy fake, which answers only its own
     };
   }
 

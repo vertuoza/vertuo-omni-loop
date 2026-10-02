@@ -2,6 +2,7 @@
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
 import type { Out } from './io.ts';
 
 export function usageError(message: string): Error {
@@ -30,9 +31,9 @@ export function parseArgs<V extends string = never, B extends string = never>(
       continue;
     }
     const name = arg.slice(2);
-    if ((booleans as readonly string[]).includes(name)) { // ts-allow: widened to test any flag name
+    if (isOneOf(booleans, name)) {
       flags[name] = true;
-    } else if ((values as readonly string[]).includes(name)) { // ts-allow: widened to test any flag name
+    } else if (isOneOf(values, name)) {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith('--')) throw usageError(`omni ${command}: ${arg} needs a value.`);
       flags[name] = value;
@@ -75,7 +76,7 @@ export function readUserFile(command: string, ctx: { root: string }, path: strin
   try {
     return readFileSync(inRoot(ctx, path), 'utf8');
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException | null)?.code; // ts-allow: readFileSync throws a system error
+    const code = errorCode(error);
     if (code === 'ENOENT' || code === 'EISDIR' || code === 'EACCES') {
       throw usageError(`omni ${command}: cannot read ${path} (${code}).`);
     }
@@ -111,10 +112,10 @@ export function withPrdFolder<T>(command: string, fn: () => T): T {
 /** The `code` of a system error (`ENOENT`, `EISDIR`, …), as `error?.code` reads it: `undefined` for
  * anything without one. */
 export function errorCode(error: unknown): unknown {
-  return (error as { code?: unknown } | null | undefined)?.code; // ts-allow: reads `code` off whatever was thrown, as `error?.code` does
+  return propertyOf(error, 'code');
 }
 
-/** The `message` of what a library threw: every kit module throws an `Error`. */
+/** The `message` of what a library threw (every kit module throws an `Error`), else the value as text. */
 export function errorMessage(error: unknown): string {
-  return (error as Error).message; // ts-allow: every kit module throws an Error
+  return messageOf(error);
 }

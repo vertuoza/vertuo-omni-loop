@@ -2,6 +2,7 @@ import { claimOf, type Claim, type StoredClaim, type StoredReceipt } from './mod
 import type { DraftView, WebPage } from './reveal';
 import { MAX_PAGES } from './reveal';
 import { COULD_NOT_SAVE, refusalOf } from './store';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The draft's calls from Settings › Business (PRD 774 s3), as the signed-in person. Draft from my repos
 // posts to the draft route (src/business/draft/api.ts), which answers the draft it started or the one
@@ -44,14 +45,18 @@ export interface DraftDb {
 }
 
 /** A draft row as the page keeps it. */
-export function draftOf(row: Record<string, unknown>): DraftView {
+export function draftOf(row: unknown): DraftView {
+  const state = propertyOf(row, 'state');
+  const counts = propertyOf(row, 'counts');
+  const scanned = propertyOf(row, 'scanned');
+  const reason = propertyOf(row, 'reason');
   return {
-    id: String(row.id),
-    kind: row.kind === 'recheck' ? 'recheck' : 'draft',
-    state: row.state === 'done' || row.state === 'failed' ? row.state : 'running',
-    counts: (row.counts && typeof row.counts === 'object' ? row.counts : {}) as DraftView['counts'],
-    scanned: Array.isArray(row.scanned) ? (row.scanned as DraftView['scanned']) : [],
-    reason: typeof row.reason === 'string' ? row.reason : null,
+    id: String(propertyOf(row, 'id')),
+    kind: propertyOf(row, 'kind') === 'recheck' ? 'recheck' : 'draft',
+    state: state === 'done' || state === 'failed' ? state : 'running',
+    counts: (counts && typeof counts === 'object' ? counts : {}) as DraftView['counts'], // ts-allow: counts is a JSON column the draft run writes in DraftView's shape
+    scanned: Array.isArray(scanned) ? (scanned as DraftView['scanned']) : [], // ts-allow: scanned is a JSON column the draft run writes in DraftView's shape
+    reason: typeof reason === 'string' ? reason : null,
   };
 }
 
@@ -61,12 +66,13 @@ export const RECEIPT_COLUMNS = 'claim_id, kind, location, quote, seen_at';
 
 export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)): DraftPort {
   /** A route's answer: its body when it said yes, else its `{error}` in plain words. */
-  const send = async (url: string, method: string, body: unknown): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; message: string }> => {
+  const send = async (url: string, method: string, body: unknown): Promise<{ ok: true; body: unknown } | { ok: false; message: string }> => {
     try {
       const response = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-      const said = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+      const said: unknown = await response.json().catch(() => null);
       if (response.ok && said) return { ok: true, body: said };
-      return { ok: false, message: typeof said?.error === 'string' ? said.error : COULD_NOT_SAVE };
+      const error = propertyOf(said, 'error');
+      return { ok: false, message: typeof error === 'string' ? error : COULD_NOT_SAVE };
     } catch {
       return { ok: false, message: COULD_NOT_SAVE };
     }
@@ -75,14 +81,14 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
     async start() {
       const sent = await send(DRAFT_ROUTE, 'POST', { workspace });
       if (!sent.ok) return sent;
-      const row = sent.body.draft;
-      return row && typeof row === 'object' ? { ok: true, draft: draftOf(row as Record<string, unknown>) } : { ok: false, message: COULD_NOT_SAVE };
+      const row = propertyOf(sent.body, 'draft');
+      return row && typeof row === 'object' ? { ok: true, draft: draftOf(row) } : { ok: false, message: COULD_NOT_SAVE };
     },
     async latest() {
       try {
         const { data, error } = await db.from('business_drafts').select(DRAFT_COLUMNS).eq('workspace_id', workspace).order('started_at', { ascending: false }).limit(1);
-        const row = Array.isArray(data) ? data[0] : null;
-        return error || !row ? null : draftOf(row as Record<string, unknown>);
+        const row: unknown = Array.isArray(data) ? data[0] : null;
+        return error || !row ? null : draftOf(row);
       } catch {
         return null;
       }
@@ -94,8 +100,8 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
           db.from('claim_receipts').select(RECEIPT_COLUMNS).eq('workspace_id', workspace),
         ]);
         if (claims.error || receipts.error) return null;
-        const quoted = (receipts.data ?? []) as StoredReceipt[];
-        return ((claims.data ?? []) as StoredClaim[]).map((row) => claimOf(row, [], quoted)).sort((a, b) => a.seq - b.seq);
+        const quoted = (receipts.data ?? []) as StoredReceipt[]; // ts-allow: the select names RECEIPT_COLUMNS, the columns of StoredReceipt
+        return ((claims.data ?? []) as StoredClaim[]).map((row) => claimOf(row, [], quoted)).sort((a, b) => a.seq - b.seq); // ts-allow: the select names CLAIM_COLUMNS, the columns of StoredClaim
       } catch {
         return null;
       }
@@ -103,8 +109,9 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
     async addPage(url) {
       const sent = await send(SOURCES_ROUTE, 'POST', { workspace, url });
       if (!sent.ok) return sent;
-      const page = sent.body.source as { id?: unknown; url?: unknown } | undefined;
-      return typeof page?.id === 'string' ? { ok: true, page: { id: page.id, url: String(page.url) } } : { ok: false, message: COULD_NOT_SAVE };
+      const page = propertyOf(sent.body, 'source');
+      const id = propertyOf(page, 'id');
+      return typeof id === 'string' ? { ok: true, page: { id, url: String(propertyOf(page, 'url')) } } : { ok: false, message: COULD_NOT_SAVE };
     },
     async removePage(id) {
       const sent = await send(SOURCES_ROUTE, 'DELETE', { workspace, source: id });
@@ -121,7 +128,7 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
     async stillTrue(claim) {
       try {
         const { data, error } = await db.rpc('claim_still_true', { p_workspace: workspace, p_claim: claim });
-        const seen = (data as { last_seen?: unknown } | null)?.last_seen;
+        const seen = propertyOf(data, 'last_seen');
         if (error || typeof seen !== 'string') return { ok: false, message: refusalOf(error) };
         return { ok: true, at: seen };
       } catch (err) {

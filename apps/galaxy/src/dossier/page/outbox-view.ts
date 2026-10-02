@@ -13,6 +13,7 @@
 //
 // No markdown is rendered here: this module is safe in the browser. The tab renders item text on the
 // server (./OutboxPane.tsx), raw HTML off.
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { UNREAD, type GithubSummary, type OutboxItem, type PendingAnswer, type SettledItem } from '../github/summary';
 import { outboxAnswerUrl } from './stage';
 import type { Face } from '../../people/face';
@@ -38,7 +39,7 @@ export const NOT_NUMBERED = 'Not numbered yet: the outbox comment on the pull re
 export type ContextKind = 'before-after' | 'spec' | 'brainstorm';
 export const CONTEXTS: readonly ContextKind[] = ['before-after', 'spec', 'brainstorm'];
 export const CONTEXT_LABELS: Readonly<Record<ContextKind, string>> = { 'before-after': 'Before/after', spec: 'Spec', brainstorm: 'Brainstorm' };
-export const isContext = (value: unknown): value is ContextKind => CONTEXTS.includes(value as ContextKind); // ts-allow: a guard: includes() only compares the value
+export const isContext = (value: unknown): value is ContextKind => isOneOf(CONTEXTS, value);
 
 /** One question the brainstorm asked, and its answer as given. */
 export type BrainstormAnswer = { question: string; answer: string | null };

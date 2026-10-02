@@ -23,11 +23,11 @@ export function maskSecrets(text: string | null | undefined): string {
 }
 
 /** A state as Jev is given it, every string inside masked; keys, numbers and booleans kept. */
-export function maskState<T>(value: T): T {
-  if (typeof value === 'string') return maskSecrets(value) as T;
-  if (Array.isArray(value)) return value.map((v) => maskState(v)) as T;
+export function maskState(value: unknown): unknown {
+  if (typeof value === 'string') return maskSecrets(value);
+  if (Array.isArray(value)) return value.map((v) => maskState(v));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, maskState(v)])) as T;
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, maskState(v)]));
   }
   return value;
 }

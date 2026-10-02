@@ -1,3 +1,4 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rowOf, type RepositoryRow, type StoredRepository } from './model';
 
 // Settings → Repositories's two calls (PRD 612 s1). In production, the owner-only functions of
@@ -24,7 +25,7 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
 export function refusalOf(error: unknown): string {
-  const { code } = (error ?? {}) as { code?: unknown };
+  const code = propertyOf(error, 'code');
   if (code === '42501') return NOT_OWNER;
   if (code === 'P0002') return GONE;
   return COULD_NOT_SAVE;
@@ -37,13 +38,13 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: refusal(error) };
-      return { ok: true, repository: rowOf(data as StoredRepository) };
+      return { ok: true, repository: rowOf(data as StoredRepository) }; // ts-allow: each of these functions answers the public.repositories row it saved
     } catch (err) {
       return { ok: false, message: refusal(err) };
     }
   };
   // repository_set_product() is a member's, not only the owner's: its 42501 says so.
-  const memberRefusal = (error: unknown) => ((error as { code?: unknown } | null)?.code === '42501' ? NOT_MEMBER : refusalOf(error));
+  const memberRefusal = (error: unknown) => (propertyOf(error, 'code') === '42501' ? NOT_MEMBER : refusalOf(error));
   return {
     add: (fullName) => call('add_repository', { p_full_name: fullName }),
     setTracked: (fullName, tracked) => call('set_repository_tracked', { p_full_name: fullName, p_tracked: tracked }),

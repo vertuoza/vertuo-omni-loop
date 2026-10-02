@@ -13,6 +13,7 @@
 // and the filters its loaders send to read a week, a season or a prefix: neq, gt, gte, lt, lte, in,
 // like, ilike and is, and a count (`select(columns, { count: 'exact', head })`).
 
+import { firstPart, group, isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { workspacesToJoin, type JoinableWorkspace } from './github-orgs';
 
 type Row = Record<string, unknown>;
@@ -102,7 +103,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
   };
   const calls: FakeCall[] = [];
   /** `fail`: every call fails, as a database out of reach; `failOn`: only the reads of one table. */
-  const state = { fail: null as Failure | null, failOn: null as FakeTable | null, clock: Date.parse('2026-09-26T09:00:00Z') }; // ts-allow: a test fake's state, set by each test
+  const state: { fail: Failure | null; failOn: FakeTable | null; clock: number } = { fail: null, failOn: null, clock: Date.parse('2026-09-26T09:00:00Z') };
   const stamp = () => new Date((state.clock += 1000)).toISOString();
 
   const isMember = (me: FakeUser | null, workspace: unknown) =>
@@ -126,10 +127,11 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     for (const item of items(columns)) {
       const m = /^(?:(\w+):)?(\w+)(?:\((.*)\))?$/s.exec(item);
       if (!m) throw new Error(`fake: cannot read the column list item "${item}"`);
-      const [, alias, nameGroup, inner] = m;
-      const name = nameGroup!; // ts-allow: the pattern's second group is not optional
+      const [, alias, , inner] = m;
+      const name = group(m, 2);
       if (inner === undefined) { out[alias ?? name] = clone(row[name]); continue; }
-      const table = name as FakeTable; // ts-allow: a test fake embeds only its own tables
+      if (!isOneOf(keysOf(tables), name)) throw new Error(`fake: no table "${name}" to embed`);
+      const table = name;
       const on = joined(table, row);
       const found = tables[table].find((r) => on(r) && visible(table, r, me));
       out[alias ?? name] = found ? project(found, inner, me) : null;
@@ -449,7 +451,7 @@ export function twoWorkspaces(): Partial<FakeTables> {
 /** Supabase Auth's user for one of the people, as the page reads it: a first name, and the GitHub
  * identity they signed in with (none for a session from before GitHub sign-in). */
 export function authUser(person: FakeUser) {
-  const local = person.email.split('@')[0]!; // ts-allow: split always yields a first part
+  const local = firstPart(person.email, '@');
   return {
     id: person.id, email: person.email, aud: 'authenticated', app_metadata: {}, created_at: '2026-09-01T00:00:00Z',
     user_metadata: { given_name: local.charAt(0).toUpperCase() + local.slice(1), full_name: `${local} Doe` },

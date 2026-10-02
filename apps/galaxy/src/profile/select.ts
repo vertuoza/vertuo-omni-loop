@@ -1,4 +1,5 @@
-import { STAGES, type StageId } from '../stages/stage';
+import type { StageId } from '../stages/stage';
+import { perStage } from '../dashboard/board/tally';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { historyAddress, historyItems, type CurrentStages, type HistoryItem, type Whom } from '../dossier/page/history';
 import type { DossierListRow, WorkKind } from '../dossier/store';
@@ -36,9 +37,7 @@ export const githubPullUrl = (repo: string, number: number) => `https://github.c
 
 /** Where each count of the profile's PRDs tile opens: /prd at that stage, for that person. */
 export function profileStageLinks(login: string): Record<StageId, string> {
-  return Object.fromEntries(
-    STAGES.map((stage) => [stage, `/prd?${new URLSearchParams({ stage, who: login.toLowerCase() })}`]),
-  ) as Record<StageId, string>;
+  return perStage((stage) => `/prd?${new URLSearchParams({ stage, who: login.toLowerCase() })}`);
 }
 
 /** Where **see all** under a pull request list goes: GitHub's search over the tracked repositories. */

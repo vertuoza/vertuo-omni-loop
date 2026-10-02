@@ -96,7 +96,7 @@ function DecisionForm({ line, state, on }: { line: DecisionLine; state: JevState
     const form = new FormData(event.currentTarget);
     on.saveDecision({
       decision: settings.decision,
-      mode: String(form.get('mode')) as JevMode,
+      mode: String(form.get('mode')) as JevMode, // ts-allow: the mode select offers only MODES; readDecision checks it again on the server
       threshold: Number(form.get('threshold')),
       floor: Number(form.get('floor')),
     });

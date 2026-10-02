@@ -203,7 +203,7 @@ export function createRetro({ client, octokitFor, env = process.env, fetch = und
       onFailure: createRetroFailureHandler({ octokitFor }),
     },
     async ({ event, step: tools }) => {
-      const step = tools as unknown as RetroStep; // ts-allow: Inngest types step.run's result as its JSON form; every value the retro hands it is plain JSON already
+      const step = tools as RetroStep; // ts-allow: Inngest types step.run's result as its JSON form; every value the retro hands it is plain JSON already
       if (event.name === SCHEDULED) {
         await step.sendEvent(DAY_STEP, { name: DAY_EVENT, data: {} });
         return { sent: DAY_EVENT };

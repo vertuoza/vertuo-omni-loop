@@ -146,7 +146,7 @@ describe('ci — gather', () => {
   it(`cuts a long log to its last ${LIMITS.logTailLines} lines`, async () => {
     const long = Array.from({ length: 500 }, (_, index) => `2026-09-20T09:20:00.0000000Z line ${index + 1}`).join('\n');
     const github = replay({
-      pulls: [FEATURE, SUB_PULLS[0]],
+      pulls: [FEATURE, SUB_PULLS[0]!],
       recording: [
         runsOf('feat/widget--s1', [run(101, 'feat/widget--s1', SHA.a)]),
         jobsOf(101, [job(1011, 101, 'unit', SHA.a, 'failure', at(9, 20))]),

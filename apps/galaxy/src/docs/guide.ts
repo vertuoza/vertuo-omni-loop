@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { fenceProblem } from './badges';
 import { diagramsNamed, svgProblem } from './diagrams';
 import { pageUrl } from './paths';
@@ -42,7 +43,8 @@ const NEXT = /\[Next →[^\]]*\]\(([^)\s]+)\)/;
 /** One page's markdown, read into its title, its Next link and its body. */
 export function parsePage(slug: string, markdown: string): GuidePage {
   const front = FRONTMATTER.exec(markdown);
-  const title = front?.[1]!.match(/^title:\s*(.+?)\s*$/m)?.[1]!.replace(/^(['"])(.*)\1$/, '$2') ?? null; // ts-allow: both groups always match
+  const titleLine = front ? /^title:\s*(.+?)\s*$/m.exec(group(front, 1)) : null;
+  const title = titleLine ? group(titleLine, 1).replace(/^(['"])(.*)\1$/, '$2') : null;
   const body = front ? markdown.slice(front[0].length) : markdown;
   const bodyLine = (front?.[0].match(/\n/g)?.length ?? 0) + 1;
   return { slug, title: title || null, next: NEXT.exec(body)?.[1] ?? null, body, bodyLine };
@@ -57,13 +59,19 @@ export interface Fence {
   lines: number;
 }
 
+/** A fence line's marker and the words after it; null on any other line. */
+function fenceOf(text: string): { marker: string; info: string } | null {
+  const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(text);
+  return fence ? { marker: group(fence, 1), info: group(fence, 2) } : null;
+}
+
 /** Every fenced code block a page's markdown opens. */
 export function fences(markdown: string): Fence[] {
   const found: Fence[] = [];
   let open: { marker: string; length: number; fence: Fence } | null = null;
   markdown.split('\n').forEach((text, i) => {
-    const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(text);
-    if (open && !(fence && fence[1]![0] === open.marker && fence[1]!.length >= open.length && !fence[2]!.trim())) { // ts-allow: both groups always match
+    const fence = fenceOf(text);
+    if (open && !(fence && fence.marker.charAt(0) === open.marker && fence.marker.length >= open.length && !fence.info.trim())) {
       open.fence.lines += 1;
       return;
     }
@@ -72,10 +80,9 @@ export function fences(markdown: string): Fence[] {
       open = null;
       return;
     }
-    const marker = fence[1]!; // ts-allow: the group always matches
-    const info = fence[2]!; // ts-allow: the group always matches
+    const { marker, info } = fence;
     const opened: Fence = { line: i + 1, meta: info.trim().split(/\s+/).slice(1).join(' '), lines: 0 };
-    open = { marker: marker[0]!, length: marker.length, fence: opened }; // ts-allow: a fence marker has three characters or more
+    open = { marker: marker.charAt(0), length: marker.length, fence: opened };
     found.push(opened);
   });
   return found;
@@ -103,13 +110,13 @@ export function readGuide(dir: string): Guide {
 
 /** The code a page shows: its fenced blocks and its inline code spans. */
 function code(markdown: string): string[] {
-  const fenced = [...markdown.matchAll(/^(```|~~~)[^\n]*\n([\s\S]*?)^\1/gm)].map((m) => m[2]!); // ts-allow: the group always matches
+  const fenced = [...markdown.matchAll(/^(```|~~~)[^\n]*\n([\s\S]*?)^\1/gm)].map((m) => group(m, 2));
   const prose = markdown.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1/gm, '');
-  return [...fenced, ...[...prose.matchAll(/`([^`\n]+)`/g)].map((m) => m[1]!)]; // ts-allow: the group always matches
+  return [...fenced, ...[...prose.matchAll(/`([^`\n]+)`/g)].map((m) => group(m, 1))];
 }
 
 /** Every `/omni:<skill>` a page names, anywhere in it. */
-export const skillsNamed = (markdown: string) => [...new Set([...markdown.matchAll(/\/omni:([a-z][a-z0-9-]*)/g)].map((m) => m[1]!))]; // ts-allow: the group always matches
+export const skillsNamed = (markdown: string) => [...new Set([...markdown.matchAll(/\/omni:([a-z][a-z0-9-]*)/g)].map((m) => group(m, 1)))];
 
 /** Every `omni <command>` a page shows as code: the words that follow `omni` at a command's start. */
 export const commandsNamed = (markdown: string) =>

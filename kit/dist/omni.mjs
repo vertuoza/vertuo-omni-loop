@@ -27256,6 +27256,27 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
+// kit/lib/narrow.ts
+init_define_OMNI_BUNDLE();
+function isOneOf(values, value) {
+  return values.some((member) => member === value);
+}
+function group(match, index) {
+  const value = match?.[index];
+  if (value === void 0) throw new Error(`group ${index} did not match`);
+  return value;
+}
+function propertyOf(value, key) {
+  return value === null || value === void 0 ? void 0 : Reflect.get(Object(value), key);
+}
+function messageOf(error62) {
+  const message = propertyOf(error62, "message");
+  return typeof message === "string" ? message : String(error62);
+}
+function keysOf(record2) {
+  return Object.keys(record2).filter((key) => Object.hasOwn(record2, key));
+}
+
 // kit/lib/schema/messages.ts
 init_define_OMNI_BUNDLE();
 var NAMED_CLASSES = [
@@ -27576,7 +27597,7 @@ function parseConfig(source, file2 = CONFIG_FILE, { migrate = false } = {}) {
   try {
     raw = (0, import_yaml.parse)(source) ?? {};
   } catch (error62) {
-    throw new ConfigError(`${file2}: not valid YAML \u2014 ${error62.message.split("\n")[0]}`);
+    throw new ConfigError(`${file2}: not valid YAML \u2014 ${messageOf(error62).split("\n")[0]}`);
   }
   if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
@@ -27686,7 +27707,7 @@ function readFrontMatter(raw) {
   try {
     data = (0, import_yaml2.parse)(raw);
   } catch (error62) {
-    return { errors: [`front matter is not YAML \u2014 ${error62.message.split("\n")[0]}`] };
+    return { errors: [`front matter is not YAML \u2014 ${messageOf(error62).split("\n")[0]}`] };
   }
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
     return { errors: ["front matter is not a set of keys"] };
@@ -28123,6 +28144,7 @@ var FIELD_KEY = {
   "Kept id": "keptId",
   "Glossary term": "glossaryTerm"
 };
+var FIELD_NAMES = keysOf(FIELD_KEY);
 function idsCitedIn(text6) {
   return [...new Set(text6.match(ID_TOKEN) ?? [])];
 }
@@ -28145,7 +28167,9 @@ function readFields(lines) {
     const match = line.match(FIELD_LINE);
     if (match) {
       if (fieldAt === -1) fieldAt = index;
-      const key = FIELD_KEY[match[1]];
+      const name = group(match, 1);
+      if (!isOneOf(FIELD_NAMES, name)) return;
+      const key = FIELD_KEY[name];
       counts2[key] = (counts2[key] ?? 0) + 1;
       if (counts2[key] === 1) {
         fields[key] = (match[2] ?? "").trim();
@@ -29121,9 +29145,9 @@ function parseArgs(command, argv, { values = [], booleans = [] } = {}) {
       continue;
     }
     const name = arg.slice(2);
-    if (booleans.includes(name)) {
+    if (isOneOf(booleans, name)) {
       flags[name] = true;
-    } else if (values.includes(name)) {
+    } else if (isOneOf(values, name)) {
       const value = argv[index + 1];
       if (value === void 0 || value.startsWith("--")) throw usageError(`omni ${command}: ${arg} needs a value.`);
       flags[name] = value;
@@ -29156,7 +29180,7 @@ function readUserFile(command, ctx, path) {
   try {
     return readFileSync10(inRoot(ctx, path), "utf8");
   } catch (error62) {
-    const code = error62?.code;
+    const code = errorCode(error62);
     if (code === "ENOENT" || code === "EISDIR" || code === "EACCES") {
       throw usageError(`omni ${command}: cannot read ${path} (${code}).`);
     }
@@ -29181,10 +29205,10 @@ function withPrdFolder(command, fn) {
   }
 }
 function errorCode(error62) {
-  return error62?.code;
+  return propertyOf(error62, "code");
 }
 function errorMessage(error62) {
-  return error62.message;
+  return messageOf(error62);
 }
 
 // kit/bin/commands/index.ts
@@ -31373,7 +31397,7 @@ function fail(stderr, message) {
   return 1;
 }
 function firstLine(error62) {
-  const message = error62?.message;
+  const message = propertyOf(error62, "message");
   return (String(message ?? error62).split("\n")[0] ?? "").trim();
 }
 function numberingOf(ctx, client) {
@@ -32970,9 +32994,8 @@ function knownRepositories(ctx, planSlug) {
   return known;
 }
 function ghReason(error62) {
-  const failure3 = error62;
-  const lines = `${failure3?.stderr ?? ""}
-${failure3?.message ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
+  const lines = `${propertyOf(error62, "stderr") ?? ""}
+${propertyOf(error62, "message") ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
   return lines[0] ?? "gh could not read it";
 }
 var board = {
@@ -33211,7 +33234,7 @@ function waveClaims(prd2, { ctx, exec, env, repo }) {
     const claimed2 = result.slices.filter((row) => CLAIM_STATES.has(row.state)).map((row) => row.id);
     return { holdsClaims: claimed2.length > 0, claimed: claimed2 };
   } catch (error62) {
-    return { holdsClaims: null, claimed: [], unreadable: String(error62?.message ?? error62).split("\n")[0] ?? "" };
+    return { holdsClaims: null, claimed: [], unreadable: String(propertyOf(error62, "message") ?? error62).split("\n")[0] ?? "" };
   }
 }
 function runState(args, { ctx, stdout, stderr, exec, env }) {
@@ -33240,7 +33263,7 @@ function runState(args, { ctx, stdout, stderr, exec, env }) {
   return 0;
 }
 function replyBodyOf(flags, ctx) {
-  if (!CARE_VERDICTS.includes(flags.verdict)) {
+  if (!isOneOf(CARE_VERDICTS, flags.verdict)) {
     throw usageError(`omni care reply: --verdict must be one of ${CARE_VERDICTS.join(", ")}.`);
   }
   if (flags.body === void 0 === (flags.file === void 0)) {
@@ -33335,7 +33358,7 @@ function claimsOf(reply) {
 }
 function personasOf(value) {
   if (value !== void 0 && !Array.isArray(value)) return null;
-  const personas = (value ?? []).map(personaOf);
+  const personas = (Array.isArray(value) ? value : []).map(personaOf);
   return personas.every((one) => one !== null) ? personas : null;
 }
 function businessOf(raw) {
@@ -34361,16 +34384,16 @@ function firstIssue(error62) {
 }
 
 // kit/lib/plan-repo/targets.ts
+var ghText = (error62) => `${propertyOf(error62, "stderr") ?? ""}
+${propertyOf(error62, "message") ?? ""}`;
 var CONFIG_PATH = ".omni-loop/config.yml";
 var BIN_PATH = ".omni-loop/bin/omni.mjs";
 function ghLine(error62) {
-  const text6 = `${error62?.stderr ?? ""}
-${error62?.message ?? ""}`;
+  const text6 = ghText(error62);
   const line = text6.split("\n").map((l) => l.trim()).find((l) => l.startsWith("gh:")) ?? text6.split("\n").map((l) => l.trim()).find(Boolean);
   return line ?? "gh could not read it";
 }
-var isNotFound = (error62) => /HTTP 404/.test(`${error62?.stderr ?? ""}
-${error62?.message ?? ""}`);
+var isNotFound = (error62) => /HTTP 404/.test(ghText(error62));
 var Unreachable = class extends Error {
 };
 function ghReader({ exec, env }) {
@@ -35660,7 +35683,7 @@ var config2 = {
         if (value === null || typeof value !== "object" || !Object.hasOwn(value, part)) {
           throw usageError(`omni config: no key ${key}.`);
         }
-        value = value[part];
+        value = propertyOf(value, part);
       }
     }
     println(stdout, typeof value === "string" ? value : JSON.stringify(value, null, 2));
@@ -36408,7 +36431,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
 }
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
-  if (!numbered || !KINDS4.includes(flag)) throw usageError(USAGE11);
+  if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE11);
   return flag;
 }
 var dossier = {
@@ -36444,9 +36467,10 @@ var dossier = {
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    if (prd2 === null) return open2(title, options);
     if (verb === "link") return link(prd2, kind, options);
     if (verb === "push" && kind !== "prd") return pushFix(prd2, kind, options);
-    return verb === "open" ? open2(title, options) : push(prd2, options);
+    return push(prd2, options);
   }
 };
 
@@ -36551,7 +36575,7 @@ function runCheck(check3, value) {
     }
     return { errors: ["no check was given for the reply"], reply: null };
   } catch (error62) {
-    return { errors: [`the reply could not be checked: ${messageOf(error62)}`], reply: null };
+    return { errors: [`the reply could not be checked: ${messageOf2(error62)}`], reply: null };
   }
 }
 async function ask4({ fetch, sleep, call, deadline, key, title, body }) {
@@ -36620,7 +36644,7 @@ function errorCode2(error62) {
   return ErrorCode.parse(error62).code;
 }
 var Thrown = external_exports.object({ name: external_exports.unknown().optional(), message: external_exports.unknown().optional() }).catch({ name: void 0, message: void 0 });
-function messageOf(error62) {
+function messageOf2(error62) {
   return Thrown.parse(error62).message ?? error62;
 }
 async function readContent(response) {
@@ -37420,11 +37444,6 @@ function writeKnowledge({
 }
 
 // kit/lib/knowledge/pipeline.ts
-var settleAtMerge2 = settleAtMerge;
-var planShip2 = planShip;
-var movedPath2 = movedPath;
-var findOutboxViolations2 = findOutboxViolations;
-var askModel2 = askModel;
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -37490,7 +37509,7 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
   const n = Number(prd2);
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle3 = settleAtMerge2({ ctx: scratch, prd: n, merge: merge2 });
+    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge: merge2 });
     if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
       deletes: settle3.deletes,
@@ -37502,16 +37521,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     let rewrites = [];
     if (scratch.layout.whereIs(n).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
-      const plan2 = planShip2(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync33(join44(scratch.root, file2), "utf8") });
+      const plan2 = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync33(join44(scratch.root, file2), "utf8") });
       if (!plan2.ok) return { ok: false, errors: plan2.reasons };
       moves = plan2.moves;
-      rewrites = plan2.rewrites.map(({ file: file2, text: text6 }) => ({ path: movedPath2(moves, file2), text: text6 }));
+      rewrites = plan2.rewrites.map(({ file: file2, text: text6 }) => ({ path: movedPath(moves, file2), text: text6 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
       deletes: settleEdits.deletes,
       moves,
-      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath2(moves, w.path), text: w.text })), ...rewrites])
+      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath(moves, w.path), text: w.text })), ...rewrites])
     };
     return {
       ok: true,
@@ -37533,7 +37552,7 @@ async function classifyCandidate({
   if (allowedKinds(summary.places).every((kind) => kind === "covered" || kind === "stays-here")) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
-  const answer = await askModel2({
+  const answer = await askModel({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
     check: classificationSchema(summary),
@@ -37554,7 +37573,7 @@ function knowledgeFiles(ctx) {
 }
 function runChecks(ctx) {
   const knowledge2 = existsSync35(join44(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
-  const outbox = findOutboxViolations2({ ctx });
+  const outbox = findOutboxViolations({ ctx });
   return { knowledge: knowledge2, outbox };
 }
 var newOnes = (after, before) => after.filter((line) => !before.includes(line));
@@ -40609,10 +40628,8 @@ function gradePlan(markdown, { config: config3 }) {
       multi: false,
       collisions: [],
       matrices: [],
-      violations: [error62.message],
-      // ts-allow: parsePlanSlices throws only Error
-      parseError: error62.message
-      // ts-allow: parsePlanSlices throws only Error
+      violations: [messageOf(error62)],
+      parseError: messageOf(error62)
     };
   }
   const repositories = parsePlanRepositories(markdown);
@@ -40630,7 +40647,7 @@ function gradePlan(markdown, { config: config3 }) {
     )
   ];
   const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
-  const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group2]) => ({ repo, rows: collisionRows(group2) })) : [{ repo: null, rows: collisionRows(slices) }];
   return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
 }
 
@@ -41494,8 +41511,7 @@ var replies = {
     println(stdout, summarize2(result));
     if (result.round) {
       if (result.round.posted) {
-        const posted = result.round.posted;
-        println(stdout, `Posted outbox round ${result.round.number}: ${posted.html_url ?? ""}`);
+        println(stdout, `Posted outbox round ${result.round.number}: ${propertyOf(result.round.posted, "html_url") ?? ""}`);
       } else {
         println(stdout, `
 Outbox round ${result.round.number} (not posted \u2014 pass --post):
@@ -41705,7 +41721,7 @@ function readIfExists(ctx, path) {
   try {
     return readFileSync48(join58(ctx.root, path), "utf8");
   } catch (error62) {
-    if (error62?.code === "ENOENT") return "";
+    if (errorCode(error62) === "ENOENT") return "";
     throw error62;
   }
 }
@@ -41779,7 +41795,7 @@ async function runClose(args, { ctx, stdout }) {
   try {
     closedText = closeDriftedEntry(text6, { id, pullRequest: pullRequest2, markers: ctx.markers });
   } catch (error62) {
-    throw usageError(error62.message.split("\n")[0] ?? "");
+    throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
   writeFileSync21(join58(ctx.root, settledFile), closedText);
   println(
@@ -41853,7 +41869,7 @@ var ship = {
       plan2 = applyShip(ctx, prd2, { exec });
     } catch (error62) {
       if (error62 instanceof DirtyDeliveryError) throw usageError(`omni ship: ${error62.message}.`);
-      println(stderr, error62.message);
+      println(stderr, errorMessage(error62));
       return 1;
     }
     const lines = [`omni ship \u2014 PRD ${prd2}:`];
@@ -42364,7 +42380,7 @@ var status2 = {
       try {
         changes = rangeChanges({ ctx, base, exec });
       } catch (error62) {
-        throw usageError(error62.message.split("\n")[0] ?? "");
+        throw usageError(errorMessage(error62).split("\n")[0] ?? "");
       }
     }
     const result = gateResult(prd2, { ctx, labels, changes });
@@ -43011,7 +43027,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       exec("node", [bundle, "update", "--apply", ...fromFlag], { cwd, stdio: "inherit" });
       return 0;
     } catch (error62) {
-      const status3 = error62?.status;
+      const status3 = propertyOf(error62, "status");
       return typeof status3 === "number" && Number.isInteger(status3) ? status3 : 1;
     }
   } finally {
@@ -43232,7 +43248,7 @@ var invoked = process.argv[1] && realpathSync5(process.argv[1]) === realpathSync
 if (invoked) {
   const argv = process.argv.slice(2);
   const fail2 = (error62) => {
-    process.stderr.write(`${error62?.stack ?? error62}
+    process.stderr.write(`${propertyOf(error62, "stack") ?? error62}
 `);
     process.exit(1);
   };

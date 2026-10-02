@@ -1,4 +1,5 @@
 'use client';
+import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { CLOSED, drawer, drawerKey, type DrawerEvent } from './drawer';
 
@@ -39,7 +40,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     if (!state.open) return;
     const onKey = (event: KeyboardEvent) => {
       const items = focusable(panel.current);
-      const move = drawerKey(event.key, event.shiftKey, items.indexOf(document.activeElement as HTMLElement), items.length); // ts-allow: indexOf only compares the element
+      const move = drawerKey(event.key, event.shiftKey, positionOf(items, document.activeElement), items.length);
       if (move.kind === 'none') return;
       event.preventDefault();
       if (move.kind === 'close') send('escape');

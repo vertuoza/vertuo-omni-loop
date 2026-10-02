@@ -142,6 +142,6 @@ const HANDLERS: Handlers = {
 };
 
 export function businessReducer(state: BusinessState, action: BusinessAction): BusinessState {
-  const handle = HANDLERS[action.type] as (state: BusinessState, action: BusinessAction) => BusinessState;
+  const handle = HANDLERS[action.type] as (state: BusinessState, action: BusinessAction) => BusinessState; // ts-allow: HANDLERS keys each handler by the action type it takes, which TypeScript cannot correlate
   return handle(state, action);
 }

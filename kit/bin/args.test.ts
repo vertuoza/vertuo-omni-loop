@@ -2,7 +2,7 @@
 // "1e2" or "0x10" used to be read as PRD 100 or PRD 16 instead of being refused.
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
-import { positiveInt } from './args.ts';
+import { errorCode, errorMessage, positiveInt } from './args.ts';
 import { main } from './omni.ts';
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -57,5 +57,18 @@ describe('positiveInt', () => {
     for (const value of ['0x10', '0o20', '0b10', '1e2', '16.0', '+16', ' 16', '16\n', '1_000', 'Infinity']) {
       expect(() => positiveInt('item new', '--prd', value)).toThrow(`omni item new: --prd must be a positive number, got "${value}".`);
     }
+  });
+});
+
+describe('reading whatever was thrown', () => {
+  it('errorCode reads a system error code, and nothing off a value without one', () => {
+    expect(errorCode(Object.assign(new Error('gone'), { code: 'ENOENT' }))).toBe('ENOENT');
+    expect(errorCode(null)).toBeUndefined();
+    expect(errorCode('down')).toBeUndefined();
+  });
+
+  it("errorMessage reads an Error's message, and a thrown value that is no Error as text", () => {
+    expect(errorMessage(new Error('no plan'))).toBe('no plan');
+    expect(errorMessage('down')).toBe('down');
   });
 });

@@ -1,4 +1,5 @@
 import type { Claim, ClaimKind } from './model';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Suggested rivals (PRD 748 s3, decision 4): once offering, trade and region are picked, one call to
 // the existing small model through OpenRouter (the shape of src/ask/classify.ts) for up to five rival
@@ -101,8 +102,9 @@ export async function suggestRivals(input: SuggestInput, { apiKey, fetch = globa
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;
-    const body = (await response.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
-    return readRivals(body?.choices?.[0]?.message?.content, input.exclude);
+    const body: unknown = await response.json();
+    const message = propertyOf(propertyOf(propertyOf(body, 'choices'), '0'), 'message');
+    return readRivals(propertyOf(message, 'content'), input.exclude);
   } catch {
     return null;
   }
