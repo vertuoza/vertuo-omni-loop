@@ -21,6 +21,7 @@ import {
   takeLock,
   writeBoard,
 } from './board-cache.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const NOW = Date.parse('2026-09-28T12:00:00Z');
 const SECOND = 1000;
@@ -176,7 +177,8 @@ describe('the status line starts the refresh', () => {
     const { slices, calls } = show(root);
     expect(slices).toBeNull();
     expect(calls).toHaveLength(1);
-    const { command, args, options, child } = calls[0]!;
+    assertDefined(calls[0], 'calls[0]');
+    const { command, args, options, child } = calls[0];
     expect(command).toBe(process.execPath);
     expect(args).toEqual([SCRIPT, 'statusline', '--refresh', '7']);
     expect(options).toMatchObject({ cwd: SESSION, detached: true, stdio: 'ignore', env: { PATH: '/bin' } });

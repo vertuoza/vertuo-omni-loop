@@ -3,6 +3,7 @@ import { AskCallError } from '../ask/client.ts';
 import { ProofReplyError, pushProof } from './push.ts';
 import type { ProofClient } from './push.ts';
 import type { ProofRun } from './run.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const RUN: ProofRun = {
   commit: 'abcdef1',
@@ -66,7 +67,8 @@ describe('pushProof', () => {
     // No upload call means no run id from the app: one is minted here.
     expect(await pushProof({ client, repo: 'acme/widgets', prd: 7, run: bare, read, newRunId: () => runId })).toEqual({ tab: TAB });
     expect(calls.map(([name]) => name)).toEqual(['registerProof']);
-    expect((calls[0]![1] as { run: string }).run).toBe(runId);
+    assertDefined(calls[0], 'calls[0]');
+    expect((calls[0][1] as { run: string }).run).toBe(runId);
   });
 
   it('a refused call stops the push there, as the AskCallError it is', async () => {

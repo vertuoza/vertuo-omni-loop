@@ -15,6 +15,7 @@ import { gradeKnowledge } from './check-knowledge.ts';
 import { harvestCandidates } from './harvest.ts';
 import type { ClassificationReply } from './classify.ts';
 import { applyKnowledgeWrites, decidedLine, writeKnowledge, type Taken, type WriteResult } from './write.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -294,7 +295,8 @@ describe('writeKnowledge', () => {
 
   it('writes the ledger lines: Became for placed and covered, Stays here, and nothing for not placed', () => {
     const { result, ctx } = setup();
-    const ledger = byPath(result)[LEDGER]!;
+    const ledger = byPath(result)[LEDGER];
+    assertDefined(ledger, 'ledger');
     const entries = Object.fromEntries(parseSettledEntries(ledger, ctx.markers).map((entry) => [entry.id, entry]));
     expect(entries['s1-01-two-snapshots']!.became).toEqual(['ADR-0002']);
     expect(entries['s1-02-intro-cap']!.became).toEqual(['BR-PRODUCT-1', 'P-PRODUCT-2']);
@@ -330,7 +332,8 @@ describe('writeKnowledge', () => {
       merge: MERGE,
       date: DATE,
     });
-    const ledger = byPath(result)[LEDGER]!;
+    const ledger = byPath(result)[LEDGER];
+    assertDefined(ledger, 'ledger');
     const blocks = ledger.split('<!-- omni-outbox-settled: s1-01-two-snapshots -->');
     expect(blocks[1]).not.toContain('Became:');
     expect(blocks[2]).toContain('- Wave: 1\n- Became: ADR-0002\n');
@@ -343,7 +346,8 @@ describe('writeKnowledge', () => {
     const repo = makeRepo({ files: FILES });
     const [candidate] = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-06-reworked');
     const reply: ClassificationReply = { kind: 'adr', title: 'Invoices read the head', statement: 'Invoices are read from the head.', reason: 'how it is built' };
-    const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate: candidate!, reply }], merge: MERGE, date: DATE });
+    assertDefined(candidate, 'candidate');
+    const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate: candidate, reply }], merge: MERGE, date: DATE });
     const record = writes.find((write) => write.path.includes('/adr/'))!.text;
     expect(record).toContain('**Status:** accepted');
     expect(record).toContain('Invoices are read from the head.\n\nThe answer, as it was given: No, read the head instead.\n');

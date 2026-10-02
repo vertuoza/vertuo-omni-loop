@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRefused, storageState } from './session.ts';
 import type { StateCookie } from './session.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const REF = 'fzskrlcmmzvvxaeebezc';
 const NOW = Date.UTC(2026, 8, 30, 12, 0, 0);
@@ -17,7 +18,8 @@ describe('storageState', () => {
     expect(state.origins).toEqual([]);
     expect(state.cookies).toHaveLength(1);
     expect(state.cookies[0]).toMatchObject({ name: `sb-${REF}-auth-token`, domain: 'omni.example', path: '/', expires: EXP, secure: true, sameSite: 'Lax' });
-    expect(state.cookies[0]!.value.startsWith('base64-')).toBe(true);
+    assertDefined(state.cookies[0], 'state.cookies[0]');
+    expect(state.cookies[0].value.startsWith('base64-')).toBe(true);
     expect(email).toBe('pat@acme.test');
     expect(expiresAt).toBe(EXP);
   });

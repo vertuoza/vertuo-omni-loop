@@ -7,6 +7,7 @@ import { main } from '../../bin/omni.ts';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { FORMS, parseForm } from './forms.ts';
 import { formTemplate } from './templates.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -32,7 +33,8 @@ const slotText = (id: string) => parseForm(formTemplate('review')).form!.slots.f
 
 describe('the review form', () => {
   it('is an extended form with its three slots, fix, push-back and ask, each required', () => {
-    const review = FORMS.find((form) => form.id === 'review')!;
+    const review = FORMS.find((form) => form.id === 'review');
+    assertDefined(review, 'review');
     expect(review).toMatchObject({ kind: 'extended', pointerOnly: false });
     expect(review.slots).toEqual([
       { id: 'fix', required: true },

@@ -43,15 +43,6 @@ export function propertyOf(value: unknown, key: string): unknown {
   return value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
 }
 
-/**
- * Any value as text, as `String(value ?? '')` reads it: '' for null and undefined, `String(value)`
- * for anything else. For a value from outside whose type is not known.
- */
-export function textOf(value: unknown): string {
-  const text = String(value);
-  return value === undefined || value === null ? '' : text;
-}
-
 /** Whatever was thrown, read for its message: its `message` when that is text, else the value as text. */
 export function messageOf(error: unknown): string {
   const message = propertyOf(error, 'message');

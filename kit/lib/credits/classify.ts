@@ -29,7 +29,7 @@
  */
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
-import { textOf } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 
 /** One pull request or issue the reader kept: `state` is `gh`'s, lower-cased. */
 export type CreditPullRequest = {
@@ -78,7 +78,7 @@ const MERGED_PR = /\(#(\d+)\)\s*$/;
 
 /** The pull request a default-branch commit merged — the `(#<n>)` ending its subject — or `null`. */
 export function mergedPullRequest(message: unknown): number | null {
-  const match = MERGED_PR.exec(textOf(message).split('\n')[0] ?? '');
+  const match = MERGED_PR.exec(plainText(message).split('\n')[0] ?? '');
   return match ? Number(match[1]) : null;
 }
 
@@ -99,7 +99,7 @@ function kindOf(names: string[], labels: CreditLabels): Kind {
  */
 export function sameAccount(author: unknown, login: string | null): boolean {
   if (!author || !login) return false;
-  const said = textOf(author).toLowerCase();
+  const said = plainText(author).toLowerCase();
   const wanted = login.toLowerCase();
   return said === wanted || (wanted.endsWith('[bot]') && said === `app/${wanted.slice(0, -'[bot]'.length)}`);
 }

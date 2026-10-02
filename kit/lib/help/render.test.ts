@@ -4,6 +4,7 @@ import { deepMerge } from '../../test/fixture.ts';
 import { ENTRIES, STAGES } from './entries.ts';
 import type { HelpEntry } from './entries.ts';
 import { renderEntry, renderOverview } from './render.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const configWith = (over = {}) => ConfigSchema.parse(deepMerge({ kit: 1 }, over));
 const DEFAULTS = configWith();
@@ -93,7 +94,8 @@ describe('renderOverview, beside the docs fields (PRD 580)', () => {
 
 describe('renderEntry', () => {
   it('ends a skill with a blank line, its When line and its Example with the result, within 80 columns (PRD 580)', () => {
-    const yolo = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'yolo')!;
+    const yolo = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'yolo');
+    assertDefined(yolo, 'yolo');
     const text = entryText('yolo', DEFAULTS);
     const before = entryText('yolo', DEFAULTS, { entries: withoutDocs });
     expect(text.startsWith(`${before}\n\n`)).toBe(true);
@@ -102,8 +104,10 @@ describe('renderEntry', () => {
     const example = tail.findIndex((line) => line.startsWith('Example  '));
     expect(example).toBeGreaterThan(0);
     expect(tail.slice(0, example).map((line) => line.slice(9)).join(' ')).toBe(yolo.when);
-    expect(tail[example]).toBe(`Example  ${yolo.example!.type}`);
-    expect(tail.slice(example + 1).join(' ').replace(/\s+/g, ' ').trim()).toBe(`→ ${yolo.example!.result}`);
+    assertDefined(yolo.example, 'yolo.example');
+    expect(tail[example]).toBe(`Example  ${yolo.example.type}`);
+    assertDefined(yolo.example, 'yolo.example');
+    expect(tail.slice(example + 1).join(' ').replace(/\s+/g, ' ').trim()).toBe(`→ ${yolo.example.result}`);
     expect(tail[example + 1]!.startsWith('         → ')).toBe(true);
     expect(widest(text)).toBeLessThanOrEqual(80);
   });

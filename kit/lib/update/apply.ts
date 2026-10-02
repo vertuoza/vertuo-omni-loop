@@ -11,7 +11,7 @@ import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from '../config.ts';
 import { createContext } from '../context.ts';
 import type { ExecText } from '../context.ts';
-import { textOf } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import type { Config } from '../types.ts';
 import { reconcileLabels } from '../init/labels.ts';
 import { readRepo } from '../init/repo.ts';
@@ -35,7 +35,7 @@ const prop = (value: unknown, key: string): unknown => (typeof value === 'object
 /** The first line a failed command wrote, or its message. */
 function why(error: unknown): string {
   const message: unknown = prop(error, 'message') ?? error;
-  const text = textOf(prop(error, 'stderr')).trim() || String(message);
+  const text = plainText(prop(error, 'stderr')).trim() || String(message);
   return text.split('\n')[0] ?? '';
 }
 

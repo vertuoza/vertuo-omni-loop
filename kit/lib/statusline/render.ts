@@ -21,9 +21,7 @@
 import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
-
-/** `Array.isArray`, keeping the items' type where the built-in widens them to `any`. */
-const isList = <T>(value: readonly T[] | null | undefined): value is readonly T[] => Array.isArray(value);
+import { isList } from '../outbox/plain-text.ts';
 
 /** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
 type Env = Readonly<Record<string, string | null | undefined>> | null | undefined;

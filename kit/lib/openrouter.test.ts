@@ -12,6 +12,7 @@ import {
   askModel,
   maskSecrets,
 } from './openrouter.ts';
+import { assertDefined } from '../test/assert.ts';
 
 const KEY = { OPENROUTER_API_KEY: 'sk-or-v1-test-key-not-real-0000000000' };
 const REPLY = { kind: 'adr', statement: 'The outbox check reads two snapshots.' };
@@ -68,7 +69,8 @@ function stubFetch(...answers: Answer[]) {
   const calls: any[] = [];
   const fn = vi.fn(async (url: string, init: RequestInit): Promise<Response> => {
     calls.push({ url, init, body: JSON.parse(String(init.body)) });
-    const answer = answers[Math.min(calls.length, answers.length) - 1]!;
+    const answer = answers[Math.min(calls.length, answers.length) - 1];
+    assertDefined(answer, 'answer');
     if (answer instanceof Error) throw answer;
     return typeof answer === 'function' ? answer(init) : answer.clone();
   });

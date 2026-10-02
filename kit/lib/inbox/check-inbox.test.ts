@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const IN = '.omni-loop/delivery/inbox';
 const SHIPPED = '.omni-loop/delivery/shipped';
@@ -31,7 +32,8 @@ describe('checkSpecText', () => {
     const text = specText({ frontMatter: { spec: 'wiki' } });
     const violations = checkSpecText(`${IN}/0042-a/spec.md`, text, { ctx });
     expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0]!.startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
+    assertDefined(violations[0], 'violations[0]');
+    expect(violations[0].startsWith(`${IN}/0042-a/spec.md:`)).toBe(true);
     expect(violations[0]).toMatch(/spec/);
   });
 

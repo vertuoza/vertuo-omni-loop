@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { CONFIG_FILE, ConfigError, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
+import { assertDefined } from '../test/assert.ts';
 
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
@@ -417,8 +418,12 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   });
 
   it('takes a null guide, and reads a guide left out as null', () => {
-    expect(parseConfig(plan([OWN], 'null')).plan!.guide).toBeNull();
-    expect(parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan!.guide).toBeNull();
+    const plan2 = parseConfig(plan([OWN], 'null')).plan;
+    assertDefined(plan2, 'the plan');
+    expect(plan2.guide).toBeNull();
+    const plan3 = parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan;
+    assertDefined(plan3, 'the plan');
+    expect(plan3.guide).toBeNull();
   });
 
   it('refuses a repo not in owner/name form, and a repo listed twice', () => {

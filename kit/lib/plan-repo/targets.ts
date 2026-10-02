@@ -18,7 +18,8 @@ import { join } from 'node:path';
 import type { z } from 'zod';
 import type { Context, ExecRaw } from '../context.ts';
 import { isFilled, playbookOf } from '../playbook/filled.ts';
-import { at, defined, propertyOf, textOf } from '../narrow.ts';
+import { at, defined, propertyOf } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
 import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
@@ -50,7 +51,7 @@ export type GhReader = {
 
 /** What a failed `gh` call carries: its stderr, when it ran. */
 /** What `gh` said, as whatever it threw carries it: its stderr, then its message. */
-const ghText = (error: unknown): string => `${textOf(propertyOf(error, 'stderr'))}\n${textOf(propertyOf(error, 'message'))}`;
+const ghText = (error: unknown): string => `${plainText(propertyOf(error, 'stderr'))}\n${plainText(propertyOf(error, 'message'))}`;
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';

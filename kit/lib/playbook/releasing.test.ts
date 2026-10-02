@@ -7,6 +7,7 @@ import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { DESCRIPTION_MAX, gradeReleaseNote, INITIAL_VERSION, parseReleaseNote, TITLE_MAX } from '../releases/note.ts';
 import { FORMS, parseForm } from './forms.ts';
 import { formTemplate } from './templates.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -20,7 +21,13 @@ const formText = fixtureFormText as (options?: FormTextOptions) => string;
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 const RELEASING = '.omni-loop/knowledge/playbook/releasing.md';
 
-const notesSlot = () => parseForm(formTemplate('releasing')).form!.slots.find((slot) => slot.id === 'notes')!;
+const notesSlot = () => {
+  const { form } = parseForm(formTemplate('releasing'));
+  assertDefined(form, 'the releasing form');
+  const slot = form.slots.find((candidate) => candidate.id === 'notes');
+  assertDefined(slot, 'the notes slot');
+  return slot;
+};
 
 /** Every fenced block of `text`, as its inner text. */
 const fencedBlocks = (text: string) => [...text.matchAll(/^```[a-z]*\n([\s\S]*?)^```$/gm)].map(([, inner]) => inner!);
@@ -52,8 +59,10 @@ describe('the releasing form’s notes slot', () => {
     for (const example of examples) {
       const parsed = parseReleaseNote(example);
       expect(parsed.ok, example).toBe(true);
-      expect(parsed.note!.version, example).toBeNull();
-      expect(gradeReleaseNote(example, { prd: parsed.note!.prd }), example).toEqual([]);
+      assertDefined(parsed.note, 'parsed.note');
+      expect(parsed.note.version, example).toBeNull();
+      assertDefined(parsed.note, 'parsed.note');
+      expect(gradeReleaseNote(example, { prd: parsed.note.prd }), example).toEqual([]);
     }
   });
 });

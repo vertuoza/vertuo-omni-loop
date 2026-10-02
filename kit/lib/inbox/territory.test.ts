@@ -10,6 +10,7 @@ import {
   territoryPrefixes,
   territoryVerdict,
 } from './territory.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** A plan in the shape this slice introduces: a `territory` column beside the wave. */
 const PLAN = `# Plan: a plan
@@ -168,7 +169,8 @@ describe('parsePlanSlices — blockedBy', () => {
 | s1  | A     | \`a/\`      | 1    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices[0]!.blockedBy).toEqual([]);
+    assertDefined(slices[0], 'slices[0]');
+    expect(slices[0].blockedBy).toEqual([]);
   });
 
   it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
@@ -188,7 +190,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
 `;
     const slices = parsePlanSlices(plan);
-    const byId = (id: string) => slices.find((slice) => slice.id === id)!;
+    const byId = (id: string) => {
+      const found = slices.find((slice) => slice.id === id);
+      assertDefined(found, `slice ${id}`);
+      return found;
+    };
     expect(byId('s1').blockedBy).toEqual([]);
     expect(byId('s3').blockedBy).toEqual(['s2']);
     expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);

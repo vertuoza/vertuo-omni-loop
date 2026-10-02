@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../status/format.ts';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** An entry as the guard reads it: the live table's, or a fixture broken on purpose, field by field. */
 type Fixture = Record<string, any>; // ts-allow: a fixture entry may carry any field of any type, to break a rule
@@ -104,7 +105,8 @@ describe('the help table in this repository', () => {
 
   it('lists /omni:pr-care for you under Build it, after /omni:pr, with when to use it and an example (PRD 790)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const prCare = skills.find((e) => e.name === 'pr-care')!;
+    const prCare = skills.find((e) => e.name === 'pr-care');
+    assertDefined(prCare, 'prCare');
     expect(prCare).toMatchObject({ who: 'you', usage: ['/omni:pr-care <n>'], label: '/omni:pr-care <n>', group: 'build' });
     expect(skills.indexOf(prCare)).toBe(skills.findIndex((e) => e.name === 'pr') + 1);
     expect(prCare.when).toMatch(/^Use it when\b/);
@@ -116,7 +118,8 @@ describe('the help table in this repository', () => {
 
   it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const thinkBig = skills.find((e) => e.name === 'think-big')!;
+    const thinkBig = skills.find((e) => e.name === 'think-big');
+    assertDefined(thinkBig, 'thinkBig');
     expect(thinkBig).toMatchObject({ who: 'you', usage: ['/omni:think-big <brief or n>'], label: '/omni:think-big', group: 'start' });
     expect(skills.indexOf(thinkBig)).toBe(skills.findIndex((e) => e.name === 'brainstorm') - 1);
     expect(thinkBig.detail).toMatch(/\bvast idea\b/);
@@ -127,22 +130,26 @@ describe('the help table in this repository', () => {
   });
 
   it("gives /omni:brainstorm's usage --concept <n> <area>, and names /omni:think-big on the idea stage's line (PRD 686)", () => {
-    const brainstorm = ENTRIES.find((e) => e.name === 'brainstorm' && e.kind === 'skill')!;
+    const brainstorm = ENTRIES.find((e) => e.name === 'brainstorm' && e.kind === 'skill');
+    assertDefined(brainstorm, 'brainstorm');
     expect(brainstorm.usage).toEqual(['/omni:brainstorm', '/omni:brainstorm --concept <n> <area>']);
     expect(brainstorm.label).toBe('/omni:brainstorm');
-    const idea = STAGES.find((stage) => stage.name === 'idea')!;
+    const idea = STAGES.find((stage) => stage.name === 'idea');
+    assertDefined(idea, 'idea');
     expect(idea.line).toMatch(/\/omni:brainstorm\b/);
     expect(idea.line).toMatch(/\/omni:think-big\b/);
   });
 
   it('says /omni:think-big runs /omni:dossier-open, as /omni:brainstorm does (PRD 686)', () => {
-    const dossierOpen = ENTRIES.find((e) => e.name === 'dossier-open' && e.kind === 'skill')!;
+    const dossierOpen = ENTRIES.find((e) => e.name === 'dossier-open' && e.kind === 'skill');
+    assertDefined(dossierOpen, 'dossierOpen');
     expect(dossierOpen.detail).toMatch(/\/omni:brainstorm\b.*\/omni:think-big\b/);
   });
 
   it('lists omni concept for skills, after omni bug, with its usage and what it checks (PRD 686)', () => {
     const commands = ENTRIES.filter((e) => e.kind === 'command');
-    const concept = commands.find((e) => e.name === 'concept')!;
+    const concept = commands.find((e) => e.name === 'concept');
+    assertDefined(concept, 'concept');
     expect(concept).toMatchObject({ who: 'skills', usage: ['omni concept <n> [--base <ref>]'] });
     expect(commands.indexOf(concept)).toBe(commands.findIndex((e) => e.name === 'bug') + 1);
     expect(concept.detail).toMatch(/\bconcept\.md\b/);
@@ -152,14 +159,16 @@ describe('the help table in this repository', () => {
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
-    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command')!;
+    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
+    assertDefined(bug, 'bug');
     expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]'] });
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
 
   it('lists /omni:bug-fix for you, after /omni:visual-fix, with its usage and when to use it (PRD 556)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const bugFix = skills.find((e) => e.name === 'bug-fix')!;
+    const bugFix = skills.find((e) => e.name === 'bug-fix');
+    assertDefined(bugFix, 'bugFix');
     expect(bugFix).toMatchObject({ who: 'you', usage: ['/omni:bug-fix <line or n>'], label: '/omni:bug-fix' });
     expect(skills.indexOf(bugFix)).toBe(skills.findIndex((e) => e.name === 'visual-fix') + 1);
     expect(bugFix.detail).toMatch(/\bbug\b/);
@@ -168,7 +177,8 @@ describe('the help table in this repository', () => {
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
-    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill')!;
+    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill');
+    assertDefined(visualFix, 'visualFix');
     expect(visualFix).toMatchObject({ who: 'you', usage: ['/omni:visual-fix <line or n>'], label: '/omni:visual-fix' });
     expect(visualFix.detail).toMatch(/\bsmall visual change\b/);
     expect(visualFix.detail).toMatch(/\/omni:brainstorm\b/);
@@ -176,7 +186,8 @@ describe('the help table in this repository', () => {
 
   it('has /omni:mega-invade for you, with --sync, after /omni:invade (PRD 522)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const mega = skills.find((e) => e.name === 'mega-invade')!;
+    const mega = skills.find((e) => e.name === 'mega-invade');
+    assertDefined(mega, 'mega');
     expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-invade [--sync]'], label: '/omni:mega-invade' });
     expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'invade') + 1);
     expect(mega.detail).toMatch(/\bplan repository\b/);
@@ -186,7 +197,8 @@ describe('the help table in this repository', () => {
 
   it('has /omni:mega-brainstorm for you, after /omni:brainstorm, naming the plan repository and ultra-yolo (PRD 549)', () => {
     const skills = ENTRIES.filter((e) => e.kind === 'skill');
-    const mega = skills.find((e) => e.name === 'mega-brainstorm')!;
+    const mega = skills.find((e) => e.name === 'mega-brainstorm');
+    assertDefined(mega, 'mega');
     expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-brainstorm'], label: '/omni:mega-brainstorm' });
     expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'brainstorm') + 1);
     expect(mega.detail).toMatch(/\bplan repository\b/);
@@ -203,7 +215,8 @@ describe('the help table in this repository', () => {
       ['ultra-yolo-fix', 'yolo-fix', '/omni:ultra-yolo-fix <n>', '/omni:ultra-yolo-fix'],
       ['ultra-wave', 'wave', '/omni:ultra-wave <n>', '/omni:ultra-wave <n>'],
     ]) {
-      const ultra = skills.find((e) => e.name === name)!;
+      const ultra = skills.find((e) => e.name === name);
+      assertDefined(ultra, 'ultra');
       expect(ultra, name).toMatchObject({ who: 'you', usage: [usage], label });
       expect(skills.indexOf(ultra), name).toBe(skills.findIndex((e) => e.name === twin) + 1);
       expect(ultra.detail, name).toMatch(/\bplan repository\b/);
@@ -240,7 +253,8 @@ describe('the help table in this repository', () => {
   });
 
   it('shows omni item new --out and omni item relay (PRD 563)', () => {
-    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command')!;
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    assertDefined(item, 'item');
     expect(item.usage.join(' ')).toMatch(/--out <dir>/);
     expect(item.usage).toContain('omni item relay <dir> --prd <n>');
     expect(item.detail).toMatch(/\bnever adopts\b/);
@@ -248,13 +262,18 @@ describe('the help table in this repository', () => {
   });
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
-    const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command')!;
+    const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
+    assertDefined(dossier, 'dossier');
     expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status']);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
   });
 
   it('names --kind on dossier push, /omni:dossier-push and both fix skills (PRD 627)', () => {
-    const find = (name: string, kind: string) => ENTRIES.find((e) => e.name === name && e.kind === kind)!;
+    const find = (name: string, kind: string) => {
+      const entry = ENTRIES.find((e) => e.name === name && e.kind === kind);
+      assertDefined(entry, `the ${kind} ${name}`);
+      return entry;
+    };
     expect(find('dossier', 'command').detail).toMatch(/--kind visual or --kind bug\b.*\bissue n's fix\b/);
     expect(find('dossier-push', 'skill').usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug]']);
     expect(find('dossier-push', 'skill').detail).toMatch(/\/omni:visual-fix\b.*\/omni:bug-fix\b.*--kind/);
@@ -264,7 +283,8 @@ describe('the help table in this repository', () => {
   });
 
   it('says omni visual checks the rounds of variations (PRD 627)', () => {
-    const visual = ENTRIES.find((e) => e.name === 'visual' && e.kind === 'command')!;
+    const visual = ENTRIES.find((e) => e.name === 'visual' && e.kind === 'command');
+    assertDefined(visual, 'visual');
     expect(visual.detail).toMatch(/\bvariations-r<k>\.html\b/);
     expect(visual.detail).toMatch(/\bno other file\b/);
   });

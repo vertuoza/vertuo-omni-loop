@@ -5,6 +5,7 @@ import { formText, makeRepo } from '../../test/fixture.ts';
 import { copyEvidence, readTarget, readTargets, targetsTable } from './targets.ts';
 import type { ExecRaw } from '../context.ts';
 import type { Target, TargetRow } from './targets.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** One faked repository: `null` for one gh cannot read. */
 type FakeRepo = { branch?: string; files?: Record<string, string>; compare?: { ahead: number; files: string[] } };
@@ -26,7 +27,8 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
   const calls: string[] = [];
   const exec = (file: string, args: readonly string[]): string => {
     if (file !== 'gh' || args[0] !== 'api') throw new Error(`unexpected ${file} ${args.join(' ')}`);
-    const endpoint = args[args.length - 1]!;
+    const endpoint = args[args.length - 1];
+    assertDefined(endpoint, 'endpoint');
     calls.push(endpoint);
     const [, owner, name, kind, ...rest] = endpoint.split('?')[0]!.split('/');
     const repo = world[`${owner}/${name}`];
@@ -44,7 +46,8 @@ function fakeGh(world: World): { exec: ExecRaw; calls: string[] } {
       });
     }
     const path = rest.map(decodeURIComponent).join('/');
-    if (Object.hasOwn(repo.files ?? {}, path)) return repo.files![path]!;
+    const content = repo.files?.[path];
+    if (content !== undefined && Object.hasOwn(repo.files ?? {}, path)) return content;
     const under = Object.keys(repo.files ?? {}).filter((f) => f.startsWith(`${path}/`) && !f.slice(path.length + 1).includes('/'));
     if (under.length) return JSON.stringify(under.map((f) => ({ type: 'file', name: f.split('/').pop(), path: f })));
     throw notFound();

@@ -15,6 +15,7 @@ import {
 } from './classify.ts';
 import { candidatesFromLedger } from './harvest.ts';
 import { LOOK_RULE } from './look-rule.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -226,7 +227,8 @@ describe('classificationSchema', () => {
   const refusal = (reply: unknown, bound = schema) => {
     const result = bound.safeParse(reply);
     expect(result.success).toBe(false);
-    return result.error!.issues.map((issue) => issue.message).join(' | ');
+    assertDefined(result.error, 'result.error');
+    return result.error.issues.map((issue) => issue.message).join(' | ');
   };
   const long = (n: number) => 'x'.repeat(n + 1);
 

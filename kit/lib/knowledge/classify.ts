@@ -22,7 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readDecisions } from '../playbook/decisions.ts';
-import { textOf } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { LOOK_RULE } from './look-rule.ts';
 import { PRODUCT_CODE, domainsDir, readKnowledge, type EntryKind, type KnowledgeCtx, type KnowledgeEntry } from './registers.ts';
 
@@ -259,7 +259,7 @@ export function classificationJsonSchema(summary: KnowledgeSummary) {
 
 /** One `### heading` and its text, or nothing when the text is absent. */
 function section(heading: string, body: unknown): string[] {
-  const text = textOf(body).trim();
+  const text = plainText(body).trim();
   if (text === '') return [];
   return [`### ${heading}`, '', text, ''];
 }
