@@ -54,7 +54,7 @@ describe('the menu\'s keys', () => {
 describe('Sign out', () => {
   it('signs out of this browser only, then goes to HOME', async () => {
     const calls: string[] = [];
-    const client = { auth: { signOut: vi.fn(async (o: { scope: 'local' }) => { calls.push(`signOut:${o.scope}`); return { error: null }; }) } };
+    const client = { auth: { signOut: vi.fn((o: { scope: 'local' }) => { calls.push(`signOut:${o.scope}`); return Promise.resolve({ error: null }); }) } };
     await signOutAndLeave(client, (to) => calls.push(`go:${to}`));
     expect(SIGN_OUT_HOME).toBe('/');
     expect(calls).toEqual(['signOut:local', 'go:/']);
@@ -69,7 +69,7 @@ describe('Sign out', () => {
   it('still goes to HOME when the sign-out throws', async () => {
     const go = vi.fn();
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    await signOutAndLeave({ auth: { signOut: async () => { throw new Error('offline'); } } }, go);
+    await signOutAndLeave({ auth: { signOut: () => Promise.reject(new Error('offline')) } }, go);
     expect(go).toHaveBeenCalledWith('/');
     error.mockRestore();
   });
@@ -77,7 +77,7 @@ describe('Sign out', () => {
 
 describe('Sign in with GitHub', () => {
   it('starts the GitHub sign-in, returning through /app/callback', async () => {
-    const start = vi.fn(async () => null);
+    const start = vi.fn(() => Promise.resolve(null));
     const supabase = { url: 'http://127.0.0.1:54321', key: 'anon' };
     expect(await signInFromBar(supabase, 'https://omni.test', start)).toBeNull();
     expect(APP_CALLBACK).toBe('/app/callback');
@@ -85,12 +85,12 @@ describe('Sign in with GitHub', () => {
   });
 
   it('says why when it could not start', async () => {
-    const start = async () => 'GitHub sign-in could not start: down';
+    const start = () => Promise.resolve('GitHub sign-in could not start: down');
     expect(await signInFromBar({ url: 'u', key: 'k' }, 'https://omni.test', start)).toBe('GitHub sign-in could not start: down');
   });
 
   it('says so when this deployment has no database', async () => {
-    const start = vi.fn(async () => null);
+    const start = vi.fn(() => Promise.resolve(null));
     expect(await signInFromBar(null, 'https://omni.test', start)).toMatch(/not open here/);
     expect(start).not.toHaveBeenCalled();
   });
