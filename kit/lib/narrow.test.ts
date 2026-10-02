@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateParts, firstPart, group, isOneOf, keysOf, messageOf, positionOf, propertyOf } from './narrow.ts';
+import { at, dateParts, defined, firstPart, group, isOneOf, keysOf, messageOf, positionOf, propertyOf } from './narrow.ts';
 
 const KINDS = ['open', 'drift'] as const;
 
@@ -99,5 +99,32 @@ describe('keysOf — Object.keys of a record, as its keys', () => {
     const record: Record<string, number> = Object.create({ inherited: 1 });
     record['own'] = 2;
     expect(keysOf(record)).toEqual(['own']);
+  });
+});
+
+describe('defined — a value a `!` only claimed, proven present', () => {
+  it('returns a present value, falsy ones included', () => {
+    expect(defined('a', 'the name')).toBe('a');
+    expect(defined(0, 'the count')).toBe(0);
+    expect(defined('', 'the title')).toBe('');
+  });
+
+  it('throws on undefined and null, naming what was missing', () => {
+    const absent = (): string | undefined => undefined;
+    const empty = (): string | null => null;
+    expect(() => defined(absent(), 'the PRD number')).toThrow('the PRD number is missing');
+    expect(() => defined(empty(), 'the feature branch')).toThrow('the feature branch is missing');
+  });
+});
+
+describe('at — an item of a list that must hold it', () => {
+  it('returns the item at the index, a negative one counting from the end', () => {
+    expect(at(['a', 'b', 'c'], 1, 'the second slice')).toBe('b');
+    expect(at(['a', 'b', 'c'], -1, 'the last slice')).toBe('c');
+  });
+
+  it('throws past either end, naming what was missing and where', () => {
+    expect(() => at(['a'], 1, 'the second slice')).toThrow('the second slice is missing: no item at 1 of 1');
+    expect(() => at([], -1, 'the last slice')).toThrow('the last slice is missing: no item at -1 of 0');
   });
 });
