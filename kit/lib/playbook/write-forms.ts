@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { stringify } from 'yaml';
 import type { Context } from '../context.ts';
+import { defined } from '../narrow.ts';
 import { LAYER_FILES, productDir } from '../knowledge/registers.ts';
 import { DECISIONS_FORM, FORMS, parseForm } from './forms.ts';
 import { fillConfig } from './resolve.ts';
@@ -75,7 +76,7 @@ export function writeForms({ ctx }: { ctx: Ctx }): { path: string; wrote: boolea
   const byFolder = [...FORMS.filter(({ id }) => id !== DECISIONS_FORM), ...FORMS.filter(({ id }) => id === DECISIONS_FORM)];
   const planned: { path: string; text: () => string }[] = [
     { path: `${frontDoor}/README.md`, text: () => frontDoorPage(ctx) },
-    ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id)!, text: () => blankForm(id, { ctx }) })), // ts-allow: every id of FORMS is a form the kit has, so formPath is never null
+    ...byFolder.map(({ id }) => ({ path: defined(ctx.layout.formPath(id), `the path of the ${id} form`), text: () => blankForm(id, { ctx }) })), // every id of FORMS is a form the kit has, so formPath is never null
   ];
   if (samePath(frontDoor, knowledgeRoot)) {
     for (const name of Object.keys(LAYER_FILES)) {

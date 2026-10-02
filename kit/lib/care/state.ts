@@ -3,6 +3,7 @@
 // Pure: `kit/bin/commands/care.ts` runs the query (`CARE_QUERY`) and adds whether a wave holds
 // claims; the decision (`decide.mjs`) reads what this returns.
 import { readCareVerdict } from './marker.ts';
+import { at } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
 
 // The parts of `CARE_QUERY`'s answer this file reads. Every field may be missing or null: GitHub's
@@ -166,7 +167,7 @@ function threadBase(node: ThreadNode, comments: CareComment[], resolved: boolean
 
 /** The verdict, reason and need of a thread whose last care reply sits at `last`. */
 function repliedThread(comments: readonly CareComment[], last: number, resolved: boolean): Pick<CareThread, 'verdict' | 'reason' | 'needs'> {
-  const reply = comments[last]!; // `last` is the index `findLastIndex` found
+  const reply = at(comments, last, 'the last care reply'); // `last` is the index `findLastIndex` found
   const reason = reasonOf(reply.body);
   if (reply.verdict === 'asked') return { verdict: 'asked', reason, needs: null };
   const personAfter = comments.slice(last + 1).some((c) => c.verdict === null);
@@ -184,7 +185,7 @@ function readThread(node: ThreadNode): CareThread | null {
 }
 
 function readStatus(nodes: readonly IssueCommentNode[], statusMarker: CareOptions['statusMarker']): CareStatus | null {
-  const found = nodes.find((node) => statusMarker && String(node.body ?? '').includes(statusMarker));
+  const found = nodes.find((node) => statusMarker && (node.body ?? '').includes(statusMarker));
   if (!found) return null;
   const line = String(found.body).match(CARE_LINE_RE);
   return { commentId: found.databaseId ?? null, watchingSince: line?.[1] ?? null, lastRound: line?.[2] ?? null };

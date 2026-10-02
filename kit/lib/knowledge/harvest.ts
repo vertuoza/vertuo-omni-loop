@@ -66,7 +66,7 @@ function toCandidate(entry: HarvestedEntry, ledgerFile: string | null): Candidat
   return {
     id: entry.id,
     ledgerFile,
-    item: parsed.ok ? (parsed.item ?? null) : null,
+    item: parsed.ok ? parsed.item : null,
     itemText: entry.itemText,
     answer: entry.answerText,
     verdict: entry.verdict ?? null,

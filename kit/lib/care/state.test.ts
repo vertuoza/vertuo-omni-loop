@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { careState } from './state.ts';
 import type { CareResponse } from './state.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const STATUS = '<!-- omni-outbox-status -->';
 const OPTIONS = { statusMarker: STATUS, needsFixLabel: 'omni:needs-fix', gateContexts: ['outbox', 'inbox'] };
@@ -43,7 +44,7 @@ function response(over: Record<string, unknown> = {}): CareResponse {
         },
       },
     },
-  } as CareResponse;
+  };
 }
 
 const rollup = (state: string, contexts: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { state, contexts: { nodes: contexts } } } }] });
@@ -114,8 +115,10 @@ describe('careState — review threads', () => {
   it('lists an unresolved thread with no care reply as unhandled, to judge', () => {
     const [t] = careState(response({ reviewThreads: { nodes: [thread('T1', [ask])] } }), OPTIONS).threads;
     expect(t).toMatchObject({ id: 'T1', resolved: false, verdict: null, reason: null, needs: 'judge', path: 'src/a.mjs', line: 3 });
-    expect(t!.url).toBe(ask.url);
-    expect(t!.comments).toEqual([
+    assertDefined(t, 't');
+    expect(t.url).toBe(ask.url);
+    assertDefined(t, 't');
+    expect(t.comments).toEqual([
       { author: 'rev', avatarUrl: 'https://avatars.example/rev', body: ask.body, createdAt: ask.createdAt, url: ask.url, verdict: null },
     ]);
   });

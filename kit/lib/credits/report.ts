@@ -50,7 +50,7 @@ export function creditsReport({ name, scope, since, summary }: CreditsReportInpu
       `phase-0 ${kinds['phase-0']} · feature ${kinds.feature} · slices ${kinds.slice} · other ${kinds.other}`,
     name === null ? '  signing is off in this repository' : `  ${signatureLine(prs.signatures)}`,
     name === null
-      ? cell('PRD issues', LABEL) + prdIssues.total
+      ? cell('PRD issues', LABEL) + String(prdIssues.total)
       : cell('PRD issues', LABEL) + cell(prdIssues.total, COUNT) + signatureLine(prdIssues.signatures),
   ];
   if (byTheApp !== null) {
@@ -87,6 +87,6 @@ export function creditsList(items: CreditItem[]): string[] {
     item.signature ?? '-',
     item.title,
   ]);
-  const widths = rows.reduce<number[]>((max, row) => max.map((width, index) => Math.max(width, cellOf(row, index).length)), Array(6).fill(0));
+  const widths = rows.reduce<number[]>((max, row) => max.map((width, index) => Math.max(width, cellOf(row, index).length)), Array<number>(6).fill(0));
   return rows.map((row) => [...widths.map((width, index) => cellOf(row, index).padEnd(width)), row[6]].join(' '));
 }

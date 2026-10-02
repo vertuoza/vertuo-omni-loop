@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fetchedAgo, formatOverview, STAGE_ORDER, STAGE_WORDS } from './format.ts';
 import type { Overview, StagedPrd, YourRow, Yours } from './overview.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -219,7 +220,8 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     const shipped = Array.from({ length: 40 }, (_, index) => entry(400 - index, `topic-number-${index}`));
     const list = yoursLines(formatOverview(overview({ yours: known({ shipped }) }), { now: NOW })).slice(1);
     expect(list.length).toBeGreaterThan(2);
-    expect(list[0]!.startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
+    assertDefined(list[0], 'list[0]');
+    expect(list[0].startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
     for (const line of list.slice(1)) expect(line).toMatch(/^ {13}#\d/);
     for (const line of list) {
       expect(line.length).toBeLessThanOrEqual(80);
@@ -238,7 +240,8 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
       `  building   #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
       `  PRD        #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
     ]);
-    expect(out[2]!.length).toBe(80);
+    assertDefined(out[2], 'out[2]');
+    expect(out[2].length).toBe(80);
   });
 
   it('cuts with … a shipped topic too long for a line of its own', () => {

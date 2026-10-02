@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { parseFolderName } from '../layout.ts';
+import { defined } from '../narrow.ts';
 import type { Layout, PrdNumber } from '../layout.ts';
 import { VOICE_FILE } from '../voice/voice.ts';
 
@@ -58,7 +59,7 @@ export const ARTIFACT_KINDS: readonly { kind: ArtifactKind; pathOf: (layout: Lay
   { kind: 'plan', pathOf: (layout: Layout, prd: PrdNumber) => layout.planPath(prd) },
   { kind: 'before-after', pathOf: (layout: Layout, prd: PrdNumber) => layout.beforeAfterPath(prd) },
   // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
-  { kind: 'voice', pathOf: (layout: Layout, prd: PrdNumber) => `${layout.whereIs(prd)!.dir}/${VOICE_FILE}` },
+  { kind: 'voice', pathOf: (layout: Layout, prd: PrdNumber) => `${defined(layout.whereIs(prd), `the folder of PRD ${Number(prd)}`).dir}/${VOICE_FILE}` },
 ]);
 
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -82,7 +83,7 @@ export function readDossierFolder(ctx: { root: string; layout: Layout }, prd: Pr
   let title: string | null = null;
   for (const { kind, pathOf } of ARTIFACT_KINDS) {
     // Never null: every kind's path is in the folder, and the folder is there.
-    const path = pathOf(ctx.layout, prd)!;
+    const path = defined(pathOf(ctx.layout, prd), `the ${kind} of PRD ${Number(prd)}`);
     const file = join(ctx.root, path);
     if (!existsSync(file)) continue;
     const raw = readFileSync(file);

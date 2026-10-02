@@ -4,13 +4,14 @@
 // failure to ask (no `gh`, no sign-in, no release, a timeout, an answer that is no version) is
 // `null`: `omni version` then prints its first line alone.
 import type { ExecText } from '../context.ts';
+import { plainText } from '../outbox/plain-text.ts';
 
 /** The versions a release carries: `x.y.z`, with or without a leading `v`. */
 const VERSION = /^v?(\d+)\.(\d+)\.(\d+)$/;
 
 /** `x.y.z` without its `v`, or `null` when `text` is no version. */
 export function parseVersion(text: unknown): string | null {
-  const match = VERSION.exec(String(text ?? '').trim());
+  const match = VERSION.exec(plainText(text).trim());
   return match ? `${match[1]}.${match[2]}.${match[3]}` : null;
 }
 

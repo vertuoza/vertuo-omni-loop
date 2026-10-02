@@ -12,7 +12,7 @@ export function isOneOf<T>(values: readonly T[], value: unknown): value is T {
 }
 
 /** `values.indexOf(value)` for a value of any type: its position in `values`, or -1. */
-export function positionOf<T>(values: readonly T[], value: unknown): number {
+export function positionOf(values: readonly unknown[], value: unknown): number {
   return values.findIndex((member) => member === value);
 }
 
