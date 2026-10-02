@@ -3,6 +3,7 @@
 // Entropy, log, and its PRD's dossier). On the wide grid the panel stands beside the planet; on the
 // tall grid it runs across the screen under the band the header and the planet share (TALL_BAND in
 // planet.ts), with the same rows.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
@@ -101,7 +102,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
   const tall = useScreen().grid.name === 'tall';
   const rows = statusRows(p, view);
   // On the tall grid a paired row shares its line with the row before it (planet.css places them).
-  const paired = (i: number) => (tall && rows[i]!.pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
+  const paired = (i: number) => (tall && defined(rows[i], 'a status row').pair ? 'pair' : tall && rows[i + 1]?.pair ? 'before-pair' : '');
   return (
     <dl className="stats">
       {rows.map((r, i) => (
@@ -133,8 +134,8 @@ function ZonesTab({ p }: { p: Planet }) {
           <span className="wave-label">PHASE {w || '?'}</span>
           <div className="wave-tiles">
             {p.zones.filter((z) => (z.wave ?? 0) === w).map((z) => (
-              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state]!.label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
-                <Sprite name={ZONE_ICON[z.state]!.sprite} scale={1} animate={z.state !== 'secured'} />
+              <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
+                <Sprite name={defined(ZONE_ICON[z.state], `the ${z.state} zone icon`).sprite} scale={1} animate={z.state !== 'secured'} />
                 <span className="tile-id">{z.id}</span>
                 {z.team && <span className="tile-team" style={{ background: fleet(z.team).color }} />}
               </span>

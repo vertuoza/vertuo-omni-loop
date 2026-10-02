@@ -16,6 +16,7 @@ import { BLOCK, EMPTY_BLOCK, tileData } from './art';
 import { blockBumped, clockSeconds, enemyContact, enemyTurn, enemyWakes, heroAtFlag, heroFell } from './contact';
 import { heroSpeed, JUMP_IDLE, jumpStep, LIFE_EVENTS, PHYSICS, STAGE_SECONDS, TILE, type JumpState, type PlatformerEvent } from './rules';
 import type { Stage } from './stages';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export type PhaserModule = typeof import('phaser');
 
@@ -41,11 +42,14 @@ type Body = Phaser.Physics.Arcade.Body;
 type Sprite = Phaser.Physics.Arcade.Sprite;
 
 /** The scene class for one stage, made from the Phaser module the screen loaded. */
+/** The tile at a world point: Phaser answers null where none stands, though its types say a tile. */
+const tileAt = (layer: Phaser.Tilemaps.TilemapLayer, x: number, y: number): Phaser.Tilemaps.Tile | null => layer.getTileAtWorldXY(x, y);
+
 export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene {
   const { stage, art } = o;
   const width = stage.cols * TILE, height = stage.rows * TILE;
-  const start = stage.starts[0]!;
-  const flag = stage.flags[0]!;
+  const start = at(stage.starts, 0, "the stage's start");
+  const flag = at(stage.flags, 0, "the stage's flag");
   const startX = start.col * TILE + TILE / 2, startY = (start.row + 1) * TILE - PHYSICS.heroH / 2 - 4;
   const flagX = flag.col * TILE + TILE / 2;
 
@@ -85,7 +89,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       art.enemy.forEach((c, i) => { add(`enemy-${stage.palette}-${i}`, c); });
 
       const map = this.make.tilemap({ data: tileData(stage), tileWidth: TILE, tileHeight: TILE });
-      const tileset = map.addTilesetImage(tiles, tiles, TILE, TILE)!;
+      const tileset = defined(map.addTilesetImage(tiles, tiles, TILE, TILE), 'the stage tileset');
       const layer = map.createLayer(0, tileset, 0, 0) as Phaser.Tilemaps.TilemapLayer; // ts-allow: a layer made from a tileset the scene loaded is never null
       layer.setCollisionByExclusion([-1]);
       this.layer = layer;
@@ -257,7 +261,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
         if (blob.y > height + 2 * TILE) { blob.destroy(); continue; }
         let dir = blob.getData('dir') as 1 | -1; // ts-allow: Phaser's data store returns any; the scene only ever sets 1 or -1
         if (b.blocked.down) {
-          const ahead = this.layer.getTileAtWorldXY(blob.x + dir * (PHYSICS.enemyW / 2 + 1), b.bottom + 1);
+          const ahead = tileAt(this.layer, blob.x + dir * (PHYSICS.enemyW / 2 + 1), b.bottom + 1);
           dir = enemyTurn(dir, { left: b.blocked.left, right: b.blocked.right, groundAhead: Boolean(ahead?.collides) });
           blob.setData('dir', dir);
         }

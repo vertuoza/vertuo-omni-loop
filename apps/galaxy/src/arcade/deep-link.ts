@@ -8,7 +8,7 @@
 // galaxy is there to show; a page that holds none (out of reach, or an account outside the crew)
 // starts at the boot, as `/` does.
 import type { GalaxyView } from '@omni/galaxy';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { allowed } from './onboarding';
 import type { SceneName } from './scenes';
 import type { Session } from './types';
@@ -27,7 +27,7 @@ const PLANET = /^planet-(?:([^/#]+\/[^/#]+)\/)?(\d+)$/;
 function planetIndex(view: GalaxyView, home: string | undefined, prd: number): number {
   if (home) return view.planets.findIndex((p) => p.prd === prd && p.home === home.toLowerCase());
   const holders = view.planets.flatMap((p, i) => (p.prd === prd ? [i] : []));
-  return holders.length === 1 ? holders[0]! : -1;
+  return holders.length === 1 ? at(holders, 0, 'the planet the link names') : -1;
 }
 
 /**

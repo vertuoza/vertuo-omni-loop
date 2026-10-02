@@ -54,7 +54,7 @@ import { addressAt, landing } from './deep-link';
 import { leaveMove, openOver } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
 import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
-import { at, defined, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
@@ -601,8 +601,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           return;
         }
         if (action === 'a' || action === 'start') { lockIn(); return; }
-        if (action === 'b') { leave('select'); return; }
-        return;
+        leave('select'); return; // B: the only press left
       }
       case 'name':
         if (action === 'up') { nameAction({ type: 'spin', dir: -1 }); return; }
@@ -614,7 +613,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') { if (u.name.chars.length) nameAction({ type: 'erase' }); else leave('name'); return; }
         return;
       case 'hero': {
-        const row = BUILDER_ROWS[u.heroRow]!;
+        const row = at(BUILDER_ROWS, u.heroRow, 'the builder row');
         if (action === 'up') { go({ heroRow: (u.heroRow + BUILDER_ROWS.length - 1) % BUILDER_ROWS.length }, 'move'); return; }
         if (action === 'down') { go({ heroRow: (u.heroRow + 1) % BUILDER_ROWS.length }, 'move'); return; }
         if ((action === 'left' || action === 'right') && row !== 'RANDOM' && row !== 'DONE') {
@@ -663,8 +662,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const url = on ? dossierLink(dossiers, on, u.tab, view.planets) : null;
           if (url) { sfx('select'); openPage(url); return; }
         }
-        if (action === 'b' || action === 'start') { go({ scene: 'map' }, 'back'); return; }
-        return;
+        go({ scene: 'map' }, 'back'); return; // B, or START with no page to open
       case 'chart': case 'system': {
         const entry = system?.worlds[u.world]?.entry;
         const pages = () => (graph && entry ? cardPages(graph, entry, gridFor(formRef.current, 'system').name).length : 1);
@@ -676,11 +674,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         // ◀ ▶ choose a cabinet on the wide grid and turn the page on the tall one: one cursor for both.
         const status = xpStatus(isPlayer(sessionRef.current), xp);
         const room = cabinets(status);
-        const at = Math.min(u.cabinet, room.length - 1);
-        if (action === 'left' || action === 'right') { go({ cabinet: turnPage(at, room.length, action) }, 'move'); return; }
-        if (action === 'select') { go({ cabinet: turnPage(at, room.length, 'right') }, 'move'); return; }
+        const spot = Math.min(u.cabinet, room.length - 1);
+        if (action === 'left' || action === 'right') { go({ cabinet: turnPage(spot, room.length, action) }, 'move'); return; }
+        if (action === 'select') { go({ cabinet: turnPage(spot, room.length, 'right') }, 'move'); return; }
         if (action === 'a' || action === 'start') {
-          const door = cabinetDoor(room[at]!, status);
+          const door = cabinetDoor(at(room, spot, 'the cabinet under the cursor'), status);
           if (!('scene' in door)) { go({ toast: door.refused }, 'buzz'); return; }
           if (door.scene === 'platformer') { playPlatformer(); return; }
           if (door.scene === 'invaders') playInvaders(); else go({ scene: door.scene }, 'select');
@@ -740,19 +738,18 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
-        if (!n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
+        if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
         if (action === 'left' || action === 'up') { go({ fleet: (u.fleet + n - 1) % n }, 'move'); return; }
         if (action === 'right' || action === 'down' || action === 'select') { go({ fleet: (u.fleet + 1) % n }, 'move'); return; }
         if (action === 'a' || action === 'start') {
-          const team = view!.teams[u.fleet]?.name;
-          const i = view!.planets.findIndex((p) => p.ownerTeam === team);
+          const team = view.teams[u.fleet]?.name;
+          const i = view.planets.findIndex((p) => p.ownerTeam === team);
           go({ scene: 'map', ...(i >= 0 ? { sel: i } : {}) }, 'select'); return;
         }
-        if (action === 'b') { go({ scene: 'menu' }, 'back'); return; }
-        return;
+        go({ scene: 'menu' }, 'back'); return; // B: the only press left
       }
-      default: {
-        // `heroes` and `briefing`: ◀ ▶ turn the pages their group declares on the grid they are drawn on.
+      case 'away': case 'heroes': case 'briefing': {
+        // `heroes` and `briefing` (and `away`, which reads them the same): ◀ ▶ turn the pages their group declares on the grid they are drawn on.
         if (action === 'left' || action === 'right') {
           const n = pagesFor(u.scene, { view, grid: gridFor(formRef.current, u.scene) });
           if (n > 1) go({ page: turnPage(u.page, n, action) }, 'tab');
@@ -954,6 +951,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'system': return graph && system
         ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => { act('a'); }} onPage={(cardPage) => { go({ cardPage }, 'tab'); }} />
         : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => { act('a'); }} />;
+      case 'away': return undefined;
     }
   })();
 

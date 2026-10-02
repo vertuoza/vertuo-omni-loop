@@ -19,7 +19,7 @@ function EndSend({ send, back }: { send: ScoreSend | null; back: string }) {
   const line = sendLine(send);
   return (
     <>
-      {line && <p className={`inv-send inv-${send!.state === 'saved' && send!.newBest ? 'best' : send!.state}`} role="status">{line}</p>}
+      {line && send && <p className={`inv-send inv-${send.state === 'saved' && send.newBest ? 'best' : send.state}`} role="status">{line}</p>}
       {canRetry(send)
         ? <p className="hint"><Hint k="A">RETRY</Hint> <Hint k="B">{back}</Hint></p>
         : <p className="hint"><Hint k="A">{back}</Hint></p>}

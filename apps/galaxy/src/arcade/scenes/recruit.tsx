@@ -3,6 +3,7 @@
 // and the hero builder, laid over the canvas in recruit.ts on the grid the scene is drawn on. The
 // classes place each part per grid (recruit.css, under `.grid-tall`); on the tall grid the parts that
 // sit side by side on the wide one stack, and nothing is left out.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { Fragment, type ReactNode } from 'react';
 import type { Hero } from '@omni/design';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from '../builder';
@@ -48,7 +49,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
   const { grid } = useScreen();
   if (!fleets.length) return <RaiseOverlay owner={owner} />;
   const solo = pick >= fleets.length;
-  const f = solo ? { ...SOLO, name: null } : fleets[pick]!;
+  const f = solo ? { ...SOLO, name: null } : defined(fleets[pick], 'the fleet picked');
   const from = crewLook(current);
   const count = f.name ? crew[f.name] ?? 0 : 0;
   const row = cardRow(fleets.length + 1, pick, grid);

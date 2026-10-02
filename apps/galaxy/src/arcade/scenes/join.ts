@@ -2,6 +2,7 @@
 // intro, ready and welcome back. Each scene stands its pieces where its grid's
 // stage says: the wide grid as it always was, or the tall one (the Game Boy held upright), where
 // the same pieces stack in a narrower, taller frame.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { drawPlanet } from '@omni/design';
 import { fleet } from '../fleets';
 import {
@@ -84,7 +85,7 @@ function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {
     if (st.x >= w) continue;
     const v = (st.layer + 1) * 40 * k;
     const y = Math.floor((((st.y + (s.reduced ? 0 : s.t) * v) % h) + h) % h), len = Math.max(1, Math.round(v / 14));
-    ctx.fillStyle = ['#2e3270', '#6a70c0', '#c8d0ff'][st.layer]!;
+    ctx.fillStyle = defined(['#2e3270', '#6a70c0', '#c8d0ff'][st.layer], "a star layer's colour");
     ctx.fillRect(Math.floor(st.x), y - len, 1, len);
   }
 }

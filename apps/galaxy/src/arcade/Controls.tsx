@@ -22,7 +22,9 @@ type Fire = (action: Action) => void;
 
 /** A 10 ms buzz where the browser offers one; iPhone Safari has none, and stays silent. */
 function buzz() {
-  try { navigator.vibrate?.(10); } catch { /* not offered */ }
+  // The DOM types promise vibrate on every navigator; Safari's has none.
+  const device: { vibrate?: (pattern: number) => boolean } = navigator;
+  try { device.vibrate?.(10); } catch { /* not offered */ }
 }
 
 // A pointer press fires on the way down, and the click the browser sends after it must not fire

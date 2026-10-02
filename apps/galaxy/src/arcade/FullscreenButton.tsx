@@ -42,7 +42,11 @@ const never = () => () => {};
  * know either: it renders neither allowed nor on, so no button until the page starts.
  */
 export function useFullscreenState(): { allowed: boolean; on: boolean } {
-  const allowed = useSyncExternalStore(never, () => Boolean(document.fullscreenEnabled), () => false);
+  // The DOM types promise fullscreenEnabled on every document; iPhone Safari's has none.
+  const allowed = useSyncExternalStore(never, () => {
+    const page: { fullscreenEnabled?: boolean } = document;
+    return page.fullscreenEnabled === true;
+  }, () => false);
   const on = useSyncExternalStore(onChange, () => Boolean(document.fullscreenElement), () => false);
   return { allowed, on };
 }

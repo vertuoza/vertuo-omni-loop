@@ -38,7 +38,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'menu': { drawMenu(ctx, s); return; }
     case 'map': { drawMap(ctx, s); return; }
     case 'planet': { drawPlanetScene(ctx, s); return; }
-    case 'fleets': { drawFleets(ctx, s); return; }
+    case 'fleets': { drawFleets(ctx); return; }
     case 'heroes': { drawHeroes(ctx, s); return; }
     case 'briefing': { drawBriefing(ctx, s); return; }
     case 'coin': { drawCoin(ctx, s); return; }

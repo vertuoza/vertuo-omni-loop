@@ -7,6 +7,7 @@ import { entriesOf, lanes, orbits, systems, type EntryKind, type KnowledgeEntry,
 import type { Action } from '../keys';
 import type { Grid, GridName } from './common.ts';
 import { neighbour } from './map.ts';
+import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 export interface Box { x: number; y: number; w: number; h: number }
 export type Dir = 'up' | 'down' | 'left' | 'right';
@@ -151,16 +152,21 @@ function arcOf(rx: number, ry: number): Arc {
   return { rx, ry, theta, length, total: sum };
 }
 
+/** Sample `i` of an arc's table, which holds SAMPLES + 1 of them. */
+const sample = (table: Float64Array, i: number, what: string) => defined(table[i], what);
+
 /** `n` points evenly spread along the ellipse, the first `offset` of a step past the top. */
 function spread(arc: Arc, n: number, offset: number): { x: number; y: number; angle: number }[] {
   const out: { x: number; y: number; angle: number }[] = [];
   let i = 1;
   for (let j = 0; j < n; j++) {
     const s = (((j + offset) / n) % 1) * arc.total;
-    if (s < arc.length[i - 1]!) i = 1;
-    while (i < SAMPLES && arc.length[i]! < s) i++;
-    const k = (s - arc.length[i - 1]!) / Math.max(1e-9, arc.length[i]! - arc.length[i - 1]!);
-    const angle = arc.theta[i - 1]! + (arc.theta[i]! - arc.theta[i - 1]!) * k;
+    if (s < sample(arc.length, i - 1, 'an arc sample')) i = 1;
+    while (i < SAMPLES && sample(arc.length, i, 'an arc sample') < s) i++;
+    const before = sample(arc.length, i - 1, 'an arc sample'), after = sample(arc.length, i, 'an arc sample');
+    const k = (s - before) / Math.max(1e-9, after - before);
+    const from = sample(arc.theta, i - 1, 'an arc angle');
+    const angle = from + (sample(arc.theta, i, 'an arc angle') - from) * k;
     out.push({ x: arc.rx * Math.sin(angle), y: -arc.ry * Math.cos(angle), angle });
   }
   return out;
@@ -172,7 +178,7 @@ function seats(arc: Arc, n: number, r: number, gap: number): boolean {
   return [0, 0.5].every((offset) => {
     const pts = spread(arc, n, offset);
     return pts.every((p, j) => {
-      const q = pts[(j + 1) % n]!;
+      const q = at(pts, (j + 1) % n, 'the next world');
       return Math.hypot(p.x - q.x, p.y - q.y) >= 2 * r + gap;
     });
   });
@@ -189,15 +195,16 @@ function capacity(arc: Arc, r: number, gap: number): number {
 function share(n: number, caps: number[]): number[] {
   const total = caps.reduce((a, b) => a + b, 0);
   const exact = caps.map((c) => (total ? (n * c) / total : 0));
-  const out = exact.map((e, i) => Math.min(caps[i]!, Math.floor(e)));
+  const out = exact.map((e, i) => Math.min(at(caps, i, 'a cap'), Math.floor(e)));
   let left = n - out.reduce((a, b) => a + b, 0);
   const order = exact.map((e, i) => ({ i, frac: e - Math.floor(e) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
   while (left > 0) {
     const before = left;
     for (const { i } of order) {
-      if (left > 0 && out[i]! < caps[i]!) { out[i]!++; left--; }
+      const seated = at(out, i, 'a share');
+      if (left > 0 && seated < at(caps, i, 'a cap')) { out[i] = seated + 1; left--; }
     }
-    if (left === before) { out[out.length - 1]! += left; left = 0; } // more than they seat: the last takes the rest
+    if (left === before) { out[out.length - 1] = at(out, -1, 'the last share') + left; left = 0; } // more than they seat: the last takes the rest
   }
   return out;
 }
@@ -224,17 +231,17 @@ function fit(kinds: { kind: EntryKind; entries: KnowledgeEntry[] }[], r: number,
   for (const [k, { kind, entries }] of kinds.entries()) {
     const start = next;
     let seated = 0;
-    if (forced) next += forced[k]!;
+    if (forced) next += at(forced, k, "a kind's forced orbits");
     else {
       do {
         if (next >= count) return null;
-        seated += caps[next]!;
+        seated += at(caps, next, 'a cap');
         next++;
       } while (seated < entries.length);
     }
     const counts = share(entries.length, caps.slice(start, next));
-    let at = 0;
-    counts.forEach((c, i) => { rings.push({ kind, ry: sizes[start + i]!, entries: entries.slice(at, at + c) }); at += c; });
+    let first = 0;
+    counts.forEach((c, i) => { rings.push({ kind, ry: at(sizes, start + i, 'an orbit size'), entries: entries.slice(first, first + c) }); first += c; });
   }
   return rings;
 }
@@ -262,7 +269,7 @@ export function layoutOrbits(entries: KnowledgeEntry[], box: Box, o: { sun: numb
   if (!rings) {
     const room = roomFor(r);
     const most = Math.max(kinds.length, Math.floor((room.ay - room.inner) / (2 * r + gapFor(r))) + 1);
-    rings = fit(kinds, r, most, room, true)!;
+    rings = defined(fit(kinds, r, most, room, true), 'the forced orbits');
   }
   const room = roomFor(r);
   const worlds: WorldSlot[] = [];
@@ -270,7 +277,7 @@ export function layoutOrbits(entries: KnowledgeEntry[], box: Box, o: { sun: numb
     const rx = (ring.ry * room.ax) / room.ay;
     const pts = spread(arcOf(rx, ring.ry), ring.entries.length, orbit % 2 ? 0.5 : 0);
     ring.entries.forEach((entry, j) => {
-      const pt = pts[j]!;
+      const pt = at(pts, j, "a world's place");
       worlds.push({ entry, x: cx + pt.x, y: cy + pt.y, r, index: worlds.length, orbit, angle: pt.angle });
     });
     return { kind: ring.kind, rx, ry: ring.ry, count: ring.entries.length };
@@ -301,7 +308,7 @@ export function orbitStep(layout: SystemLayout, from: number, dir: Dir): number 
   if (dir === 'left' || dir === 'right') {
     const ring = layout.worlds.filter((w) => w.orbit === cur.orbit);
     const i = ring.indexOf(cur);
-    return ring[(i + (dir === 'left' ? ring.length - 1 : 1)) % ring.length]!.index;
+    return at(ring, (i + (dir === 'left' ? ring.length - 1 : 1)) % ring.length, 'the next world on the orbit').index;
   }
   const step = dir === 'up' ? -1 : 1;
   for (let orbit = cur.orbit + step; orbit >= 0 && orbit < layout.orbits.length; orbit += step) {
@@ -351,8 +358,7 @@ export function chartKey(cur: ChartCursor, action: Action, at: { chart: ChartLay
       return sun === cur.sun ? null : { patch: { sun, world: 0 }, sound: 'move' };
     }
     if (action === 'select') return { patch: { sun: (cur.sun + 1) % n, world: 0 }, sound: 'move' };
-    if (action === 'a' || action === 'start') return { patch: { scene: 'system', card: false }, sound: 'select' };
-    return null;
+    return { patch: { scene: 'system', card: false }, sound: 'select' }; // A or START: the presses left
   }
   const worlds = at.system?.worlds ?? [];
   if (cur.card && worlds[cur.world]) {
@@ -370,6 +376,5 @@ export function chartKey(cur: ChartCursor, action: Action, at: { chart: ChartLay
     return world === cur.world ? null : { patch: { world }, sound: 'move' };
   }
   if (action === 'select') return { patch: { world: (cur.world + 1) % worlds.length }, sound: 'move' };
-  if (action === 'a' || action === 'start') return { patch: { card: true, cardPage: 0 }, sound: 'select' };
-  return null;
+  return { patch: { card: true, cardPage: 0 }, sound: 'select' }; // A or START: the presses left
 }

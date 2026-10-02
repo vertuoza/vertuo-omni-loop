@@ -87,9 +87,9 @@ export interface Session { id: string; email: string; givenName: string; crew: b
 export interface Account {
   kind: 'demo' | 'supabase' | 'closed';
   /** Signs in with Google. Supabase leaves the page (and comes back through /auth/callback). */
-  signIn(): Promise<Session | void>;
+  signIn(): Promise<Session | undefined>;
   /** Links GitHub, which makes a visitor a player. Supabase leaves the page; the demo resolves with a made-up login. */
-  linkGithub(): Promise<string | void>;
+  linkGithub(): Promise<string | undefined>;
   /** Creates or updates the signed-in player's row; resolves with the row as stored. */
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
   /**
