@@ -3,8 +3,8 @@
 // ```text github. When the guide is compiled (source.config.ts), rehypeCodeBadges turns those words
 // into badges set above the code, as real text a screen reader reads first; docs.css draws them as
 // arcade chips. The docs guard (guide.ts) refuses a block that names no kind, or names one wrongly,
-// through fenceProblem. Each block also ends with a copy button (issue #931), on the code's line;
-// CodeCopy, in the browser, copies the block's code when it is pressed. Nothing here runs there.
+// through fenceProblem. The badge row ends with a copy chip (issue #931); CodeCopy, in the browser,
+// copies the block's code when it is pressed. Nothing here runs there.
 
 /** One kind of place a block goes. */
 export type CodeKind = { kind: 'terminal' } | { kind: 'agent' } | { kind: 'file'; path: string } | { kind: 'github' };
@@ -63,14 +63,14 @@ export function fenceProblem(meta: string | null | undefined): string | null {
 const element = (tagName: string, properties: Record<string, unknown>, children: HastNode[]): HastElement =>
   ({ type: 'element', tagName, properties, children });
 
-/** The badges of a block: one chip per kind, in a row. */
+/** The badges of a block: one chip per kind, in a row, then the copy chip. */
 export function badges(kinds: readonly CodeKind[]): HastElement {
   return element('div', { className: ['docs-badges'] }, kinds.map((kind) =>
-    element('span', { className: ['docs-badge'], dataKind: kind.kind }, [{ type: 'text', value: badgeLabel(kind) }])));
+    element('span', { className: ['docs-badge'], dataKind: kind.kind }, [{ type: 'text', value: badgeLabel(kind) }])).concat(copyButton()));
 }
 
 const icon = (className: string, shapes: HastElement[]): HastElement => element('svg', {
-  className: [className], width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', ariaHidden: 'true',
+  className: [className], width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', ariaHidden: 'true',
 }, shapes);
 
 /** The copy button: the two-sheet icon, and the tick shown once the code is copied. */
@@ -84,10 +84,9 @@ function copyButton(): HastElement {
   ]);
 }
 
-/** A block with its badges above its code and its copy button beside it: `pre` is the block as
- * compiled, `kinds` where it goes. */
+/** A block with its badges above its code: `pre` is the block as compiled, `kinds` where it goes. */
 export function badgedBlock(kinds: readonly CodeKind[], pre: HastNode): HastElement {
-  return element('div', { className: ['docs-code'] }, [badges(kinds), pre, copyButton()]);
+  return element('div', { className: ['docs-code'] }, [badges(kinds), pre]);
 }
 
 const isElement = (node: HastNode): node is HastElement => node.type === 'element';

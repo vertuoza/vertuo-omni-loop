@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { copyLink } from '../ask/page/share';
 import { codeToCopy } from './copy';
 
-// The guide's copy buttons (issue #931): badges.ts sets one in every code block at compile time, and
+// The guide's copy chips (issue #931): badges.ts ends every code block's badge row with one, and
 // this, in the browser, copies the block's code when one is pressed. Copied, the button shows a tick
 // for two seconds; where the clipboard is missing or refuses, the code is selected instead, for the
 // person to copy. It listens once, on the document, so a block the page adds later works too.
