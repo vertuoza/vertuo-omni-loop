@@ -26,6 +26,7 @@ import type { FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { stagesOfRepo, type RepoSnapshot } from './core';
+import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** A workspace, and where its repositories are found on GitHub. */
 export type SyncWorkspace = { id: string; slug: string; github_org: string | null; github_installation_id: number | null };
@@ -62,7 +63,7 @@ type SkippedRepo = { workspace: string; repository: string | null; reason: strin
 type SyncReply = { synced_at: string; repositories: SyncedRepo[]; skipped: SkippedRepo[] };
 
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0]! : String(error)); // ts-allow: split always yields a first part
+const why = (error: unknown) => (error instanceof Error ? firstPart(error.message, '\n') : String(error));
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** How far before the last sync a repository is read again, for clocks that disagree. */
@@ -80,7 +81,7 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer (.+)$/.exec(header);
   if (!match) return false;
-  return timingSafeEqual(digest(match[1]!), digest(secret)); // ts-allow: the group always matches
+  return timingSafeEqual(digest(group(match, 1)), digest(secret));
 }
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */

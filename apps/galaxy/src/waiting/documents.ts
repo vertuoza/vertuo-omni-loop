@@ -1,5 +1,6 @@
 import type { Db } from '../ask/page/source';
 import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
+import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -99,8 +100,8 @@ export function documentsReader(db: Db, me: string): (now: number) => Promise<Do
       .order('created_at', { ascending: false })
       .limit(DOCS_LIMIT);
     if (error) throw new Error(`read the new documents: ${error.message}`);
-    return ((data ?? []) as unknown as Raw[]).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && KNOWN.has(r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
-      ? [{ id: r.id, kind: r.kind as DocumentKind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }] // ts-allow: KNOWN just proved the kind a known one
+    return ((data ?? []) as unknown as Raw[]).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
+      ? [{ id: r.id, kind: r.kind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }]
       : []));
   };
 }
@@ -108,11 +109,13 @@ export function documentsReader(db: Db, me: string): (now: number) => Promise<Do
 function parse(raw: string | null): Seen | null {
   if (raw === null) return null;
   try {
-    const value = JSON.parse(raw) as Partial<Seen> | null; // ts-allow: each field is checked on the next line
-    if (!value || typeof value.since !== 'number' || !value.dossiers || typeof value.dossiers !== 'object') return null;
+    const value: unknown = JSON.parse(raw);
+    const since = propertyOf(value, 'since');
+    const stored = propertyOf(value, 'dossiers');
+    if (!value || typeof since !== 'number' || !stored || typeof stored !== 'object') return null;
     const dossiers: Record<string, number> = {};
-    for (const [id, time] of Object.entries(value.dossiers)) if (typeof time === 'number') dossiers[id] = time;
-    return { since: value.since, dossiers };
+    for (const [id, time] of Object.entries(stored)) if (typeof time === 'number') dossiers[id] = time;
+    return { since, dossiers };
   } catch {
     return null;
   }

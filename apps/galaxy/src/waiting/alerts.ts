@@ -1,5 +1,6 @@
 import type { DocumentGroup, DocumentKind } from './documents';
 import type { WaitingItem } from './waiting';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over the browser's parts, each passed in so
 // the tests hand fakes. New is an item, by its id, in a read's result that was not in the list before
@@ -36,8 +37,8 @@ export function announce(seen: ReadonlySet<string> | null, items: readonly Waiti
 
 export function readSwitches(store: () => Store): AlertSwitches {
   try {
-    const raw = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null') as Partial<AlertSwitches> | null; // ts-allow: a switch reads on only when it is exactly true
-    return { desktop: raw?.desktop === true, chime: raw?.chime === true };
+    const raw: unknown = JSON.parse(store().getItem(ALERTS_KEY) ?? 'null');
+    return { desktop: propertyOf(raw, 'desktop') === true, chime: propertyOf(raw, 'chime') === true };
   } catch {
     return ALERTS_OFF;
   }

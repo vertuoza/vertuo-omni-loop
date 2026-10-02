@@ -5,6 +5,7 @@
 // N to check", linking to the page; at 0 the group is gone. Like New documents it never adds to the
 // bell's badge, the tab's `(N)` or the favicon dot, and it raises no alert: no email, no sound.
 // A failed read keeps the last count and marks the part unreadable.
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** How often the Business part is read while the tab is visible, and the least time between two reads. */
 export const BUSINESS_MS = 60_000;
@@ -49,7 +50,7 @@ export async function readBusinessCount(fetch: Fetch): Promise<BusinessRead> {
   const response = await answerOf(fetch);
   if (!response) return { ok: false, kind: 'network' };
   if (response.status !== 200) return { ok: false, kind: `status ${response.status}` };
-  const count = ((await jsonOf(response)) as { count?: unknown } | null)?.count; // ts-allow: the count is checked on the next line
+  const count = propertyOf(await jsonOf(response), 'count');
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return { ok: false, kind: 'shape' };
   return { ok: true, count };
 }
