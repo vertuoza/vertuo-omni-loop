@@ -225,12 +225,12 @@ export const ConfigSchema = z
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
     // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
-    // as written. `home` defaults to the Omni Loop home page (ADR-0047).
+    // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
     signature: z
       .object({
         name: trailerPart.default('Omni-man'),
         email: trailerPart.default('333776611+omni-loop-invader[bot]@users.noreply.github.com'),
-        home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),
+        home: httpsUrl.default('https://www.omni-loop.xyz'),
         footer: text.default('🦸 {name} by [Omni Loop]({home}) ©'),
       })
       .strict()

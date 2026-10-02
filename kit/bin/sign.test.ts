@@ -27,7 +27,7 @@ describe('omni sign', () => {
   it('footer prints the footer, its name and home filled, followed by the hidden marker (PRD #215)', async () => {
     expect(await omni(['sign', 'footer'])).toEqual({
       code: 0,
-      out: '🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
+      out: '🦸 Omni-man by [Omni Loop](https://www.omni-loop.xyz) © <!-- omni-loop:signed -->\n',
       err: '',
     });
   });
@@ -53,7 +53,7 @@ describe('omni sign', () => {
   it('a config setting only name renames the hero in both lines, the link unchanged (PRD #215, AC 3)', async () => {
     const config = `${CONFIG}signature:\n  name: Robo\n`;
     expect((await omni(['sign', 'footer'], config)).out).toBe(
-      '🦸 Robo by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
+      '🦸 Robo by [Omni Loop](https://www.omni-loop.xyz) © <!-- omni-loop:signed -->\n',
     );
     expect((await omni(['sign', 'trailer'], config)).out).toBe(
       'Co-authored-by: Robo <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
