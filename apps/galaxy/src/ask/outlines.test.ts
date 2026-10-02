@@ -43,6 +43,7 @@ const DIVIDERS = new Set([
   "nav/sidebar.css .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-group + .app-sidebar-group",
   'dashboard/week/week.css .dash-week-grid',
   'dashboard/rankings/rankings.css .dash-rank-table tbody td',
+  'dashboard/board/board.css .board-chart-head',
   'dashboard/board/board.css .board-grid',
   'dashboard/board/board.css .board-table td',
   'docs/docs.css .docs-md h2',
