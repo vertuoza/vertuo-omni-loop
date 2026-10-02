@@ -5,6 +5,8 @@
 // rounds stay unsorted. Any member may set or change a category on the page, so a wrong guess costs
 // a click. Pure apart from the one fetch, which a test stubs.
 
+import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+
 /** The six values, in the spec's order. Stored as they are; the page shows CATEGORY_LABELS. */
 export const CATEGORIES = ['business', 'product', 'ux-ui', 'architecture', 'harness', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -28,7 +30,7 @@ export const HOLDS: Readonly<Record<Category, string>> = {
   other: 'the rest',
 };
 
-export const isCategory = (value: unknown): value is Category => (CATEGORIES as readonly unknown[]).includes(value);
+export const isCategory = (value: unknown): value is Category => isOneOf(CATEGORIES, value);
 
 /** The model's reply as one of the six, or null: case, spaces, quotes and a final full stop aside,
  * it must be a value exactly. */
@@ -52,8 +54,8 @@ export const CLASSIFIER_MODEL = 'anthropic/claude-haiku-4.5';
 /** How long the call may take before the round stays unsorted. */
 export const CLASSIFY_TIMEOUT_MS = 15_000;
 
-const record = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
 /** The questions and their options as plain lines; never an option's preview. What Haiku reads, and

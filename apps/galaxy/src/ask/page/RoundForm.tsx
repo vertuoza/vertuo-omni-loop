@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   activeQuestion,
   addShots,
@@ -41,7 +42,7 @@ type Props = {
 };
 
 const isTyping = (el: Element | null) =>
-  !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'text') || (el as HTMLElement).isContentEditable);
+  !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && propertyOf(el, 'type') === 'text') || propertyOf(el, 'isContentEditable') === true);
 
 /** The question an element sits in, from its data-question attribute. */
 function questionOf(el: Element | null): number | null {

@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 import type { Database } from '../../../../supabase/database.types';
 
@@ -58,7 +59,7 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
             },
           });
           const { data, error } = await client.auth.exchangeCodeForSession(code);
-          return { session: (data?.session as CliSession | null) ?? null, error: error ? { message: error.message } : null };
+          return { session: data?.session ?? null, error: error ? { message: error.message } : null };
         }
       : null,
     async issue(session, codeHash) {
@@ -114,9 +115,11 @@ async function placeRepo(userId: string, repo: string): Promise<Placement> {
   const db = serviceDb();
   const { data, error } = await db.rpc('repo_workspace', { person: userId, repo });
   if (error) throw new Error(`repo_workspace: ${error.message}`);
-  const row = (Array.isArray(data) ? data[0] : data) as { workspace_id?: string | null; refusal?: string | null } | null;
-  if (!row?.workspace_id) return { workspace: null, reason: row?.refusal ?? null };
-  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', row.workspace_id).maybeSingle();
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  const workspaceId = propertyOf(row, 'workspace_id');
+  const refusal = propertyOf(row, 'refusal');
+  if (typeof workspaceId !== 'string' || !workspaceId) return { workspace: null, reason: typeof refusal === 'string' ? refusal : null };
+  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', workspaceId).maybeSingle();
   if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
   return { workspace: { slug: String(found.slug), name: String(found.name) }, reason: null };
 }
