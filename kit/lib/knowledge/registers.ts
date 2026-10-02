@@ -41,6 +41,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/registers.mjs — changes in kit/porting/knowledge--registers.md.
 import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
+import { group, isOneOf, keysOf } from '../narrow.ts';
 
 /** An entry's kind: a person's decision, a provable statement, or what must hold in the code. */
 export type EntryKind = 'principle' | 'rule' | 'invariant';
@@ -136,6 +137,7 @@ const FIELD_KEY = {
 } as const;
 
 type FieldName = keyof typeof FIELD_KEY;
+const FIELD_NAMES: readonly FieldName[] = keysOf(FIELD_KEY);
 export type FieldKey = (typeof FIELD_KEY)[FieldName];
 
 export function idsCitedIn(text: string): string[] {
@@ -178,7 +180,9 @@ function readFields(lines: string[]): {
     const match = line.match(FIELD_LINE);
     if (match) {
       if (fieldAt === -1) fieldAt = index;
-      const key = FIELD_KEY[match[1] as FieldName]; // ts-allow: FIELD_LINE matches only FIELD_KEY's names
+      const name = group(match, 1);
+      if (!isOneOf(FIELD_NAMES, name)) return; // FIELD_LINE matches only FIELD_KEY's names
+      const key = FIELD_KEY[name];
       counts[key] = (counts[key] ?? 0) + 1;
       if (counts[key] === 1) {
         fields[key] = (match[2] ?? '').trim();

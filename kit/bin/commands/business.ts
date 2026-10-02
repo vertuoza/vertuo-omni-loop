@@ -125,7 +125,7 @@ function claimsOf(reply: { state: unknown; claims: unknown[] }): Claim[] | null 
 /** The reply's personas (`[]` when it sends none), or null when one is not a persona. */
 function personasOf(value: unknown): Persona[] | null {
   if (value !== undefined && !Array.isArray(value)) return null;
-  const personas = ((value ?? []) as unknown[]).map(personaOf); // ts-allow: an array, or undefined read as none
+  const personas = (Array.isArray(value) ? value : []).map(personaOf);
   return personas.every((one) => one !== null) ? personas : null;
 }
 

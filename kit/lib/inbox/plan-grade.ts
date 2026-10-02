@@ -9,6 +9,7 @@
 // repository it lands in, in a `repo` column, and a `## Repositories` table records each one: this
 // grades both, every refusal naming its field first, and gives the collision matrix per repository.
 // Outside one, either table is refused.
+import { messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
 import { collisionRows, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
 import type { Collision, PlanRepository } from './territory.ts';
@@ -191,8 +192,8 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
       multi: false,
       collisions: [],
       matrices: [],
-      violations: [(error as Error).message], // ts-allow: parsePlanSlices throws only Error
-      parseError: (error as Error).message, // ts-allow: parsePlanSlices throws only Error
+      violations: [messageOf(error)],
+      parseError: messageOf(error),
     };
   }
   const repositories = parsePlanRepositories(markdown);

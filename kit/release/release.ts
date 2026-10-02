@@ -22,6 +22,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { isReleaseSubject, nextVersion } from './next-version.ts';
+import { propertyOf } from '../lib/narrow.ts';
 
 /** A manifest the release stamps (`package.json`, the plugin's `plugin.json`): a JSON object. */
 const ManifestSchema = z.record(z.string(), z.unknown());
@@ -66,7 +67,7 @@ function attempt(exec: Exec, cmd: string, args: string[], log: Log): boolean {
     exec(cmd, args);
     return true;
   } catch (error) {
-    log(`${cmd} ${args.join(' ')} failed: ${String((error as { message?: unknown } | null)?.message).trim()}`); // ts-allow: whatever was thrown, its message
+    log(`${cmd} ${args.join(' ')} failed: ${String(propertyOf(error, 'message')).trim()}`);
     return false;
   }
 }
@@ -127,8 +128,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     process.exitCode = release({ root, exec });
   } catch (error) {
-    const failure = error as { stderr?: unknown; message?: unknown } | null; // ts-allow: whatever was thrown, its stderr or its message
-    console.error(String(failure?.stderr || failure?.message).trim());
+    console.error(String(propertyOf(error, 'stderr') || propertyOf(error, 'message')).trim());
     process.exitCode = 1;
   }
 }
