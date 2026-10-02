@@ -35,7 +35,7 @@ export function FleetsOverlay({ view, crew, index, onPick, owner = false }: {
           const i = shown.from + k;
           const f = fleet(team.name);
           return (
-            <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={cssVars({ '--fleet': f.color })} onClick={() => onPick(i)}>
+            <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={cssVars({ '--fleet': f.color })} onClick={() => { onPick(i); }}>
               <span className="card-rank">{ordinal(team.rank)}</span>
               <span className="card-art"><FleetSprite name={team.name} scale={f.sprite.startsWith('hero') ? (art * 2) / 3 : art} animate={i === index} /></span>
               <span className="card-name">{f.label}</span>

@@ -206,9 +206,9 @@ export function ReadingCard({ graph, entry, page, onPage }: { graph: KnowledgeGr
       <footer className="read-foot">
         {pages.length > 1 ? (
           <span className="read-pages">
-            <button type="button" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>▲</button>
+            <button type="button" aria-label="Previous page" disabled={at === 0} onClick={() => { onPage(at - 1); }}>▲</button>
             {` PAGE ${at + 1}/${pages.length} `}
-            <button type="button" aria-label="Next page" disabled={at === pages.length - 1} onClick={() => onPage(at + 1)}>▼</button>
+            <button type="button" aria-label="Next page" disabled={at === pages.length - 1} onClick={() => { onPage(at + 1); }}>▼</button>
           </span>
         ) : <span />}
         <span className="hint"><Hint k="B"> CLOSE</Hint></span>

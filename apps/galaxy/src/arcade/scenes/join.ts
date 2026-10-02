@@ -101,7 +101,7 @@ export function drawAway(ctx: CanvasRenderingContext2D, s: FrameState) {
 }
 
 export function drawCoin(ctx: CanvasRenderingContext2D, s: FrameState) {
-  if (s.join.away) return drawAway(ctx, s);
+  if (s.join.away) { drawAway(ctx, s); return; }
   const { nebula, coin } = stageOf(s).coin;
   space(ctx, s, 0.5);
   ctx.drawImage(nebulaFor(nebula.key, 1, nebula.w, nebula.h), nebula.x, nebula.y);

@@ -74,7 +74,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
         {cards.slice(row.first, row.first + row.count).map((card, k) => {
           const i = row.first + k;
           return (
-            <button key={card.key} type="button" className="j-card" aria-label={card.label} aria-pressed={i === pick} onClick={() => onPick(i)}
+            <button key={card.key} type="button" className="j-card" aria-label={card.label} aria-pressed={i === pick} onClick={() => { onPick(i); }}
               style={{ left: row.x0 + k * (row.w + row.gap), top: row.y, width: row.w, height: row.h }} />
           );
         })}
@@ -152,14 +152,14 @@ export function BuilderOverlay({ hero, row, team, name, error, onRow }: {
           const on = row === i;
           if (r === 'RANDOM' || r === 'DONE') {
             return (
-              <button key={r} type="button" role="option" aria-selected={on} className={`j-row j-btn${on ? ' on' : ''}`} onClick={() => onRow(i)}>
+              <button key={r} type="button" role="option" aria-selected={on} className={`j-row j-btn${on ? ' on' : ''}`} onClick={() => { onRow(i); }}>
                 <span className="j-cur">{on ? '▶' : ''}</span><span className="j-lab">{r === 'RANDOM' ? `RANDOM (${hintKey('TAB', form)})` : 'DONE'}</span>
               </button>
             );
           }
           const v = rowValue(hero, r, f.color);
           return (
-            <button key={r} type="button" role="option" aria-selected={on} className={`j-row${on ? ' on' : ''}`} onClick={() => onRow(i)}>
+            <button key={r} type="button" role="option" aria-selected={on} className={`j-row${on ? ' on' : ''}`} onClick={() => { onRow(i); }}>
               <span className="j-cur">{on ? '▶' : ''}</span>
               <span className="j-lab">{r}</span>
               <span className="j-val"><span className="j-arr">◀</span>{v.swatches.map((c) => <span key={c} className="j-sw" style={{ background: c }} />)}{v.label}<span className="j-arr">▶</span></span>

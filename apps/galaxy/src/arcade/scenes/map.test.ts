@@ -28,9 +28,9 @@ function reachable(layout: MapSlot[], from: number): Set<number> {
 /** Two planets overlap when their discs share a pixel. */
 function overlaps(layout: MapSlot[]): string[] {
   const found: string[] = [];
-  layout.forEach((a, i) => layout.slice(i + 1).forEach((b) => {
+  layout.forEach((a, i) => { layout.slice(i + 1).forEach((b) => {
     if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r) found.push(`#${a.prd} and #${b.prd}`);
-  }));
+  }); });
   return found;
 }
 

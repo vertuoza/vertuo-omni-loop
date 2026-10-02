@@ -55,7 +55,7 @@ function frame(grid: Grid, o: { t?: number; sceneT?: number; reduced?: boolean }
 /** A 2D context that writes down every call and every setting, with its arguments, in order. */
 function recorder() {
   const calls: string[] = [];
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createLinearGradient' || prop === 'createRadialGradient') {

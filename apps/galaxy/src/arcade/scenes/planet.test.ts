@@ -65,7 +65,7 @@ function frame(sel: number, t: number, grid: Grid): FrameState {
 function crowded(): Planet {
   const p = view.planets.find((x) => x.state === 'distress')!;
   const teams = ['no-mascot-fleet', ...fleets.map((f) => f.name)]; // five fly: the stand-in among them
-  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'vertuo-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: p.chartedAt! })) } as Planet;
+  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'vertuo-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: p.chartedAt! })) };
 }
 
 describe('the planet on the tall grid', () => {

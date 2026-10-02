@@ -61,7 +61,7 @@ const DIME: ScoreLine = { id: 'u-dime', name: 'DIME', hero: null, team: null, be
 
 // A 2D context that swallows every call.
 function sink() {
-  return new Proxy({} as Record<string | symbol, unknown>, {
+  return new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createLinearGradient') return () => ({ addColorStop() {} });

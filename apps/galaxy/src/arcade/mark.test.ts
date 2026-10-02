@@ -69,7 +69,7 @@ describe('the mark', () => {
       }
       // Rows go down the box one after the other, never overlapping.
       const tops = [...new Set(bars.map((b) => b.row))].sort((m, n) => m - n).map((row) => bars.find((b) => b.row === row)!.y);
-      tops.slice(1).forEach((top, i) => expect(top - tops[i]!, `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6));
+      tops.slice(1).forEach((top, i) => { expect(top - tops[i]!, `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6); });
     }
   });
 

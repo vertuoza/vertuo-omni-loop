@@ -119,7 +119,7 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
       <div className="cabinets">
         {shown.map((i) => {
           const c = room[i]!;
-          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => onPick(i)} />;
+          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => { onPick(i); }} />;
         })}
       </div>
       <p className="hint games-foot">

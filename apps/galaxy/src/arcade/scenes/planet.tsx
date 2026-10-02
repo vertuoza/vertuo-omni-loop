@@ -247,7 +247,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
         <div className="tabs" role="tablist">
           {PLANET_TABS.map((t, i) => (
             // No focus on click, as a key hint: Enter keeps meaning START (which opens the dossier's page).
-            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => onTab(i)}>
+            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { onTab(i); }}>
               {t}{t === 'ENTROPY' && p.openWounds.length ? ` ${p.openWounds.length}` : ''}
             </button>
           ))}

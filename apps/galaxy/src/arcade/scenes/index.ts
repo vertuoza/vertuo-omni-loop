@@ -28,28 +28,33 @@ export {
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
   ctx.imageSmoothingEnabled = false;
   switch (s.scene) {
-    case 'boot': return drawBoot(ctx, s);
-    case 'title': return titlePhase === 'story' ? drawStory(ctx, s) : titlePhase === 'hiscore' ? drawHeroes(ctx, s) : drawTitle(ctx, s);
-    case 'menu': return drawMenu(ctx, s);
-    case 'map': return drawMap(ctx, s);
-    case 'planet': return drawPlanetScene(ctx, s);
-    case 'fleets': return drawFleets(ctx, s);
-    case 'heroes': return drawHeroes(ctx, s);
-    case 'briefing': return drawBriefing(ctx, s);
-    case 'coin': return drawCoin(ctx, s);
-    case 'away': return drawAway(ctx, s);
-    case 'gate': case 'outsider': return drawGate(ctx, s);
-    case 'intro': return drawIntro(ctx, s);
-    case 'select': return drawSelect(ctx, s);
-    case 'name': return drawName(ctx, s);
-    case 'hero': return drawBuilder(ctx, s);
-    case 'ready': return drawReady(ctx, s);
-    case 'welcome': return drawWelcome(ctx, s);
-    case 'chart': return drawChart(ctx, s);
-    case 'system': return drawSystem(ctx, s);
-    case 'games': return drawGames(ctx, s);
-    case 'invaders': return drawInvaders(ctx, s);
-    case 'platformer': return drawPlatformer(ctx, s);
-    case 'levelup': return drawLevelUp(ctx, s);
+    case 'boot': { drawBoot(ctx, s); return; }
+    case 'title': {
+      if (titlePhase === 'story') drawStory(ctx, s);
+      else if (titlePhase === 'hiscore') drawHeroes(ctx, s);
+      else drawTitle(ctx, s);
+      return;
+    }
+    case 'menu': { drawMenu(ctx, s); return; }
+    case 'map': { drawMap(ctx, s); return; }
+    case 'planet': { drawPlanetScene(ctx, s); return; }
+    case 'fleets': { drawFleets(ctx, s); return; }
+    case 'heroes': { drawHeroes(ctx, s); return; }
+    case 'briefing': { drawBriefing(ctx, s); return; }
+    case 'coin': { drawCoin(ctx, s); return; }
+    case 'away': { drawAway(ctx, s); return; }
+    case 'gate': case 'outsider': { drawGate(ctx, s); return; }
+    case 'intro': { drawIntro(ctx, s); return; }
+    case 'select': { drawSelect(ctx, s); return; }
+    case 'name': { drawName(ctx, s); return; }
+    case 'hero': { drawBuilder(ctx, s); return; }
+    case 'ready': { drawReady(ctx, s); return; }
+    case 'welcome': { drawWelcome(ctx, s); return; }
+    case 'chart': { drawChart(ctx, s); return; }
+    case 'system': { drawSystem(ctx, s); return; }
+    case 'games': { drawGames(ctx, s); return; }
+    case 'invaders': { drawInvaders(ctx, s); return; }
+    case 'platformer': { drawPlatformer(ctx, s); return; }
+    case 'levelup': { drawLevelUp(ctx, s); return; }
   }
 }

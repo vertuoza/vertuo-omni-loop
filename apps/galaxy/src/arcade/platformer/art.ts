@@ -78,13 +78,13 @@ function canvas(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => 
 
 const sprite = (name: string, tint: Tint | null, frame = 0) => {
   const img = spriteImage(name, { tint, frame });
-  return canvas(img.width, img.height, (ctx) => ctx.drawImage(img, 0, 0));
+  return canvas(img.width, img.height, (ctx) => { ctx.drawImage(img, 0, 0); });
 };
 
 /** Draws the art for a stage's palette and the player's hero, in their fleet's colour. Browser only. */
 export function drawArt(hero: Hero, team: string | null, palette: string): Art {
   const tint = STAGE_PALETTES[palette] ?? STAGE_PALETTES.grass;
-  const tiles = canvas(16 * TILES.length, 16, (ctx) => TILES.forEach((name, i) => ctx.drawImage(spriteImage(name, { tint }), i * 16, 0)));
+  const tiles = canvas(16 * TILES.length, 16, (ctx) => { TILES.forEach((name, i) => { ctx.drawImage(spriteImage(name, { tint }), i * 16, 0); }); });
   const color = crewLook(team).color;
   const look = heroLook(hero, color);
   const run = heroPose(hero, 'omni-run', color);

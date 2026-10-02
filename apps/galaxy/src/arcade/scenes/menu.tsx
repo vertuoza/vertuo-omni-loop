@@ -115,7 +115,7 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>
-            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'play' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
+            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'play' ? ' nudge' : ''}`} onClick={() => { onPick(i); }}>
               <span className="cursor" aria-hidden="true">{i === index ? '▶' : ''}</span>
               <span className="menu-label">{m.label}{m.tag && <i className="menu-tag">{m.tag}</i>}</span>
               <span className="menu-hint">{hint[m.id]}</span>

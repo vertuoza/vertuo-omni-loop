@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // visitor's page carries the star chart's knowledge, and that every page hands the arcade the app it
 // leaves for. The props it returns are what reaches the browser.
 const given = vi.hoisted(() => ({
-  mode: 'demo' as 'demo' | 'closed' | 'supabase',
+  mode: 'demo',
   user: null as null | { id: string; email: string; user_metadata: Record<string, string>; identities: [] },
   galaxyDown: false,
   graph: { version: 1, repo: 'acme/widgets', domains: [], entries: [], links: [], loose: [], unserved: [] },

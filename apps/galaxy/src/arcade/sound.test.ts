@@ -113,7 +113,7 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
   it('atom-eve: a sparkly shimmer that rises', () => {
     const played = tones({ name: 'x', mascot: 'atom-eve' });
     expect(played.length).toBeGreaterThanOrEqual(4);
-    played.slice(1).forEach((t, i) => expect(t.f).toBeGreaterThanOrEqual(played[i]!.f));
+    played.slice(1).forEach((t, i) => { expect(t.f).toBeGreaterThanOrEqual(played[i]!.f); });
     expect(played.at(-1)!.f).toBeGreaterThan(played[0]!.f);
     expect(played.some((t) => t.wobbles)).toBe(true);
   });
@@ -144,9 +144,9 @@ describe('the five new mascots\' motifs (PRD 517)', () => {
   it('robot: quick beeps and boops, jumping up and down', () => {
     const played = tones({ name: 'x', mascot: 'robot' });
     expect(played.length).toBeGreaterThanOrEqual(4);
-    played.slice(1).forEach((t, i) => expect(t.start - played[i]!.start).toBeLessThanOrEqual(0.1));
+    played.slice(1).forEach((t, i) => { expect(t.start - played[i]!.start).toBeLessThanOrEqual(0.1); });
     const steps = played.slice(1).map((t, i) => Math.sign(t.f - played[i]!.f));
     expect(steps.every((s) => s !== 0)).toBe(true);
-    steps.slice(1).forEach((s, i) => expect(s).toBe(-steps[i]!));
+    steps.slice(1).forEach((s, i) => { expect(s).toBe(-steps[i]!); });
   });
 });

@@ -157,12 +157,15 @@ export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, on
   const live = useRef({ held, onEvent, onStatus, paused });
   live.current = { held, onEvent, onStatus, paused };
   const heroKey = JSON.stringify(hero);
+  // The hero restarts the game only when it changes in value (heroKey), so the effect reads it here.
+  const heroRef = useRef(hero);
+  heroRef.current = hero;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
     const p = startPlatformer(host, {
-      grid, hero, team,
+      grid, hero: heroRef.current, team,
       held: () => live.current.held(),
       onEvent: (e) => live.current.onEvent?.(e),
     }, {

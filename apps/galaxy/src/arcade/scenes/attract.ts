@@ -54,7 +54,7 @@ function bootCrest(ctx: CanvasRenderingContext2D, s: FrameState) {
 export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
   // The house brand draws the crest's mark; a workspace's brand its letter.
   const draw = s.logo ? bootCrest : bootMark;
-  if (s.grid.name !== 'tall') return draw(ctx, s);
+  if (s.grid.name !== 'tall') { draw(ctx, s); return; }
   // The mark is drawn for the wide grid: moved onto the tall one, its black still reaches every edge.
   ctx.save();
   ctx.translate(BOOT_TALL.dx, BOOT_TALL.dy);

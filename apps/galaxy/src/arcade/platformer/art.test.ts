@@ -12,9 +12,9 @@ describe('tileFrame', () => {
     expect(tileFrame(castle, 0, 0)).toBe(TILES.indexOf('tile-stone'));
     for (const stage of STAGES) {
       const data = tileData(stage);
-      stage.tiles.forEach((line, row) => line.forEach((t, col) => {
+      stage.tiles.forEach((line, row) => { line.forEach((t, col) => {
         expect(data[row]![col]! >= 0, `${stage.id} ${row},${col}`).toBe(t !== 'empty');
-      }));
+      }); });
     }
   });
 });

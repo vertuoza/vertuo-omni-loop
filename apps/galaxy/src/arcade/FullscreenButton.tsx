@@ -25,7 +25,7 @@ export function FullscreenButton({ form, allowed, on, fullscreen }: FullscreenBu
   return (
     // No focus on a mouse press, as the key hints: Enter and Space keep meaning START and A.
     <button type="button" className="fs-button" aria-label={FULLSCREEN_NAME} title={FULLSCREEN_NAME}
-      onMouseDown={(e) => e.preventDefault()} onClick={() => { fullscreen({ kind: 'toggle' }); }}>
+      onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { fullscreen({ kind: 'toggle' }); }}>
       ⛶
     </button>
   );
@@ -33,7 +33,7 @@ export function FullscreenButton({ form, allowed, on, fullscreen }: FullscreenBu
 
 const onChange = (notify: () => void) => {
   document.addEventListener('fullscreenchange', notify);
-  return () => document.removeEventListener('fullscreenchange', notify);
+  return () => { document.removeEventListener('fullscreenchange', notify); };
 };
 const never = () => () => {};
 

@@ -76,7 +76,7 @@ describe('the star chart on the tall grid', () => {
 function recorder() {
   const images: { x: number; y: number; w: number; h: number }[] = [];
   const drawn = { fills: 0 };
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });

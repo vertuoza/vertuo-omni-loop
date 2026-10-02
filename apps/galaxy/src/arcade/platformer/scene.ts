@@ -80,9 +80,9 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       const tiles = `tiles-${stage.palette}`;
       add(tiles, art.tiles);
       for (const [pose, c] of Object.entries(art.hero)) add(`hero-${pose}`, c);
-      art.flag.forEach((c, i) => add(`flag-${i}`, c));
-      art.coin.forEach((c, i) => add(`coin-${i}`, c));
-      art.enemy.forEach((c, i) => add(`enemy-${stage.palette}-${i}`, c));
+      art.flag.forEach((c, i) => { add(`flag-${i}`, c); });
+      art.coin.forEach((c, i) => { add(`coin-${i}`, c); });
+      art.enemy.forEach((c, i) => { add(`enemy-${stage.palette}-${i}`, c); });
 
       const map = this.make.tilemap({ data: tileData(stage), tileWidth: TILE, tileHeight: TILE });
       const tileset = map.addTilesetImage(tiles, tiles, TILE, TILE)!;
@@ -102,7 +102,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       body.setSize(PHYSICS.heroW, PHYSICS.heroH).setOffset((32 - PHYSICS.heroW) / 2, 48 - PHYSICS.heroH);
       body.setMaxVelocity(PHYSICS.run, PHYSICS.maxFall);
       this.hero.setCollideWorldBounds(true);
-      this.physics.add.collider(this.hero, layer, (_hero, tile) => this.bump(tile as Phaser.Tilemaps.Tile)); // ts-allow: a collider with a tilemap layer answers its tiles
+      this.physics.add.collider(this.hero, layer, (_hero, tile) => { this.bump(tile as Phaser.Tilemaps.Tile); }); // ts-allow: a collider with a tilemap layer answers its tiles
 
       // The coins lying in the stage, each in the middle of its tile.
       const coins = this.physics.add.staticGroup();
@@ -123,7 +123,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
         blob.setData('dir', -1);
       }
       this.physics.add.collider(this.enemies, layer);
-      this.physics.add.overlap(this.hero, this.enemies, (_hero, blob) => this.touch(blob as Sprite)); // ts-allow: the enemies group holds sprites only
+      this.physics.add.overlap(this.hero, this.enemies, (_hero, blob) => { this.touch(blob as Sprite); }); // ts-allow: the enemies group holds sprites only
 
       // The stage stands on the screen's floor: on the wide grid, taller than the stage, the sky
       // goes on above it.
@@ -150,7 +150,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
       if (this.done || tile.index !== BLOCK || !blockBumped(this.hero.body as Body, tile)) return; // ts-allow: the hero has an arcade body: physics.add made it
       tile.index = EMPTY_BLOCK;
       const coin = this.add.image(tile.pixelX + TILE / 2, tile.pixelY - TILE / 2, 'coin-0');
-      this.tweens.add({ targets: coin, y: coin.y - 20, alpha: 0, duration: 350, onComplete: () => coin.destroy() });
+      this.tweens.add({ targets: coin, y: coin.y - 20, alpha: 0, duration: 350, onComplete: () => { coin.destroy(); } });
       this.emit('coin');
     }
 
@@ -158,7 +158,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     touch(blob: Sprite) {
       if (this.done || !blob.active) return;
       const hero = this.hero.body as Body; // ts-allow: the hero has an arcade body: physics.add made it
-      if (enemyContact(hero, blob.body as Body) === 'hurt') return this.emit('hurt'); // ts-allow: an arcade group's sprite has an arcade body
+      if (enemyContact(hero, blob.body as Body) === 'hurt') { this.emit('hurt'); return; } // ts-allow: an arcade group's sprite has an arcade body
       blob.disableBody(true, true);
       hero.setVelocityY(-PHYSICS.bounce);
       this.jump = { ...this.jump, holding: false };
@@ -168,7 +168,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
     update(_time: number, delta: number) {
       if (this.done) return;
       const dt = Math.min(delta / 1000, MAX_DT);
-      if (this.tick(dt)) return this.again();
+      if (this.tick(dt)) { this.again(); return; }
       const cam = this.cameras.main;
       this.move(o.held(), dt, cam);
       // The camera follows to the right only.
@@ -218,7 +218,7 @@ export function makeScene(P: PhaserModule, o: SceneOptions): typeof Phaser.Scene
 
     /** A fall into a pit loses a life; the flag clears the stage. */
     arrive() {
-      if (heroFell(this.hero.y - PHYSICS.heroH / 2, height)) return this.emit('pit');
+      if (heroFell(this.hero.y - PHYSICS.heroH / 2, height)) { this.emit('pit'); return; }
       if (!heroAtFlag(this.hero.x, flagX)) return;
       this.done = true;
       (this.hero.body as Body).setVelocity(0, 0); // ts-allow: the hero has an arcade body: physics.add made it

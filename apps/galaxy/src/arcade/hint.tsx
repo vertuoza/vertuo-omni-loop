@@ -25,7 +25,7 @@ export function Hint({ k, children }: { k: string; children?: React.ReactNode })
   if (!press || !action) return <span>{key}{children}</span>;
   return (
     // No focus on click: Enter and Space keep meaning START and A, not "click this button again".
-    <button type="button" className="j-hit" onMouseDown={(e) => e.preventDefault()} onClick={() => press(action)}>
+    <button type="button" className="j-hit" onMouseDown={(e) => { e.preventDefault(); }} onClick={() => { press(action); }}>
       {key}{children}
     </button>
   );

@@ -191,7 +191,7 @@ describe('the game room on the tall grid', () => {
 // A 2D context that keeps where each image lands, and the offscreen canvases the sprites render into.
 function recorder() {
   const images: { x: number; y: number; w: number; h: number }[] = [];
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });

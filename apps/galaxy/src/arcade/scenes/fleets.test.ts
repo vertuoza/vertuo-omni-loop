@@ -38,7 +38,7 @@ const cardsIn = (html: string) => [...html.matchAll(/<span class="card-name">([^
 const unescape = (html: string) => html.replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
 
 describe('the fleets wall on the tall grid', () => {
-  beforeAll(() => setFleets(fleets));
+  beforeAll(() => { setFleets(fleets); });
 
   it('is listed as tall: the Game Boy held upright draws it on the tall grid, every other form on the wide one', () => {
     expect(TALL_SCENES).toContain('fleets');
