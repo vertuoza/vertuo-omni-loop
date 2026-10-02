@@ -23,29 +23,30 @@ const KEY: JevKey = { kind: 'key', key: 'ts_key' };
 function world({ mode = 'off' as JevMode, noul = 0.05, confidence = 0.9, context = CONTEXT as unknown, key = KEY, workspace = 'w-1' as unknown } = {}) {
   const rpcs: Rpc[] = [];
   const linked = {
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       rpcs.push({ fn, args });
-      return { data: workspace, error: null };
+      return Promise.resolve({ data: workspace, error: null });
     },
   };
   const asked: unknown[] = [];
   const logged: JevCall[] = [];
   const db = {
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       rpcs.push({ fn, args });
-      if (fn === 'agent_question_for_jev') return { data: context, error: null };
-      return { data: { id: args.p_question, state: 'set-aside' }, error: null };
+      if (fn === 'agent_question_for_jev') return Promise.resolve({ data: context, error: null });
+      return Promise.resolve({ data: { id: args.p_question, state: 'set-aside' }, error: null });
     },
   };
   const jev: JevDecideDeps = {
-    settings: async (_w, decision) => ({ decision, mode, threshold: 0.5, floor: 0.4 }),
-    key: async () => key,
-    ask: async (_key, state): Promise<JevOutcome> => {
+    settings: (_w, decision) => Promise.resolve({ decision, mode, threshold: 0.5, floor: 0.4 }),
+    key: () => Promise.resolve(key),
+    ask: (_key, state): Promise<JevOutcome> => {
       asked.push(state);
-      return { kind: 'answered', model: 'jev-1', answer: noul, confidence, probabilities: null, ms: 12 };
+      return Promise.resolve({ kind: 'answered', model: 'jev-1', answer: noul, confidence, probabilities: null, ms: 12 });
     },
-    log: async (_w, call) => {
+    log: (_w, call) => {
       logged.push(call);
+      return Promise.resolve();
     },
   };
   const setAside = () => rpcs.filter((r) => r.fn === 'agent_question_set_aside');
@@ -111,9 +112,9 @@ describe('Unknown worth asking after a report', () => {
       expect(await judgeQuestion(w.deps, REPORT)).toBe('kept');
       expect(w.asked).toEqual([]);
     }
-    const down = { rpc: async () => ({ data: null, error: { message: 'down' } }) };
+    const down = { rpc: () => Promise.resolve({ data: null, error: { message: 'down' } }) };
     const on = world({ mode: 'on' });
-    const broken = questionJudge(down, { rpc: async () => ({ data: 'w-1', error: null }) }, on.deps.jev);
+    const broken = questionJudge(down, { rpc: () => Promise.resolve({ data: 'w-1', error: null }) }, on.deps.jev);
     expect(await judgeQuestion(broken, REPORT)).toBe('kept');
   });
 });

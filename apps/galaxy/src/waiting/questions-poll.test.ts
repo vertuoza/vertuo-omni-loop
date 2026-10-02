@@ -33,7 +33,7 @@ describe('the questions poll', () => {
     expect(WAITING_MS).toBe(5000);
     expect(HIDDEN_WAITING_MS).toBe(15_000);
     const p = page();
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = pollQuestions(tick, p.doc);
     await vi.advanceTimersByTimeAsync(4999);
     expect(tick).toHaveBeenCalledTimes(0);
@@ -56,7 +56,7 @@ describe('the questions poll', () => {
 
   it('starts at 15 s in a tab that loads hidden', async () => {
     const p = page(false);
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = pollQuestions(tick, p.doc);
     await vi.advanceTimersByTimeAsync(14_999);
     expect(tick).toHaveBeenCalledTimes(0);
@@ -67,7 +67,7 @@ describe('the questions poll', () => {
 
   it('polls at once when the tab becomes visible again, then every 5 s', async () => {
     const p = page(false);
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = pollQuestions(tick, p.doc);
     await vi.advanceTimersByTimeAsync(3000);
     p.show(true);
@@ -83,8 +83,8 @@ describe('the questions poll', () => {
     let release = () => {};
     const tick = vi.fn<() => Promise<boolean>>()
       .mockImplementationOnce(() => new Promise<boolean>((resolve) => { release = () => resolve(true); }))
-      .mockImplementationOnce(async () => { throw new Error('offline'); })
-      .mockImplementation(async () => true);
+      .mockImplementationOnce(() => Promise.reject(new Error('offline')))
+      .mockImplementation(() => Promise.resolve(true));
     const stop = pollQuestions(tick, p.doc);
     await vi.advanceTimersByTimeAsync(5000);
     expect(tick).toHaveBeenCalledTimes(1);
@@ -102,14 +102,14 @@ describe('the questions poll', () => {
 
   it('stops on a read that resolves false, and on stop()', async () => {
     const p = page();
-    const ended = vi.fn(async () => false);
+    const ended = vi.fn(() => Promise.resolve(false));
     pollQuestions(ended, p.doc);
     await vi.advanceTimersByTimeAsync(60_000);
     expect(ended).toHaveBeenCalledTimes(1);
     expect(p.listeners.size).toBe(0);
 
     const q = page();
-    const tick = vi.fn(async () => true);
+    const tick = vi.fn(() => Promise.resolve(true));
     const stop = pollQuestions(tick, q.doc);
     stop();
     q.show(false);

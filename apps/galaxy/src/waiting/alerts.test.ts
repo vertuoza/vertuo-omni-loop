@@ -120,9 +120,9 @@ describe('the chime itself', () => {
 /** A fake of the browser's Notification: records what it raised and each permission asked. */
 function fakeNotification(permission: NotificationPermission, answer: NotificationPermission = 'granted') {
   const raised: { title: string; options: NotificationOptions; onclick: (() => void) | null }[] = [];
-  const asks = vi.fn(async () => {
+  const asks = vi.fn(() => {
     Fake.permission = answer;
-    return answer;
+    return Promise.resolve(answer);
   });
   class Fake {
     static permission = permission;

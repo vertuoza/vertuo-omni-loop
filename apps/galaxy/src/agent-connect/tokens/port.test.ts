@@ -13,9 +13,9 @@ const link = (over: Partial<AgentToken> = {}): AgentToken => ({
 
 function fetcher(status: number, body: unknown) {
   const sent: Array<{ url: string; method: string; body: unknown }> = [];
-  const fetch = (async (url: string, init: RequestInit) => {
+  const fetch = ((url: string, init: RequestInit) => {
     sent.push({ url, method: String(init.method), body: JSON.parse(String(init.body)) });
-    return new Response(JSON.stringify(body), { status });
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
   }) as unknown as typeof globalThis.fetch;
   return { fetch, sent };
 }
@@ -34,7 +34,7 @@ describe('httpTokensPort', () => {
     expect(await httpTokensPort('ws-1', fetcher(429, { error: 'You hold 20 links already: revoke one to make another.' }).fetch).make('x'))
       .toEqual({ ok: false, message: 'You hold 20 links already: revoke one to make another.' });
     expect(await httpTokensPort('ws-1', fetcher(201, { token: 'omb_x' }).fetch).make('x')).toEqual({ ok: false, message: COULD_NOT });
-    const down = (async () => { throw new Error('offline'); }) as unknown as typeof globalThis.fetch;
+    const down = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
     expect(await httpTokensPort('ws-1', down).revoke(link())).toEqual({ ok: false, message: COULD_NOT });
   });
 });

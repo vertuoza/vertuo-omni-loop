@@ -69,11 +69,11 @@ export function demoTokensPort(start: readonly AgentToken[], origin: () => strin
       live = [listed, ...live];
       return { ok: true, token: made.token, url: mcpUrlOf(origin()), listed };
     },
-    async revoke(token) {
+    revoke(token) {
       const there = live.find((t) => t.id === token.id);
-      if (!there) return { ok: false, message: 'That link is no longer here. Reload the page.' };
+      if (!there) return Promise.resolve({ ok: false, message: 'That link is no longer here. Reload the page.' });
       live = live.filter((t) => t.id !== token.id);
-      return { ok: true, revoked: there };
+      return Promise.resolve({ ok: true, revoked: there });
     },
   };
 }

@@ -92,7 +92,7 @@ export async function judgeQuestion(deps: JudgeDeps, { question, link }: Reporte
     const found = await deps.context(question);
     if (!found || found.workspace !== workspace) return 'kept';
     const counted = await decide(deps.jev, {
-      workspace, entry: unknownWorthAsking, input: found.input, old: async () => true, ref: `agent question ${question}`,
+      workspace, entry: unknownWorthAsking, input: found.input, old: () => Promise.resolve(true), ref: `agent question ${question}`,
     });
     if (counted.decidedBy !== 'jev' || counted.value !== false) return 'kept';
     await deps.setAside(question);

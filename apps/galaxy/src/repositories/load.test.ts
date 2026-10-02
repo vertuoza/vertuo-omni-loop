@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 const read = vi.hoisted(() => ({
-  workspace: (async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
+  workspace: (() => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} })) as () => Promise<unknown>,
 }));
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
@@ -37,17 +37,17 @@ function db({
       select: (...a: unknown[]) => { calls.push(['select', ...a]); return q; },
       eq: (...a: unknown[]) => { calls.push(['eq', ...a]); return q; },
       order: (...a: unknown[]) => { calls.push(['order', ...a]); return q; },
-      maybeSingle: async () => ({ data: answer.data ?? null, error: answer.error ?? null }),
+      maybeSingle: () => Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }),
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
     };
     return q;
   };
   return {
     calls,
-    rpc: async (fn: string, args: unknown) => {
+    rpc: (fn: string, args: unknown) => {
       calls.push(['rpc', fn, args]);
-      if (owner instanceof Error) throw owner;
-      return { data: owner.data ?? null, error: owner.error ?? null };
+      if (owner instanceof Error) return Promise.reject(owner);
+      return Promise.resolve({ data: owner.data ?? null, error: owner.error ?? null });
     },
     from: (table: string) => {
       calls.push(['from', table]);
@@ -60,17 +60,17 @@ function app(over: Partial<RepositoriesApp> = {}): RepositoriesApp & { asked: st
   const asked: string[] = [];
   return {
     asked,
-    installation: async (id) => { asked.push(`installation ${id}`); return VERTUOZA; },
-    orgInstallation: async (org) => { asked.push(`org ${org}`); return null; },
-    userInstallation: async (login) => { asked.push(`user ${login}`); return null; },
-    installationRepositories: async (id) => { asked.push(`repositories ${id}`); return ['vertuoza/vertuo-apps', 'vertuoza/new-one']; },
+    installation: (id) => { asked.push(`installation ${id}`); return Promise.resolve(VERTUOZA); },
+    orgInstallation: (org) => { asked.push(`org ${org}`); return Promise.resolve(null); },
+    userInstallation: (login) => { asked.push(`user ${login}`); return Promise.resolve(null); },
+    installationRepositories: (id) => { asked.push(`repositories ${id}`); return Promise.resolve(['vertuoza/vertuo-apps', 'vertuoza/new-one']); },
     ...over,
   };
 }
 
 describe('the repositories page\'s read', () => {
   beforeEach(() => {
-    read.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -121,7 +121,7 @@ describe('the repositories page\'s read', () => {
   });
 
   it('finds the App\'s installation on the workspace\'s GitHub org when none is stored', async () => {
-    const a = app({ orgInstallation: async () => VERTUOZA });
+    const a = app({ orgInstallation: () => Promise.resolve(VERTUOZA) });
     const load = await loadRepositoriesPage(db({ workspace: { data: { github_org: 'vertuoza', github_installation_id: null } } }) as never, USER, a, INSTALL);
     expect(load).toMatchObject({ access: { kind: 'installed', reachable: ['vertuoza/vertuo-apps', 'vertuoza/new-one'] } });
   });
@@ -134,7 +134,7 @@ describe('the repositories page\'s read', () => {
   });
 
   it('keeps the list when the App\'s listing cannot be read, with nothing to offer', async () => {
-    const a = app({ installationRepositories: async () => { throw new Error('GitHub answered 500'); } });
+    const a = app({ installationRepositories: () => Promise.reject(new Error('GitHub answered 500')) });
     expect(await loadRepositoriesPage(db() as never, USER, a, INSTALL)).toMatchObject({
       kind: 'repositories', access: { kind: 'installed', settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001', reachable: null },
     });
@@ -142,14 +142,14 @@ describe('the repositories page\'s read', () => {
 
   it('keeps the list when the App cannot be asked at all', async () => {
     expect(await loadRepositoriesPage(db() as never, USER, null, INSTALL)).toMatchObject({ access: { kind: 'installed', settingsUrl: null, reachable: null } });
-    const failing = app({ installation: async () => { throw new Error('GitHub answered 502'); } });
+    const failing = app({ installation: () => Promise.reject(new Error('GitHub answered 502')) });
     expect(await loadRepositoriesPage(db() as never, USER, failing, INSTALL)).toMatchObject({ access: { kind: 'installed', settingsUrl: null, reachable: null } });
   });
 
   it('answers no-workspace for an account in none, and unreadable when the list cannot be read', async () => {
-    read.workspace = async () => null;
+    read.workspace = () => Promise.resolve(null);
     expect(await loadRepositoriesPage(db() as never, USER, app(), INSTALL)).toEqual({ kind: 'no-workspace' });
-    read.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    read.workspace = () => Promise.resolve({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
     expect(await loadRepositoriesPage(db({ repositories: { error: { message: 'down' } } }) as never, USER, app(), INSTALL)).toEqual({ kind: 'unreadable' });
   });
 });

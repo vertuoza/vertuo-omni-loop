@@ -7,15 +7,15 @@ import { waitingBusiness, type BusinessCountDeps } from './business-count';
 type Over = { user?: string | null; workspace?: string | null; count?: number; questions?: number; error?: string; fail?: boolean };
 
 function deps(over: Over = {}) {
-  const rpc = vi.fn(async (fn: string, _args: Record<string, unknown>) =>
-    (over.error ? { data: null, error: { message: over.error } }
+  const rpc = vi.fn((fn: string, _args: Record<string, unknown>) =>
+    Promise.resolve(over.error ? { data: null, error: { message: over.error } }
       : { data: fn === 'agent_questions_open' ? over.questions ?? 0 : over.count ?? 0, error: null }));
-  const db = { auth: { getUser: async () => ({ data: { user: over.user === null ? null : { id: over.user ?? 'u1' } } }) }, rpc };
-  const workspace = vi.fn(async () => (over.workspace === null ? null : { id: over.workspace ?? 'w1' }));
+  const db = { auth: { getUser: () => Promise.resolve({ data: { user: over.user === null ? null : { id: over.user ?? 'u1' } } }) }, rpc };
+  const workspace = vi.fn(() => Promise.resolve(over.workspace === null ? null : { id: over.workspace ?? 'w1' }));
   const d: BusinessCountDeps = {
-    db: async () => {
-      if (over.fail) throw new Error('no database');
-      return db;
+    db: () => {
+      if (over.fail) return Promise.reject(new Error('no database'));
+      return Promise.resolve(db);
     },
     workspace,
   };

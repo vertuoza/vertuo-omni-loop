@@ -63,10 +63,10 @@ describe('set aside by Jev', () => {
 
   it('calls agent_question_bring_back as the signed-in person; the demo brings back in memory', async () => {
     const calls: unknown[] = [];
-    const db = { rpc: async (fn: string, args: Record<string, unknown>) => (calls.push({ fn, args }), { data: { id: 'sky' }, error: null }) };
+    const db = { rpc: (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return Promise.resolve({ data: { id: 'sky' }, error: null }); } };
     expect(await databaseQuestions(db, 'w-1').bringBack(SKY)).toEqual({ ok: true });
     expect(calls).toEqual([{ fn: 'agent_question_bring_back', args: { p_workspace: 'w-1', p_question: 'sky' } }]);
-    const refused = { rpc: async () => ({ data: null, error: { code: 'P0002', message: 'no such set-aside question' } }) };
+    const refused = { rpc: () => Promise.resolve({ data: null, error: { code: 'P0002', message: 'no such set-aside question' } }) };
     expect((await databaseQuestions(refused, 'w-1').bringBack(SKY)).ok).toBe(false);
     expect(await demoQuestions(3).bringBack(SKY)).toEqual({ ok: true });
   });

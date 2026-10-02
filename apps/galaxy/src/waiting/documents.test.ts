@@ -223,7 +223,7 @@ function notifier() {
   const raised: { title: string; options: NotificationOptions; onclick: (() => void) | null }[] = [];
   class Fake {
     static permission = 'granted';
-    static requestPermission = async () => 'granted';
+    static requestPermission = () => Promise.resolve('granted');
     onclick: (() => void) | null = null;
     constructor(title: string, options: NotificationOptions) {
       Object.assign(this, { title, options });

@@ -49,12 +49,12 @@ async function world({ read = READ as unknown, products = 1, database = true, re
     }
     return { data: read, error: null };
   };
-  const rpc = async (fn: string, args: Record<string, unknown>) => {
+  const rpc = (fn: string, args: Record<string, unknown>) => {
     calls.push({ fn, args });
     if (args.p_hash !== live || args.p_hash === revoked) {
-      return { data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } };
+      return Promise.resolve({ data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } });
     }
-    return fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null);
+    return Promise.resolve(fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null));
   };
   // Jev's Unknown worth asking (s4): the questions handed to it once reported.
   const judged: string[] = [];
@@ -118,8 +118,8 @@ describe('/api/mcp, the MCP link', () => {
 
     const deps: BusinessDeps = {
       connect: (() => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'ada', email: 'ada@acme.test' } }, error: null }) },
-        rpc: async () => ({ data: READ, error: null }),
+        auth: { getUser: () => Promise.resolve({ data: { user: { id: 'ada', email: 'ada@acme.test' } }, error: null }) },
+        rpc: () => Promise.resolve({ data: READ, error: null }),
       })) as unknown as NonNullable<BusinessDeps['connect']>,
     };
     const http = await readBusiness(new Request('https://omni.example/api/business?repo=acme/widgets', {
@@ -265,7 +265,7 @@ describe('/api/mcp, the MCP link', () => {
   });
 
   it('a database failure answers one line, never the database\'s message', async () => {
-    const deps: McpDeps = { connect: () => ({ rpc: async () => ({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
+    const deps: McpDeps = { connect: () => ({ rpc: () => Promise.resolve({ data: null, error: { code: 'XX000', message: 'secret internals' } }) }) };
     const client = new Client({ name: 't', version: '1' });
     await client.connect(new StreamableHTTPClientTransport(new URL('https://omni.example/api/mcp'), {
       requestInit: { headers: { authorization: `Bearer ${LIVE}` } },

@@ -41,34 +41,34 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
   const calls: string[] = [];
   let tokens = 0;
   const byName = new Map(repos.map((r) => [r.name.toLowerCase(), r]));
-  const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
+  const fetchImpl = vi.fn((href: string, init: RequestInit) => {
     const url = new URL(href);
     const body = init.body ? (JSON.parse(String(init.body)) as { query: string; variables: Record<string, string> }) : null;
     const what = body ? (body.query.includes('fragment files') ? `graphql knowledge ${body.variables.owner}/${body.variables.name}` : 'graphql configs') : `${init.method ?? 'GET'} ${url.pathname}${url.search}`;
     calls.push(what);
-    if (fail?.test(what)) return json({ message: 'boom' }, 502);
+    if (fail?.test(what)) return Promise.resolve(json({ message: 'boom' }, 502));
     if (url.pathname === `/app/installations/${INSTALLATION}/access_tokens` && init.method === 'POST') {
       tokens += 1;
-      return json({ token: `ghs_${tokens}`, expires_at: new Date(NOW + 60 * 60_000).toISOString() }, 201);
+      return Promise.resolve(json({ token: `ghs_${tokens}`, expires_at: new Date(NOW + 60 * 60_000).toISOString() }, 201));
     }
-    if (url.pathname === '/orgs/acme/installation') return json({ id: INSTALLATION, account: { login: 'acme', type: 'Organization' } });
-    if (url.pathname === '/orgs/solo/installation') return json({ message: 'Not Found' }, 404);
-    if (url.pathname === '/users/solo/installation') return json({ id: 777, account: { login: 'solo', type: 'User' } });
-    if (url.pathname.endsWith('/installation')) return json({ message: 'Not Found' }, 404);
+    if (url.pathname === '/orgs/acme/installation') return Promise.resolve(json({ id: INSTALLATION, account: { login: 'acme', type: 'Organization' } }));
+    if (url.pathname === '/orgs/solo/installation') return Promise.resolve(json({ message: 'Not Found' }, 404));
+    if (url.pathname === '/users/solo/installation') return Promise.resolve(json({ id: 777, account: { login: 'solo', type: 'User' } }));
+    if (url.pathname.endsWith('/installation')) return Promise.resolve(json({ message: 'Not Found' }, 404));
     if (url.pathname === '/installation/repositories') {
       expect((init.headers as Record<string, string>).authorization).toMatch(/^Bearer ghs_/);
       const page = Number(url.searchParams.get('page'));
       const slice = repos.slice((page - 1) * 100, page * 100);
-      return json({ total_count: repos.length, repositories: slice.map((r) => ({ full_name: r.name, archived: r.archived ?? false })) });
+      return Promise.resolve(json({ total_count: repos.length, repositories: slice.map((r) => ({ full_name: r.name, archived: r.archived ?? false })) }));
     }
     if (url.pathname === '/graphql' && body) {
       if (body.query.includes('fragment files')) {
         const repo = byName.get(`${body.variables.owner}/${body.variables.name}`.toLowerCase());
-        if (!repo) return json({ data: { repository: null }, errors: [{ message: 'Could not resolve to a Repository' }] });
+        if (!repo) return Promise.resolve(json({ data: { repository: null }, errors: [{ message: 'Could not resolve to a Repository' }] }));
         const files = repo.files ?? {};
         const at = (expression: string | undefined) => expression!.replace(/^HEAD:/, '');
         const domains = folder(files, at(body.variables.domains));
-        return json({
+        return Promise.resolve(json({
           data: {
             repository: {
               product: folder(files, at(body.variables.product), repo.truncated),
@@ -78,16 +78,16 @@ function fakeGithub(repos: Repo[], { fail }: { fail?: RegExp } = {}) {
               cross: folder(files, at(body.variables.cross), repo.truncated),
             },
           },
-        });
+        }));
       }
       const data: Record<string, unknown> = {};
       for (const m of body.query.matchAll(/(r\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ object\(expression: "HEAD:\.omni-loop\/config\.yml"\)/g)) {
         const repo = byName.get(`${m[2]}/${m[3]}`.toLowerCase());
         data[m[1]!] = repo ? { object: repo.config === undefined ? null : { text: repo.config } } : null;
       }
-      return json({ data });
+      return Promise.resolve(json({ data }));
     }
-    return json({ message: `no route for ${what}` }, 500);
+    return Promise.resolve(json({ message: `no route for ${what}` }, 500));
   });
   return { fetchImpl, calls, tokens: () => tokens };
 }

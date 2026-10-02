@@ -65,16 +65,16 @@ export function databaseQuestions(db: Rpc, workspace: string): QuestionsPort {
 export function demoQuestions(seq: number): QuestionsPort {
   let last = seq;
   return {
-    async answer(_question, kind, value) {
-      if (value.trim() === '') return { ok: false, message: kind === 'never' ? NEVER_INVALID : refusalOf({ code: '22023' }) };
+    answer(_question, kind, value) {
+      if (value.trim() === '') return Promise.resolve({ ok: false, message: kind === 'never' ? NEVER_INVALID : refusalOf({ code: '22023' }) });
       last += 1;
-      return { ok: true, claim: `${kind}#${last}` };
+      return Promise.resolve({ ok: true, claim: `${kind}#${last}` });
     },
-    async dismiss() {
-      return { ok: true };
+    dismiss() {
+      return Promise.resolve({ ok: true });
     },
-    async bringBack() {
-      return { ok: true };
+    bringBack() {
+      return Promise.resolve({ ok: true });
     },
   };
 }
