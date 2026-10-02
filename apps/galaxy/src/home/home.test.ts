@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sure } from '../arcade/sure';
 import { item } from '../ask/test-item';
 
 // HOME at `/`, and the game moved to `/play` (PRD 261). HOME is rendered as the server renders it,
@@ -221,7 +222,7 @@ describe('the signed-in mark', () => {
 
   it('is set by a script that runs after the forwarding of old links and before anything paints', async () => {
     const html = await render();
-    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: m.index ?? -1, body: m[1] ?? '' }));
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: sure(m.index, 'the position of a script'), body: m[1] ?? '' }));
     const forward = scripts.findIndex((s) => s.body.includes("location.replace('/play'"));
     const mark = scripts.findIndex((s) => s.body.includes('document.cookie'));
     expect(forward).toBe(0);

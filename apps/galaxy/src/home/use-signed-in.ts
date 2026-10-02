@@ -18,7 +18,7 @@ export function useSignedIn(env: { url: string; key: string } | null): SignedInV
     const cancel = settleSession({
       read: () => readSignedIn(env && browserSessionPort(env), hero),
       mark: (state) => { if (state) page?.setAttribute(SESSION_ATTR, state); else page?.removeAttribute(SESSION_ATTR); },
-      draw: (view) => setSignedIn((now) => (isHero(now) ? now : view)),
+      draw: (view) => { setSignedIn((now) => (isHero(now) ? now : view)); },
     });
     return () => { live = false; cancel(); };
   }, [env]);

@@ -258,7 +258,7 @@ describe('a page per repository (PRD 645 s2)', () => {
 });
 
 describe('every panel in the shared card (PRD 962)', () => {
-  const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"[^>]*?(?:aria-labelledby="([^"]*)")?>/g)].map((m) => ({ id: m[2], classes: m[1]!.split(' ') }));
+  const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"[^>]*?(?:aria-labelledby="([^"]*)")?>/g)].map((m) => ({ id: m[2], classes: sure(m[1], 'a section\'s classes').split(' ') }));
   const gears: EngineeringView = {
     kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears',
     board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged', NOW),
@@ -283,10 +283,10 @@ describe('every panel in the shared card (PRD 962)', () => {
 
   it('engineering.css frames no panel itself and lets the cards of a row stretch to one line', () => {
     const css = readFileSync(new URL('./engineering.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: sure(sure(m[1], 'a selector').trim().split('\n').pop(), 'a selector\'s last line').trim(), body: sure(m[2], 'a rule\'s body') }));
     const framing = rules.filter((r) => /\.(eng-(omni|health|top|people)|board-(chart|charts|repos|card))(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
     expect(framing.map((r) => r.selector)).toEqual([]);
-    expect(rules.find((r) => r.selector === '.eng-people')!.body).toMatch(/align-items: stretch/);
+    expect(sure(rules.find((r) => r.selector === '.eng-people'), 'the .eng-people rule').body).toMatch(/align-items: stretch/);
   });
 });
 

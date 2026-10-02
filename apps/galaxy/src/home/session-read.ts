@@ -1,6 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { lookOf } from '@omni/galaxy';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { listOf } from '../data/unparsed';
 import { memberWorkspace } from '../data/workspace';
 import { signedIn, type PlayerFace, type SessionUser, type SignedInView } from './signed-in';
 
@@ -60,7 +62,7 @@ export async function readSignedIn(port: SessionPort | null, draw?: (view: Signe
 
 /** The galaxy's Supabase, as the browser reads it. Created on first read, never on the server. */
 export function browserSessionPort(supabase: { url: string; key: string }): SessionPort {
-  let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
+  let client: SupabaseClient<Database> | null = null;
   const db = () => (client ??= createBrowserClient<Database>(supabase.url, supabase.key));
   return {
     async user() {
@@ -76,7 +78,7 @@ export function browserSessionPort(supabase: { url: string; key: string }): Sess
     async fleets(workspaceId) {
       const { data, error } = await db().from('teams').select('name, color').eq('workspace_id', workspaceId);
       if (error) throw new Error(`Supabase: could not read the fleets (${error.message})`);
-      return data ?? [];
+      return listOf(data);
     },
   };
 }

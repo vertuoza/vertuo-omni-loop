@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { PERSONA_TRADES, validPersonaAvatar } from '@omni/design';
 import { describe, expect, it } from 'vitest';
+import { sure } from '../../arcade/sure';
 import { Customers, EXAMPLE_BUSINESS, STANCES } from './Customers';
 import { heading, html, text } from './render';
 
@@ -13,7 +14,7 @@ const markup = html(Customers());
 const page = text(markup);
 
 /** The chain's steps, by their heading, in the page's order. */
-const steps = [...markup.matchAll(/<h3\b[^>]*class="home-customers-step-head"[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => text(h!));
+const steps = [...markup.matchAll(/<h3\b[^>]*class="home-customers-step-head"[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => text(sure(h, 'a step\'s heading')));
 
 describe('the example business', () => {
   it('is Brick & Bolt, software for renovation firms of 5 to 50 people in Europe, up against the spreadsheet', () => {
@@ -26,7 +27,7 @@ describe('the example business', () => {
 
   it('sells one product: a site diary app', () => {
     expect(EXAMPLE_BUSINESS.products).toHaveLength(1);
-    expect(EXAMPLE_BUSINESS.products[0]!.name).toMatch(/site diary/i);
+    expect(sure(EXAMPLE_BUSINESS.products[0], 'the product').name).toMatch(/site diary/i);
   });
 
   it('has three personas, one per stance: an office manager, a subcontracting plumber and a site foreman', () => {
@@ -76,16 +77,17 @@ describe('the customers spread', () => {
 
   it('fills the business and the product from the example', () => {
     const { business, products } = EXAMPLE_BUSINESS;
-    for (const v of [business.size, business.region, business.trade, business.rivals, products[0]!.name, products[0]!.line]) {
+    const product = sure(products[0], 'the product');
+    for (const v of [business.size, business.region, business.trade, business.rivals, product.name, product.line]) {
       expect(page).toContain(v);
     }
   });
 
   it('gives each persona a portrait, a name, a trade and a stance', () => {
-    const cards = [...markup.matchAll(/<li\b[^>]*class="home-persona"[^>]*>([\s\S]*?)<\/li>/g)].map(([li, inner]) => ({ li: li!, inner: inner! }));
+    const cards = [...markup.matchAll(/<li\b[^>]*class="home-persona"[^>]*>([\s\S]*?)<\/li>/g)].map(([li, inner]) => ({ li, inner: sure(inner, 'a persona\'s card') }));
     expect(cards).toHaveLength(3);
     EXAMPLE_BUSINESS.personas.forEach((p, i) => {
-      const { li, inner } = cards[i]!;
+      const { li, inner } = sure(cards[i], `the card of ${p.name}`);
       expect(li).toContain(`data-stance="${p.stance}"`);
       expect(inner).toMatch(/<svg\b/);
       expect(inner).toContain(`<title>${p.name}, ${p.title}</title>`);

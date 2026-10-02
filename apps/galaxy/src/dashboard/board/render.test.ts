@@ -138,7 +138,7 @@ describe('a board', () => {
   });
 
   it('draws every panel in the shared card: both charts, People, Repositories and Fleets (PRD 962)', () => {
-    const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"/g)].map((m) => m[1]!.split(' '));
+    const sections = (html: string) => [...html.matchAll(/<section class="([^"]*)"/g)].map((m) => sure(m[1], 'a section\'s classes').split(' '));
     for (const html of [render(), render({ activity: 'unreadable', roster: 'unreadable' })]) {
       const panels = sections(html);
       const kinds = panels.map((c) => c.find((k) => /^board-(chart|people|repos|fleets)$/.test(k)));
@@ -149,17 +149,18 @@ describe('a board', () => {
 
   it('frames a panel with the one .board-card rule only; tile figures end on one baseline (PRD 962)', () => {
     const css = readFileSync(new URL('./board.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: sure(sure(m[1], 'a selector').trim().split('\n').pop(), 'a selector\'s last line').trim(), body: sure(m[2], 'a rule\'s body') }));
     const card = rules.filter((r) => r.selector === '.board-card');
-    expect(card[0]!.body).toMatch(/border: 1px solid var\(--ask-line-strong\)/);
-    expect(card[0]!.body).toMatch(/border-radius: 12px/);
-    expect(card[0]!.body).toMatch(/background: var\(--ask-surface\)/);
-    expect(card[0]!.body).toMatch(/padding: 18px/);
+    const first = sure(card[0], 'the first .board-card rule');
+    expect(first.body).toMatch(/border: 1px solid var\(--ask-line-strong\)/);
+    expect(first.body).toMatch(/border-radius: 12px/);
+    expect(first.body).toMatch(/background: var\(--ask-surface\)/);
+    expect(first.body).toMatch(/padding: 18px/);
     expect(card.map((r) => r.body.trim())).toContain('padding: 12px;');
     expect(card.map((r) => r.body.trim())).toContain('border-color: CanvasText;');
     const framing = rules.filter((r) => /\.board-(chart|people|repos|fleets)\b(?![-\w])/.test(r.selector) && /(^|[;\s])(border|border-radius|background):/.test(r.body));
     expect(framing.map((r) => r.selector)).toEqual([]);
-    expect(rules.find((r) => r.selector === '.board-tile')!.body).toMatch(/align-content: space-between/);
+    expect(sure(rules.find((r) => r.selector === '.board-tile'), 'the .board-tile rule').body).toMatch(/align-content: space-between/);
   });
 
   it('says so where a read failed, and draws the rest', () => {
