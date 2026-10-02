@@ -68,32 +68,39 @@ async function modeOn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
   return { ...repo, sessionId: id, tokens };
 }
 
-// A few tests below start a process per case; the full suite runs them under load.
-const SPAWNS_MS = 30000;
+// The hook matrix runs in this process, through `main()` with stdin and stdout injected: a process per
+// case, each loading the CLI from source, outran its time limit on a busy machine (PRD 976). What only
+// a process proves (the end-to-end run, the plugin's wiring, never failing a hook) spawns once.
+
+/** `omni ask hook <kind>` run in this process, signed in nowhere: its exit code and what it wrote. */
+async function runHook(kind: string, { cwd, stdin }: { cwd: string; stdin: string }) {
+  const s = io();
+  const code = await main(['ask', 'hook', kind], { cwd, ...s, stdin, tokens: memoryTokens() });
+  return { code, stdout: s.out.join(''), stderr: s.err.join('') };
+}
 
 describe('omni ask hook, with the mode off', () => {
-  it('exits 0 with empty stdout for every hook and any stdin, with no ask.json', () => {
+  it('exits 0 with empty stdout for every hook and any stdin, with no ask.json', async () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nask:\n  url: https://ask.example.com\n' } });
     for (const kind of KINDS) {
       for (const input of STDINS) {
-        const run = spawnSync(process.execPath, [CLI, 'ask', 'hook', kind], { cwd: root, input, encoding: 'utf8' });
-        expect({ kind, input, status: run.status, stdout: run.stdout }).toEqual({ kind, input, status: 0, stdout: '' });
+        const run = await runHook(kind, { cwd: root, stdin: input });
+        expect({ kind, input, code: run.code, stdout: run.stdout }).toEqual({ kind, input, code: 0, stdout: '' });
       }
     }
-  }, SPAWNS_MS);
+  });
 
-  it('stays quiet with no config, a broken config, or outside a repository', () => {
+  it('stays quiet with no config, a broken config, or outside a repository', async () => {
     const bare = makeRepo({ git: true });
     const broken = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: [\n' } });
     writeMode(broken.root, { host: 'ask.example.com' });
     const outside = mkdtempSync(join(tmpdir(), 'omni-nogit-'));
     for (const cwd of [bare.root, broken.root, outside]) {
       for (const kind of KINDS) {
-        const run = spawnSync(process.execPath, [CLI, 'ask', 'hook', kind], { cwd, input: PRE, encoding: 'utf8' });
-        expect({ cwd, kind, status: run.status, stdout: run.stdout, stderr: run.stderr }).toEqual({ cwd, kind, status: 0, stdout: '', stderr: '' });
+        expect({ cwd, kind, ...(await runHook(kind, { cwd, stdin: PRE })) }).toEqual({ cwd, kind, code: 0, stdout: '', stderr: '' });
       }
     }
-  }, SPAWNS_MS);
+  });
 
   it('stays quiet when ask.url is null, even with ask.json left behind', async () => {
     const { root, write, tokens } = await modeOn();
@@ -340,15 +347,26 @@ describe('the plugin\'s hooks.json', () => {
   it('never fails a hook: a checkout without the kit, or with an omni that has no ask, exits 0 and prints nothing', () => {
     const withoutKit = makeRepo({ git: true });
     const oldKit = makeRepo({ git: true, files: { '.omni-loop/bin/omni.mjs': 'process.stderr.write("usage: omni <command>\\n"); process.exit(2);\n' } });
-    for (const { root } of [withoutKit, oldKit]) {
-      for (const event of Object.keys(hooks)) {
-        for (const { command } of all(event)) {
-          const run = spawnSync('sh', ['-c', command], { cwd: root, input: PRE, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
-          expect({ event, command, status: run.status, stdout: run.stdout }).toEqual({ event, command, status: 0, stdout: '' });
-        }
-      }
-    }
-  }, SPAWNS_MS);
+    const cases = [withoutKit, oldKit].flatMap(({ root }) =>
+      Object.keys(hooks).flatMap((event) => all(event).map(({ command }: { command: string }) => ({ root, event, command }))));
+    const input = join(mkdtempSync(join(tmpdir(), 'omni-hook-input-')), 'pre.json');
+    writeFileSync(input, PRE);
+    // One shell runs every hook command, each in its checkout with PRE on its stdin, between two markers
+    // that carry its index and its exit status. Each case reaches the shell through the environment.
+    const env: Record<string, string> = { ...process.env, HOOK_INPUT: input };
+    const script = cases.map(({ root, command }, index) => {
+      env[`HOOK_ROOT_${index}`] = root;
+      env[`HOOK_COMMAND_${index}`] = command;
+      return `printf '\\n@@${index}@@\\n'; (cd "$HOOK_ROOT_${index}" && CLAUDE_PROJECT_DIR="$HOOK_ROOT_${index}" sh -c "$HOOK_COMMAND_${index}" < "$HOOK_INPUT"); printf '\\n@@${index}:%d@@\\n' $?`;
+    }).join('\n');
+    const run = spawnSync('sh', ['-c', script], { encoding: 'utf8', env });
+    expect(run.status).toBe(0);
+    cases.forEach(({ event, command }, index) => {
+      const ran = new RegExp(`\\n@@${index}@@\\n([\\s\\S]*?)\\n@@${index}:(\\d+)@@\\n`).exec(run.stdout);
+      expect(ran, command).not.toBeNull();
+      expect({ event, command, status: Number(ran![2]), stdout: ran![1] }).toEqual({ event, command, status: 0, stdout: '' });
+    });
+  });
 
   it('runs the checkout\'s own omni', async () => {
     const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
