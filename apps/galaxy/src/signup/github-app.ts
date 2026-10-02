@@ -18,9 +18,11 @@ const GITHUB = 'https://api.github.com';
 export function appCredentials(env: Record<string, string | undefined> = process.env): AppCredentials {
   const appId = env.GITHUB_APP_ID?.trim();
   const key = env.GITHUB_APP_PRIVATE_KEY?.trim();
-  const missing = [!appId && 'GITHUB_APP_ID', !key && 'GITHUB_APP_PRIVATE_KEY'].filter(Boolean);
-  if (missing.length) throw new Error(`${missing.join(' and ')} not set on this deployment: sign-up cannot read GitHub as the App`);
-  return { appId: appId!, privateKey: key!.replace(/\\n/g, '\n') };
+  if (!appId || !key) {
+    const missing = [!appId && 'GITHUB_APP_ID', !key && 'GITHUB_APP_PRIVATE_KEY'].filter(Boolean);
+    throw new Error(`${missing.join(' and ')} not set on this deployment: sign-up cannot read GitHub as the App`);
+  }
+  return { appId, privateKey: key.replace(/\\n/g, '\n') };
 }
 
 /** Where a visitor installs the App: its install page on GitHub, or null without a slug. */
@@ -50,7 +52,7 @@ const InstallationAnswer = z.object({
   account: z.object({ login: z.string().regex(LOGIN), type: z.enum(['Organization', 'User']) }),
 });
 
-const TokenAnswer = z.object({ token: z.string().min(1), expires_at: z.string().datetime({ offset: true }) });
+const TokenAnswer = z.object({ token: z.string().min(1), expires_at: z.iso.datetime({ offset: true }) });
 
 const RepositoriesAnswer = z.object({
   total_count: z.number().int().nonnegative(),
