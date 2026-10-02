@@ -11,8 +11,9 @@ export function keptInstallationTokens(
   const kept = new Map<number, InstallationToken>();
   return async (id) => {
     const held = kept.get(id);
-    const fresh = held !== undefined && held.expiresAt - TOKEN_MARGIN_MS > clock();
-    if (!fresh) kept.set(id, await mint(id));
-    return kept.get(id)!.token;
+    if (held !== undefined && held.expiresAt - TOKEN_MARGIN_MS > clock()) return held.token;
+    const minted = await mint(id);
+    kept.set(id, minted);
+    return minted.token;
   };
 }

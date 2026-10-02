@@ -15,6 +15,7 @@
 // no branch switch, no write, no commit, push or pull request, and only the forms left as a step —
 // or, when a form is filled there, the `omni update` and `/omni:invade --refresh` lines. `--force`
 // always runs the full install.
+import { defined } from '../../lib/narrow.ts';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join } from 'node:path';
@@ -86,7 +87,7 @@ async function resolveCommands(
   if (interactive) {
     for (const key of COMMAND_KEYS) {
       if (commands[key] !== null) continue;
-      const answer = String((await ask(`commands.${key}: ${QUESTIONS[key]} (empty for none): `)) ?? '').trim();
+      const answer = ((await ask(`commands.${key}: ${QUESTIONS[key]} (empty for none): `)) ?? '').trim();
       commands[key] = answer || null;
     }
   }
@@ -129,7 +130,7 @@ export const init = {
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
     const configPath = join(root, CONFIG_FILE);
     const binPath = join(root, BIN_FILE);
-    const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
+    const interactive = Boolean(stdin.isTTY && stdout.isTTY);
     const computer = (config: Config) => thisComputer({ root, config, interactive, stdout, stderr, exec, home: userHome, signIn });
 
     // Already installed on the default branch: only this computer's steps, and nothing written.
@@ -170,7 +171,7 @@ export const init = {
     }
     if (copyBin) {
       mkdirSync(dirname(binPath), { recursive: true });
-      copyFileSync(bundle!, binPath); // ts-allow: a copy with no bundle was refused above
+      copyFileSync(defined(bundle, 'the kit bundle'), binPath);
       chmodSync(binPath, 0o755);
     }
 

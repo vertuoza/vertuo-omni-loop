@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { freqOf, parseSong, SONGS, stepSeconds, type Song } from './score';
 import { motifNotes } from './sound';
+import { sure } from './sure';
 
 describe('freqOf', () => {
   it('tunes A4 to 440 Hz and reads sharps and flats', () => {
     expect(freqOf('A4')).toBe(440);
     expect(freqOf('C4')).toBeCloseTo(261.63, 2);
     expect(freqOf('F#4')).toBeCloseTo(369.99, 2);
-    expect(freqOf('Bb1')).toBeCloseTo(freqOf('A#1')!, 6);
+    expect(freqOf('Bb1')).toBeCloseTo(sure(freqOf('A#1'), 'freqOf("A#1")'), 6);
     expect(freqOf('A5')).toBe(880);
     for (const bad of ['-', '.', 'H4', 'C', 'c4', 'k']) expect(freqOf(bad)).toBeNull();
   });
@@ -34,8 +35,8 @@ describe('parseSong', () => {
 describe('the songs', () => {
   it.each(Object.entries(SONGS))('%s: every bar is 16 sixteenths, every voice as long as the others', (_, song: Song) => {
     const lengths = (['lead', 'harm', 'bass', 'drums'] as const).filter((v) => song[v]).map((v) => {
-      for (const bar of song[v]!) expect(bar.trim().split(/\s+/), bar).toHaveLength(16);
-      return song[v]!.length;
+      for (const bar of sure(song[v], 'song[v]')) expect(bar.trim().split(/\s+/), bar).toHaveLength(16);
+      return sure(song[v], 'song[v]').length;
     });
     expect(new Set(lengths).size).toBe(1);
     expect(() => parseSong(song)).not.toThrow();

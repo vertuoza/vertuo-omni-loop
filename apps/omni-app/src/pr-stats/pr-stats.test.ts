@@ -26,7 +26,7 @@ describe('prStats — the Inngest function', () => {
       { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'vertuoza/apps' },
       { workspaceId: 'ws-acme', installationId: 9, fullName: 'acme/web' },
     ]);
-    const octokitFor = vi.fn(async (_installationId: number) => github.octokit);
+    const octokitFor = vi.fn<(installationId: number) => Promise<typeof github.octokit>>(() => Promise.resolve(github.octokit));
     const storeFor = vi.fn(() => store);
     const fn = createPrStats({ client: inngest, octokitFor, env: ENV, storeFor, clock: () => NOW });
 
@@ -50,7 +50,7 @@ describe('prStats — the Inngest function', () => {
 
       expect(error).toBeUndefined();
       expect(log).toHaveBeenCalledTimes(1);
-      expect(log.mock.calls[0]![0]).toMatch(/SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/);
+      expect(log.mock.calls[0]?.[0]).toMatch(/SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/);
       expect(storeFor).not.toHaveBeenCalled();
       expect(octokitFor).not.toHaveBeenCalled();
       expect(result).toEqual({ skipped: 'no store' });

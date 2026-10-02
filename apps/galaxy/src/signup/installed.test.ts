@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { finishSetup, readSetup, setupReturn, type Setup } from './installed';
 import { signupWorld } from './signup.fake';
 import type { Installation } from './installation';
+import { item } from '../ask/test-item';
 
 // People: OWEN administers the acme org on GitHub; SOLO has no org; MIA belongs to acme but does not
 // administer it; ZED belongs to nothing Omni Loop knows.
@@ -84,7 +85,7 @@ describe('finishing an installation (/signup/installed)', () => {
     const w = world({ workspaces: [{ id: 'ws-vz', slug: 'vertuoza', github_org: 'vertuoza', github_installation_id: null }], accounts: { ...ACCOUNTS, [OWEN]: { login: 'owen-gh', orgs: ['Vertuoza'] } } });
     expect(await finishSetup(w.db, w.session(OWEN), install(5004), w.deps)).toEqual({ kind: 'workspace', slug: 'vertuoza', role: 'member', created: false });
     expect(w.workspaces).toHaveLength(1);
-    expect(w.workspaces[0]!.github_installation_id).toBe(5004);
+    expect(item(w.workspaces, 0).github_installation_id).toBe(5004);
   });
 
   it('creates nothing new when the same installation comes back twice', async () => {
@@ -98,7 +99,7 @@ describe('finishing an installation (/signup/installed)', () => {
     const w = world();
     await finishSetup(w.db, w.session(OWEN), install(5001), w.deps);
     expect(w.linkGithub).toHaveBeenCalledWith('link_github');
-    const created = (w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!;
+    const created = item((w.signup.createWorkspace as ReturnType<typeof vi.fn>).mock.invocationCallOrder, 0);
     expect(w.linkGithub.mock.invocationCallOrder[0]).toBeGreaterThan(created);
   });
 

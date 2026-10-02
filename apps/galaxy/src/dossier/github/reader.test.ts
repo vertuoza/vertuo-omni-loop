@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
 
@@ -69,8 +70,8 @@ function fakeGithub(repo: {
       }
       const under = Object.keys(files).filter((k) => k.startsWith(`${key}/`)).map((k) => k.slice(key.length + 1));
       if (!under.length) return json({ message: 'Not Found' }, 404);
-      const names = [...new Set(under.map((rest) => rest.split('/')[0]))];
-      return json(names.map((name) => ({ name, type: under.includes(name!) ? 'file' : 'dir' })));
+      const names = [...new Set(under.map((rest) => firstPart(rest, '/')))];
+      return json(names.map((name) => ({ name, type: under.includes(name) ? 'file' : 'dir' })));
     },
     (url) => {
       const n = /^\/repos\/acme\/widgets\/issues\/(\d+)\/comments$/.exec(url.pathname)?.[1];
@@ -78,7 +79,8 @@ function fakeGithub(repo: {
     },
     (url, init) => {
       if (url.pathname !== '/graphql' || init.method !== 'POST') return undefined;
-      const { variables } = JSON.parse(String(init.body)) as { variables: Record<string, unknown> };
+      if (typeof init.body !== 'string') throw new Error('a GraphQL call sends its query as text');
+      const { variables } = JSON.parse(init.body) as { variables: { owner: string; name: string; number: number } };
       calls.push(`graphql ${variables.owner}/${variables.name}#${variables.number}`);
       return json({ data: repo.care ?? { repository: { pullRequest: {
         mergeable: 'MERGEABLE', baseRefName: 'trunk', commits: { nodes: [] }, reviewThreads: { nodes: [] }, comments: { nodes: [] },
@@ -187,7 +189,7 @@ describe('the GitHub summary of a numbered dossier', () => {
   it('is null when the App is not installed on the repository, when it has no config, and when GitHub is unreachable', async () => {
     expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
     expect(await githubReader(CREDS, fakeGithub({ config: null }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
-    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).summary(DOSSIER)).toBeNull();
+    expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).summary(DOSSIER)).toBeNull();
   });
 
   it('never puts an odd repository in a GitHub address', async () => {
@@ -293,7 +295,7 @@ describe('the cache and the token', () => {
     await reader.summary(DOSSIER);
     expect(gh.tokens()).toBe(2);
     const authorizations = gh.fetchImpl.mock.calls
-      .filter(([href]) => String(href).includes('/issues/426'))
+      .filter(([href]) => href.includes('/issues/426'))
       .map(([, init]) => (init.headers as Record<string, string>).authorization);
     expect(authorizations).toEqual(['Bearer ghs_1', 'Bearer ghs_1', 'Bearer ghs_2']);
   });
@@ -560,6 +562,6 @@ describe('a fix, through the same reader (PRD 627, s5)', () => {
 
   it('is null when the App is not installed, and when GitHub is unreachable', async () => {
     expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).fix(FIX)).toBeNull();
-    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).fix(FIX)).toBeNull();
+    expect(await githubReader(CREDS, () => Promise.reject(new TypeError('fetch failed')), () => NOW).fix(FIX)).toBeNull();
   });
 });

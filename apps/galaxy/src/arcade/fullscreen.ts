@@ -139,7 +139,7 @@ export function useFullscreen(form: Form): (press: FullscreenPress) => boolean {
     const onPointer = (e: PointerEvent) => {
       if ((e.type === 'pointerdown') === (e.pointerType === 'mouse')) fs.press({ kind: 'pointer' });
     };
-    const onChange = () => fs.changed();
+    const onChange = () => { fs.changed(); };
     window.addEventListener('pointerdown', onPointer, true);
     window.addEventListener('pointerup', onPointer, true);
     document.addEventListener('fullscreenchange', onChange);

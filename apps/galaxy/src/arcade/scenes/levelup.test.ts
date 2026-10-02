@@ -15,6 +15,7 @@ import { levelUpFor, type LevelUp } from '../levelup';
 import type { FleetRow } from '../types';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
+import { sure } from '../sure';
 
 // Every sprite the scene draws, by name, with its tint, its scale and where it lands.
 const drawn = vi.hoisted(() => [] as { name: string; x: number; y: number; tint: unknown; scale: number }[]);
@@ -37,12 +38,12 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const hero = { v: 1 as const, body: 'girl' as const, skin: 3, hair: 2, suit: 1, cape: 0 };
-const team = fleets[1]!.name;
+const team = sure(fleets[1], 'fleets[1]').name;
 
 /** The first point: LV 1, and Entropy Invaders opened. */
-const FIRST: LevelUp = levelUpFor(xpStatus(true, { xp: 1, level: 1, unlocked: ['invaders'] }), null)!;
+const FIRST: LevelUp = sure(levelUpFor(xpStatus(true, { xp: 1, level: 1, unlocked: ['invaders'] }), null), 'levelUpFor(xpStatus(true, { xp: 1, level: 1, unlocked: ["invaders"]...');
 /** LV 2, which opens no game. */
-const SECOND: LevelUp = levelUpFor(xpStatus(true, { xp: 60, level: 2, unlocked: ['invaders'] }), 1)!;
+const SECOND: LevelUp = sure(levelUpFor(xpStatus(true, { xp: 60, level: 2, unlocked: ['invaders'] }), 1), 'levelUpFor(xpStatus(true, { xp: 60, level: 2, unlocked: ["invaders"...');
 
 function frame(grid: Grid, o: { t?: number; sceneT?: number; reduced?: boolean } = {}): FrameState {
   return {
@@ -55,14 +56,14 @@ function frame(grid: Grid, o: { t?: number; sceneT?: number; reduced?: boolean }
 /** A 2D context that writes down every call and every setting, with its arguments, in order. */
 function recorder() {
   const calls: string[] = [];
-  const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+  const ctx = new Proxy<Record<string | symbol, unknown>>({}, {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'createLinearGradient' || prop === 'createRadialGradient') {
-        return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.join()})`); return { addColorStop: (...b: unknown[]) => calls.push(`stop(${b.join()})`) }; };
+        return (...a: unknown[]) => { calls.push(`${prop}(${a.join()})`); return { addColorStop: (...b: unknown[]) => calls.push(`stop(${b.join()})`) }; };
       }
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
-      return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.map((v) => (typeof v === 'number' ? v.toFixed(3) : typeof v === 'object' ? 'img' : v)).join()})`); };
+      return (...a: unknown[]) => { calls.push(`${String(prop)}(${a.map((v) => (typeof v === 'number' ? v.toFixed(3) : typeof v === 'object' ? 'img' : typeof v === 'string' ? v : typeof v === 'boolean' ? String(v) : v === undefined ? '' : typeof v)).join()})`); };
     },
     set(target, prop, value) { calls.push(`${String(prop)}=${value}`); target[prop] = value; return true; },
   });
@@ -113,13 +114,13 @@ describe('the level-up on the two grids', () => {
 
   it.each([['wide', WIDE], ['tall', TALL]] as const)('draws the player\'s own hero at 2×, in their fleet\'s colours, inside the %s grid', (_, grid) => {
     draw(frame(grid));
-    const look = heroLook(hero, fleets[1]!.color);
+    const look = heroLook(hero, sure(fleets[1], 'fleets[1]').color);
     const heroes = drawn.filter((d) => d.name.startsWith('hero-'));
     expect(heroes).toHaveLength(1);
     expect(heroes[0]).toMatchObject({ name: look.sprite, tint: look.tint, scale: 2 });
-    expect(heroes[0]!.x).toBeGreaterThanOrEqual(0);
-    expect(heroes[0]!.x + 64).toBeLessThanOrEqual(grid.w);
-    expect(heroes[0]!.y + 96).toBeLessThanOrEqual(grid.h);
+    expect(sure(heroes[0], 'heroes[0]').x).toBeGreaterThanOrEqual(0);
+    expect(sure(heroes[0], 'heroes[0]').x + 64).toBeLessThanOrEqual(grid.w);
+    expect(sure(heroes[0], 'heroes[0]').y + 96).toBeLessThanOrEqual(grid.h);
   });
 });
 
@@ -152,11 +153,11 @@ describe('its rays and flashes', () => {
     const reduced = css.slice(open + 1, end), rest = css.slice(0, at) + css.slice(end + 1);
     const still = new Set<string>();
     for (const [, sel, body] of reduced.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-      if (/animation:\s*none/.test(body!)) for (const s of sel!.split(',')) still.add(s.trim());
+      if (/animation:\s*none/.test(sure(body, 'body'))) for (const s of sure(sel, 'sel').split(',')) still.add(s.trim());
     }
     const animated = [...rest.matchAll(/([^{}@]+)\{([^}]*)\}/g)]
-      .filter(([, , body]) => /(^|;|\s)animation\s*:/.test(body!))
-      .flatMap(([, sel]) => sel!.split(',').map((s) => s.trim()));
+      .filter(([, , body]) => /(^|;|\s)animation\s*:/.test(sure(body, 'body')))
+      .flatMap(([, sel]) => sure(sel, 'sel').split(',').map((s) => s.trim()));
     expect(animated.length).toBeGreaterThan(0);
     expect(animated.filter((s) => !still.has(s)), 'animated with reduced motion').toEqual([]);
   });

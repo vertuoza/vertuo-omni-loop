@@ -7,7 +7,7 @@ import { seenWatch } from './seen';
 // mount and each time the rendered versions' signature changes (src/dossier/page/seen.ts).
 
 export function MarkSeen({ id, signature }: { id: string; signature: string }) {
-  const watch = useMemo(() => seenWatch(id, (dossier) => markSeen(() => window.localStorage, dossier, Date.now())), [id]);
-  useEffect(() => watch(signature), [watch, signature]);
+  const watch = useMemo(() => seenWatch(id, (dossier) => { markSeen(() => window.localStorage, dossier, Date.now()); }), [id]);
+  useEffect(() => { watch(signature); }, [watch, signature]);
   return null;
 }
