@@ -81,6 +81,10 @@
 .board-name { font-weight: 700; overflow-wrap: anywhere; }
 .board-table tr[aria-current='true'] > * { background: var(--ask-plasma-soft); }
 .board-you { color: var(--ask-plasma); }
+/* The fleet ranking's rank column takes only its medal's width (issue 958), so the fleet sits right beside it. */
+.board-table .board-rank { width: 1%; white-space: nowrap; text-align: center; vertical-align: middle; color: var(--ask-muted); font-weight: 700; }
+.board-medal { display: inline-block; vertical-align: middle; line-height: 0; }
+.board-medal svg { display: block; image-rendering: pixelated; }
 
 /* On a phone (below 720 px, where the tiles go two by two), a table that scrolls in its own box
    keeps each name whole on one line and pinned at the left edge, on the ground, while the figures

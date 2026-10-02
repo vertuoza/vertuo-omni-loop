@@ -129,6 +129,12 @@ describe('a board', () => {
     expect(text(fleets)).toContain('1 OCTO ◀ (your fleet) 40');
   });
 
+  it('ranks the top three with a pixel medal in a narrow column, the rank still read aloud (issue 958)', () => {
+    const fleets = render().slice(render().indexOf('board-fleets'));
+    expect(fleets).toMatch(/<th scope="col" class="board-rank">Rank<\/th>/);
+    expect(fleets).toMatch(/<td class="board-rank"><span class="board-medal" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"[\s\S]*?<\/svg><\/span><span class="ask-sr">1<\/span><\/td>/);
+  });
+
   it('says so where a read failed, and draws the rest', () => {
     const t = text(render({ activity: 'unreadable' }));
     expect(t).toContain(`PRs merged ${UNREADABLE_LINE}`);
