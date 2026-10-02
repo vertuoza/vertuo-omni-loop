@@ -5,6 +5,7 @@
 import { BAR_CELLS } from './overview.ts';
 import type { Counts, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
 import type { Stage } from '../types.ts';
+import { at } from '../narrow.ts';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -79,7 +80,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }: Pick<Ov
     const joined = `${under.at(-1)}, ${part}`;
     if (joined.length <= WIDTH) under[under.length - 1] = joined;
     else {
-      under[under.length - 1] += ',';
+      under[under.length - 1] = `${at(under, -1, 'the line under the bar')},`;
       under.push(`${UNDER_BAR}${part}`);
     }
   }

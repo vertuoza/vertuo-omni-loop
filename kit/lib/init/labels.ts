@@ -65,7 +65,7 @@ export function reconcileLabels(root: string, { exec, labels }: { exec: ExecText
   let existing: Set<string>;
   try {
     const listed = GhLabelsSchema.parse(JSON.parse(exec('gh', ['label', 'list', '--json', 'name', '--limit', String(LIST_LIMIT)], { cwd: root, ...QUIET })));
-    existing = new Set(listed.map((label) => String(label.name).toLowerCase()));
+    existing = new Set(listed.map((label) => label.name.toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
   }

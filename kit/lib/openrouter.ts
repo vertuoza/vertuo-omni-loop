@@ -22,6 +22,7 @@
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
  */
 import { z } from 'zod';
+import { plainText } from './outbox/plain-text.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 /** The model asked when `OPENROUTER_MODEL` names none. */
@@ -61,7 +62,7 @@ export const MASK = '[masked]';
 
 /** `text` with every token-shaped string replaced by `[masked]`. Masking twice changes nothing. */
 export function maskSecrets(text: unknown): string {
-  let out = String(text ?? '');
+  let out = plainText(text);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -176,7 +177,7 @@ function runCheck(check: ReplyCheck | undefined, value: unknown): { errors: stri
     }
     return { errors: ['no check was given for the reply'], reply: null };
   } catch (error) {
-    return { errors: [`the reply could not be checked: ${messageOf(error)}`], reply: null };
+    return { errors: [`the reply could not be checked: ${String(messageOf(error))}`], reply: null };
   }
 }
 

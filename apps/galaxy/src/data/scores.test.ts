@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { present } from '../ask/test-item';
 import { loadScores, readScores, submitScore } from './scores';
 import { ACME, fakeGalaxyDb, PEOPLE, score, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 
@@ -24,7 +25,7 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 describe('a game\'s crew table', () => {
   it('is the workspace\'s top five at the game, best first, with each player\'s arcade name, hero and fleet', async () => {
-    const { db } = world(PEOPLE.ada, (w) => extra(w, 6));
+    const { db } = world(PEOPLE.ada, (w) => { extra(w, 6); });
     const board = await loadScores(db, VERTUOZA, 'invaders', PEOPLE.ada.id);
     expect(board.top.map((l) => [l.name, l.best])).toEqual([['ADA', 1240], ['P5', 1000], ['P4', 900], ['P3', 800], ['P2', 700]]);
     expect(board.top[0]).toEqual({ id: PEOPLE.ada.id, name: 'ADA', hero: HERO, team: 'pirates', best: 1240 });
@@ -33,8 +34,8 @@ describe('a game\'s crew table', () => {
 
   it('puts the earlier of two equal scores first', async () => {
     const { db } = world(PEOPLE.ada, (w) => {
-      w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.both.id && s.workspace_id === VERTUOZA)!.best = 1240;
-      w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.ada.id)!.at = '2026-09-26T09:00:00Z';
+      present(w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.both.id && s.workspace_id === VERTUOZA), 'both\'s score').best = 1240;
+      present(w.tables.arcade_scores.find((s) => s.user_id === PEOPLE.ada.id), 'ada\'s score').at = '2026-09-26T09:00:00Z';
     });
     expect((await loadScores(db, VERTUOZA, 'invaders', PEOPLE.ada.id)).top.map((l) => l.name)).toEqual(['BOTH', 'ADA']);
   });
@@ -47,7 +48,7 @@ describe('a game\'s crew table', () => {
   });
 
   it('gives the player\'s own best even when it is out of the top five, and none before their first game', async () => {
-    const { db } = world(PEOPLE.both, (w) => extra(w, 6));
+    const { db } = world(PEOPLE.both, (w) => { extra(w, 6); });
     const board = await loadScores(db, VERTUOZA, 'invaders', PEOPLE.both.id);
     expect(board.top.some((l) => l.id === PEOPLE.both.id)).toBe(false);
     expect(board.mine).toBe(385);

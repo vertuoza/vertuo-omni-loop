@@ -26,6 +26,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { defined } from '../narrow.ts';
 import { FORMS, parseForm, readForm } from './forms.ts';
 import type { FormSpec, FormState } from './forms.ts';
 import { staleEvidence } from './status.ts';
@@ -46,7 +47,7 @@ function gradeForm({ id, kind }: FormSpec, { ctx, exec }: { ctx: PlaybookCtx; ex
   if (!read.ok) return { state: 'invalid', violations: read.errors, warnings: [] };
 
   const { form } = read;
-  const kit = parseForm(formTemplate(id)).form!; // ts-allow: the kit's own templates always parse (templates.test.ts proves each one)
+  const kit = defined(parseForm(formTemplate(id)).form, `the kit's ${id} form`); // the kit's own templates always parse (templates.test.ts proves each one)
   // An imported copy's paths name files of its target, never of this disk (PRD 522).
   const gone = (path: string): boolean => !ctx.copyOf && !existsSync(join(ctx.root, path));
   const violations: string[] = [];

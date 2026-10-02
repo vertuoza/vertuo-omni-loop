@@ -11,6 +11,8 @@ import { PLANET, PLANET_PROGRESS } from './art';
 import { Poster } from './Poster';
 import { PosterPlanet } from './PosterPlanet';
 import { PLANET_LABEL, planetAt, planetMoves, REDUCED_MOTION, spinPlanet, type SpinClock } from './PosterPlanetSpin';
+import type { drawPlanet } from '@omni/design';
+import { item, present } from '../../ask/test-item';
 
 const matchMedia = (reduced: boolean) => (query: string) => ({ matches: query === REDUCED_MOTION && reduced });
 
@@ -67,7 +69,7 @@ function stubs(size = 62) {
   };
   const setHidden = (hidden: boolean) => { doc.hidden = hidden; for (const fn of [...listeners]) fn(); };
   const ctx = { clearRect: vi.fn(), imageSmoothingEnabled: true } as unknown as CanvasRenderingContext2D;
-  const draw = vi.fn();
+  const draw = vi.fn<typeof drawPlanet>();
   return { clock, tick, setHidden, pending, listeners, ctx, draw, size };
 }
 
@@ -81,7 +83,7 @@ describe('spinPlanet', () => {
     for (let i = 0; i < 40; i++) s.tick(250);
     const calls = s.draw.mock.calls.map(([, o]) => o);
     for (const o of calls) expect(o).toMatchObject({ cx: s.size / 2, cy: s.size / 2, r: PLANET.r, seed: PLANET.seed });
-    for (let i = 1; i < calls.length; i++) expect(calls[i].rot).toBeGreaterThan(calls[i - 1].rot);
+    for (let i = 1; i < calls.length; i++) expect(item(calls, i).rot).toBeGreaterThan(present(item(calls, i - 1).rot, 'the turn before'));
     const steps = calls.map((o) => o.progress).filter((p, i, all) => i === 0 || p !== all[i - 1]);
     expect(steps.slice(0, 6)).toEqual([0.25, 0.5, 0.8, 0.25, 0.5, 0.8]);
     expect(onFirst).toHaveBeenCalledTimes(1);

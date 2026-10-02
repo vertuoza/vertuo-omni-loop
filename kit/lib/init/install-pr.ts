@@ -118,7 +118,7 @@ export function openInstallPr(
   }
   if (found === undefined) return result;
   const created = attempt(() => exec('gh', ['pr', 'create', '--base', base, '--head', INSTALL_BRANCH, '--title', INSTALL_COMMIT, '--body', PR_BODY], { cwd: root, ...QUIET }));
-  const url = created.ok ? String(created.value).trim().split('\n').pop() : null;
+  const url = created.ok ? created.value.trim().split('\n').pop() : null;
   if (url?.startsWith('http')) result.pr = { url, number: prNumber(url), already: false };
   else result.pr = findPr(root, exec) ?? null;
   return result;

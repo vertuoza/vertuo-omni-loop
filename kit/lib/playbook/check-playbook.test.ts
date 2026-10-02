@@ -3,6 +3,7 @@ import type { ExecText } from '../context.ts';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { gradePlaybook } from './check-playbook.ts';
 import { staleEvidence } from './status.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -17,7 +18,11 @@ const FILE = '.omni-loop/knowledge/playbook/testing.md';
 const refuse = () => {
   throw new Error('git is not here');
 };
-const hashes = (map: Record<string, string>) => (_command: string, args: readonly string[]) => `${map[args.at(-1)!]}\n`;
+const hashes = (map: Record<string, string>) => (_command: string, args: readonly string[]) => {
+  const file = args.at(-1);
+  assertDefined(file, 'the file to hash');
+  return `${String(map[file])}\n`;
+};
 
 /** The grade's lines about `FILE` only: every other form is missing, which is not what these test. */
 function grade(files: Record<string, string>, exec: ExecText = refuse) {
@@ -45,7 +50,9 @@ describe('gradePlaybook', () => {
     const { violations, warnings, forms } = grade({ [FILE]: text });
     expect(violations).toEqual([expect.stringMatching(new RegExp(`^${FILE}: "## Data": malformed slot marker`))]);
     expect(warnings).toEqual([]);
-    expect(forms.find((form) => form.form === 'testing')!.state).toBe('invalid');
+    const testing = forms.find((form) => form.form === 'testing');
+    assertDefined(testing, 'the testing form');
+    expect(testing.state).toBe('invalid');
   });
 
   it('lists the questions of a pointer form, and asks it for no section', () => {

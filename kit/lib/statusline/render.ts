@@ -21,6 +21,7 @@
 import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
+import { isList } from '../outbox/plain-text.ts';
 
 /** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
 type Env = Readonly<Record<string, string | null | undefined>> | null | undefined;
@@ -150,7 +151,7 @@ export function itemsPart(count: number | null | undefined): string | null {
  * when `color` is on.
  */
 export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
-  if (!Array.isArray(slices) || slices.length === 0) return null;
+  if (!isList(slices) || slices.length === 0) return null;
   const count = (test: (state: string) => boolean): number => slices.filter((slice) => test(slice.state)).length;
   const merged = count((state) => state === MERGED);
   if (merged === slices.length) return 'all slices merged';
@@ -166,7 +167,7 @@ export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { 
 }
 
 /** `text` cut to `length` characters, the last one `…`. */
-const cutTo = (text: string, length: number): string => `${[...text].slice(0, length - 1).join('')}${CUT}`;
+const cutTo = (text: string, length: number): string => `${Array.from(text).slice(0, length - 1).join('')}${CUT}`;
 
 /**
  * Line 2 for a PRD, within `width`: its topic cut first (never below 8 characters), then the line at
@@ -186,7 +187,7 @@ export function prdLine(
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;
-  const length = [...topic].length;
+  const length = Array.from(topic).length;
   if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
   return fit(draw(cutTo(topic, Math.max(TOPIC_FLOOR, length - over))), width);
 }

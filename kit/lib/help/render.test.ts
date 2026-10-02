@@ -4,10 +4,11 @@ import { deepMerge } from '../../test/fixture.ts';
 import { ENTRIES, STAGES } from './entries.ts';
 import type { HelpEntry } from './entries.ts';
 import { renderEntry, renderOverview } from './render.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const configWith = (over = {}) => ConfigSchema.parse(deepMerge({ kit: 1 }, over));
 const DEFAULTS = configWith();
-const widest = (text: string) => Math.max(...text.split('\n').map((line) => [...line].length));
+const widest = (text: string) => Math.max(...text.split('\n').map((line) => Array.from(line).length));
 
 /** `renderEntry` for a name the table knows: its text, never null. */
 function entryText(...args: Parameters<typeof renderEntry>): string {
@@ -40,7 +41,7 @@ describe('renderOverview', () => {
       'omni help <command> tells more about any of them.',
     ];
     const at = marks.map((mark) => text.indexOf(mark));
-    expect(at.every((index) => index >= 0), JSON.stringify(marks.filter((_, i) => at[i]! < 0))).toBe(true);
+    expect(at.every((index) => index >= 0), JSON.stringify(marks.filter((_, i) => (at[i] ?? -1) < 0))).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
     expect(text.split('\n').at(-1)).toBe('omni help <command> tells more about any of them.');
   });
@@ -83,7 +84,13 @@ describe('renderOverview', () => {
 });
 
 /** The table as it stood before PRD 580: no skill entry carries a group, a when line or an example. */
-const withoutDocs: HelpEntry[] = ENTRIES.map(({ group, when, example, ...rest }) => rest);
+const withoutDocs: HelpEntry[] = ENTRIES.map((entry) => {
+  const rest = { ...entry };
+  delete rest.group;
+  delete rest.when;
+  delete rest.example;
+  return rest;
+});
 
 describe('renderOverview, beside the docs fields (PRD 580)', () => {
   it('prints the same overview whether or not the skill entries carry them', () => {
@@ -93,7 +100,8 @@ describe('renderOverview, beside the docs fields (PRD 580)', () => {
 
 describe('renderEntry', () => {
   it('ends a skill with a blank line, its When line and its Example with the result, within 80 columns (PRD 580)', () => {
-    const yolo = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'yolo')!;
+    const yolo = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'yolo');
+    assertDefined(yolo, 'yolo');
     const text = entryText('yolo', DEFAULTS);
     const before = entryText('yolo', DEFAULTS, { entries: withoutDocs });
     expect(text.startsWith(`${before}\n\n`)).toBe(true);
@@ -102,9 +110,12 @@ describe('renderEntry', () => {
     const example = tail.findIndex((line) => line.startsWith('Example  '));
     expect(example).toBeGreaterThan(0);
     expect(tail.slice(0, example).map((line) => line.slice(9)).join(' ')).toBe(yolo.when);
-    expect(tail[example]).toBe(`Example  ${yolo.example!.type}`);
-    expect(tail.slice(example + 1).join(' ').replace(/\s+/g, ' ').trim()).toBe(`→ ${yolo.example!.result}`);
-    expect(tail[example + 1]!.startsWith('         → ')).toBe(true);
+    assertDefined(yolo.example, 'yolo.example');
+    expect(tail[example]).toBe(`Example  ${yolo.example.type}`);
+    expect(tail.slice(example + 1).join(' ').replace(/\s+/g, ' ').trim()).toBe(`→ ${yolo.example.result}`);
+    const result = tail[example + 1];
+    assertDefined(result, 'the line after the example');
+    expect(result.startsWith('         → ')).toBe(true);
     expect(widest(text)).toBeLessThanOrEqual(80);
   });
 
@@ -212,6 +223,6 @@ describe('renderEntry', () => {
     const detail = `${'word '.repeat(20).trim()}\n\nsecond paragraph`;
     const entries: HelpEntry[] = [{ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'x', detail }];
     const [, , ...body] = entryText('x', DEFAULTS, { entries }).split('\n');
-    expect(body).toEqual([`${'word '.repeat(15).trim()}`, `${'word '.repeat(5).trim()}`, '', 'second paragraph']);
+    expect(body).toEqual(['word '.repeat(15).trim(), 'word '.repeat(5).trim(), '', 'second paragraph']);
   });
 });

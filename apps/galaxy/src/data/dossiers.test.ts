@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { present } from '../ask/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 
 const NOW = new Date('2026-09-27T10:00:00Z');
+const containing = (fields: object): unknown => expect.objectContaining(fields);
 const HOME = 'vertuoza/vertuo-omni-plan';
 
 /** A dossier as dossier_list() lists it: Vertuoza's plan repository's PRD `prd`, unless told otherwise. */
@@ -102,7 +106,7 @@ describe('readDossiers', () => {
   function world(person: FakeUser = PEOPLE.ada, dossiers = DOSSIERS) {
     const galaxy = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
     const fake = withDossiers(galaxy, dossiers);
-    const db = fake.client(person) as unknown as SupabaseClient;
+    const db = fake.client(person) as unknown as SupabaseClient<Database>;
     return { galaxy, fake, read: (workspace = VERTUOZA, prds = planets) => readDossiers(db, workspace, prds) };
   }
 
@@ -122,7 +126,7 @@ describe('readDossiers', () => {
 
   it('finds the plan repository from the workspace, in lower case, and reads only the workspace played', async () => {
     const { galaxy, fake, read } = world();
-    galaxy.tables.workspaces.find((w) => w.id === VERTUOZA)!.plan_repo = 'Vertuo-Omni-Plan';
+    present(galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = 'Vertuo-Omni-Plan';
     await read();
     expect(galaxy.calls.filter((c) => c.kind === 'from')).toEqual([{ kind: 'from', table: 'workspaces', op: 'select', eq: { id: VERTUOZA } }]);
     expect(fake.calls[0]).toEqual({ kind: 'from', table: 'dossiers', eq: { workspace_id: VERTUOZA, home_repo: HOME } });
@@ -133,7 +137,7 @@ describe('readDossiers', () => {
     await read();
     const rpcs = fake.calls.filter((c) => c.kind === 'rpc');
     expect(rpcs).toHaveLength(4);
-    for (const call of rpcs) expect(['d-12', 'd-13']).toContain(call.kind === 'rpc' ? call.args.p_dossier : null);
+    for (const call of rpcs) expect(['d-12', 'd-13']).toContain(call.args.p_dossier);
   });
 
   it('reads nothing more for a galaxy with no planet, or a workspace with no plan repository', async () => {
@@ -141,7 +145,7 @@ describe('readDossiers', () => {
     expect(await empty.read(VERTUOZA, [])).toEqual({});
     expect(empty.fake.calls).toEqual([]);
     const unplanned = world();
-    unplanned.galaxy.tables.workspaces.find((w) => w.id === VERTUOZA)!.plan_repo = null;
+    present(unplanned.galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = null;
     expect(await unplanned.read()).toEqual({});
     expect(unplanned.fake.calls).toEqual([]);
   });
@@ -173,7 +177,7 @@ describe('readDossiers', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { fake, read } = world();
     fake.state.failOn = 'd-12';
-    expect(await read()).toEqual({ 12: 'unreadable', 13: expect.objectContaining({ id: 'd-13' }) });
+    expect(await read()).toEqual({ 12: 'unreadable', 13: containing({ id: 'd-13' }) });
   });
 });
 
@@ -186,7 +190,7 @@ describe('workspaceDossiers', () => {
 
   function world(person: FakeUser) {
     const fake = withDossiers(fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)), DOSSIERS);
-    return { fake, db: fake.client(person) as unknown as SupabaseClient };
+    return { fake, db: fake.client(person) as unknown as SupabaseClient<Database> };
   }
 
   it('asks dossier_list() for one workspace by name, and lists that workspace\'s dossiers alone', async () => {
@@ -224,11 +228,12 @@ describe('demoDossiers', () => {
   });
 
   it('shows the planet the demo opens on (the one in distress) with a dossier, its last answers and an artifact with no version yet', () => {
-    const distress = view.planets.find((p) => p.state === 'distress')!;
+    const distress = present(view.planets.find((p) => p.state === 'distress'), 'the planet in distress');
     const d = demoDossiers(NOW)[distress.prd];
     expect(d).toBeDefined();
-    expect(d!.last.length).toBeGreaterThan(0);
-    expect(Object.values(d!.latest)).toContain(null);
+    assertDefined(d, 'its dossier');
+    expect(d.last.length).toBeGreaterThan(0);
+    expect(Object.values(d.latest)).toContain(null);
   });
 
   it('keeps every demo dossier as the tab takes it: at most three answers, never more answered than asked, dated no later than now', () => {

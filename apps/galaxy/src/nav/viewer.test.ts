@@ -23,17 +23,15 @@ const LIVE = { kind: 'database' as const, url: 'https://db.example', key: 'anon'
 const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
 
 const fake = (over: Partial<Source> = {}): Source => ({
-  user: async () => ADA,
-  workspace: async () => ({ id: 'w-acme', name: 'Acme' }),
-  player: async () => null,
-  questions: async () => WAITING,
+  user: () => Promise.resolve(ADA),
+  workspace: () => Promise.resolve({ id: 'w-acme', name: 'Acme' }),
+  player: () => Promise.resolve(null),
+  questions: () => Promise.resolve(WAITING),
   live: () => LIVE,
   ...over,
 });
 
-const boom = async (): Promise<never> => {
-  throw new Error('down');
-};
+const boom = (): Promise<never> => Promise.reject(new Error('down'));
 
 describe('the viewer', () => {
   it('is the full viewer when every read answers', async () => {
@@ -49,8 +47,8 @@ describe('the viewer', () => {
   });
 
   it('asks for the workspace, the questions and where to read them again, of the person signed in', async () => {
-    const workspace = vi.fn(async () => ({ id: 'w-acme', name: 'Acme' }));
-    const questions = vi.fn(async () => WAITING);
+    const workspace = vi.fn(() => Promise.resolve({ id: 'w-acme', name: 'Acme' }));
+    const questions = vi.fn(() => Promise.resolve(WAITING));
     const live = vi.fn(() => LIVE);
     await readViewer(fake({ workspace, questions, live }));
     expect(workspace).toHaveBeenCalledWith('u-ada');
@@ -59,9 +57,9 @@ describe('the viewer', () => {
   });
 
   it('is signed out with no session, and reads nothing else', async () => {
-    const workspace = vi.fn(async () => ({ id: 'w-acme', name: 'Acme' }));
-    const questions = vi.fn(async () => WAITING);
-    expect(await readViewer(fake({ user: async () => null, workspace, questions }))).toEqual(SIGNED_OUT);
+    const workspace = vi.fn(() => Promise.resolve({ id: 'w-acme', name: 'Acme' }));
+    const questions = vi.fn(() => Promise.resolve(WAITING));
+    expect(await readViewer(fake({ user: () => Promise.resolve(null), workspace, questions }))).toEqual(SIGNED_OUT);
     expect(SIGNED_OUT.waiting).toBeNull();
     expect(workspace).not.toHaveBeenCalled();
     expect(questions).not.toHaveBeenCalled();
@@ -73,7 +71,7 @@ describe('the viewer', () => {
 
   it('has no workspace name when the workspace read throws, or finds none', async () => {
     expect(await readViewer(fake({ workspace: boom }))).toMatchObject({ signedIn: true, workspaceName: null, waiting: { questions: WAITING } });
-    expect(await readViewer(fake({ workspace: async () => null }))).toMatchObject({ signedIn: true, workspaceName: null });
+    expect(await readViewer(fake({ workspace: () => Promise.resolve(null) }))).toMatchObject({ signedIn: true, workspaceName: null });
   });
 
   it('holds no questions, marked unread, when their read throws, and still says where to read them again', async () => {
@@ -87,32 +85,32 @@ describe('the viewer', () => {
   });
 
   it('holds the viewer\'s hero, as a decorative pixel SVG, when their player row in the workspace has a valid one (PRD 652)', async () => {
-    const player = vi.fn(async () => ({ hero: HERO, color: '#3355ff' }));
+    const player = vi.fn(() => Promise.resolve({ hero: HERO, color: '#3355ff' }));
     const viewer = await readViewer(fake({ player }));
     expect(player).toHaveBeenCalledWith('u-ada', 'w-acme');
     expect(viewer.heroSvg).toMatch(/^<svg\b/);
     expect(viewer.heroSvg).not.toContain('<title>');
     expect(viewer.heroSvg).not.toContain('aria-label');
     expect(viewer.avatarUrl).toBe('https://avatars.example/ada.png');
-    const other = await readViewer(fake({ player: async () => ({ hero: HERO, color: '#ff3355' }) }));
+    const other = await readViewer(fake({ player: () => Promise.resolve({ hero: HERO, color: '#ff3355' }) }));
     expect(other.heroSvg).not.toBe(viewer.heroSvg);
   });
 
   it('holds no hero, and keeps the avatar, with no player row, an invalid hero, a failed player read or no workspace', async () => {
-    const player = vi.fn(async () => ({ hero: HERO, color: null }));
+    const player = vi.fn(() => Promise.resolve({ hero: HERO, color: null }));
     for (const over of [
-      { player: async () => null },
-      { player: async () => ({ hero: { v: 9 }, color: '#3355ff' }) },
+      { player: () => Promise.resolve(null) },
+      { player: () => Promise.resolve({ hero: { v: 9 }, color: '#3355ff' }) },
       { player: boom },
     ] as Partial<Source>[]) {
       expect(await readViewer(fake(over))).toMatchObject({ signedIn: true, heroSvg: null, avatarUrl: 'https://avatars.example/ada.png', workspaceName: 'Acme' });
     }
-    expect(await readViewer(fake({ workspace: async () => null, player }))).toMatchObject({ heroSvg: null });
+    expect(await readViewer(fake({ workspace: () => Promise.resolve(null), player }))).toMatchObject({ heroSvg: null });
     expect(player).not.toHaveBeenCalled();
   });
 
   it('falls back on the email\'s name, and on no login or avatar, when the account has none', async () => {
     const bare = { id: 'u-bob', email: 'bob@example.com', user_metadata: {}, identities: [] };
-    expect(await readViewer(fake({ user: async () => bare }))).toMatchObject({ name: 'bob', login: null, avatarUrl: null });
+    expect(await readViewer(fake({ user: () => Promise.resolve(bare) }))).toMatchObject({ name: 'bob', login: null, avatarUrl: null });
   });
 });

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { heading, html, text } from './render';
 import { SeeEverything } from './SeeEverything';
+import { item } from '../../ask/test-item';
 
 describe('You see everything', () => {
   const markup = html(SeeEverything());
-  const bullets = [...markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map(([, li]) => li!);
+  const bullets = [...markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((m) => item(m, 1));
   // A bullet's words as read: its inline tags (the name, the link) run on with the words around them.
   const words = (li: string) => text(li.replace(/<\/?(?:a|b)\b[^>]*>/g, ''));
 
@@ -22,7 +23,7 @@ describe('You see everything', () => {
       'Release notes: every shipped feature, in plain words, on a public page.',
       'The galaxy: every feature a planet, every team a fleet, so the whole company sees what moves and what is stuck.',
     ]);
-    expect(bullets.map((li) => text(/<b>([\s\S]*?)<\/b>/.exec(li!)?.[1] ?? ''))).toEqual([
+    expect(bullets.map((li) => text(/<b>([\s\S]*?)<\/b>/.exec(li)?.[1] ?? ''))).toEqual([
       'The outbox', 'One page per feature', 'Questions on a web page:', 'A knowledge base that grows:', 'Release notes:', 'The galaxy:',
     ]);
   });
@@ -30,8 +31,8 @@ describe('You see everything', () => {
   it('links public page to /releases, and links nowhere else', () => {
     const links = [...markup.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)];
     expect(links).toHaveLength(1);
-    expect(links[0]![1]).toContain('href="/releases"');
-    expect(text(links[0]![2]!)).toBe('public page');
-    expect(bullets[4]).toContain(links[0]![0]);
+    expect(item(item(links, 0), 1)).toContain('href="/releases"');
+    expect(text(item(item(links, 0), 2))).toBe('public page');
+    expect(bullets[4]).toContain(item(item(links, 0), 0));
   });
 });

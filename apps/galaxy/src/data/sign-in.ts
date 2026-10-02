@@ -39,7 +39,9 @@ export interface SignInDeps {
 /** The query-string entry the arcade reads on its return (readReturn() in src/arcade/onboarding.ts). */
 export type SignInReturn = ['signin', 'ok'] | ['linked', string] | ['link_error', string];
 
-const log = (err: unknown) => console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+const log = (err: unknown) => {
+  console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+};
 
 async function bestEffort(run: () => Promise<unknown>) {
   try { await run(); } catch (err) { log(err); }

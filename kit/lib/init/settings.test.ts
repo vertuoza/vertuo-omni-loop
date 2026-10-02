@@ -47,7 +47,8 @@ describe('writeStatusLine', () => {
     expect(writeStatusLine(root, { bin: BIN_FILE }).outcome).toBe('wrote');
     const text = read(SETTINGS_FILE);
     expect(text).toBe(settingsText({ ...before, statusLine: KIT_LINE }));
-    expect(Object.keys(JSON.parse(text))).toEqual(['hooks', 'enabledPlugins', 'model', 'statusLine']);
+    const written: unknown = JSON.parse(text);
+    expect(typeof written === 'object' && written !== null ? Object.keys(written) : []).toEqual(['hooks', 'enabledPlugins', 'model', 'statusLine']);
   });
 
   it('keeps the kit\'s own line as it is, byte for byte, even an older one', () => {

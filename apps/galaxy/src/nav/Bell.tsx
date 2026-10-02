@@ -20,7 +20,7 @@ export function Bell() {
   const { list, unread, unreadPrds, documents, business } = useWaiting();
   const alerts = useAlerts();
   const [now, setNow] = useState(() => Date.now());
-  return <BellView list={list} documents={documents} business={business} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} alerts={alerts} />;
+  return <BellView list={list} documents={documents} business={business} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => { setNow(Date.now()); }} alerts={alerts} />;
 }
 
 /** The bell as it draws a given list: what the render tests pin. */
@@ -92,7 +92,7 @@ export function BellView({ list, documents = [], business = 0, unread, now, onOp
               <ul className="bell-lines">
                 {group.lines.map((line) => (
                   <li key={line.id}>
-                    <a className="bell-line" href={line.href} onClick={() => send('choose')}>
+                    <a className="bell-line" href={line.href} onClick={() => { send('choose'); }}>
                       <span className="bell-line-head">{line.head}</span>
                       <span className="bell-line-text">{line.text}</span>
                       <span className="bell-line-meta" suppressHydrationWarning>

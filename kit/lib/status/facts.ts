@@ -9,6 +9,7 @@ import { readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:
 import { resolve } from 'node:path';
 import { fillBranch } from '../board.ts';
 import { parseFolderName } from '../layout.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import type { Context, ExecText } from '../context.ts';
 
 /** A PRD folder read at a commit: its number, its topic and its name. */
@@ -192,8 +193,9 @@ export function fetchRemote({ ctx, exec = execFileSync }: { ctx: Context; exec?:
     return null;
   } catch (error) {
     putBack(saved);
-    const said = `${fieldOf(error, 'stderr') ?? ''}`.split('\n').map((line) => line.trim()).find(Boolean);
-    return said ?? `${fieldOf(error, 'message') ?? error}`.split('\n')[0] ?? '';
+    const said = plainText(fieldOf(error, 'stderr')).split('\n').map((line) => line.trim()).find(Boolean);
+    const message: unknown = fieldOf(error, 'message') ?? error;
+    return said ?? String(message).split('\n')[0] ?? '';
   }
 }
 
