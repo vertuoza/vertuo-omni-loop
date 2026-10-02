@@ -49,20 +49,17 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
    page's one headline **AGENTS SHIP. YOU STEER.**, the pitch, the promise strip (ONE FOLDER IN, ONE
    FOLDER OUT · EVERY DECISION WRITTEN DOWN · A PERSON ALWAYS MERGES), OmniMan, the disabled sign-up,
    the invaded planet, the crest and PRESS START.
-2. **What's in it for you?**: three cards, HEAD OF ENGINEERING, DEVELOPER and PRODUCT MANAGER, each a
-   promise and three proofs, all visible.
-3. **Strategy guide: the loop, level by level**: seven levels, SET UP to SHIP and the KNOWLEDGE bonus,
+2. **Strategy guide: the loop, level by level**: seven levels, SET UP to SHIP and the KNOWLEDGE bonus,
    with OmniMan running the path and the LOOP LINGO sidebar.
-4. **You see everything**: six bullets; the release notes one links to `/releases`.
-5. **Easy in, easy out**: the four GET IN steps, and GET OUT: delete `.omni-loop/` and commit.
-6. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
+3. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
    counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
-7. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
+4. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
    trading cards.
-8. **Join the loop!**: the order form, with PRESS START and the Konami tip.
+5. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
+   line: "Leave any time: delete one folder and commit. Nothing to migrate."
 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
-nowhere but `/play` and `/releases`.
+nowhere but `/play` and `/docs`.
 
 **LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the five loop terms HOME
 uses (HARNESS, PRD, SLICE, WAVE, OUTBOX) and names the loop words it never says (phase-0, worktree,
