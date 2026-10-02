@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
@@ -66,7 +67,7 @@ describe('reading a dossier as the viewer', () => {
     const { fake, numbered } = await world();
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const client = fake.client('ada');
-    const read = await readDossier({ from: client.from, rpc: async () => ({ data: null, error: { message: 'down' } }) } as never, numbered);
+    const read = await readDossier({ from: client.from, rpc: () => Promise.resolve({ data: null, error: { message: 'down' } }) } as never, numbered);
     expect(read?.members).toEqual([]);
     expect(read?.dossier.id).toBe(numbered);
     quiet.mockRestore();
@@ -76,10 +77,11 @@ describe('reading a dossier as the viewer', () => {
 describe('reading a version', () => {
   it('reads one version\'s content for a member, and nothing for anyone else', async () => {
     const { as, numbered } = await world();
-    const spec = (await readDossier(as('ada'), numbered))!.versions[0];
-    expect(await readContent(as('bob'), spec!.id)).toBe(SPEC);
-    expect(await readContent(as('carl'), spec!.id)).toBeNull();
-    expect(await readContent(as(null), spec!.id)).toBeNull();
+    const spec = (await readDossier(as('ada'), numbered))?.versions[0];
+    assertDefined(spec, 'the spec\'s version');
+    expect(await readContent(as('bob'), spec.id)).toBe(SPEC);
+    expect(await readContent(as('carl'), spec.id)).toBeNull();
+    expect(await readContent(as(null), spec.id)).toBeNull();
   });
 
   it('serves the before/after page by its number, to a member only', async () => {
@@ -244,7 +246,9 @@ describe('reading the history', () => {
       repos: ['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets'],
       latest: { spec: { version: 1, source: 'kit' } }, asked: 2, answered: 1, last_activity: at('11:00'),
     });
-    expect(rows[0]!.latest.plan).toBeUndefined();
+    const [first] = rows;
+    assertDefined(first, 'the first row');
+    expect(first.latest.plan).toBeUndefined();
     expect(rows[1]).toMatchObject({ repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: at('10:00') });
     expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
   });
@@ -283,7 +287,8 @@ describe('reading the change check (PRD 384)', () => {
     expect(asked).toMatchObject({ asked: 1, answered: 0 });
     expect(signature(asked)).not.toBe(signature(first));
 
-    Object.assign(round!, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
+    assertDefined(round, 'the round');
+    Object.assign(round, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
     const answered = await readPulse(as('bob'), numbered);
     expect(answered).toMatchObject({ asked: 1, answered: 1 });
     expect(signature(answered)).not.toBe(signature(asked));
@@ -304,7 +309,8 @@ describe('reading the change check (PRD 384)', () => {
       { created_at: '2026-09-28T10:02:00.000Z', prd: 7 },
     ]);
     const read = await readDossier(as('bob'), numbered);
-    expect(signature(pulseOf(read!))).toBe(signature(await readPulse(as('bob'), numbered)));
+    assertDefined(read, 'the dossier, read');
+    expect(signature(pulseOf(read))).toBe(signature(await readPulse(as('bob'), numbered)));
   });
 
   it('reads nothing for someone who cannot read the dossier, or an id that is not a dossier\'s', async () => {
@@ -332,8 +338,10 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
       { created_at: '2026-09-28T10:01:00.000Z', prd: 7 },
       { created_at: '2026-09-28T10:02:00.000Z', prd: 7, status: 'answered', answers: { 'A question?': 'Yes' } },
     ]).rounds.map((r) => r.id);
-    fake.seedShare(shared!, BOB.id, ADA.id);
-    fake.seedShare(done!, BOB.id, ADA.id);
+    assertDefined(shared, 'the shared round');
+    assertDefined(done, 'the answered round');
+    fake.seedShare(shared, BOB.id, ADA.id);
+    fake.seedShare(done, BOB.id, ADA.id);
     const read = async (token: keyof typeof ACCOUNTS) => (await readDossier(fake.client(token) as never, id, ACCOUNTS[token].id))?.answerable;
     return { fake, id, read, shared, own };
   }
@@ -366,7 +374,7 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
       return {
         rpc: client.rpc,
         from: (table: string) => (table === 'ask_shares'
-          ? { select: () => ({ eq: async () => ({ data: null, error: { message: 'down' } }) }) }
+          ? { select: () => ({ eq: () => Promise.resolve({ data: null, error: { message: 'down' } }) }) }
           : client.from(table as 'dossiers')),
       } as never;
     };
@@ -406,7 +414,9 @@ describe('answering a quick round from the list (PRD 384)', () => {
 
   it('says it moved when the terminal took it over', async () => {
     const { fake, id, as } = await round();
-    fake.tables.ask_rounds[0]!.status = 'abandoned';
+    const [asked] = fake.tables.ask_rounds;
+    assertDefined(asked, 'the round');
+    asked.status = 'abandoned';
     expect(await answerQuick(as('ada'), id, QUESTION, 'Memory')).toMatchObject({ kind: 'taken', by: null, moved: true });
   });
 
@@ -433,15 +443,21 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
       await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: plan }] });
     }
     const read = await readDossier(as('bob'), numbered);
-    expect(await readPlanSlices(as('bob'), read!.versions)).toBe(3);
+    assertDefined(read, 'the dossier, read');
+    expect(await readPlanSlices(as('bob'), read.versions)).toBe(3);
   });
 
   it('is null with no plan version, or one with no slice table', async () => {
     const { fake, as, numbered } = await world();
-    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    const versions = async () => {
+      const read = await readDossier(as('bob'), numbered);
+      assertDefined(read, 'the dossier, read');
+      return read.versions;
+    };
+    expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
-    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.restoreAllMocks();
   });
 });

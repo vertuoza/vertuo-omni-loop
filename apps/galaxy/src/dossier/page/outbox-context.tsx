@@ -15,7 +15,9 @@ export const WIDE = '(min-width: 960px)';
 export function subscribe(change: () => void) {
   const media = window.matchMedia(WIDE);
   media.addEventListener('change', change);
-  return () => media.removeEventListener('change', change);
+  return () => {
+    media.removeEventListener('change', change);
+  };
 }
 
 /** Whether the rail sits open beside the questions: in the browser, the screen is wide; on the server, yes. */

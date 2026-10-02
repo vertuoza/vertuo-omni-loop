@@ -18,10 +18,10 @@ function watching(initial: LivePulse | null, reads: (LivePulse | null | Error)[]
   const queue = [...reads];
   const tick = watchNewWork({
     initial: initial === null ? null : signature(initial),
-    read: async () => {
+    read: () => {
       const next = queue.shift();
-      if (next instanceof Error) throw next;
-      return next ?? null;
+      if (next instanceof Error) return Promise.reject(next);
+      return Promise.resolve(next ?? null);
     },
     onChange,
     onProblem,

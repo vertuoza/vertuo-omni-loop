@@ -16,22 +16,22 @@ describe('the way back after signing in on a dossier', () => {
 
   it('exchanges the code, joins the account\'s workspaces, then goes back to the same dossier', async () => {
     const steps: string[] = [];
-    const exchange = vi.fn(async (code: string) => { steps.push(`exchange ${code}`); return { error: null }; });
-    const join = vi.fn(async () => { steps.push('join'); });
+    const exchange = vi.fn((code: string) => { steps.push(`exchange ${code}`); return Promise.resolve({ error: null }); });
+    const join = vi.fn(() => { steps.push('join'); return Promise.resolve(); });
     expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, ID, exchange, join)).toBe(`${ORIGIN}/prd/${ID}`);
     expect(steps).toEqual(['exchange abc', 'join']);
   });
 
   it('still goes back when joining fails: the page then says not found, never an error', async () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const join = async () => { throw new Error('down'); };
-    expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, ID, async () => ({ error: null }), join)).toBe(`${ORIGIN}/prd/${ID}`);
+    const join = () => Promise.reject(new Error('down'));
+    expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, ID, () => Promise.resolve({ error: null }), join)).toBe(`${ORIGIN}/prd/${ID}`);
     quiet.mockRestore();
   });
 
   it('carries the reason when GitHub refused, and joins nothing', async () => {
     const join = vi.fn(async () => {});
-    const url = new URL(await dossierSignInReturn(back('?error=access_denied&error_description=Not+allowed'), ORIGIN, ID, async () => ({ error: null }), join));
+    const url = new URL(await dossierSignInReturn(back('?error=access_denied&error_description=Not+allowed'), ORIGIN, ID, () => Promise.resolve({ error: null }), join));
     expect(url.pathname).toBe(`/prd/${ID}`);
     expect(url.searchParams.get('signin_error')).toBe('Not allowed');
     expect(join).not.toHaveBeenCalled();
@@ -40,14 +40,14 @@ describe('the way back after signing in on a dossier', () => {
   it('says so when the code could not be exchanged, and joins nothing', async () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const join = vi.fn(async () => {});
-    const url = new URL(await dossierSignInReturn(back('?code=old'), ORIGIN, ID, async () => ({ error: { message: 'expired' } }), join));
+    const url = new URL(await dossierSignInReturn(back('?code=old'), ORIGIN, ID, () => Promise.resolve({ error: { message: 'expired' } }), join));
     expect(url.searchParams.get('signin_error')).toBe('That sign-in could not be finished. Start again from this browser.');
     expect(join).not.toHaveBeenCalled();
     quiet.mockRestore();
   });
 
   it('goes home, on this site, for anything that is not a dossier id', async () => {
-    expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, '..%2F..%2Fevil', async () => ({ error: null }), async () => {})).toBe(`${ORIGIN}/`);
+    expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, '..%2F..%2Fevil', () => Promise.resolve({ error: null }), async () => {})).toBe(`${ORIGIN}/`);
     expect(await dossierSignInReturn(back(''), ORIGIN, 'https://evil.example', null, null)).toBe(`${ORIGIN}/`);
   });
 
@@ -61,15 +61,15 @@ describe('the way back after signing in on the history', () => {
 
   it('exchanges the code, joins the account\'s workspaces, then goes back to /prd', async () => {
     const steps: string[] = [];
-    const exchange = vi.fn(async (code: string) => { steps.push(`exchange ${code}`); return { error: null }; });
-    const join = vi.fn(async () => { steps.push('join'); });
+    const exchange = vi.fn((code: string) => { steps.push(`exchange ${code}`); return Promise.resolve({ error: null }); });
+    const join = vi.fn(() => { steps.push('join'); return Promise.resolve(); });
     expect(await historySignInReturn(history('?code=abc'), ORIGIN, exchange, join)).toBe(`${ORIGIN}/prd`);
     expect(steps).toEqual(['exchange abc', 'join']);
   });
 
   it('carries the reason when GitHub refused, and joins nothing', async () => {
     const join = vi.fn(async () => {});
-    const url = new URL(await historySignInReturn(history('?error=access_denied&error_description=Not+allowed'), ORIGIN, async () => ({ error: null }), join));
+    const url = new URL(await historySignInReturn(history('?error=access_denied&error_description=Not+allowed'), ORIGIN, () => Promise.resolve({ error: null }), join));
     expect(url.pathname).toBe('/prd');
     expect(url.searchParams.get('signin_error')).toBe('Not allowed');
     expect(join).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe('the way back after signing in on the history', () => {
   });
 
   it('goes back to the list of fixes it was opened from (PRD 627)', async () => {
-    expect(await historySignInReturn(new URL(`${ORIGIN}/visual/callback?code=abc`), ORIGIN, async () => ({ error: null }), null, '/visual')).toBe(`${ORIGIN}/visual`);
+    expect(await historySignInReturn(new URL(`${ORIGIN}/visual/callback?code=abc`), ORIGIN, () => Promise.resolve({ error: null }), null, '/visual')).toBe(`${ORIGIN}/visual`);
     expect(await historySignInReturn(new URL(`${ORIGIN}/bugs/callback`), ORIGIN, null, null, '/bugs')).toBe(`${ORIGIN}/bugs`);
   });
 });
