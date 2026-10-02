@@ -146,7 +146,7 @@ function buildingAndOutboxOf(inbox: readonly StagedPrd[], features: readonly Fea
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
     const openItems = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
-    if (mine.some((feature) => feature.ships === true)) out.outbox.push({ prd, topic, openItems });
+    if (mine.some((feature) => feature.ships)) out.outbox.push({ prd, topic, openItems });
     else if (openItems > 0 || mine.some(isBuilt)) out.building.push({ prd, topic, openItems });
   }
   return out;
@@ -189,7 +189,7 @@ function yoursOf(facts: OverviewFacts, stages: Stages, onBase: readonly StagedPr
 /** The overview of the repository `facts` describe: its stages, counts, bar and your PRDs. */
 export function overviewFor(facts: OverviewFacts): Overview {
   const delivered = stage(facts.shipped);
-  const withRetro = new Set(facts.retro ?? []);
+  const withRetro = new Set(facts.retro);
   const retro = delivered.filter(({ prd }) => withRetro.has(prd));
   const shipped = delivered.filter(({ prd }) => !withRetro.has(prd));
   const onBase = stage(facts.inbox, new Set(delivered.map(({ prd }) => prd)));

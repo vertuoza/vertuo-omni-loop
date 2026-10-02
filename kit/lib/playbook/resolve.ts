@@ -27,6 +27,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
+import { defined } from '../narrow.ts';
 import { parseForm, readForm } from './forms.ts';
 import type { Form, FormState, Slot } from './forms.ts';
 
@@ -178,7 +179,7 @@ export function resolveForm(formId: string, { ctx, template }: { ctx: Ctx; templ
   const title = repo?.title ?? kit.form.title;
 
   if (repo?.state === 'pointer') {
-    const target = readTarget(repo.pointsTo!, repo.index, { ctx }); // ts-allow: a pointer form always names points-to (its schema refuses one without)
+    const target = readTarget(defined(repo.pointsTo, `the points-to of ${file}`), repo.index, { ctx }); // a pointer form always names points-to (its schema refuses one without)
     if (target.missing) problems.push(`${file}: ${target.missing === repo.pointsTo ? 'points-to' : 'index'} ${target.missing} does not exist`);
     const section: Section = { slot: null, heading: title, source: 'pointer', label: `[→ ${repo.pointsTo}]`, text: target.text, questions: [] };
     return { form: formId, file, state, title, sections: [section], problems };

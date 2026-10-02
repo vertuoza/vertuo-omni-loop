@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import type { z } from 'zod';
 import type { Context, ExecRaw } from '../context.ts';
 import { isFilled, playbookOf } from '../playbook/filled.ts';
-import { propertyOf } from '../narrow.ts';
+import { at, defined, propertyOf, textOf } from '../narrow.ts';
 import { parseForm } from '../playbook/forms.ts';
 import { bundleVersion } from '../update/installed.ts';
 import { firstIssue, GhCompareSchema, GhContentEntrySchema, GhRepositorySchema } from './gh-schema.ts';
@@ -50,7 +50,7 @@ export type GhReader = {
 
 /** What a failed `gh` call carries: its stderr, when it ran. */
 /** What `gh` said, as whatever it threw carries it: its stderr, then its message. */
-const ghText = (error: unknown): string => `${propertyOf(error, 'stderr') ?? ''}\n${propertyOf(error, 'message') ?? ''}`;
+const ghText = (error: unknown): string => `${textOf(propertyOf(error, 'stderr'))}\n${textOf(propertyOf(error, 'message'))}`;
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 const BIN_PATH = '.omni-loop/bin/omni.mjs';
@@ -161,7 +161,7 @@ export function readTarget(
     }
     if (installed && filled) return row(loop, 'drifted', `the config says ${knowledge}, but it has the loop and a filled form`);
     if (knowledge === 'imported') {
-      const stale = staleness(gh, { repo, readAt: target.readAt! }, branch, evidence); // ts-allow: an imported target always has a readAt (the config refuses one without)
+      const stale = staleness(gh, { repo, readAt: defined(target.readAt, `the readAt of ${repo}`) }, branch, evidence); // an imported target always has a readAt (the config refuses one without)
       if (stale) return row(loop, 'stale', stale);
     }
     return row(loop, 'ok');
@@ -173,7 +173,7 @@ export function readTarget(
 
 /** The folder holding a target's imported copy: `<paths.knowledge>/repos/<name>`. */
 export function copyFolder(repo: string, { ctx }: { ctx: { config: { paths: { knowledge: string } } } }): string {
-  return join(ctx.config.paths.knowledge, 'repos', repo.split('/')[1]!); // ts-allow: a target's repo is an owner/name slug (the config checks it)
+  return join(ctx.config.paths.knowledge, 'repos', at(repo.split('/'), 1, `the name of ${repo}`)); // a target's repo is an owner/name slug (the config checks it)
 }
 
 /** Every target path the evidence of a copy's forms names; empty when the target has no copy. */

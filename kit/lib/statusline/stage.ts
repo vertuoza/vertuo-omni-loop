@@ -49,7 +49,7 @@ export type BaseFolders = { inbox: string[]; shipped: string[] };
 
 /** Whether `path` (relative to a PRD's outbox folder) is an open item, as `outboxItemFiles` counts one. */
 export function isOpenItem(path: string): boolean {
-  const segments = String(path).split('/');
+  const segments = path.split('/');
   const name = segments.pop() ?? '';
   if (segments.includes(ACCOUNTS_DIR)) return false;
   return name.endsWith('.md') && name !== SETTLED_FILE;
@@ -65,7 +65,7 @@ export function openItemCount(paths: readonly string[] | null | undefined): numb
  * since the fork) and in `stillDiffers` (what differs from the base now).
  */
 export function isBuilt({ forkChanges, stillDiffers, delivery }: { forkChanges: readonly string[] | null; stillDiffers: readonly string[] | null; delivery: string }): boolean {
-  const inside = `${String(delivery).replace(/\/+$/, '')}/`;
+  const inside = `${delivery.replace(/\/+$/, '')}/`;
   const differs = new Set(stillDiffers ?? []);
   return (forkChanges ?? []).some((path) => !path.startsWith(inside) && differs.has(path));
 }

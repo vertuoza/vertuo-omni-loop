@@ -22,6 +22,9 @@ import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
 
+/** `Array.isArray`, keeping the items' type where the built-in widens them to `any`. */
+const isList = <T>(value: readonly T[] | null | undefined): value is readonly T[] => Array.isArray(value);
+
 /** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
 type Env = Readonly<Record<string, string | null | undefined>> | null | undefined;
 
@@ -150,7 +153,7 @@ export function itemsPart(count: number | null | undefined): string | null {
  * when `color` is on.
  */
 export function slicesPart(slices: readonly CachedSlice[] | null | undefined, { color = false }: { color?: boolean } = {}): string | null {
-  if (!Array.isArray(slices) || slices.length === 0) return null;
+  if (!isList(slices) || slices.length === 0) return null;
   const count = (test: (state: string) => boolean): number => slices.filter((slice) => test(slice.state)).length;
   const merged = count((state) => state === MERGED);
   if (merged === slices.length) return 'all slices merged';

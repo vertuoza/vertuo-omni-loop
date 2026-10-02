@@ -13,6 +13,7 @@
 //       "fit": null | "fits persona:Marc ✓ · size#2 ✓" } ] }
 //
 // Reads text, calls nothing. Every refusal names the round (its stage, else its place) and the field.
+import { textOf } from '../narrow.ts';
 
 export const VOICE_FILE = 'voice.json';
 
@@ -132,7 +133,7 @@ function roundProblems(round: unknown): string[] {
   const names: unknown[] = Array.isArray(round.personas) ? round.personas.map((p: unknown) => (isRecord(p) ? p.name : undefined)) : [];
   return [
     ...unknownFields(round, ROUND_FIELDS, 'a round'),
-    ...(DATE.test(String(round.date ?? '')) ? [] : ['date must be YYYY-MM-DD.']),
+    ...(DATE.test(textOf(round.date)) ? [] : ['date must be YYYY-MM-DD.']),
     ...personasProblems(round.personas),
     ...objectionProblems(round.objection ?? null, names),
     ...fitProblems(round.fit),

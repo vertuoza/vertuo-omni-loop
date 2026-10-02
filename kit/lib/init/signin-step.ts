@@ -42,7 +42,7 @@ export async function signInStep({ askUrl, home, interactive, signIn }: {
   let line: string | undefined;
   try {
     const done = await signIn();
-    ({ code, line } = typeof done === 'number' ? { code: done } : { code: done?.code, line: done?.line });
+    ({ code, line } = typeof done === 'number' ? { code: done } : { code: done.code, line: done.line });
   } catch {
     code = 1;
   }

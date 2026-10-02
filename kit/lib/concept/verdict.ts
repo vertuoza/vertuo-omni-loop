@@ -94,7 +94,9 @@ function tagLoads(name: string, attributes: string, styles: string[]): string[] 
   const loads: string[] = [];
   for (const [, attr = '', ...values] of attributes.matchAll(ATTRIBUTE)) {
     const attribute = attr.toLowerCase();
-    const value = values.find((v) => v !== undefined) ?? '';
+    // A group of an alternative that did not match is `undefined` at run time, whatever the type says.
+    const groups: readonly (string | undefined)[] = values;
+    const value = groups.find((v) => v !== undefined) ?? '';
     if (attribute === 'style') styles.push(value);
     if (FOLLOWED.has(name) || !LOADING.has(attribute)) continue;
     const remote = attributeUrls(attribute, value).filter((url) => REMOTE.test(url));

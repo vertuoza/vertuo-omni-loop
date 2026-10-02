@@ -29,6 +29,7 @@
  */
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
+import { textOf } from '../narrow.ts';
 
 /** One pull request or issue the reader kept: `state` is `gh`'s, lower-cased. */
 export type CreditPullRequest = {
@@ -77,7 +78,7 @@ const MERGED_PR = /\(#(\d+)\)\s*$/;
 
 /** The pull request a default-branch commit merged — the `(#<n>)` ending its subject — or `null`. */
 export function mergedPullRequest(message: unknown): number | null {
-  const match = MERGED_PR.exec(String(message ?? '').split('\n')[0] ?? '');
+  const match = MERGED_PR.exec(textOf(message).split('\n')[0] ?? '');
   return match ? Number(match[1]) : null;
 }
 
@@ -98,7 +99,7 @@ function kindOf(names: string[], labels: CreditLabels): Kind {
  */
 export function sameAccount(author: unknown, login: string | null): boolean {
   if (!author || !login) return false;
-  const said = String(author).toLowerCase();
+  const said = textOf(author).toLowerCase();
   const wanted = login.toLowerCase();
   return said === wanted || (wanted.endsWith('[bot]') && said === `app/${wanted.slice(0, -'[bot]'.length)}`);
 }
@@ -204,7 +205,7 @@ export function creditCommits(commits: CreditCommit[]): CreditedCommit[] {
       repo: commit.repo,
       sha: commit.sha,
       date: commit.date,
-      subject: (String(commit.message ?? '').split('\n')[0] ?? '').trim(),
+      subject: (commit.message.split('\n')[0] ?? '').trim(),
       pullRequest: mergedPullRequest(commit.message),
     }))
     .sort((a, b) => (time(a.date) || 0) - (time(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));

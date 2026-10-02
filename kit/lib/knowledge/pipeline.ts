@@ -55,6 +55,7 @@ import {
   type KnowledgeSummary,
   type PromptCandidate,
 } from './classify.ts';
+import { defined } from '../narrow.ts';
 import { harvestCandidates, type Candidate } from './harvest.ts';
 import { writeKnowledge, type Classified, type Merge, type Placed, type Taken, type WriteResult } from './write.ts';
 
@@ -193,7 +194,7 @@ export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number 
 
     let moves: Move[] = [];
     let rewrites: Write[] = [];
-    if (scratch.layout.whereIs(n)!.state === 'inbox') { // ts-allow: the folder exists in `ctx`'s tree, checked above, and the scratch tree copies it
+    if (defined(scratch.layout.whereIs(n), `the folder of PRD ${Number(n)}`).state === 'inbox') { // the folder exists in `ctx`'s tree, checked above, and the scratch tree copies it
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file: string) => readFileSync(join(scratch.root, file), 'utf8') });
       if (!plan.ok) return { ok: false, errors: plan.reasons };

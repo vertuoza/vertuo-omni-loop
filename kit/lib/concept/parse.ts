@@ -16,6 +16,7 @@
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { at, defined, group } from '../narrow.ts';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
 export const CONCEPT_KINDS = ['product', 'identity', 'platform'] as const;
@@ -107,7 +108,7 @@ function sectionsOf(body: string): Section[] {
   for (const line of body.split(/\r?\n/)) {
     const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading && !line.startsWith('###')) {
-      current = { name: heading[1]!, lines: [] }; // group 1 always matches
+      current = { name: group(heading, 1), lines: [] }; // group 1 always matches
       sections.push(current);
     } else if (/^#\s/.test(line)) {
       current = null;
@@ -119,15 +120,16 @@ function sectionsOf(body: string): Section[] {
 }
 
 function sectionFaults(sections: readonly Section[]): string[] {
-  const at = new Map<string, number>();
+  const position = new Map<string, number>();
   sections.forEach((section, index) => {
-    if (!at.has(section.name)) at.set(section.name, index);
+    if (!position.has(section.name)) position.set(section.name, index);
   });
-  const faults = CONCEPT_SECTIONS.filter((name) => !at.has(name)).map((name) => `sections: no "## ${name}" section.`);
-  const present = CONCEPT_SECTIONS.filter((name) => at.has(name));
+  const faults = CONCEPT_SECTIONS.filter((name) => !position.has(name)).map((name) => `sections: no "## ${name}" section.`);
+  const present = CONCEPT_SECTIONS.filter((name) => position.has(name));
   for (let index = 1; index < present.length; index += 1) {
-    const [before, after] = [present[index - 1]!, present[index]!]; // both indexes are inside `present`
-    if (at.get(after)! < at.get(before)!) { // `present` holds only names `at` has
+    const [before, after] = [at(present, index - 1, 'a section'), at(present, index, 'a section')]; // both indexes are inside `present`
+    const placeOf = (name: string): number => defined(position.get(name), `the place of "## ${name}"`); // `present` holds only names `position` has
+    if (placeOf(after) < placeOf(before)) {
       faults.push(`sections: "## ${before}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(', ')}.`);
     }
   }
@@ -214,7 +216,7 @@ export function parseConcept(text: string): ConceptParse {
   const named = new Map<string, string>();
   for (const section of sections) if (!named.has(section.name)) named.set(section.name, section.lines.join('\n').trim());
   // With no fault, the front matter parsed, every section is present and the table has every column.
-  const data = front.data!;
+  const data = defined(front.data, 'the parsed front matter');
   return {
     ok: true,
     record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas as ConceptArea[] }, // ts-allow: with every column present, each cell is a string
