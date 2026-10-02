@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { configFrom } from './config.ts';
+import { present } from './test/present.ts';
 
 const rows = {
   sectors: [{ name: 'ai', repos: ['vertuo-ai-domain', 'vertuo-mcp'] }, { name: 'core', repos: ['vertuo-core'] }],
@@ -31,7 +32,7 @@ describe('config', () => {
     const c = configFrom(rows);
     expect(c.teams.beaver).toEqual({ home: 'core', label: 'BEAVER', color: '#d08a4a', motto: 'Dams.', mascot: 'beaver', sort: 10, retired: false });
     expect(c.teams.octopod).toEqual({ home: 'ai', retired: false });
-    expect(c.teams['invincible-team']!.retired).toBe(true);
+    expect(present(c.teams['invincible-team'], 'the team invincible-team').retired).toBe(true);
   });
 
   it('answers a login\'s fleet whatever its case, and leaves out retired or unknown fleets', () => {

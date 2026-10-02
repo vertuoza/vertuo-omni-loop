@@ -31,7 +31,7 @@ export type FetchLike = (href: string, init?: { method?: string; headers?: Recor
  * PostgREST sends them, unread: each caller parses what it reads through a schema before use.
  */
 export type SupabaseRest = {
-  select: <T extends TableName>(table: T, query: string) => Promise<unknown[]>;
+  select: (table: TableName, query: string) => Promise<unknown[]>;
   insertNew: <T extends TableName>(table: T, rows: InsertRow<T>[], onConflict: string, select?: string) => Promise<unknown[]>;
   upsert: <T extends TableName>(table: T, rows: InsertRow<T>[], onConflict: string) => Promise<void>;
 };
@@ -175,7 +175,8 @@ export async function loadConfig(rest: SupabaseRest, workspaceId: string): Promi
 }
 
 // An event's data as the request carries it: what JSON.stringify writes of it, read back.
-const wire = (data: Record<string, unknown>): Json => JSON.parse(JSON.stringify(data));
+const JsonValue: z.ZodType<Json> = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValue), z.record(z.string(), JsonValue)]));
+const wire = (data: Record<string, unknown>): Json => JsonValue.parse(JSON.parse(JSON.stringify(data)));
 
 // A row of public.ledger_events, as the ledger reads it back.
 const LedgerRow = z.looseObject({

@@ -8,6 +8,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serveFake, type Call, type Row, type Served, type Tables } from '../test/fake-supabase.ts';
+import { present } from '../test/present.ts';
+import { z } from 'zod';
+
+// A line of a backup file: one row.
+const BackupRow = z.record(z.string(), z.unknown());
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
@@ -98,12 +103,12 @@ describe('the game scripts name their workspace', () => {
     const reads = server.calls.filter((c) => c.method === 'GET' && c.table !== 'workspaces');
     expect(reads.map((c) => c.table).sort()).toEqual(['players', 'repositories', 'sectors', 'teams']);
     for (const c of reads) expect(c.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
-    const append = server.calls.find((c) => c.method === 'POST');
-    expect(append!.table).toBe('ledger_events');
-    expect(append!.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
-    expect((append!.body as Row[]).map((r) => r.workspace_id)).toEqual((append!.body as Row[]).map(() => ACME));
+    const append = present(server.calls.find((c) => c.method === 'POST'), 'the append');
+    expect(append.table).toBe('ledger_events');
+    expect(append.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
+    expect((append.body as Row[]).map((r) => r.workspace_id)).toEqual((append.body as Row[]).map(() => ACME));
     // Acme's PRD 12 is named by its home; Vertuoza's old planet:12:charted stays as it was.
-    expect(tables.ledger_events!.filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
+    expect(present(tables.ledger_events, 'ledger_events').filter((r) => r.workspace_id === ACME).map((r) => [r.id, r.home])).toEqual([['planet:acme-gh/acme-rockets#12:charted', 'acme-gh/acme-rockets']]);
   });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {
@@ -119,20 +124,20 @@ describe('the game scripts name their workspace', () => {
   it('game:score folds only the named workspace\'s ledger', async () => {
     const run = await game('score', ['2026-08'], { OMNI_LOOP_WORKSPACE: 'acme' });
     expect(run.code, run.stderr).toBe(0);
-    const read = server.calls.find((c) => c.table === 'ledger_events');
-    expect(read!.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
+    const read = present(server.calls.find((c) => c.table === 'ledger_events'), 'the read');
+    expect(read.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
   });
 
   it('game:export writes one workspace: workspace.jsonl and its five tables, nothing of another', async () => {
-    tables.ledger_events!.push({ ...tables.ledger_events![0], workspace_id: ACME });
-    tables.sectors!.push({ workspace_id: ACME, name: 'rockets', repos: [] });
+    present(tables.ledger_events, 'ledger_events').push({ ...present(tables.ledger_events, 'ledger_events')[0], workspace_id: ACME });
+    present(tables.sectors, 'sectors').push({ workspace_id: ACME, name: 'rockets', repos: [] });
     tables.arcade_scores = [VERTUOZA, ACME].map((workspace_id) => ({ workspace_id, user_id: 'u1', game: 'invaders', best: 1240, at: 'a' }));
     const dir = join(tmp, 'backup');
     const run = await game('export', [dir, '--workspace', 'vertuoza']);
     expect(run.code, run.stderr).toBe(0);
     expect(readdirSync(dir).sort()).toEqual(['arcade_scores.jsonl', 'ledger_events.jsonl', 'players.jsonl', 'sectors.jsonl', 'teams.jsonl', 'workspace.jsonl']);
-    const read = (file: string) => readFileSync(join(dir, file), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-    expect(read('workspace.jsonl')).toEqual([tables.workspaces![0]]);
+    const read = (file: string) => readFileSync(join(dir, file), 'utf8').split('\n').filter(Boolean).map((l) => BackupRow.parse(JSON.parse(l)));
+    expect(read('workspace.jsonl')).toEqual([present(tables.workspaces, 'workspaces')[0]]);
     for (const table of ['ledger_events', 'sectors', 'teams', 'players', 'arcade_scores']) {
       expect(read(`${table}.jsonl`).map((r) => r.workspace_id)).toEqual([VERTUOZA]);
     }

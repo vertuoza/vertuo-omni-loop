@@ -2,9 +2,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { z } from 'zod';
 import { backupFiles } from './cli/export.ts';
 import { supabaseRest } from './sources/supabase.ts';
 import { fakeSupabase } from './test/fake-supabase.ts';
+import { nth, present } from './test/present.ts';
+
+// The root package.json, as far as these tests read it: its scripts.
+const Package = z.object({ scripts: z.record(z.string(), z.string()) });
 
 type Step = { run?: string; uses?: string; name?: string; env?: Record<string, string>; with?: Record<string, unknown>; 'continue-on-error'?: boolean };
 type Job = { if?: string; needs?: unknown; concurrency: { group: string }; 'timeout-minutes'?: number; permissions: Record<string, string>; env: Record<string, string>; steps: Step[] };
@@ -25,7 +30,7 @@ describe('game workflow', () => {
   });
 
   it('posts rankings only on the Monday schedule or a dispatch that asks for it', () => {
-    expect(wf.on.workflow_dispatch.inputs.post_rankings!.type).toBe('boolean');
+    expect(present(wf.on.workflow_dispatch.inputs.post_rankings, 'post_rankings').type).toBe('boolean');
     expect(wf.jobs.rankings.if).toContain("github.event.schedule == '0 7 * * 1'");
     expect(wf.jobs.rankings.if).toContain('inputs.post_rankings');
     expect(wf.jobs.ledger.if).not.toContain('schedule');
@@ -59,7 +64,7 @@ describe('game workflow', () => {
     const post = steps.findIndex((s) => s.name === 'Post the rankings');
     expect(exportAt).toBeGreaterThanOrEqual(0);
     expect(upload).toBe(exportAt + 1);
-    expect(steps[upload]!.with!['retention-days']).toBe(90);
+    expect(present(nth(steps, upload, 'steps').with, 'with')['retention-days']).toBe(90);
     expect(post).toBeGreaterThan(upload);
   });
 });
@@ -74,7 +79,7 @@ describe('game workflow: XP (PRD 160)', () => {
   });
 
   it('has a root script for it, beside the other game scripts', () => {
-    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    const pkg = Package.parse(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')));
     expect(pkg.scripts['game:xp']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts');
   });
 });
@@ -87,16 +92,16 @@ describe('game workflow: contributions (PRD 328)', () => {
     const xp = steps.findIndex((s) => s.run === 'pnpm game:xp');
     const project = steps.findIndex((s) => s.run === 'pnpm game:project');
     expect(xp).toBeGreaterThanOrEqual(0);
-    const step = steps[xp + 1];
-    expect(step!.run).toBe('pnpm game:contributions');
-    expect(step!['continue-on-error']).toBe(true);
-    expect(step!.env!.GH_TOKEN).toBe('${{ secrets.OMNI_GAME_TOKEN }}');
-    expect(step!.env!.GH_TOKEN).toBe(steps[project]!.env!.GH_TOKEN);
+    const step = present(steps[xp + 1], 'the step after the XP step');
+    expect(step.run).toBe('pnpm game:contributions');
+    expect(step['continue-on-error']).toBe(true);
+    expect(present(step.env, 'the step env').GH_TOKEN).toBe('${{ secrets.OMNI_GAME_TOKEN }}');
+    expect(present(step.env, 'the step env').GH_TOKEN).toBe(present(nth(steps, project, 'steps').env, 'the step env').GH_TOKEN);
     expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:contributions');
   });
 
   it('has a root script for it, beside the other game scripts', () => {
-    const pkg = JSON.parse(read('package.json'));
+    const pkg = Package.parse(JSON.parse(read('package.json')));
     expect(pkg.scripts['game:contributions']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.ts');
   });
 
