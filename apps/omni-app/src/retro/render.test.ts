@@ -8,7 +8,7 @@ import { detect } from './detect.ts';
 import { listPullsInto } from './github.ts';
 import { mergeRuns, render, retroTitle, verdictComment } from './render.ts';
 import { refusedWordsIn } from './rules.ts';
-import type { FeaturePull, Finding, IssueLinks, Narration, Octokit, PrdFacts, Prose, RunRecord } from './retro.types.ts';
+import type { FeaturePull, Finding, IssueLinks, Narration, PrdFacts, Prose, RunRecord } from './retro.types.ts';
 import type { Kind } from './kinds/index.ts';
 
 const GOLDEN = fileURLToPath(new URL('./render.golden/', import.meta.url));
@@ -49,19 +49,19 @@ async function widgetSheet({
   extra = [],
   issues = {},
 }: { narration?: Narration; extra?: Finding[]; issues?: IssueLinks } = {}): Promise<RunRecord> {
-  const github = replayGitHub({ pulls: [FEATURE, ...SUB_PULLS] } as never);
-  const pulls = await listPullsInto(github.octokit as Octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
+  const github = replayGitHub({ pulls: [FEATURE, ...SUB_PULLS] });
+  const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
   const records = { timeline: { readyAt: '2026-09-20T11:50:00Z' } };
   const extraKind: Kind = {
     id: 'ci',
     section: 'Checks',
     runs: ['merge'],
-    gather: async () => null,
+    gather: () => Promise.resolve(null),
     detect: () => ({ facts: null, findings: extra }),
     describe: () => null,
   };
   const { timeline } = await import('./kinds/timeline.ts');
-  const sheet = detect({ run: 'merge', pr, prd, config, pulls, records, kinds: [timeline as unknown as Kind, extraKind] });
+  const sheet = detect({ run: 'merge', pr, prd, config, pulls, records, kinds: [timeline, extraKind] });
   return { ...sheet, narration, issues };
 }
 
