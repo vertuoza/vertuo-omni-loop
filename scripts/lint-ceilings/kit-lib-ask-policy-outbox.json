@@ -1,8 +1,0 @@
-{
-  "paths": [
-    "kit/lib/ask/",
-    "kit/lib/policy/",
-    "kit/lib/outbox/"
-  ],
-  "ceiling": 0
-}
