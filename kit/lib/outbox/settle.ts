@@ -169,7 +169,7 @@ export type SettledEntry = {
 
 /** `PRD issue #985` · `feature pull request #986` — how a human would name where they answered. */
 export function channelLabel(channel: { kind: ChannelKind; number: number }): string {
-  return `${CHANNEL_LABEL[channel.kind] ?? channel.kind} #${channel.number}`;
+  return `${CHANNEL_LABEL[channel.kind]} #${channel.number}`;
 }
 
 /**

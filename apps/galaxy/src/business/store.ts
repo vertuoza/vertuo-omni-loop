@@ -108,33 +108,33 @@ export function demoBusinessPort(initial: Claim[], initialProducts: Product[] = 
     return { ok: true, claim };
   };
   return {
-    async pick(kind, value, on = products[0]?.id) {
+    pick(kind, value, on = products[0]?.id) {
       const v = value.trim();
-      if (badText(v, maxValue(kind))) return { ok: false, message: kind === 'never' ? NEVER_INVALID : INVALID };
+      if (badText(v, maxValue(kind))) return Promise.resolve({ ok: false, message: kind === 'never' ? NEVER_INVALID : INVALID });
       const first = products[0]?.id;
       const product = kind === 'region' ? null : on ?? null;
       // With no product known, one product holds every claim.
       const sameProduct = (c: Claim) => c.kind === 'region' || first === undefined || (c.product ?? first) === product;
       const kept = claims.find((c) => c.kind === kind && sameProduct(c) && c.value.toLowerCase() === v.toLowerCase());
-      if (kept) return save({ ...kept, state: 'confirmed' });
+      if (kept) return Promise.resolve(save({ ...kept, state: 'confirmed' }));
       const seq = Math.max(0, ...claims.map((c) => c.seq)) + 1;
-      return save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', product, cited: 0, lastBy: null });
+      return Promise.resolve(save({ id: `demo-${seq}`, seq, kind, value: v, source: 'pick', state: 'confirmed', product, cited: 0, lastBy: null }));
     },
-    async addProduct(name) {
+    addProduct(name) {
       const v = name.trim();
-      if (badText(v) || products.some((p) => p.name.toLowerCase() === v.toLowerCase())) return { ok: false, message: INVALID };
+      if (badText(v) || products.some((p) => p.name.toLowerCase() === v.toLowerCase())) return Promise.resolve({ ok: false, message: INVALID });
       const product = { id: `demo-product-${products.length + 1}`, name: v };
       products = [...products, product];
-      return { ok: true, product };
+      return Promise.resolve({ ok: true, product });
     },
-    async setState(claim, state) {
+    setState(claim, state) {
       const kept = claims.find((c) => c.id === claim.id);
-      if (!kept) return { ok: false, message: GONE };
-      return save({ ...kept, state });
+      if (!kept) return Promise.resolve({ ok: false, message: GONE });
+      return Promise.resolve(save({ ...kept, state }));
     },
     // The demo has no model: it never guesses, and its sample rivals name no real company.
-    async suggest() {
-      return [];
+    suggest() {
+      return Promise.resolve([]);
     },
   };
 }

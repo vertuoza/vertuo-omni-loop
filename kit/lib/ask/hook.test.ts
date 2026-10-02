@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { firstOptionAnswers, startFakeAskServer } from '../../test/fake-ask-server.ts';
+import { dig, digText } from '../../bin/dig.ts';
+import { assertDefined } from '../../test/assert.ts';
+import { firstOptionAnswers, startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { askClient as typedClient } from './client.ts';
 import type { Tokens } from './client.ts';
@@ -24,15 +26,14 @@ const PLACES = {
 const TERMINAL = 'term-a';
 const TITLE = 'acme/widgets · main';
 
-/** A client's methods with their replies read loosely: a test reads the fields it expects. */
-type Loose<C> = { [K in keyof C]: C[K] extends (...args: infer A) => Promise<unknown> ? (...args: A) => Promise<any> : C[K] };
 type Client = ReturnType<typeof typedClient>;
-const askClient = (options: Parameters<typeof typedClient>[0]) => typedClient(options) as unknown as Loose<Client> & Client;
+type ServerOptions = Parameters<typeof startFakeAskServer>[0];
 
-/** The fake server, read loosely: a test reads its record of the calls and rounds as it expects. */
-type FakeServer = { url: string; host: string; calls: any[]; rounds: Map<string, any>; sessions: Map<string, any>; [key: string]: any };
-type ServerOptions = { answer?: (round: any) => unknown; [key: string]: unknown };
-const startServer = startFakeAskServer as (options: ServerOptions) => Promise<FakeServer>;
+/** The page answers a round with each question's first option. */
+const firstOptions = (round: unknown) => firstOptionAnswers(dig(round, 'questions'));
+
+/** The answers a `pre` hook handed back to the tool. */
+const answersOf = (output: unknown): unknown => dig(output, 'hookSpecificOutput', 'updatedInput', 'answers');
 
 /** The input a `pre` hook is given, its tool input open to more fields. */
 type PreInput = { hook_event_name: string; session_id: string; tool_name: string; tool_input: Record<string, unknown>; tool_use_id: string | null };
@@ -50,30 +51,59 @@ function memoryTokens(entries: Record<string, Tokens>) {
 // answers at once, so a quiet machine never waits. A test of giving up passes its own short total (#570).
 const ROOMY = { totalMs: 30_000, callMs: 10_000 };
 
-let server!: FakeServer;
+let server: FakeAskServer;
+/** Every fake server a test started, closed after it. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined!;
+  await Promise.all(started.splice(0).map((each) => each.close()));
 });
 
 /** A checkout with ask mode on against a fake server, and no terminal's session opened yet. */
 async function modeOn(options: ServerOptions = {}) {
-  server = await startServer({ holdMs: 50, ...options });
+  server = await startFakeAskServer({ holdMs: 50, ...options });
+  started.push(server);
   const { root, write } = makeRepo({ files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${server.url}\n` } });
   writeMode(root, { host: server.host });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
-  const client = askClient({ baseUrl: server.url, host: server.host, tokens });
-  // The output is read loosely: a test reads the fields it expects of it.
-  const pre = (input: unknown, limits = ROOMY, more: Partial<Parameters<typeof preHook>[0]> = {}): Promise<any> =>
+  const client = typedClient({ baseUrl: server.url, host: server.host, tokens });
+  const pre = (input: unknown, limits = ROOMY, more: Partial<Parameters<typeof preHook>[0]> = {}) =>
     preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
   return { root, write, client, tokens, pre };
 }
 
 /** The one session the fake server holds. */
-function onlySession() {
-  const sessions = [...server.sessions.values()];
+function onlySession(): unknown {
+  const sessions = sessionsList();
   expect(sessions).toHaveLength(1);
   return sessions[0];
+}
+
+/** The fake server's sessions and rounds, in the order they were opened. */
+const sessionsList = (): unknown[] => [...server.sessions.values()].map((session): unknown => session);
+const roundsList = (): unknown[] => [...server.rounds.values()].map((round): unknown => round);
+
+/** The fake server's first round. */
+function firstRound(): unknown {
+  const [round] = roundsList();
+  assertDefined(round, 'a round');
+  return round;
+}
+
+/** Field `key` of the fake server's session `id`. */
+const sessionField = (id: string, key: string): unknown => dig(server.sessions.get(id), key);
+
+/** The body of the fake server's first call `matching`. */
+function bodyOfCall(matching: (path: string) => boolean): unknown {
+  const call = server.calls.find((each) => matching(each.path));
+  assertDefined(call, 'the call');
+  return call.body;
+}
+
+/** The terminal's session as this checkout keeps it, which must be there. */
+function terminalOf(root: string, terminalId: string) {
+  const terminal = readTerminal(root, terminalId);
+  assertDefined(terminal, `terminal ${terminalId}`);
+  return terminal;
 }
 
 describe('activeMode', () => {
@@ -105,7 +135,7 @@ describe('activeMode', () => {
 
 describe('the pre hook', () => {
   it('opens this terminal\'s session on its first question and hands the page\'s answer back, exactly', async () => {
-    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, pre } = await modeOn({ answer: firstOptions });
     const output = await pre(preInput([COLOUR]));
     expect(output).toEqual({
       hookSpecificOutput: {
@@ -116,20 +146,20 @@ describe('the pre hook', () => {
     });
     const session = onlySession();
     expect(session).toMatchObject({ title: TITLE, status: 'open' });
-    expect(readTerminal(root, TERMINAL)).toEqual({ sessionId: session.id, host: server.host });
-    const [round] = server.rounds.values();
-    expect(round).toMatchObject({ sessionId: session.id, questions: [COLOUR] });
-    expect(readRound(root, 'toolu_01')).toEqual({ roundId: round.id, status: 'answered' });
+    expect(readTerminal(root, TERMINAL)).toEqual({ sessionId: dig(session, 'id'), host: server.host });
+    const round = firstRound();
+    expect(round).toMatchObject({ sessionId: dig(session, 'id'), questions: [COLOUR] });
+    expect(readRound(root, 'toolu_01')).toEqual({ roundId: dig(round, 'id'), status: 'answered' });
   });
 
   it('reuses the terminal\'s session for its next question', async () => {
-    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, pre } = await modeOn({ answer: firstOptions });
     await pre(preInput([COLOUR], 'toolu_01'));
     await pre(preInput([PLACES], 'toolu_02'));
-    const session = onlySession();
-    expect([...server.rounds.values()].map((round) => round.sessionId)).toEqual([session.id, session.id]);
+    const session = digText(onlySession(), 'id');
+    expect(roundsList().map((round) => dig(round, 'sessionId'))).toEqual([session, session]);
     expect(server.calls.filter((call) => call.path === '/api/ask/sessions')).toHaveLength(1);
-    expect(readTerminal(root, TERMINAL)!.sessionId).toBe(session.id);
+    expect(terminalOf(root, TERMINAL).sessionId).toBe(session);
   });
 
   it('opens one session per terminal, and two questions in flight together each get their own answer', async () => {
@@ -138,69 +168,67 @@ describe('the pre hook', () => {
     const b = pre(preInput([PLACES], 'toolu_b', 'term-b'), ROOMY);
     // Both rounds are posted, each in its own session, before either is answered.
     while (server.rounds.size < 2) await new Promise((resolve) => setTimeout(resolve, 10));
-    const rounds = [...server.rounds.values()];
-    const colour = rounds.find((round) => round.questions[0].question === COLOUR.question);
+    const rounds = roundsList();
+    const colour = rounds.find((round) => dig(round, 'questions', 0, 'question') === COLOUR.question);
     const places = rounds.find((round) => round !== colour);
-    expect(colour.sessionId).not.toBe(places.sessionId);
-    server.answerRound(places.id, { [PLACES.question]: 'Footer' });
-    server.answerRound(colour.id, { [COLOUR.question]: 'Cyan' });
+    expect(dig(colour, 'sessionId')).not.toBe(dig(places, 'sessionId'));
+    server.answerRound(digText(places, 'id'), { [PLACES.question]: 'Footer' });
+    server.answerRound(digText(colour, 'id'), { [COLOUR.question]: 'Cyan' });
 
-    expect((await a).hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
-    expect((await b).hookSpecificOutput.updatedInput.answers).toEqual({ [PLACES.question]: 'Footer' });
+    expect(answersOf(await a)).toEqual({ [COLOUR.question]: 'Cyan' });
+    expect(answersOf(await b)).toEqual({ [PLACES.question]: 'Footer' });
     expect(server.sessions.size).toBe(2);
-    expect(readTerminal(root, 'term-a')!.sessionId).toBe(colour.sessionId);
-    expect(readTerminal(root, 'term-b')!.sessionId).toBe(places.sessionId);
+    expect(terminalOf(root, 'term-a').sessionId).toBe(dig(colour, 'sessionId'));
+    expect(terminalOf(root, 'term-b').sessionId).toBe(dig(places, 'sessionId'));
   });
 
   it('sends the round\'s context with the questions', async () => {
-    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, pre } = await modeOn({ answer: firstOptions });
     const input = { ...preInput([COLOUR], 'toolu_01', 'claude-1'), transcript_path: `${root}/no-transcript.jsonl` };
     await pre(input);
-    const [round] = server.rounds.values();
-    expect(round.context).toEqual({
+    expect(dig(firstRound(), 'context')).toEqual({
       repo: null, branch: null, prd: null, claudeSessionId: 'claude-1', skill: null, model: null, tokens: null,
     });
   });
 
   it('still asks the question when reading the context throws', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     const readContext = () => { throw new Error('the transcript moved'); };
     const output = await pre(preInput([COLOUR]), ROOMY, { readContext });
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    const [round] = server.rounds.values();
-    expect(round.context).toBeNull();
-    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).toEqual({ questions: [COLOUR] });
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(dig(firstRound(), 'context')).toBeNull();
+    expect(bodyOfCall((path) => path.endsWith('/rounds'))).toEqual({ questions: [COLOUR] });
   });
 
   it('sends the lead Claude wrote before asking, and none when there is no lead (PRD 752)', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     await pre(preInput([COLOUR], 'toolu_01'), ROOMY, { readLead: () => '## The design' });
     await pre(preInput([PLACES], 'toolu_02'), ROOMY, { readLead: () => null });
-    const bodies = server.calls.filter((call) => call.path.endsWith('/rounds')).map((call) => call.body);
-    expect(bodies[0].lead).toBe('## The design');
+    const bodies = server.calls.filter((call) => call.path.endsWith('/rounds')).map((call): unknown => call.body);
+    expect(dig(bodies[0], 'lead')).toBe('## The design');
     expect(bodies[1]).not.toHaveProperty('lead');
   });
 
   it('still asks the question, with no lead, when reading the lead throws', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     const readLead = () => { throw new Error('the transcript moved'); };
     const output = await pre(preInput([COLOUR]), ROOMY, { readLead });
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).not.toHaveProperty('lead');
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(bodyOfCall((path) => path.endsWith('/rounds'))).not.toHaveProperty('lead');
   });
 
   it('opens the terminal\'s session with context.repo (PRD 144)', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     await pre(preInput([COLOUR]), ROOMY, { readSessionContext: () => ({ repo: 'acme/widgets' }) });
-    expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE, context: { repo: 'acme/widgets' } });
+    expect(bodyOfCall((path) => path === '/api/ask/sessions')).toEqual({ title: TITLE, context: { repo: 'acme/widgets' } });
   });
 
   it('still opens the session, with no context, when reading context.repo throws', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     const readSessionContext = () => { throw new Error('the config moved'); };
     const output = await pre(preInput([COLOUR]), ROOMY, { readSessionContext });
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE });
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(bodyOfCall((path) => path === '/api/ask/sessions')).toEqual({ title: TITLE });
   });
 
   it('waits across several waits for an answer given later on the page', async () => {
@@ -208,12 +236,11 @@ describe('the pre hook', () => {
     let waits = 0;
     const onCall = (call: { path: string }) => {
       if (!call.path.endsWith('/wait') || (waits += 1) < 3) return;
-      const [round] = server.rounds.values();
-      server.answerRound(round.id, { [COLOUR.question]: 'Cyan' });
+      server.answerRound(digText(firstRound(), 'id'), { [COLOUR.question]: 'Cyan' });
     };
     const { pre } = await modeOn({ holdMs: 30, onCall });
     const output = await pre(preInput([COLOUR]), ROOMY);
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Cyan' });
     expect(waits).toBe(3);
   });
 
@@ -221,7 +248,7 @@ describe('the pre hook', () => {
     const other = '  Neither: use the green of an answered round, please  ';
     const { pre } = await modeOn({ answer: () => ({ [COLOUR.question]: other, [PLACES.question]: 'Header, History' }) });
     const output = await pre(preInput([COLOUR, PLACES]));
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: other, [PLACES.question]: 'Header, History' });
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: other, [PLACES.question]: 'Header, History' });
   });
 
   it('with no answer within the total wait, abandons the round and prints nothing', async () => {
@@ -229,10 +256,11 @@ describe('the pre hook', () => {
     const started = Date.now();
     expect(await pre(preInput([COLOUR]), { totalMs: 200, callMs: 1000 })).toBeNull();
     expect(Date.now() - started).toBeLessThan(4000);
-    const [round] = server.rounds.values();
-    expect(round.status).toBe('abandoned');
-    expect(server.calls.at(-1).path).toBe(`/api/ask/rounds/${round.id}/abandon`);
-    expect(readRound(root, 'toolu_01')).toEqual({ roundId: round.id, status: 'abandoned' });
+    const round = firstRound();
+    const roundId = digText(round, 'id');
+    expect(dig(round, 'status')).toBe('abandoned');
+    expect(server.calls.at(-1)?.path).toBe(`/api/ask/rounds/${roundId}/abandon`);
+    expect(readRound(root, 'toolu_01')).toEqual({ roundId, status: 'abandoned' });
   });
 
   it('never waits past the total, even inside one long wait', async () => {
@@ -240,7 +268,7 @@ describe('the pre hook', () => {
     const started = Date.now();
     expect(await pre(preInput([COLOUR]), { totalMs: 300, callMs: 60000 })).toBeNull();
     expect(Date.now() - started).toBeLessThan(4000);
-    expect([...server.rounds.values()][0].status).toBe('abandoned');
+    expect(dig(firstRound(), 'status')).toBe('abandoned');
   });
 
   it('with the server down, prints nothing within 2 s and writes nothing', async () => {
@@ -255,32 +283,34 @@ describe('the pre hook', () => {
   });
 
   it('on a 401, refreshes once and retries', async () => {
-    const { pre, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre, tokens } = await modeOn({ answer: firstOptions });
     server.expireAccess();
     const output = await pre(preInput([COLOUR]));
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
     expect(server.calls.filter((call) => call.path === '/api/ask/token')).toHaveLength(1);
-    expect(tokens.store[server.host]!.access_token).toBe('access-2');
+    expect(tokens.store[server.host]?.access_token).toBe('access-2');
   });
 
   it('when its session is closed, deletes only this terminal\'s files, keeps the mode on, and the next question opens a new session', async () => {
     let closeNext = true;
-    const answer = (round: any) => {
+    const answer = (round: unknown) => {
       if (closeNext) {
         closeNext = false;
         // The session closes while the hook waits on its round, the moment that round is posted.
-        setImmediate(() => server.closeSession(round.sessionId));
+        setImmediate(() => {
+          server.closeSession(digText(round, 'sessionId'));
+        });
         return null;
       }
-      return firstOptionAnswers(round.questions);
+      return firstOptions(round);
     };
     const { root, pre } = await modeOn({ answer });
     writeTerminal(root, 'term-b', { sessionId: 'sess-b', host: server.host });
     writeRound(root, 'toolu_b', { roundId: 'round-b', status: 'open' });
 
     expect(await pre(preInput([COLOUR]), { totalMs: 2000, callMs: 1000 })).toBeNull();
-    const [first] = server.sessions.values();
-    expect(first.status).toBe('closed');
+    const [first] = sessionsList();
+    expect(dig(first, 'status')).toBe('closed');
     expect(readTerminal(root, TERMINAL)).toBeNull();
     expect(readRound(root, 'toolu_01')).toBeNull();
     expect(readMode(root)).toEqual({ host: server.host, sessionId: null });
@@ -288,14 +318,14 @@ describe('the pre hook', () => {
     expect(readRound(root, 'toolu_b')).toEqual({ roundId: 'round-b', status: 'open' });
 
     const next = await pre(preInput([COLOUR], 'toolu_02'));
-    expect(next.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    const second = readTerminal(root, TERMINAL)!;
-    expect(second.sessionId).not.toBe(first.id);
-    expect(server.sessions.get(second.sessionId).status).toBe('open');
+    expect(answersOf(next)).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    const second = terminalOf(root, TERMINAL);
+    expect(second.sessionId).not.toBe(dig(first, 'id'));
+    expect(sessionField(second.sessionId, 'status')).toBe('open');
   });
 
   it('when the server no longer takes rounds in its session, forgets it, and the next question opens a new one', async () => {
-    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, pre } = await modeOn({ answer: firstOptions });
     const gone = server.openSession(TITLE);
     server.closeSession(gone.id);
     writeTerminal(root, TERMINAL, { sessionId: gone.id, host: server.host });
@@ -304,21 +334,21 @@ describe('the pre hook', () => {
     expect(readTerminal(root, TERMINAL)).toBeNull();
     expect(server.rounds.size).toBe(0);
 
-    expect((await pre(preInput([COLOUR], 'toolu_02'))).hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
-    expect(readTerminal(root, TERMINAL)!.sessionId).not.toBe(gone.id);
+    expect(answersOf(await pre(preInput([COLOUR], 'toolu_02')))).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(terminalOf(root, TERMINAL).sessionId).not.toBe(gone.id);
   });
 
   it('opens a new session when this terminal\'s was opened on another host', async () => {
-    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, pre } = await modeOn({ answer: firstOptions });
     writeTerminal(root, TERMINAL, { sessionId: 'sess-elsewhere', host: 'elsewhere.example.com' });
     expect(await pre(preInput([COLOUR]))).not.toBeNull();
-    expect(readTerminal(root, TERMINAL)).toEqual({ sessionId: onlySession().id, host: server.host });
+    expect(readTerminal(root, TERMINAL)).toEqual({ sessionId: dig(onlySession(), 'id'), host: server.host });
   });
 
   it('prints nothing when the page\'s answer leaves a question out', async () => {
     const { pre } = await modeOn({ answer: () => ({ [COLOUR.question]: 'Cyan' }) });
     expect(await pre(preInput([COLOUR, PLACES]))).toBeNull();
-    expect([...server.rounds.values()][0].status).toBe('abandoned');
+    expect(dig(firstRound(), 'status')).toBe('abandoned');
   });
 
   it('prints nothing and opens nothing for another tool, an input with no questions, or no safe session or tool use id', async () => {
@@ -326,7 +356,8 @@ describe('the pre hook', () => {
     expect(await pre({ ...preInput([COLOUR]), tool_name: 'Bash' })).toBeNull();
     expect(await pre(preInput([]))).toBeNull();
     expect(await pre({})).toBeNull();
-    const { session_id: _, ...noTerminal } = preInput([COLOUR]);
+    const noTerminal: Partial<PreInput> = preInput([COLOUR]);
+    delete noTerminal.session_id;
     expect(await pre(noTerminal)).toBeNull();
     expect(await pre(preInput([COLOUR], 'toolu_01', '../escape'))).toBeNull();
     expect(await pre(preInput([COLOUR], 'toolu_01', ''))).toBeNull();
@@ -337,11 +368,11 @@ describe('the pre hook', () => {
   });
 
   it('keeps every other field of the tool input', async () => {
-    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { pre } = await modeOn({ answer: firstOptions });
     const input = preInput([COLOUR]);
     input.tool_input.metadata = { source: 'brainstorm' };
     const output = await pre(input);
-    expect(output.hookSpecificOutput.updatedInput).toEqual({
+    expect(dig(output, 'hookSpecificOutput', 'updatedInput')).toEqual({
       questions: [COLOUR],
       metadata: { source: 'brainstorm' },
       answers: { [COLOUR.question]: 'Yellow (Recommended)' },
@@ -358,14 +389,22 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
   function stubbed(answer: Record<string, unknown>, serve: (url: string) => Uint8Array = () => PNG) {
     const calls: unknown[][] = [];
     const client = {
-      openSession: async () => ({ id: 'sess-1' }),
-      openRound: async () => { calls.push(['openRound']); return { roundId: ROUND }; },
-      wait: async () => ({ status: 'answered', ...answer }),
-      abandon: async () => { calls.push(['abandon']); },
-      download: async (url: string, options: unknown) => { calls.push(['download', url, options]); return serve(url); },
+      openSession: () => Promise.resolve({ id: 'sess-1' }),
+      openRound: () => { calls.push(['openRound']); return Promise.resolve({ roundId: ROUND }); },
+      wait: () => Promise.resolve({ status: 'answered', ...answer }),
+      abandon: () => { calls.push(['abandon']); return Promise.resolve(); },
+      // A download that fails rejects, as the real one does.
+      download: (url: string, options: unknown) => {
+        calls.push(['download', url, options]);
+        try {
+          return Promise.resolve(serve(url));
+        } catch (error) {
+          return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      },
     } as unknown as Client;
     const { root } = makeRepo({ files: { '.omni-loop/config.yml': 'kit: 1\n' } });
-    const pre = (questions: unknown[] = [COLOUR, PLACES], more: Partial<Parameters<typeof preHook>[0]> = {}): Promise<any> =>
+    const pre = (questions: unknown[] = [COLOUR, PLACES], more: Partial<Parameters<typeof preHook>[0]> = {}) =>
       preHook({ root, host: 'ask.example', client, input: preInput(questions), title: () => TITLE, limits: ROOMY, ...more });
     const shot = (name: string) => join(root, LOCAL_DIR, 'ask', 'shots', ROUND, name);
     return { root, calls, pre, shot };
@@ -377,7 +416,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
       attachments: { [COLOUR.question]: [{ name: '1.png', url: 'https://files.example/1' }, { name: '2.webp', url: 'https://files.example/2' }] },
     });
     const output = await pre([COLOUR, PLACES], { limits: WAIT_LIMITS });
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({
+    expect(answersOf(output)).toEqual({
       [COLOUR.question]: `This one, it is too dark\n\nScreenshots (open each with Read):\n- ${shot('1.png')}\n- ${shot('2.webp')}`,
       [PLACES.question]: 'Header',
     });
@@ -400,7 +439,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
       ] },
     }, (url: string) => { if (url.endsWith('broken')) throw new Error('403'); return PNG; });
     const output = await pre([COLOUR]);
-    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({
+    expect(answersOf(output)).toEqual({
       [COLOUR.question]: [
         '(see screenshots)',
         '',
@@ -422,7 +461,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
       attachments: { [COLOUR.question]: [{ name: '1.png', url: 'https://files.example/1' }, { name: '2.png', url: 'https://files.example/2' }] },
     }, () => { clock += 12_000; return PNG; });
     const output = await pre([COLOUR], { limits: { totalMs: 12_000, callMs: 5_000 }, now: () => clock });
-    expect(output.hookSpecificOutput.updatedInput.answers[COLOUR.question]).toMatch(/1\.png\n- Screenshot 2 could not be downloaded$/);
+    expect(dig(answersOf(output), COLOUR.question)).toMatch(/1\.png\n- Screenshot 2 could not be downloaded$/);
     expect(calls.filter(([what]) => what === 'download').map(([, , options]) => (options as { timeoutMs: number }).timeoutMs)).toEqual([12_000]);
   });
 
@@ -444,7 +483,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
     for (const attachments of none) {
       const { calls, pre, root } = stubbed({ answers: { [COLOUR.question]: 'Cyan' }, ...(attachments === undefined ? {} : { attachments }) });
       const output = await pre([COLOUR]);
-      expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
+      expect(answersOf(output)).toEqual({ [COLOUR.question]: 'Cyan' });
       expect(calls.filter(([what]) => what === 'download')).toEqual([]);
       expect(existsSync(join(root, LOCAL_DIR, 'ask', 'shots'))).toBe(false);
     }
@@ -459,7 +498,7 @@ describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
     mkdirSync(join(root, LOCAL_DIR, 'ask', 'shots'), { recursive: true });
     writeFileSync(join(root, LOCAL_DIR, 'ask', 'shots', ROUND), 'not a folder');
     const output = await pre([COLOUR]);
-    expect(output.hookSpecificOutput.updatedInput.answers[COLOUR.question])
+    expect(dig(answersOf(output), COLOUR.question))
       .toBe('See\n\nScreenshots (open each with Read):\n- Screenshot 1 could not be downloaded');
   });
 });
@@ -489,9 +528,9 @@ describe('the post hook', () => {
   });
 
   /** A round on the server, in a session of its own, abandoned as a terminal takes it. */
-  async function abandonedRound(client: Loose<Client>) {
+  async function abandonedRound(client: Client) {
     const { id } = server.openSession(TITLE);
-    const { roundId } = await client.openRound(id, [COLOUR]);
+    const roundId = digText(await client.openRound(id, [COLOUR]), 'roundId');
     await client.abandon(roundId);
     return roundId;
   }
@@ -502,7 +541,8 @@ describe('the post hook', () => {
     writeRound(root, 'toolu_01', { roundId, status: 'abandoned' });
     writeRound(root, 'toolu_02', { roundId: 'round-other', status: 'open' });
     await postHook({ root, client, input: postInput({ [COLOUR.question]: 'Cyan' }) });
-    expect(server.rounds.get(roundId)).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [COLOUR.question]: 'Cyan' } });
+    const round: unknown = server.rounds.get(roundId);
+    expect(round).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [COLOUR.question]: 'Cyan' } });
     expect(server.calls.at(-1)).toMatchObject({ path: `/api/ask/rounds/${roundId}/answers`, body: { answers: { [COLOUR.question]: 'Cyan' }, via: 'terminal' } });
     expect(readRound(root, 'toolu_01')).toBeNull();
     expect(readRound(root, 'toolu_02')).toEqual({ roundId: 'round-other', status: 'open' });
@@ -549,8 +589,8 @@ describe('the end hook', () => {
 
     await endHook({ root, host: server.host, client, input: endInput('term-a') });
 
-    expect(server.sessions.get(a.id).status).toBe('closed');
-    expect(server.sessions.get(b.id).status).toBe('open');
+    expect(sessionField(a.id, 'status')).toBe('closed');
+    expect(sessionField(b.id, 'status')).toBe('open');
     expect(readTerminal(root, 'term-a')).toBeNull();
     expect(readTerminal(root, 'term-b')).toEqual({ sessionId: b.id, host: server.host });
     expect(readMode(root)).not.toBeNull();

@@ -62,7 +62,9 @@ describe('the ask local state', () => {
     clearTerminal(root, 'term-a');
     expect(readTerminal(root, 'term-a')).toBeNull();
     expect(readTerminal(root, 'term-b')).toEqual({ sessionId: 'sess-2', host: HOST });
-    expect(() => clearTerminal(root, 'term-a')).not.toThrow();
+    expect(() => {
+      clearTerminal(root, 'term-a');
+    }).not.toThrow();
   });
 
   it('writes, reads and clears one question\'s round, never another\'s', () => {
@@ -89,7 +91,9 @@ describe('the ask local state', () => {
     expect(existsSync(join(root, LOCAL_DIR, 'ask'))).toBe(false);
     expect(existsSync(join(root, LOCAL_DIR, 'ask-round.json'))).toBe(false);
     expect(existsSync(join(root, LOCAL_DIR, '.gitignore'))).toBe(true);
-    expect(() => clearMode(root)).not.toThrow();
+    expect(() => {
+      clearMode(root);
+    }).not.toThrow();
   });
 
   it('takes an id as a file name only when it is a safe one', () => {
@@ -100,8 +104,12 @@ describe('the ask local state', () => {
     for (const id of ['../ask', '..', 'a/b', '']) {
       expect(readTerminal(root, id)).toBeNull();
       expect(readRound(root, id)).toBeNull();
-      expect(() => writeTerminal(root, id, { sessionId: 's', host: HOST })).toThrow();
-      expect(() => writeRound(root, id, { roundId: 'r', status: 'open' })).toThrow();
+      expect(() => {
+        writeTerminal(root, id, { sessionId: 's', host: HOST });
+      }).toThrow();
+      expect(() => {
+        writeRound(root, id, { roundId: 'r', status: 'open' });
+      }).toThrow();
     }
     expect(readMode(root)).toEqual({ host: HOST, sessionId: null });
   });
