@@ -20,7 +20,11 @@ vi.mock('../data/supabase-server', () => ({
   supabaseServer: async () => { await supabase.server(); return { auth: { exchangeCodeForSession: supabase.exchange } }; },
   supabaseAs: () => { throw new Error('not in this test'); },
 }));
-vi.mock('../data/sign-in', () => ({ afterSignIn, joinBeforeIssue: () => { throw new Error('not in this test'); } }));
+vi.mock('../data/sign-in', async (actual) => ({
+  appLanding: (await actual<typeof import('../data/sign-in')>()).appLanding,
+  afterSignIn,
+  joinBeforeIssue: () => { throw new Error('not in this test'); },
+}));
 vi.mock('../data/workspace', () => ({ joinByDomain: () => { throw new Error('not in this test'); } }));
 vi.mock('./scores', async (actual) => ({ ...(await actual<typeof import('./scores')>()), countHighScores: highScores }));
 vi.mock('../ask/cli-code-live', () => ({ cliCallbackDeps: () => { throw new Error('not in this test'); } }));
@@ -257,6 +261,30 @@ describe('coming back to the game', () => {
 
   it('sends a refused sign-in back to /play, with the reason', async () => {
     const back = await callback('?error=access_denied&error_description=Nope');
+    expect(back.pathname).toBe('/play');
+    expect(back.searchParams.get('signin_error')).toBe('Nope');
+  });
+
+  it('lands a finished sign-in that picked the Omni app on /app (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    supabase.server.mockResolvedValueOnce(undefined as never);
+    const back = await callback('?code=github&next=app');
+    expect(back.pathname).toBe('/app');
+    expect(back.origin).toBe('https://galaxy.example');
+  });
+
+  it('never lands on a path taken from next (PRD 932)', async () => {
+    supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
+    for (const next of ['//evil.example', 'https%3A%2F%2Fevil.example', '%2Fapp%2F..%2Fx', 'arcade']) {
+      supabase.server.mockResolvedValueOnce(undefined as never);
+      const back = await callback(`?code=github&next=${next}`);
+      expect(back.origin).toBe('https://galaxy.example');
+      expect(back.pathname).toBe('/play');
+    }
+  });
+
+  it('sends a refused sign-in that picked the Omni app back to /play, with the reason (PRD 932)', async () => {
+    const back = await callback('?next=app&error=access_denied&error_description=Nope');
     expect(back.pathname).toBe('/play');
     expect(back.searchParams.get('signin_error')).toBe('Nope');
   });
