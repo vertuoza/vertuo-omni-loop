@@ -145,6 +145,11 @@ html:has(.home) body {
    place of SIGN UP WITH GITHUB, on the button's own frame, and the line under the button goes too. */
 .home-signup-slot:has(.home-signed-in) .home-signup,
 .home-signup-slot:has(.home-signed-in) .home-signup-hint { display: none; }
+/* No flash (PRD 1006, s2): while the browser holds a Supabase auth cookie and the session is not yet
+   known, the page is marked pending before it paints, and the button and its line keep their box but
+   are not shown, so nothing jumps. Controls settles the mark: the pill, or the button back. */
+.home[data-session="pending"] .home-signup,
+.home[data-session="pending"] .home-signup-hint { visibility: hidden; }
 .home-signed-in {
   display: inline-flex;
   align-items: center;
