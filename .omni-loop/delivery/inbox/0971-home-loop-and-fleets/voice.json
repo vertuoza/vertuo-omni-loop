@@ -1,0 +1,30 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A loop that matches the docs is honest. A front page that says less about how it works gives me less to trust.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "Fleets and a leaderboard up front read as the gimmick I already think this is.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Business, products, personas, then the agents build: that is the pitch I give my teams.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "Fleets competing could pull teams apart, but one loop everyone follows is the cohesion I want.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "A page that starts from customers instead of the harness is one I can finally show my team.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": { "persona": "B-E DEv", "text": "Fleets and leaderboards on the home page are exactly the fluff I expected, and with 'Easy in, easy out' gone I can't see how I'd back out of it.", "citations": ["persona:B-E DEv"], "settled": "accepted" },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ (exit line kept) · offering#36 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-02",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "One data list drives the SVG and the screen-reader text, reduced motion is tested, and the phone layout is a criterion. That is careful front-end work.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "The exit line stayed and the counts are real. Still a marketing page to me.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "The customers spread says exactly why the loop ships the right features. And it comes with a proof video.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Four spreads instead of seven, invented examples, a revert to roll back. Easy to review.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Personas with a stance on the front page is what I push for every week.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · offering#36 ✓"
+    }
+  ]
+}
