@@ -4,6 +4,7 @@ import { HERO_PRESETS, rampFrom, heroLook, heroPose, OMNI_POSES, validHero, rand
 import type { Hero, OmniPose } from './heroes.ts';
 import { spritePixels } from './draw.ts';
 import { RAMPS } from './forge.ts';
+import { assertDefined } from '../../../kit/test/assert.ts';
 
 const every = (): Hero[] => {
   const out: Hero[] = [];
@@ -20,9 +21,14 @@ describe('rampFrom', () => {
       const r = rampFrom(hex);
       expect(r[1]).toBe(hex.toLowerCase());
       expect(r.every((c) => /^#[0-9a-f]{6}$/.test(c))).toBe(true);
-      expect(lum(r[0]!)).toBeGreaterThanOrEqual(lum(r[1]!));
-      expect(lum(r[2]!)).toBeLessThanOrEqual(lum(r[1]!));
-      expect(lum(r[3]!)).toBeLessThanOrEqual(lum(r[2]!));
+      const [light, base, shade, dark] = r;
+      assertDefined(light, 'the light tone');
+      assertDefined(base, 'the base tone');
+      assertDefined(shade, 'the shade tone');
+      assertDefined(dark, 'the dark tone');
+      expect(lum(light)).toBeGreaterThanOrEqual(lum(base));
+      expect(lum(shade)).toBeLessThanOrEqual(lum(base));
+      expect(lum(dark)).toBeLessThanOrEqual(lum(shade));
     }
     expect(() => rampFrom('teal')).toThrow(/#rrggbb/);
   });
@@ -47,7 +53,11 @@ describe('heroes', () => {
   it('forges the four bodies in both frames, and a sample of recoloured heroes, at 32×48', () => {
     const all = every();
     const sample = [...['hero-boy', 'hero-boy-nc', 'hero-girl', 'hero-girl-nc'].map((sprite) => ({ sprite, tint: null })),
-      ...Array.from({ length: 60 }, (_, i) => heroLook(all[(i * 7919) % all.length]!, '#ffd84a'))];
+      ...Array.from({ length: 60 }, (_, i) => {
+        const hero = all[(i * 7919) % all.length];
+        assertDefined(hero, 'a sampled hero');
+        return heroLook(hero, '#ffd84a');
+      })];
     for (const { sprite, tint } of sample) {
       for (const frame of [0, 1]) {
         const { w, h, pixels } = spritePixels(sprite, { frame, tint });
@@ -63,7 +73,9 @@ describe('heroes', () => {
     const pixels = new Set(spritePixels(sprite, { tint }).pixels);
     const shows = (hex: string): boolean => rampFrom(hex).some((c) => pixels.has(c));
     expect(sprite).toBe('hero-girl');
-    expect(shows(HERO_PRESETS.skin[3]!)).toBe(true);
+    const skin = HERO_PRESETS.skin[3];
+    assertDefined(skin, 'skin preset 3');
+    expect(shows(skin)).toBe(true);
     expect(shows('#4a7dff')).toBe(true); // blue hair
     expect(shows('#ff5a6e')).toBe(true); // crimson suit
     expect(shows('#2fc6a4')).toBe(true); // teal cape
@@ -76,7 +88,9 @@ describe('heroes', () => {
     expect(fleet.tint.W).toEqual(rampFrom('#b07cff'));
     const omni = heroLook({ v: 1, body: 'boy', skin: 1, hair: 0, suit: 1, cape: 0 }, '#b07cff');
     expect(omni.tint.W).toBeUndefined();
-    expect(new Set(spritePixels(omni.sprite, { tint: omni.tint }).pixels).has(RAMPS.W![1]!)).toBe(true);
+    const white = RAMPS.W?.[1];
+    assertDefined(white, 'the suit white');
+    expect(new Set(spritePixels(omni.sprite, { tint: omni.tint }).pixels).has(white)).toBe(true);
   });
 
   it('draws two different builds for girl and boy', () => {
@@ -97,7 +111,9 @@ describe('heroPose', () => {
     for (const frame of [0, 1]) {
       const pixels = new Set(spritePixels(sprite, { frame, tint }).pixels);
       const shows = (hex: string): boolean => rampFrom(hex).some((c) => pixels.has(c));
-      expect(shows(HERO_PRESETS.skin[3]!), 'skin').toBe(true);
+      const skin = HERO_PRESETS.skin[3];
+      assertDefined(skin, 'skin preset 3');
+      expect(shows(skin), 'skin').toBe(true);
       expect(shows('#4a7dff'), 'hair').toBe(true);
       expect(shows('#ff5a6e'), 'suit').toBe(true);
       expect(shows('#2fc6a4'), 'cape').toBe(true);
@@ -109,7 +125,9 @@ describe('heroPose', () => {
     expect(heroPose({ ...base, cape: 0 }, 'omni-run').sprite).toBe('omni-run');
     const omni = heroPose({ v: 1, body: 'boy', skin: 1, hair: 0, suit: 1, cape: 0 }, 'omni-point', '#b07cff');
     expect(omni.tint.W).toBeUndefined();
-    expect(new Set(spritePixels(omni.sprite, { tint: omni.tint }).pixels).has(RAMPS.W![1]!)).toBe(true);
+    const white = RAMPS.W?.[1];
+    assertDefined(white, 'the suit white');
+    expect(new Set(spritePixels(omni.sprite, { tint: omni.tint }).pixels).has(white)).toBe(true);
   });
 
   it('refuses a pose that is not drawn', () => {
@@ -130,7 +148,11 @@ describe('validHero', () => {
   it('agrees with the database: valid_hero() allows the same ranges', () => {
     const dir = new URL('../../../supabase/migrations/', import.meta.url);
     const sql = readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');
-    const max = (k: string): number => Number(new RegExp(`\\(h ->> '${k}'\\)::int <= (\\d+)`).exec(sql)![1]);
+    const max = (k: string): number => {
+      const bound = new RegExp(`\\(h ->> '${k}'\\)::int <= (\\d+)`).exec(sql);
+      assertDefined(bound, `the bound on ${k}`);
+      return Number(bound[1]);
+    };
     expect(max('skin')).toBe(HERO_PRESETS.skin.length - 1);
     expect(max('hair')).toBe(HERO_PRESETS.hair.length - 1);
     expect(max('suit')).toBe(HERO_PRESETS.suit.length - 1);
@@ -154,7 +176,7 @@ describe('fleetSprite', () => {
     expect(fleetSprite('pirate', '#2fc6a4')).toEqual({ sprite: 'pirate', tint: null });
     const newcomer = fleetSprite('dragon', '#ff6a3d');
     expect(newcomer.sprite).toBe('hero-boy');
-    expect(newcomer.tint!.W).toEqual(rampFrom('#ff6a3d'));
-    expect(fleetSprite(null, 'not a colour').tint!.W).toEqual(rampFrom('#cfd4e6'));
+    expect(newcomer.tint?.W).toEqual(rampFrom('#ff6a3d'));
+    expect(fleetSprite(null, 'not a colour').tint?.W).toEqual(rampFrom('#cfd4e6'));
   });
 });
