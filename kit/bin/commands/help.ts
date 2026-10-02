@@ -8,6 +8,7 @@ import { renderEntry, renderOverview } from '../../lib/help/render.ts';
 import type { Config } from '../../lib/types.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 /** The repository's config, or the kit's defaults where it does not load. */
 function configAt(cwd: string, exec: Exec): Config {
@@ -21,7 +22,7 @@ function configAt(cwd: string, exec: Exec): Config {
 
 export const help = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, exec }: FreeIo) {
+  run: synchronous((args: string[], { cwd, stdout, exec }: FreeIo): number => {
     const { positional } = parseArgs('help', args);
     if (positional.length > 1) throw usageError('usage: omni help [<name>]');
     const config = configAt(cwd, exec);
@@ -34,5 +35,5 @@ export const help = {
     if (text === null) throw usageError(`omni help: no command "${name}"; omni help lists them all`);
     println(stdout, text);
     return 0;
-  },
+  }),
 } satisfies FreeCommand;
