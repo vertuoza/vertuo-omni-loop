@@ -37420,11 +37420,6 @@ function writeKnowledge({
 }
 
 // kit/lib/knowledge/pipeline.ts
-var settleAtMerge2 = settleAtMerge;
-var planShip2 = planShip;
-var movedPath2 = movedPath;
-var findOutboxViolations2 = findOutboxViolations;
-var askModel2 = askModel;
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
@@ -37490,7 +37485,7 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
   const n = Number(prd2);
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle3 = settleAtMerge2({ ctx: scratch, prd: n, merge: merge2 });
+    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge: merge2 });
     if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
       deletes: settle3.deletes,
@@ -37502,16 +37497,16 @@ function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
     let rewrites = [];
     if (scratch.layout.whereIs(n).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder(scratch.root, path));
-      const plan2 = planShip2(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync33(join44(scratch.root, file2), "utf8") });
+      const plan2 = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file2) => readFileSync33(join44(scratch.root, file2), "utf8") });
       if (!plan2.ok) return { ok: false, errors: plan2.reasons };
       moves = plan2.moves;
-      rewrites = plan2.rewrites.map(({ file: file2, text: text6 }) => ({ path: movedPath2(moves, file2), text: text6 }));
+      rewrites = plan2.rewrites.map(({ file: file2, text: text6 }) => ({ path: movedPath(moves, file2), text: text6 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
       deletes: settleEdits.deletes,
       moves,
-      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath2(moves, w.path), text: w.text })), ...rewrites])
+      writes: mergeWrites([...settleEdits.writes.map((w) => ({ path: movedPath(moves, w.path), text: w.text })), ...rewrites])
     };
     return {
       ok: true,
@@ -37533,7 +37528,7 @@ async function classifyCandidate({
   if (allowedKinds(summary.places).every((kind) => kind === "covered" || kind === "stays-here")) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
-  const answer = await askModel2({
+  const answer = await askModel({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
     check: classificationSchema(summary),
@@ -37554,7 +37549,7 @@ function knowledgeFiles(ctx) {
 }
 function runChecks(ctx) {
   const knowledge2 = existsSync35(join44(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
-  const outbox = findOutboxViolations2({ ctx });
+  const outbox = findOutboxViolations({ ctx });
   return { knowledge: knowledge2, outbox };
 }
 var newOnes = (after, before) => after.filter((line) => !before.includes(line));

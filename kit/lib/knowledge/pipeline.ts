@@ -40,10 +40,10 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createContext, type Context } from '../context.ts';
-import { movedPath as untypedMovedPath, planShip as untypedPlanShip } from '../delivery/ship.ts';
-import { findOutboxViolations as untypedFindOutboxViolations } from '../outbox/check-outbox.ts';
-import { settleAtMerge as untypedSettleAtMerge } from '../outbox/settle-merge.ts';
-import { askModel as untypedAskModel, NO_KEY, REFUSED } from '../openrouter.ts';
+import { movedPath, planShip } from '../delivery/ship.ts';
+import { findOutboxViolations } from '../outbox/check-outbox.ts';
+import { settleAtMerge } from '../outbox/settle-merge.ts';
+import { askModel, NO_KEY, REFUSED } from '../openrouter.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import {
   allowedKinds,
@@ -82,37 +82,6 @@ export type Prepared =
 
 /** One candidate's classification: the reply the classifier's schema accepted, or why there is none. */
 export type Classification = { id: string; reply: ClassificationReply | null; reason: string | null; error: string | null };
-
-// ── The units this pipeline wires, as it calls them ───────────────────────────────────────────
-// Their modules are still untyped (PRD 725: settle-merge and check-outbox are typed by s8, ship by
-// s11, openrouter by the ratchet), so each is bound here once to the shape it already has. A typed
-// module that disagrees makes its line fail to compile, which is the point.
-
-type SettleAtMerge = (input: { ctx: Context; prd: number; merge: Merge }) =>
-  | { ok: true; settledFile: string; entries: { id: string; from: 'open' | 'drift'; entry: string }[]; append: string; text: string | null; deletes: string[] }
-  | { ok: false; errors: string[] };
-type PlanShip = (
-  ctx: Context,
-  prd: number,
-  source: { files: string[]; read: (file: string) => string },
-) => { ok: true; moves: Move[]; rewrites: { file: string; text: string }[] } | { ok: false; reasons: string[] };
-type MovedPath = (moves: readonly Move[], file: string) => string;
-type FindOutboxViolations = (input: { ctx: Context }) => string[];
-type AskModel = (input: {
-  system: string;
-  user: string;
-  check: { safeParse: (value: unknown, params?: object) => unknown };
-  schema?: { name: string; schema: object };
-  env?: Record<string, string | undefined>;
-  fetch?: typeof globalThis.fetch;
-  title?: string;
-}) => Promise<{ ok: boolean; error: string | null; model: string | null; reply: unknown; reason: string | null }>;
-
-const settleAtMerge = untypedSettleAtMerge as SettleAtMerge; // ts-allow: settle-merge is untyped until s8; this is the shape it returns
-const planShip = untypedPlanShip as PlanShip; // ts-allow: ship is untyped until s11; this is the shape it returns
-const movedPath = untypedMovedPath as MovedPath; // ts-allow: ship is untyped until s11; this is the shape it returns
-const findOutboxViolations = untypedFindOutboxViolations as FindOutboxViolations; // ts-allow: check-outbox is untyped until s8; this is the shape it returns
-const askModel = untypedAskModel as unknown as AskModel; // ts-allow: openrouter is untyped (its JSDoc is not read in a .ts file); this is the shape it takes and returns
 
 /** The reason a candidate is not placed when the model's reply was refused, then refused again. */
 export const REFUSED_TWICE = "the model's reply was refused twice";
