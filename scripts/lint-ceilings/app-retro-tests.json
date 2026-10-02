@@ -3,5 +3,5 @@
     "apps/omni-app/src/retro/retro.test.ts",
     "apps/omni-app/src/retro/publish.test.ts"
   ],
-  "ceiling": 671
+  "ceiling": 0
 }
