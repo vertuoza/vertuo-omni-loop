@@ -14,6 +14,7 @@ import type { FleetRow, ScoreLine } from '../types';
 import { failed, saved, SEND_TRIES, sending, type ScoreSend } from './invaders-score';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
+import { sure } from '../sure';
 
 // Every sprite the scene draws, by name, with its tint and where it lands.
 const drawn = vi.hoisted(() => [] as { name: string; x: number; y: number; tint: unknown }[]);
@@ -34,7 +35,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const hero = { v: 1 as const, body: 'boy' as const, skin: 2, hair: 1, suit: 0, cape: 2 };
-const team = fleets[2]!.name;
+const team = sure(fleets[2], 'fleets[2]').name;
 // Close values of our own: the scene shows and pays what it is given, never a number of its own.
 const VALUES: Record<WoundKind, number> = { ...view.rules.woundClose, beacon: 41, transmission: 3 };
 
@@ -111,7 +112,7 @@ describe('who fights whom', () => {
   it('flies the player\'s own hero, in their fleet\'s colours', () => {
     const game = newGame({ layout: 'wide', values: VALUES, seed: 3 });
     drawInvaders(sink(), frame(game, WIDE));
-    const look = heroLook(hero, fleets[2]!.color);
+    const look = heroLook(hero, sure(fleets[2], 'fleets[2]').color);
     const heroes = drawn.filter((d) => d.name.startsWith('hero-'));
     expect(heroes).toHaveLength(1);
     expect(heroes[0]).toMatchObject({ name: look.sprite, tint: look.tint, x: game.heroX, y: FIELDS.wide.hero.y });
@@ -125,7 +126,7 @@ describe('who fights whom', () => {
       const y = alienAt(game, row, 0).y;
       const tints = drawn.filter((d) => d.name === 'entropy' && d.y === y).map((d) => JSON.stringify(d.tint));
       expect(tints, `row ${row}`).toHaveLength(game.cols);
-      expect(new Set(tints), `row ${row}`).toEqual(new Set([JSON.stringify(woundTint(game.kinds[row]!))]));
+      expect(new Set(tints), `row ${row}`).toEqual(new Set([JSON.stringify(woundTint(sure(game.kinds[row], 'game.kinds[row]')))]));
     }
     expect(game.kinds[0]).toBe('beacon');
     expect(game.kinds.at(-1)).toBe('transmission');
@@ -149,7 +150,7 @@ describe('the text layer', () => {
     const rows = [['= 41 PTS', 'BEACON'], [`= ${VALUES['fault-line']} PTS`, 'FAULT LINE'], [`= ${VALUES['unconfirmed-ground']} PTS`, 'UNCONFIRMED GROUND'],
       [`= ${VALUES['under-fire']} PTS`, 'ZONE UNDER FIRE'], ['= 3 PTS', 'TRANSMISSION']];
     const at = rows.map(([pts, name]) => {
-      const i = text.indexOf(pts!);
+      const i = text.indexOf(sure(pts, 'pts'));
       expect(text[i + 1], pts).toBe(name);
       return i;
     });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LETTERS, letterOf, MARK_SIZE, markFor, type Letter, type Run } from './mark';
+import { sure } from './sure';
 
 // Today's V, pixel for pixel: the runs the boot screen drew before the mark took a brand's letter,
 // as [x, y, width, row of bars]. Four rows of bars, 10 pixels apart, each a 6-pixel pill.
@@ -54,10 +55,10 @@ describe('the mark', () => {
       const bars: { x: number; y: number; w: number; row: number }[] = [];
       for (let i = 0; i < runs.length; i += 6) {
         const pill = runs.slice(i, i + 6);
-        const [x, y, , row] = pill[2]!;
-        const w = pill[2]![2];
+        const [x, y, , row] = sure(pill[2], 'pill[2]');
+        const w = sure(pill[2], 'pill[2]')[2];
         pill.forEach(([px, py, pw, prow], line) => {
-          expect([px, py, pw, prow], `${letter}, bar at ${x},${y}, line ${line}`).toEqual([x + CAP[line]!, y - 2 + line, w - 2 * CAP[line]!, row]);
+          expect([px, py, pw, prow], `${letter}, bar at ${x},${y}, line ${line}`).toEqual([x + sure(CAP[line], 'CAP[line]'), y - 2 + line, w - 2 * sure(CAP[line], 'CAP[line]'), row]);
         });
         bars.push({ x, y: y - 2, w, row });
       }
@@ -68,8 +69,8 @@ describe('the mark', () => {
         expect(a.x + a.w < b.x || b.x + b.w < a.x, `${letter}: bars at ${a.x} and ${b.x} of row ${a.row} touch`).toBe(true);
       }
       // Rows go down the box one after the other, never overlapping.
-      const tops = [...new Set(bars.map((b) => b.row))].sort((m, n) => m - n).map((row) => bars.find((b) => b.row === row)!.y);
-      tops.slice(1).forEach((top, i) => { expect(top - tops[i]!, `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6); });
+      const tops = [...new Set(bars.map((b) => b.row))].sort((m, n) => m - n).map((row) => sure(bars.find((b) => b.row === row), 'bars.find((b) => b.row === row)').y);
+      tops.slice(1).forEach((top, i) => { expect(top - sure(tops[i], 'tops[i]'), `${letter}: rows ${i} and ${i + 1}`).toBeGreaterThan(6); });
     }
   });
 

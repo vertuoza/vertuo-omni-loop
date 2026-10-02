@@ -15,6 +15,7 @@ import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems, type MenuItem } from './menu.tsx';
 import { xpStatus, type XpStatus } from '../games/room';
 import type { KnowledgeGraph } from '../../data/knowledge';
+import { sure } from '../sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -22,7 +23,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 const player: Player = {
-  id: 'guest', display_name: 'MAXIMILIAN', team: fleets[1]!.name, team_since: null, github_login: 'max-gh',
+  id: 'guest', display_name: 'MAXIMILIAN', team: sure(fleets[1], 'fleets[1]').name, team_since: null, github_login: 'max-gh',
   hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
 };
 
@@ -92,7 +93,7 @@ describe('the menu on the canvas', () => {
   beforeAll(() => { vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas); });
   afterAll(() => { vi.unstubAllGlobals(); });
 
-  it.each([['the player\'s hero', fleets[1]!.name], ['OmniMan (a visitor has no hero)', null]] as const)(
+  it.each([['the player\'s hero', sure(fleets[1], 'fleets[1]').name], ['OmniMan (a visitor has no hero)', null]] as const)(
     'stands %s and the planet inside the tall grid',
     (_, team) => {
       const { ctx, images } = recorder();
@@ -240,7 +241,7 @@ describe('GAMES on the menu', () => {
       expect(items[at + 1]).toEqual({ id: 'games', label: 'GAMES', scene: 'games' });
     }
     expect(menuItems({ joined: false, signedIn: false }).map((m) => m.id)).not.toContain('games');
-    const games = playing.find((m) => m.id === 'games')!;
+    const games = sure(playing.find((m) => m.id === 'games'), 'playing.find((m) => m.id === "games")');
     expect(doorOf(games, { view, chart: null, problem: null })).toEqual({ scene: 'games' });
     expect(doorOf(games, { view: null, chart: null, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
   });
@@ -248,7 +249,7 @@ describe('GAMES on the menu', () => {
   it('names a player\'s level and the games unlocked in its hint, and puts the level on their badge', () => {
     const text = shown(playing, player, withXp);
     expect(hintOf(text)).toBe('LV 3 · 1 game unlocked');
-    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1]!.label} · LV 3`);
+    expect(text).toContain(`P1 MAXIMILIAN · ${sure(fleets[1], 'fleets[1]').label} · LV 3`);
     expect(shown(playing, player, withXp, TALL)).toEqual(text);
   });
 
@@ -267,7 +268,7 @@ describe('GAMES on the menu', () => {
   ] as const)('shows a player with %s no level: never LV 0, never a guess', (_, xp, hint) => {
     const text = shown(playing, player, xp);
     expect(hintOf(text)).toBe(hint);
-    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1]!.label}`);
+    expect(text).toContain(`P1 MAXIMILIAN · ${sure(fleets[1], 'fleets[1]').label}`);
     expect(text.some((s) => /LV \d/.test(s)), text.join(' | ')).toBe(false);
   });
 
@@ -412,7 +413,7 @@ describe('the star chart on the menu', () => {
     links: [], loose: [], unserved: [],
   };
   const items = menuItems({ joined: true, signedIn: true });
-  const chart = items.find((m) => m.id === 'chart')!;
+  const chart = sure(items.find((m) => m.id === 'chart'), 'items.find((m) => m.id === "chart")');
   const hintOf = (source: KnowledgeGraph | 'none' | null) => {
     const text = textOf(createElement(MenuOverlay, { view, items, index: 0, me: player, onPick: () => {}, chart: source }), WIDE);
     return text[text.indexOf('STAR CHART') + 1];
@@ -436,10 +437,10 @@ describe('the star chart on the menu', () => {
   });
 
   it('keeps the galaxy\'s screens behind the galaxy, as before', () => {
-    const map = items.find((m) => m.id === 'map')!;
+    const map = sure(items.find((m) => m.id === 'map'), 'items.find((m) => m.id === "map")');
     expect(doorOf(map, { view, chart: null, problem: null })).toEqual({ scene: 'map' });
     expect(doorOf(map, { view: null, chart: graph, problem: null })).toEqual({ refused: 'SIGN IN TO SEE THE GALAXY' });
     expect(doorOf(map, { view: null, chart: graph, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
-    expect(doorOf(items.find((m) => m.id === 'signout')!, { view, chart: graph, problem: null })).toBeNull();
+    expect(doorOf(sure(items.find((m) => m.id === 'signout'), 'items.find((m) => m.id === "signout")'), { view, chart: graph, problem: null })).toBeNull();
   });
 });
