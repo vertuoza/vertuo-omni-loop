@@ -50,16 +50,18 @@ export interface RepositoriesViewProps {
 /** Which product the repository serves: any member's to change, from the business's products. */
 function ProductSelect({ row, products, busy, on }: { row: RepositoryRow; products: Product[]; busy: boolean; on: RepositoriesHandlers }) {
   return (
-    <select
-      className="repositories-product"
-      aria-label={`Product of ${row.fullName}`}
-      value={row.product ?? ''}
-      onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
-      disabled={busy}
-    >
-      {row.product === null && <option value="" disabled>Choose…</option>}
-      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-    </select>
+    <span className="repositories-product-field">
+      <select
+        className="repositories-product"
+        aria-label={`Product of ${row.fullName}`}
+        value={row.product ?? ''}
+        onChange={(e) => { if (e.currentTarget.value) on.setProduct(row.fullName, e.currentTarget.value); }}
+        disabled={busy}
+      >
+        {row.product === null && <option value="" disabled>Choose…</option>}
+        {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+    </span>
   );
 }
 
