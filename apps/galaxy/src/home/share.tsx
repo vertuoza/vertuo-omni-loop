@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactElement } from 'react';
 import { COLOURS, logoSvg } from '@omni/design';
+import { siteUrl } from '../seo/seo';
 
 // HOME shared as the ad (PRD 261, reworded by PRD 285): what a link to `/` previews as. The page's
 // title and description, and the Open Graph card: the crest and AGENTS SHIP. YOU STEER. on the
@@ -17,9 +18,10 @@ const DESCRIPTION =
 export const HOME_METADATA = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
-  // No og:url: without a fixed origin it would print as a bare `/`. The image's own address takes the
-  // deployment's origin from Next (VERCEL_PROJECT_PRODUCTION_URL on Vercel).
-  openGraph: { title: TITLE, description: DESCRIPTION, type: 'website', siteName: 'Omni Loop' },
+  // The canonical address and og:url name the site's one address whichever host served the page
+  // (PRD 983); the image's address resolves on the root layout's metadataBase, the same address.
+  alternates: { canonical: siteUrl('/') },
+  openGraph: { title: TITLE, description: DESCRIPTION, type: 'website', siteName: 'Omni Loop', url: siteUrl('/') },
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 } satisfies Metadata;
 
