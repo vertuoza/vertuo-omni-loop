@@ -1,3 +1,4 @@
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -17,7 +18,7 @@ export type FleetsLoad =
   | { kind: 'unreadable' }
   | { kind: 'fleets'; workspace: { id: string; name: string }; owner: boolean; fleets: FleetRow[]; mascots: readonly string[] };
 
-const why = (err: unknown) => (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err)); // ts-allow: anything thrown is read for a message, which String() prints whatever it is
+const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
 
 async function ownerOf(db: SupabaseClient<Database>, workspace: string): Promise<boolean> {
   try {

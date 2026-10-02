@@ -1,4 +1,5 @@
 import 'server-only';
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Player } from '../arcade/types';
 import { loadFleets, loadGalaxy, loadMe } from '../data/load-galaxy';
@@ -52,7 +53,7 @@ export async function loadDashboard(
   } catch (error) {
     // Out of reach: whether they belong to a workspace is unknown, so nobody is turned away; every
     // part says it could not load.
-    console.error(`dashboard: your workspace could not be read (${(error as Error).message})`);
+    console.error(`dashboard: your workspace could not be read (${messageOf(error)})`);
     const home = homeRequest({ userId: user.id, login: loginOf(null, user), team: null });
     const board = boardOf(NONE, { scope: home.scope, people: home.people, viewerId: user.id, period, now });
     return { kind: 'dashboard', dashboard: { name: nameOf(null, user), season, you: UNREADABLE, waiting: UNREADABLE, board, solo: home.solo } };

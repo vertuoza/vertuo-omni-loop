@@ -1,3 +1,4 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import { validHero, type Hero } from '@omni/design';
 import type { User } from '@supabase/supabase-js';
@@ -88,7 +89,7 @@ export async function loadYou(input: PartInput, me: Read<Player | null>, fleets:
   try {
     score = scoreOf(await input.galaxy(), input.login, me.team);
   } catch (error) {
-    console.error(`dashboard: your season could not be read (${(error as Error).message})`);
+    console.error(`dashboard: your season could not be read (${messageOf(error)})`);
     score = UNREADABLE;
   }
   return { kind: 'player', hero, fleet, score };

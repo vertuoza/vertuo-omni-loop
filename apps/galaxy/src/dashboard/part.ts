@@ -1,3 +1,4 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Season } from './season';
@@ -80,7 +81,7 @@ export async function settle<T>(what: string, read: () => Promise<Read<T>>): Pro
   try {
     return await read();
   } catch (error) {
-    console.error(`dashboard: ${what} could not be read (${(error as Error).message})`);
+    console.error(`dashboard: ${what} could not be read (${messageOf(error)})`);
     return UNREADABLE;
   }
 }

@@ -1,3 +1,4 @@
+import { dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { seasonBounds } from '../season';
 
 // The board's period (PRD 572): the switch at the top of every dashboard page, kept in the URL as
@@ -38,7 +39,7 @@ export function brusselsDay(at: Date | string | number): string | null {
 
 const HOUR = 3_600_000;
 const utcDate = (date: string) => {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number]; // ts-allow: a YYYY-MM-DD date splits into three numbers
+  const [y, m, d] = dateParts(date);
   return Date.UTC(y, m - 1, d);
 };
 const shift = (date: string, days: number) => new Date(utcDate(date) + days * 24 * HOUR).toISOString().slice(0, 10);

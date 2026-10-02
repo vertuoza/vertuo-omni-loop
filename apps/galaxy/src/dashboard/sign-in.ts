@@ -1,3 +1,4 @@
+import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Exchange } from '../ask/page/sign-in';
 import { APP_HOME } from '../switch/switch';
 
@@ -30,7 +31,7 @@ export async function dashboardSignInReturn(url: URL, origin: string, exchange: 
       try {
         await join();
       } catch (failure) {
-        console.error(`dashboard sign-in: ${(failure as Error).message}`);
+        console.error(`dashboard sign-in: ${messageOf(failure)}`);
       }
     }
   }
