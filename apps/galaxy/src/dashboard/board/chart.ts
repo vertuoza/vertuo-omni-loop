@@ -1,4 +1,4 @@
-import { dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The board's per-day charts (PRD 572): the axis's marks, and how each day is named under its column
 // and in the list a screen reader reads in the drawing's place.
@@ -9,7 +9,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 /** A calendar day, named: its weekday (`Saturday`) and its date (`26 September`). */
 export function dayName(date: string): { weekday: string; date: string; day: number } {
   const [year, month, day] = dateParts(date);
-  return { weekday: WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]!, date: `${day} ${MONTHS[month - 1]}`, day };
+  return { weekday: at(WEEKDAYS, new Date(Date.UTC(year, month - 1, day)).getUTCDay(), 'the weekday'), date: `${day} ${MONTHS[month - 1]}`, day };
 }
 
 /**

@@ -200,7 +200,7 @@ describe('supabaseReads', () => {
       { user_id: 'u', name: null, github_login: 'PaEtienne', avatar_url: null, fleet: null, hero: null },
       { user_id: 'v', name: 'ADA', github_login: 'ada', avatar_url: null, fleet: 'octo', hero: { v: 1 } },
     ], error: null }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     expect(await r.roster()).toEqual([
       { userId: 'u', name: null, login: 'paetienne', avatarUrl: null, fleet: null, hero: null },
       { userId: 'v', name: 'ADA', login: 'ada', avatarUrl: null, fleet: 'octo', hero: { v: 1 } },
@@ -210,14 +210,14 @@ describe('supabaseReads', () => {
 
   it('reads the answered counts through answered_counts, for the window', async () => {
     const rpc = vi.fn(async () => ({ data: [{ user_id: 'u', answered: '3' }], error: null }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     expect(await r.answered(new Date('2026-09-19T22:00:00Z'), new Date('2026-09-26T22:00:00Z'))).toEqual([{ user_id: 'u', answered: 3 }]);
     expect(rpc).toHaveBeenCalledWith('answered_counts', { workspace: 'w-1', from_at: '2026-09-19T22:00:00.000Z', to_at: '2026-09-26T22:00:00.000Z' });
   });
 
   it('throws when a function fails', async () => {
     const rpc = vi.fn(async () => ({ data: null, error: { message: 'boom' } }));
-    const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ rpc } as never, 'w-1', galaxy);
     await expect(r.roster()).rejects.toThrow(/members.*boom/);
     await expect(r.answered(new Date(), new Date())).rejects.toThrow(/answered.*boom/);
   });
@@ -231,7 +231,7 @@ describe('supabaseReads', () => {
       q.range = async () => ({ data: pages.shift(), error: null });
       return q;
     };
-    const r = supabaseReads({ from: () => query() } as never, 'w-1', galaxy as never);
+    const r = supabaseReads({ from: () => query() } as never, 'w-1', galaxy);
     const rows = await r.activity(new Date('2026-09-19T22:00:00Z'), new Date('2026-09-26T22:00:00Z'));
     expect(rows).toHaveLength(1001);
     expect(filters).toContainEqual(['eq', 'workspace_id', 'w-1']);
@@ -264,7 +264,7 @@ describe('supabaseReads', () => {
       data: dossiers.filter((d) => d.workspace_id === args.p_workspace),
       error: null,
     }));
-    const r = supabaseReads({ from: () => query(), rpc } as never, 'w-1', galaxy as never, store);
+    const r = supabaseReads({ from: () => query(), rpc } as never, 'w-1', galaxy, store);
     const prds = await r.prds();
     expect(prds).toHaveLength(3);
     expect(prds).toEqual(expect.arrayContaining([
@@ -287,7 +287,7 @@ describe('supabaseReads', () => {
       q.range = async () => ({ data: [], error: null });
       return q;
     };
-    const r = supabaseReads({ from: () => query(), rpc: async () => ({ data: [], error: null }) } as never, 'w-1', galaxy as never, store);
+    const r = supabaseReads({ from: () => query(), rpc: async () => ({ data: [], error: null }) } as never, 'w-1', galaxy, store);
     await expect(r.prds()).rejects.toThrow(/boom/);
   });
 });

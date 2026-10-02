@@ -123,7 +123,7 @@ export async function decideRoute(request: Request, decision: string, deps: Deci
   const workspace = await placeOf(deps, auth.caller.id, asked.repo);
   if (workspace instanceof Response) return workspace;
 
-  const counted = await decide(deps.jev, { workspace, entry, input: asked.input, old: async () => asked.old, ref: asked.ref });
+  const counted = await decide(deps.jev, { workspace, entry, input: asked.input, old: () => Promise.resolve(asked.old), ref: asked.ref });
   if (counted.decidedBy !== 'jev' || counted.value === null) return reply(200, TODAY);
   return reply(200, { answer: entry.show(counted.value), confidence: counted.confidence, decidedBy: 'jev' });
 }

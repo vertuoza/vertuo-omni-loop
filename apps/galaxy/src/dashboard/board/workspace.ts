@@ -1,6 +1,7 @@
 import 'server-only';
 import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { demoGalaxy, loadGalaxy } from '../../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
 import { once, UNREADABLE } from '../part';
@@ -17,7 +18,7 @@ export type WorkspaceBoard = { kind: 'no-workspace' } | { kind: 'board'; name: s
 
 const WHOLE = { scope: { kind: 'workspace' }, people: { kind: 'workspace' } } as const satisfies Pick<BoardRequest, 'scope' | 'people'>;
 
-export async function loadWorkspaceBoard(db: SupabaseClient, user: Pick<User, 'id'>, period: Period, now: Date): Promise<WorkspaceBoard> {
+export async function loadWorkspaceBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, period: Period, now: Date): Promise<WorkspaceBoard> {
   let workspace: Workspace | null;
   try {
     workspace = await memberWorkspace(db, user.id);

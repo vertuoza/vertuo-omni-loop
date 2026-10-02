@@ -34,7 +34,7 @@ const READ = {
 const screen = (view: FleetView, query: Record<string, string> = {}, supabase: { url: string; key: string } | null = { url: 'http://x', key: 'anon' }) =>
   renderToStaticMarkup(createElement(FleetScreen, { view, supabase, signinError: null, query }));
 const fleet = (viewerId: string, asked: string | null = null, read: Record<string, unknown> = {}) =>
-  fleetOf({ ...READ, ...read } as never, { asked, viewerId, period: '30d', now: NOW });
+  fleetOf({ ...READ, ...read }, { asked, viewerId, period: '30d', now: NOW });
 
 describe('/app/fleet', () => {
   it('for a viewer in a fleet: the picker, the fleet\'s name and season place, its board', () => {

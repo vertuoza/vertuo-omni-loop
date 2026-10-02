@@ -139,7 +139,7 @@ describe('each outcome', () => {
 
   it('a timeout: failed, once the time is up', async () => {
     const fetch = ((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
-      init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      init.signal?.addEventListener('abort', () => { reject(Object.assign(new Error('aborted'), { name: 'AbortError' })); });
     })) as unknown as typeof globalThis.fetch;
     const out = await askJev({ key: KEY, state: 's', question: NOUL, fetch, timeoutMs: 20 });
     expect(out).toMatchObject({ kind: 'failed', reason: 'timeout' });

@@ -1,5 +1,6 @@
 import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../../supabase/database.types.ts';
 import { allPages, type Page } from '../../data/all-pages';
 import { workspaceDossiers } from '../../data/dossiers';
 import type { StageId } from '../../stages/stage';
@@ -201,7 +202,7 @@ function unkey(key: string): { repository: string; prd: number } {
 /** The board's reads of one workspace, as the signed-in person. `galaxy` is the page's, read once;
  * the stored stages are read through the stage store, as that person. */
 export function supabaseReads(
-  db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
+  db: SupabaseClient<Database>, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
 ): BoardReads {
   function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
     return allPages('who opened the PRDs', (from, to) => db
@@ -215,9 +216,10 @@ export function supabaseReads(
   }
   return {
     async roster() {
-      const { data, error } = await db.rpc('workspace_roster', { workspace });
+      // `data` is widened to null, and its columns to null: workspace_roster's rows are read here unparsed.
+      const { data, error }: { data: RosterRow[] | null; error: { message: string } | null } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(`Supabase: could not read the workspace's members (${error.message})`);
-      return ((data ?? []) as RosterRow[]).map((r) => ({ // ts-allow: the client is untyped, so its rows are the ones workspace_roster returns, read as they are stored
+      return (data ?? []).map((r) => ({
         userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet, hero: r.hero ?? null,
       }));
     },
@@ -235,9 +237,11 @@ export function supabaseReads(
         .range(first, last) as Page<Activity>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
     },
     async answered(from, to) {
-      const { data, error } = await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });
+      // `data` is widened to null, and each count to text: PostgREST may send a bigint as a string, read here unparsed.
+      const { data, error }: { data: { user_id: string; answered: number | string }[] | null; error: { message: string } | null } =
+        await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });
       if (error) throw new Error(`Supabase: could not read the questions answered (${error.message})`);
-      return ((data ?? []) as AnsweredCount[]).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) })); // ts-allow: the client is untyped, so its rows are the ones answered_counts returns, read as they are stored
+      return (data ?? []).map((r) => ({ user_id: r.user_id, answered: Number(r.answered) }));
     },
     galaxy,
     async prds() {
