@@ -27,13 +27,12 @@ import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
 import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice, type SignUpClickPorts } from './selector/choice';
 import { Selector } from './selector/Selector';
-import { SESSION_ATTR, settleSession } from './session-mark';
-import { browserSessionPort, readSignedIn } from './session-read';
 import { SignedIn } from './SignedIn';
 import type { SignedInView } from './signed-in';
 import { SIGN_UP_ATTR, signUp, type AppPick } from './sign-up';
 import { flipCard } from './spreads/flip';
 import { PRESS_START_ATTR, pressStart, startsOnKey, type StartPorts } from './start';
+import { useSignedIn } from './use-signed-in';
 
 /** How long CHEAT ACTIVATED! shows before the sound and the game. */
 export const CHEAT_MS = 900;
@@ -47,6 +46,9 @@ function supabase(): { url: string; key: string } | null {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return url && key ? { url, key } : null;
 }
+
+/** The same Supabase for the page's life, so the signed-in read runs once. */
+const SUPABASE = supabase();
 
 /** A plain left click: one with a modifier, or one something already answered, is the browser's. */
 function plainClick(e: MouseEvent): boolean {
@@ -90,6 +92,26 @@ function startPorts(open: () => void): StartPorts {
   };
 }
 
+/**
+ * What each sign-up slot shows besides its button: the signed-in pill when someone is signed in,
+ * otherwise the line saying where a remembered pick opens, with its **change**.
+ */
+function SlotLines({ slots, signedIn, hint }: { slots: Element[]; signedIn: SignedInView | null; hint: ReturnType<typeof hintLine> }) {
+  if (signedIn) return <>{slots.map((slot, i) => createPortal(<SignedIn view={signedIn} />, slot, `signed-in-${i}`))}</>;
+  if (!hint) return null;
+  return (
+    <>
+      {slots.map((slot, i) => createPortal(
+        <span className="home-signup-hint">
+          {hint.opens} · <button type="button" className="home-signup-change" {...{ [CHANGE_ATTR]: '' }}>{hint.change}</button>
+        </span>,
+        slot,
+        `hint-${i}`,
+      ))}
+    </>
+  );
+}
+
 export function Controls() {
   const [cheat, setCheat] = useState(false);
   const [signUpError, setSignUpError] = useState<string | null>(null);
@@ -99,7 +121,7 @@ export function Controls() {
   /** The wrappers of the SIGN UP WITH GITHUB buttons, where the hint line is drawn. */
   const [slots, setSlots] = useState<Element[]>([]);
   /** Who is signed in, read once the page is in the browser: the server never draws the pill. */
-  const [signedIn, setSignedIn] = useState<SignedInView | null>(null);
+  const signedIn = useSignedIn(SUPABASE);
   const started = useRef(false);
   const signingUp = useRef(false);
   /**
@@ -182,17 +204,6 @@ export function Controls() {
   useEffect(() => {
     setSaved(readChoice(storage()));
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
-    const env = supabase();
-    const page = document.querySelector('main.home');
-    let live = true;
-    /** The hero, once read, replaces the photo; the photo never replaces the hero. */
-    const hero = (view: SignedInView | null) => { if (live && view?.face.kind === 'hero') setSignedIn(view); };
-    const cancel = settleSession({
-      read: () => readSignedIn(env && browserSessionPort(env), hero),
-      mark: (state) => { if (state) page?.setAttribute(SESSION_ATTR, state); else page?.removeAttribute(SESSION_ATTR); },
-      draw: (view) => setSignedIn((now) => (now?.face.kind === 'hero' ? now : view)),
-    });
-    return () => { live = false; cancel(); };
   }, []);
 
   useEffect(() => {
@@ -240,14 +251,7 @@ export function Controls() {
       </div>
       {selecting ? <Selector onGo={go} onClose={closeSelector} /> : null}
       {signUpError ? <p className="home-signup-error" role="alert">{signUpError}</p> : null}
-      {signedIn ? slots.map((slot, i) => createPortal(<SignedIn view={signedIn} />, slot, `signed-in-${i}`)) : null}
-      {hint && !signedIn ? slots.map((slot, i) => createPortal(
-        <span className="home-signup-hint">
-          {hint.opens} · <button type="button" className="home-signup-change" {...{ [CHANGE_ATTR]: '' }}>{hint.change}</button>
-        </span>,
-        slot,
-        `hint-${i}`,
-      )) : null}
+      <SlotLines slots={slots} signedIn={signedIn} hint={hint} />
     </>
   );
 }
