@@ -583,3 +583,51 @@ Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-63
+
+A link may read a repository the workspace lists, or any repository the workspace's GitHub organisation owns, exactly as a member's own read allows; any other repository is refused, and it never reads another workspace's claims.
+
+Serves: P-PRODUCT-58
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01
+
+## BR-PRODUCT-64
+
+When a member leaves a workspace, every link they made stops working and any call through it is refused, yet it stays in the links list marked as not working because its maker left, so an owner can revoke it for good.
+
+Serves: P-PRODUCT-26
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-02-left-maker-links-listed, PRD #855
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01
+
+## BR-PRODUCT-65
+
+When an agent sends a question naming a code project that does not belong to the team's workspace, the question is refused with the same one-line reason given when the agent reads the business for that project; it is never kept.
+
+Serves: P-PRODUCT-27
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s3-01-report-repo-must-be-the-workspaces, PRD #855
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01
+
+## BR-PRODUCT-66
+
+Jev judges an agent's question only on the report that first stores it; a repeat only adds to its asked count and keeps its state. Once a person brings a question back, Jev never sets it aside again.
+
+Serves: P-PRODUCT-37
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s4-02-jev-judges-first-report-bring-back-final, PRD #855
+Enforced by: unenforced
+Stated: 2026-10-01
+Decided: nobody — adopted when raised (medium), 2026-10-01
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01

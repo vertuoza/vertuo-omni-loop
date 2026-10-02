@@ -412,3 +412,12 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-58
+
+An agent's link never reaches further than the member's own read would; it grants no access the person does not already have.
+
+Why: So handing a link to an agent never widens what the workspace exposes, and the link and the member always see the same repositories.
+Source: .omni-loop/delivery/shipped/0855-agent-connect/outbox/settled.md, entry s1-01-token-repo-scope, PRD #855
+Merged: @pierrederval, 2026-10-01, PR #856
+Proposed: harvest 2026-10-01
