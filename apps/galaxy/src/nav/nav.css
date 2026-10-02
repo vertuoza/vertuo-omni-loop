@@ -5,6 +5,9 @@
    wraps rather than push the page sideways, and Game mode, on a row of its own, keeps the right end
    of it. */
 
+/* The logo's crest is taller than the sub-title: centre them, as the sidebar does. */
+.top-bar .ask-brand { align-items: center; }
+
 .top-bar-end { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .top-bar-end > .game-mode { margin-left: auto; }
 

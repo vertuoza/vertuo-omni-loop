@@ -1,13 +1,13 @@
 'use client';
-import { logoSvg, spritePixels } from '@omni/design';
+import { spritePixels } from '@omni/design';
 import { version } from '../../../../package.json';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { pixelSvg } from '../design/pixel-svg';
-import { APP_HOME } from '../switch/switch';
 import { useWaiting } from '../waiting/WaitingProvider';
 import type { WaitingCounts } from '../waiting/waiting';
+import { BrandLogo } from './BrandLogo';
 import { useDrawer } from './drawer-context';
 import { setMenu, type MenuState } from './menu-rail';
 import { OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, type SidebarId, type SidebarItem } from './sidebar.ts';
@@ -37,7 +37,6 @@ import './drawer.css';
 // layout, the waiting polls and the bell's count stay. Docs and Release notes, which open a new tab,
 // are not prefetched.
 
-const CREST = logoSvg('mark', { scale: 2, title: null });
 /** A section's sprite (issue 653), at its native 16 px: decoration, its name already says what it is. */
 function SectionSprite({ name }: { name?: string }) {
   if (!name) return null;
@@ -92,10 +91,7 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
       {drawer.open && <div className="app-drawer-scrim" aria-hidden="true" onClick={() => drawer.send('scrim')} />}
       <aside ref={drawer.panel} className="app-sidebar" id="app-sidebar" aria-label="Sidebar" data-open={drawer.open || undefined}>
         <div className="app-sidebar-head">
-          <Link className="app-sidebar-crest" href={APP_HOME} onClick={choose}>
-            <span className="app-sidebar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
-            <span className="ask-mark">OMNI LOOP</span>
-          </Link>
+          <BrandLogo className="app-sidebar-crest" onClick={choose} />
           <button type="button" className="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu" aria-expanded="true" aria-controls="app-sidebar" onClick={(event) => fold(event, 'rail')}>«</button>
           <button type="button" className="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar" onClick={(event) => fold(event, 'open')}>»</button>
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
