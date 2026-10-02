@@ -51,6 +51,7 @@ import type { OutboxItem, OutboxOption } from '../types.ts';
 import { answerErrors, AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
 import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } from './settle.ts';
 import { SETTLED_FILE } from './outbox.ts';
+import { plainText } from './plain-text.ts';
 
 /** A pull request comment, as GitHub lists it: only the fields the reader looks at. */
 type ReplyComment = {
@@ -117,7 +118,7 @@ const RANK_PLAIN_LABEL: Record<string, string> = { 'human-action': 'needs a pers
  */
 export function parseReplyLines(body: unknown): ReplyLine[] {
   const lines: ReplyLine[] = [];
-  for (const line of String(body ?? '').split(/\r?\n/)) {
+  for (const line of plainText(body).split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
       lines.push({ kind: 'approve-all', text: APPROVE_ALL_TEXT });
       continue;
@@ -153,7 +154,7 @@ export function interpretAnswer({
   text: unknown;
   options?: readonly OutboxOption[] | undefined;
 }): Reading {
-  const trimmed = String(text ?? '').trim();
+  const trimmed = plainText(text).trim();
   if (RECOMMENDATION_RE.test(trimmed)) {
     return { statedVerdict: 'agreed', recorded: RECOMMENDATION_TEXT };
   }
@@ -305,7 +306,7 @@ export function planReplies(args: { comments: object[]; items: object[]; adopted
     if (!raw) continue;
     const reading: Reading = raw.approveAll
       ? { statedVerdict: 'agreed', recorded: raw.text }
-      : interpretAnswer({ text: raw.text, options: item.sections?.options });
+      : interpretAnswer({ text: raw.text, options: item.sections.options });
     const answer: ReadAnswer = {
       ...raw,
       recorded: reading.recorded,
@@ -318,7 +319,7 @@ export function planReplies(args: { comments: object[]; items: object[]; adopted
           reason: 'the reply names an option the question does not offer',
         }
       : judgeAnswer({
-          choice: item.sections?.whatIDidMeanwhile,
+          choice: item.sections.whatIDidMeanwhile,
           answer: answer.recorded,
           statedVerdict: reading.statedVerdict ?? null,
         });
@@ -343,7 +344,7 @@ export function planReplies(args: { comments: object[]; items: object[]; adopted
           questions: dueQuestions.map(({ number, item, answer }) => ({
             number,
             rank: item.rank,
-            questionPlain: item.sections?.questionPlain ?? item.sections?.whatIHadToDecide ?? '',
+            questionPlain: item.sections.questionPlain ?? item.sections.whatIHadToDecide ?? '',
             answerText: answer.text,
           })),
         };

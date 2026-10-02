@@ -11,6 +11,7 @@ import type { ExecText } from '../../lib/context.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import { rangeBase, rangeCommits } from '../branch-range.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni phase0 <prd> [--base <ref>]';
 
@@ -62,7 +63,7 @@ function printVerdict(stdout: Out, prd: number, base: string, verdict: Phase0Ver
 }
 
 export const phase0: Command = {
-  async run(args: string[], { ctx, stdout, exec }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec }: CommandIo): number => {
     const { positional, flags } = parseArgs('phase0', args, { values: ['base'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('phase0', '<prd>', positional[0]);
@@ -73,5 +74,5 @@ export const phase0: Command = {
     const verdict = phase0Verdict(paths, { ctx, prd, commits });
     printVerdict(stdout, prd, base, verdict);
     return verdict.ok ? 0 : 1;
-  },
+  }),
 };

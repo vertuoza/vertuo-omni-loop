@@ -71,7 +71,7 @@ function attempt<T, F>(fn: () => T, fallback: F): T | F {
   }
 }
 
-const git = (exec: ExecText, cwd: string, args: string[]): string => String(exec('git', args, { cwd, ...QUIET }));
+const git = (exec: ExecText, cwd: string, args: string[]): string => exec('git', args, { cwd, ...QUIET });
 /** The entries of a `-z` output. */
 const entries = (text: string): string[] => text.split('\0').filter(Boolean);
 

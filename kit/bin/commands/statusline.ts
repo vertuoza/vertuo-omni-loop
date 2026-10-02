@@ -45,7 +45,7 @@ async function readText(stdin: HookStdin): Promise<string> {
   if (!stdin || stdin.isTTY) return '';
   stdin.setEncoding?.('utf8');
   let text = '';
-  for await (const chunk of stdin) text += chunk;
+  for await (const chunk of stdin) text += String(chunk);
   return text;
 }
 
@@ -78,7 +78,7 @@ async function statusLines({
         facts = null;
       }
     }
-    return renderLines({ input, facts, env: env ?? {}, now: instant });
+    return renderLines({ input, facts, env, now: instant });
   } catch {
     return [UNREADABLE_LINE];
   }

@@ -35,7 +35,7 @@ const DossierEntrySchema = z.object({
 export function mainCheckout(cwd: string, exec: ExecText = execFileSync): string | null {
   let common: string;
   try {
-    common = String(exec('git', ['rev-parse', '--git-common-dir'], { cwd, ...QUIET })).trim();
+    common = exec('git', ['rev-parse', '--git-common-dir'], { cwd, ...QUIET }).trim();
   } catch {
     return null;
   }
@@ -43,7 +43,7 @@ export function mainCheckout(cwd: string, exec: ExecText = execFileSync): string
   if (basename(dir) === '.git') return realpathSync(dirname(dir));
   // A bare repository or a separate git folder: the checkout `cwd` is in is the best there is.
   try {
-    return realpathSync(String(exec('git', ['rev-parse', '--show-toplevel'], { cwd, ...QUIET })).trim());
+    return realpathSync(exec('git', ['rev-parse', '--show-toplevel'], { cwd, ...QUIET }).trim());
   } catch {
     return null;
   }

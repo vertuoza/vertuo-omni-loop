@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { inngest } from '../inngest-client.ts';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { type AppEvent, inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
-import { fakeGitHub } from './fake-github.ts';
+import { checkRunAt, fakeGitHub, outputOf } from './fake-github.ts';
 import { createOutboxCheck } from './outbox-check.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -16,14 +17,20 @@ const SECRET = 'e2e-secret';
 
 const REPOSITORY = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' } };
 
-function pullRequestDelivery(pull: any, action = 'synchronize') {
+/** A pull request as a delivery carries it. */
+type Pull = { number: number; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
+/** A delivery to `/api/github`: its event and its payload. */
+type Delivery = { event: string; payload: Record<string, unknown> };
+type GitHub = ReturnType<typeof fakeGitHub>;
+
+function pullRequestDelivery(pull: Pull, action = 'synchronize'): Delivery {
   return {
     event: 'pull_request',
     payload: { action, installation: { id: 7 }, repository: REPOSITORY, number: pull.number, pull_request: pull },
   };
 }
 
-function rerunDelivery(pull: any) {
+function rerunDelivery(pull: Pull): Delivery {
   return {
     event: 'check_run',
     payload: {
@@ -36,9 +43,9 @@ function rerunDelivery(pull: any) {
 }
 
 /** A signed delivery through `/api/github`'s unit, then every event it sent through the real function. */
-async function deliver(github: any, { event, payload }: any) {
+async function deliver(github: GitHub, { event, payload }: Delivery) {
   const body = JSON.stringify(payload);
-  const sent: any[] = [];
+  const sent: AppEvent[] = [];
   const response = await receiveWebhook({
     body,
     headers: {
@@ -46,13 +53,13 @@ async function deliver(github: any, { event, payload }: any) {
       'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`,
     },
     secret: SECRET,
-    send: async (events) => sent.push(...events),
+    send: (events) => Promise.resolve(sent.push(...events)),
   });
   expect(response.status).toBe(200);
   const fn = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
   for (const e of sent) {
     const { error } = await new InngestTestEngine({ function: fn, events: [e] }).execute();
-    if (error) throw error;
+    expect(error).toBeFalsy();
   }
   return sent;
 }
@@ -64,7 +71,14 @@ const featurePull = (head = 'head1') => ({
   labels: [],
 });
 
-const latest = (github: any) => github.state.checkRuns.at(-1);
+const latest = (github: GitHub) => checkRunAt(github.state, -1);
+
+/** The first comment on the pull request: the test fails when there is none. */
+function firstComment(github: GitHub) {
+  const comment = github.state.comments[0];
+  assertDefined(comment, 'a comment on the pull request');
+  return comment;
+}
 
 describe('end to end — a signed webhook to a completed check', () => {
   it('1. a feature PR with an open outbox item shows the outbox check as failure, listing the item', async () => {
@@ -72,9 +86,9 @@ describe('end to end — a signed webhook to a completed check', () => {
     const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
     await deliver(github, pullRequestDelivery(pull));
     expect(latest(github)).toMatchObject({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'failure' });
-    expect(latest(github).output.title).toBe('1 open outbox item');
-    expect(latest(github).output.summary).toContain('s1-01-widget-colour.md');
-    expect(github.state.comments[0]!.body).toContain('Which colour should the widget be?');
+    expect(outputOf(latest(github)).title).toBe('1 open outbox item');
+    expect(outputOf(latest(github)).summary).toContain('s1-01-widget-colour.md');
+    expect(firstComment(github).body).toContain('Which colour should the widget be?');
   });
 
   it('2. after the item is settled and pushed, the same PR’s check is success', async () => {
@@ -87,7 +101,7 @@ describe('end to end — a signed webhook to a completed check', () => {
     await deliver(github, pullRequestDelivery(featurePull('head2')));
     expect(latest(github)).toMatchObject({ head_sha: 'head2', conclusion: 'success', output: { title: 'Outbox clear' } });
     expect(github.state.comments).toHaveLength(1);
-    expect(github.state.comments[0]!.body).toContain('No open items.');
+    expect(firstComment(github).body).toContain('No open items.');
   });
 
   it('3. labelled omni:outbox-go while red, the check is neutral with "Override in effect"', async () => {

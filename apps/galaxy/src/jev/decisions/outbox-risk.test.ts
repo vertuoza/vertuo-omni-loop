@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outboxRisk } from './outbox-risk';
+import { sure } from '../../arcade/sure';
 
 // The outbox item risk's registry entry (PRD 812 s3): a Noul "hard to revert?", mapped with the
 // decision's threshold; what it sends Jev (decision 10: the item's decision text and options, the
@@ -49,7 +50,7 @@ describe('outbox-risk', () => {
   });
 
   it('reads a state from a terminal, and refuses a malformed one', () => {
-    const terminal = outboxRisk.terminal!;
+    const terminal = sure(outboxRisk.terminal, 'outboxRisk.terminal');
     expect(terminal.input(STATE)).toEqual(STATE);
     expect(terminal.input({ decision: 'Only the decision.' })).toEqual({ decision: 'Only the decision.', options: [], slice: null, paths: [] });
     expect(terminal.input({ ...STATE, decision: '' })).toBeNull();
@@ -61,7 +62,7 @@ describe('outbox-risk', () => {
   });
 
   it('reads the agent\'s own hardToRevert as the old answer', () => {
-    const terminal = outboxRisk.terminal!;
+    const terminal = sure(outboxRisk.terminal, 'outboxRisk.terminal');
     expect(terminal.old('true')).toBe(true);
     expect(terminal.old('false')).toBe(false);
     expect(terminal.old('yes')).toBeNull();

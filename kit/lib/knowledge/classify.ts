@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readDecisions } from '../playbook/decisions.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { LOOK_RULE } from './look-rule.ts';
 import { PRODUCT_CODE, domainsDir, readKnowledge, type EntryKind, type KnowledgeCtx, type KnowledgeEntry } from './registers.ts';
 
@@ -169,7 +170,7 @@ export function knowledgeSummary({ ctx }: { ctx: KnowledgeCtx & { layout: { adrD
     .filter((entry) => (entry.kind === 'rule' || entry.kind === 'invariant') && entry.scope !== 'cross-domain')
     .map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf(entry), statement: entry.statement }));
   const decisions = places.adr
-    ? readDecisions({ ctx }).records.map((record) => ({ number: record.number ?? '', title: record.title }))
+    ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title }))
     : [];
   return { places, domains, principles, decisions, laws };
 }
@@ -200,7 +201,9 @@ export function classificationSchema(summary: KnowledgeSummary) {
   const records = new Set(summary.decisions.map((record) => record.number));
 
   return ClassificationSchema.superRefine((reply, context) => {
-    const issue = (path: string[], message: string) => context.addIssue({ code: 'custom', path, message });
+    const issue = (path: string[], message: string) => {
+      context.addIssue({ code: 'custom', path, message });
+    };
     if (!kinds.includes(reply.kind)) {
       const missing = reply.kind === 'adr' ? 'no decision-record folder' : 'no knowledge folder';
       issue(['kind'], `kind "${reply.kind}" has no place here: this repository has ${missing} — one of: ${kinds.join(', ')}`);
@@ -256,8 +259,9 @@ export function classificationJsonSchema(summary: KnowledgeSummary) {
 
 /** One `### heading` and its text, or nothing when the text is absent. */
 function section(heading: string, body: unknown): string[] {
-  if (body === undefined || body === null || String(body).trim() === '') return [];
-  return [`### ${heading}`, '', String(body).trim(), ''];
+  const text = plainText(body).trim();
+  if (text === '') return [];
+  return [`### ${heading}`, '', text, ''];
 }
 
 function itemSections(candidate: PromptCandidate): string[] {

@@ -96,7 +96,8 @@ describe('keysOf — Object.keys of a record, as its keys', () => {
   });
 
   it('leaves out a key the record only inherits', () => {
-    const record: Record<string, number> = Object.create({ inherited: 1 });
+    const record: Record<string, number> = {};
+    Object.setPrototypeOf(record, { inherited: 1 });
     record['own'] = 2;
     expect(keysOf(record)).toEqual(['own']);
   });

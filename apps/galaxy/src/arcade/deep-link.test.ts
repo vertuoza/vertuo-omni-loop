@@ -3,6 +3,8 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { addressAt, DEEP_LINKS, landing, readHash } from './deep-link';
 import { twinEvents, twinGalaxy } from './twins.fake';
 import type { Session } from './types';
+import { sure } from './sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The arcade's deep links (moved out of ArcadeApp.tsx; PRD 238 adds #menu): the screen an address's
 // hash opens, past the boot and the title, through the one door every route goes through; and the
@@ -11,6 +13,7 @@ import type { Session } from './types';
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 const planet = view.planets[2];
+assertDefined(planet, 'planet');
 const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
 const outsider: Session = { ...crew, email: 'eve@elsewhere.example', crew: false, github: null };
 
@@ -25,8 +28,8 @@ describe('the deep links', () => {
   });
 
   it('read a planet by its PRD number, when the galaxy holds it', () => {
-    expect(readHash(`#planet-${planet!.prd}`, view)).toEqual({ scene: 'planet', sel: 2 });
-    expect(readHash(`#planet-${planet!.prd}`, null)).toBeNull();
+    expect(readHash(`#planet-${planet.prd}`, view)).toEqual({ scene: 'planet', sel: 2 });
+    expect(readHash(`#planet-${planet.prd}`, null)).toBeNull();
   });
 
   it('read nothing from any other hash', () => {
@@ -61,12 +64,12 @@ describe('every deep link, through the one door', () => {
       expect(landing(`#${scene}`, { view: null, session: null }), scene).toEqual({ scene: 'coin' });
       expect(landing(`#${scene}`, { view, session: null }), scene).toEqual({ scene: 'coin' });
     }
-    expect(landing(`#planet-${planet!.prd}`, { view, session: null })).toEqual({ scene: 'coin', sel: 2 });
+    expect(landing(`#planet-${planet.prd}`, { view, session: null })).toEqual({ scene: 'coin', sel: 2 });
   });
 
   it('opens the screen it names for a player', () => {
     for (const scene of DEEP_LINKS) expect(landing(`#${scene}`, { view, session: crew }), scene).toEqual({ scene });
-    expect(landing(`#planet-${planet!.prd}`, { view, session: crew })).toEqual({ scene: 'planet', sel: 2 });
+    expect(landing(`#planet-${planet.prd}`, { view, session: crew })).toEqual({ scene: 'planet', sel: 2 });
   });
 
   it('starts at the boot, as at /, for someone signed in whose page holds no galaxy', () => {
@@ -83,7 +86,7 @@ describe('every deep link, through the one door', () => {
 describe('the address the arcade writes', () => {
   it('names the screen it is on, when a deep link names it', () => {
     expect(addressAt('/', { scene: 'map', sel: 0 }, view)).toBe('/#map');
-    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet!.home}/${planet!.prd}`);
+    expect(addressAt('/', { scene: 'planet', sel: 2 }, view)).toBe(`/#planet-${planet.home}/${planet.prd}`);
   });
 
   it('names nothing on any other screen', () => {
@@ -131,8 +134,12 @@ describe('a planet named by its home (PRD 728)', () => {
   });
 
   it('names a planet with no home by its number alone, as before', () => {
-    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map(({ home: _home, ...e }) => e));
-    expect(bare.planets[0]!.home).toBeNull();
+    const bare = twinGalaxy(twinEvents('acme/plan', 'beaver', 'bob').map((event) => {
+      const e = { ...event };
+      delete e.home;
+      return e;
+    }));
+    expect(sure(bare.planets[0], 'bare.planets[0]').home).toBeNull();
     expect(addressAt('/', { scene: 'planet', sel: 0 }, bare)).toBe('/#planet-88');
     expect(readHash('#planet-88', bare)).toEqual({ scene: 'planet', sel: 0 });
   });

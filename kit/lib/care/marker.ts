@@ -26,7 +26,7 @@ export function careMarker(verdict: string): string {
  * with is dropped first, so a body never carries two. */
 export function careReplyBody(text: string | null | undefined, verdict: string): string {
   const marker = careMarker(verdict);
-  const plain = String(text ?? '').replace(TRAILING_MARKER_RE, '').trim();
+  const plain = (text ?? '').replace(TRAILING_MARKER_RE, '').trim();
   if (!plain) throw new Error('a PR care reply cannot be empty');
   return `${plain}\n\n${marker}`;
 }
@@ -34,7 +34,7 @@ export function careReplyBody(text: string | null | undefined, verdict: string):
 /** The verdict a comment's body carries (its last marker), or `null`: no marker, or one naming no
  * known verdict, reads as unhandled. */
 export function readCareVerdict(body: string | null | undefined): CareVerdict | null {
-  const found = [...String(body ?? '').matchAll(MARKER_RE)];
+  const found = [...(body ?? '').matchAll(MARKER_RE)];
   const last = found.at(-1)?.[1];
   return isVerdict(last) ? last : null;
 }

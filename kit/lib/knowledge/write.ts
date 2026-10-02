@@ -29,6 +29,8 @@ import { readDecisions } from '../playbook/decisions.ts';
 import { ADOPTED_VERDICT } from '../outbox/settle.ts';
 import type { Context } from '../context.ts';
 import { NEW_PRINCIPLE, PRODUCT_PLACE, type ClassificationReply, type ItemSections } from './classify.ts';
+import { defined } from '../narrow.ts';
+import { plainText } from '../outbox/plain-text.ts';
 import { BECAME_FIELD, STAYS_HERE_FIELD } from './harvest.ts';
 import { PRODUCT_CODE, codeOf, domainsDir, idParts, productDir, readKnowledge, type EntryKind } from './registers.ts';
 
@@ -95,9 +97,9 @@ const PREFIX: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invarian
 const LAYER: Record<EntryKind, string> = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
 const NONE_YET = /^None yet\./;
 
-const day = (value: unknown): string => String(value ?? '').slice(0, 10);
-const handle = (who: unknown): string => (String(who).startsWith('@') ? String(who) : `@${who}`);
-const oneLine = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
+const day = (value: unknown): string => plainText(value).slice(0, 10);
+const handle = (who: unknown): string => (String(who).startsWith('@') ? String(who) : `@${String(who)}`);
+const oneLine = (value: unknown): string => plainText(value).replace(/\s+/g, ' ').trim();
 
 /** Whether a person answered the decision: agreed, or drifted and reworked since. */
 export function answeredByPerson(candidate: Pick<WriteCandidate, 'verdict' | 'closed'>): boolean {
@@ -344,7 +346,7 @@ export function writeKnowledge({
       notPlaced.push({ id: candidate.id, reason: reason ?? 'not classified' });
       continue;
     }
-    const ledgerFile = candidate.ledgerFile!; // ts-allow: harvestCandidates always names the ledger it read
+    const ledgerFile = defined(candidate.ledgerFile, `the ledger of ${candidate.id}`); // harvestCandidates always names the ledger it read
     const prd = candidate.item?.prd ?? null;
     const answered = answeredByPerson(candidate);
     const decided = decidedLine(candidate);
@@ -389,7 +391,7 @@ export function writeKnowledge({
       touched.push(path);
       landedAs = [id];
       if (principleId && reply.kind === 'rule') {
-        const proposal = reply.principle!; // ts-allow: classificationSchema refuses serves "new" without the principle it proposes
+        const proposal = defined(reply.principle, `the principle ${candidate.id} proposes`); // classificationSchema refuses serves "new" without the principle it proposes
         const principlePath = `${place.dir}/${LAYER.principle}`;
         const principle = renderRegisterEntry({
           id: principleId,

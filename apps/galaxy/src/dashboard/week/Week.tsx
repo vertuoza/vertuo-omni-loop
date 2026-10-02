@@ -2,6 +2,7 @@ import { CouldNotLoad, LinkGithub } from '../Notes';
 import { UNREADABLE, type PartProps } from '../part';
 import { axisTicks, dayName, weekTotal, type ChartDay } from './chart';
 import type { WeekValue } from './load';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The week of merges' view (PRD 328): the pull requests you got into main on each of the last seven
 // Brussels days, as a bar chart drawn on the server in inline SVG, with no chart library and no
@@ -62,7 +63,7 @@ function said(day: ChartDay, today: boolean): string {
 
 function Chart({ days }: { days: ChartDay[] }) {
   const ticks = axisTicks(Math.max(...days.map((d) => d.count)));
-  const top = ticks.at(-1)!;
+  const top = at(ticks, -1, "the axis's top mark");
   const last = days.length - 1;
   return (
     <>

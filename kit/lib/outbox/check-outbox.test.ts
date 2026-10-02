@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { formText, makeRepo } from '../../test/fixture.ts';
 import type { Context } from '../context.ts';
 import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
@@ -30,7 +31,7 @@ function itemText({
   frontMatter = {},
   sections = {},
 }: { frontMatter?: Record<string, unknown>; sections?: Record<string, string | undefined> } = {}) {
-  const fm = {
+  const fm: Record<string, string | undefined> = {
     id: 's2-01-example',
     prd: '985',
     slice: 's2',
@@ -42,7 +43,7 @@ function itemText({
   };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
 
   const body: Record<string, string | undefined> = {
     'The question, in plain words': 'Should the change wait for the next release, or ship now?',
@@ -108,7 +109,8 @@ describe('checkItemText', () => {
     const text = itemText({ frontMatter: { rank: 'urgent' } });
     const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
     expect(violations).toHaveLength(1);
-    expect(violations[0]!.startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
+    assertDefined(violations[0], 'violations[0]');
+    expect(violations[0].startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
     expect(violations[0]).toMatch(/rank/);
   });
 
@@ -201,7 +203,8 @@ describe('checkItemText', () => {
       });
       const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
       expect(violations).toHaveLength(1);
-      expect(violations[0]!.startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
+      assertDefined(violations[0], 'violations[0]');
+      expect(violations[0].startsWith('docs/outbox/985/s2-01-bad.md:')).toBe(true);
       expect(violations[0]).toMatch(/1 option/);
     });
 
@@ -425,7 +428,8 @@ describe('findOutboxViolations', () => {
 
     const violations = findOutboxViolations({ ctx: flatCtx(root) });
     expect(violations).toHaveLength(1);
-    expect(violations[0]!.startsWith('docs/outbox/985/s2-02-floor.md:')).toBe(true);
+    assertDefined(violations[0], 'violations[0]');
+    expect(violations[0].startsWith('docs/outbox/985/s2-02-floor.md:')).toBe(true);
   });
 
   describe('Became: every id resolves (Task 7)', () => {
@@ -491,7 +495,7 @@ describe('findOutboxViolations', () => {
     }
 
     /** A testing form holding one `never` slot with `body`. */
-    const testingForm = (body: string) => formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'never', required: true, by: 'human', body }] } as never);
+    const testingForm = (body: string) => formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'never', required: true, by: 'human', body }] });
 
     function violations(files: Record<string, string>, became = 'playbook/testing#never') {
       const { ctx } = makeRepo({ files: { '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', [SETTLED]: settled(became), ...files } });
@@ -511,7 +515,7 @@ describe('findOutboxViolations', () => {
     });
 
     it('fails naming the settled file when the form has no such slot', () => {
-      const form = formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'levels', body: 'x' }] } as never);
+      const form = formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'levels', body: 'x' }] });
       expect(violations({ [TESTING]: form })).toEqual([`${SETTLED}: s1-01-x Became: playbook/testing#never — ${TESTING} has no slot "never"`]);
     });
 

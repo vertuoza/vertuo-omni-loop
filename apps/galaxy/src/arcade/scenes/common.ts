@@ -5,6 +5,7 @@
 // its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw. A colour that is a
 // theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
 // sprite is drawn through `sprite()`, in the theme's stripes.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm,
 } from '@omni/design';
@@ -93,8 +94,12 @@ const SECTOR_NEBULA = [
 
 export function nebulaFor(key: string, i: number, w: number, h: number) {
   nebulae ??= new Map();
-  if (!nebulae.has(key)) nebulae.set(key, makeNebula(100 + i * 7, w, h, SECTOR_NEBULA[i % SECTOR_NEBULA.length]!, 0.75));
-  return nebulae.get(key)!;
+  let nebula = nebulae.get(key);
+  if (!nebula) {
+    nebula = makeNebula(100 + i * 7, w, h, defined(SECTOR_NEBULA[i % SECTOR_NEBULA.length], "a sector's nebula"), 0.75);
+    nebulae.set(key, nebula);
+  }
+  return nebula;
 }
 
 export function space(ctx: CanvasRenderingContext2D, s: FrameState, speed = 0.4) {
@@ -221,13 +226,13 @@ export function drawHero(ctx: CanvasRenderingContext2D, s: FrameState, hero: Her
 export function pedestal(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, color: string) {
   const ramp = rampFrom(color);
   for (const [dy, tone] of [[3, 3], [0, 1]] as const) {
-    ctx.fillStyle = ramp[tone]!;
+    ctx.fillStyle = defined(ramp[tone], 'a pedestal tone');
     for (let y = -3; y <= 3; y++) {
       const w = Math.round(rx * Math.sqrt(1 - (y / 4) ** 2));
       ctx.fillRect(cx - w, cy + y + dy, w * 2, 1);
     }
   }
-  ctx.fillStyle = ramp[0]!;
+  ctx.fillStyle = defined(ramp[0], "the pedestal's light");
   ctx.fillRect(cx - Math.round(rx * 0.6), cy - 2, Math.round(rx * 0.5), 1);
 }
 

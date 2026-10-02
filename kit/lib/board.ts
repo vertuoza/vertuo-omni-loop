@@ -332,7 +332,9 @@ export function boardFor<S extends BoardSlice>({
   const rows = slices.map((slice, index): BoardRow<S> => {
     const pr = matched[index] ?? null;
     const repo = repoOf(slice);
-    const { repo: _repo, ...rest } = slice;
+    // The row carries its own `repo` (below), or none: never the slice's raw one.
+    const rest: Omit<S, 'repo'> & { repo?: string | null } = { ...slice };
+    delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
       return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix }) };

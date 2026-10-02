@@ -30,6 +30,9 @@ export function failed(send: ScoreSend): ScoreSend {
 }
 
 /** True when the score is not saved and A may still try once more. */
+/** The tone of the end screen's line on its score: NEW BEST, or the send's state. */
+export const sendTone = (send: ScoreSend): string => (send.state === 'saved' && send.newBest ? 'best' : send.state);
+
 export const canRetry = (s: ScoreSend | null): boolean => s?.state === 'failed' && s.tries < SEND_TRIES;
 
 /**

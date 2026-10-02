@@ -2,11 +2,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { parsePlanSlices } from '../inbox/territory.ts';
-import { appendObjection as appendObjectionTyped } from '../outbox/replies.ts';
-import { adoptItem as adoptItemTyped, parseSettledEntries as parseSettledEntriesTyped, settleItem as settleItemTyped } from '../outbox/settle.ts';
-import { parseOutboxItem as parseOutboxItemTyped } from '../outbox/outbox.ts';
+import { appendObjection } from '../outbox/replies.ts';
+import { adoptItem, parseSettledEntries, settleItem } from '../outbox/settle.ts';
+import { parseOutboxItem } from '../outbox/outbox.ts';
 import {
   closeDriftedEntry,
   deriveRework,
@@ -17,13 +18,19 @@ import {
   reworkPullRequest,
 } from './rework.ts';
 
-/** The outbox's own modules, read loosely here: their slices type them, and this file only uses
- * them to build and read back real ledgers. */
-const appendObjection = appendObjectionTyped as (...args: unknown[]) => any;
-const adoptItem = adoptItemTyped as (...args: unknown[]) => any;
-const parseSettledEntries = parseSettledEntriesTyped as (...args: unknown[]) => any[];
-const settleItem = settleItemTyped as (...args: unknown[]) => any;
-const parseOutboxItem = parseOutboxItemTyped as (...args: unknown[]) => any;
+/** Item `index` of `list`, which must hold it. */
+function nth<T>(list: readonly T[], index: number, what: string): T {
+  const value = list[index];
+  assertDefined(value, what);
+  return value;
+}
+
+/** The item `text` parses to; fails the test, naming its errors, when it does not parse. */
+function parsedItem(text: string) {
+  const parsed = parseOutboxItem(text);
+  if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
+  return parsed.item;
+}
 
 const PRD = 985;
 const FEATURE_BRANCH = 'feat/agent-outbox';
@@ -85,7 +92,7 @@ const PLAN = [
 const roots: string[] = [];
 
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 /**
@@ -113,7 +120,7 @@ function settledLedger(settlings: { text: string; file: string; answer: string; 
         ...(statedVerdict ? { statedVerdict } : {}),
       },
     });
-    expect(result.ok, result.ok ? '' : (result.errors ?? []).join('\n')).toBe(true);
+    expect(result.ok, result.ok ? '' : result.errors.join('\n')).toBe(true);
   }
 
   return readFileSync(join(dir, 'settled.md'), 'utf8');
@@ -140,8 +147,8 @@ describe('A feature that drifted is brought back in line', () => {
       const drifted = driftedEntries(settledLedger([DRIFTED, AGREED]), MARKERS);
 
       expect(drifted.map((entry) => entry.id)).toEqual(['s5-01-default-country']);
-      expect(drifted[0]!.verdict).toBe('drifted');
-      expect(drifted[0]!.closed).toBe(false);
+      expect(nth(drifted, 0, 'the drifted entry').verdict).toBe('drifted');
+      expect(nth(drifted, 0, 'the drifted entry').closed).toBe(false);
     });
 
     it('derives exactly one rework slice for the one drifted item', () => {
@@ -154,8 +161,10 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       expect(result.reworks).toHaveLength(1);
-      expect(result.reworks[0]!.itemId).toBe('s5-01-default-country');
-      expect(result.reworks[0]!.id).toBe('fix-s5-01-default-country');
+      const [rework] = result.reworks;
+      assertDefined(rework, 'the rework');
+      expect(rework.itemId).toBe('s5-01-default-country');
+      expect(rework.id).toBe('fix-s5-01-default-country');
       expect(result.opensPullRequest).toBe(true);
     });
 
@@ -168,8 +177,10 @@ describe('A feature that drifted is brought back in line', () => {
         markers: MARKERS,
       });
 
-      expect(result.reworks[0]!.base).toBe(FEATURE_BRANCH);
-      expect(result.reworks[0]!.branch).toBe(`${FEATURE_BRANCH}--fix-s5-01-default-country`);
+      const [rework] = result.reworks;
+      assertDefined(rework, 'the rework');
+      expect(rework.base).toBe(FEATURE_BRANCH);
+      expect(rework.branch).toBe(`${FEATURE_BRANCH}--fix-s5-01-default-country`);
       expect(result.mergesIntoMain).toBe(false);
       expect(result.report.join('\n')).not.toMatch(/into main/);
     });
@@ -184,9 +195,11 @@ describe('A feature that drifted is brought back in line', () => {
         branches: { feature: 'feature/{topic}', slice: 'slice/{topic}/{slice}', rework: 'rework-{item}' },
       });
 
-      expect(result.reworks[0]!.id).toBe('rework-s5-01-default-country');
-      expect(result.reworks[0]!.base).toBe('feature/agent-outbox');
-      expect(result.reworks[0]!.branch).toBe('slice/agent-outbox/rework-s5-01-default-country');
+      const [rework] = result.reworks;
+      assertDefined(rework, 'the rework');
+      expect(rework.id).toBe('rework-s5-01-default-country');
+      expect(rework.base).toBe('feature/agent-outbox');
+      expect(rework.branch).toBe('slice/agent-outbox/rework-s5-01-default-country');
     });
 
     it('refuses a feature branch the feature template cannot read a topic from', () => {
@@ -209,7 +222,8 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('takes the answer and the item’s own cost section as the brief, verbatim', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
+      assertDefined(entry, 'the drifted entry');
+      const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
 
       expect(rework.answer).toBe(DRIFTED.answer);
       expect(rework.bound).toBe(
@@ -222,7 +236,8 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('declares its territory: the ground the slice stood on, plus every path the bound names', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
+      assertDefined(entry, 'the drifted entry');
+      const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
 
       expect(rework.territory).toEqual([
         'scripts/outbox-settle*',
@@ -234,7 +249,8 @@ describe('A feature that drifted is brought back in line', () => {
 
     it('declares nothing it cannot name when the plan holds no such slice', () => {
       const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-      const rework = deriveRework(entry!, { planSlices: [] });
+      assertDefined(entry, 'the drifted entry');
+      const rework = deriveRework(entry, { planSlices: [] });
 
       expect(rework.territory).toEqual(['libs/vertuo-domain-contact/src/contact-builder.ts']);
       expect(rework.unknownPlanSlice).toBe(true);
@@ -250,9 +266,10 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [slice] = parsePlanSlices(renderReworkPlan(result));
-      expect(slice!.id).toBe('fix-s5-01-default-country');
-      expect(slice!.territory).toEqual(result.reworks[0]!.territory);
-      expect(slice!.wave).toBe(1);
+      assertDefined(slice, 'the rework slice');
+      expect(slice.id).toBe('fix-s5-01-default-country');
+      expect(slice.territory).toEqual(nth(result.reworks, 0, 'the rework').territory);
+      expect(slice.wave).toBe(1);
     });
 
     it('keeps two reworks that share ground out of one wave', () => {
@@ -312,6 +329,8 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [agreed, drifted] = parseSettledEntries(closed, MARKERS);
+      assertDefined(agreed, 'the agreed entry');
+      assertDefined(drifted, 'the drifted entry');
       expect(agreed.id).toBe('s5-02-civility-label');
       expect(agreed.fields.Closed).toBe(
         'yes — the answer matches what was built, so there is nothing to rework',
@@ -328,6 +347,7 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [entry] = parseSettledEntries(closed, MARKERS);
+      assertDefined(entry, 'the entry');
       expect(entry.closed).toBe(true);
       expect(entry.fields.Closed).toContain('#1001');
       expect(reworkPullRequest(entry)).toBe('#1001');
@@ -341,6 +361,7 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [entry] = parseSettledEntries(closed, MARKERS);
+      assertDefined(entry, 'the entry');
       expect(entry.verdict).toBe('drifted');
       expect(reworkPullRequest(entry)).toBe(
         'https://github.com/vertuoza/vertuo-ai-domain/pull/1001',
@@ -360,8 +381,9 @@ describe('A feature that drifted is brought back in line', () => {
       expect(after).toHaveLength(before.length);
       const changed = before.map((line, index) => index).filter((i) => before[i] !== after[i]);
       expect(changed).toHaveLength(1);
-      expect(before[changed[0]!]).toMatch(/^- Closed: no\b/);
-      expect(after[changed[0]!]).toMatch(/^- Closed: yes\b/);
+      const line = nth(changed, 0, 'the changed line');
+      expect(before[line]).toMatch(/^- Closed: no\b/);
+      expect(after[line]).toMatch(/^- Closed: yes\b/);
     });
 
     it('keeps the question byte-identical — the four sections are what a rework is derived from', () => {
@@ -373,13 +395,15 @@ describe('A feature that drifted is brought back in line', () => {
       });
 
       const [drifted, agreed] = parseSettledEntries(closed, MARKERS);
+      assertDefined(drifted, 'the drifted entry');
+      assertDefined(agreed, 'the agreed entry');
       expect(drifted.itemText).toBe(ITEM_TEXT);
       expect(agreed.itemText).toBe(AGREED_ITEM_TEXT);
       expect(drifted.answerText).toBe(DRIFTED.answer);
 
       const roundTripped = parseOutboxItem(drifted.itemText);
       expect(roundTripped.ok).toBe(true);
-      expect(roundTripped.item!.sections).toEqual(parseOutboxItem(ITEM_TEXT).item!.sections);
+      expect(parsedItem(drifted.itemText).sections).toEqual(parsedItem(ITEM_TEXT).sections);
     });
 
     it('refuses to close an item it was not given', () => {
@@ -532,9 +556,11 @@ function adoptedThenObjected({ because = 'we need all of them' } = {}) {
   expect(adopted.ok).toBe(true);
   const ledger = join(root, `docs/outbox/${PRD}/settled.md`);
   const [adoptedEntry] = parseSettledEntries(readFileSync(ledger, 'utf8'), ctx.markers);
-  const { item } = parseOutboxItem(OPTIONED_ITEM_TEXT);
+  assertDefined(adoptedEntry, 'the adopted entry');
+  const item = parsedItem(OPTIONED_ITEM_TEXT);
   const objected = appendObjection({
-    ctx,
+    // The flat fixture layout carries every path appendObjection reads.
+    ctx: ctx as unknown as Parameters<typeof appendObjection>[0]['ctx'],
     prd: PRD,
     adoptedEntry,
     item,
@@ -556,9 +582,10 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     const { settledText, markers } = adoptedThenObjected();
 
     const [entry] = driftedEntries(settledText, markers);
-    expect(entry!.id).toBe('s3-01-components');
+    assertDefined(entry, 'the drifted entry');
+    expect(entry.id).toBe('s3-01-components');
 
-    const rework = deriveRework(entry!, { planSlices: parsePlanSlices(PLAN) });
+    const rework = deriveRework(entry, { planSlices: parsePlanSlices(PLAN) });
     expect(rework.chosenOption).toEqual({ letter: 'B', text: 'All of them, costs hidden' });
     expect(rework.reason).toBe('we need all of them');
     expect(rework.answer).toBe('B. All of them, costs hidden — because we need all of them');
@@ -567,7 +594,8 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
 
   it('a prose answer names no option, and the rework reads the answer itself', () => {
     const [entry] = driftedEntries(settledLedger([DRIFTED]), MARKERS);
-    const rework = deriveRework(entry!);
+    assertDefined(entry, 'the drifted entry');
+    const rework = deriveRework(entry);
     expect(rework.chosenOption).toBeNull();
     expect(rework.reason).toBeNull();
   });
@@ -583,8 +611,10 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     });
 
     // The adopted entry — everything up to its own closing marker — is byte-identical.
-    expect(closed.startsWith(adoptedBlock!)).toBe(true);
+    assertDefined(adoptedBlock, 'the adopted block');
+    expect(closed.startsWith(adoptedBlock)).toBe(true);
     const [entry] = parseSettledEntries(closed, markers);
+    assertDefined(entry, 'the entry');
     expect(entry.verdict).toBe('drifted');
     expect(entry.closed).toBe(true);
     expect(reworkPullRequest(entry)).toBe('#1201');
@@ -626,7 +656,7 @@ describe('A rework lands in the repository its decision was taken in (PRD 563, s
       markers: MARKERS,
       planRepository: true,
     });
-    expect(result.reworks[0]!.repo).toBeNull();
+    expect(nth(result.reworks, 0, 'the rework').repo).toBeNull();
   });
 
   it('carries no repo field outside a plan repository, even on a plan with a repo column', () => {

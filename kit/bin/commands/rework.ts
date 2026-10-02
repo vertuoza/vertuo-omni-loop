@@ -12,6 +12,7 @@ import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } 
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Rework, ReworkPlan } from '../../lib/policy/rework.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>';
 const PLAN_USAGE = 'usage: omni rework plan <prd> [--json]';
@@ -56,7 +57,7 @@ function printPlan(stdout: Out, result: ReworkPlan): void {
   }
 }
 
-async function runPlan(args: string[], { ctx, stdout }: CommandIo): Promise<number> {
+function runPlan(args: string[], { ctx, stdout }: CommandIo): number {
   const { positional, flags } = parseArgs('rework plan', args, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(PLAN_USAGE);
   const prd = positiveInt('rework plan', '<prd>', positional[0]);
@@ -90,7 +91,7 @@ async function runPlan(args: string[], { ctx, stdout }: CommandIo): Promise<numb
   return 0;
 }
 
-async function runClose(args: string[], { ctx, stdout }: CommandIo): Promise<number> {
+function runClose(args: string[], { ctx, stdout }: CommandIo): number {
   const { positional, flags } = parseArgs('rework close', args, { values: ['pr', 'prd'] });
   if (positional.length !== 1 || flags.pr === undefined || flags.prd === undefined) {
     throw usageError(CLOSE_USAGE);
@@ -124,10 +125,10 @@ async function runClose(args: string[], { ctx, stdout }: CommandIo): Promise<num
 }
 
 export const rework: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const [sub, ...rest] = args;
     if (sub === 'plan') return runPlan(rest, io);
     if (sub === 'close') return runClose(rest, io);
     throw usageError(USAGE);
-  },
+  }),
 };

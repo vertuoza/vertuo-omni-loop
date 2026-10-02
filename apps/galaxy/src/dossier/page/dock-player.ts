@@ -17,7 +17,7 @@ type Me = { team: string | null; hero: Hero | null; github_login: string | null 
 /** The GitHub login linked to this sign-in, if any. */
 function githubLogin(user: Pick<User, 'identities'>): string | null {
   const data = user.identities?.find((i) => i.provider === 'github')?.identity_data ?? null;
-  const login = data?.user_name ?? data?.preferred_username;
+  const login: unknown = data?.user_name ?? data?.preferred_username;
   return typeof login === 'string' && login ? login : null;
 }
 
@@ -28,7 +28,7 @@ async function readMe(db: Pick<SupabaseClient, 'from'>, workspace: string, userI
     console.error(`Supabase: could not read your player (${error.message})`);
     return null;
   }
-  return (data as Me | null) ?? null; // ts-allow: the select names the columns of Me, for one row or none
+  return data ?? null;
 }
 
 export async function readDockPlayer(db: Pick<SupabaseClient, 'from'>, user: Pick<User, 'id' | 'identities'>, workspace: string): Promise<DockSetup> {

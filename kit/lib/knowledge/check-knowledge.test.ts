@@ -6,6 +6,9 @@ import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { gradeKnowledge } from './check-knowledge.ts';
 import { readKnowledge } from './registers.ts';
+import { assertDefined } from '../../test/assert.ts';
+
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
 
 /** Each fixture domain's glossary term; the fixture glossary holds every one. */
 const TERMS: Record<string, string> = {
@@ -20,7 +23,7 @@ const GLOSSARY_TEXT = Object.values(TERMS)
 
 const roots: string[] = [];
 afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 /**
@@ -34,7 +37,10 @@ function tree(files: Record<string, string>, { domains = [] }: { domains?: strin
   const named = new Set(domains);
   for (const path of Object.keys(files)) {
     const match = path.match(/^docs\/knowledge\/domains\/([^/]+)\//);
-    if (match) named.add(match[1]!);
+    if (match) {
+      assertDefined(match[1], 'the domain folder');
+      named.add(match[1]);
+    }
   }
   const all: Record<string, string> = { ...files };
   for (const layer of ['principles.md', 'rules.md', 'invariants.md']) {
@@ -144,7 +150,8 @@ describe('Feature: where truth lives', () => {
     expect(violations).toHaveLength(1);
     const [violation] = violations.map(parseLine);
     expect(violation).toMatchObject({ id: 'BR-ADVISOR-2', file: ADVISOR_RULES });
-    expect(violation!.detail).toMatch(/missing a "Serves:" line/);
+    assertDefined(violation, 'violation');
+    expect(violation.detail).toMatch(/missing a "Serves:" line/);
   });
 
   it('Scenario: a principle no rule serves is a wish, not a failure', () => {
@@ -152,7 +159,8 @@ describe('Feature: where truth lives', () => {
     const { violations, wishes } = grade(root);
     expect(violations).toEqual([]);
     expect(wishes.map((line) => parseLine(line).id)).toEqual(['P-FOLDER-4']);
-    expect(parseLine(wishes[0]!).detail).toMatch(/is a wish/);
+    assertDefined(wishes[0], 'wishes[0]');
+    expect(parseLine(wishes[0]).detail).toMatch(/is a wish/);
   });
 
   it('Scenario: a principle carries no enforcement claim', () => {
@@ -163,7 +171,8 @@ describe('Feature: where truth lives', () => {
     });
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['P-CREDITS-1']);
-    expect(parseLine(violations[0]!).detail).toMatch(/judged, not proven/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/judged, not proven/);
   });
 
   it("Scenario: an id's prefix names its domain", () => {
@@ -173,7 +182,8 @@ describe('Feature: where truth lives', () => {
     });
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['BR-CREDITS-1']);
-    expect(parseLine(violations[0]!).detail).toMatch(/no "Kept id:" line/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/no "Kept id:" line/);
   });
 
   it('Scenario: a kept id may keep its old prefix', () => {
@@ -199,7 +209,8 @@ describe('Feature: where truth lives', () => {
     );
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['credits--advisor']);
-    expect(parseLine(violations[0]!).detail).toMatch(/advisor--credits/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/advisor--credits/);
   });
 
   it('Scenario: a cross-domain entry serves a principle of its own pair', () => {
@@ -214,7 +225,8 @@ describe('Feature: where truth lives', () => {
     );
     const { violations } = grade(root);
     expect(idsFailed({ violations })).toEqual(['X-ADVISOR-CREDITS-1']);
-    expect(parseLine(violations[0]!).detail).toMatch(/own pair/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/own pair/);
   });
 });
 
@@ -398,7 +410,8 @@ describe('honesty — a claim names something real', () => {
     });
     const { violations } = grade(root);
     expect(violations).toHaveLength(1);
-    expect(parseLine(violations[0]!).detail).toMatch(/already used in/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/already used in/);
   });
 });
 
@@ -410,7 +423,9 @@ describe('strictness — every line leads somewhere real', () => {
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-FOLDER-1' }),
     });
     expect(idsFailed(grade(root))).toEqual(['BR-ADVISOR-1']);
-    expect(parseLine(grade(root).violations[0]!).detail).toMatch(/cross-domain/);
+    const [violation] = grade(root).violations;
+    assertDefined(violation, 'the violation');
+    expect(parseLine(violation).detail).toMatch(/cross-domain/);
   });
 
   it('accepts a domain rule serving a product principle', () => {
@@ -432,7 +447,8 @@ describe('strictness — every line leads somewhere real', () => {
     });
     const { violations } = grade(root);
     expect(violations.map((line) => parseLine(line).id)).toEqual(['P-ADVISOR-1']);
-    expect(parseLine(violations[0]!).detail).toMatch(/leads nowhere/);
+    assertDefined(violations[0], 'violations[0]');
+    expect(parseLine(violations[0]).detail).toMatch(/leads nowhere/);
   });
 
   it('refuses a link to a heading the file does not have, in Source: and Enforced by:', () => {
@@ -533,8 +549,8 @@ describe('Feature: a proposed entry (PRD #68)', () => {
     const result = grade(root);
     expect(result.violations).toEqual([]);
     expect(result.proposals.map(parseLine)).toEqual([
-      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
+      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: matching(/proposed by invade on 2026-09-25/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/proposed by invade on 2026-09-25/) },
     ]);
   });
 
@@ -570,7 +586,7 @@ describe('Feature: a proposed entry (PRD #68)', () => {
       }).replace('Source: PRD #1081', 'Source: docs/business-rules.md#quote-renewal'),
     });
     expect(grade(root).violations.map(parseLine)).toEqual([
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/has no heading with that anchor/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/has no heading with that anchor/) },
     ]);
   });
 
@@ -592,7 +608,7 @@ describe('Feature: a proposed entry (PRD #68)', () => {
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1', extra: ['Proposed: invade'] }),
     });
     expect(grade(root).violations.map(parseLine)).toEqual([
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/is not "Proposed: <who> <YYYY-MM-DD>"/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: matching(/is not "Proposed: <who> <YYYY-MM-DD>"/) },
     ]);
   });
 });

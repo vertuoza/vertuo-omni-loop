@@ -7,11 +7,11 @@ export function closedAccount(): Account {
   return {
     kind: 'closed',
     restore: () => ({ session: null, me: null }),
-    async signIn() { throw new Error(CLOSED); },
-    async linkGithub() { throw new Error(CLOSED); },
-    async save() { throw new Error(CLOSED); },
-    async submitScore() { throw new Error(CLOSED); },
-    async scores() { return { top: [], mine: null }; }, // nobody has played here
-    async signOut() { /* nobody is signed in */ },
+    signIn: () => Promise.reject(new Error(CLOSED)),
+    linkGithub: () => Promise.reject(new Error(CLOSED)),
+    save: () => Promise.reject(new Error(CLOSED)),
+    submitScore: () => Promise.reject(new Error(CLOSED)),
+    scores: () => Promise.resolve({ top: [], mine: null }), // nobody has played here
+    signOut: () => Promise.resolve(), // nobody is signed in
   };
 }

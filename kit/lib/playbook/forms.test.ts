@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
 import { main } from '../../bin/omni.ts';
 import { FORM_IDS, FORMS, parseForm, readForm, resolvePlaybookId } from './forms.ts';
+import { assertDefined } from '../../test/assert.ts';
+
+const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+const containing = (text: string): unknown => expect.stringContaining(text);
 
 /** `formText`'s options, typed here until `kit/test/fixture.ts` is (PRD 725, s17). */
 type FormTextOptions = {
@@ -24,7 +28,9 @@ function errorsOf(text: string) {
 function bodyOf(body: string | undefined) {
   const parsed = parseForm(formText({ slots: [{ id: 'data', body }] }), { file: FILE });
   expect(parsed.ok).toBe(true);
-  return parsed.form!.slots[0]!.body;
+  assertDefined(parsed.form, 'parsed.form');
+  assertDefined(parsed.form.slots[0], 'parsed.form.slots[0]');
+  return parsed.form.slots[0].body;
 }
 
 describe('FORMS — the spec’s forms table, the contract with the templates and the commands', () => {
@@ -76,7 +82,7 @@ describe('the briefing — the links rule (PRD 413, Decision 7)', () => {
     const { root } = makeRepo({ git: true, files: { ...config, ...files } });
     const out: string[] = [];
     const io = { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write() {} } };
-    const code = await main(['kb', 'show', 'briefing'], io as never);
+    const code = await main(['kb', 'show', 'briefing'], io);
     return { code, out: out.join('') };
   }
 
@@ -124,19 +130,25 @@ describe('parseForm — front matter', () => {
       { file: FILE },
     );
     expect(parsed.ok).toBe(true);
-    expect(parsed.form!.evidence).toEqual([
+    assertDefined(parsed.form, 'parsed.form');
+    expect(parsed.form.evidence).toEqual([
       { path: 'package.json', hash: '50fa1bd' },
       { path: 'node_modules/@scope/x/a.md', hash: '1ed9907' },
     ]);
-    expect(parsed.form!.invaded).toBe('2026-09-25');
+    assertDefined(parsed.form, 'parsed.form');
+    expect(parsed.form.invaded).toBe('2026-09-25');
   });
 
   it('still reads the old spelling of the invaded date, and lists it among the old spellings', () => {
     const parsed = parseForm(formText({ frontMatter: { state: 'filled', invaded: undefined, terraformed: '2026-09-25' } }), { file: FILE });
     expect(parsed.ok).toBe(true);
-    expect(parsed.form!.invaded).toBe('2026-09-25');
-    expect(parsed.form!.oldSpellings).toEqual([{ where: 'front matter', old: 'terraformed:', now: 'invaded:' }]);
-    expect(parseForm(formText({ frontMatter: { invaded: undefined, terraformed: null } }), { file: FILE }).form!.invaded).toBeNull();
+    assertDefined(parsed.form, 'parsed.form');
+    expect(parsed.form.invaded).toBe('2026-09-25');
+    assertDefined(parsed.form, 'parsed.form');
+    expect(parsed.form.oldSpellings).toEqual([{ where: 'front matter', old: 'terraformed:', now: 'invaded:' }]);
+    const form2 = parseForm(formText({ frontMatter: { invaded: undefined, terraformed: null } }), { file: FILE }).form;
+    assertDefined(form2, 'the form');
+    expect(form2.invaded).toBeNull();
   });
 
   it('refuses both spellings of the invaded date in one form', () => {
@@ -149,7 +161,9 @@ describe('parseForm — front matter', () => {
     const withIndex = parseForm(formText({ frontMatter: { ...pointer, index: 'records/index.md' }, slots: [] }), { file: FILE });
     expect(withIndex.ok).toBe(true);
     expect(withIndex.form).toMatchObject({ id: 'decisions', state: 'pointer', pointsTo: 'records/', index: 'records/index.md' });
-    expect(parseForm(formText({ frontMatter: pointer }), { file: FILE }).form!.index).toBeNull();
+    const form2 = parseForm(formText({ frontMatter: pointer }), { file: FILE }).form;
+    assertDefined(form2, 'the form');
+    expect(form2.index).toBeNull();
   });
 
   it('refuses index on a form that is not a pointer, naming the file', () => {
@@ -200,8 +214,10 @@ describe('parseForm — front matter', () => {
 describe('parseForm — title, opener and slots', () => {
   it('reads the title and the opener under it', () => {
     const { form } = parseForm(formText(), { file: FILE });
-    expect(form!.title).toBe('Testing');
-    expect(form!.opener).toBe('Use this page when adding, changing, or choosing tests.');
+    assertDefined(form, 'form');
+    expect(form.title).toBe('Testing');
+    assertDefined(form, 'form');
+    expect(form.opener).toBe('Use this page when adding, changing, or choosing tests.');
   });
 
   it('reads the slots in order, with their id, heading, required flag, by and verified', () => {
@@ -214,7 +230,8 @@ describe('parseForm — title, opener and slots', () => {
       ],
     });
     const { form } = parseForm(text, { file: FILE });
-    expect(form!.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual([
+    assertDefined(form, 'form');
+    expect(form.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual([
       { id: 'commands', heading: 'Commands', required: true, by: 'invade', verified: '2026-09-25' },
       { id: 'layout', heading: 'Where tests live', required: true, by: 'invade', verified: null },
       { id: 'levels', heading: 'Choosing the level', required: false, by: null, verified: null },
@@ -227,8 +244,10 @@ describe('parseForm — title, opener and slots', () => {
       formText({ slots: [{ id: 'commands', required: true, by: 'terraform', verified: '2026-09-25' }, { id: 'never', required: true, by: 'human' }] }),
       { file: FILE },
     );
-    expect(form!.slots.map((slot) => slot.by)).toEqual(['invade', 'human']);
-    expect(form!.oldSpellings).toEqual([{ where: '"## Commands"', old: 'by: terraform', now: 'by: invade' }]);
+    assertDefined(form, 'form');
+    expect(form.slots.map((slot) => slot.by)).toEqual(['invade', 'human']);
+    assertDefined(form, 'form');
+    expect(form.oldSpellings).toEqual([{ where: '"## Commands"', old: 'by: terraform', now: 'by: invade' }]);
   });
 
   it('refuses a marker whose by: is neither invade nor human', () => {
@@ -248,16 +267,22 @@ describe('parseForm — title, opener and slots', () => {
 
   it('lists a heading with no marker apart, never as a slot', () => {
     const { form } = parseForm(formText({ slots: [{ id: 'levels' }, { id: 'notes', heading: 'Notes', marker: null, body: 'Free text.' }] }), { file: FILE });
-    expect(form!.slots.map((slot) => slot.id)).toEqual(['levels']);
-    expect(form!.unmarked).toEqual(['Notes']);
+    assertDefined(form, 'form');
+    expect(form.slots.map((slot) => slot.id)).toEqual(['levels']);
+    assertDefined(form, 'form');
+    expect(form.unmarked).toEqual(['Notes']);
   });
 
   it('never opens a slot on a heading inside a fenced block', () => {
     const body = ['```markdown', '## Not a heading', '```'].join('\n');
     const { form } = parseForm(formText({ slots: [{ id: 'data', body }, { id: 'levels' }] }), { file: FILE });
-    expect(form!.slots.map((slot) => slot.id)).toEqual(['data', 'levels']);
-    expect(form!.unmarked).toEqual([]);
-    expect(form!.slots[0]!.body.text).toBe(body);
+    assertDefined(form, 'form');
+    expect(form.slots.map((slot) => slot.id)).toEqual(['data', 'levels']);
+    assertDefined(form, 'form');
+    expect(form.unmarked).toEqual([]);
+    assertDefined(form, 'form');
+    assertDefined(form.slots[0], 'form.slots[0]');
+    expect(form.slots[0].body.text).toBe(body);
   });
 });
 
@@ -332,17 +357,17 @@ describe('resolvePlaybookId — a settled entry’s Became: playbook/<form>#<slo
 
   it('refuses a form the kit does not have, a missing form file, a missing slot and a blank body, each with a reason', () => {
     const { ctx, write } = makeRepo();
-    expect(resolvePlaybookId('playbook/tests#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/no form "tests"/) });
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringContaining(`no form file at ${FILE}`) });
+    expect(resolvePlaybookId('playbook/tests#never', { ctx })).toEqual({ ok: false, reason: matching(/no form "tests"/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: containing(`no form file at ${FILE}`) });
     write(FILE, formText({ slots: [{ id: 'levels', body: 'x' }] }));
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/has no slot "never"/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/has no slot "never"/) });
     write(FILE, never(''));
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/"never" is blank/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/"never" is blank/) });
   });
 
   it('refuses a form file that does not parse, and an id that is not playbook/<form>#<slot>', () => {
     const { ctx } = makeRepo({ files: { [FILE]: '# Testing\n' } });
-    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/front matter/) });
-    expect(resolvePlaybookId('playbook/testing', { ctx })).toEqual({ ok: false, reason: expect.stringMatching(/playbook\/<form>#<slot>/) });
+    expect(resolvePlaybookId('playbook/testing#never', { ctx })).toEqual({ ok: false, reason: matching(/front matter/) });
+    expect(resolvePlaybookId('playbook/testing', { ctx })).toEqual({ ok: false, reason: matching(/playbook\/<form>#<slot>/) });
   });
 });

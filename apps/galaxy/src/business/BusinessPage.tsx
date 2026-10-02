@@ -48,7 +48,11 @@ export type BusinessSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string; product: string };
 
-type Rpc = Parameters<typeof databaseBusiness>[0];
+/** The browser client, seen only through the narrow port the draft store calls. */
+function draftDbOf(url: string, key: string): DraftDb {
+  const client: unknown = createBrowserClient<Database>(url, key);
+  return client as DraftDb; // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
+}
 
 export interface BusinessPageProps {
   source: BusinessSource;
@@ -82,17 +86,17 @@ function useConstituents(source: BusinessSource, read: Constituents | undefined,
   const port = useRef<ConstituentPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoConstituentsPort({ products: known.current, by: read?.me ?? 'demo' })
-    : databaseConstituents(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
+    : databaseConstituents(createBrowserClient<Database>(source.url, source.key), source.workspace));
   const write = async (w: Parameters<typeof writeConstituent>[1]) => {
     if (state.busy) return;
     act({ type: 'busy' });
     act(await writeConstituent(getPort(), w, read?.me ?? null));
   };
   const handlers: ConstituentHandlers = {
-    editStatement: (statement) => act({ type: 'edit-statement', statement }),
-    addNever: () => act({ type: 'add-never' }),
-    text: (text) => act({ type: 'text', text }),
-    cancel: () => act({ type: 'cancel' }),
+    editStatement: (statement) => { act({ type: 'edit-statement', statement }); },
+    addNever: () => { act({ type: 'add-never' }); },
+    text: (text) => { act({ type: 'text', text }); },
+    cancel: () => { act({ type: 'cancel' }); },
     save: () => {
       const field = state.editing;
       if (!field || !product || state.text.trim() === '') return;
@@ -143,13 +147,13 @@ function usePersonas(source: BusinessSource, personas: Persona[], newProduct: st
   const castPort = useRef<PersonaPort | null>(null);
   const getCast = () => (castPort.current ??= source.kind === 'demo'
     ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
+    : databasePersonas(createBrowserClient<Database>(source.url, source.key), source.workspace));
   // Undo goes once its 5 seconds have passed.
   const until = cast.undo?.until ?? null;
   useEffect(() => {
     if (until === null) return;
-    const timer = setTimeout(() => act({ type: 'tick', at: Date.now() }), Math.max(0, until - Date.now()));
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => { act({ type: 'tick', at: Date.now() }); }, Math.max(0, until - Date.now()));
+    return () => { clearTimeout(timer); };
   }, [until]);
   const save = async () => {
     const drawer = cast.drawer;
@@ -175,11 +179,11 @@ function usePersonas(source: BusinessSource, personas: Persona[], newProduct: st
     act(back.ok ? { type: 'restored', persona: back.persona } : { type: 'refused', message: back.message });
   };
   const handlers: PersonaHandlers = {
-    open: () => act({ type: 'new', product: newProduct, seed: freshSeed() }),
-    edit: (p) => act({ type: 'edit', persona: p.id, seed: freshSeed() }),
-    change: (fields) => act({ type: 'change', fields }),
-    shuffle: () => act({ type: 'shuffle' }),
-    close: () => act({ type: 'close' }),
+    open: () => { act({ type: 'new', product: newProduct, seed: freshSeed() }); },
+    edit: (p) => { act({ type: 'edit', persona: p.id, seed: freshSeed() }); },
+    change: (fields) => { act({ type: 'change', fields }); },
+    shuffle: () => { act({ type: 'shuffle' }); },
+    close: () => { act({ type: 'close' }); },
     save: () => void save(),
     remove: () => void remove(),
     undo: () => void undo(),
@@ -198,11 +202,11 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   const port = useRef<BusinessPort | null>(null);
   const getPort = () => (port.current ??= source.kind === 'demo'
     ? demoBusinessPort(held.current.claims, held.current.products)
-    : databaseBusiness(createBrowserClient<Database>(source.url, source.key) as unknown as Rpc, source.workspace, source.product)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
+    : databaseBusiness(createBrowserClient<Database>(source.url, source.key), source.workspace, source.product));
   const drafts = useRef<DraftPort | null>(null);
   const getDrafts = () => (drafts.current ??= source.kind === 'demo'
     ? demoDraftPort(() => held.current.claims)
-    : databaseDraft(createBrowserClient<Database>(source.url, source.key) as unknown as DraftDb, source.workspace)); // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
+    : databaseDraft(draftDbOf(source.url, source.key), source.workspace));
   /** In the demo, the claims store starts again from the page after a draft or That's us. */
   const renew = () => {
     if (source.kind === 'demo') port.current = null;
@@ -215,7 +219,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
       return;
     }
     dispatch({ type: 'busy' });
-    const ok = await run(calls, (step) => dispatch(step));
+    const ok = await run(calls, (step) => { dispatch(step); });
     if (ok) dispatch({ type: 'done' });
   };
 
@@ -225,13 +229,17 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   // Each product asks for its own (PRD 748 s4): the key names the tab.
   const key = suggestKeyOf(state.claims, whole.current);
   const asked = useRef<string | null>(openingKey(claims, products));
+  // What the two effects below read without running again when it changes: the ports, the tab shown
+  // (which the picks' key already names) and the demo's renewal.
+  const latest = useRef({ getPort, getDrafts, renew, product });
+  latest.current = { getPort, getDrafts, renew, product };
   useEffect(() => {
     if (!key || key === asked.current) return;
     asked.current = key;
-    void getPort().suggest(product).then((found) => {
+    void latest.current.getPort().suggest(latest.current.product).then((found) => {
       if (found.length > 0) dispatch({ type: 'suggested', claims: found });
     });
-    // getPort is stable for the page's life; only the picks' key asks again.
+    // getPort is stable for the page's life and the key names the tab: only the picks' key asks again.
   }, [key]);
 
   const plan = (kind: ClaimKind, planned: { reject: Claim[]; pick: string | null }) => void go(callsOf(getPort(), kind, planned, product));
@@ -248,17 +256,19 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   useEffect(() => {
     if (!running) return;
     let live = true;
+    // Read through a function: an await may end the effect between two reads.
+    const stopped = () => !live;
     const timer = setInterval(() => {
       void (async () => {
-        const row = await getDrafts().latest();
-        if (!live || !row) return;
+        const row = await latest.current.getDrafts().latest();
+        if (stopped() || !row) return;
         if (row.state === 'running') {
           dispatch({ type: 'draft', draft: row });
           return;
         }
-        const read = await getDrafts().claims();
-        if (!live) return;
-        renew();
+        const read = await latest.current.getDrafts().claims();
+        if (stopped()) return;
+        latest.current.renew();
         dispatch({ type: 'drafted', draft: row, claims: read ?? held.current.claims });
       })();
     }, POLL_MS);
@@ -266,7 +276,8 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
       live = false;
       clearInterval(timer);
     };
-    // getDrafts is stable for the page's life; only a new running draft starts reading again.
+    // getDrafts is stable for the page's life, read through its ref: only a new running draft starts
+    // reading again.
   }, [running]);
 
   const startDraft = async () => {
@@ -329,11 +340,11 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   };
 
   const on: BusinessHandlers = {
-    tap: (kind, value) => plan(kind, planTap(state.claims, kind, value)),
-    pick: (kind, value) => plan(kind, planPick(state.claims, kind, value)),
-    type: (kind) => dispatch({ type: 'type', kind }),
-    untype: () => dispatch({ type: 'untype' }),
-    sizeDraft: (stops) => dispatch({ type: 'size-draft', stops }),
+    tap: (kind, value) => { plan(kind, planTap(state.claims, kind, value)); },
+    pick: (kind, value) => { plan(kind, planPick(state.claims, kind, value)); },
+    type: (kind) => { dispatch({ type: 'type', kind }); },
+    untype: () => { dispatch({ type: 'untype' }); },
+    sizeDraft: (stops) => { dispatch({ type: 'size-draft', stops }); },
     sizeCommit: () => {
       if (!state.sizeDraft) return;
       const value = sizeValue(state.sizeDraft);
@@ -346,17 +357,17 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     },
     confirm: (claim) => void go(confirmCalls(getPort(), planConfirm(state.claims, claim), claim)),
     reject: (claim) => void go([() => getPort().setState(claim, 'rejected')]),
-    skip: () => dispatch({ type: 'skip' }),
-    unskip: () => dispatch({ type: 'unskip' }),
-    openProduct: () => dispatch({ type: 'add-product' }),
-    closeProduct: () => dispatch({ type: 'unadd-product' }),
+    skip: () => { dispatch({ type: 'skip' }); },
+    unskip: () => { dispatch({ type: 'unskip' }); },
+    openProduct: () => { dispatch({ type: 'add-product' }); },
+    closeProduct: () => { dispatch({ type: 'unadd-product' }); },
     addProduct: (name) => void addProduct(name),
-    showProduct: (id) => dispatch({ type: 'show-product', product: id }),
+    showProduct: (id) => { dispatch({ type: 'show-product', product: id }); },
     draft: () => void startDraft(),
-    mark: (claim, mark) => dispatch({ type: 'mark', claim: claim.id, mark }),
+    mark: (claim, mark) => { dispatch({ type: 'mark', claim: claim.id, mark }); },
     thatsUs: () => void saveThatsUs(),
-    openPage: () => dispatch({ type: 'add-page' }),
-    closePage: () => dispatch({ type: 'unadd-page' }),
+    openPage: () => { dispatch({ type: 'add-page' }); },
+    closePage: () => { dispatch({ type: 'unadd-page' }); },
     addPage: (url) => void addPage(url),
     removePage: (page) => void removePage(page),
     settle: (claim, right) => void settle(claim, right),

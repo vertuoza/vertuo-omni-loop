@@ -9,7 +9,7 @@
 // repository it lands in, in a `repo` column, and a `## Repositories` table records each one: this
 // grades both, every refusal naming its field first, and gives the collision matrix per repository.
 // Outside one, either table is refused.
-import { messageOf } from '../narrow.ts';
+import { defined, messageOf } from '../narrow.ts';
 import type { Config, Slice } from '../types.ts';
 import { collisionRows, parsePlanRepositories, parsePlanSlices, sameWaveCollisions } from './territory.ts';
 import type { Collision, PlanRepository } from './territory.ts';
@@ -52,7 +52,7 @@ function blockedByViolations(slices: readonly Slice[]): string[] {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const violations: string[] = [];
   for (const slice of slices) {
-    for (const blocker of slice.blockedBy ?? []) {
+    for (const blocker of slice.blockedBy) {
       if (!waveOf.has(blocker)) {
         violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
         continue;
@@ -205,7 +205,7 @@ export function gradePlan(markdown: string, { config }: { config: GradeConfig })
   const violations = [
     ...(planSection === null
       ? notPlanRepositoryViolations(slices, repositories)
-      : repositoryViolations(slices, repositories, { planSlug: config.repo.slug!, targets: planSection.targets })), // ts-allow: a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+      : repositoryViolations(slices, repositories, { planSlug: defined(config.repo.slug, "the plan repository's repo.slug"), targets: planSection.targets })), // a plan repository with no repo.slug throws here, as it always has (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...blockedByViolations(slices),
     ...collisions.map(

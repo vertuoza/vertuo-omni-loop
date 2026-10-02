@@ -131,7 +131,8 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
 
 // ── POST /api/ask/token ─────────────────────────────────────────────────────
 
-type Refreshed = { data: { session: CliSession | null }; error: unknown };
+// `data` is widened to null: the Auth server's answer is read here unparsed.
+type Refreshed = { data: { session: CliSession | null } | null; error: unknown };
 type Called = { data: unknown; error: { message: string; code?: string } | null };
 
 /** The one thing each half asks of a Supabase client acting as nobody (the anon key). */

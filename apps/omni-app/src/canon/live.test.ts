@@ -1,5 +1,7 @@
 // The canon gate's live ports, against a recording fetch: nothing here calls Supabase or OpenRouter.
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { CANON_MODEL, businessReader, canonFromEnv, constituentsReader } from './live.ts';
 
 type Recorded = { url: URL; method: string; body: { model?: string } | null; headers: Headers };
@@ -8,13 +10,27 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 function recordingFetch(answer: (url: URL) => Response) {
   const requests: Recorded[] = [];
-  const fetch: typeof globalThis.fetch = async (input, init = {}) => {
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    requests.push({ url, method: init.method ?? 'GET', body: init.body ? JSON.parse(String(init.body)) : null, headers: new Headers(init.headers) });
-    return answer(url);
-  };
+  const fetch: typeof globalThis.fetch = (input, init = {}) =>
+    new Promise((resolve) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      requests.push({ url, method: init.method ?? 'GET', body: init.body ? BodySchema.parse(JSON.parse(printed(init.body))) : null, headers: new Headers(init.headers) });
+      resolve(answer(url));
+    });
   return { fetch, requests };
 }
+
+/** A request's JSON body, as far as these tests read it. */
+const BodySchema = z.looseObject({ model: z.string().optional() });
+
+/** The request at `index`: the test fails when there is none. */
+function nth<T>(list: readonly T[], index: number): T {
+  const item = list[index];
+  assertDefined(item, `request ${index}`);
+  return item;
+}
+
+/** Any value, as `String` prints it: a request body is whatever the port sent. */
+const printed = (value: unknown) => String(value);
 
 const BUSINESS = {
   state: 'ok',
@@ -30,7 +46,7 @@ describe('businessReader — the service-role read by repository', () => {
     const db = recordingFetch(() => json(BUSINESS));
     const read = businessReader({ url: 'https://db.example', key: 'service-key', fetch: db.fetch });
     expect(await read('acme/widgets')).toEqual(BUSINESS);
-    const request = db.requests[0]!;
+    const request = nth(db.requests, 0);
     expect([request.method, request.url.pathname]).toEqual(['POST', '/rest/v1/rpc/business_for_repo_app']);
     expect(request.body).toEqual({ p_repo: 'acme/widgets' });
     expect(request.headers.get('apikey')).toBe('service-key');
@@ -101,8 +117,8 @@ describe('constituentsReader — the service-role read by repository', () => {
     const db = recordingFetch(() => json(CONSTITUENTS));
     const read = constituentsReader({ url: 'https://db.example', key: 'service-key', fetch: db.fetch });
     expect(await read('acme/ux')).toEqual(CONSTITUENTS);
-    expect(db.requests[0]!.url.pathname).toBe('/rest/v1/rpc/constituents_for_repo_app');
-    expect(db.requests[0]!.body).toEqual({ p_repo: 'acme/ux' });
+    expect(nth(db.requests, 0).url.pathname).toBe('/rest/v1/rpc/constituents_for_repo_app');
+    expect(nth(db.requests, 0).body).toEqual({ p_repo: 'acme/ux' });
   });
 });
 
@@ -113,9 +129,9 @@ describe('canonFromEnv — the constituents judged through galaxy', () => {
     expect(gate).toMatchObject({ ok: false, reason: 'canon ✗ 1' });
     expect(gate.details[0]).toBe(`never#1 "Calls real Vertuoza data or real Vertuoza APIs" — the spec: "fetch('/api/v1/projects')"`);
     const judged = calls.requests.find((request) => request.url.pathname === '/api/constituents/judge');
-    expect(judged!.url.origin).toBe('https://galaxy.example');
-    expect(judged!.headers.get('x-omni-signature-256')).toMatch(/^sha256=[0-9a-f]{64}$/);
-    expect(judged!.body).toMatchObject({ repo: 'acme/ux', old: 'true' });
+    expect(judged?.url.origin).toBe('https://galaxy.example');
+    expect(judged?.headers.get('x-omni-signature-256')).toMatch(/^sha256=[0-9a-f]{64}$/);
+    expect(judged?.body).toMatchObject({ repo: 'acme/ux', old: 'true' });
   });
 
   it('without CONSTITUENT_JUDGE_SECRET it is neutral, never red, and galaxy is not called', async () => {

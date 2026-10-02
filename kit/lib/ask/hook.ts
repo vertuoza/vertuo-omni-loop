@@ -79,10 +79,12 @@ export function toolAnswers(questions: unknown, answers: unknown): Answers | nul
   if (!Array.isArray(questions) || questions.length === 0) return null;
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
   const shaped: Answers = {};
-  for (const entry of questions) {
-    // Destructuring a question that is null or undefined throws, as it always has.
-    const { question } = entry;
-    const given = field(answers, String(question));
+  const list: readonly unknown[] = questions;
+  for (const entry of list) {
+    // A question that is null or undefined throws, as destructuring it always has.
+    if (entry === null || entry === undefined) throw new TypeError(`a question is ${String(entry)}`);
+    const question = String(field(entry, 'question'));
+    const given = field(answers, question);
     const text = Array.isArray(given) && given.every((label) => typeof label === 'string') ? given.join(', ') : given;
     if (typeof text !== 'string' || text === '') return null;
     shaped[question] = text;
@@ -274,7 +276,9 @@ export async function preHook({
 
   const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, readLead, questions, terminalId });
   if (!roundId) return null;
-  const keep = (status: RoundStatus): void => writeRound(root, toolUseId, { roundId, status });
+  const keep = (status: RoundStatus): void => {
+    writeRound(root, toolUseId, { roundId, status });
+  };
   keep('open');
 
   const giveUp = async (): Promise<null> => {

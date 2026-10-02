@@ -10,6 +10,7 @@ import {
   territoryPrefixes,
   territoryVerdict,
 } from './territory.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** A plan in the shape this slice introduces: a `territory` column beside the wave. */
 const PLAN = `# Plan: a plan
@@ -144,8 +145,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s4  | D     | \`d/\`           | s1 s3      | 2    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices.find((slice) => slice.id === 's2')!.blockedBy).toEqual(['s1', 's3']);
-    expect(slices.find((slice) => slice.id === 's4')!.blockedBy).toEqual(['s1', 's3']);
+    const [s2, s4] = [slices.find((slice) => slice.id === 's2'), slices.find((slice) => slice.id === 's4')];
+    assertDefined(s2, 'slice s2');
+    assertDefined(s4, 'slice s4');
+    expect(s2.blockedBy).toEqual(['s1', 's3']);
+    expect(s4.blockedBy).toEqual(['s1', 's3']);
   });
 
   it('reads a bare hyphen or an empty cell as no blockers', () => {
@@ -168,7 +172,8 @@ describe('parsePlanSlices — blockedBy', () => {
 | s1  | A     | \`a/\`      | 1    |
 `;
     const slices = parsePlanSlices(plan);
-    expect(slices[0]!.blockedBy).toEqual([]);
+    assertDefined(slices[0], 'slices[0]');
+    expect(slices[0].blockedBy).toEqual([]);
   });
 
   it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
@@ -188,7 +193,11 @@ describe('parsePlanSlices — blockedBy', () => {
 | s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
 `;
     const slices = parsePlanSlices(plan);
-    const byId = (id: string) => slices.find((slice) => slice.id === id)!;
+    const byId = (id: string) => {
+      const found = slices.find((slice) => slice.id === id);
+      assertDefined(found, `slice ${id}`);
+      return found;
+    };
     expect(byId('s1').blockedBy).toEqual([]);
     expect(byId('s3').blockedBy).toEqual(['s2']);
     expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);

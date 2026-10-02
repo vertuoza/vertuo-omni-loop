@@ -79,7 +79,7 @@ function itemRefusal({
   const parsed = parseOutboxItem(text, { file: renderedFile });
   if (!parsed.ok) return parsed.errors.join('; ');
   const { item } = parsed;
-  if (Number(item.prd) !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
+  if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
   if (`${item.id}.md` !== name) return `its file name is not its id ${item.id}`;
   if (taken.has(item.id)) return `${item.id} is already in the outbox of PRD ${prd}`;
   return null;

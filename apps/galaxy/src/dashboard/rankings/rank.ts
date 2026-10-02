@@ -1,6 +1,7 @@
 import type { Fleet, GalaxyView, Hero } from '@omni/galaxy';
 import type { Player } from '../../arcade/types';
 import type { FleetTag } from '../../people/types';
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The rankings' pure functions (PRD 328): both tables, this season, as the galaxy ranks them
 // (buildGalaxy: by points, then by name). Every fleet the season knows, yours marked; and the
@@ -42,7 +43,7 @@ export function rankWindow(heroes: readonly Pick<Hero, 'name' | 'points' | 'rank
   let last = -1;
   for (const i of [...shown].sort((a, b) => a - b)) {
     if (i > last + 1) rows.push(GAP);
-    const h = ladder[i]!;
+    const h = at(ladder, i, 'the hero shown');
     rows.push({ rank: h.rank, login: h.name, points: h.points, you: i === me });
     last = i;
   }
@@ -86,7 +87,8 @@ export interface RankingsValue {
  */
 export function rankingsOf(
   galaxy: { teams: readonly RankedTeam[]; heroes: GalaxyView['heroes'] },
-  crew: readonly Pick<Player, 'display_name' | 'github_login'>[],
+  // display_name is widened to null: the crew's rows are read unparsed.
+  crew: readonly (Pick<Player, 'github_login'> & { display_name: string | null })[],
   login: string | null,
   team: string | null,
 ): RankingsValue {

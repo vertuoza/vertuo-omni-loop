@@ -26,7 +26,7 @@ export type PrStatsStore = {
 const TRACKED = 'workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)';
 
 /** The store on the database at `url`, as the service role `key`; `fetch` for tests only. */
-export function supabaseStore({ url, key, fetch = undefined }: { url: string; key: string; fetch?: typeof globalThis.fetch | undefined }): PrStatsStore {
+export function supabaseStore({ url, key, fetch }: { url: string; key: string; fetch?: typeof globalThis.fetch | undefined }): PrStatsStore {
   const db = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     ...(fetch ? { global: { fetch } } : {}),

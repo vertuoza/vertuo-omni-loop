@@ -6,6 +6,7 @@
 // gradient from `mark-*` (mark.ts) and the sprite forge its stripes from `stripe-*` (`stripesOf`).
 // Adding a token means adding it to `valid_theme()` too, in a migration: theme.test.ts holds the two
 // lists equal. Fonts are not tokens.
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { COLOURS, FLAT, type Flat } from '@omni/design';
 
@@ -42,10 +43,10 @@ export const TOKENS = Object.freeze({
   'mark-shade-2': '#6a2fd0',
   'mark-shade-3': '#2f3fc4',
   // The four stripes on every hero's suit: the sprite forge's flat colours 1 to 4.
-  'stripe-1': FLAT[1]!,
-  'stripe-2': FLAT[2]!,
-  'stripe-3': FLAT[3]!,
-  'stripe-4': FLAT[4]!,
+  'stripe-1': defined(FLAT[1], 'flat colour 1'),
+  'stripe-2': defined(FLAT[2], 'flat colour 2'),
+  'stripe-3': defined(FLAT[3], 'flat colour 3'),
+  'stripe-4': defined(FLAT[4], 'flat colour 4'),
 });
 
 export type Token = keyof typeof TOKENS;

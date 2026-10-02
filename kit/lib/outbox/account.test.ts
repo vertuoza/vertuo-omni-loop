@@ -20,10 +20,10 @@ afterEach(() => {
 });
 
 function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, string | undefined>; body?: string } = {}) {
-  const fm = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
+  const fm: Record<string, string | undefined> = { prd: '1044', slice: 's2', graded: '2026-09-23', ...frontMatter };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
   const defaultBody = [
     '## Risky changes',
     '',
