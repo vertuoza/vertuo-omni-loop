@@ -19,7 +19,7 @@ export interface JevPort {
 }
 
 export const COULD_NOT_SAVE_DECISION = 'Couldn’t save this decision. Try again in a moment.';
-const NO_ACTION: SaveDecisionAction = async () => ({ ok: false, message: COULD_NOT_SAVE_DECISION });
+const NO_ACTION: SaveDecisionAction = () => Promise.resolve({ ok: false, message: COULD_NOT_SAVE_DECISION });
 
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 export const DEMO_REFUSAL = 'TypeSafe refused this key: Invalid API key';
@@ -52,16 +52,16 @@ export function httpJevPort(workspace: string, fetch: typeof globalThis.fetch = 
 
 export function demoJevPort(now: () => number = Date.now): JevPort {
   return {
-    async saveKey(key) {
+    saveKey(key) {
       const trimmed = key.trim();
-      if (trimmed.length < 8 || trimmed.startsWith('bad')) return { ok: false, message: DEMO_REFUSAL };
-      return { ok: true, key: { stored: true, lastFour: trimmed.slice(-4), setAt: new Date(now()).toISOString() } };
+      if (trimmed.length < 8 || trimmed.startsWith('bad')) return Promise.resolve({ ok: false, message: DEMO_REFUSAL });
+      return Promise.resolve({ ok: true, key: { stored: true, lastFour: trimmed.slice(-4), setAt: new Date(now()).toISOString() } });
     },
-    async removeKey() {
-      return { ok: true, key: { stored: false, lastFour: null, setAt: null } };
+    removeKey() {
+      return Promise.resolve({ ok: true, key: { stored: false, lastFour: null, setAt: null } });
     },
-    async saveDecision(settings) {
-      return { ok: true, settings };
+    saveDecision(settings) {
+      return Promise.resolve({ ok: true, settings });
     },
   };
 }

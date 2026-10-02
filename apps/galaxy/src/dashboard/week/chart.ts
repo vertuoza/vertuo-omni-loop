@@ -1,4 +1,4 @@
-import { dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The week of merges' days (PRD 328): seven days in Brussels, the six before today and today, today
 // last, each counting your pull requests merged into their repository's default branch on it. A
@@ -37,7 +37,7 @@ export function brusselsDay(at: Date | string): string | null {
 
 /** The seven days of the week that ends today in Brussels, the first six before it, today last. */
 export function weekDays(now: Date): string[] {
-  const [year, month, day] = dateParts(brusselsDay(now)!);
+  const [year, month, day] = dateParts(defined(brusselsDay(now), 'today in Brussels'));
   return Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(year, month - 1, day - 6 + i)).toISOString().slice(0, 10));
 }
 
@@ -53,9 +53,10 @@ export function chartDays(rows: readonly Merge[], now: Date, login: string): Cha
   for (const row of rows) {
     if (row.kind !== 'pr-merged' || row.login.toLowerCase() !== you) continue;
     const date = brusselsDay(row.at);
-    if (date !== null && counts.has(date)) counts.set(date, counts.get(date)! + 1);
+    const count = date === null ? undefined : counts.get(date);
+    if (date !== null && count !== undefined) counts.set(date, count + 1);
   }
-  return days.map((date) => ({ date, count: counts.get(date)! }));
+  return days.map((date) => ({ date, count: defined(counts.get(date), `the merges of ${date}`) }));
 }
 
 /** The week's sum, which the chart shows at its top right. */
@@ -68,7 +69,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
  * date in the text alternative (`Saturday`, `26 September`). */
 export function dayName(date: string): { short: string; long: string; date: string } {
   const [year, month, day] = dateParts(date);
-  const long = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]!;
+  const long = at(WEEKDAYS, new Date(Date.UTC(year, month - 1, day)).getUTCDay(), 'the weekday');
   return { short: long.slice(0, 3), long, date: `${day} ${MONTHS[month - 1]}` };
 }
 

@@ -1,4 +1,4 @@
-import { dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { seasonBounds } from '../season';
 
 // The board's period (PRD 572): the switch at the top of every dashboard page, kept in the URL as
@@ -69,7 +69,7 @@ function daysBetween(first: string, last: string): string[] {
 }
 
 export function periodWindow(period: Period, now: Date): PeriodWindow {
-  const today = brusselsDay(now)!;
+  const today = defined(brusselsDay(now), 'today in Brussels');
   let days: string[];
   if (period === 'season') {
     const season = seasonBounds(now);
@@ -80,5 +80,5 @@ export function periodWindow(period: Period, now: Date): PeriodWindow {
     const length = period === '30d' ? 30 : 7;
     days = daysBetween(shift(today, 1 - length), today);
   }
-  return { period, days, from: brusselsMidnight(days[0]!), to: brusselsMidnight(shift(days.at(-1)!, 1)) };
+  return { period, days, from: brusselsMidnight(at(days, 0, "the period's first day")), to: brusselsMidnight(shift(at(days, -1, "the period's last day"), 1)) };
 }

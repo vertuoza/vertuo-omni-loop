@@ -17,7 +17,7 @@ const BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 
 /** `text` with every token-shaped string replaced by `[masked]`. */
 export function maskSecrets(text: string | null | undefined): string {
-  let out = String(text ?? '');
+  let out = text ?? '';
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }

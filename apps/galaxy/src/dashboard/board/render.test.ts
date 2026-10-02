@@ -9,6 +9,7 @@ import { hrefWith } from './links';
 import { boardOf, type BoardRequest } from './load';
 import { WorkspaceScreen, type WorkspaceView } from './WorkspaceScreen';
 import type { Member } from './tally';
+import { sure } from '../../arcade/sure';
 
 // A board and /app/workspace as the server renders them (PRD 572), to static markup: what a person
 // sees before any script runs.
@@ -90,7 +91,7 @@ describe('a board', () => {
 
   it('lists every member in People: 0s kept, the viewer marked, SOLO with no fleet, dashes with no login', () => {
     const html = render();
-    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(m[1]!));
+    const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => text(sure(m[1], 'm[1]')));
     expect(rows).toContain('Name Fleet Points PRs PRDs open · building · shipped Questions');
     expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
     expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
@@ -104,7 +105,7 @@ describe('a board', () => {
         { ...member('u-paul', 'paetienne', null, 'Paul Etienne'), avatarUrl: 'https://a.test/paul.png' }, member('u-nog', null, null, 'NOGIT')],
     }, {}, {}, false);
     const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
-    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]!);
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => sure(m[1], 'm[1]'));
     expect(names.find((n) => n.includes('ADA'))).toMatch(/^<a class="person-chip is-table" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg /);
     expect(names.find((n) => n.includes('Paul'))).toContain('<img class="person-face is-photo" src="https://a.test/paul.png" alt=""');
     expect(names.find((n) => n.includes('NOGIT'))).toContain('data-initial="N"');
@@ -166,7 +167,7 @@ describe('/app/workspace', () => {
       expect(t).toContain(part);
     }
     expect(t).toMatch(/NEWBIE SOLO 0 0 0 · 0 · 0 0/);
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toBe('Demo workspace');
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the match')[1]).toBe('Demo workspace');
   });
 
   it('closed, signed out and in no workspace each say so', () => {
