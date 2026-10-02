@@ -1,7 +1,7 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
 import type { FixRef } from '../../dossier/github/reader';
-import { dossierGithub } from '../../dossier/github/server';
+import { dossierGithub, githubStore } from '../../dossier/github/server';
 import { fixFactsStore } from '../../fixes/facts/store';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
@@ -18,11 +18,13 @@ import type { FixSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 // PRD 657 (s5): each PRD's open outbox questions are recounted into prd_outbox (../outbox/live.ts).
 // PRD 691 (s2): each workspace's numbered fix dossiers are read through the server's one dossier reader
 // (its 60-second cache shared with the fix pages) and stored in fix_facts, as the service role.
+// PRD 902 (s1): every read the sync makes of GitHub, its snapshots, its recounts and its fix refreshes, is
+// `background`: it spends the installation's budget only above its 20% floor, and never while paused.
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
 const github = () => (knowledge ??= knowledgeReader(appCredentials()));
-const stages = () => (reader ??= stagesReader(appCredentials()));
+const stages = () => (reader ??= stagesReader(appCredentials(), fetch, Date.now, githubStore()));
 
 async function installationOf(workspace: SyncWorkspace): Promise<number> {
   const id = await github().installationFor(workspace);
@@ -63,7 +65,7 @@ function fixDeps(): FixSyncDeps {
       if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
       return ((data ?? []) as Record<string, unknown>[]).map((row): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
     },
-    reader: { fix: (ref) => fixReader().fix(ref) },
+    reader: { fix: (ref) => fixReader().fix(ref, { priority: 'background' }) },
     store: {
       readFacts: (workspace, ids) => store().readFacts(workspace, ids),
       writeFacts: (rows, syncedAt) => store().writeFacts(rows, syncedAt),
@@ -87,7 +89,7 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     repositories: async (workspace) => github().repos(await installationOf(workspace)),
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     store: lazyStore(),
-    outbox: outboxDeps(),
+    outbox: { ...outboxDeps(), summary: async (ref) => (await dossierGithub()?.summary(ref, { priority: 'background' })) ?? null },
     fixes: fixDeps(),
     now: () => new Date().toISOString(),
     log: (line) => console.error(line),

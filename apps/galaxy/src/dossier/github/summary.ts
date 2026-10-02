@@ -3,6 +3,7 @@
 // (GitHub answered an error, or could not be reached), null when it answered that there is none yet.
 // A summary that could not be read at all (the App not installed, the config unreadable) is null
 // where it is used, and the page's stage is unknown.
+import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { CareState } from './care';
 
 /** A part of the summary whose read failed. Never guessed: the stage reads it as unknown. */
@@ -102,12 +103,18 @@ export type GithubSummary = {
   care?: Read<CareState | null>;
 };
 
-/** One GitHub read on its own, for `page`: its answer, or UNREAD (logged) when it failed. */
+/** A call the budget-aware client refused without sending it (PRD 902, s1): it said so once already. */
+export function isBudgetRefusal(error: unknown): error is GithubDeferred | GithubPaused {
+  return error instanceof GithubDeferred || error instanceof GithubPaused;
+}
+
+/** One GitHub read on its own, for `page`: its answer, or UNREAD when it failed, logged unless the
+ * budget refused it. */
 export async function readPart<T>(page: string, what: string, run: () => Promise<T>): Promise<Read<T>> {
   try {
     return await run();
   } catch (error) {
-    console.error(`${page}: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
+    if (!isBudgetRefusal(error)) console.error(`${page}: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
     return UNREAD;
   }
 }
