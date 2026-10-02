@@ -200,7 +200,7 @@ describe('the poster', () => {
 });
 
 // The magazine spreads under the poster (PRD 285, trimmed by PRD 971): the loop, the customers, the
-// proof, the game and the order form. Each spread is its own component, with its own test beside it under spreads/.
+// fleet game with its proof, and the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
@@ -209,8 +209,7 @@ describe('the spreads', () => {
   const HEADS = [
     'Strategy guide: the loop',
     'Built for your customers',
-    'High scores: the loop built this',
-    'The game: Entropy you can see',
+    'The game: build your fleet',
     'Join the loop!',
   ];
 
@@ -224,10 +223,9 @@ describe('the spreads', () => {
   it('are composed by Spreads.tsx alone, one component per spread', () => {
     const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/<section\b|<h2\b/);
-    for (const name of ['StrategyGuide', 'Customers', 'HighScores', 'Game', 'OrderForm']) {
-      expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
-    }
-    for (const gone of ['ForYou', 'SeeEverything', 'InOut']) expect(source, gone).not.toContain(gone);
+    const imports = [...source.matchAll(/from '\.\/(\w+)'/g)].map(([, name]) => name);
+    expect(imports).toEqual(['Customers', 'Game', 'OrderForm', 'StrategyGuide']);
+    for (const gone of ['ForYou', 'SeeEverything', 'InOut', 'HighScores']) expect(source, gone).not.toMatch(new RegExp(`'\\./${gone}'|<${gone}\\b`));
   });
 
   it('link nowhere but the game at /play and the docs at /docs (PRD 346; /releases left with You see everything, PRD 971), the pages open without signing in', async () => {
@@ -238,6 +236,15 @@ describe('the spreads', () => {
     expect(new Set(hrefs)).toEqual(new Set(['/play', '/docs']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
+  });
+
+  it('read HOME\'s own example fleets, never the demo galaxy\'s (PRD 971)', async () => {
+    const page = text(await render());
+    for (const name of ['BUILDERS', 'INKLINGS', 'COINERS', 'NIGHT OWLS', 'CORSAIRS', 'CAPES']) expect(page, name).not.toContain(name);
+    expect(page).toContain('DAM BUSTERS');
+    expect(page).toContain('FEATURES SHIPPED 21');
+    const source = readFileSync(new URL('./Home.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/demoFleets|load-galaxy/);
   });
 
   it('name no Nintendo game, console or mark', async () => {

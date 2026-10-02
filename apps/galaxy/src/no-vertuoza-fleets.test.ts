@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 //
 // `beaver`, `octopod` and `picsou` are mascot keys too, so the sprite set keeps them. So is `cia`:
 // it may appear only where flavour is keyed by mascot (the sprite library, the sound motifs, HOME's
-// card rules), never as a fleet.
+// card rules, and HOME's example fleets, which name the mascot each flies: PRD 971), never as a fleet.
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const SCANNED = ['apps/galaxy', 'packages', 'game'];
@@ -23,6 +23,7 @@ const MASCOT_TABLES = new Set([
   'packages/design/src/sprites.ts',
   'apps/galaxy/src/arcade/sound.ts',
   'apps/galaxy/src/home/spreads/cards.ts',
+  'apps/galaxy/src/home/spreads/fleets.ts',
 ]);
 
 /** The fleet-only names: Vertuoza's fleets that are no mascot key. */

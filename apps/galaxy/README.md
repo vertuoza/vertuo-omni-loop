@@ -65,11 +65,16 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
    (`@omni/design`) with a name, a trade and a stance (EXCITED, NEUTRAL, SKEPTICAL). The closing
    step, THE AGENTS READ THEM ON EVERY RUN, shows the skeptical persona's objection, the answer, and
    the fact the agents keep from it. No real company's name appears in it.
-4. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
-   counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
-5. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
-   trading cards.
-6. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
+4. **The game: build your fleet**: ship value to your customers and score for your fleet, in three
+   numbered beats. CREATE YOUR FLEET deals HOME's own example fleets (`EXAMPLE_FLEETS` in
+   `src/home/spreads/fleets.ts`: DAM BUSTERS, DEEP DIVERS, GOLD DIGGERS, SPY RING and SEA DOGS,
+   never the demo galaxy's) as trading cards, each with its mascot on the front and, on the back,
+   the scoring rule its mascot carries (`cardsOf`). SHIP VALUE says how points come, every number
+   read from `game/rulebook.ts`. CLIMB THE LEADERBOARD ranks the example fleets by their points,
+   labelled EXAMPLE, then shows the loop's real counts under THE LOOP BUILT THIS: FEATURES SHIPPED,
+   SLICES MERGED and DECISIONS ADOPTED, counted from `.omni-loop/delivery/shipped/` when the page is
+   built (`src/home/scores.ts`), `—` for a count it cannot read.
+5. **Join the loop!**: the order form, with PRESS START, GETTING STARTED, the Konami tip and the exit
    line: "Leave any time: delete one folder and commit. Nothing to migrate."
 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
