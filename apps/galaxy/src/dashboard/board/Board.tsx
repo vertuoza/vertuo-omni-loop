@@ -6,6 +6,7 @@ import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
 import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { axisTicks, columnLabels, dayName } from './chart';
+import { medalSvg } from './medal';
 import type { Query } from './links';
 import type { BoardValue } from './load';
 import type { Period } from './period';
@@ -23,7 +24,7 @@ import './board.css';
 // period's events, named opened · started · shipped so nobody reads it as where PRDs are.
 // PRD 652: each People row's name starts with the member's face (PersonChip), and its fleet is a
 // FleetChip, its mascot in its colour; the row's text is the same as before. Each fleet of the season's
-// ranking is a FleetChip too.
+// ranking is a FleetChip too. Issue 958: its top three wear a pixel medal (medal.ts) in a narrow rank column.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
@@ -273,6 +274,13 @@ function Repositories({ repos }: { repos: Read<RepoRow[]> }) {
   );
 }
 
+/** A rank of the fleet ranking: a pixel medal for the top three, the number read aloud beside it. */
+function Medal({ rank }: { rank: number }) {
+  const svg = medalSvg(rank);
+  if (!svg) return <>{rank}</>;
+  return <><span className="board-medal" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} /><span className="ask-sr">{rank}</span></>;
+}
+
 function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: string }) {
   return (
     <section className="board-fleets" aria-labelledby="board-fleets">
@@ -280,12 +288,12 @@ function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: s
       {fleets === UNREADABLE ? <CouldNotLoad /> : fleets.length === 0 ? <p className="dash-note">This workspace has no fleet yet</p> : (
         <table className="board-table">
           <thead>
-            <tr><th scope="col" className="is-num">Rank</th><th scope="col">Fleet</th><th scope="col" className="is-num">Points</th></tr>
+            <tr><th scope="col" className="board-rank">Rank</th><th scope="col">Fleet</th><th scope="col" className="is-num">Points</th></tr>
           </thead>
           <tbody>
             {fleets.map((f) => (
               <tr key={f.name} aria-current={f.yours ? 'true' : undefined}>
-                <td className="is-num">{f.rank}</td>
+                <td className="board-rank"><Medal rank={f.rank} /></td>
                 <th scope="row" className="board-name">
                   <FleetChip fleet={fleetTagOf(f)} />
                   {f.yours && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}

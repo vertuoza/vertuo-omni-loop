@@ -49,6 +49,8 @@ const FORGED: Record<string, string> = {
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
   'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
   'tile-stone': 'dd2d27c6129a5003',
+  // SELECT YOUR APP's pedestals (PRD 932), pinned as first drawn.
+  'code-mark': 'ece31e0c07fdde23', 'arcade-cabinet': '7ccdd5e5b8ec8405',
 };
 const FORGED_WOUNDED: Record<string, string> = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -399,5 +401,50 @@ describe('the platformer\'s tiles (PRD 817)', () => {
     expect([...block].some((p) => RAMPS.Y.includes(p))).toBe(true);
     expect(block.has(FLAT.Q!)).toBe(true);
     expect([...new Set(spritePixels('tile-block-empty').pixels)].some((p) => RAMPS.Y.includes(p))).toBe(false);
+  });
+});
+
+describe('the app selector\'s sprites (PRD 932)', () => {
+  const SIZES: Record<string, [number, number]> = { 'code-mark': [30, 17], 'arcade-cabinet': [18, 26] };
+  // The forge's own ramps, keyed by every material, for the colours these two sprites use.
+  const TONES = FORGE_RAMPS as unknown as Readonly<Record<string, readonly (string | null)[]>>;
+  const tone = (m: string): readonly (string | null)[] => TONES[m] ?? [];
+
+  it.each(Object.keys(SIZES))('%s has two frames of its declared size, in palette colours only', (name) => {
+    const def = SPRITE_DEFS[name];
+    expect(def, name).toBeDefined();
+    expect([def?.w, def?.h]).toEqual(SIZES[name]);
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual(SIZES[name]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.3);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('keeps the </> mark sober: at most two tones besides its outline, cyan on slate, and still', () => {
+    const def = SPRITE_DEFS['code-mark'];
+    expect(def).toBeDefined();
+    if (!def) return;
+    const { w, h, draw } = def;
+    for (const frame of [0, 1]) {
+      const bare = forge(w, h, (d) => draw(d, frame), { outline: false }).pixels;
+      expect(new Set(bare.filter(Boolean)).size, `frame ${frame}`).toBeLessThanOrEqual(2);
+    }
+    expect(spritePixels('code-mark', { frame: 1 }).pixels).toEqual(spritePixels('code-mark', { frame: 0 }).pixels);
+    const tones = new Set(spritePixels('code-mark').pixels);
+    expect(tones.has(tone('C')[1] ?? null), 'cyan').toBe(true);
+    expect([...tones].some((p) => RAMPS.A.includes(p)), 'slate').toBe(true);
+  });
+
+  it('draws the cabinet alive: its two frames differ, with a lit screen, a marquee and its lights', () => {
+    const a = spritePixels('arcade-cabinet', { frame: 0 }).pixels;
+    const b = spritePixels('arcade-cabinet', { frame: 1 }).pixels;
+    expect(a.join()).not.toBe(b.join());
+    const tones = new Set(a);
+    expect([...tones].some((p) => tone('C').includes(p)), 'screen glow').toBe(true);
+    expect([...tones].some((p) => tone('M').includes(p)), 'marquee').toBe(true);
+    expect([...tones].some((p) => RAMPS.Y.includes(p)), 'lights').toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import { PLAY } from '../forward';
+import { HINT_SLOT_ATTR } from '../selector/choice';
 import { SIGN_UP_ATTR } from '../sign-up';
 import { PRESS_START_ATTR } from '../start';
 import { CREST_FORM, crestSvg, FLYBY_POSE, flybySvg, OMNI_POSE, omniSvg, PLANET_PROGRESS, planetPixels, planetSvgs, starfieldSvg } from './art';
@@ -25,18 +26,24 @@ export const POSTER_TEXT = [
   { selector: '.home-promises', colour: 'white' },
   { selector: '.home-promises .home-glyph', colour: 'yellow' },
   { selector: '.home-quote', colour: 'yellow' },
+  { selector: '.home-signup-hint', colour: 'white' },
+  { selector: '.home-signup-change', colour: 'yellow' },
 ] as const;
 
 /** A string of SVG markup, as an element's only child. */
 export const Svg = ({ svg }: { svg: string }) => <span className="home-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
 /** SIGN UP WITH GITHUB (PRD 359): a plain button, marked for Controls, which starts the GitHub
- * sign-in on a click (sign-up.ts). HOME stays static: the page itself reaches no database. */
+ * sign-in on a click (sign-up.ts). HOME stays static: the page itself reaches no database.
+ * Its wrapper is where Controls draws, in the browser only, the line saying where a remembered pick
+ * opens, with its change (PRD 932): the server markup never carries that line. */
 export function SignUp() {
   return (
-    <button type="button" className="home-signup" aria-label="Sign up with GitHub" {...{ [SIGN_UP_ATTR]: '' }}>
-      <b>SIGN UP WITH GITHUB</b>
-    </button>
+    <span className="home-signup-slot" {...{ [HINT_SLOT_ATTR]: '' }}>
+      <button type="button" className="home-signup" aria-label="Sign up with GitHub" {...{ [SIGN_UP_ATTR]: '' }}>
+        <b>SIGN UP WITH GITHUB</b>
+      </button>
+    </span>
   );
 }
 

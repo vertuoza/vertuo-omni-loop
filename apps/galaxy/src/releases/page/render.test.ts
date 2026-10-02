@@ -32,7 +32,7 @@ const release = (version: string) => between(html, `<article id="${version}"`, '
 describe('the app bar', () => {
   it('reads OMNI LOOP · Releases, linked to the app\'s home, then the theme switch, then Game mode', () => {
     const bar = between(html, '<header class="ask-bar', '</header>');
-    expect(bar).toMatch(/<a class="ask-mark" href="\/app">OMNI LOOP<\/a>/);
+    expect(bar).toMatch(/<a class="brand-logo" href="\/app">[\s\S]*?<span class="ask-mark">OMNI LOOP<\/span><\/a>/);
     expect(bar).toContain('<span class="ask-brand-sub">Releases</span>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);

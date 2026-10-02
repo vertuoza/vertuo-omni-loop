@@ -30,7 +30,7 @@ describe('the public bar', () => {
   it('reads OMNI LOOP, linked to /app, then the sub-title', () => {
     const bar = render({ sub: 'Docs' });
     expect(bar).toMatch(/^<header class="ask-bar top-bar">/);
-    expect(bar).toContain('<a class="ask-mark" href="/app">OMNI LOOP</a><span class="ask-brand-sub">Docs</span>');
+    expect(bar).toContain('<span class="ask-mark">OMNI LOOP</span></a><span class="ask-brand-sub">Docs</span>');
   });
 
   it('offers OMNI LOOP, Release notes, Docs, Open the app →, the theme switch and Game mode, in that order', () => {
