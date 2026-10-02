@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { makeMarkers } from '../markers.ts';
 import { formatNumbersMarker } from './comment.ts';
 import { parseOutboxItem } from './outbox.ts';
@@ -58,8 +59,8 @@ function itemText(id: string, { rank = 'high', letters = ['A', 'B', 'C'] }: Item
 
 function item(id: string, options?: ItemOptions): OutboxItem {
   const parsed = parseOutboxItem(itemText(id, options), { file: `.omni-loop/delivery/outbox/x/${id}.md` });
-  if (!parsed.ok) throw new Error(parsed.errors!.join('\n'));
-  return parsed.item as OutboxItem;
+  if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
+  return parsed.item;
 }
 
 const ITEMS = [
@@ -130,9 +131,10 @@ describe('writeReply (PRD 251)', () => {
   it('refuses no picks, a question answered twice, an unknown door and a malformed pick', () => {
     expect(write([])).toEqual({ ok: false, reason: 'no answer to write' });
     expect(write([{ number: 1, pick: 'A' }, { number: 1, pick: 'B' }])).toEqual({ ok: false, reason: 'question 1 is answered twice' });
-    expect(write([{ number: 1, pick: 'A' }], 'slack')).toMatchObject({ ok: false, reason: expect.stringMatching(/door/) });
-    expect(write([{ number: 'one', pick: 'A' }])).toMatchObject({ ok: false, reason: expect.stringMatching(/number/) });
-    expect(write([{ number: 1 }])).toMatchObject({ ok: false, reason: expect.stringMatching(/pick/) });
+    const matching = (pattern: RegExp): unknown => expect.stringMatching(pattern);
+    expect(write([{ number: 1, pick: 'A' }], 'slack')).toMatchObject({ ok: false, reason: matching(/door/) });
+    expect(write([{ number: 'one', pick: 'A' }])).toMatchObject({ ok: false, reason: matching(/number/) });
+    expect(write([{ number: 1 }])).toMatchObject({ ok: false, reason: matching(/pick/) });
   });
 
   it('makes a reason one clean line of at most 500 characters, with no marker in it', () => {
@@ -144,7 +146,8 @@ describe('writeReply (PRD 251)', () => {
     expect(cleanLine('<!<!---->- x')).not.toMatch(/<!--|-->/);
 
     const { reply } = write([{ number: 2, pick: 'B', reason }]);
-    const answerLines = reply!.split('\n').filter((line) => /^\s*\d+\s*:/.test(line));
+    assertDefined(reply, 'the reply');
+    const answerLines = reply.split('\n').filter((line) => /^\s*\d+\s*:/.test(line));
     expect(answerLines).toHaveLength(1);
     expect(reply).not.toContain('<!--');
   });
@@ -197,7 +200,7 @@ describe('the reply writer and planReplies agree (PRD 251)', () => {
     ], 'page');
     const settled = read(reply);
     expect([...settled.keys()].sort((a, b) => a - b)).toEqual([1, 2, 5, 19]);
-    expect(settled.get(2)!.verdict).toBe('drifted');
+    expect(settled.get(2)?.verdict).toBe('drifted');
     expect(settled.get(19)).toEqual({ verdict: 'agreed', text: 'ok' });
   });
 });
@@ -221,7 +224,8 @@ describe('askBatches (PRD 251)', () => {
     ];
     const batches = askBatches({ numbering, items });
     expect(batches.map((batch) => batch.map((question) => question.number))).toEqual([[7, 1, 2, 3], [4, 6]]);
-    const [action, high] = batches[0]!;
+    assertDefined(batches[0], 'batches[0]');
+    const [action, high] = batches[0];
     expect(action).toMatchObject({
       number: 7,
       id: 's4-01',

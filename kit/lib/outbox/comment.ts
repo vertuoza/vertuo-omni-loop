@@ -94,6 +94,7 @@ import type { Config, OutboxItem, OutboxOption, OutboxSections, Rank } from '../
 import type { Change } from './account.ts';
 import { assignBanter } from './banter.ts';
 import type { Banter } from './banter.ts';
+import { isList } from './plain-text.ts';
 import { RANK_ORDER, SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { ADOPTED_VERDICT, parseSettledEntries, type SettledEntry } from './settle.ts';
@@ -329,7 +330,7 @@ export function formatOutboxComment({
  * @param {Array<{ id: number, body?: string }> | undefined | null} comments
  */
 function findCommentByMarker<C extends IssueComment>(comments: readonly C[] | null | undefined, marker: string): C | null {
-  if (!Array.isArray(comments)) return null;
+  if (!isList(comments)) return null;
   return (
     comments.find((comment) => typeof comment.body === 'string' && comment.body.includes(marker)) ??
     null
@@ -352,9 +353,6 @@ export function findPrMarkerComment<C extends IssueComment>(comments: readonly C
 }
 
 // ---- The pull request comment (PRD #1071, slice s2) ----
-
-/** How each rank reads in plain words, on the pull request comment. */
-const RANK_PLAIN_LABEL: Readonly<Record<Rank, string>> = { 'human-action': 'needs a person', high: 'high', medium: 'medium' };
 
 /**
  * The hidden marker naming every question number the pull request comment has ever assigned:
@@ -565,14 +563,14 @@ function formatApprovedAt(approvedAt: string | null | undefined): string {
 
 /** Escapes a table cell: a `|` would split the row, and a line break would end it. */
 function tableCell(text: string | null | undefined): string {
-  return String(text ?? '')
+  return (text ?? '')
     .replace(/\s*\n\s*/g, ' ')
     .replace(/\|/g, '\\|');
 }
 
 /** The question as a markdown quote — every line quoted, so a two-line question stays one quote. */
 function quoted(text: string | null | undefined): string {
-  return String(text ?? '')
+  return (text ?? '')
     .trim()
     .split('\n')
     .map((line) => (line.trim() === '' ? '>' : `> ${line}`))
@@ -581,7 +579,7 @@ function quoted(text: string | null | undefined): string {
 
 /** An intro or a punchline in italics, on one line — a line break inside would end the emphasis. */
 function funLine(text: string | null | undefined): string {
-  return `_${String(text ?? '')
+  return `_${(text ?? '')
     .trim()
     .replace(/\s*\n\s*/g, ' ')}_`;
 }
@@ -676,7 +674,7 @@ function questionBanter({
   const banter = new Map<string, Banter>();
   const fromPool: string[] = [];
   for (const { id, sections } of questions) {
-    if (sections?.introFun && sections?.punchlineFun) {
+    if (sections?.introFun && sections.punchlineFun) {
       banter.set(id, { intro: sections.introFun, punchline: sections.punchlineFun });
     } else {
       fromPool.push(id);
@@ -877,8 +875,8 @@ export function formatOutboxPrComment({
       lines.push(`**Question ${number}**`, '');
       if (question) lines.push(question, '');
       lines.push(
-        `Reply: ${quoteReply(entry.answerText)} — @${entry.fields?.['Approved by'] ?? ''}, ` +
-          `${formatApprovedAt(entry.fields?.['Approved at'])} · ${answeredOutcome(entry)}`,
+        `Reply: ${quoteReply(entry.answerText)} — @${entry.fields['Approved by'] ?? ''}, ` +
+          `${formatApprovedAt(entry.fields['Approved at'])} · ${answeredOutcome(entry)}`,
         '',
       );
     }
@@ -897,7 +895,7 @@ export function formatOutboxPrComment({
  */
 export function omniPageLink(prd: number | null | undefined, ctx: { config: Config }): string | null {
   const { answers, ask, repo } = ctx.config;
-  if (!answers?.enabled || !ask?.url || !repo?.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
+  if (!answers.enabled || !ask.url || !repo.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
   return `${ask.url.replace(/\/+$/, '')}/prd/at/${repo.slug}/${prd}`;
 }
 
@@ -1197,7 +1195,7 @@ export function maybeWriteSlackNote({
   write?: (path: string, data: string) => void;
 }): void {
   if (!ctx.config.notify.slack) return;
-  const news = (result.newCount ?? 0) + (prComment?.newAdoptedCount ?? 0);
+  const news = result.newCount + (prComment?.newAdoptedCount ?? 0);
   if (!path || !(news > 0)) return;
   const line = slackLine({
     prd,

@@ -4,5 +4,5 @@
     "kit/lib/policy/",
     "kit/lib/outbox/"
   ],
-  "ceiling": 672
+  "ceiling": 0
 }
