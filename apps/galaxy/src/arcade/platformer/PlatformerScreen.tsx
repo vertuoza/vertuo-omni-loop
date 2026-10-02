@@ -173,7 +173,6 @@ export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, on
     if (live.current.paused) p.pause();
     game.current = p;
     return () => { p.destroy(); game.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grid, heroKey, team, load]);
 
   useEffect(() => {

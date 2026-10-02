@@ -232,7 +232,6 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
       if (found.length > 0) dispatch({ type: 'suggested', claims: found });
     });
     // getPort is stable for the page's life; only the picks' key asks again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const plan = (kind: ClaimKind, planned: { reject: Claim[]; pick: string | null }) => void go(callsOf(getPort(), kind, planned, product));
@@ -268,7 +267,6 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
       clearInterval(timer);
     };
     // getDrafts is stable for the page's life; only a new running draft starts reading again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);
 
   const startDraft = async () => {

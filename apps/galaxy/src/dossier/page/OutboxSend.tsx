@@ -114,7 +114,6 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
       live = false;
     };
     // Once, on arrival: onDrop changes with every pick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   function go(send: string, numbers: number[], authorize: string) {
