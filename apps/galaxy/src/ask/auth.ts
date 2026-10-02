@@ -16,7 +16,8 @@ export type AskAuth =
 /** The one thing this module asks of a Supabase client: the Auth server's verdict on a token. */
 export type TokenCheck = {
   auth: {
-    getUser(jwt: string): Promise<{ data: { user: { id: string; email?: string | null } | null }; error: unknown }>;
+    // `data` is widened to null: the Auth server's answer is read here unparsed.
+    getUser(jwt: string): Promise<{ data: { user: { id: string; email?: string | null } | null } | null; error: unknown }>;
   };
 };
 

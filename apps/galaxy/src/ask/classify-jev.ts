@@ -21,7 +21,7 @@ export function categoryThroughJev(deps: JevDecideDeps): CategoryDecider {
       workspace,
       entry: questionCategory,
       input,
-      old: classify ? () => classify(input) : async () => null,
+      old: classify ? () => classify(input) : () => Promise.resolve(null),
       ref: `round:${roundId}`,
     });
     return counted.value;

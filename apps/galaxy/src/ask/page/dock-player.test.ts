@@ -21,9 +21,9 @@ function reads(patch: Partial<Parameters<typeof readAskDock>[3]> = {}) {
   return {
     xpFor,
     reads: {
-      workspace: async () => WORKSPACE,
-      me: async () => ME,
-      xp: async (_workspace: string, login: string) => { xpFor.push(login); return XP; },
+      workspace: () => Promise.resolve(WORKSPACE),
+      me: () => Promise.resolve(ME),
+      xp: (_workspace: string, login: string) => { xpFor.push(login); return Promise.resolve(XP); },
       ...patch,
     },
   };
@@ -38,20 +38,20 @@ describe('who plays in the /ask tab\'s dock (PRD 757)', () => {
   });
 
   it('a member with no GitHub linked reads no XP, and the arcade\'s door refuses them', async () => {
-    const r = reads({ me: async () => ({ ...ME, github_login: null }) });
+    const r = reads({ me: () => Promise.resolve({ ...ME, github_login: null }) });
     const dock = await readAskDock({} as never, user(null), ENV, r.reads);
     expect(dock.player).toEqual({ linked: false, xp: null });
     expect(r.xpFor).toEqual([]);
   });
 
   it('someone in no workspace is refused like a visitor, with nowhere to save a score', async () => {
-    const r = reads({ workspace: async () => null });
+    const r = reads({ workspace: () => Promise.resolve(null) });
     const dock = await readAskDock({} as never, user('ada-l'), ENV, r.reads);
     expect(dock).toEqual({ player: { linked: true, xp: null }, hero: null, team: null, workspace: null, supabase: ENV });
   });
 
   it('the game room out of reach shows no level rather than guess one, and never fails the page', async () => {
-    const r = reads({ workspace: async () => { throw new Error('connection lost'); } });
+    const r = reads({ workspace: () => Promise.reject(new Error('connection lost')) });
     const dock = await readAskDock({} as never, user('ada-l'), ENV, r.reads);
     expect(dock.player).toEqual({ linked: true, xp: 'unreadable' });
   });

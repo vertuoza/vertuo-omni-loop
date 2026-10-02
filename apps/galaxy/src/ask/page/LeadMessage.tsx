@@ -16,7 +16,9 @@ export function LeadMessage({ lead }: { lead: string | null | undefined }) {
     <section className="ask-lead-msg" aria-label="Claude wrote before asking">
       <h2 className="ask-lead-msg-title">Claude wrote before asking</h2>
       <div className={folded ? 'ask-prose ask-lead-msg-body is-folded' : 'ask-prose ask-lead-msg-body'} dangerouslySetInnerHTML={{ __html: renderMarkdownBody(text) }} />
-      {folded && <button type="button" className="ask-lead-msg-more" onClick={() => setOpen(true)}>Show all</button>}
+      {folded && <button type="button" className="ask-lead-msg-more" onClick={() => {
+        setOpen(true);
+      }}>Show all</button>}
     </section>
   );
 }

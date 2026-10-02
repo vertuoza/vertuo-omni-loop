@@ -19,9 +19,11 @@ const fail = (what: string, message: string) => new Error(`Supabase: could not $
 export function signupStore(db: Pick<SupabaseClient, 'rpc' | 'from'>) {
   return {
     async createWorkspace(userId: string, { id, account }: Installation): Promise<WorkspaceMade> {
-      const { data, error } = await db.rpc('create_workspace_from_installation', {
+      // The function's answer, read unparsed: Made parses it below.
+      const answer: { data: unknown; error: { message: string } | null } = await db.rpc('create_workspace_from_installation', {
         p_user_id: userId, p_installation_id: id, p_login: account.login, p_type: account.type,
       });
+      const { data, error } = answer;
       if (error) throw fail('make the workspace', error.message);
       const made = Made.safeParse(data);
       if (!made.success) throw new Error('Supabase: create_workspace_from_installation() answered an odd shape');
@@ -29,7 +31,8 @@ export function signupStore(db: Pick<SupabaseClient, 'rpc' | 'from'>) {
       return { workspaceId: workspace_id, slug, role, created };
     },
     async pendingRequests(userId: string): Promise<string[]> {
-      const { data, error } = await db.from('signup_requests').select('github_org').eq('user_id', userId);
+      // The table's answer, read unparsed (`data` may be null): Requests parses it below.
+      const { data, error }: { data: unknown; error: { message: string } | null } = await db.from('signup_requests').select('github_org').eq('user_id', userId);
       if (error) throw fail('read your sign-up requests', error.message);
       const requests = Requests.safeParse(data ?? []);
       if (!requests.success) throw new Error('Supabase: signup_requests answered an odd shape');

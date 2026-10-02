@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { BACKFILL_DAYS, BATCH, type CollectStep, collectAll } from './collect.ts';
 import { fakeGitHub, fakeStore, pull } from './fake.ts';
 
@@ -9,11 +10,17 @@ import { SIGNATURE } from './signed.ts';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
 const WS = 'ws-vertuoza';
-const step: CollectStep = { run: async (_id, fn) => JSON.parse(JSON.stringify((await fn()) ?? null)) };
+/** Inngest's step, as these tests stub it: a step's value comes back as JSON, read again. */
+const step: CollectStep = {
+  run: async <T>(_id: string, fn: () => T | Promise<T>): Promise<T> => {
+    const value: unknown = await fn();
+    return JSON.parse(JSON.stringify(value ?? null)) as T;
+  },
+};
 const daysAgo = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
 
 function run({ store, github, now = NOW }: { store: FakeStore; github: FakeGitHub; now?: number }) {
-  return collectAll({ store, octokitFor: async () => github.octokit, step, now });
+  return collectAll({ store, octokitFor: () => Promise.resolve(github.octokit), step, now });
 }
 
 const pullsListed = (github: FakeGitHub, repo: string) => github.queries.filter((query) => query.operation === 'PullsUpdated' && query.repo === repo);
@@ -37,7 +44,8 @@ describe('prStats — collecting a tracked repository', () => {
     await run({ store, github });
 
     expect([...store.state.pulls.keys()].sort()).toEqual([`${WS}|vertuoza/apps|2`, `${WS}|vertuoza/apps|3`]);
-    const repository = store.state.repositories[0]!;
+    const repository = store.state.repositories[0];
+    assertDefined(repository, 'the repository');
     expect(repository.collectedUntil).toBe(daysAgo(1));
     expect(repository.collectedAt).toBe(new Date(NOW).toISOString());
     expect(repository.collectError).toBeNull();
@@ -108,7 +116,7 @@ describe('prStats — collecting a tracked repository', () => {
 
     await run({ store, github });
 
-    const needsFixAt = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)!.needs_fix_at;
+    const needsFixAt = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)?.needs_fix_at;
     expect([needsFixAt(1), needsFixAt(2), needsFixAt(3)]).toEqual([daysAgo(4), null, null]);
   });
 
@@ -131,7 +139,9 @@ describe('prStats — collecting a tracked repository', () => {
     const pulls = structuredClone([...store.state.pulls]);
     expect(pulls.map(([, row]) => row.needs_fix_at)).toEqual([daysAgo(3.5), null]);
 
-    store.state.repositories[0]!.collectedUntil = null;
+    const repository = store.state.repositories[0];
+    assertDefined(repository, 'the repository');
+    repository.collectedUntil = null;
     await run({ store, github: fakeGitHub(repos) });
 
     expect([...store.state.pulls]).toEqual(pulls);
@@ -147,7 +157,7 @@ describe('prStats — collecting a tracked repository', () => {
     await run({ store, github: second });
 
     expect(detailsRead(second)).toEqual([3]);
-    expect(store.state.repositories[0]!.collectedUntil).toBe(daysAgo(0.5));
+    expect(store.state.repositories[0]?.collectedUntil).toBe(daysAgo(0.5));
   });
 
   it('writes identical rows when it runs twice in a row', async () => {
@@ -182,7 +192,7 @@ describe('prStats — collecting a tracked repository', () => {
 
     expect(pullsListed(github, 'old')).toEqual([]);
     expect(pullsListed(github, 'x')).toEqual([]);
-    expect(store.state.repositories[1]!.collectedAt).toBeNull();
+    expect(store.state.repositories[1]?.collectedAt).toBeNull();
   });
 
   it('records a 404 or a rate limit on that repository only, and collects the others', async () => {
@@ -217,15 +227,15 @@ describe('prStats — collecting a tracked repository', () => {
   it('records a repository GitHub cannot resolve as NOT_FOUND', async () => {
     const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/renamed' }]);
     const result = await run({ store, github: fakeGitHub({}) });
-    expect(store.state.repositories[0]!.collectError).toBe("NOT_FOUND: Could not resolve to a Repository with the name 'vertuoza/renamed'.");
+    expect(store.state.repositories[0]?.collectError).toBe("NOT_FOUND: Could not resolve to a Repository with the name 'vertuoza/renamed'.");
     expect(result.failed).toBe(1);
   });
 
   it('clears an earlier failure once a collection succeeds', async () => {
     const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps', collectError: 'HTTP 404: Not Found' }]);
     await run({ store, github: fakeGitHub({ 'vertuoza/apps': { pulls: [] } }) });
-    expect(store.state.repositories[0]!.collectError).toBeNull();
-    expect(store.state.repositories[0]!.collectedAt).toBe(new Date(NOW).toISOString());
+    expect(store.state.repositories[0]?.collectError).toBeNull();
+    expect(store.state.repositories[0]?.collectedAt).toBe(new Date(NOW).toISOString());
   });
 
   describe('the status comment (PRD 714 s3)', () => {
@@ -253,7 +263,7 @@ describe('prStats — collecting a tracked repository', () => {
       await run({ store, github });
 
       expect(statusRead(github)).toEqual([1, 2, 3]);
-      const state = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)!.status_state;
+      const state = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)?.status_state;
       expect([1, 2, 3, 4, 5, 6, 7].map(state)).toEqual(['stuck', 'waiting for CI (run 42)', null, null, null, null, null]);
     });
 
@@ -291,7 +301,7 @@ describe('prStats — collecting a tracked repository', () => {
     const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
     await run({ store, github });
 
-    const signed = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)!.omni_signed;
+    const signed = (n: number) => store.state.pulls.get(`${WS}|vertuoza/apps|${n}`)?.omni_signed;
     expect([signed(1), signed(2), signed(3), signed(4)]).toEqual([true, true, true, false]);
     expect(store.state.pulls.get(`${WS}|vertuoza/apps|3`)).toMatchObject({ author: 'omni-loop-invader[bot]', author_is_bot: true });
   });
@@ -329,10 +339,10 @@ describe('prStats — collecting a tracked repository', () => {
     const github = fakeGitHub({ 'vertuoza/apps': { pulls } });
     const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
     const ids: string[] = [];
-    await collectAll({ store, octokitFor: async () => github.octokit, step: { run: (id, fn) => (ids.push(id), step.run(id, fn)) }, now: NOW });
+    await collectAll({ store, octokitFor: () => Promise.resolve(github.octokit), step: { run: (id, fn) => (ids.push(id), step.run(id, fn)) }, now: NOW });
 
     expect(store.state.pulls.size).toBe(BATCH + 15);
     expect(ids.filter((id) => id.startsWith('collect ')).length).toBe(2);
-    expect(store.state.repositories[0]!.collectedUntil).toBe(at(BATCH + 14));
+    expect(store.state.repositories[0]?.collectedUntil).toBe(at(BATCH + 14));
   });
 });

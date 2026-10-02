@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { assertDefined } from '../../test/assert.ts';
 import { testContext } from '../../test/fixture.ts';
 import type { Context } from '../context.ts';
 import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
@@ -110,7 +111,8 @@ describe('gradePrd', () => {
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toEqual([]);
 
-    const line = describeUnaccounted(1044, result.unaccounted[0]!);
+    assertDefined(result.unaccounted[0], 'result.unaccounted[0]');
+    const line = describeUnaccounted(1044, result.unaccounted[0]);
     expect(line).toContain('libs/vertuo-ai-credit/src/server/migrations.ts');
     expect(line).toContain('stored-shape');
   });
@@ -144,7 +146,8 @@ describe('gradePrd', () => {
     const result = gradePrd(1044, risky, { ctx: flatCtx(root) });
     expect(result.unaccounted).toEqual(risky);
     expect(result.stale).toHaveLength(1);
-    expect(result.stale[0]!.path).toBe('some/other/path.ts');
+    assertDefined(result.stale[0], 'result.stale[0]');
+    expect(result.stale[0].path).toBe('some/other/path.ts');
   });
 
   it('a malformed account is refused by name and never silently compared', () => {
@@ -190,7 +193,7 @@ describe('rangeChanges, on a real repository', () => {
 
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), 'check-decision-coverage-repo-'));
-    ctx = testContext(repo) as unknown as Context;
+    ctx = testContext(repo);
     git(['init', '-q', '-b', 'main']);
     git(['config', 'user.email', 'test@example.com']);
     git(['config', 'user.name', 'Test']);

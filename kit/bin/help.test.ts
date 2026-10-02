@@ -19,7 +19,7 @@ async function run(argv: readonly string[], cwd: string) {
   const code = await main(argv, { cwd, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
-const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => [...line].length));
+const widest = (text: string) => Math.max(...text.split('\n').map((line: string) => Array.from(line).length));
 
 describe('omni help', () => {
   it('prints the loop, its principles, Claude, the terminal and what the skills run, in order, and exits 0', async () => {

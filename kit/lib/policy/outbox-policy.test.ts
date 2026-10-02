@@ -7,6 +7,7 @@ import { compare, parseAccount } from '../outbox/account.ts';
 import { floorRank, parseOutboxItem, RANK_VALUES } from '../outbox/outbox.ts';
 import { AnswerSchema, adoptItem } from '../outbox/settle.ts';
 import { gateResult } from '../outbox/status.ts';
+import { assertDefined } from '../../test/assert.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import {
   ACCOUNT_FORMS,
@@ -28,12 +29,20 @@ import {
 
 const COMMAND_NAMES = Object.keys(CONSULTATION_POLICIES);
 
-/** The outbox's own modules, read loosely here: their slices type them, and this file only checks
- * that what the policy renders round-trips through them. */
-const parseItem = parseOutboxItem as (...args: unknown[]) => any;
-const adopt = adoptItem as (...args: unknown[]) => any;
-const parseAccountText = parseAccount as (...args: unknown[]) => any;
-const gate = gateResult as (...args: unknown[]) => any;
+/** The item `text` parses to, through the outbox's own parser; fails the test, naming its errors, when it does not parse. */
+function parsedItem(text: string, file: string | null = null) {
+  const parsed = parseOutboxItem(text, { file });
+  expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
+  if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
+  return parsed.item;
+}
+
+/** The consultation policy of `command`, which must have one. */
+function policyOf(command: string) {
+  const policy = CONSULTATION_POLICIES[command];
+  assertDefined(policy, `the policy of ${command}`);
+  return policy;
+}
 
 /**
  * The laws every test in this file injects — same shape and same regex as the stub
@@ -104,11 +113,11 @@ describe('An agent records instead of stopping', () => {
     const root = mkdtempSync(join(tmpdir(), 'outbox-policy-adopt-'));
     try {
       const tctx = flatCtx(root);
-      const adopted = adopt({ ctx: tctx, itemText: text });
+      const adopted = adoptItem({ ctx: tctx, itemText: text });
       expect(adopted.ok).toBe(true);
 
       expect(existsSync(join(root, 'docs/outbox/985/s7-01-default-country.md'))).toBe(false);
-      expect(gate('985', { ctx: tctx })).toEqual({
+      expect(gateResult('985', { ctx: tctx })).toEqual({
         ok: true,
         items: [],
         overridden: false,
@@ -131,10 +140,9 @@ describe('An agent records instead of stopping', () => {
     const decision = decideRecording({ bearsOn: 'none', laws });
     const text = renderOutboxItem(itemFields({ rank: decision.rank }));
 
-    const parsed = parseItem(text, { file: 'docs/outbox/985/s7-01-default-country.md' });
-    expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-    expect(parsed.item.rank).toBe('medium');
-    expect(parsed.item.bearsOn).toBe('none');
+    const item = parsedItem(text, 'docs/outbox/985/s7-01-default-country.md');
+    expect(item.rank).toBe('medium');
+    expect(item.bearsOn).toBe('none');
   });
 
   it('a breach it can name stops that slice, names the rule, and takes no sibling with it', () => {
@@ -245,8 +253,8 @@ describe('An agent records instead of stopping', () => {
     });
 
     it('the consultation policies are unchanged', () => {
-      expect(CONSULTATION_POLICIES[COMMANDS.deliver]!.asksAbout).toEqual(['high', 'human-action']);
-      expect(CONSULTATION_POLICIES[COMMANDS.yolo]!.asksAbout).toEqual([]);
+      expect(policyOf(COMMANDS.deliver).asksAbout).toEqual(['high', 'human-action']);
+      expect(policyOf(COMMANDS.yolo).asksAbout).toEqual([]);
     });
 
     // This task's own clarification: a `principlesConflict` only ever stops the slice where a
@@ -301,20 +309,18 @@ describe('An agent records instead of stopping', () => {
     });
 
     it('the rendered item carries the attribution in its own section', () => {
-      const parsed = parseItem(renderOutboxItem(itemFields()));
-      expect(parsed.ok).toBe(true);
-      expect(parsed.item.sections.whatICouldNotKnow.startsWith(AUTHOR_MARK)).toBe(true);
+      const item = parsedItem(renderOutboxItem(itemFields()));
+      expect(item.sections.whatICouldNotKnow?.startsWith(AUTHOR_MARK)).toBe(true);
     });
   });
 
   describe('Every item carries its plain words (PRD #1071)', () => {
     it('renders the two plain-words sections first, before the four existing ones', () => {
-      const parsed = parseItem(renderOutboxItem(itemFields()));
-      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-      expect(parsed.item.sections.questionPlain).toBe(
+      const item = parsedItem(renderOutboxItem(itemFields()));
+      expect(item.sections.questionPlain).toBe(
         'Which country should we save for a contact that has none of its own?',
       );
-      expect(parsed.item.sections.decisionPlain).toBe(
+      expect(item.sections.decisionPlain).toBe(
         "We use the tenant's own country as the default.",
       );
     });
@@ -327,13 +333,12 @@ describe('An agent records instead of stopping', () => {
 
   describe('Every question carries its options (PRD #1166, slice s4)', () => {
     it('letters the options A, B… itself, right after the plain decision', () => {
-      const parsed = parseItem(renderOutboxItem(itemFields()));
-      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-      expect(parsed.item.sections.options).toEqual([
+      const item = parsedItem(renderOutboxItem(itemFields()));
+      expect(item.sections.options).toEqual([
         { letter: 'A', text: "Use the tenant's own country as the default, the option built." },
         { letter: 'B', text: 'Leave the country empty until the contact sets one.' },
       ]);
-      expect(parsed.item.sections.personSteps).toBeUndefined();
+      expect(item.sections.personSteps).toBeUndefined();
     });
 
     it('refuses to render with fewer than two options, or more than four', () => {
@@ -351,13 +356,12 @@ describe('An agent records instead of stopping', () => {
           personSteps: 'Add the missing secret to the console, then re-run the job.',
         }),
       );
-      const parsed = parseItem(text);
-      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-      expect(parsed.item.rank).toBe('human-action');
-      expect(parsed.item.sections.personSteps).toBe(
+      const item = parsedItem(text);
+      expect(item.rank).toBe('human-action');
+      expect(item.sections.personSteps).toBe(
         'Add the missing secret to the console, then re-run the job.',
       );
-      expect(parsed.item.sections.options).toBeUndefined();
+      expect(item.sections.options).toBeUndefined();
     });
 
     it('refuses to render a human-action item with no person steps', () => {
@@ -375,10 +379,9 @@ describe('An agent records instead of stopping', () => {
 
     it('renders both right after the plain decision, before the options', () => {
       const text = renderOutboxItem(itemFields(fun));
-      const parsed = parseItem(text);
-      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-      expect(parsed.item.sections.introFun).toBe(fun.introFun);
-      expect(parsed.item.sections.punchlineFun).toBe(fun.punchlineFun);
+      const item = parsedItem(text);
+      expect(item.sections.introFun).toBe(fun.introFun);
+      expect(item.sections.punchlineFun).toBe(fun.punchlineFun);
       const at = (heading: string) => text.indexOf(`## ${heading}`);
       expect(at('The decision, in plain words')).toBeLessThan(at('The intro, for fun'));
       expect(at('The intro, for fun')).toBeLessThan(at('The punchline, for fun'));
@@ -386,7 +389,7 @@ describe('An agent records instead of stopping', () => {
     });
 
     it('renders both before the person steps of a human-action item', () => {
-      const parsed = parseItem(
+      const item = parsedItem(
         renderOutboxItem(
           itemFields({
             ...fun,
@@ -396,9 +399,8 @@ describe('An agent records instead of stopping', () => {
           }),
         ),
       );
-      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
-      expect(parsed.item.sections.introFun).toBe(fun.introFun);
-      expect(parsed.item.sections.personSteps).toMatch(/missing secret/);
+      expect(item.sections.introFun).toBe(fun.introFun);
+      expect(item.sections.personSteps).toMatch(/missing secret/);
     });
 
     it('renders neither when given neither, exactly as before', () => {
@@ -419,11 +421,12 @@ describe('An agent records instead of stopping', () => {
     it('an adopted item embeds both in its settled entry', () => {
       const root = mkdtempSync(join(tmpdir(), 'outbox-policy-fun-'));
       try {
-        const adopted = adopt({
+        const adopted = adoptItem({
           ctx: flatCtx(root),
           itemText: renderOutboxItem(itemFields(fun)),
         });
         expect(adopted.ok, adopted.ok ? '' : adopted.errors.join('\n')).toBe(true);
+        if (!adopted.ok) throw new Error(adopted.errors.join('\n'));
         expect(adopted.entry).toContain(`## The intro, for fun\n\n${fun.introFun}`);
         expect(adopted.entry).toContain(`## The punchline, for fun\n\n${fun.punchlineFun}`);
       } finally {
@@ -444,8 +447,8 @@ describe('An agent records instead of stopping', () => {
 
 describe('Two commands ask at two different moments', () => {
   it('the policy is data — each command declares the ranks it asks about', () => {
-    expect(CONSULTATION_POLICIES[COMMANDS.deliver]!.asksAbout).toEqual(['high', 'human-action']);
-    expect(CONSULTATION_POLICIES[COMMANDS.yolo]!.asksAbout).toEqual([]);
+    expect(policyOf(COMMANDS.deliver).asksAbout).toEqual(['high', 'human-action']);
+    expect(policyOf(COMMANDS.yolo).asksAbout).toEqual([]);
   });
 
   it('an unknown command has no policy to guess at', () => {
@@ -470,9 +473,10 @@ describe('Two commands ask at two different moments', () => {
 
       expect(outcome.asked).toBe(true);
       expect(outcome.settled).toBe(true);
-      expect(outcome.answer!.approvedBy).toContain('claude-opus-5 session 3f92cf00');
-      expect(outcome.answer!.text).toBe('Yes — the tenant’s country is right.');
-      expect(outcome.answer!.channel).toEqual({ kind: 'prd-issue', number: 985 });
+      assertDefined(outcome.answer, 'the answer');
+      expect(outcome.answer.approvedBy).toContain('claude-opus-5 session 3f92cf00');
+      expect(outcome.answer.text).toBe('Yes — the tenant’s country is right.');
+      expect(outcome.answer.channel).toEqual({ kind: 'prd-issue', number: 985 });
 
       const parsed = AnswerSchema.safeParse(outcome.answer);
       expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error.issues)).toBe(true);
@@ -612,8 +616,10 @@ describe('The guard runs on the agent and on the branch', () => {
       expect(plan.writesFile).toBe(true);
       expect(plan.file).toBe('docs/outbox/1044/accounts/s6.md');
 
-      const parsed = parseAccountText(plan.text, { file: plan.file });
+      assertDefined(plan.text, 'the account text');
+      const parsed = parseAccount(plan.text, { file: plan.file });
       expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
+      if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
       expect(parsed.account.slice).toBe('s6');
 
       expect(compare([STORED_SHAPE, SHARED_CONTRACT], [parsed.account])).toEqual({
@@ -644,7 +650,7 @@ describe('The guard runs on the agent and on the branch', () => {
     const dirs: string[] = [];
 
     afterEach(() => {
-      while (dirs.length > 0) rmSync(dirs.pop()!, { recursive: true, force: true });
+      for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
     });
 
     /** A fixture repo whose `risk.storedShape` reproduces the upstream literal `riskyChanges`
@@ -666,7 +672,7 @@ describe('The guard runs on the agent and on the branch', () => {
       const tctx = fixtureCtx();
       const changes = [{ path: STORED_SHAPE.path, status: 'M' }];
 
-      const result = gate(1044, { ctx: tctx, changes });
+      const result = gateResult(1044, { ctx: tctx, changes });
 
       expect(result.ok).toBe(false);
       expect(result.items).toEqual([]);

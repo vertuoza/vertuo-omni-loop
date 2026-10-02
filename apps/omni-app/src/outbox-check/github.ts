@@ -302,7 +302,10 @@ async function completeOpen(
   return [CreatedSchema.parse(created).id];
 }
 
+/** The first line of whatever the failure said, as `String` prints it. */
 function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
+  const text = (reason === undefined || reason === null ? 'unknown error' : printed(reason)).trim();
   return text.split('\n')[0] || 'unknown error';
 }
+
+const printed = (value: unknown) => String(value);

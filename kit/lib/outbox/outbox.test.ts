@@ -149,7 +149,7 @@ function withSections(overrides: Record<string, string | undefined> = {}) {
 }
 
 function itemText({ frontMatter = {}, body }: { frontMatter?: Record<string, string | undefined>; body?: string } = {}) {
-  const fm = {
+  const fm: Record<string, string | undefined> = {
     id: 's2-01-example-item',
     prd: '985',
     slice: 's2',
@@ -161,7 +161,7 @@ function itemText({ frontMatter = {}, body }: { frontMatter?: Record<string, str
   };
   const fmLines = Object.entries(fm)
     .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}: ${value}`);
+    .map(([key, value]) => `${key}: ${value ?? ''}`);
   return ['---', ...fmLines, '---', '', body ?? withSections()].join('\n');
 }
 

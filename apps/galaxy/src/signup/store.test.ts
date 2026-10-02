@@ -13,11 +13,13 @@ function stubDb(answer: { data?: unknown; error?: { message: string } | null } =
     for (const op of ['select', 'insert', 'upsert', 'delete', 'eq']) {
       q[op] = (...args: unknown[]) => { calls.push({ op, args }); return q; };
     }
-    q.then = (resolve: (v: unknown) => void) => resolve(result);
+    q.then = (resolve: (v: unknown) => void) => {
+      resolve(result);
+    };
     return q;
   };
   const db = {
-    rpc: async (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return result; },
+    rpc: (fn: string, args: unknown) => { calls.push({ op: 'rpc', args: [fn, args] }); return Promise.resolve(result); },
     from: (table: string) => { calls.push({ op: 'from', args: [table] }); return chain(); },
   };
   return { db: db as unknown as SupabaseClient, calls };

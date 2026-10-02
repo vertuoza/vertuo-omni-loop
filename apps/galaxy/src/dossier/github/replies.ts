@@ -10,6 +10,7 @@
 // reply's door line (`_answered in the terminal · …`, `_answered on the Omni page · …`), else GitHub.
 import { findPrMarkerComment, parseNumbersMarker } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { planReplies } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { AnswerDoor, OutboxReplies, PendingAnswer } from './summary';
 
 /** A comment of the feature PR, as GitHub lists it. */
@@ -53,7 +54,7 @@ export function outboxReplies({ comments, items, adopted, markers }: {
   const bodies = new Map(comments.map((c) => [c.html_url, c.body]));
   const pending = [...new Set([...counted.keys(), ...anyone.keys()])].sort((a, b) => a - b).map((number): PendingAnswer => {
     const kept = counted.get(number);
-    const { item, answer } = kept ?? anyone.get(number)!;
+    const { item, answer } = kept ?? defined(anyone.get(number), `the answer to item ${number}`);
     const url = answer.url ?? null;
     return {
       number, id: item.id, text: answer.text, by: answer.approvedBy, at: answer.approvedAt ?? null, url,

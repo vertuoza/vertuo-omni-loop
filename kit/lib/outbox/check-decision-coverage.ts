@@ -45,7 +45,7 @@ export function discoveredPrds({ ctx }: { ctx: Pick<Context, 'layout'> }): numbe
  */
 export function findFormatViolations({ ctx }: { ctx: Context }): string[] {
   return discoveredPrds({ ctx }).flatMap((prd) =>
-    readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [] : (result.errors ?? []))),
+    readAccounts(prd, { ctx }).flatMap((result) => (result.ok ? [] : result.errors)),
   );
 }
 
@@ -60,8 +60,8 @@ export function findFormatViolations({ ctx }: { ctx: Context }): string[] {
  */
 export function gradePrd(prd: string | number, risky: readonly RiskyChange[], { ctx }: { ctx: Context }) {
   const results = readAccounts(prd, { ctx });
-  const malformed = results.flatMap((result) => (result.ok ? [] : (result.errors ?? [])));
-  const accounts = results.flatMap((result) => (result.ok && result.account ? [result.account] : []));
+  const malformed = results.flatMap((result) => (result.ok ? [] : result.errors));
+  const accounts = results.flatMap((result) => (result.ok ? [result.account] : []));
   const { accounted, unaccounted, stale } = compare(risky, accounts);
   return { prd, malformed, accounted, unaccounted, stale };
 }

@@ -76,7 +76,7 @@ export function parseStage(id: string, palette: string, text: string): Stage {
   };
   const places = { start: stage.starts, flag: stage.flags, coin: stage.coins, enemy: stage.enemies } as const;
   lines.forEach((line, row) => {
-    stage.tiles.push([...line].map((c, col) => {
+    stage.tiles.push(Array.from(line).map((c, col) => {
       if (!isMark(c)) throw new StageError(id, c, row + 1, col + 1);
       const mark = LEGEND[c];
       if (isOneOf(keysOf(places), mark)) { places[mark].push({ col, row }); return 'empty'; }

@@ -22,6 +22,7 @@ import type { Command, CommandIo } from '../io.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { Decisions } from '../../lib/playbook/decisions.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
+import { synchronous } from '../synchronous.ts';
 
 /** The one flag every `omni kb` verb reads. */
 type KbFlags = { json?: true };
@@ -181,7 +182,7 @@ function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo)
 }
 
 export const kb: Command = {
-  async run(args: string[], io: CommandIo) {
+  run: synchronous((args: string[], io: CommandIo): number => {
     const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
     const [sub, ...rest] = positional;
     if (sub === 'init') return init(rest, flags, io);
@@ -189,5 +190,5 @@ export const kb: Command = {
     if (sub === 'status') return status(rest, flags, io);
     if (sub === 'graph') return graph(rest, flags, io);
     throw usageError(USAGE);
-  },
+  }),
 };

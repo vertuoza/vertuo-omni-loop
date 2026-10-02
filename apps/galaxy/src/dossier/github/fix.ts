@@ -34,7 +34,7 @@ export type FixSummary = {
 
 const Issue = z.object({
   number: z.number().int().positive(),
-  html_url: z.string().url(),
+  html_url: z.url(),
   state: z.enum(['open', 'closed']),
   created_at: z.string(),
   user: z.object({ login: z.string() }).nullable().optional(),
@@ -42,7 +42,7 @@ const Issue = z.object({
 });
 const Pulls = z.array(z.object({
   number: z.number().int().positive(),
-  html_url: z.string().url(),
+  html_url: z.url(),
   state: z.enum(['open', 'closed']),
   merged_at: z.string().nullable().optional().default(null),
   created_at: z.string(),
@@ -56,7 +56,7 @@ const Reviews = z.array(z.object({
 }));
 const Releases = z.array(z.object({
   tag_name: z.string(),
-  html_url: z.string().url(),
+  html_url: z.url(),
   draft: z.boolean().optional().default(false),
   published_at: z.string().nullable().optional().default(null),
 }));
@@ -102,15 +102,14 @@ export async function readFix(get: FixGet, n: number, fixShape: string, labels: 
   const [mergedBy, approvals, release] = await Promise.all([
     part('who merged the fix PR', async () => (mergedAt === null ? null : Merged.parse((await get(`/pulls/${found.number}`)) ?? {}).merged_by?.login ?? null)),
     part('the fix PR\'s reviews', async () => Reviews.parse((await get(`/pulls/${found.number}/reviews?per_page=100`)) ?? [])
-      .filter((r) => r.state === 'APPROVED' && r.user && r.submitted_at)
-      .map((r): FixApproval => ({ login: r.user!.login, at: r.submitted_at! }))),
+      .flatMap((r): FixApproval[] => (r.state === 'APPROVED' && r.user && r.submitted_at ? [{ login: r.user.login, at: r.submitted_at }] : []))),
     part('the releases', async (): Promise<FixRelease | null> => {
       if (mergedAt === null) return null;
       const after = Releases.parse((await get('/releases?per_page=100')) ?? [])
-        .filter((r) => !r.draft && r.published_at !== null && Date.parse(r.published_at) >= Date.parse(mergedAt))
-        .sort((a, b) => Date.parse(a.published_at!) - Date.parse(b.published_at!));
+        .flatMap((r) => (!r.draft && r.published_at !== null && Date.parse(r.published_at) >= Date.parse(mergedAt) ? [{ ...r, published_at: r.published_at }] : []))
+        .sort((a, b) => Date.parse(a.published_at) - Date.parse(b.published_at));
       const [first] = after;
-      return first ? { tag: first.tag_name, url: first.html_url, at: first.published_at! } : null;
+      return first ? { tag: first.tag_name, url: first.html_url, at: first.published_at } : null;
     }),
   ]);
   return {

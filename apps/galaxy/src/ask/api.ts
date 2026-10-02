@@ -216,7 +216,7 @@ type RoundContext = { repo: string | null; branch: string | null; prd: number | 
 type ContextFields = { [K in keyof RoundContext]: Field<RoundContext[K]> };
 
 /** Copies field `key` into `context`, or says why it is refused. */
-function copyField<K extends keyof RoundContext>(context: RoundContext, fields: ContextFields, key: K): string | null {
+function copyField<K extends keyof RoundContext>(context: RoundContext, fields: Pick<ContextFields, K>, key: K): string | null {
   const got = fields[key];
   if ('problem' in got) return got.problem;
   context[key] = got.value;

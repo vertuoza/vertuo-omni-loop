@@ -68,7 +68,7 @@ export function nextStep(step: Step, flow: Flow, me: Player | null, fleets: Flee
     case 'name': return 'hero';
     case 'hero': return flow === 'onboard' ? 'ready' : 'menu';
     case 'ready': case 'welcome': return 'menu';
-    default: return 'menu';
+    case 'coin': case 'gate': case 'menu': case 'outsider': return 'menu';
   }
 }
 
@@ -79,7 +79,7 @@ export function backStep(step: Step, flow: Flow, fleets: FleetRow[]): Step | 'ti
     case 'select': return 'title';
     case 'name': return hasFleets(fleets) ? 'select' : 'title';
     case 'hero': return 'name';
-    default: return 'title';
+    case 'coin': case 'gate': case 'intro': case 'menu': case 'outsider': case 'ready': case 'welcome': return 'title';
   }
 }
 

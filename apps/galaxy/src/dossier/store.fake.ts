@@ -96,6 +96,13 @@ const refuse = (code: string, message: string): Result => ({ data: null, error: 
  * @param accounts by access token
  * @param orgs each workspace's github_org, by workspace id: a workspace not named owns no organisation
  */
+/** `row` without `keys`: what a rest destructure gave, with no unused name for each key left out. */
+function omit<T extends object, K extends keyof T>(row: T, keys: readonly K[]): Omit<T, K> {
+  const copy: T = { ...row };
+  for (const key of keys) Reflect.deleteProperty(copy, key);
+  return copy;
+}
+
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
   const tables: {
     dossiers: FakeDossier[]; dossier_versions: FakeVersion[];
@@ -353,7 +360,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       const session = sessions.find((s) => s.id === round.session_id);
       const rule = session ? ruleOf(round, session) : null;
       if (!session || !rule) return [];
-      const { id, session_id: _session, ...rest } = round;
+      const { id } = round;
+      const rest = omit(round, ['id', 'session_id']);
       return [{ rule, round_id: id, session_id: session.id, asked_by: session.owner, repo: session.repo, branch: session.branch, ...rest }];
     }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
   }
@@ -377,7 +385,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         .filter((repo) => repo !== d.home_repo).sort();
       const times = [d.created_at, d.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
         .filter((t): t is string => t !== null);
-      const { claude_session_id: _session, ...row } = d;
+      const row = omit(d, ['claude_session_id']);
       return {
         ...row,
         repos: [d.home_repo, ...others],
@@ -408,11 +416,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         return refuse('PGRST202', `Could not find the function public.${name}`);
       }),
       auth: {
-        async getUser(jwt: string) {
+        getUser(jwt: string) {
           const account = accounts[jwt];
-          return account
+          return Promise.resolve(account
             ? { data: { user: { id: account.id, email: account.email } }, error: null }
-            : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } };
+            : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } });
         },
       },
     };

@@ -123,7 +123,7 @@ describe('omni concept', () => {
   });
 
   it('is not ok, exit 1, when two folders are there for the concept', async () => {
-    const { code, out } = await withChange(({ writeAll }) => writeAll(validFolder('.omni-loop/delivery/inbox/concepts/0712-again')));
+    const { code, out } = await withChange(({ writeAll }) => { writeAll(validFolder('.omni-loop/delivery/inbox/concepts/0712-again')); });
     expect(code).toBe(1);
     expect(failures(out)).toHaveLength(1);
     expect(failures(out)[0]).toMatch(/^- 2 folders for issue 712, one expected: .*0712-again.*0712-team-agenda/);
@@ -139,35 +139,35 @@ describe('omni concept', () => {
   });
 
   it('is not ok, exit 1, naming a gap in the rounds', async () => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/board-r4.html`, PAGE));
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/board-r4.html`, PAGE); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/board-r3.html: missing; the rounds are numbered from 1 with no gap.`]);
   });
 
   it('is not ok, exit 1, naming a stray file, and a board named off the pattern', async () => {
-    const stray = await withChange(({ write }) => write(`${DIR}/notes.md`, 'notes\n'));
+    const stray = await withChange(({ write }) => { write(`${DIR}/notes.md`, 'notes\n'); });
     expect(stray.code).toBe(1);
     expect(failures(stray.out)).toEqual([
       `- ${DIR}/notes.md: not part of a concept; the folder holds concept.md, vision.html, debate.md and board-r<k>.html only.`,
     ]);
-    const misnamed = await withChange(({ write }) => write(`${DIR}/board-r03.html`, PAGE));
+    const misnamed = await withChange(({ write }) => { write(`${DIR}/board-r03.html`, PAGE); });
     expect(failures(misnamed.out)).toEqual([`- ${DIR}/board-r03.html: a round's board is named board-r<k>.html, k from 1.`]);
   });
 
   it('is not ok, exit 1, naming an invalid concept.md', async () => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/concept.md`, conceptMd({ kind: 'feature' })));
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/concept.md`, conceptMd({ kind: 'feature' })); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/concept.md: front matter: kind is "feature", not one of product, identity, platform.`]);
   });
 
   it('is not ok, exit 1, when concept.md names another concept', async () => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/concept.md`, conceptMd({ concept: 713 })));
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/concept.md`, conceptMd({ concept: 713 })); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/concept.md: concept is 713, not 712.`]);
   });
 
   it('is not ok, exit 1, naming a page over limits.beforeAfterMaxBytes', async () => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/board-r2.html`, `${PAGE}${'x'.repeat(400)}`), {
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/board-r2.html`, `${PAGE}${'x'.repeat(400)}`); }, {
       configText: `${CONFIG_TEXT}limits:\n  beforeAfterMaxBytes: 300\n`,
     });
     expect(code).toBe(1);
@@ -176,7 +176,7 @@ describe('omni concept', () => {
   });
 
   it('is not ok, exit 1, naming a page holding a base64 PNG', async () => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/vision.html`, '<img src="data:image/png;base64,iVBORw0KGgo=">\n'));
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/vision.html`, '<img src="data:image/png;base64,iVBORw0KGgo=">\n'); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/vision.html: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`]);
   });
@@ -184,14 +184,14 @@ describe('omni concept', () => {
   it.each([
     ['a script', '<script src="https://cdn.example.com/app.js"></script>', '<script src> https://cdn.example.com/app.js'],
     ['a stylesheet', '<link rel="stylesheet" href="https://fonts.example.com/css">', '<link href> https://fonts.example.com/css'],
-  ])('is not ok, exit 1, naming a page loading %s from the network', async (_what: any, tag: any, load: any) => {
-    const { code, out } = await withChange(({ write }) => write(`${DIR}/board-r1.html`, `${PAGE}${tag}\n`));
+  ])('is not ok, exit 1, naming a page loading %s from the network', async (_what: string, tag: string, load: string) => {
+    const { code, out } = await withChange(({ write }) => { write(`${DIR}/board-r1.html`, `${PAGE}${tag}\n`); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${DIR}/board-r1.html: loads from the network: ${load}; inline it, and keep only links a person follows.`]);
   });
 
   it('is not ok, exit 1, naming a file the branch changed outside the folder', async () => {
-    const { code, out } = await withChange(({ write }) => write('app/agenda.ts', 'export {};\n'));
+    const { code, out } = await withChange(({ write }) => { write('app/agenda.ts', 'export {};\n'); });
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- app/agenda.ts: changed outside ${DIR}/; a concept branch changes its own folder only.`]);
   });

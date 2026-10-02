@@ -72,7 +72,7 @@ function summary(more: Partial<GithubSummary> = {}): GithubSummary {
   };
 }
 
-function tab({ github = summary() as GithubSummary | null, query = {} as Record<string, string>, spec = null as string | null, me = PIERRE.user_id as string | null, demo = false } = {}) {
+function tab({ github = summary(), query = {}, spec = null, me = PIERRE.user_id, demo = false }: { github?: GithubSummary | null; query?: Record<string, string>; spec?: string | null; me?: string | null; demo?: boolean } = {}) {
   const view = dossierView({ dossier, versions, members: [PIERRE], rounds, github, demo }, me, readPick({ tab: 'outbox', ...query }));
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: spec === null ? null : renderMarkdown(spec), supabase: null }));
 }
@@ -267,7 +267,7 @@ describe('the context disclosure, wide and tall', () => {
       const seen: boolean[] = [];
       const stop = subscribe(() => seen.push(isWide()));
       matches = false;
-      listeners.forEach((f) => f());
+      listeners.forEach((f) => { f(); });
       expect(seen).toEqual([false]);
       stop();
       expect(listeners.size).toBe(0);

@@ -9,6 +9,8 @@ import {
   CHART_LINES, chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, SYSTEM_LINES, worldAt,
   type ChartCursor, type ChartLayout, type Dir, type SystemLayout,
 } from './chart-layout.ts';
+import { sure } from '../sure';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // This repository's own knowledge, read through the kit as the app reads it on the server.
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
@@ -31,7 +33,7 @@ function synthetic(principles: number, rules: number, invariants: number, name =
     version: 1, repo: 'acme/widgets',
     domains: [{ name, code, scope: 'domain', counts: { principles, rules, invariants, laws: 0, proposed: entries.length } }],
     entries,
-    links: entries.filter((e) => e.serves && principles).map((e) => ({ from: e.id, to: e.serves!, kind: 'serves' as const })),
+    links: entries.filter((e) => e.serves && principles).map((e) => ({ from: e.id, to: sure(e.serves, 'e.serves'), kind: 'serves' as const })),
     loose: [], unserved: [],
   };
 }
@@ -42,9 +44,9 @@ const DIRS: Dir[] = ['up', 'down', 'left', 'right'];
 /** Two worlds overlap when their discs share a pixel. */
 function overlaps(layout: SystemLayout): string[] {
   const found: string[] = [];
-  layout.worlds.forEach((a, i) => layout.worlds.slice(i + 1).forEach((b) => {
+  layout.worlds.forEach((a, i) => { layout.worlds.slice(i + 1).forEach((b) => {
     if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r) found.push(`${a.entry.id} and ${b.entry.id}`);
-  }));
+  }); });
   return found;
 }
 
@@ -60,7 +62,7 @@ function reachable(step: (from: number, dir: Dir) => number, from: number): Set<
   const seen = new Set([from]);
   const queue = [from];
   while (queue.length) {
-    const at = queue.shift()!;
+    const at = sure(queue.shift(), 'queue.shift()');
     for (const dir of DIRS) {
       const next = step(at, dir);
       if (!seen.has(next)) { seen.add(next); queue.push(next); }
@@ -81,9 +83,9 @@ function holds(graph: KnowledgeGraph, name: string, grid: Grid) {
   const kindAt = layout.orbits.map((o) => KINDS.indexOf(o.kind));
   expect(kindAt).toEqual([...kindAt].sort((a, b) => a - b));
   for (const kind of KINDS) expect(layout.orbits.some((o) => o.kind === kind), `${kind} keeps its orbit`).toBe(true);
-  layout.orbits.forEach((o, i) => { if (i) expect(o.ry).toBeGreaterThan(layout.orbits[i - 1]!.ry); });
+  layout.orbits.forEach((o, i) => { if (i) expect(o.ry).toBeGreaterThan(sure(layout.orbits[i - 1], 'layout.orbits[i - 1]').ry); });
   // Each world on an orbit of its own kind, in id order orbit by orbit.
-  for (const w of layout.worlds) expect(layout.orbits[w.orbit]!.kind).toBe(w.entry.kind);
+  for (const w of layout.worlds) expect(sure(layout.orbits[w.orbit], 'layout.orbits[w.orbit]').kind).toBe(w.entry.kind);
   for (const kind of KINDS) {
     const ids = layout.worlds.filter((w) => w.entry.kind === kind).map((w) => w.entry.id);
     expect(ids).toEqual([...ids].sort((a, b) => a.localeCompare(b, 'en', { numeric: true })));
@@ -91,7 +93,8 @@ function holds(graph: KnowledgeGraph, name: string, grid: Grid) {
   // The worlds sit on their orbit's ellipse, around the sun, clear of it.
   for (const w of layout.worlds) {
     const o = layout.orbits[w.orbit];
-    expect(((w.x - layout.cx) / o!.rx) ** 2 + ((w.y - layout.cy) / o!.ry) ** 2).toBeCloseTo(1, 2);
+    assertDefined(o, 'o');
+    expect(((w.x - layout.cx) / o.rx) ** 2 + ((w.y - layout.cy) / o.ry) ** 2).toBeCloseTo(1, 2);
     expect(Math.hypot(w.x - layout.cx, w.y - layout.cy)).toBeGreaterThanOrEqual(layout.sun + w.r);
   }
   return layout;
@@ -101,7 +104,7 @@ describe('the system: one domain as an orrery', () => {
   it.each(GRIDS)('seats this repository\'s product on the %s grid: every entry, inside, apart, by kind', (_, grid) => {
     const layout = holds(REPO, 'product', grid);
     expect(layout.worlds.length).toBeGreaterThan(50);
-    expect(layout.worlds[0]!.r).toBeLessThanOrEqual(SYSTEM_LINES[grid.name].world.max);
+    expect(sure(layout.worlds[0], 'layout.worlds[0]').r).toBeLessThanOrEqual(SYSTEM_LINES[grid.name].world.max);
   });
 
   it.each([
@@ -120,13 +123,13 @@ describe('the system: one domain as an orrery', () => {
     const principles = layout.orbits.filter((o) => o.kind === 'principle');
     for (const o of rules) for (const p of principles) expect(o.ry).toBeGreaterThan(p.ry);
     // The orbits of a kind are next to one another.
-    expect(rules.map((o) => o.i)).toEqual(rules.map((_, k) => rules[0]!.i + k));
+    expect(rules.map((o) => o.i)).toEqual(rules.map((_, k) => sure(rules[0], 'rules[0]').i + k));
   });
 
   it.each(GRIDS)('shrinks the worlds of a crowded system, never below the smallest size, on the %s grid', (_, grid) => {
     const { max, min } = SYSTEM_LINES[grid.name].world;
-    const few = layoutSystem(synthetic(3, 2, 1), 'crowd', grid).worlds[0]!.r;
-    const many = layoutSystem(synthetic(100, 150, 50), 'crowd', grid).worlds[0]!.r;
+    const few = sure(layoutSystem(synthetic(3, 2, 1), 'crowd', grid).worlds[0], 'layoutSystem(synthetic(3, 2, 1), "crowd", grid).worlds[0]').r;
+    const many = sure(layoutSystem(synthetic(100, 150, 50), 'crowd', grid).worlds[0], 'layoutSystem(synthetic(100, 150, 50), "crowd", grid).worlds[0]').r;
     expect(few).toBe(max);
     expect(many).toBeLessThan(few);
     expect(many).toBeGreaterThanOrEqual(min);
@@ -155,12 +158,12 @@ describe('the D-pad on a system', () => {
     for (let orbit = 0; orbit < layout.orbits.length; orbit++) {
       const ring = layout.worlds.filter((w) => w.orbit === orbit);
       if (!ring.length) continue;
-      let at = ring[0]!.index;
+      let at = sure(ring[0], 'ring[0]').index;
       const seen: number[] = [];
       for (let i = 0; i < ring.length; i++) { seen.push(at); at = orbitStep(layout, at, 'right'); }
-      expect(at).toBe(ring[0]!.index);
+      expect(at).toBe(sure(ring[0], 'ring[0]').index);
       expect(seen).toEqual(ring.map((w) => w.index));
-      expect(orbitStep(layout, ring[0]!.index, 'left')).toBe(ring[ring.length - 1]!.index);
+      expect(orbitStep(layout, sure(ring[0], 'ring[0]').index, 'left')).toBe(sure(ring[ring.length - 1], 'ring[ring.length - 1]').index);
     }
   });
 
@@ -169,13 +172,14 @@ describe('the D-pad on a system', () => {
     for (const w of layout.worlds) {
       for (const [dir, step] of [['up', -1], ['down', 1]] as const) {
         let orbit = w.orbit + step;
-        while (orbit >= 0 && orbit < layout.orbits.length && !layout.orbits[orbit]!.count) orbit += step;
+        while (orbit >= 0 && orbit < layout.orbits.length && !sure(layout.orbits[orbit], 'layout.orbits[orbit]').count) orbit += step;
         const next = orbitStep(layout, w.index, dir);
         if (orbit < 0 || orbit >= layout.orbits.length) { expect(next).toBe(w.index); continue; }
         const to = layout.worlds[next];
-        expect(to!.orbit).toBe(orbit);
+        assertDefined(to, 'to');
+        expect(to.orbit).toBe(orbit);
         const best = Math.min(...layout.worlds.filter((x) => x.orbit === orbit).map((x) => apart(x.angle, w.angle)));
-        expect(apart(to!.angle, w.angle)).toBeCloseTo(best, 9);
+        expect(apart(to.angle, w.angle)).toBeCloseTo(best, 9);
       }
     }
   });
@@ -196,10 +200,10 @@ describe('the D-pad on a system', () => {
 function domains(n: number): KnowledgeGraph {
   const names = ['product', ...Array.from({ length: n - 1 }, (_, i) => `d${String(i + 1).padStart(2, '0')}`)];
   const parts = names.map((name, i) => synthetic(n - i, i % 3, 1, name));
-  const lanes = names.slice(1, -1).map((a, i) => entry(`X-${a}-${names[i + 2]}-1`.toUpperCase(), 'rule', a, { domain: null, domains: [a, names[i + 2]!] }));
+  const lanes = names.slice(1, -1).map((a, i) => entry(`X-${a}-${names[i + 2]}-1`.toUpperCase(), 'rule', a, { domain: null, domains: [a, sure(names[i + 2], 'names[i + 2]')] }));
   return {
     version: 1, repo: 'acme/widgets',
-    domains: parts.map((p, i) => ({ ...p.domains[0]!, scope: i === 0 ? 'product' : 'domain' })),
+    domains: parts.map((p, i) => ({ ...sure(p.domains[0], 'p.domains[0]'), scope: i === 0 ? 'product' : 'domain' })),
     entries: [...parts.flatMap((p) => p.entries), ...lanes],
     links: [], loose: [], unserved: [],
   };
@@ -215,10 +219,10 @@ describe('the chart: a sun per domain', () => {
     const layout = layoutChart(REPO, grid);
     const { band, label, sun } = CHART_LINES[grid.name];
     expect(layout.suns).toHaveLength(1);
-    expect(layout.suns[0]!.name).toBe('product');
-    expect(layout.suns[0]!.x).toBe(Math.round(band.x + band.w / 2));
-    expect(layout.suns[0]!.y).toBe(Math.round(band.y + band.h / 2 - label / 2));
-    expect(layout.suns[0]!.r).toBe(sun.max);
+    expect(sure(layout.suns[0], 'layout.suns[0]').name).toBe('product');
+    expect(sure(layout.suns[0], 'layout.suns[0]').x).toBe(Math.round(band.x + band.w / 2));
+    expect(sure(layout.suns[0], 'layout.suns[0]').y).toBe(Math.round(band.y + band.h / 2 - label / 2));
+    expect(sure(layout.suns[0], 'layout.suns[0]').r).toBe(sun.max);
     expect(sunsOutside(layout, grid)).toEqual([]);
   });
 
@@ -228,22 +232,22 @@ describe('the chart: a sun per domain', () => {
       const layout = layoutChart(graph, grid);
       expect(layout.suns.map((s) => s.name)).toEqual(graph.domains.map((d) => d.name));
       expect(sunsOutside(layout, grid)).toEqual([]);
-      layout.suns.forEach((a, i) => layout.suns.slice(i + 1).forEach((b) => {
+      layout.suns.forEach((a, i) => { layout.suns.slice(i + 1).forEach((b) => {
         expect(Math.hypot(a.x - b.x, a.y - b.y), `${a.name} and ${b.name}`).toBeGreaterThan(a.r + b.r);
-      }));
+      }); });
       // Each name runs under its sun, inside the band and clear of the names beside it.
       for (const s of layout.suns) {
         expect(s.label).toBeGreaterThan(0);
         expect(s.x - s.label / 2).toBeGreaterThanOrEqual(CHART_LINES[grid.name].band.x);
         expect(s.x + s.label / 2).toBeLessThanOrEqual(CHART_LINES[grid.name].band.x + CHART_LINES[grid.name].band.w);
       }
-      layout.suns.forEach((a, i) => layout.suns.slice(i + 1).forEach((b) => {
+      layout.suns.forEach((a, i) => { layout.suns.slice(i + 1).forEach((b) => {
         if (Math.abs(a.y - b.y) < CHART_LINES[grid.name].band.h / 4) {
           expect(Math.abs(a.x - b.x), `${a.name} and ${b.name}'s names`).toBeGreaterThanOrEqual((a.label + b.label) / 2);
         }
-      }));
+      }); });
       const bySize = [...layout.suns].sort((a, b) => a.system.size - b.system.size);
-      bySize.forEach((s, i) => { if (i) expect(s.r).toBeGreaterThanOrEqual(bySize[i - 1]!.r); });
+      bySize.forEach((s, i) => { if (i) expect(s.r).toBeGreaterThanOrEqual(sure(bySize[i - 1], 'bySize[i - 1]').r); });
       for (const s of layout.suns) {
         expect(reachable((from, dir) => chartStep(layout, from, dir), s.index).size, s.name).toBe(n);
         expect(sunAt(layout, { x: s.x, y: s.y })?.name).toBe(s.name);
@@ -261,7 +265,7 @@ describe('the chart: a sun per domain', () => {
 
   it('burns the product gold, and each domain the same colour on every load', () => {
     const layout = layoutChart(domains(5), WIDE);
-    expect(layout.suns[0]!.seed % 4).toBe(0);
+    expect(sure(layout.suns[0], 'layout.suns[0]').seed % 4).toBe(0);
     for (const s of layout.suns.slice(1)) expect(s.seed % 4).not.toBe(0);
     expect(layoutChart(domains(5), WIDE)).toEqual(layout);
   });
@@ -305,7 +309,7 @@ describe('the pad on the star chart', () => {
     let cur = cursor({ scene: 'system', card: true, cardPage: 1 });
     const scenes: string[] = [];
     for (let i = 0; i < 3; i++) {
-      const move = chartKey(cur, 'b', at)!;
+      const move = sure(chartKey(cur, 'b', at), 'chartKey(cur, "b", at)');
       scenes.push(move.patch.scene ?? (move.patch.card === false ? 'card closed' : '?'));
       if (move.patch.scene === 'menu') break;
       cur = { ...cur, ...move.patch } as ChartCursor;

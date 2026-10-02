@@ -16,6 +16,7 @@ import { botLogin } from '../../lib/signature.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, repoSlug, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]';
 const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
@@ -24,7 +25,7 @@ const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 const ghUsageError = (cause: Error) => usageError(`omni credits: ${cause.message}`);
 
 export const credits: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('credits', args, { values: ['repo', 'since'], booleans: ['list', 'json'] });
     if (positional.length) throw usageError(USAGE);
     const slug = repoSlug('credits', ctx, flags.repo);
@@ -65,5 +66,5 @@ export const credits: Command = {
     }
     for (const warning of read.warnings) println(stderr, `warning: ${warning}`);
     return 0;
-  },
+  }),
 };

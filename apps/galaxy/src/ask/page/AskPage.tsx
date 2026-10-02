@@ -39,7 +39,7 @@ type Props = {
 };
 
 function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
-  if (source.kind === 'demo') return { list: async () => structuredClone(page.rows) };
+  if (source.kind === 'demo') return { list: () => Promise.resolve(structuredClone(page.rows)) };
   return databaseTabs(createBrowserClient<Database>(source.url, source.key), me);
 }
 
@@ -80,7 +80,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
     [getPort, offset],
   );
 
-  const onPane = useCallback((state: SessionState) => setPage((p) => pageWithPane(p, state)), []);
+  const onPane = useCallback((state: SessionState) => {
+    setPage((p) => pageWithPane(p, state));
+  }, []);
 
   if (tabs.length === 0) {
     return (
@@ -110,7 +112,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
           className="ask-tabs-fold"
           aria-expanded={page.listOpen}
           aria-controls="ask-tab-list"
-          onClick={() => setPage(toggleList)}
+          onClick={() => {
+            setPage(toggleList);
+          }}
         >
           <span>{head}</span>
           <span className="ask-tabs-chevron" aria-hidden="true" />
@@ -125,7 +129,9 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
                 className="ask-tab"
                 data-state={tab.state}
                 aria-current={tab.id === page.selected ? 'page' : undefined}
-                onClick={() => setPage(pickTab)}
+                onClick={() => {
+                  setPage(pickTab);
+                }}
               >
                 <span className="ask-tab-title">
                   {tab.state === 'needs-you' && <span className="ask-badge" aria-hidden="true" />}
