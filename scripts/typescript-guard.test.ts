@@ -19,6 +19,8 @@ import { describe, expect, it } from 'vitest';
 //   a line with no `// ts-allow: <reason>` comment. `as const` is no cast, nor is an import or an
 //   export alias, nor a non-null assertion (settled item s24-02).
 // - `empty-reason`: a `// ts-allow:` comment that gives no reason.
+// - `eslint-disable`: an `eslint-disable` comment, in any TypeScript file (PRD 976): the linter's
+//   `noInlineConfig` makes one inert, and every finding is fixed in code instead.
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -106,6 +108,22 @@ describe('the guard, on fixtures', () => {
   it('leaves files that are not code alone', () => {
     expect(rules('kit/lib/a.md', '// @ts-nocheck\nconst a: any = 1;\n')).toEqual([]);
   });
+
+  it('refuses an eslint-disable comment of any form, in source and tests, naming the line', () => {
+    const text = 'export const a = 1;\n  // eslint-disable-next-line react-hooks/exhaustive-deps\nexport const b = 2;\n';
+    expect(one('apps/galaxy/src/arcade/A.tsx', text)).toEqual([
+      { path: 'apps/galaxy/src/arcade/A.tsx', line: 2, rule: 'eslint-disable', text: '  // eslint-disable-next-line react-hooks/exhaustive-deps' },
+    ]);
+    expect(rules('kit/lib/a.test.ts', '/* eslint-disable */\nexport const a = 1;\n')).toEqual(['eslint-disable']);
+    expect(rules('kit/lib/a.ts', 'export const a = f(); // eslint-disable-line\n')).toEqual(['eslint-disable']);
+    expect(rules('kit/lib/a.ts', 'export const a = 1;\n/*\n * eslint-disable\n */\n')).toEqual(['eslint-disable']);
+    expect(rules('apps/galaxy/src/A.tsx', 'export const A = () => <div>{/* eslint-disable-line */}</div>;\n')).toEqual(['eslint-disable']);
+  });
+
+  it('lets a file name eslint-disable in a string or a sentence, and leaves the bundle alone', () => {
+    expect(rules('kit/lib/a.ts', "// the guard refuses an eslint-disable comment\nexport const s = '// eslint-disable';\n")).toEqual([]);
+    expect(rules('kit/dist/omni.mjs', '// eslint-disable-next-line no-x\nexport const a = 1;\n')).toEqual([]);
+  });
 });
 
 describe('the ceilings, on fixtures', () => {
@@ -182,7 +200,7 @@ function isCode(path: string): boolean {
   return /\.(?:[cm]?[jt]sx?)$/.test(path);
 }
 
-type Rule = 'ts-nocheck' | 'javascript' | 'any' | 'as' | 'empty-reason';
+type Rule = 'ts-nocheck' | 'javascript' | 'any' | 'as' | 'empty-reason' | 'eslint-disable';
 type Violation = { path: string; line: number; rule: Rule; text: string };
 type File = { path: string; text: string };
 
@@ -230,6 +248,7 @@ function fileViolations(file: File): Violation[] {
   lines.forEach((line, index) => {
     if (NOCHECK.test(line)) out.push(at(index + 1, 'ts-nocheck'));
   });
+  for (const line of eslintDisables(file)) out.push(at(line, 'eslint-disable'));
   if (!isSource(file.path)) return out;
   for (const { line, rule } of escapes(file)) {
     const broken = escapeRule(rule, lines[line - 1] ?? '');
@@ -326,6 +345,37 @@ function escapes(file: File): Array<{ line: number; rule: 'any' | 'as' }> {
   };
   visit(source);
   return found;
+}
+
+/** A comment line that is an `eslint-disable` directive: the directive opens it, not a sentence. */
+const ESLINT_DISABLE = /^\s*(?:\/\/+|\/\*+|\*)?\s*eslint-disable/;
+
+/**
+ * The lines of a file's `eslint-disable` comments (PRD 976): every comment the parser sees, before
+ * or after any token, read line by line. A string that holds the words is no comment.
+ */
+function eslintDisables(file: File): number[] {
+  const kind = file.path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, true, kind);
+  const seen = new Set<number>();
+  const lines = new Set<number>();
+  const read = (ranges: ts.CommentRange[] | undefined): void => {
+    for (const range of ranges ?? []) {
+      if (seen.has(range.pos)) continue;
+      seen.add(range.pos);
+      const first = source.getLineAndCharacterOfPosition(range.pos).line + 1;
+      file.text.slice(range.pos, range.end).split('\n').forEach((line, index) => {
+        if (ESLINT_DISABLE.test(line)) lines.add(first + index);
+      });
+    }
+  };
+  const visit = (node: ts.Node): void => {
+    read(ts.getLeadingCommentRanges(file.text, node.pos));
+    read(ts.getTrailingCommentRanges(file.text, node.end));
+    for (const child of node.getChildren(source)) visit(child);
+  };
+  visit(source);
+  return [...lines].sort((a, b) => a - b);
 }
 
 function isConst(type: ts.TypeNode): boolean {

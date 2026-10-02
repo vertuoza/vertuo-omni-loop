@@ -17,6 +17,7 @@ import {
   usagePart,
   visibleLength,
 } from './render.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -156,8 +157,9 @@ describe('renderLines', () => {
       const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env, now: NOW });
       expect(lines).toHaveLength(2);
       for (const line of lines) expect(visibleLength(line)).toBeLessThanOrEqual(columns);
-      if (visibleLength(LINE_1) > columns) expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
-      else expect(lines[0]!.replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
+      assertDefined(lines[0], 'lines[0]');
+      if (visibleLength(LINE_1) > columns) expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
+      else expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
       expect(lines[1]).toBe(NO_PRD_LINE);
     }
   });
@@ -165,7 +167,8 @@ describe('renderLines', () => {
   it('cuts a line too wide at its end with `…`, closing any colour it cut into', () => {
     const [line] = renderLines({ input: INPUT, facts: null, env: { COLUMNS: '24' }, now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}████${RESET}…`);
-    expect(visibleLength(line!)).toBe(24);
+    assertDefined(line, 'line');
+    expect(visibleLength(line)).toBe(24);
   });
 
   it('does not cut a coloured line whose visible width fits exactly', () => {
@@ -269,7 +272,8 @@ describe('line 2: the PRD', () => {
     const facts = { installed: true, askOn: true, prd: LONG };
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
       const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
+      assertDefined(line, 'line');
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
       expect(line).not.toContain('\x1b');
       if (columns < 63) expect(line).toMatch(/^PRD 324 statusl[^ ]*… · s4 · /);
       else expect(line).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
@@ -341,8 +345,10 @@ describe('line 2: the slices, from the board (slice s6)', () => {
     const full = 'PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items';
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
       const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
-      expect(visibleLength(line!)).toBeLessThanOrEqual(columns);
-      const shown = line!.replace(/\x1b\[[0-9;]*m/g, '');
+      assertDefined(line, 'line');
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      assertDefined(line, 'line');
+      const shown = line.replace(/\x1b\[[0-9;]*m/g, '');
       if (columns >= full.length) expect(shown).toBe(full);
       else expect(shown.startsWith('PRD 315 help-an… · outbox · wave 2 of 2')).toBe(true);
       if (columns === 80) expect(shown).toBe('PRD 315 help-an… · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open i…');

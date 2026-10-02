@@ -5,6 +5,7 @@ import {
 } from './alerts';
 import type { DocumentGroup } from './documents';
 import type { WaitingItem, WaitingOutbox, WaitingQuestion } from './waiting';
+import { sure } from '../arcade/sure';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over fakes: what a read announces, the two
 // switches kept per browser, the chime claimed by one tab, and the desktop notifications.
@@ -20,7 +21,7 @@ const ids = (items: WaitingItem[]) => items.map((i) => i.id);
 /** A storage over a map, like the browser's. */
 function memory(): Store & { map: Map<string, string> } {
   const map = new Map<string, string>();
-  return { map, getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, String(v)) };
+  return { map, getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) };
 }
 const throwing = (): Store => ({
   getItem: () => { throw new Error('blocked'); },
@@ -67,7 +68,7 @@ describe('the switches', () => {
   it('are both off when storage throws, or cannot even be reached, and writing breaks nothing', () => {
     expect(readSwitches(throwing)).toEqual(ALERTS_OFF);
     expect(readSwitches(() => { throw new Error('no storage'); })).toEqual(ALERTS_OFF);
-    expect(() => writeSwitches(throwing, { desktop: true, chime: true })).not.toThrow();
+    expect(() => { writeSwitches(throwing, { desktop: true, chime: true }); }).not.toThrow();
   });
 
   it('read anything else stored as off', () => {
@@ -106,23 +107,23 @@ describe('the chime claim', () => {
   it('keeps a bounded memory of what it chimed', () => {
     const store = memory();
     for (let i = 0; i < 500; i++) claimChime(() => store, [`id-${i}`]);
-    expect((JSON.parse(store.map.get(CHIMED_KEY)!) as string[]).length).toBeLessThanOrEqual(200);
+    expect((JSON.parse(sure(store.map.get(CHIMED_KEY), 'store.map.get(CHIMED_KEY)')) as string[]).length).toBeLessThanOrEqual(200);
   });
 });
 
 describe('the chime itself', () => {
   it('breaks nothing when the browser refuses to play sound', () => {
-    expect(() => playChime(null)).not.toThrow();
-    expect(() => playChime(class { constructor() { throw new Error('no audio'); } } as never)).not.toThrow();
+    expect(() => { playChime(null); }).not.toThrow();
+    expect(() => { playChime(class { readonly state = 'closed'; constructor() { throw new Error('no audio'); } } as never); }).not.toThrow();
   });
 });
 
 /** A fake of the browser's Notification: records what it raised and each permission asked. */
 function fakeNotification(permission: NotificationPermission, answer: NotificationPermission = 'granted') {
   const raised: { title: string; options: NotificationOptions; onclick: (() => void) | null }[] = [];
-  const asks = vi.fn(async () => {
+  const asks = vi.fn(() => {
     Fake.permission = answer;
-    return answer;
+    return Promise.resolve(answer);
   });
   class Fake {
     static permission = permission;
@@ -177,12 +178,12 @@ describe('desktop alerts', () => {
       ['Claude is asking: Which r1?', 'r1'],
       ['PRD 460 outbox: Keep i1?', 'i1'],
     ]);
-    raised[1]!.onclick?.();
+    sure(raised[1], 'raised[1]').onclick?.();
     expect(opened).toEqual(['/prd/d-460?tab=outbox']);
   });
 
   it('with the switch off nothing is raised and nothing is asked', () => {
-    const { api, raised, asks } = fakeNotification('granted');
+    const { api, raised } = fakeNotification('granted');
     raiseAlerts(api, 'off', [q('r1')], () => {});
     raiseAlerts(api, 'blocked', [q('r1')], () => {});
     expect(raised).toEqual([]);
@@ -192,8 +193,8 @@ describe('desktop alerts', () => {
   });
 
   it('never throws when the browser refuses a notification', () => {
-    const api = class { static permission = 'granted'; constructor() { throw new Error('refused'); } } as unknown as NotificationApi;
-    expect(() => raiseAlerts(api, 'on', [q('r1')], () => {})).not.toThrow();
+    const api = class { static permission = 'granted'; onclick = null; constructor() { throw new Error('refused'); } } as unknown as NotificationApi;
+    expect(() => { raiseAlerts(api, 'on', [q('r1')], () => {}); }).not.toThrow();
   });
 
   it('says what waits in words a person reads, and where it opens', () => {

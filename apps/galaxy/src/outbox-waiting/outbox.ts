@@ -6,6 +6,7 @@
 // `unread` counts the dossiers whose workspace's outboxes could not be read. It reads as the person
 // (their cookie session), never with a service key (ADR-0032).
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { listOf } from '../data/unparsed';
 import type { OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
 import { prdKey } from '../stages/store';
 
@@ -81,7 +82,7 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
     console.error(`Waiting outbox: the dossiers could not be read: ${error.message}`);
     return json(500, { error: 'The dossiers could not be read.' });
   }
-  const dossiers = ((data ?? []) as WaitingDossier[]).filter((d) => typeof d.prd === 'number'); // ts-allow: the select names this shape columns; the prd is checked on this line
+  const dossiers = (listOf(data) as WaitingDossier[]).filter((d) => typeof d.prd === 'number'); // ts-allow: the select names this shape columns; the prd is checked on this line
 
   const store = deps.outbox(who.db);
   if (!store) return json(200, { items: [], unread: dossiers.length } satisfies WaitingOutbox);

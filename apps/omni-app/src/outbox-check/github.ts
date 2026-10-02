@@ -20,6 +20,7 @@ import {
   CommentsPageSchema,
   ComparePageSchema,
   CreatedSchema,
+  firstLine,
   labelName,
   PullSchema,
   TreeSchema,
@@ -300,9 +301,4 @@ async function completeOpen(
     output,
   });
   return [CreatedSchema.parse(created).id];
-}
-
-function firstLine(reason: unknown): string {
-  const text = String(reason ?? 'unknown error').trim();
-  return text.split('\n')[0] || 'unknown error';
 }

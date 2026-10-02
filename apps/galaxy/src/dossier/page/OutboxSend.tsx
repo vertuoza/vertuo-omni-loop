@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { copyLink } from '../../ask/page/share';
 import { sentView, UNCOUNTED, type SentView } from '../../outbox/sent';
 import { droppedWords, KEPT, readSending, returned, sendingKey } from '../../outbox/sending';
@@ -36,10 +37,13 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function CopyStep({ step }: { step: string }) {
   const [copied, setCopied] = useState(false);
+  async function copy() {
+    setCopied((await copyLink(step, navigator.clipboard, () => {})) === 'copied');
+  }
   return (
     <>
       <code>{step}</code>{' '}
-      <button type="button" className="ask-button quiet" onClick={async () => setCopied((await copyLink(step, navigator.clipboard, () => {})) === 'copied')}>
+      <button type="button" className="ask-button quiet" onClick={() => void copy()}>
         Copy
       </button>
       {copied && <span className="ask-hint" role="status"> Copied.</span>}
@@ -75,21 +79,24 @@ type State =
 export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop, sender = null }: Props) {
   const [state, setState] = useState<State>({ state: 'idle' });
   const key = sendingKey(dossierId);
+  // The latest onDrop, read by the arrival effect below without making it run again on each pick.
+  const drop = useRef(onDrop);
+  drop.current = onDrop;
 
   // Back from GitHub: read what became of the send. A posted one drops the picks it answered.
   useEffect(() => {
     const back = returned(window.location.search);
     if (!back) return;
     if ('error' in back) {
-      setState({ state: 'result', sent: sentView(null, null, back.error)! });
+      setState({ state: 'result', sent: defined(sentView(null, null, back.error), 'the failed send\'s view') });
       return;
     }
-    let live = true;
-    (async () => {
+    const left = new AbortController();
+    void (async () => {
       try {
         const response = await fetch(`/api/outbox/send?id=${encodeURIComponent(back.send)}`, { cache: 'no-store' });
         const sent = (await response.json().catch(() => null)) as SentView | { error?: string } | null; // ts-allow: the outbox API answers one of these shapes, or nothing on a failed read
-        if (!live) return;
+        if (left.signal.aborted) return;
         if (!response.ok || !sent || !('state' in sent)) {
           setState({ state: 'refused', error: `${(sent && 'error' in sent && sent.error) || 'What became of your answers could not be read.'} ${KEPT}` });
           return;
@@ -103,18 +110,17 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
             // No storage here: the picks stay, and the answers show as pending beside them.
           }
           const sending = readSending(kept, back.send);
-          if (sending) onDrop(sending.numbers);
+          if (sending) drop.current(sending.numbers);
         }
         setState({ state: 'result', sent });
       } catch {
-        if (live) setState({ state: 'refused', error: `The page could not be reached. ${KEPT}` });
+        if (!left.signal.aborted) setState({ state: 'refused', error: `The page could not be reached. ${KEPT}` });
       }
     })();
     return () => {
-      live = false;
+      left.abort();
     };
-    // Once, on arrival: onDrop changes with every pick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Once, on arrival: onDrop changes with every pick, so it is read through its ref.
   }, [key]);
 
   function go(send: string, numbers: number[], authorize: string) {
@@ -160,7 +166,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
 
   return (
     <>
-      <button type="button" className="ask-button" disabled={sendOff !== null || count === 0 || state.state === 'sending'} onClick={send}>
+      <button type="button" className="ask-button" disabled={sendOff !== null || count === 0 || state.state === 'sending'} onClick={() => void send()}>
         Send {plural(count, 'answer')}
       </button>
       {sendOff && <span className="ask-hint">{sendOff}</span>}

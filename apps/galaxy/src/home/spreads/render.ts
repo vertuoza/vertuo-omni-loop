@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { at, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // What the spreads' tests share: a spread rendered as the server renders it, and the text a visitor
 // reads in it, with scripts and tags left out.
@@ -13,5 +14,5 @@ export const text = (markup: string) => markup.replace(/<script[\s\S]*?<\/script
 export const heading = (markup: string) => {
   const heads = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)];
   if (heads.length !== 1) throw new Error(`expected one h2, found ${heads.length}`);
-  return text(heads[0]![1]!);
+  return text(group(at(heads, 0, 'the h2'), 1));
 };

@@ -23,6 +23,7 @@
 // into a usage error; `on`, `off` and `status` load the context themselves. `main()` hands it
 // `{ cwd, stdout, stderr, exec }`, and a test also passes `stdin` (a string), `tokens` (the token
 // store), `fetch` and `limits` (the pre hook's waits).
+import { defined } from '../../lib/narrow.ts';
 import { askClient } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
@@ -107,7 +108,7 @@ async function runMode(
   const askUrl = ctx.config.ask.url;
   const store = tokens ?? homeTokens();
 
-  const slug = ctx.config.repo?.slug ?? null;
+  const slug = ctx.config.repo.slug ?? null;
   const printWhere = async (baseUrl: string) => {
     const line = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
     if (line) println(stdout, line);
@@ -116,7 +117,7 @@ async function runMode(
   if (mode === 'status') {
     const page = modeStatus(root);
     println(stdout, page ?? 'off');
-    if (page) await printWhere(activeMode(root)!.baseUrl); // ts-allow: a mode with a page is an active one
+    if (page) await printWhere(defined(activeMode(root), 'the active ask mode').baseUrl);
     return 0;
   }
 

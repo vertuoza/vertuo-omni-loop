@@ -3,6 +3,7 @@
 // (light, base, shade, dark) and is lit from the top left per connected shape, and the silhouette
 // gets a coloured outline — the material's own darkest tone on the lit side, near-black on the
 // shadow side. Pure: the result is a grid of hex colours, drawn to canvas by draw.mjs.
+import { at, defined } from '../../../kit/lib/narrow.ts';
 
 export const RAMPS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   W: ['#ffffff', '#e4e8ff', '#b3bbe6', '#7880bc'], // suit white
@@ -74,6 +75,11 @@ export interface Painter {
 /** A forged sprite: `w`×`h` colours, row by row, `null` for empty. */
 export interface Pixels { w: number; h: number; pixels: (string | null)[] }
 
+/** The cell at (x, y) of a grid, `null` where it is empty; a row the grid does not have throws. */
+function cellAt<T>(grid: readonly (readonly (T | null)[])[], x: number, y: number): T | null {
+  return at(grid, y, 'a grid row')[x] ?? null;
+}
+
 function makeGrid<T>(w: number, h: number): (T | null)[][] {
   return Array.from({ length: h }, () => Array<T | null>(w).fill(null));
 }
@@ -82,7 +88,7 @@ function painter(grid: Grid, w: number, h: number): Painter {
   const set = (x: number, y: number, m: Material, t?: Tone): void => {
     x = Math.round(x); y = Math.round(y);
     if (x < 0 || y < 0 || x >= w || y >= h) return;
-    grid[y]![x] = m === null ? null : { m, t };
+    at(grid, y, 'a grid row')[x] = m === null ? null : { m, t };
   };
   const d: Painter = {
     w, h,
@@ -108,7 +114,7 @@ function painter(grid: Grid, w: number, h: number): Painter {
           const px = i + 0.5, py = j + 0.5;
           let inside = false;
           for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
-            const [xa, ya] = points[a]!, [xb, yb] = points[b]!;
+            const [xa, ya] = at(points, a, 'a polygon point'), [xb, yb] = at(points, b, 'a polygon point');
             if ((ya > py) !== (yb > py) && px < ((xb - xa) * (py - ya)) / (yb - ya) + xa) inside = !inside;
           }
           if (inside) set(i, j, m, t);
@@ -128,8 +134,8 @@ function painter(grid: Grid, w: number, h: number): Painter {
     // Copy the left half onto the right half (for symmetric bodies), then add asymmetric details.
     mirror() {
       for (let y = 0; y < h; y++) for (let x = 0; x < Math.floor(w / 2); x++) {
-        const c = grid[y]![x];
-        if (c) grid[y]![w - 1 - x] = { ...c };
+        const c = cellAt(grid, x, y);
+        if (c) at(grid, y, 'a grid row')[w - 1 - x] = { ...c };
       }
       return d;
     },
@@ -144,20 +150,20 @@ function components(grid: Grid, w: number, h: number): { id: (number | null)[][]
   const id = makeGrid<number>(w, h);
   const boxes: Box[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const c = grid[y]![x];
-    if (!c || id[y]![x] !== null || !(c.m in RAMPS)) continue;
+    const c = cellAt(grid, x, y);
+    if (!c || cellAt(id, x, y) !== null || !(c.m in RAMPS)) continue;
     const box: Box = { minx: x, maxx: x, miny: y, maxy: y, n: 0 };
     const stack: Point[] = [[x, y]];
-    id[y]![x] = boxes.length;
+    at(id, y, 'a grid row')[x] = boxes.length;
     while (stack.length) {
-      const [cx, cy] = stack.pop()!;
+      const [cx, cy] = defined(stack.pop(), 'a pixel to visit');
       box.n++;
       box.minx = Math.min(box.minx, cx); box.maxx = Math.max(box.maxx, cx);
       box.miny = Math.min(box.miny, cy); box.maxy = Math.max(box.maxy, cy);
       const around: Point[] = [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
       for (const [nx, ny] of around) {
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h || id[ny]![nx] !== null) continue;
-        if (grid[ny]![nx]?.m === c.m) { id[ny]![nx] = boxes.length; stack.push([nx, ny]); }
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || cellAt(id, nx, ny) !== null) continue;
+        if (cellAt(grid, nx, ny)?.m === c.m) { at(id, ny, 'a grid row')[nx] = boxes.length; stack.push([nx, ny]); }
       }
     }
     boxes.push(box);
@@ -179,23 +185,23 @@ export function forge(
 ): Pixels {
   const grid = makeGrid<Cell>(w, h);
   draw(painter(grid, w, h));
-  const ramp = (m: string): readonly string[] => tint[m] ?? RAMPS[m]!;
+  const ramp = (m: string): readonly string[] => tint[m] ?? defined(RAMPS[m], `the ramp of material ${m}`);
   const flatColour = (m: string): string => {
     const own = flat[m];
-    return own !== undefined && HEX.test(own) ? own : FLAT[m]!;
+    return own !== undefined && HEX.test(own) ? own : defined(FLAT[m], `the flat colour ${m}`);
   };
   const { id, boxes } = components(grid, w, h);
   const pixels = Array<string | null>(w * h).fill(null);
-  const same = (x: number, y: number, comp: number | null): boolean => x >= 0 && y >= 0 && x < w && y < h && id[y]![x] === comp;
+  const same = (x: number, y: number, comp: number | null): boolean => x >= 0 && y >= 0 && x < w && y < h && cellAt(id, x, y) === comp;
 
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const c = grid[y]![x];
+    const c = cellAt(grid, x, y);
     if (!c) continue;
     if (c.m in FLAT) { pixels[y * w + x] = flatColour(c.m); continue; }
     if (c.m === INNER_LINE) continue; // resolved below, once its neighbours have colours
     let tone = c.t;
     if (tone === undefined) {
-      const box = boxes[id[y]![x]!]!;
+      const box = at(boxes, defined(cellAt(id, x, y), 'the shape of a shaded pixel'), 'the box of a shape');
       const bw = box.maxx - box.minx, bh = box.maxy - box.miny;
       if (box.n < 5 || bw < 2 || bh < 1) tone = 1;
       else {
@@ -203,31 +209,31 @@ export function forge(
         const s = 0.55 * fx + 0.45 * fy;
         tone = s < 0.3 ? 0 : s < 0.64 ? 1 : 2;
         // The edge facing away from the light sinks one more tone.
-        const comp = id[y]![x]!;
+        const comp = defined(cellAt(id, x, y), 'the shape of a shaded pixel');
         if (!same(x + 1, y, comp) && !same(x, y + 1, comp) && tone < 2) tone = 2;
         // The lit rim catches a highlight.
         if (!same(x - 1, y, comp) && !same(x, y - 1, comp) && s < 0.5) tone = 0;
       }
     }
-    pixels[y * w + x] = ramp(c.m)[tone]!;
+    pixels[y * w + x] = at(ramp(c.m), tone, `tone ${tone} of material ${c.m}`);
   }
 
   // Inner lines take the darkest tone of the material they sit in.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (grid[y]![x]?.m !== INNER_LINE) continue;
+    if (cellAt(grid, x, y)?.m !== INNER_LINE) continue;
     const counts = new Map<string, number>();
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
       const m = grid[y + j]?.[x + i]?.m;
       if (m && m in RAMPS) counts.set(m, (counts.get(m) ?? 0) + 1);
     }
     const m = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    pixels[y * w + x] = m ? ramp(m)[3]! : OUTLINE_DARK;
+    pixels[y * w + x] = m ? at(ramp(m), 3, `the dark tone of material ${m}`) : OUTLINE_DARK;
   }
 
   if (outline) {
-    const filled = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && grid[y]![x] !== null;
+    const filled = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && cellAt(grid, x, y) !== null;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      if (grid[y]![x]) continue;
+      if (cellAt(grid, x, y)) continue;
       // The neighbour the outline hugs: right/below means this pixel is on the lit side.
       const litSide: Point[] = [[x + 1, y], [x, y + 1]], shadowSide: Point[] = [[x - 1, y], [x, y - 1]];
       const lit = litSide.find(([i, j]) => filled(i, j));
@@ -235,8 +241,8 @@ export function forge(
       const hug = lit ?? shadow;
       if (!hug) continue;
       const [i, j] = hug;
-      const m = grid[j]![i]!.m;
-      pixels[y * w + x] = lit && m in RAMPS ? ramp(m)[3]! : OUTLINE_DARK;
+      const m = defined(cellAt(grid, i, j), 'the pixel an outline hugs').m;
+      pixels[y * w + x] = lit && m in RAMPS ? at(ramp(m), 3, `the dark tone of material ${m}`) : OUTLINE_DARK;
     }
   }
   return { w, h, pixels };

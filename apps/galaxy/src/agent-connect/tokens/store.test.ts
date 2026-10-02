@@ -12,7 +12,7 @@ const LINK = {
 
 function fake(answer: { data?: unknown; error?: unknown }) {
   const calls: unknown[][] = [];
-  return { calls, db: { rpc: async (fn: string, args: Record<string, unknown>) => { calls.push([fn, args]); return { data: answer.data ?? null, error: answer.error ?? null }; } } };
+  return { calls, db: { rpc: (fn: string, args: Record<string, unknown>) => { calls.push([fn, args]); return Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }); } } };
 }
 
 describe('agentTokenStore', () => {

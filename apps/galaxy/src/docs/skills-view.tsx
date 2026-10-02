@@ -1,4 +1,5 @@
 import type { TOCItemType } from 'fumadocs-core/toc';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { badgeLabel } from './badges';
 import { skillNames, skillPage, SKILLS_PATH, type SkillLink, type SkillPageModel, type SkillSection } from './skills';
 import type { SidebarItem } from './tree';
@@ -10,7 +11,7 @@ import type { SidebarItem } from './tree';
 /** The sidebar's links under All skills, in the overview's order. */
 export function skillSidebar(): SidebarItem[] {
   return skillNames().map((name) => {
-    const page = skillPage(name)!;
+    const page = defined(skillPage(name), `the page of the skill ${name}`);
     return { name: page.command, url: page.url };
   });
 }

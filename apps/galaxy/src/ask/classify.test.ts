@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
+import { item } from './test-item';
 
 // The classifier (PRD 144's spec, "Six categories"): one call to OpenRouter, stubbed here, and a reply
 // held to the six values. Anything else, an error or a timeout gives null, and nothing retries.
@@ -18,11 +20,21 @@ const INPUT: ClassifyInput = {
 
 type Sent = { url: string; init: RequestInit };
 
+/** The text a call sent as its body; fails the test for any other body. */
+function bodyText(sent: Sent): string {
+  const { body } = sent.init;
+  if (typeof body !== 'string') throw new Error('the request body was not text');
+  return body;
+}
+
+// The chat completion request, as the test reads it.
+const CompletionRequest = z.looseObject({ model: z.unknown(), messages: z.array(z.looseObject({ content: z.string() })) });
+
 /** A stubbed fetch answering OpenRouter's chat completion with `content`, recording what it sent. */
 function stub(answer: (sent: Sent) => Promise<Response> | Response) {
   const calls: Sent[] = [];
   const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
-    const sent = { url: String(url), init: init ?? {} };
+    const sent = { url: typeof url === 'string' ? url : url instanceof URL ? url.href : url.url, init: init ?? {} };
     calls.push(sent);
     return answer(sent);
   }) as typeof globalThis.fetch;
@@ -74,12 +86,12 @@ describe('the OpenRouter classifier', () => {
     const classify = openRouterClassifier({ apiKey: 'sk-or-test', fetch });
     expect(await classify(INPUT)).toBe('business');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/chat/completions');
-    expect(calls[0]!.init.method).toBe('POST');
-    expect(new Headers(calls[0]!.init.headers).get('authorization')).toBe('Bearer sk-or-test');
-    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(item(calls, 0).url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(item(calls, 0).init.method).toBe('POST');
+    expect(new Headers(item(calls, 0).init.headers).get('authorization')).toBe('Bearer sk-or-test');
+    const body = CompletionRequest.parse(JSON.parse(bodyText(item(calls, 0))));
     expect(typeof body.model).toBe('string');
-    const prompt = body.messages.map((m: { content: string }) => m.content).join('\n');
+    const prompt = body.messages.map((m) => m.content).join('\n');
     for (const category of CATEGORIES) expect(prompt).toContain(category);
     expect(prompt).toContain('What should a seat cost for a team of ten?');
     expect(prompt).toContain('€9 a seat');
@@ -92,7 +104,7 @@ describe('the OpenRouter classifier', () => {
     const { calls, fetch } = stub(() => completion('architecture'));
     const withPreview = { ...INPUT, questions: [{ question: 'Which table?', options: [{ label: 'A', preview: 'create table secret_preview ();' }] }] };
     await openRouterClassifier({ apiKey: 'k', fetch })(withPreview);
-    expect(String(calls[0]!.init.body)).not.toContain('secret_preview');
+    expect(bodyText(item(calls, 0))).not.toContain('secret_preview');
   });
 
   it('gives null for a reply outside the six', async () => {
@@ -119,7 +131,10 @@ describe('the OpenRouter classifier', () => {
 
   it('gives null when OpenRouter does not answer in time', async () => {
     const { calls, fetch } = stub(({ init }) => new Promise<Response>((_resolve, reject) => {
-      init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+      init.signal?.addEventListener('abort', () => {
+        const reason: unknown = init.signal?.reason;
+        reject(reason instanceof Error ? reason : new Error('aborted'));
+      });
     }));
     expect(await openRouterClassifier({ apiKey: 'k', fetch, timeoutMs: 20 })(INPUT)).toBeNull();
     expect(calls).toHaveLength(1);

@@ -9,7 +9,7 @@ function ports(muted: string | null, choice: string | null = null) {
   const at: StartPorts = {
     storage: { getItem: (key) => stored[key] ?? null },
     playStart: () => { calls.push('sound'); },
-    wait: async (ms) => { calls.push(`wait ${ms}`); },
+    wait: (ms) => { calls.push(`wait ${ms}`); return Promise.resolve(); },
     go: (href) => { calls.push(`go ${href}`); },
     open: () => { calls.push('select your app'); },
   };

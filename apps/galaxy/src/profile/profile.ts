@@ -1,7 +1,8 @@
 import 'server-only';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { demoGalaxy, loadGalaxy } from '../data/load-galaxy';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { once } from '../dashboard/part';
@@ -10,13 +11,13 @@ import { supabaseReads } from '../dashboard/board/load';
 import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
 import { allPages, type Page } from '../data/all-pages';
+import { listOf } from '../data/unparsed';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { fixFactsStore } from '../fixes/facts/store';
 import { DEMO_VIEWER as DEMO_DOSSIER_VIEWER, demoHistory } from '../dossier/page/demo';
 import { readCurrentStages } from '../dossier/page/history';
 import { readHistory } from '../dossier/page/source';
 import type { DossierListRow } from '../dossier/store';
-import type { FixFacts } from '../fixes/list';
 import { stageStore } from '../stages/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
 
@@ -48,7 +49,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
     async tracked() {
       const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return ((data ?? []) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+      return (listOf(data) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
     },
     async pullRequests(login, from, to, repos) {
       const [a, b] = [`"${from.toISOString()}"`, `"${to.toISOString()}"`];
@@ -95,7 +96,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
 }
 
 /** The profile of `login` in the workspace the viewer joined first. */
-export async function loadProfileBoard(db: SupabaseClient, user: Pick<User, 'id'>, login: string, period: Period, now: Date): Promise<ProfileBoard> {
+export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, login: string, period: Period, now: Date): Promise<ProfileBoard> {
   let workspace: Workspace | null;
   try {
     workspace = await memberWorkspace(db, user.id);
@@ -126,7 +127,7 @@ export function demoProfile(login: string, period: Period, now: Date, galaxy: Ga
   }));
   const logins = roster.flatMap((m) => (m.login ? [m.login] : []));
   const reviews = merges.flatMap((a, i): ReviewRow[] => {
-    const reviewer = logins[(i + 1) % logins.length]!;
+    const reviewer = at(logins, (i + 1) % logins.length, 'a reviewer');
     return i % 3 === 0 && reviewer !== a.login ? [{ repo: repo(a.repo), number: a.number, reviewer, firstAt: new Date(Date.parse(a.at) - DAY / 2).toISOString() }] : [];
   });
   return profileOf(

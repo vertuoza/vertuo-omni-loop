@@ -64,7 +64,7 @@ describe('robots.txt', () => {
 
   it.each(['/app', '/prd', '/ask', '/knowledge', '/play', '/signup', '/auth', '/api', '/bugs', '/visual', '/design'])(
     'disallows the signed-in route %s',
-    (path) => expect(rules.rules.disallow).toContain(path),
+    (path) => { expect(rules.rules.disallow).toContain(path); },
   );
 
   it('disallows none of the public pages', () => {

@@ -46,7 +46,7 @@ export function LiveRefresh({ supabase, id, signature, dock = null }: Props) {
     return poll(watchNewWork({
       initial: rendered.current,
       read: docked ? withWorking(pulse, (p) => readWorking(db, id, p), setWorking) : pulse,
-      onChange: () => router.refresh(),
+      onChange: () => { router.refresh(); },
       onProblem: setProblem,
     }), document);
   }, [supabase.url, supabase.key, id, router, docked]);

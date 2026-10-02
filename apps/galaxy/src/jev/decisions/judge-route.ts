@@ -81,7 +81,7 @@ export async function judgeRoute(request: Request, { secret, workspaceOf, jev, l
   }
   if (!workspace) return today(judged.old);
 
-  const counted = await decide(jev, { workspace, entry: constituentBreak, input: judged.input, old: async () => judged.old, ref: judged.ref });
+  const counted = await decide(jev, { workspace, entry: constituentBreak, input: judged.input, old: () => Promise.resolve(judged.old), ref: judged.ref });
   if (counted.decidedBy !== 'jev' || counted.value === null) return today(judged.old);
   return reply(200, { answer: constituentBreak.show(counted.value), confidence: counted.confidence, decidedBy: 'jev' });
 }

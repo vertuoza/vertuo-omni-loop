@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MASCOTS, spritePixels } from '@omni/design';
 import { RULE_BY_MASCOT } from './cards';
+import { sure } from '../../arcade/sure';
 import { EXAMPLE_FLEETS } from './fleets';
 
 // HOME's own example fleets (PRD 971, s4): invented for the page, none of them the demo galaxy's,
@@ -19,8 +20,8 @@ describe('the example fleets', () => {
   it('each fly a mascot the sprite library holds and the cards map to a rule', () => {
     for (const f of EXAMPLE_FLEETS) {
       expect(MASCOTS, f.label).toContain(f.mascot);
-      expect(() => spritePixels(f.mascot!), f.label).not.toThrow();
-      expect(Object.hasOwn(RULE_BY_MASCOT, f.mascot!), f.label).toBe(true);
+      expect(() => spritePixels(sure(f.mascot, `${f.label}'s mascot`)), f.label).not.toThrow();
+      expect(Object.hasOwn(RULE_BY_MASCOT, sure(f.mascot, `${f.label}'s mascot`)), f.label).toBe(true);
     }
   });
 

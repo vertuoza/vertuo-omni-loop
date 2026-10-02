@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { fixPageView } from '../../fixes/timeline';
 import { dossierView, PAGE_TABS, readPick } from './view';
@@ -67,8 +68,10 @@ describe('a visual fix', () => {
   });
 
   it('badges one round as `1 round`, and none as nothing', () => {
-    expect(view(fix('visual'), VISUAL_VERSIONS.slice(1)).tabs[2]!.badge).toBe('1 round');
-    expect(view(fix('visual'), []).tabs[2]!.badge).toBeNull();
+    expect(view(fix('visual'), VISUAL_VERSIONS.slice(1)).tabs[2]?.badge).toBe('1 round');
+    const [, , rounds] = view(fix('visual'), []).tabs;
+    assertDefined(rounds, 'the Rounds tab');
+    expect(rounds.badge).toBeNull();
   });
 
   it('is headed #n with a Visual badge linking to its issue, with no stage and nothing to delete', () => {

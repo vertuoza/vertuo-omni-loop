@@ -14,33 +14,33 @@ describe('signing in from an ask page', () => {
 
   it('comes back to the same session once the code is exchanged', async () => {
     const codes: string[] = [];
-    const exchange = async (code: string) => { codes.push(code); return { error: null }; };
+    const exchange = (code: string) => { codes.push(code); return Promise.resolve({ error: null }); };
     expect(await signInReturn(callback('?code=abc'), ORIGIN, ID, exchange)).toBe(`${ORIGIN}/ask/${ID}`);
     expect(codes).toEqual(['abc']);
   });
 
   it("comes back with Google's or Supabase's reason when the sign-in was refused", async () => {
-    const exchange = async () => ({ error: null });
+    const exchange = () => Promise.resolve({ error: null });
     const back = new URL(await signInReturn(callback('?error=access_denied&error_description=Only+%40vertuoza.com+accounts'), ORIGIN, ID, exchange));
     expect(back.pathname).toBe(`/ask/${ID}`);
     expect(back.searchParams.get('signin_error')).toBe('Only @vertuoza.com accounts');
   });
 
   it('says so when the code cannot be exchanged', async () => {
-    const exchange = async () => ({ error: { message: 'invalid flow state' } });
+    const exchange = () => Promise.resolve({ error: { message: 'invalid flow state' } });
     const back = new URL(await signInReturn(callback('?code=stale'), ORIGIN, ID, exchange));
     expect(back.pathname).toBe(`/ask/${ID}`);
     expect(back.searchParams.get('signin_error')).toBe('That sign-in could not be finished. Start again from this browser.');
   });
 
   it('comes straight back without a code, or without a database', async () => {
-    expect(await signInReturn(callback(''), ORIGIN, ID, async () => ({ error: null }))).toBe(`${ORIGIN}/ask/${ID}`);
+    expect(await signInReturn(callback(''), ORIGIN, ID, () => Promise.resolve({ error: null }))).toBe(`${ORIGIN}/ask/${ID}`);
     expect(await signInReturn(callback('?code=abc'), ORIGIN, ID, null)).toBe(`${ORIGIN}/ask/${ID}`);
   });
 
   it('goes home, on this site, for anything that is not a session id', async () => {
     for (const id of ['..', '../auth/callback', 'https://evil.example', '']) {
-      const back = new URL(await signInReturn(new URL(`${ORIGIN}/ask/x/callback?code=abc`), ORIGIN, id, async () => ({ error: null })));
+      const back = new URL(await signInReturn(new URL(`${ORIGIN}/ask/x/callback?code=abc`), ORIGIN, id, () => Promise.resolve({ error: null })));
       expect(back.origin, id).toBe(ORIGIN);
       expect(back.pathname, id).toBe('/');
     }
@@ -51,7 +51,7 @@ describe("signing in from the person's page, /ask", () => {
   it('asks Google to come back to /ask/callback, and goes back to /ask', async () => {
     expect(callbackPath(null)).toBe('/ask/callback');
     const codes: string[] = [];
-    const exchange = async (code: string) => { codes.push(code); return { error: null }; };
+    const exchange = (code: string) => { codes.push(code); return Promise.resolve({ error: null }); };
     expect(await signInReturn(new URL(`${ORIGIN}/ask/callback?code=abc`), ORIGIN, null, exchange)).toBe(`${ORIGIN}/ask`);
     expect(codes).toEqual(['abc']);
   });
@@ -81,7 +81,7 @@ describe('the address the person came from', () => {
 });
 
 describe('signing in from a shared question, or For me (PRD 144)', () => {
-  const exchange = async () => ({ error: null });
+  const exchange = () => Promise.resolve({ error: null });
 
   it('comes back to the same question', async () => {
     expect(questionCallbackPath(ID)).toBe(`/ask/q/${ID}/callback`);

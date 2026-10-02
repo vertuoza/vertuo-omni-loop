@@ -2,6 +2,7 @@
 // The game room's text layer: the heading and the badge, the player's level and XP bar (or why they
 // have none), and a cabinet per game, laid out for the grid the screen is drawn on: the three
 // cabinets side by side on the wide grid, one a page on the tall one (games.css).
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
@@ -118,8 +119,8 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
       {tall && <p className="games-page"><Hint k="◀ ▶">PAGE {at + 1}/{room.length}</Hint></p>}
       <div className="cabinets">
         {shown.map((i) => {
-          const c = room[i]!;
-          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => onPick(i)} />;
+          const c = defined(room[i], 'a cabinet shown');
+          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => { onPick(i); }} />;
         })}
       </div>
       <p className="hint games-foot">

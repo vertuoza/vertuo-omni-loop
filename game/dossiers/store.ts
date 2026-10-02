@@ -96,7 +96,7 @@ export function dossierStore({ url, key, fetch = globalThis.fetch }: { url: stri
      * its size; a visual fix's with every round too. `options.kind`: `prd` when none is named.
      */
     async dossiersOf(workspaceId, homeRepo, prd = null, { kind = 'prd' } = {}) {
-      const which = prd === null ? 'prd=not.is.null' : `prd=eq.${Number(prd)}`;
+      const which = prd === null ? 'prd=not.is.null' : `prd=eq.${prd}`;
       const rows = await rest.select('dossiers', [
         'select=id,prd,title,dossier_versions(id,kind,git_blob,bytes)',
         inWorkspace(workspaceId), `home_repo=eq.${encodeURIComponent(homeRepo)}`, ofKind(kind), which,

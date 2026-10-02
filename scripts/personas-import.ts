@@ -23,6 +23,7 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { PERSONA_TRADES, randomAvatar, validPersonaAvatar } from '../packages/design/src/index.ts';
 import type { PersonaAvatar } from '../packages/design/src/index.ts';
+import { plainText } from '../kit/lib/outbox/plain-text.ts';
 import { parseOrThrow } from '../kit/lib/schema/parse-or-throw.ts';
 
 const STANCES = ['excited', 'neutral', 'skeptical'] as const;
@@ -201,7 +202,9 @@ export function restStore({ url, key, fetch = globalThis.fetch }: { url: string;
       const raw: unknown = await res.json().catch(() => ({}));
       const parsed = RefusalSchema.safeParse(raw);
       const body = parsed.success ? parsed.data : {};
-      const said = [body.code, body.message, body.hint && `(${String(body.hint)})`].filter(Boolean).join(' ');
+      // A hint is text; one that is not reads as none, where `String()` wrote out `[object Object]`.
+      const hint = body.hint ? plainText(body.hint) : '';
+      const said = [body.code, body.message, hint && `(${hint})`].filter(Boolean).join(' ');
       throw new Error(`Supabase refused (${res.status})${said ? `: ${said}` : ''}`);
     }
     return res.json();

@@ -1,6 +1,7 @@
 import { readQuestions } from '../ask/answer-model';
 import type { Member } from '../ask/page/question';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../../../supabase/database.types.ts';
 import { readForMe, readMembers, tabsReader, type Db, type SortDb } from '../ask/page/source';
 import { loadPeople, type People } from '../people/load';
 import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
@@ -23,7 +24,7 @@ export function questionsReader(db: Db & SortDb, me: string): (now: number) => P
     if (waiting.length) {
       const { data, error } = await db.from('ask_rounds').select('id, questions').in('id', waiting);
       if (error) throw new Error(`read the questions: ${error.message}`);
-      for (const round of (data ?? []) as { id: string; questions: unknown }[]) { // ts-allow: the select names exactly these columns; questions are read below
+      for (const round of (data as { id: string; questions: unknown }[] | null) ?? []) { // ts-allow: the select names exactly these columns; questions are read below
         const first = readQuestions(round.questions)[0]?.question;
         if (first) texts.set(round.id, first);
       }
@@ -31,7 +32,7 @@ export function questionsReader(db: Db & SortDb, me: string): (now: number) => P
     const places = [...new Set(shared.map((r) => r.session.workspace_id).filter((w): w is string => Boolean(w)))];
     await Promise.all(places.filter((w) => !members.has(w)).map(async (w) => {
       // loadPeople reads only `rpc` and `from`, which this client has.
-      const [m, p] = await Promise.all([readMembers(db, w), loadPeople(db as SupabaseClient, w)]); // ts-allow: loadPeople reads only `from` and `rpc`
+      const [m, p] = await Promise.all([readMembers(db, w), loadPeople(db as SupabaseClient<Database>, w)]); // ts-allow: loadPeople reads only `from` and `rpc`
       members.set(w, m);
       people.set(w, p);
     }));

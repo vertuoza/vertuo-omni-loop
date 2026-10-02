@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
+import { sure } from '../arcade/sure';
 
 // The docs guard (PRD 346): docs/guide/ holds its pages in order, each with a title and a Next link
 // to the page to read next, the last one back to Getting started; every /omni:<skill> and
@@ -64,9 +65,9 @@ describe('docs/guide', () => {
     const useCases = body('use-cases');
     const row = /^\| \[([^\]]*vast idea[^\]]*)\]\(#([a-z-]+)\) \| `\/omni:think-big [^`]+`/m.exec(useCases);
     expect(row, 'a row for a vast idea, typing /omni:think-big').not.toBeNull();
-    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === row![2]);
-    expect(heading, `a section #${row![2]}`).toBeDefined();
-    const section = useCases.slice(useCases.indexOf(heading!), useCases.indexOf('\n## ', useCases.indexOf(heading!)));
+    const heading = useCases.split('\n').find((line) => /^### /.test(line) && line.slice(4).toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/ /g, '-') === sure(row, 'row')[2]);
+    expect(heading, `a section #${sure(row, 'row')[2]}`).toBeDefined();
+    const section = useCases.slice(useCases.indexOf(sure(heading, 'heading')), useCases.indexOf('\n## ', useCases.indexOf(sure(heading, 'heading'))));
     for (const phrase of ['/omni:think-big', 'omni:concept', '.omni-loop/delivery/inbox/concepts/', '/omni:brainstorm --concept']) {
       expect(section, phrase).toContain(phrase);
     }
@@ -102,12 +103,12 @@ describe('docs/guide', () => {
     const steps = (markdown: string) => markdown.split(/^## /m).slice(1).filter((section) => /^\d+\. /.test(section));
     /** The lines of code a section shows in its fenced blocks. */
     const codeLines = (section: string) =>
-      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => m[1]!.split('\n').map((line) => line.trim()));
+      [...section.matchAll(/^\s*```[^\n]*\n([\s\S]*?)^\s*```\s*$/gm)].flatMap((m) => sure(m[1], 'm[1]').split('\n').map((line) => line.trim()));
 
     it('takes everyone, on Install, through four steps: omni globally, the skills in Claude Code, the sign-in, the questions', () => {
       const found = steps(body('install'));
       expect(found.map((section) => section.split('\n')[0])).toHaveLength(STEPS.length);
-      STEPS.forEach(([what, line], i) => expect(codeLines(found[i] ?? ''), `step ${i + 1}, ${what}`).toContain(line));
+      STEPS.forEach(([what, line], i) => { expect(codeLines(found[i] ?? ''), `step ${i + 1}, ${what}`).toContain(line); });
     });
 
     it('reads Install right after Getting started, before Join a team', () => {

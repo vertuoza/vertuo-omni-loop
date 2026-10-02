@@ -35,6 +35,12 @@ export type {
 } from '../retro.types.ts';
 
 /**
+ * The scope a kind's `gather` reads when it is given no pull requests (a partial scope, as the kind
+ * registry's tests give it): it gathers nothing then.
+ */
+export type GatherScope = Omit<Scope, 'pulls'> & { pulls?: Scope['pulls'] };
+
+/**
  * A kind of finding: `Records` is what its `gather` returns, `Facts` what its `detect` keeps. Its
  * three functions are methods, so a kind with its own shapes is still a `Kind` of the registry.
  */

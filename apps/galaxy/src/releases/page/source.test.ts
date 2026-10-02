@@ -2,7 +2,7 @@
 // development or a demo build, the unavailable line in a closed build, and public.releases with
 // Supabase. A failed read never fails the build and never replaces a good page: while building it
 // renders the unavailable line; after that it throws, so the last good render stays served.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { DEMO_RELEASES } from '../demo';
 import type { ReleaseRow } from '../row';
 import { releasesView } from './source';
@@ -11,12 +11,12 @@ const ROWS: ReleaseRow[] = [{ prd: 262, release: 2, released_at: '2026-09-28T09:
 const SUPABASE = { NODE_ENV: 'production', NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_x' };
 const BUILDING = { NEXT_PHASE: 'phase-production-build' };
 
-let logged: ReturnType<typeof vi.spyOn>;
+let logged: MockInstance<typeof console.error>;
 beforeEach(() => { logged = vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { vi.restoreAllMocks(); });
 
-const reads = (rows: ReleaseRow[]) => vi.fn(async () => rows);
-const fails = () => vi.fn(async (): Promise<ReleaseRow[]> => { throw new Error('Supabase refused to read the releases: project paused'); });
+const reads = (rows: ReleaseRow[]) => vi.fn(() => Promise.resolve(rows));
+const fails = () => vi.fn((): Promise<ReleaseRow[]> => Promise.reject(new Error('Supabase refused to read the releases: project paused')));
 
 describe('in development, or a build that asks for the demo', () => {
   it('shows the demo sample and reads nothing', async () => {

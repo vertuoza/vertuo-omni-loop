@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { sure } from '../arcade/sure';
 import { constituentsReader, readConstituents, type ConstituentsDeps } from './api';
 
 // GET /api/constituents (PRD 871 s1) against a fake database of one workspace, Acme (GitHub org acme):
@@ -7,6 +9,9 @@ import { constituentsReader, readConstituents, type ConstituentsDeps } from './a
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@acme.test', member: true };
 const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@other.test', member: false };
 const INSTALL = 'https://github.com/apps/omni-loop-invader/installations/new';
+
+// The route's answer, read as it came: an object, with its refusal's words when it refuses.
+const Answer = z.looseObject({ error: z.string().optional() });
 
 const READ = {
   state: 'ok',
@@ -21,18 +26,19 @@ function world({ database = true, answer, error }: { database?: boolean; answer?
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
   const client = (token: string) => ({
     auth: {
-      getUser: async (jwt: string) => ({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
+      getUser: (jwt: string) => Promise.resolve({ data: { user: users[jwt] ?? null }, error: users[jwt] ? null : { status: 401, message: 'bad jwt' } }),
     },
-    rpc: async (fn: string, args: { p_repo: string }) => {
+    rpc: (fn: string, args: { p_repo: string }) => {
       calls.push({ fn, args, token });
-      if (error) return { data: null, error };
-      if (!users[token]!.member && args.p_repo.toLowerCase().startsWith('acme/')) {
-        return { data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } };
+      if (error) return Promise.resolve({ data: null, error });
+      const member = sure(users[token], `the user of ${token}`).member;
+      if (!member && args.p_repo.toLowerCase().startsWith('acme/')) {
+        return Promise.resolve({ data: null, error: { code: '42501', message: 'you are not a member of Acme, which owns acme/widgets' } });
       }
-      if (!users[token]!.member) {
-        return { data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } };
+      if (!member) {
+        return Promise.resolve({ data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } });
       }
-      return { data: answer ?? READ, error: null };
+      return Promise.resolve({ data: answer ?? READ, error: null });
     },
   });
   const deps: ConstituentsDeps = { connect: database ? (client as unknown as NonNullable<ConstituentsDeps['connect']>) : null, installLink: INSTALL };
@@ -40,7 +46,7 @@ function world({ database = true, answer, error }: { database?: boolean; answer?
     const response = await readConstituents(new Request(`https://omni.example/api/constituents${query}`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     }), deps);
-    return { status: response.status, body: await response.json(), cache: response.headers.get('cache-control') };
+    return { status: response.status, body: Answer.parse(await response.json()), cache: response.headers.get('cache-control') };
   };
   return { calls, get };
 }
@@ -95,7 +101,7 @@ describe('GET /api/constituents', () => {
 describe('the App\'s read', () => {
   it('calls constituents_for_repo_app() and checks the answer', async () => {
     const calls: unknown[] = [];
-    const db = { rpc: async (fn: string, args: unknown) => { calls.push([fn, args]); return { data: READ, error: null }; } };
+    const db = { rpc: (fn: string, args: unknown) => { calls.push([fn, args]); return Promise.resolve({ data: READ, error: null }); } };
     expect(await constituentsReader(db as never).forRepoApp('acme/widgets')).toEqual(READ);
     expect(calls).toEqual([['constituents_for_repo_app', { p_repo: 'acme/widgets' }]]);
   });

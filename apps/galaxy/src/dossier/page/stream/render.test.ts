@@ -27,7 +27,7 @@ const element = (github: Promise<GithubSummary | null>) => createElement('main',
 /** What the server has sent once the reads that resolve have: a pending summary keeps the page pending. */
 async function sentBy(github: Promise<GithubSummary | null>) {
   const stop = new AbortController();
-  setTimeout(() => stop.abort(), 30);
+  setTimeout(() => { stop.abort(); }, 30);
   return new Response((await prerender(element(github), { signal: stop.signal, onError: () => {} })).prelude).text();
 }
 

@@ -19,7 +19,7 @@ function conceptText({
   sections = CONCEPT_SECTIONS,
   areas = AREAS,
 }: { front?: Record<string, string | undefined>; sections?: readonly string[]; areas?: readonly string[] } = {}) {
-  const fm = Object.entries({ ...FRONT, ...front }).filter(([, value]) => value !== undefined);
+  const fm = Object.entries<string | undefined>({ ...FRONT, ...front }).filter(([, value]) => value !== undefined);
   const body = sections.flatMap((name) => [`## ${name}`, '', ...(name === 'Areas' ? areas : [`What ${name} says.`]), '']);
   return ['---', ...fm.map(([key, value]) => `${key}: ${value}`), '---', '', ...body].join('\n');
 }

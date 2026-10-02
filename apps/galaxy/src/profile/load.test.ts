@@ -3,6 +3,8 @@ import type { Activity, Member } from '../dashboard/board/tally';
 import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { loadProfile, placeOf, type ProfileReads, type ProfileRequest } from './load';
+import { sure } from '../arcade/sure';
+import { settled } from '../stages/settled';
 
 // A profile's loader on fake reads (PRD 698 s3): a member's header, board and work of the period; a
 // login outside the workspace; no tracked repository; and each read failing alone.
@@ -36,11 +38,11 @@ const DOSSIERS = [dossier('p7', 7, 'prd', 'u-ada'), dossier('p8', 8, 'prd', 'u-b
 type Fail = Partial<Record<keyof ProfileReads, boolean>>;
 const calls: string[] = [];
 function reads(fail: Fail = {}, tracked = ['acme/widgets']): ProfileReads {
-  const read = <A extends unknown[], T>(name: keyof ProfileReads, value: T) => async (...args: A) => {
+  const read = <T>(name: keyof ProfileReads, value: T) => (...args: unknown[]) => settled(() => {
     calls.push(`${name}${args.length ? ` ${JSON.stringify(args)}` : ''}`);
     if (fail[name]) throw new Error(`${name} is down`);
     return value;
-  };
+  });
   return {
     roster: read('roster', ROSTER),
     activity: read('activity', [merged('ada-gh', 1), merged('ada-gh', 2), merged('bob-gh', 3)]),
@@ -116,8 +118,8 @@ describe('their PRDs and fixes (s5)', () => {
     expect(down.lists).toBe('unreadable');
     const bare = await loadProfile(reads({ stages: true, fixFacts: true }), request());
     if (bare.kind !== 'profile' || bare.lists === 'unreadable') throw new Error('no lists');
-    expect(bare.lists.prd.rows[0]!.stage).toBeNull();
-    expect(bare.lists.bug.rows[0]!.stateLabel).toBe('—');
+    expect(sure(bare.lists.prd.rows[0], 'bare.lists.prd.rows[0]').stage).toBeNull();
+    expect(sure(bare.lists.bug.rows[0], 'bare.lists.bug.rows[0]').stateLabel).toBe('—');
   });
 });
 

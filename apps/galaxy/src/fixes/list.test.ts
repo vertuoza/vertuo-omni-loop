@@ -3,6 +3,7 @@ import type { DossierListRow } from '../dossier/store';
 import { UNREAD } from '../dossier/github/summary';
 import { peopleOf } from '../people/load';
 import { fixAddress, fixChoices, fixItems, readFixFilters } from './list';
+import { sure } from '../arcade/sure';
 
 // /visual and /bugs (PRD 627), as pure functions of the rows dossier_list() gives the viewer and the
 // filters in the address: only the dossiers of the list's kind, newest activity first, Mine (the ones
@@ -111,7 +112,7 @@ describe('the rows', () => {
       activity: 'last activity 29 Sep 2026, 09:30 UTC', at: SIDEBAR.last_activity,
       askedBy: null, state: null, stateLabel: '—', risk: null, regression: false,
     });
-    expect(topbar!.artifacts).toEqual([]);
+    expect(sure(topbar, 'topbar').artifacts).toEqual([]);
     const [crash] = fixItems(ROWS, 'bug', { who: 'all' }, ME);
     expect(crash).toMatchObject({ href: `/bugs/${CRASH.id}`, heading: '#571', artifacts: [{ kind: 'bug-record', label: 'Bug record', badge: 'v1' }] });
   });
@@ -138,11 +139,11 @@ describe('the rows', () => {
     const asked: string[] = [];
     const peopleIn = (workspace: string) => { asked.push(workspace); return peopleOf([anna], []); };
     const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME, facts, peopleIn);
-    expect(sidebar!.askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
-    expect(topbar!.askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
+    expect(sure(sidebar, 'sidebar').askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
+    expect(sure(topbar, 'topbar').askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
     expect(asked).toEqual(['w1', 'w1']);
     // With no directory, a login still gets its GitHub photo.
-    expect(fixItems(ROWS, 'visual', { who: 'all' }, ME, facts)[0]!.askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
+    expect(sure(fixItems(ROWS, 'visual', { who: 'all' }, ME, facts)[0], 'the first fix').askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
   });
 
   it('reads and writes the state filter', () => {

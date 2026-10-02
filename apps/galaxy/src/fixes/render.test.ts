@@ -8,6 +8,7 @@ import { FixList } from './FixList';
 import type { FixFilters, FixItem, FixKind } from './list';
 import { TimelinePane } from './TimelinePane';
 import type { FixPageView } from './timeline';
+import { sure } from '../arcade/sure';
 
 // The fix screens' faces (PRD 652, s6): "asked by @author" on /visual and /bugs, and every "by @login"
 // on a fix's Timeline, each a person chip beside the unchanged text, resolved by login.
@@ -83,7 +84,7 @@ describe('the Timeline', () => {
       { id: 'released', label: 'Released v1', state: 'done', who: null, when: '29 Sep 2026', href: null },
     ],
   };
-  const lines = (html: string) => [...html.matchAll(/<li class="fix-moment fix-moment-done">(.*?)<\/li>/gs)].map((m) => m[1]!);
+  const lines = (html: string) => [...html.matchAll(/<li class="fix-moment fix-moment-done">(.*?)<\/li>/gs)].map((m) => sure(m[1], 'group 1'));
 
   it('draws a member\'s hero and an outsider\'s GitHub photo beside "by @login", the text unchanged', () => {
     const html = renderToStaticMarkup(createElement(TimelinePane, { fix: view, people: peopleOf([ANNA], FLEETS) }));

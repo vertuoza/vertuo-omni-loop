@@ -112,10 +112,10 @@ const CACHE_LIMIT = 200;
 /** The judge's error when it has no secret to sign with: the gate says "not configured". */
 export const JUDGE_NOT_CONFIGURED = 'no-secret';
 
-const plain = (text: unknown) => String(text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+const plain = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** Whether `quote` appears in `text`, whitespace and case aside. */
-export function quoted(text: unknown, quote: unknown): boolean {
+export function quoted(text: string | null | undefined, quote: string | null | undefined): boolean {
   const q = plain(quote);
   return q.length > 0 && plain(text).includes(q);
 }
@@ -173,10 +173,15 @@ function checkReply(value: unknown): Checked {
   return { errors, reply: { findings, persona: { name: text(name), line: text(line) } } };
 }
 
-const text = (value: unknown) => String(value ?? '').trim();
+/** Whatever the model wrote, as `String` prints it, trimmed: nothing for null and undefined. */
+const text = (value: unknown) => (value === undefined || value === null ? '' : stringOf(value)).trim();
+
+/** Any value, as `String` prints it. */
+export const stringOf = (value: unknown) => String(value);
 
 /** What a thrown value says: its `message`, when it has one. */
-const messageOf = (error: unknown): unknown => (error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined);
+export const thrownMessage = (error: unknown): unknown =>
+  error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined;
 
 function userPrompt({ spec, claims, constituents, personas }: { spec: string; claims: Claim[]; constituents: Constituent[]; personas: Persona[] }): string {
   const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ['(none)'];
@@ -292,7 +297,7 @@ async function attempt<T>(read: () => Promise<T>, what: string): Promise<{ gate:
   try {
     return { value: await read() };
   } catch (error) {
-    return { gate: neutral(`${what}: the read failed (${messageOf(error) ?? error})`) };
+    return { gate: neutral(`${what}: the read failed (${String(thrownMessage(error) ?? error)})`) };
   }
 }
 
@@ -329,13 +334,13 @@ function counted(findings: Finding[], broken: boolean): Finding[] {
 }
 
 /** A judge that is not wired: the gate is neutral whenever the product has constituents. */
-const NO_JUDGE: Judge = async () => ({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: 'no judge here' });
+const NO_JUDGE: Judge = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: 'no judge here' });
 
 /**
  * The gate on its four ports, with its cache of the model's verdicts. Without `readConstituents` the
  * product has none; without `judge`, constituents are neutral.
  */
-export function createCanon({ readBusiness, readConstituents = async () => null, judge = NO_JUDGE, ask, cache = new Map(), limit = CACHE_LIMIT }: {
+export function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge = NO_JUDGE, ask, cache = new Map(), limit = CACHE_LIMIT }: {
   readBusiness: ReadBusiness;
   readConstituents?: ReadConstituents;
   judge?: Judge;

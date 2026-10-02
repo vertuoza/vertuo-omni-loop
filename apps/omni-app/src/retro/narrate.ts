@@ -43,7 +43,7 @@ import {
   maskSecrets,
 } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.ts';
 
 /** What the model is given of a finding: what `detect` put on the fact sheet. */
@@ -207,7 +207,7 @@ function capInput(input: ModelInputJson, sources: readonly (string | undefined)[
   const leastSevereFirst = (a: Excerpt, b: Excerpt) => b.i - a.i || b.j - a.j;
   const logs = excerpts.filter((entry) => entry.source === LOGS);
   const latest = new Set(
-    [...new Set(logs.map((entry) => entry.i))].map((i) => logs.filter((entry) => entry.i === i).at(-1)!), // ts-allow: `i` is taken from `logs`, so its list is never empty
+    [...new Set(logs.map((entry) => entry.i))].map((i) => at(logs.filter((entry) => entry.i === i), -1, `the latest log of finding ${String(i)}`)),
   );
   const olderLogs = logs.filter((entry) => !latest.has(entry)).sort((a, b) => a.j - b.j || b.i - a.i);
   const hunks = excerpts.filter((entry) => entry.source === HUNKS).sort(leastSevereFirst);

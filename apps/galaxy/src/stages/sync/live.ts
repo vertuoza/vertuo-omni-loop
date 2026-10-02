@@ -1,5 +1,6 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
+import { listOf } from '../../data/unparsed';
 import type { FixRef } from '../../dossier/github/reader';
 import { dossierGithub } from '../../dossier/github/server';
 import { fixFactsStore } from '../../fixes/facts/store';
@@ -61,7 +62,8 @@ function fixDeps(): FixSyncDeps {
       const { data, error } = await serviceDb().from('dossiers').select('id, home_repo, prd')
         .eq('workspace_id', workspace.id).in('kind', ['visual', 'bug']).not('prd', 'is', null);
       if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
-      return (data ?? []).map((row): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
+      // Each row is read as PostgREST sent it, its columns unparsed.
+      return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
     },
     reader: { fix: (ref) => fixReader().fix(ref) },
     store: {
@@ -77,7 +79,8 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     async workspaces() {
       const { data, error } = await serviceDb().from('workspaces').select('id, slug, github_org, github_installation_id').order('slug');
       if (error) throw new Error(`Supabase refused to read the workspaces: ${error.message}`);
-      return (data ?? []).map((row) => ({
+      // Each row is read as PostgREST sent it, its columns unparsed.
+      return listOf(data).map((row: { id: unknown; slug: unknown; github_org: unknown; github_installation_id?: unknown }) => ({
         id: String(row.id),
         slug: String(row.slug),
         github_org: typeof row.github_org === 'string' ? row.github_org : null,
@@ -90,6 +93,6 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     outbox: outboxDeps(),
     fixes: fixDeps(),
     now: () => new Date().toISOString(),
-    log: (line) => console.error(line),
+    log: (line) => { console.error(line); },
   };
 }

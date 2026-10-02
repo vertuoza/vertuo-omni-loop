@@ -9,7 +9,7 @@ function ports(supabase: SignUpPorts['supabase'], answer: string | null = null) 
   const at: SignUpPorts = {
     supabase,
     origin: 'https://galaxy.example',
-    start: async (env, redirectTo) => { calls.push(`start ${env.url} ${redirectTo}`); return answer; },
+    start: (env, redirectTo) => { calls.push(`start ${env.url} ${redirectTo}`); return Promise.resolve(answer); },
     go: (href) => { calls.push(`go ${href}`); },
   };
   return { at, calls };

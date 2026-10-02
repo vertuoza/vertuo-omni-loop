@@ -21,10 +21,11 @@ import { leftOutAs } from './churn-generated.ts';
 import { changeBlocks, followLines, rewrittenRanges } from './churn-lines.ts';
 import type { Block, Line } from './churn-lines.ts';
 import type { LeftOut } from './churn-generated.ts';
-import type { Evidence, Kind, Octokit, RetroPr, RetroPrd } from './index.ts';
+import type { Evidence, GatherScope, Kind, Octokit, RetroPr, RetroPrd } from './index.ts';
 import { ChangedFileSchema, CommitPageSchema, PullCommitSchema } from './schema.ts';
 import type { ChangedFile, PullCommit } from './schema.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 type FinalFile = { path: string; additions: number | null | undefined; deletions: number | null | undefined };
 type CommitFile = {
@@ -68,7 +69,7 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
   section: 'Churn',
   runs: Object.freeze(['merge'] as const),
 
-  async gather(octokit, { owner, repo, mergeSha, pr, pulls }) {
+  async gather(octokit, { owner, repo, mergeSha, pr, pulls }: GatherScope) {
     const merged = (pulls ?? []).filter((pull) => pull.mergedAt);
     if (merged.length === 0) return null;
 
@@ -98,7 +99,7 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
 
   detect(records, { pr, prd, config, pulls }) {
     if (!records) return { facts: null, findings: [] };
-    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null, { delivery: config?.paths?.delivery }) });
+    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null, { delivery: config.paths.delivery }) });
     const final = records.final ? new Map(records.final.map((file) => [file.path, file.additions])) : null;
     const perFile = final ? churnPerFile(walked.files, final) : null;
     const ranges = rewritten(walked);
@@ -114,7 +115,7 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
         path,
         from,
         to,
-        commits: shas.map((sha) => walked.commits.get(sha)!.short), // ts-allow: every sha of a range is a commit walked
+        commits: shas.map((sha) => defined(walked.commits.get(sha), `the walked commit ${sha}`).short),
         slices,
       })),
       leftOut: {
@@ -124,7 +125,7 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
       },
       noPatch: walked.noPatch,
       unread: walked.unread,
-      notCounted: (pulls ?? []).filter((pull) => !pull.mergedAt).map((pull) => pull.number),
+      notCounted: pulls.filter((pull) => !pull.mergedAt).map((pull) => pull.number),
     };
 
     const links = linker(pr, walked.commits);
@@ -138,7 +139,7 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
           title: `Much of \`${file.path}\` was written, then rewritten`,
           happened: fileHappened(file, walked.noPatch.filter((entry) => entry.path === file.path)),
           evidence: [
-            ...links.commits(walked.files.get(file.path)!.commits), // ts-allow: every file with churn is a file walked
+            ...links.commits(defined(walked.files.get(file.path), `the walked file ${file.path}`).commits),
             ...(blob ? [{ label: `\`${file.path}\`, as merged`, url: blob }] : []),
           ],
         };
@@ -169,7 +170,10 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
     const paths = (list: readonly string[]) => list.map((path) => `\`${path}\``).join(', ');
     if (facts.leftOut.generated.length > 0) lines.push(`- Left out as generated, by \`.gitattributes\`: ${paths(facts.leftOut.generated)}.`);
     if (facts.leftOut.lockfile.length > 0) lines.push(`- Left out as lockfiles: ${paths(facts.leftOut.lockfile)}.`);
-    if ((facts.leftOut.delivery?.length ?? 0) > 0) lines.push(`- Left out as the loop's own delivery record: ${paths(facts.leftOut.delivery)}.`);
+    // Read back from an earlier run's retro.json too, which may predate the delivery record being left out.
+    const kept: { delivery?: readonly string[] } = facts.leftOut;
+    const delivery = kept.delivery ?? [];
+    if (delivery.length > 0) lines.push(`- Left out as the loop's own delivery record: ${paths(delivery)}.`);
     for (const file of facts.noPatch) {
       lines.push(
         `- GitHub sent no patch for \`${file.path}\` in ${file.commit} (${file.slice}): counted by its totals, ${file.additions} added and ${file.deletions} removed, its lines not followed.`,
@@ -267,13 +271,14 @@ function churnPerFile(files: Map<string, FileStats>, final: Map<string, number |
 
 /** The line ranges written in enough commits, most commits first: each with its commits, oldest first, and their slices. */
 function rewritten({ lines, commits }: Pick<Walked, 'lines' | 'commits'>): Rewritten[] {
-  const indexOf = (sha: string) => commits.get(sha)!.index; // ts-allow: every sha a followed line names is a commit walked
+  const commitOf = (sha: string) => defined(commits.get(sha), `the walked commit ${sha}`);
+  const indexOf = (sha: string) => commitOf(sha).index;
   const byIndex = (a: string, b: string) => indexOf(a) - indexOf(b);
   return [...lines.entries()]
     .flatMap(([path, followed]) =>
       rewrittenRanges(followed, THRESHOLDS.churnRangeCommits).map((range) => {
         const shas = [...range.commits].sort(byIndex);
-        return { path, from: range.from, to: range.to, shas, slices: unique(shas.map((sha) => commits.get(sha)!.slice)) }; // ts-allow: every sha a followed line names is a commit walked
+        return { path, from: range.from, to: range.to, shas, slices: unique(shas.map((sha) => commitOf(sha).slice)) };
       }),
     )
     .sort((a, b) => b.shas.length - a.shas.length || a.path.localeCompare(b.path) || a.from - b.from);
@@ -325,7 +330,7 @@ function rename(files: Map<string, FileStats>, lines: Map<string, Line[]>, from:
 
 /** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
 function sliceReader(config: Config | undefined, prd: RetroPrd | undefined): (headRef: unknown) => string | null {
-  const template = config?.branches?.slice?.replace('{topic}', prd?.topic ?? '') ?? null;
+  const template = config?.branches.slice.replace('{topic}', prd?.topic ?? '') ?? null;
   const [prefix, suffix = ''] = template?.split('{slice}') ?? [];
   return (headRef) => {
     if (!template || typeof headRef !== 'string' || !headRef.startsWith(prefix ?? '') || !headRef.endsWith(suffix)) return null;

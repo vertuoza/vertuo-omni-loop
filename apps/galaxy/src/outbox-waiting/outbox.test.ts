@@ -20,7 +20,7 @@ type Row = Record<string, unknown>;
 function fakeDb(user: string | null, rows: Dossier[]) {
   const calls: string[] = [];
   const db: WaitingDb = {
-    auth: { getUser: async () => ({ data: { user: user ? { id: user } : null } }) },
+    auth: { getUser: () => Promise.resolve({ data: { user: user ? { id: user } : null } }) },
     from(table: string) {
       calls.push(`from ${table}`);
       let result: Row[] = [...rows];
@@ -57,7 +57,7 @@ async function storeWith(counts: Record<number, OutboxCounts>, workspace = 'w-ac
   return store;
 }
 
-const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: async () => db, outbox: () => store });
+const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: () => Promise.resolve(db), outbox: () => store });
 
 const body = async (res: Response) => res.json() as Promise<{ items: Array<Record<string, unknown>>; unread: number; error?: string }>;
 
@@ -92,7 +92,7 @@ describe('GET /api/waiting/outbox (PRD 657, s5: read from prd_outbox, never GitH
 
   it('answers 401 when there is no database to sign in to', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const res = await waitingOutbox({ db: async () => { throw new Error('Supabase is not configured'); }, outbox: () => null });
+    const res = await waitingOutbox({ db: () => Promise.reject(new Error('Supabase is not configured')), outbox: () => null });
     expect(res.status).toBe(401);
   });
 

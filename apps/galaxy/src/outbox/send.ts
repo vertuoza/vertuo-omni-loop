@@ -33,7 +33,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';
 import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
-import { group, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, group, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
@@ -246,7 +246,7 @@ export async function startSend(request: Request, deps: SendDeps): Promise<Respo
   }
   const parsed = SendBody.safeParse(sent);
   if (!parsed.success) {
-    const issue = parsed.error.issues[0]!; // ts-allow: a failed parse has an issue
+    const issue = defined(parsed.error.issues[0], 'the failed parse\'s first issue');
     return refuse(400, `The answers are malformed: ${issue.path.join('.') || 'the body'}: ${issue.message}.`);
   }
   const { dossier, picks } = parsed.data;

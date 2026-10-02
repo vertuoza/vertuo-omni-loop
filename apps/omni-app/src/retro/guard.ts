@@ -32,15 +32,16 @@
 //   Field: a string, or `{ dropped: '<reason>' }` for a field refused, which `render` writes as one
 //          line naming the reason. A lesson of the list has no such form, so a refused one keeps its
 //          place as that same line (`_Dropped: <reason>._`), citing only the findings the retro found.
+import { isList } from 'vertuo-omni-plan/kit/lib/outbox/plain-text.ts';
 import { FIELD_CAPS, FINDING_ORDER, refusedWordsIn } from './rules.ts';
 import type { Dropped, Prose, ProseField, ProseFinding, Verdict } from './retro.types.ts';
 
 /** A field dropped, and why. */
 export type DroppedField = { field: string; reason: string };
 
-/** What `guard` reads of the fact sheet: each finding's id and its evidence. */
+/** What `guard` reads of the fact sheet: each finding's id and its evidence, an item of which may be missing. */
 export type GuardSheet = {
-  findings?: readonly { id: string; evidence?: readonly { label?: unknown; url?: unknown; excerpt?: unknown }[] | null }[];
+  findings?: readonly { id: string; evidence?: readonly ({ label?: unknown; url?: unknown; excerpt?: unknown } | null)[] | null }[];
 } | null;
 
 type Evidence = { ids: Set<string>; urls: Set<string>; holds: (span: string) => boolean };
@@ -197,7 +198,7 @@ function findingIdsIn(text: string): string[] {
 
 /** What the model was given as evidence: the finding ids, the evidence URLs, and every text it may copy. */
 function evidenceOf(sheet: GuardSheet): Evidence {
-  const findings = Array.isArray(sheet?.findings) ? sheet.findings : [];
+  const findings = isList(sheet?.findings) ? sheet.findings : [];
   const ids = new Set<string>(findings.map((finding) => finding.id));
   const urls = new Set<string>();
   const texts = [...ids];

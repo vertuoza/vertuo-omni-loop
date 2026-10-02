@@ -1,8 +1,8 @@
 {
-  "kit": 38,
+  "kit": 19,
   "game": 0,
   "scripts": 0,
   "packages": 5,
-  "apps/omni-app": 26,
-  "apps/galaxy": 153
+  "apps/omni-app": 17,
+  "apps/galaxy": 113
 }

@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { parseForm } from './forms.ts';
 import { blankForm, writeForms } from './write-forms.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 describe('blankForm', () => {
   it('writes decisions blank whatever the spelling of the front door’s adr/ folder', () => {
     for (const adr of ['.omni-loop/knowledge/adr', '.omni-loop/knowledge/adr/', './.omni-loop/knowledge//adr']) {
       const { ctx } = makeRepo({ config: { paths: { adr } } });
-      expect(parseForm(blankForm('decisions', { ctx })).form!.state, adr).toBe('blank');
+      const form2 = parseForm(blankForm('decisions', { ctx })).form;
+      assertDefined(form2, 'the form');
+      expect(form2.state, adr).toBe('blank');
     }
   });
 
@@ -43,6 +46,8 @@ describe('writeForms', () => {
     expect(paths).toContain('handbook/adr/README.md');
     expect(paths).toContain('handbook/product/rules.md');
     // The decision records stay at the default, outside this front door: the decisions form points there.
-    expect(parseForm(read('handbook/adr/README.md')).form!.pointsTo).toBe('.omni-loop/knowledge/adr');
+    const form2 = parseForm(read('handbook/adr/README.md')).form;
+    assertDefined(form2, 'the form');
+    expect(form2.pointsTo).toBe('.omni-loop/knowledge/adr');
   });
 });

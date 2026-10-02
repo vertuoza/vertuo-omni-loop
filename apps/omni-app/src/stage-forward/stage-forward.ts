@@ -146,7 +146,7 @@ export async function forwardStageEvent(
     });
     if (!response.ok) log(`stage event: galaxy answered ${response.status} to the ${what}`);
   } catch (error) {
-    log(`stage event: the ${what} could not be sent — ${messageOf(error)}`);
+    log(`stage event: the ${what} could not be sent — ${String(messageOf(error))}`);
   }
 }
 

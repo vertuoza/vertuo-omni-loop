@@ -18,9 +18,9 @@ function db(tables: Record<string, { data?: unknown[]; error?: { message: string
   const client: ConstituentsDb = {
     from: (table) => ({
       select: (columns) => ({
-        in: async (_column, values) => {
+        in: (_column, values) => {
           asked.push([table, columns, values]);
-          return { data: tables[table]?.data ?? null, error: tables[table]?.error ?? null };
+          return Promise.resolve({ data: tables[table]?.data ?? null, error: tables[table]?.error ?? null });
         },
       }),
     }),

@@ -6,6 +6,7 @@
 // The script (apps/galaxy/scripts/releases-sync.ts) calls releasesSync() with the environment. It runs
 // on plain Node, so this module and those it imports name their files with their extension.
 import { createClient } from '@supabase/supabase-js';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { Git } from './git.ts';
 import { releaseVersion } from './row.ts';
@@ -42,7 +43,7 @@ export async function syncReleases({ root, table, git, out = console.log, err = 
     const release = new Map(applySync(rows, plan).map((row) => [row.prd, row.release]));
     for (const text of plan.updates) {
       await table.refresh(text);
-      out(`updated PRD ${text.prd} (${releaseVersion(release.get(text.prd)!)}): ${text.title}`);
+      out(`updated PRD ${text.prd} (${releaseVersion(defined(release.get(text.prd), `the release of PRD ${text.prd}`))}): ${text.title}`);
     }
     const unchanged = reading.shipped.length - plan.inserts.length - plan.updates.length;
     out(`releases: ${plan.inserts.length} inserted, ${plan.updates.length} updated, ${unchanged} unchanged`);
@@ -55,7 +56,7 @@ export async function syncReleases({ root, table, git, out = console.log, err = 
 
 /** The table as the service role, keeping no session. */
 function serviceRole(env: Env): ReleasesTable {
-  return releasesTable(createClient<Database>(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return releasesTable(createClient<Database>(defined(env.SUPABASE_URL, 'SUPABASE_URL'), defined(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY'), {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   }));
 }

@@ -12,7 +12,7 @@ async function readText(stdin: HookStdin): Promise<string | null> {
   if (!stdin || stdin.isTTY) return null;
   stdin.setEncoding?.('utf8');
   let text = '';
-  for await (const chunk of stdin) text += chunk;
+  for await (const chunk of stdin) text += String(chunk);
   return text;
 }
 

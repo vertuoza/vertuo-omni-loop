@@ -2,15 +2,17 @@ import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sure } from '../arcade/sure';
+import { item } from '../ask/test-item';
 
 // HOME at `/`, and the game moved to `/play` (PRD 261). HOME is rendered as the server renders it,
 // with every Supabase door stubbed to fail loudly: it must open none of them.
 const supabase = vi.hoisted(() => ({
   env: vi.fn(() => null as null | { url: string; key: string }),
-  server: vi.fn(async () => { throw new Error('HOME must not reach Supabase'); }),
-  exchange: vi.fn(async () => ({ error: null as null | { message: string } })),
+  server: vi.fn(() => Promise.reject(new Error('HOME must not reach Supabase'))),
+  exchange: vi.fn(() => Promise.resolve({ error: null as null | { message: string } })),
 }));
-const afterSignIn = vi.hoisted(() => vi.fn(async () => ['signed_in', '1'] as [string, string]));
+const afterSignIn = vi.hoisted(() => vi.fn(() => Promise.resolve(['signed_in', '1'] as [string, string])));
 // The high scores as the build would count them: two counters read, one out of reach.
 const highScores = vi.hoisted(() => vi.fn(() => ({ prdsShipped: 21, slicesMerged: 134, decisionsAdopted: '—' as const })));
 
@@ -33,12 +35,12 @@ const ENV = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'OMNI_
 const saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
 
 beforeEach(() => {
-  for (const k of ENV) delete process.env[k];
+  for (const k of ENV) Reflect.deleteProperty(process.env, k);
   supabase.env.mockReturnValue(null);
   supabase.server.mockClear();
 });
 afterEach(() => {
-  for (const k of ENV) if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+  for (const k of ENV) if (saved[k] === undefined) Reflect.deleteProperty(process.env, k); else process.env[k] = saved[k];
 });
 
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -47,7 +49,7 @@ const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').r
 describe('HOME at /', () => {
   const render = async () => {
     const { default: Page } = await import('../../app/page.tsx');
-    return renderToStaticMarkup((await Page()) as ReactElement);
+    return renderToStaticMarkup(Page() as ReactElement);
   };
 
   it('shows the headline, AGENTS SHIP. YOU STEER.', async () => {
@@ -220,7 +222,7 @@ describe('the signed-in mark', () => {
 
   it('is set by a script that runs after the forwarding of old links and before anything paints', async () => {
     const html = await render();
-    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: m.index ?? -1, body: m[1] ?? '' }));
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => ({ at: sure(m.index, 'the position of a script'), body: m[1] ?? '' }));
     const forward = scripts.findIndex((s) => s.body.includes("location.replace('/play'"));
     const mark = scripts.findIndex((s) => s.body.includes('document.cookie'));
     expect(forward).toBe(0);
@@ -255,7 +257,7 @@ describe('the spreads', () => {
 
   it('come under the poster, in the spec\'s order, each under its own h2', async () => {
     const html = await render();
-    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h!));
+    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(item(m, 1)));
     expect(heads).toEqual(HEADS);
     expect(html.indexOf('<h2')).toBeGreaterThan(html.indexOf('</h1>'));
   });

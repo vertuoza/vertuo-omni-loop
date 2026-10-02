@@ -20,6 +20,7 @@ import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
 import { dossierList, dossierRounds, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import { listOf, numberOf } from './unparsed';
 
 /** How many answered rounds the tab lists. */
 export const LAST_ANSWERS = 3;
@@ -48,15 +49,16 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
 export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], url: string | null): PlanetDossier {
   const latest = Object.fromEntries(ARTIFACTS.map((kind) => {
     const v = row.latest[kind];
-    return [kind, v ? { version: Number(v.version), at: v.created_at } : null];
+    return [kind, v ? { version: numberOf(v.version), at: v.created_at } : null];
   })) as PlanetDossier['latest']; // ts-allow: fromEntries over ARTIFACTS keeps every kind
   const last = rounds
-    .filter((r) => r.status === 'answered' && r.answered_at)
-    .sort((a, b) => Date.parse(b.answered_at!) - Date.parse(a.answered_at!) || b.round_id.localeCompare(a.round_id))
+    .flatMap((r) => (r.status === 'answered' && r.answered_at ? [{ round: r, answeredAt: r.answered_at }] : []))
+    .sort((a, b) => Date.parse(b.answeredAt) - Date.parse(a.answeredAt) || b.round.round_id.localeCompare(a.round.round_id))
+    .map(({ round }) => round)
     .map(answerOf)
     .filter((a): a is DossierAnswer => a !== null)
     .slice(0, LAST_ANSWERS);
-  return { id: row.id, url, latest, asked: Number(row.asked), answered: Number(row.answered), last };
+  return { id: row.id, url, latest, asked: numberOf(row.asked), answered: numberOf(row.answered), last };
 }
 
 type Db = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
@@ -74,7 +76,7 @@ async function dossierIds(db: Db, workspace: string, home: string): Promise<Map<
   const { data, error } = await db.from('dossiers').select('id, prd').eq('workspace_id', workspace).eq('home_repo', home);
   if (error) throw new Error(`Supabase: could not read the dossiers (${error.message})`);
   const ids = new Map<number, string>();
-  for (const row of data ?? []) if (row.prd !== null) ids.set(Number(row.prd), row.id);
+  for (const row of listOf(data)) if (row.prd !== null) ids.set(numberOf(row.prd), row.id);
   return ids;
 }
 
@@ -101,7 +103,10 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
     const home = await planRepo(db, workspace);
     if (!home) return {};
     const ids = await dossierIds(db, workspace, home);
-    const found = [...new Set(prds)].flatMap((prd) => (ids.has(prd) ? [[prd, ids.get(prd)!] as const] : []));
+    const found = [...new Set(prds)].flatMap((prd) => {
+      const id = ids.get(prd);
+      return id === undefined ? [] : [[prd, id] as const];
+    });
     const read = await Promise.all(found.map(async ([prd, id]) => [prd, await readOne(db, id)] as const));
     return Object.fromEntries(read.filter((e): e is readonly [number, PlanetDossierRead] => e[1] !== null));
   } catch (err) {
@@ -119,7 +124,7 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
 export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  return (data ?? []) as DossierListRow[]; // ts-allow: latest is a JSON column, written by dossier_list() in the shape DossierListRow names
+  return listOf(data) as DossierListRow[]; // ts-allow: latest is a JSON column, written by dossier_list() in the shape DossierListRow names
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────

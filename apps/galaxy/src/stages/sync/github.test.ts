@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { settled } from '../settled';
 import { stagesReader } from './github';
 
 // The stages sync's reader, against a stubbed `fetch`: never GitHub itself. A small fake GitHub answers
@@ -60,7 +61,7 @@ const ROUTES: readonly Route[] = [tokenRoute, configRoute, folderRoute, issuesRo
 
 function fakeGithub(repo: FakeRepo) {
   const calls: string[] = [];
-  const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
+  const fetchImpl = vi.fn((href: string, init: RequestInit) => settled(() => {
     const url = new URL(href);
     const at = `${url.pathname}${url.search}`;
     calls.push(at);
@@ -70,7 +71,7 @@ function fakeGithub(repo: FakeRepo) {
       if (answer) return answer;
     }
     throw new Error(`unexpected GitHub call ${href}`);
-  });
+  }));
   return { fetchImpl, calls };
 }
 

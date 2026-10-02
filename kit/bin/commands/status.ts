@@ -10,6 +10,7 @@ import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
 import { errorMessage, list, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]';
 
@@ -30,7 +31,7 @@ function overview({ ctx, stdout, exec, fetch }: Pick<CommandIo, 'ctx' | 'stdout'
 }
 
 export const status: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('status', args, { values: ['labels', 'base'], booleans: ['changes', 'fetch'] });
     const gateFlags = flags.labels !== undefined || flags.base !== undefined || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
@@ -63,5 +64,5 @@ export const status: Command = {
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${report}\n`);
 
     return result.ok ? 0 : 1;
-  },
+  }),
 };

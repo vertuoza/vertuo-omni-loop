@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
 import { activeFleets, BLANK_COLOR, fleetsReducer, initialState, previewOf, retiredFleets, type FleetsState } from './model';
+import { sure } from '../arcade/sure';
 
 // /app/settings/fleets's state (PRD 400 s3): the workspace's fleets, the one form being filled (a new fleet or
 // an edit), the retire awaiting its confirmation, and the last refusal. Pure, so every step of the
@@ -46,17 +47,17 @@ describe('the fleets page\'s state', () => {
       { type: 'change', field: 'color', value: '#2fc6a4' },
       { type: 'change', field: 'motto', value: 'Bite first.' },
       { type: 'change', field: 'mascot', value: 'octopod' });
-    expect(previewOf(state.draft!)).toMatchObject({ label: 'SHARKS', color: '#2fc6a4', motto: 'Bite first.', mascot: 'octopod' });
+    expect(previewOf(sure(state.draft, 'state.draft'))).toMatchObject({ label: 'SHARKS', color: '#2fc6a4', motto: 'Bite first.', mascot: 'octopod' });
   });
 
   it('the preview of a blank label still reads as a card, and an unfinished colour draws the default', () => {
     const state = run(start(), { type: 'new' }, { type: 'change', field: 'color', value: '#2fc' });
-    expect(previewOf(state.draft!)).toMatchObject({ label: 'NEW FLEET', color: '#cfd4e6' });
+    expect(previewOf(sure(state.draft, 'state.draft'))).toMatchObject({ label: 'NEW FLEET', color: '#cfd4e6' });
   });
 
   it('an empty mascot is none', () => {
     const state = run(start(), { type: 'edit', name: 'beaver' }, { type: 'change', field: 'mascot', value: '' });
-    expect(state.draft!.mascot).toBeNull();
+    expect(sure(state.draft, 'state.draft').mascot).toBeNull();
   });
 
   it('a refusal is kept until the field it names changes', () => {

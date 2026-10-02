@@ -1,5 +1,6 @@
 // The galaxy map on the canvas: where each planet sits, which planet the D-pad reaches next, and the
 // map itself (the sectors, the hyperlanes, the distress pulses, the planets and their Entropy).
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { drawPlanet, rng, WOUND_TINT } from '@omni/design';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
@@ -107,7 +108,7 @@ function lanesFor(k: number, width: number, need = Infinity): Lanes {
     if (room >= need) return it;
     if (!best || room > best.room) best = it;
   }
-  return best!;
+  return defined(best, 'the map lanes');
 }
 
 /** A planet's drift from the middle of its box, along one side of `slack` spare pixels. */
@@ -141,11 +142,11 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
 }
 
 // The planet in `dir` from the current one that is closest, preferring straight lines.
-export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: T[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
+export function neighbour(layout: readonly Pick<MapSlot, 'x' | 'y' | 'index'>[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
   const cur = layout.find((s) => s.index === from);
   if (!cur) return layout[0]?.index ?? 0;
   const [vx, vy] = ({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] } satisfies Record<string, [number, number]>)[dir];
-  let best: T | null = null;
+  let best: Pick<MapSlot, 'x' | 'y' | 'index'> | null = null;
   let bestScore = Infinity;
   for (const s of layout) {
     if (s.index === from) continue;
@@ -204,7 +205,7 @@ const SKY = {
 export function hyperlanes(view: GalaxyView, layout: MapSlot[]): Array<[MapSlot, MapSlot]> {
   const bySlot = new Map(layout.map((l) => [view.planets[l.index]?.key, l]));
   return layout.flatMap((slot) => {
-    const p = view.planets[slot.index]!;
+    const p = defined(view.planets[slot.index], "a slot's planet");
     return p.blockers.flatMap((b): Array<[MapSlot, MapSlot]> => {
       const to = bySlot.get(p.home ? `${p.home}#${b}` : String(b));
       return to ? [[slot, to]] : [];
@@ -227,7 +228,7 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   });
   for (const [from, to] of hyperlanes(view, layout)) dashedLine(ctx, from, to, s.t, s.theme.red);
   for (const slot of layout) {
-    const p = view.planets[slot.index]!;
+    const p = defined(view.planets[slot.index], "a slot's planet");
     const look = planetLook(p, s.theme);
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
     if (p.state === 'distress' && !s.reduced) pulseRing(ctx, slot.x, slot.y, slot.r, s.t, s.theme.red);

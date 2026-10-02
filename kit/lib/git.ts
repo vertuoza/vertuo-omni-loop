@@ -42,7 +42,7 @@ export function rangeChanges({ ctx, base, exec = execFileSync }: { ctx: { root: 
     const message = typeof error === 'object' && error !== null && 'message' in error ? error.message : undefined;
     throw new Error(
       `Cannot read ${base} — this guard cannot tell what this range changed. ` +
-        `Fetch the base first (e.g. \`git fetch origin main\`).\n${message}`,
+        `Fetch the base first (e.g. \`git fetch origin main\`).\n${String(message)}`,
     );
   }
   return parseNameStatus(git(['diff', '--name-status', '--no-renames', `${base}...HEAD`], ctx.root, exec));

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { supabaseRest, supabaseFromEnv, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace } from './supabase.ts';
 import { fakeSupabase, type Init, type Reply } from '../test/fake-supabase.ts';
+import { nth, present } from '../test/present.ts';
 
 const ev = (id: string, at: string, extra: Record<string, unknown> = {}) => ({ id, at, type: 'ZONE_SECURED', planet: 2332, data: {}, ...extra });
 
@@ -19,8 +20,8 @@ describe('supabaseRest', () => {
     const rest = supabaseRest({ url: 'https://ref.supabase.co/', key: 'secret', fetch: fake.fetch });
     expect(await rest.select('ledger_events', 'select=id')).toHaveLength(1500);
     expect(fake.calls).toHaveLength(2);
-    expect(fake.calls[0]!.url.origin + fake.calls[0]!.url.pathname).toBe('https://ref.supabase.co/rest/v1/ledger_events');
-    expect(fake.calls[0]!.headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
+    expect(nth(fake.calls, 0, 'the call').url.origin + nth(fake.calls, 0, 'the call').url.pathname).toBe('https://ref.supabase.co/rest/v1/ledger_events');
+    expect(nth(fake.calls, 0, 'the call').headers).toMatchObject({ apikey: 'secret', Authorization: 'Bearer secret' });
   });
 
   it('names the table and the status when a read fails', async () => {
@@ -29,7 +30,7 @@ describe('supabaseRest', () => {
   });
 
   it('names the table and the cause when Supabase cannot be reached', async () => {
-    const unreachable = async () => { throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }); };
+    const unreachable = () => Promise.reject(new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }));
     const rest = supabaseRest({ url: 'http://127.0.0.1:9', key: 'k', fetch: unreachable });
     await expect(rest.select('workspaces', 'select=id')).rejects.toThrow('Supabase: read workspaces failed (ECONNREFUSED at http://127.0.0.1:9)');
     await expect(rest.insertNew('ledger_events', [{ id: 'a' }] as never, 'id')).rejects.toThrow(/write ledger_events 0–1 failed \(ECONNREFUSED/);
@@ -41,10 +42,10 @@ describe('supabaseRest', () => {
     const rows = Array.from({ length: 1200 }, (_, i) => ({ k: i ? `n${i}` : 'a', xp: 2 }));
     await rest.upsert('player_xp', rows as never, 'k');
     expect(fake.calls).toHaveLength(1);
-    expect(fake.calls[0]!.url.searchParams.get('on_conflict')).toBe('k');
-    expect(fake.calls[0]!.headers!.Prefer).toBe('resolution=merge-duplicates,return=minimal');
+    expect(nth(fake.calls, 0, 'the call').url.searchParams.get('on_conflict')).toBe('k');
+    expect(present(nth(fake.calls, 0, 'the call').headers, 'headers').Prefer).toBe('resolution=merge-duplicates,return=minimal');
     expect(fake.tables.player_xp).toHaveLength(1200);
-    expect(fake.tables.player_xp![0]).toEqual({ k: 'a', xp: 2 });
+    expect(present(fake.tables.player_xp, 'player_xp')[0]).toEqual({ k: 'a', xp: 2 });
   });
 
   it('names the table and the status when an upsert fails', async () => {
@@ -65,7 +66,7 @@ describe('loadWorkspace', () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     const w = await loadWorkspace(restOn(fake), 'acme');
     expect(w).toMatchObject({ id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan' });
-    expect(fake.calls[0]!.url.searchParams.get('slug')).toBe('eq.acme');
+    expect(nth(fake.calls, 0, 'the call').url.searchParams.get('slug')).toBe('eq.acme');
   });
 
   it('keeps a workspace that names no GitHub organisation yet: the commands that need one refuse it', async () => {
@@ -80,8 +81,8 @@ describe('loadWorkspace', () => {
   it('sends a slug as a value, never as more of the query', async () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     await expect(loadWorkspace(restOn(fake), 'acme&id=not.is.null')).rejects.toThrow(/no workspace "acme&id=not.is.null"/);
-    expect(fake.calls[0]!.url.searchParams.get('slug')).toBe('eq.acme&id=not.is.null');
-    expect(fake.calls[0]!.url.searchParams.has('id')).toBe(false);
+    expect(nth(fake.calls, 0, 'the call').url.searchParams.get('slug')).toBe('eq.acme&id=not.is.null');
+    expect(nth(fake.calls, 0, 'the call').url.searchParams.has('id')).toBe(false);
   });
 });
 
@@ -139,14 +140,14 @@ describe('supabaseLedger', () => {
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     const first = await ledger.append([ev('b', '2026-09-02T10:00:00Z', { contributor: 'alice', team: 'beaver' }), ev('a', '2026-09-01T10:00:00Z')]);
     expect(first.map((e) => e.id)).toEqual(['b', 'a']);
-    expect(fake.tables.ledger_events!.find((r) => r.id === 'a')).toMatchObject({ region: null, contributor: null, team: null });
+    expect(present(fake.tables.ledger_events, 'ledger_events').find((r) => r.id === 'a')).toMatchObject({ region: null, contributor: null, team: null });
     expect((await ledger.append([ev('a', '2026-09-01T10:00:00Z'), ev('a', '2026-09-01T10:00:00Z')])).map((e) => e.id)).toEqual([]);
     // PostgREST returns timestamptz as +00:00; the ledger speaks Z.
-    fake.tables.ledger_events!.forEach((r) => { r.at = String(r.at).replace('Z', '+00:00'); });
+    present(fake.tables.ledger_events, 'ledger_events').forEach((r) => { r.at = String(r.at).replace('Z', '+00:00'); });
     const back = await ledger.read();
     expect(back.map((e) => [e.id, e.at])).toEqual([['a', '2026-09-01T10:00:00Z'], ['b', '2026-09-02T10:00:00Z']]);
     expect(back[1]).toMatchObject({ contributor: 'alice', team: 'beaver' });
-    expect(back[0]!.contributor).toBeUndefined();
+    expect(nth(back, 0, 'the event read back').contributor).toBeUndefined();
     expect((back[0] as Record<string, unknown>).workspace_id).toBeUndefined(); // a storage column, never an event field
   });
 
@@ -154,18 +155,18 @@ describe('supabaseLedger', () => {
     const fake = fakeSupabase({ workspaces: workspaces(), ledger_events: [{ workspace_id: VERTUOZA, id: 'planet:88:charted', at: '2026-09-01T10:00:00+00:00', type: 'PLANET_CHARTED', planet: 88, region: null, contributor: null, team: null, data: {}, home: null }] });
     const ledger = supabaseLedger(restOn(fake), VERTUOZA);
     await ledger.append([ev('planet:acme/plan#88:charted', '2026-09-02T10:00:00Z', { type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' })]);
-    expect(fake.tables.ledger_events!.find((r) => r.id === 'planet:acme/plan#88:charted')!.home).toBe('acme/plan');
+    expect(present(present(fake.tables.ledger_events, 'ledger_events').find((r) => r.id === 'planet:acme/plan#88:charted'), 'the ledger row').home).toBe('acme/plan');
     const back = await ledger.read();
     expect(back.map((e) => [e.id, e.home])).toEqual([['planet:88:charted', undefined], ['planet:acme/plan#88:charted', 'acme/plan']]);
-    expect('home' in back[0]!).toBe(false);
+    expect('home' in nth(back, 0, 'the event read back')).toBe(false);
   });
 
   it('appends each row with its workspace, keyed by workspace and id', async () => {
     const fake = fakeSupabase({ workspaces: workspaces() });
     await supabaseLedger(restOn(fake), VERTUOZA).append([ev('a', '2026-09-01T10:00:00Z')]);
-    const post = fake.calls.find((c) => c.method === 'POST');
-    expect(post!.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
-    expect(post!.body).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, id: 'a' })]);
+    const post = present(fake.calls.find((c) => c.method === 'POST'), 'the post');
+    expect(post.url.searchParams.get('on_conflict')).toBe('workspace_id,id');
+    expect(post.body).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, id: 'a' })]);
   });
 
   it('holds one id in two workspaces, and reads back only its own', async () => {
@@ -188,9 +189,9 @@ describe('supabaseLedger', () => {
       ev('after', '2026-09-30T08:00:01Z'),
     ]);
     expect(appended.map((e) => e.id)).toEqual(['after']);
-    expect(fake.tables.ledger_events!.map((r) => r.id)).toEqual(['after']);
-    const read = fake.calls.find((c) => c.table === 'workspaces');
-    expect(read!.url.searchParams.get('id')).toBe(`eq.${VERTUOZA}`);
+    expect(present(fake.tables.ledger_events, 'ledger_events').map((r) => r.id)).toEqual(['after']);
+    const read = present(fake.calls.find((c) => c.table === 'workspaces'), 'the read');
+    expect(read.url.searchParams.get('id')).toBe(`eq.${VERTUOZA}`);
   });
 
   it('writes nothing when every event is before game_since', async () => {
@@ -245,9 +246,9 @@ describe('exportWorkspace', () => {
     expect(out.workspace).toEqual([workspaces()[0]]);
     for (const table of ['ledger_events', 'sectors', 'teams', 'players']) {
       expect(out[table]).toHaveLength(1);
-      expect((out[table]![0] as Record<string, unknown>).workspace_id).toBe(VERTUOZA);
+      expect((present(out[table], table)[0] as Record<string, unknown>).workspace_id).toBe(VERTUOZA);
     }
-    expect(out.players![0]).toMatchObject({ user_id: 'u1', display_name: 'ALICE', github_login: 'alice' });
+    expect(present(out.players, 'players')[0]).toMatchObject({ user_id: 'u1', display_name: 'ALICE', github_login: 'alice' });
     expect(JSON.stringify(out)).not.toContain(ACME);
   });
 

@@ -6,7 +6,7 @@ import type { KnowledgeView } from './access';
 // stubbed: crew is membership of a workspace, as in the arcade, never an email domain; the repository
 // menu offers the repositories of the crew's own workspaces, read through the App.
 const given = vi.hoisted(() => ({
-  mode: 'supabase' as 'demo' | 'closed' | 'supabase',
+  mode: 'supabase',
   user: null as null | { id: string; email: string },
   member: false,
   down: false,
@@ -14,23 +14,23 @@ const given = vi.hoisted(() => ({
   app: true,
 }));
 const loadKnowledge = vi.hoisted(() => vi.fn(() => given.graph));
-const memberGithub = vi.hoisted(() => vi.fn(async (_db: unknown, _id: string) => [{ slug: 'acme', github_org: 'acme', github_installation_id: 2 }]));
+const memberGithub = vi.hoisted(() => vi.fn<(db: unknown, id: string) => Promise<unknown[]>>(() => Promise.resolve([{ slug: 'acme', github_org: 'acme', github_installation_id: 2 }])));
 const reader = vi.hoisted(() => ({
-  installationFor: vi.fn(async (w: { github_installation_id: number | null }) => w.github_installation_id),
-  repos: vi.fn(async (_id: number) => ['acme/Anvils', 'acme/widgets']),
-  graph: vi.fn(async (_id: number, repo: string) => ({ version: 1 as const, repo, domains: [], entries: [], links: [], loose: [], unserved: [] })),
+  installationFor: vi.fn((w: { github_installation_id: number | null }) => Promise.resolve(w.github_installation_id)),
+  repos: vi.fn<(id: number) => Promise<string[]>>(() => Promise.resolve(['acme/Anvils', 'acme/widgets'])),
+  graph: vi.fn((_id: number, repo: string) => Promise.resolve({ version: 1 as const, repo, domains: [], entries: [], links: [], loose: [], unserved: [] })),
 }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
+  supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
 vi.mock('../data/workspace', () => ({
-  memberWorkspace: async () => {
-    if (given.down) throw new Error('Supabase: down');
-    return given.member ? { id: 'w1', slug: 'acme', name: 'Acme', theme: {} } : null;
+  memberWorkspace: () => {
+    if (given.down) return Promise.reject(new Error('Supabase: down'));
+    return Promise.resolve(given.member ? { id: 'w1', slug: 'acme', name: 'Acme', theme: {} } : null);
   },
   memberGithub,
 }));

@@ -20,7 +20,7 @@ const treeOf = (commit: string): string => createHash('sha1').update(`tree of ${
 
 export function fakeGitHub(world: World): { exec: Exec; calls: string[] } {
   const calls: string[] = [];
-  const exec: Exec = async (args) => {
+  const answer = (args: string[]): string => {
     calls.push(args.join(' '));
     const [verb, path = '', ...rest] = args;
     const match = verb === 'api' ? /^repos\/([^/]+\/[^/?]+)(\/[^?]*)?(?:\?(.*))?$/.exec(path) : null;
@@ -61,6 +61,8 @@ export function fakeGitHub(world: World): { exec: Exec; calls: string[] } {
     }
     throw new Error(`the fake gh does not know: ${args.join(' ')}`);
   };
+  // Answers at once, as an async function's body did; a call it does not know rejects.
+  const exec: Exec = (args) => new Promise((resolve) => { resolve(answer(args)); });
   return { exec, calls };
 }
 

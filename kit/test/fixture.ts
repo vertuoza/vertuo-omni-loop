@@ -73,15 +73,13 @@ export const realExec: FakeExec = (file, args, options) => execFileSync(file, ar
 /** What a fake `fetch` reads of a request: its method, its headers and its body. */
 export type FetchInit = { method?: string; headers: Record<string, string>; body?: string; signal?: AbortSignal | null };
 
-/** Where a test's command prints, and what it printed. */
-function io() {
-  const out: string[] = [];
-  const err: string[] = [];
-  return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
-}
-
-/** What `io()` hands a test. */
-export type Io = ReturnType<typeof io>;
+/** Where a test's command prints, and what it printed: each `write` pushes onto `out` or `err`. */
+export type Io = {
+  out: string[];
+  err: string[];
+  stdout: { write: (s: string) => number };
+  stderr: { write: (s: string) => number };
+};
 
 /** One slot's `<!-- slot: … -->` marker, fields in the order the parser reads them. */
 export function slotMarker({ id, required = false, by = null, verified = null }: SlotFixture): string {

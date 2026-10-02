@@ -4,6 +4,7 @@ import { makeMarkers } from '../markers.ts';
 import { renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox/settle.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { candidatesFromLedger, harvestCandidates, writtenBack, type Candidate } from './harvest.ts';
+import { assertDefined } from '../../test/assert.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -123,7 +124,8 @@ describe('candidatesFromLedger', () => {
       channelUrl: 'https://github.com/acme/widgets/pull/12',
       rank: 'medium',
     });
-    expect(twice.item!.sections.whatIHadToDecide).toBe('Whether s1-03-twice reads one file or two.');
+    assertDefined(twice.item, 'twice.item');
+    expect(twice.item.sections.whatIHadToDecide).toBe('Whether s1-03-twice reads one file or two.');
     expect(plain).toMatchObject({
       verdict: 'adopted',
       approvedBy: 'nobody',
@@ -163,7 +165,8 @@ describe('harvestCandidates', () => {
     });
     const candidates = harvestCandidates({ ctx, prd: 7 });
     expect(candidates.map((candidate) => candidate.id)).toEqual(['s1-03-twice', 's1-04-plain']);
-    expect(candidates[0]!.ledgerFile).toBe('.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md');
+    assertDefined(candidates[0], 'candidates[0]');
+    expect(candidates[0].ledgerFile).toBe('.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md');
   });
 
   it('is empty for a PRD with no folder or no ledger', () => {

@@ -152,7 +152,7 @@ function byRank(entries: readonly SettledEntry[]): Record<string, number> {
 /** Whether the feature PR merged carrying the override label; a finding when it did. */
 export function overrideFacts({ pr, config }: { pr: RetroPr; config: Config }): Part<{ label: string; mergedUnder: boolean }> {
   const label = config.labels.outboxGo;
-  const mergedUnder = (pr.labels ?? []).includes(label);
+  const mergedUnder = pr.labels.includes(label);
   const findings: Finding[] = mergedUnder
     ? [
         {
@@ -229,7 +229,7 @@ export function territoryFacts({ prd, config, subs, read }: { prd: RetroPrd; con
 
 /** "No slice table was found in this plan; its slices…" → "no slice table was found in this plan". */
 function firstClause(message: string): string {
-  const clause = (String(message).split(/;|\.(\s|$)/)[0] ?? '').trim();
+  const clause = (message.split(/;|\.(\s|$)/)[0] ?? '').trim();
   return clause.charAt(0).toLowerCase() + clause.slice(1);
 }
 
@@ -256,7 +256,7 @@ export function frictionFacts({ subs, read, config }: { subs: readonly Sub[]; re
     const added = records.needsFix ?? null;
     if (added === null) counts.eventsUnread += 1;
     if (added && added.length > 0) entry.needsFix.push(...added.map((at) => ({ pr: pull.number, at })));
-    else if (pull.labels?.includes(label)) entry.needsFix.push({ pr: pull.number, at: null });
+    else if (pull.labels.includes(label)) entry.needsFix.push({ pr: pull.number, at: null });
   }
 
   const all = [...slices.values()];

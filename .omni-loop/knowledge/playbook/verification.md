@@ -29,4 +29,12 @@ run `pnpm kit:build` and commit the bundle with it.
 
 ## Checks
 <!-- slot: checks · optional -->
-TODO(human): there is no lint script, and nothing runs the arcade's `typecheck` script (green here): not the preflight, not a workflow. Should the preflight run it?
+Beside the preflight, the `checks` workflow runs three more on a ready pull request into `main`,
+each its own job, and each must be green before a hand-off:
+
+- `pnpm typecheck`: `tsc` over the root project, then the arcade's own `typecheck` script.
+- `pnpm lint`: typescript-eslint's `strictTypeChecked` over every TypeScript file git tracks
+  (`eslint.config.ts`, PRD 976), failing on any finding at all; `pnpm lint <path>…` lints only the
+  files under those paths, the same way. An `eslint-disable` comment changes nothing, and
+  `scripts/typescript-guard.test.ts` refuses one: fix the finding in code.
+- `pnpm fallow:audit`: the audit of what the change touches.

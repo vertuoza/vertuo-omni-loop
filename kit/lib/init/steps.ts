@@ -10,6 +10,7 @@
 // `installedSteps` around the computer's lines: the steps already taken there are not repeated, and
 // an invaded one is pointed at `omni update` and `/omni:invade --refresh` instead of the forms.
 import { dirname } from 'node:path';
+import { at } from '../narrow.ts';
 import type { InstallPr } from './install-pr.ts';
 import type { Invasion } from './installed.ts';
 import type { LabelsResult } from './labels.ts';
@@ -97,7 +98,7 @@ export function setupLines({ slug, files, forms, settings, labels }: {
   settings: { path: string; outcome: StatusLineOutcome };
   labels: LabelsResult;
 }): string[] {
-  const dir = dirname(files[0]!.path); // ts-allow: init passes its files, never none
+  const dir = dirname(at(files, 0, 'the first file init wrote').path); // init passes its files, never none
   const lines = [`omni init — ${slug ?? 'this repository'} is set up.`];
   const width = Math.max(...files.map((file) => file.path.length));
   for (const { path, wrote } of files) {

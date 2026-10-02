@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { spritePixels } from '@omni/design';
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { Svg } from '../poster/Poster';
 import type { HighScores as Counts } from '../scores';
@@ -16,7 +17,7 @@ import './Game.css';
 // Controls flips a card on a click.
 
 // A card's art: its fleet's mascot. Every example fleet flies one (fleets.test.ts holds it).
-const artOf = (c: Card) => pixelSvg(spritePixels(c.mascot!, { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` });
+const artOf = (c: Card) => pixelSvg(spritePixels(defined(c.mascot, `${c.label}'s mascot`), { frame: 0 }), { scale: 2, title: `${c.label}'s mascot` });
 
 /** The three counters, in order: each label and the count it shows. */
 const scoreRows = (scores: Counts) => [

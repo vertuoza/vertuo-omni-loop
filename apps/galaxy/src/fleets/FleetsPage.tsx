@@ -36,18 +36,18 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
   };
 
   const on: FleetsHandlers = {
-    create: () => dispatch({ type: 'new' }),
-    edit: (name) => dispatch({ type: 'edit', name }),
-    change: (field, value) => dispatch({ type: 'change', field, value }),
-    cancel: () => dispatch({ type: 'cancel' }),
+    create: () => { dispatch({ type: 'new' }); },
+    edit: (name) => { dispatch({ type: 'edit', name }); },
+    change: (field, value) => { dispatch({ type: 'change', field, value }); },
+    cancel: () => { dispatch({ type: 'cancel' }); },
     save: () => {
       const draft = state.draft;
       if (!draft || state.busy) return;
       const { name, ...look } = draft;
       void run((p) => (name ? p.update(name, look) : p.create(look)));
     },
-    askRetire: (name) => dispatch({ type: 'ask-retire', name }),
-    keep: () => dispatch({ type: 'keep' }),
+    askRetire: (name) => { dispatch({ type: 'ask-retire', name }); },
+    keep: () => { dispatch({ type: 'keep' }); },
     retire: (name) => { if (!state.busy) void run((p) => p.retire(name)); },
     restore: (name) => { if (!state.busy) void run((p) => p.restore(name)); },
   };

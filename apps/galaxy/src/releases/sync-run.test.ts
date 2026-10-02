@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, it, expect } from 'vitest';
+import { z } from 'zod';
+import { settled } from '../stages/settled';
 import type { ReleaseRow } from './row';
 import { missingVariables, releasesSync, syncReleases } from './sync-run';
 import type { ReleasesTable } from './sync-table';
@@ -40,9 +42,9 @@ function checkout(files: Record<string, string>, date = '2026-09-28T11:15:00+02:
 function memoryTable(rows: ReleaseRow[], refuse: Partial<Record<keyof ReleasesTable, string>> = {}) {
   const written: string[] = [];
   const table: ReleasesTable = {
-    async rows() { if (refuse.rows) throw new Error(refuse.rows); return rows; },
-    async insert(list) { if (refuse.insert) throw new Error(refuse.insert); written.push(...list.map((r) => `insert ${r.prd} ${r.release}`)); },
-    async refresh(text) { if (refuse.refresh) throw new Error(refuse.refresh); written.push(`refresh ${text.prd}`); },
+    rows: () => settled(() => { if (refuse.rows) throw new Error(refuse.rows); return rows; }),
+    insert: (list) => settled(() => { if (refuse.insert) throw new Error(refuse.insert); written.push(...list.map((r) => `insert ${r.prd} ${r.release}`)); }),
+    refresh: (text) => settled(() => { if (refuse.refresh) throw new Error(refuse.refresh); written.push(`refresh ${text.prd}`); }),
   };
   return { table, written };
 }
@@ -147,7 +149,7 @@ describe('pnpm releases:sync', () => {
 
   it('is the root script that runs the sync, with the settings the game scripts read', async () => {
     const { readFileSync } = await import('node:fs');
-    const scripts = JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')).scripts;
+    const { scripts } = z.object({ scripts: z.record(z.string(), z.string()) }).parse(JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')));
     expect(scripts['releases:sync']).toBe('node --env-file-if-exists=apps/galaxy/.env.local apps/galaxy/scripts/releases-sync.ts');
   });
 

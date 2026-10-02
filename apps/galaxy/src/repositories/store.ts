@@ -56,20 +56,20 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
 export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort {
   let rows = [...initial];
   const find = (name: string) => rows.find((r) => r.fullName === name.trim().toLowerCase());
-  const change = async (fullName: string, to: Partial<RepositoryRow>): Promise<Saved> => {
+  const change = (fullName: string, to: Partial<RepositoryRow>): Promise<Saved> => {
     const kept = find(fullName);
-    if (!kept) return { ok: false, message: GONE };
+    if (!kept) return Promise.resolve({ ok: false, message: GONE });
     const repository = { ...kept, ...to };
     rows = rows.map((r) => (r === kept ? repository : r));
-    return { ok: true, repository };
+    return Promise.resolve({ ok: true, repository });
   };
   return {
-    async add(fullName) {
+    add(fullName) {
       const kept = find(fullName);
-      if (kept) return { ok: true, repository: kept };
+      if (kept) return Promise.resolve({ ok: true, repository: kept });
       const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, product: null };
       rows = [...rows, repository];
-      return { ok: true, repository };
+      return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setProduct: (fullName, product) => change(fullName, { product }),

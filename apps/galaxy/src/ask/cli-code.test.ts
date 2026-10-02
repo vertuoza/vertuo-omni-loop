@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import {
   CODE_TTL_MS,
   cliCallbackPath,
@@ -15,6 +16,13 @@ import {
   type TokenClient,
   type TokenDeps,
 } from './cli-code';
+import { present } from './test-item';
+
+// What an answer of the token exchange carries, checked as it is read; any other field is kept for the whole-body checks.
+const Token = z.looseObject({ error: z.string().optional(), refresh_token: z.string().optional(), workspace: z.unknown().optional() });
+// Any text, and any number, as fields of an expected body.
+const A_STRING: unknown = expect.any(String);
+const A_NUMBER: unknown = expect.any(Number);
 
 type Account = { id: string; email?: string | null; user_metadata?: { user_name?: string } };
 const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', user_metadata: { user_name: 'ada' } };
@@ -66,62 +74,65 @@ function world() {
 
   const client: TokenClient = {
     auth: {
-      async refreshSession({ refresh_token }) {
+      refreshSession({ refresh_token }) {
         calls.refresh.push(refresh_token);
-        if (state.authDown) return { data: { session: null }, error: { status: 503, message: 'upstream' } };
+        if (state.authDown) return Promise.resolve({ data: { session: null }, error: { status: 503, message: 'upstream' } });
         const account = refreshTokens.get(refresh_token);
-        if (!account) return { data: { session: null }, error: { status: 400, message: 'Invalid Refresh Token: Already Used' } };
+        if (!account) return Promise.resolve({ data: { session: null }, error: { status: 400, message: 'Invalid Refresh Token: Already Used' } });
         refreshTokens.delete(refresh_token);
-        return { data: { session: newSession(account) }, error: null };
+        return Promise.resolve({ data: { session: newSession(account) }, error: null });
       },
     },
-    async rpc(fn, args) {
-      if (state.rpcFails) return { data: null, error: { message: 'connection reset' } };
-      if (fn !== 'ask_cli_code_redeem') return { data: null, error: { message: `no function ${fn}` } };
-      const hash = String(args.p_code_hash);
+    // Any function name, as PostgREST takes one: the fake answers the one the contract calls.
+    rpc(fn: string, args: { p_code_hash: string }) {
+      if (state.rpcFails) return Promise.resolve({ data: null, error: { message: 'connection reset' } });
+      if (fn !== 'ask_cli_code_redeem') return Promise.resolve({ data: null, error: { message: `no function ${fn}` } });
+      const hash = args.p_code_hash;
       calls.redeem.push(hash);
       const row = codes.get(hash);
       codes.delete(hash);
-      return { data: row ? [row] : [], error: null };
+      return Promise.resolve({ data: row ? [row] : [], error: null });
     },
   };
 
   const callbackDeps: CliCallbackDeps = {
-    async exchange(code) {
+    exchange(code) {
       calls.exchange.push(code);
       const account = googleCodes.get(code);
       googleCodes.delete(code);
-      if (!account) return { session: null, error: { message: 'invalid flow state, no valid flow state found' } };
-      return { session: newSession(account), error: null };
+      if (!account) return Promise.resolve({ session: null, error: { message: 'invalid flow state, no valid flow state found' } });
+      return Promise.resolve({ session: newSession(account), error: null });
     },
-    async issue(session, codeHash) {
+    issue(session, codeHash) {
       calls.issue.push(codeHash);
-      if (state.issueFails) return { error: { message: 'permission denied' } };
-      if (outside.has(session.user.id)) return { error: { message: 'Sign in with an account of a workspace first.', code: '42501' } };
+      if (state.issueFails) return Promise.resolve({ error: { message: 'permission denied' } });
+      if (outside.has(session.user.id)) return Promise.resolve({ error: { message: 'Sign in with an account of a workspace first.', code: '42501' } });
       codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
-    async issueOutsideWorkspaces(session, codeHash) {
+    issueOutsideWorkspaces(session, codeHash) {
       calls.issue.push(`server:${codeHash}`);
       codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
-      return { error: null };
+      return Promise.resolve({ error: null });
     },
-    async revoke(session) {
+    revoke(session) {
       revoked.push(session.access_token);
+      return Promise.resolve();
     },
   };
 
   const tokenDeps: TokenDeps = {
     connect: () => client,
     now: () => clock.now,
-    async revoke(accessToken) {
+    revoke(accessToken) {
       revoked.push(accessToken);
+      return Promise.resolve();
     },
-    async place(userId, repo) {
+    place(userId, repo) {
       calls.place.push(`${userId} ${repo}`);
-      if (state.placeFails) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+      if (state.placeFails) return Promise.reject(new Error('SUPABASE_SERVICE_ROLE_KEY is not set'));
       const pick = places[userId]?.[repo] ?? { workspace_id: null, refusal: `no workspace owns ${repo} yet — install the Omni App` };
-      return { workspace: pick.workspace_id ? workspaces[pick.workspace_id]! : null, reason: pick.refusal };
+      return Promise.resolve({ workspace: pick.workspace_id ? present(workspaces[pick.workspace_id], 'workspaces[pick.workspace_id]') : null, reason: pick.refusal });
     },
     installLink: INSTALL,
   };
@@ -136,7 +147,7 @@ function world() {
   /** Signs `account` in and returns the one-time code the terminal receives. */
   async function codeFor(account: Account) {
     const back = await signIn(account);
-    return back.searchParams.get('code')!;
+    return present(back.searchParams.get('code'), 'back.searchParams.get(\'code\')');
   }
 
   const post = (body: unknown, headers: Record<string, string> = {}) =>
@@ -147,7 +158,7 @@ function world() {
     });
   const token = async (body: unknown, deps: TokenDeps = tokenDeps) => {
     const response = await exchangeToken(post(body), deps);
-    return { status: response.status, headers: response.headers, body: await response.json() };
+    return { status: response.status, headers: response.headers, body: Token.parse(await response.json()) };
   };
 
   return { clock, codes, revoked, calls, state, client, callbackDeps, tokenDeps, signIn, codeFor, newSession, token, post };
@@ -210,7 +221,7 @@ describe('the auth callback, for omni signin', () => {
     expect(back.origin).toBe('http://127.0.0.1:49152');
     expect(back.pathname).toBe('/callback');
     expect(back.searchParams.get('state')).toBe(STATE);
-    const code = back.searchParams.get('code')!;
+    const code = present(back.searchParams.get('code'), 'back.searchParams.get(\'code\')');
     expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
     // Stored hashed, bound to the account, for two minutes, with the terminal's own refresh token.
     expect([...w.codes.keys()]).toEqual([hashCode(code)]);
@@ -222,7 +233,7 @@ describe('the auth callback, for omni signin', () => {
     const w = world();
     const back = await w.signIn(EVE);
     expect(back.origin).toBe('http://127.0.0.1:49152');
-    const code = back.searchParams.get('code')!;
+    const code = present(back.searchParams.get('code'), 'back.searchParams.get(\'code\')');
     expect([...w.codes.keys()]).toEqual([hashCode(code)]);
     expect(w.codes.get(hashCode(code))?.owner).toBe(EVE.id);
     expect(w.revoked).toEqual([]);
@@ -232,7 +243,7 @@ describe('the auth callback, for omni signin', () => {
     const w = world();
     const back = await w.signIn(NED);
     expect(back.origin).toBe('http://127.0.0.1:49152');
-    const code = back.searchParams.get('code')!;
+    const code = present(back.searchParams.get('code'), 'back.searchParams.get(\'code\')');
     expect(w.codes.get(hashCode(code))?.owner).toBe(NED.id);
     expect(w.calls.issue).toEqual([hashCode(code), `server:${hashCode(code)}`]);
     expect(w.revoked).toEqual([]);
@@ -353,7 +364,7 @@ describe('POST /api/ask/token', () => {
     const code = await w.codeFor(EVE);
     const reply = await w.token({ code });
     expect(reply.status).toBe(200);
-    expect(reply.body).toMatchObject({ access_token: expect.any(String), refresh_token: expect.any(String), email: EVE.email });
+    expect(reply.body).toMatchObject({ access_token: A_STRING, refresh_token: A_STRING, email: EVE.email });
     expect(w.revoked).toEqual([]);
   });
 
@@ -383,7 +394,7 @@ describe('POST /api/ask/token', () => {
     const w = world();
     const reply = await w.token({ code: await w.codeFor(ADA), repo: 'globex/web' });
     expect(reply.status).toBe(200);
-    expect(reply.body).toMatchObject({ access_token: expect.any(String), login: 'ada', workspace: null, reason: 'you are not a member of Globex, which owns globex/web' });
+    expect(reply.body).toMatchObject({ access_token: A_STRING, login: 'ada', workspace: null, reason: 'you are not a member of Globex, which owns globex/web' });
     expect(w.revoked).toEqual([]);
   });
 
@@ -392,7 +403,7 @@ describe('POST /api/ask/token', () => {
     const reply = await w.token({ code: await w.codeFor(NED), repo: 'ned/tools' });
     expect(reply.status).toBe(200);
     expect(reply.body).toEqual({
-      access_token: expect.any(String), refresh_token: expect.any(String), expires_at: expect.any(Number),
+      access_token: A_STRING, refresh_token: A_STRING, expires_at: A_NUMBER,
       login: 'ned', workspace: null, reason: `no workspace owns ned/tools yet — install the Omni App: ${INSTALL}`,
     });
     expect(reply.body).not.toHaveProperty('email');

@@ -7,6 +7,7 @@
 // (synced_at), and the database keeps its first date. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { numberOf, textOf } from '../data/unparsed';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
 
 const STAGES_TABLE = 'prd_stages';
@@ -124,7 +125,7 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
         settle('read the stages', error);
         const page = data ?? [];
         for (const row of page) {
-          if (isStoredStage(row.stage)) rows.push({ repository: String(row.repository), prd: Number(row.prd), stage: row.stage });
+          if (isStoredStage(row.stage)) rows.push({ repository: textOf(row.repository), prd: numberOf(row.prd), stage: row.stage });
         }
         if (page.length < PAGE) break;
       }
@@ -139,7 +140,8 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
       const { data, error } = await db.from(TOPICS_TABLE).select('prd')
         .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('topic', topic).maybeSingle();
       settle(`find the PRD of topic ${topic}`, error);
-      const row = data;
+      // The row is read as PostgREST sent it: its PRD may be absent.
+      const row: { prd?: unknown } | null = data;
       return row && row.prd !== undefined && row.prd !== null ? Number(row.prd) : null;
     },
 

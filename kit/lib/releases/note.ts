@@ -72,7 +72,7 @@ const FORBIDDEN: readonly Forbidden[] = [
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), what: () => `a path under ${KIT_FOLDER}` },
 ];
 
-const characters = (text: string): number => [...text].length;
+const characters = (text: string): number => Array.from(text).length;
 
 function unquote(value: string): string {
   const trimmed = value.trim();

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { GAME_MODE } from '../switch/switch';
 import { MENU } from './menu';
 import { TopBar } from './TopBar';
+import { item } from '../ask/test-item';
 
 // The public bar (PRD 346, reshaped by PRD 438), on /docs and /releases only: the OMNI LOOP mark to
 // /app, the page's sub-title, the menu of Omni's own pages (Release notes, Docs: PRDs left it for the
@@ -13,7 +14,7 @@ import { TopBar } from './TopBar';
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const controls = (bar: string) =>
-  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]!));
+  [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(item(m, 2)));
 
 const render = (props: Parameters<typeof TopBar>[0]) => renderToStaticMarkup(createElement(TopBar, props));
 

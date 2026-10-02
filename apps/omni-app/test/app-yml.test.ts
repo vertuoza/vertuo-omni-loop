@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { z } from 'zod';
 import { HANDLED } from '../src/webhook/webhook.ts';
 
 // The GitHub App manifest the org admin registers the app from (PRD 28, "The app's manifest").
@@ -10,7 +11,16 @@ import { HANDLED } from '../src/webhook/webhook.ts';
 // `actions: read`; the events stay the same. PRD 359 makes the app public, so anyone can install it
 // and a workspace is born from the installation (its decision 4): `public: true` and a `setup_url`
 // at galaxy's `/signup/installed`, permissions and events unchanged.
-const manifest = parse(readFileSync(fileURLToPath(new URL('../app.yml', import.meta.url)), 'utf8'));
+// Read as far as these tests need it: every other key kept, for the last test to see.
+const Manifest = z.looseObject({
+  name: z.unknown(),
+  public: z.unknown(),
+  setup_url: z.string(),
+  default_permissions: z.unknown(),
+  default_events: z.array(z.string()),
+  hook_attributes: z.looseObject({ active: z.unknown(), url: z.string() }),
+});
+const manifest = Manifest.parse(parse(readFileSync(fileURLToPath(new URL('../app.yml', import.meta.url)), 'utf8')));
 
 describe('app.yml — the GitHub App manifest', () => {
   it('names the app omni-loop and makes it public: anyone can install it', () => {

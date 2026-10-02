@@ -9,6 +9,7 @@ import { parseOutboxItem } from '../../lib/outbox/outbox.ts';
 import { adoptItem } from '../../lib/outbox/settle.ts';
 import { inRoot, parseArgs, println, readUserFile, usageError, withPrdFolder } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 /** Whether `file` (absolute) sits inside `dir` (absolute) — itself does not count. */
 function isUnder(dir: string, file: string): boolean {
@@ -17,7 +18,7 @@ function isUnder(dir: string, file: string): boolean {
 }
 
 export const adopt: Command = {
-  async run(args: string[], { ctx, stdout, stderr }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
     const { positional } = parseArgs('adopt', args);
     const [path] = positional;
     if (positional.length !== 1 || path === undefined) throw usageError('usage: omni adopt <item-text-file>');
@@ -46,5 +47,5 @@ export const adopt: Command = {
       `omni adopt — ${result.item.id} adopted; appended to ${result.settledFile}; removed ${file}. Commit the append and the deletion together.`,
     );
     return 0;
-  },
+  }),
 };

@@ -1,6 +1,6 @@
 // The fleets wall on the canvas: the comic "hero select" wall the cards stand on. On the tall grid
 // the wall is the same one, cut to the 320×288 screen: its slabs and dots keep their size in grid px.
-import { heroSelectWall, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
+import { heroSelectWall, type Grid, type Pages, type SceneName } from './common.ts';
 
 /** `fleets` is laid out on the tall grid as well: the Game Boy held upright draws it there (grid.ts reads this list). */
 export const TALL_SCENES: readonly SceneName[] = ['fleets'];
@@ -32,6 +32,6 @@ export function cardsShown(grid: Grid, count: number, index: number): CardsShown
   return { from, to: from + (page < bigPages ? big : small), page, pages };
 }
 
-export function drawFleets(ctx: CanvasRenderingContext2D, s: FrameState) {
+export function drawFleets(ctx: CanvasRenderingContext2D) {
   heroSelectWall(ctx);
 }

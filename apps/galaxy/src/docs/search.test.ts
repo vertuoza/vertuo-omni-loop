@@ -2,6 +2,7 @@ import { initAdvancedSearch } from 'fumadocs-core/search/server';
 import { describe, expect, it } from 'vitest';
 import { guideSearchIndexes, searchIndexes, skillSearchIndexes, type GuideSearchPage } from './search';
 import { skillNames, type SkillEntry } from './skills';
+import { sure } from '../arcade/sure';
 
 // The docs' search index (PRD 580): the guide's pages and, beside them, one index per skill page, so
 // the search box finds /docs/skills/<name> by its slash command, its summary and its sentences.
@@ -34,8 +35,8 @@ describe('the skills in the search index', () => {
 
   it('carries the summary and the sentences, braces filled with generic words', () => {
     const [index] = skillSearchIndexes([skill('lone', 'a lone summary', 'Merges into {defaultBranch}. Never twice.')]);
-    expect(index!.description).toBe('a lone summary');
-    const text = index!.structuredData.contents.map((content) => content.content);
+    expect(sure(index, 'index').description).toBe('a lone summary');
+    const text = sure(index, 'index').structuredData.contents.map((content) => content.content);
     expect(text).toContain('a lone summary');
     expect(text).toContain('Merges into the default branch. Never twice.');
     expect(text).toContain('Use it when you want it.');

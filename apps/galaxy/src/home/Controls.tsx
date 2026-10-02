@@ -74,20 +74,84 @@ interface ClickAnswers {
 /** What a click on the page answers, or null when it is not HOME's to answer. */
 function clickAnswer(target: Element | null, answers: ClickAnswers): (() => void) | null {
   const change = target?.closest(`[${CHANGE_ATTR}]`);
-  if (change) return () => answers.change(change);
+  if (change) return () => { answers.change(change); };
   const button = target?.closest(`[${SIGN_UP_ATTR}]`);
-  if (button) return () => answers.signUp(button);
+  if (button) return () => { answers.signUp(button); };
   const pressed = target?.closest(`[${PRESS_START_ATTR}]`);
-  return pressed ? () => answers.pressStart(pressed) : null;
+  return pressed ? () => { answers.pressStart(pressed); } : null;
+}
+
+/** The element an event happened on, or null when it was not one. */
+const elementOf = (target: EventTarget | null): Element | null => (target instanceof Element ? target : null);
+
+/** Whether a key pressed on the page presses START: not while typing in a control. */
+function pressesStart(e: KeyboardEvent): boolean {
+  const { key, repeat, altKey, ctrlKey, metaKey, shiftKey } = e;
+  return startsOnKey({ key, repeat, altKey, ctrlKey, metaKey, shiftKey, inControl: Boolean(elementOf(e.target)?.closest(CONTROL)) });
+}
+
+/** What HOME's page listeners read and write: its refs, kept across renders, its answers and the cheat's switch. */
+interface PageRefs {
+  open: { readonly current: boolean };
+  opener: { current: Element | null };
+  answers: ClickAnswers;
+  start: (options?: { holdMs?: number; pick?: AppPick }) => void;
+  cheat: () => void;
+}
+
+/** A key on the page, while the overlay is closed: the cheat code starts the arcade, START's keys press START. */
+function onPageKey(e: KeyboardEvent, code: (key: string) => boolean, page: PageRefs): void {
+  if (page.open.current) return;
+  if (code(e.key)) {
+    page.cheat();
+    page.start({ holdMs: CHEAT_MS, pick: 'arcade' });
+    return;
+  }
+  if (!pressesStart(e)) return;
+  e.preventDefault();
+  page.opener.current = document.querySelector(`[${PRESS_START_ATTR}]`);
+  page.start();
+}
+
+/** A plain click on the page: a fleet card flips, and HOME's controls answer. */
+function onPageClick(e: MouseEvent, page: PageRefs): void {
+  if (!plainClick(e)) return;
+  const target = elementOf(e.target);
+  if (flipCard(target)) return;
+  const answer = clickAnswer(target, page.answers);
+  if (!answer) return;
+  e.preventDefault();
+  answer();
+}
+
+/**
+ * HOME's keyboard and click listeners, added once on mount and removed on unmount. They read `page`
+ * through a ref refreshed on each render: its answers only ever touch refs and state setters, so the
+ * first render's and the latest act alike, and the listeners never need adding again.
+ */
+function usePageListeners(page: PageRefs) {
+  const latest = useRef(page);
+  latest.current = page;
+  useEffect(() => {
+    const code = konami();
+    const onKey = (e: KeyboardEvent) => { onPageKey(e, code, latest.current); };
+    const onClick = (e: MouseEvent) => { onPageClick(e, latest.current); };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('click', onClick);
+    };
+  }, []);
 }
 
 /** PRESS START in the browser: the arcade's start sound, a real wait, a real page change. */
 function startPorts(open: () => void): StartPorts {
   return {
     storage: storage(),
-    playStart: () => play('start', false),
+    playStart: () => { play('start', false); },
     wait: (ms) => new Promise((done) => setTimeout(done, ms)),
-    go: (href) => window.location.assign(href),
+    go: (href) => { window.location.assign(href); },
     open,
   };
 }
@@ -170,7 +234,7 @@ export function Controls() {
       supabase: supabase(),
       origin: window.location.origin,
       start: startGithubSignIn,
-      go: (href) => window.location.assign(href),
+      go: (href) => { window.location.assign(href); },
     }, pick).then((failure) => {
       if (!failure) return;
       signingUp.current = false;
@@ -187,7 +251,7 @@ export function Controls() {
   const signUpClicked = (button: Element | null, answer: (ports: SignUpClickPorts) => void): boolean => {
     if (signingUp.current || open.current) return false;
     opener.current = button;
-    answer({ storage: storage(), open: openSelector, go: (pick) => go(pick, false) });
+    answer({ storage: storage(), open: openSelector, go: (pick) => { go(pick, false); } });
     return true;
   };
 
@@ -206,41 +270,7 @@ export function Controls() {
     setSlots([...document.querySelectorAll(`[${HINT_SLOT_ATTR}]`)]);
   }, []);
 
-  useEffect(() => {
-    const code = konami();
-
-    const onKey = (e: KeyboardEvent) => {
-      if (open.current) return;
-      if (code(e.key)) {
-        setCheat(true);
-        start({ holdMs: CHEAT_MS, pick: 'arcade' });
-        return;
-      }
-      const target = e.target instanceof Element ? e.target : null;
-      const { key, repeat, altKey, ctrlKey, metaKey, shiftKey } = e;
-      if (startsOnKey({ key, repeat, altKey, ctrlKey, metaKey, shiftKey, inControl: Boolean(target?.closest(CONTROL)) })) {
-        e.preventDefault();
-        opener.current = document.querySelector(`[${PRESS_START_ATTR}]`);
-        start();
-      }
-    };
-    const onClick = (e: MouseEvent) => {
-      if (!plainClick(e)) return;
-      const target = e.target instanceof Element ? e.target : null;
-      if (flipCard(target)) return;
-      const answer = clickAnswer(target, answers);
-      if (!answer) return;
-      e.preventDefault();
-      answer();
-    };
-
-    window.addEventListener('keydown', onKey);
-    document.addEventListener('click', onClick);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('click', onClick);
-    };
-  }, []);
+  usePageListeners({ open, opener, answers, start, cheat: () => { setCheat(true); } });
 
   const hint = hintLine(saved);
 
