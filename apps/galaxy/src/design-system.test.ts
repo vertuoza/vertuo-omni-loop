@@ -6,7 +6,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { COLOURS } from '@omni/design';
+import { sure } from './arcade/sure';
 import { TOKENS, type Token } from './arcade/theme';
 
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
@@ -26,14 +28,23 @@ function files(dir: string, ends: readonly string[]): string[] {
   });
 }
 
+// A package.json, read for its name and the packages it depends on.
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const;
+const Dependencies = z.record(z.string(), z.unknown()).optional();
+const Manifest = z.looseObject({
+  name: z.string().optional(),
+  dependencies: Dependencies, devDependencies: Dependencies, peerDependencies: Dependencies, optionalDependencies: Dependencies,
+});
+
 const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The colour custom properties a stylesheet declares on `:root`, as `--name: value`. */
 function rootColours(css: string): string[] {
-  const blocks = [...uncommented(css).matchAll(/:root\b[^{]*\{([^}]*)\}/g)].map(([, body]) => body);
-  return blocks.flatMap((body) => [...body!.matchAll(/(--[\w-]+)\s*:\s*([^;]+);?/g)]
-    .filter(([, , value]) => /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i.test(value!))
-    .map(([, name, value]) => `${name}: ${value!.trim()}`));
+  const blocks = [...uncommented(css).matchAll(/:root\b[^{]*\{([^}]*)\}/g)].map(([, body]) => sure(body, 'a :root block'));
+  return blocks.flatMap((body) => [...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);?/g)]
+    .map(([, name, value]) => [sure(name, 'a custom property'), sure(value, `the value of ${String(name)}`)] as const)
+    .filter(([, value]) => /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i.test(value))
+    .map(([name, value]) => `${name}: ${value.trim()}`));
 }
 
 /** Whether a source links or imports a font from Google Fonts. */
@@ -124,9 +135,8 @@ describe('the repository', () => {
 
     const manifests = [join(REPO, 'package.json'), ...roots.flatMap((root) => files(root, ['package.json']))];
     const depending = manifests.filter((path) => {
-      const pkg = JSON.parse(readFileSync(path, 'utf8'));
-      return ['name', 'dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
-        .some((key) => key === 'name' ? pkg.name === '@omni/sprites' : Object.hasOwn(pkg[key] ?? {}, '@omni/sprites'));
+      const pkg = Manifest.parse(JSON.parse(readFileSync(path, 'utf8')));
+      return pkg.name === '@omni/sprites' || DEPENDENCY_FIELDS.some((key) => Object.hasOwn(pkg[key] ?? {}, '@omni/sprites'));
     }).map((path) => relative(REPO, path));
     expect(depending).toEqual([]);
   });

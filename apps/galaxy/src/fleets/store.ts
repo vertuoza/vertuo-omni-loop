@@ -2,6 +2,7 @@ import { MASCOTS as LIBRARY } from '@omni/design';
 import { lookOf } from '@omni/galaxy';
 import { z } from 'zod';
 import type { FleetRow } from '../arcade/types';
+import { settled } from '../stages/settled';
 import { refusalOf, type Refusal } from './refusal';
 
 // /app/settings/fleets's four calls (PRD 400 s3). In production, the owner-only fleet functions of
@@ -100,31 +101,39 @@ export function demoFleetsPort(initial: FleetRow[]): FleetsPort {
   };
   const find = (name: string) => fleets.find((f) => f.name === name);
   return {
-    async create(input) {
-      const look = checked(input);
-      if ('ok' in look) return look;
-      if (!room()) return FULL();
-      const base = look.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'fleet';
-      let name = base;
-      for (let n = 2; find(name); n++) name = `${base}-${n}`;
-      const sort = Math.max(0, ...fleets.map((f) => f.sort)) + 10;
-      return put({ name, home: null, ...look, sort, retired: false });
+    create(input) {
+      return settled(() => {
+        const look = checked(input);
+        if ('ok' in look) return look;
+        if (!room()) return FULL();
+        const base = look.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'fleet';
+        let name = base;
+        for (let n = 2; find(name); n++) name = `${base}-${n}`;
+        const sort = Math.max(0, ...fleets.map((f) => f.sort)) + 10;
+        return put({ name, home: null, ...look, sort, retired: false });
+      });
     },
-    async update(name, input) {
-      const look = checked(input);
-      if ('ok' in look) return look;
-      const f = find(name);
-      return f ? put({ ...f, ...look }) : GONE;
+    update(name, input) {
+      return settled(() => {
+        const look = checked(input);
+        if ('ok' in look) return look;
+        const f = find(name);
+        return f ? put({ ...f, ...look }) : GONE;
+      });
     },
-    async retire(name) {
-      const f = find(name);
-      return f ? put({ ...f, retired: true }) : GONE;
+    retire(name) {
+      return settled(() => {
+        const f = find(name);
+        return f ? put({ ...f, retired: true }) : GONE;
+      });
     },
-    async restore(name) {
-      const f = find(name);
-      if (!f) return GONE;
-      if (!f.retired) return { ok: true, fleet: f };
-      return room() ? put({ ...f, retired: false }) : FULL();
+    restore(name) {
+      return settled(() => {
+        const f = find(name);
+        if (!f) return GONE;
+        if (!f.retired) return { ok: true, fleet: f };
+        return room() ? put({ ...f, retired: false }) : FULL();
+      });
     },
   };
 }

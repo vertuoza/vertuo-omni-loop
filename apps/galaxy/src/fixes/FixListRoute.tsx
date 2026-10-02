@@ -1,5 +1,6 @@
 import { Notice } from '../ask/page/Notice';
 import { arcadeMode } from '../data/mode';
+import { listOf } from '../data/unparsed';
 import { DEMO_VIEWER, demoHistory } from '../dossier/page/demo';
 import { DossierSignIn } from '../dossier/page/DossierSignIn';
 import { readHistory, type Db } from '../dossier/page/source';
@@ -88,7 +89,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
     login ? readLoginIds(fixes, login, async (workspace) => {
       const { data, error } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return listOf(data);
     }) : undefined,
   ]);
   return listing(rows, { id: user.id, login: loginOf(user) }, facts, people, whom);

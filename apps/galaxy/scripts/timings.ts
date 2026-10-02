@@ -10,6 +10,6 @@ process.exit(await timings(process.argv.slice(2), {
   fetch: (url, init) => fetch(url, init),
   readFile: (path) => readFileSync(path, 'utf8'),
   now: () => performance.now(),
-  out: (line) => console.log(line),
-  err: (line) => console.error(line),
+  out: (line) => { console.log(line); },
+  err: (line) => { console.error(line); },
 }));

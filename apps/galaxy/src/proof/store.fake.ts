@@ -6,6 +6,8 @@
 // caller reads and of a run not yet registered, as the bucket's insert rule says. That the database
 // holds those rules is proved against a real database, not here.
 import { proofPath, ProofStoreError, type ProofPublic, type ProofRunNew, type ProofRunRow, type ProofStore, isVerdict, PROOF_FILE_NAME } from './store';
+import { sure } from '../arcade/sure';
+import { settled } from '../stages/settled';
 
 export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: number };
 
@@ -38,60 +40,60 @@ export class FakeProofWorld {
 
   /** The Auth server's check and the store, as the account behind `token`. */
   client(token: string) {
-    const world = this;
     const who = this.accounts.get(token);
     const workspaces = who?.workspaces ?? [];
     const store: ProofStore = {
-      async dossierOf(repo, prd) {
-        return world.dossiers.find((d) => d.repo === repo.toLowerCase() && d.prd === prd && workspaces.includes(d.workspace))?.id ?? null;
-      },
-      async signUploads(dossierId, runId, names) {
-        if (!world.reads(workspaces, dossierId) || world.runs.some((r) => r.id === runId)) throw new Error('new row violates row-level security policy');
+      dossierOf: (repo, prd) => settled(() => this.dossiers.find((d) => d.repo === repo.toLowerCase() && d.prd === prd && workspaces.includes(d.workspace))?.id ?? null),
+      signUploads: (dossierId, runId, names) => settled(() => {
+        if (!this.reads(workspaces, dossierId) || this.runs.some((r) => r.id === runId)) throw new Error('new row violates row-level security policy');
         return names.map((name) => {
           const path = proofPath(dossierId, runId, name);
           return { name, path, url: `https://storage.test/upload/${path}?token=t` };
         });
-      },
-      async uploaded(dossierId, runId) {
-        if (!world.reads(workspaces, dossierId)) return [];
+      }),
+      uploaded: (dossierId, runId) => settled(() => {
+        if (!this.reads(workspaces, dossierId)) return [];
         const prefix = `${dossierId}/${runId}/`;
-        return [...world.files].filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length));
-      },
-      async register(run: ProofRunNew) {
+        return [...this.files].filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length));
+      }),
+      register: (run: ProofRunNew) => settled(() => {
         if (!who) throw new ProofStoreError('register the run', '42501', 'Sign in first.');
-        const dossier = world.reads(workspaces, run.dossierId);
+        const dossier = this.reads(workspaces, run.dossierId);
         if (!dossier) throw new ProofStoreError('register the run', 'P0002', 'No such dossier.');
-        if (world.runs.some((r) => r.id === run.id)) throw new ProofStoreError('register the run', '23505', 'This run is registered already.');
+        if (this.runs.some((r) => r.id === run.id)) throw new ProofStoreError('register the run', '23505', 'This run is registered already.');
         for (const c of run.criteria) {
           if (!isVerdict(c.verdict)) throw new ProofStoreError('register the run', '22023', `A verdict is pass, fail or unfilmable, not ${String(c.verdict)}.`);
         }
         const named = [...run.criteria.flatMap((c) => [c.video, c.script]), run.gif].filter((n): n is string => typeof n === 'string');
         for (const name of named) {
-          if (!PROOF_FILE_NAME.test(name) || !world.files.has(proofPath(run.dossierId, run.id, name))) {
+          if (!PROOF_FILE_NAME.test(name) || !this.files.has(proofPath(run.dossierId, run.id, name))) {
             throw new ProofStoreError('register the run', '22023', `${name} was not uploaded to this run.`);
           }
         }
-        world.clock += 1000;
-        world.runs.push({
+        this.clock += 1000;
+        this.runs.push({
           id: run.id, dossier_id: run.dossierId, commit_sha: run.commit, url: run.url, criteria: run.criteria, gif: run.gif,
-          created_by: who.id, created_at: new Date(world.clock).toISOString(), workspace: dossier.workspace,
+          created_by: who.id, created_at: new Date(this.clock).toISOString(), workspace: dossier.workspace,
         });
-      },
-      async runs(dossierId) {
-        return world.runs.filter((r) => r.dossier_id === dossierId && workspaces.includes(r.workspace))
+      }),
+      runs: (dossierId) => settled(() => {
+        return this.runs.filter((r) => r.dossier_id === dossierId && workspaces.includes(r.workspace))
           .sort((a, b) => b.created_at.localeCompare(a.created_at))
-          .map(({ workspace: _, ...row }) => row);
-      },
-      async links(paths, seconds) {
-        return paths.map((p) => (world.files.has(p) && world.reads(workspaces, p.split('/')[0]!) ? `https://storage.test/sign/${p}?ttl=${seconds}` : null));
-      },
+          .map((r) => ({
+            id: r.id, dossier_id: r.dossier_id, commit_sha: r.commit_sha, url: r.url, criteria: r.criteria, gif: r.gif,
+            created_by: r.created_by, created_at: r.created_at,
+          }));
+      }),
+      links: (paths, seconds) => settled(() => {
+        return paths.map((p) => (this.files.has(p) && this.reads(workspaces, sure(p.split('/')[0], 'the path\'s dossier')) ? `https://storage.test/sign/${p}?ttl=${seconds}` : null));
+      }),
     };
     return {
       auth: {
-        async getUser(jwt: string) {
-          const account = world.accounts.get(jwt);
+        getUser: (jwt: string) => settled(() => {
+          const account = this.accounts.get(jwt);
           return account ? { data: { user: { id: account.id } }, error: null } : { data: { user: null }, error: { status: 401, message: 'invalid' } };
-        },
+        }),
       },
       proofs: store,
     };
@@ -99,15 +101,12 @@ export class FakeProofWorld {
 
   /** The service role's view: every run, every file. */
   public(): ProofPublic {
-    const world = this;
     return {
-      async gifPath(runId) {
-        const run = world.runs.find((r) => r.id === runId);
+      gifPath: (runId) => settled(() => {
+        const run = this.runs.find((r) => r.id === runId);
         return run?.gif ? proofPath(run.dossier_id, run.id, run.gif) : null;
-      },
-      async link(path, seconds) {
-        return world.files.has(path) ? `https://storage.test/sign/${path}?ttl=${seconds}` : null;
-      },
+      }),
+      link: (path, seconds) => settled(() => this.files.has(path) ? `https://storage.test/sign/${path}?ttl=${seconds}` : null),
     };
   }
 }

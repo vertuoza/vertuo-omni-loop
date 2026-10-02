@@ -1,3 +1,4 @@
+import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { FleetRow } from '../arcade/types';
 import type { Refusal } from './refusal';
 
@@ -10,7 +11,7 @@ import type { Refusal } from './refusal';
 export const SWATCHES: readonly string[] = ['#d08a4a', '#b07cff', '#ffd84a', '#9aa3c8', '#2fc6a4', '#4fb0ff', '#ff6b8a', '#8bd450'];
 
 /** A new fleet's colour, before the owner picks one. */
-export const BLANK_COLOR = SWATCHES[0]!;
+export const BLANK_COLOR = at(SWATCHES, 0, 'the first swatch');
 
 /** A card's colour when the typed one is not (yet) a colour: the design's neutral, as lookOf's. */
 export const NEUTRAL = '#cfd4e6';

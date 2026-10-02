@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { sure } from '../arcade/sure';
 
 // The lazy loading guard (PRD 817): Phaser is about 350 KB gzipped, and only SUPER OMNI WORLD needs
 // it. It is fetched with a dynamic import('phaser') by the platformer's one way in
@@ -21,7 +22,7 @@ const STATIC = /(?:^|\n)\s*(import|export)\s+(type\s+)?(?:[^'";]*?\sfrom\s*)?['"
 /** The specifiers a file imports at run time. */
 export function runtimeImports(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(STATIC)) if (!m[2]) out.push(m[3]!);
+  for (const m of text.matchAll(STATIC)) if (!m[2]) out.push(sure(m[3], 'the import\'s specifier'));
   return out;
 }
 
@@ -32,7 +33,7 @@ export function importGraph(entries: string[], read: (file: string) => string | 
   const graph = new Map<string, string[]>();
   const todo = entries.map((e) => join(SRC, e));
   while (todo.length) {
-    const file = todo.pop()!;
+    const file = sure(todo.pop(), 'a file to read');
     if (graph.has(file)) continue;
     const text = read(file);
     if (text === null) continue;

@@ -82,7 +82,7 @@ export function readFixFilters(query: Query): FixFilters {
 }
 
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
-export const fixFiltered = ({ who: _who, ...rest }: FixFilters) => Object.keys(rest).length > 0;
+export const fixFiltered = (filters: FixFilters) => Object.keys(filters).some((key) => key !== 'who');
 
 /** The list's address for these filters: `repo`, `q`, then `who=all` for All or `who=<login>` (Mine is the default). */
 export function fixAddress(kind: FixKind, filters: FixFilters): string {

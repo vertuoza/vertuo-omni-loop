@@ -23,5 +23,5 @@
     "apps/galaxy/next.config.ts",
     "apps/galaxy/source.config.ts"
   ],
-  "ceiling": 297
+  "ceiling": 0
 }

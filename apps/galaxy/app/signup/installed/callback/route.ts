@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { requestOrigin } from '../../../../src/ask/page/sign-in';
 import type { SignedIn } from '../../../../src/data/sign-in';
 import { signInDeps } from '../../../../src/data/sign-in-live';
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
 
   const db = await supabaseServer();
   const { data, error } = await db.auth.exchangeCodeForSession(code);
-  const session = (data?.session as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
+  // The answer as it came: nothing parsed it, so one with no body reads as no session.
+  const session = (propertyOf(data, 'session') as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
   if (error || !session) {
     console.error(`sign-up: the sign-in could not be finished (${error?.message ?? 'no session'})`);
     return NextResponse.redirect(setupReturn({ kind: 'error', reason: 'github' }, origin));

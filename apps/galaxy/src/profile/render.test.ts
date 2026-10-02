@@ -7,6 +7,7 @@ import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow } from '../engineering/tally';
 import { profileOf, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
+import { sure } from '../arcade/sure';
 
 vi.mock('server-only', () => ({}));
 const { demoProfile } = await import('./profile');
@@ -71,7 +72,7 @@ const screen = (view: ProfileView, supabase: { url: string; key: string } | null
 describe('a member\'s profile', () => {
   it('heads with their face and name, @login to GitHub, their fleet and season place', () => {
     const html = screen(profile());
-    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toContain('ADA');
+    expect(sure(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/), 'the heading')[1]).toContain('ADA');
     expect(html).toContain('<a href="https://github.com/ada-gh">@ada-gh</a>');
     expect(text(html)).toContain('OCTO');
     expect(text(html)).toContain('#1 of 1 · September');

@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { previewGif, registerRun, requestUploads, type ProofDeps } from './api';
 import { FakeProofWorld } from './store.fake';
+import { sure } from '../arcade/sure';
+
+// The routes' answers, read as they came: the run and its signed links, or a refusal's words.
+const Links = z.looseObject({
+  run: z.string(),
+  files: z.array(z.looseObject({ name: z.string(), path: z.string(), url: z.unknown() })),
+});
+const Refusal = z.looseObject({ error: z.string() });
 
 const ORIGIN = 'https://omni.test';
 const DOSSIER = '00000000-0000-4000-8000-0000000000d1';
@@ -37,7 +46,7 @@ const GIF = { name: 'preview.gif', bytes: 400_000, type: 'image/gif' };
 async function uploadAll(files: Array<{ name: string; bytes: number; type: string }>): Promise<string> {
   const res = await uploads(files);
   expect(res.status).toBe(200);
-  const body = await res.json();
+  const body = Links.parse(await res.json());
   for (const f of body.files) world.put(f.path);
   return body.run;
 }
@@ -49,21 +58,21 @@ describe('POST /api/proofs/uploads', () => {
   it('gives one signed link per file, under a fresh run of the PRD\'s dossier', async () => {
     const res = await uploads([CLIP, SCRIPT, GIF]);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = Links.parse(await res.json());
     expect(body.run).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    expect(body.files.map((f: { name: string }) => f.name)).toEqual(['1-sign-in.webm', '1-sign-in.spec.ts', 'preview.gif']);
+    expect(body.files.map((f) => f.name)).toEqual(['1-sign-in.webm', '1-sign-in.spec.ts', 'preview.gif']);
     for (const f of body.files) {
       expect(f.path).toBe(`${DOSSIER}/${body.run}/${f.name}`);
       expect(typeof f.url).toBe('string');
     }
-    const again = await (await uploads([CLIP])).json();
+    const again = Links.parse(await (await uploads([CLIP])).json());
     expect(again.run).not.toBe(body.run);
   });
 
   it('refuses a type other than webm, gif or text (400), naming the file', async () => {
     const res = await uploads([{ name: 'clip.mp4', bytes: MB, type: 'video/mp4' }]);
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain('clip.mp4');
+    expect(Refusal.parse(await res.json()).error).toContain('clip.mp4');
   });
 
   it('refuses a name whose extension is not its type\'s (400)', async () => {
@@ -77,7 +86,7 @@ describe('POST /api/proofs/uploads', () => {
   it('refuses a file over 50 MB (413)', async () => {
     const res = await uploads([CLIP, { ...CLIP, name: 'big.webm', bytes: 60 * MB }]);
     expect(res.status).toBe(413);
-    expect((await res.json()).error).toContain('big.webm');
+    expect(Refusal.parse(await res.json()).error).toContain('big.webm');
     expect((await uploads([{ ...CLIP, bytes: 50 * MB }])).status).toBe(200);
   });
 
@@ -127,20 +136,20 @@ describe('POST /api/proofs', () => {
     expect(await res.json()).toEqual({ url: `${ORIGIN}/prd/${DOSSIER}?tab=proof` });
     expect(world.runs).toHaveLength(1);
     expect(world.runs[0]).toMatchObject({ id: run, dossier_id: DOSSIER, commit_sha: 'abc1234', url: 'https://preview.test', gif: 'preview.gif' });
-    expect(world.runs[0]!.criteria[1]).toEqual({ text: 'The config key is read', verdict: 'unfilmable', note: 'a config key, not a screen' });
+    expect(sure(world.runs[0], 'world.runs[0]').criteria[1]).toEqual({ text: 'The config key is read', verdict: 'unfilmable', note: 'a config key, not a screen' });
   });
 
   it('records no GIF when none was uploaded', async () => {
     const run = await uploadAll([CLIP]);
     expect((await register({ run, criteria: [{ text: 'x', verdict: 'fail', note: 'Expected 1', video: CLIP.name }] })).status).toBe(200);
-    expect(world.runs[0]!.gif).toBeNull();
+    expect(sure(world.runs[0], 'world.runs[0]').gif).toBeNull();
   });
 
   it('refuses a verdict other than pass, fail or unfilmable (400)', async () => {
     const run = await uploadAll([CLIP]);
     const res = await register({ run, criteria: [{ text: 'x', verdict: 'maybe' }] });
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain('verdict');
+    expect(Refusal.parse(await res.json()).error).toContain('verdict');
     expect(world.runs).toHaveLength(0);
   });
 
@@ -148,7 +157,7 @@ describe('POST /api/proofs', () => {
     const run = await uploadAll([CLIP]);
     const res = await register({ run, criteria: [{ text: 'x', verdict: 'pass', video: CLIP.name, script: '1-sign-in.spec.ts' }] });
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain('1-sign-in.spec.ts');
+    expect(Refusal.parse(await res.json()).error).toContain('1-sign-in.spec.ts');
     expect(world.runs).toHaveLength(0);
   });
 
