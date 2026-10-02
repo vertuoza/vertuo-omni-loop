@@ -412,3 +412,48 @@ Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, 
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## P-PRODUCT-48
+
+The app never offers a link that leads only to a page with nothing to show.
+
+Why: A click that ends on an empty 'not in this workspace' page wastes the person's time and reads as a broken link.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s1-01-chip-links-members-only, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-49
+
+A count that is a link opens exactly the items it counted, never a wider or different set.
+
+Why: A person who follows a number should see what that number described, so the count and the list never tell different stories.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s3-02-profile-stage-links, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-50
+
+Narrowing a list to a person means the same thing whoever that person is, you included.
+
+Why: A filter that changes meaning with the person chosen would make the same list tell different stories about the same work.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s4-01-prd-opener-rule, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-51
+
+A person's profile shows the work that actually moved in the chosen period, not only the work begun in it.
+
+Why: Long-running work that moves this week is part of the person's recent contribution, and it matches how the lists already sort by latest activity.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-01-profile-work-period-by-activity, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
+
+## P-PRODUCT-52
+
+A view about one workspace shows only that workspace's work; anything spanning more workspaces is reached deliberately.
+
+Why: So a workspace's profile stays consistent with its board and never mixes in work from other workspaces unasked.
+Source: .omni-loop/delivery/shipped/0698-person-profile/outbox/settled.md, entry s5-02-profile-work-one-workspace, PRD #698
+Merged: @pierrederval, 2026-09-29, PR #699
+Proposed: harvest 2026-09-29
