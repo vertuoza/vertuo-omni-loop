@@ -16,15 +16,15 @@ function fakeDb({ read = { data: [RIVAL], error: null }, pick = { data: RIVAL, e
   const db = {
     from: (table: string) => ({
       select: (columns: string) => ({
-        eq: async (column: string, value: string) => {
+        eq: (column: string, value: string) => {
           calls.push(['from', table, columns, column, value]);
-          return read;
+          return Promise.resolve(read);
         },
       }),
     }),
-    rpc: async (fn: string, args: unknown) => {
+    rpc: (fn: string, args: unknown) => {
       calls.push(['rpc', fn, args]);
-      return pick;
+      return Promise.resolve(pick);
     },
   };
   return { store: suggestStore(db as unknown as Parameters<typeof suggestStore>[0]), calls };

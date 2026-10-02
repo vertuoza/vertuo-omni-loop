@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DraftStoreError } from './run';
 import { draftStore } from './store';
+import { sure } from '../../arcade/sure';
 
 // The draft's store against a fake Supabase client: which function of the migration each write calls,
 // with which arguments, and a refusal carried with its code. Never Supabase itself.
@@ -48,7 +49,7 @@ describe('draftStore', () => {
     await store.progress('ws-1', 'd-1', { readmes: 1 } as never, [{ source: 'app · README.md', state: 'read' }]);
     await store.finish('ws-1', 'd-1', 'failed', {} as never, [], 'why');
     expect(rpcs.map(([fn]) => fn)).toEqual(['business_draft_start', 'business_draft_progress', 'business_draft_finish']);
-    expect(rpcs[2]![1]).toEqual({ p_workspace: 'ws-1', p_draft: 'd-1', p_state: 'failed', p_counts: {}, p_scanned: [], p_reason: 'why' });
+    expect(sure(rpcs[2], 'rpcs[2]')[1]).toEqual({ p_workspace: 'ws-1', p_draft: 'd-1', p_state: 'failed', p_counts: {}, p_scanned: [], p_reason: 'why' });
   });
 
   it('carries a refusal with its code', async () => {
@@ -63,6 +64,6 @@ describe('draftStore', () => {
     const store = draftStore(db);
     expect(await store.repositories('ws-1')).toEqual([{ full_name: 'acme/app', product_id: 'p-1' }]);
     expect(await store.firstProduct('ws-1')).toBe('p-1');
-    expect(reads[0]!.filters).toEqual([['workspace_id', 'ws-1'], ['tracked', true]]);
+    expect(sure(reads[0], 'reads[0]').filters).toEqual([['workspace_id', 'ws-1'], ['tracked', true]]);
   });
 });
