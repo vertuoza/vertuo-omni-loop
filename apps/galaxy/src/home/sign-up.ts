@@ -18,7 +18,7 @@ export const CALLBACK_PATH = '/auth/callback';
 export type AppPick = 'app' | 'arcade';
 
 /** The Omni app's own address, where its pick lands. */
-export const APP_HREF = '/app';
+const APP_HREF = '/app';
 
 export interface SignUpPorts {
   /** The galaxy's Supabase, as the browser reads it; null on the demo, which has none. */

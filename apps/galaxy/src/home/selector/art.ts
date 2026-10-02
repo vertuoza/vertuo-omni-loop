@@ -5,12 +5,12 @@ import { spritePixels } from '@omni/design';
 import { pixelSvg } from '../../design/pixel-svg';
 
 /** The Omni app's sprite: a two-tone `</>`, cyan on slate, no face and no animation. */
-export const CODE_MARK = 'code-mark' as const;
+const CODE_MARK = 'code-mark' as const;
 /** The Arcade's sprite: a cabinet with its marquee, screen, joystick and buttons. */
-export const CABINET = 'arcade-cabinet' as const;
+const CABINET = 'arcade-cabinet' as const;
 
 /** The scale each is drawn at, so the two stand about the same height on their pedestals. */
-export const SCALE = { [CODE_MARK]: 6, [CABINET]: 7 } as const;
+const SCALE = { [CODE_MARK]: 6, [CABINET]: 7 } as const;
 
 /** The `</>`, frame 0 only: the serious one never moves. */
 export function codeMarkSvg(): string {

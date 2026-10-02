@@ -12,6 +12,9 @@ import { PEDESTALS, STAT_CELLS } from './look';
 import { APPS, openSelector, step, type SelectorAction, type SelectorEffect } from './state';
 import './selector.css';
 
+/** The keys the selector's reducer answers. */
+const SELECT_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Enter', 'Escape']);
+
 export interface SelectorProps {
   /** Starts the sign-in with the pick; `save` when REMEMBER MY CHOICE was on. */
   onGo: (pick: AppPick, save: boolean) => void;
@@ -46,26 +49,33 @@ export function Selector({ onGo, onClose }: SelectorProps) {
     return next.state;
   };
 
+  // Tab and Shift+Tab cycle through the two pedestals and the toggle, never out of the dialog.
+  const cycleFocus = (back: boolean) => {
+    const order = [...APPS.map((pick) => slots.current[pick]), toggle.current].filter((el): el is HTMLButtonElement => Boolean(el));
+    const at = order.findIndex((el) => el === document.activeElement);
+    order[(at + (back ? -1 : 1) + order.length) % order.length]?.focus();
+  };
+
+  // ← → move the cursor and the focus with it; Enter picks; Esc closes.
+  const pressKey = (key: string, repeat: boolean) => {
+    if (repeat && key === 'Enter') return;
+    const next = apply({ type: 'key', key });
+    if (key !== 'Enter' && key !== 'Escape') slots.current[next.cursor]?.focus();
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // The overlay owns the keyboard while it is open: nothing reaches HOME's PRESS START keys.
     e.stopPropagation();
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.key === 'Tab') {
       e.preventDefault();
-      const order = [...APPS.map((pick) => slots.current[pick]), toggle.current].filter((el): el is HTMLButtonElement => Boolean(el));
-      const at = order.findIndex((el) => el === document.activeElement);
-      const next = order[(at + (e.shiftKey ? -1 : 1) + order.length) % order.length];
-      next?.focus();
+      cycleFocus(e.shiftKey);
       return;
     }
     // Enter on the toggle flips it, as a button does; anywhere else it picks the selected app.
-    if (e.key === 'Enter' && e.target === toggle.current) return;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === 'Escape') {
-      e.preventDefault();
-      if (e.repeat && e.key === 'Enter') return;
-      const next = apply({ type: 'key', key: e.key });
-      if (e.key !== 'Enter' && e.key !== 'Escape') slots.current[next.cursor]?.focus();
-    }
+    if (!SELECT_KEYS.has(e.key) || (e.key === 'Enter' && e.target === toggle.current)) return;
+    e.preventDefault();
+    pressKey(e.key, e.repeat);
   };
 
   return (
