@@ -33,7 +33,7 @@ export function SignInCard({ supabase, returnPath, error }: { supabase: Supabase
           GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
-        <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
+        <button type="button" className="ask-button" onClick={() => void signIn()} disabled={busy}>
           {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>
@@ -50,7 +50,7 @@ export function SwitchAccount({ supabase }: { supabase: Supabase }) {
     window.location.reload();
   }
   return (
-    <button type="button" className="ask-button quiet" onClick={switchAccount} disabled={busy}>
+    <button type="button" className="ask-button quiet" onClick={() => void switchAccount()} disabled={busy}>
       {busy ? 'Signing out…' : 'Sign in with another account'}
     </button>
   );

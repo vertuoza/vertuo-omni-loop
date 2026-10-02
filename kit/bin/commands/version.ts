@@ -7,15 +7,16 @@ import { latestRelease, versionLines } from '../../lib/version/version.ts';
 import type { RunningKit } from '../../lib/init/bundle.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 export const version = {
   withoutContext: true,
-  async run(args: string[], { stdout, exec, kit }: FreeIo & { kit?: RunningKit }) {
+  run: synchronous((args: string[], { stdout, exec, kit }: FreeIo & { kit?: RunningKit }): number => {
     const { positional } = parseArgs('version', args);
     if (positional.length) throw usageError('usage: omni version');
     const running = kit ?? runningKit({ exec });
     const latest = running.version ? latestRelease({ home: running.home, exec }) : null;
     for (const line of versionLines({ ...running, latest })) println(stdout, line);
     return 0;
-  },
+  }),
 } satisfies FreeCommand;

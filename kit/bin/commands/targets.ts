@@ -6,11 +6,12 @@ import { readTargets, targetsTable } from '../../lib/plan-repo/targets.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
+import { synchronous } from '../synchronous.ts';
 
 const USAGE = 'usage: omni targets [--json]';
 
 export const targets: Command = {
-  async run(args: string[], { ctx, stdout, exec, env }: CommandIo) {
+  run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('targets', args, { booleans: ['json'] });
     if (positional.length) throw usageError(USAGE);
     const plan = ctx.config.plan;
@@ -22,5 +23,5 @@ export const targets: Command = {
     if (flags.json) println(stdout, JSON.stringify(rows, null, 2));
     else for (const line of targetsTable(rows)) println(stdout, line);
     return rows.every((row) => row.state === 'ok') ? 0 : 1;
-  },
+  }),
 };

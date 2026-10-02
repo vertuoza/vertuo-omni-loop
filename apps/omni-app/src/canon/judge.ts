@@ -37,6 +37,9 @@ export function judgeUrl(env: Record<string, string | undefined> = process.env):
 
 const failed = (error: string, reason: string): JudgeAnswer => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason });
 
+/** Any value, as `String` prints it: a refusal's `error` line is whatever galaxy wrote. */
+const printed = (value: unknown) => String(value);
+
 /** What a thrown value says: its `message`, when it has one. */
 const messageOf = (error: unknown): unknown => (error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined);
 
@@ -47,7 +50,7 @@ export function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs =
   fetch?: (url: string, init: RequestInit) => Promise<Response>;
   timeoutMs?: number;
 }): Judge {
-  return async ({ repo, state, old, ref = null }) => {
+  return async ({ repo, state, old, ref }) => {
     if (!secret) return failed(JUDGE_NOT_CONFIGURED, `${JUDGE_SECRET_VAR} is not set`);
     const body = JSON.stringify({ repo, state, old, ref });
     let response: Response;
@@ -59,12 +62,12 @@ export function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs =
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      return failed('judge', `galaxy could not be reached: ${messageOf(error) ?? error}`);
+      return failed('judge', `galaxy could not be reached: ${String(messageOf(error) ?? error)}`);
     }
     const reply: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal = RefusalSchema.safeParse(reply);
-      const said = refusal.success && refusal.data.error ? `: ${refusal.data.error}` : '';
+      const said = refusal.success && refusal.data.error ? `: ${printed(refusal.data.error)}` : '';
       return failed('judge', `galaxy answered ${response.status}${said}`);
     }
     const verdict = VerdictSchema.safeParse(reply);

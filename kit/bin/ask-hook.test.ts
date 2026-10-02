@@ -7,9 +7,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../test/fake-ask-server.ts';
+import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { PROMPT_CONTEXT } from '../lib/ask/hook.ts';
 import { readMode, readRound, readTerminal, writeMode, writeRound, writeTerminal } from '../lib/ask/local-state.ts';
+import { dig, digText } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 import type { FakeAskServer } from '../test/fake-ask-server.ts';
@@ -48,18 +50,30 @@ function runCli(args: string[], { cwd, input = '', env = {} }: { cwd: string; in
     const child = execFile(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (error, stdout, stderr) => {
       resolve({ status: error ? error.code : 0, stdout, stderr });
     });
-    child.stdin!.end(input);
+    const { stdin } = child;
+    assertDefined(stdin, 'the child process stdin');
+    stdin.end(input);
   });
 }
 
 let server: FakeAskServer;
+/** Every server a test started, each closed after it: the next test starts its own. */
+const started: FakeAskServer[] = [];
 afterEach(async () => {
-  await server?.close();
-  server = undefined as unknown as FakeAskServer; // the next test starts its own
+  for (const running of started.splice(0)) await running.close();
 });
 
-async function modeOn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
+/** Starts the test's fake server, as `server`. */
+async function startServer(options: Parameters<typeof startFakeAskServer>[0] = {}) {
   server = await startFakeAskServer(options);
+  started.push(server);
+}
+
+/** The fake page answering each round with every question's first option. */
+const answerFirst = (round: unknown) => firstOptionAnswers(dig(round, 'questions'));
+
+async function modeOn(options: Parameters<typeof startFakeAskServer>[0] = {}) {
+  await startServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${server.url}\n` } });
   writeMode(repo.root, { host: server.host });
   const { id } = server.openSession('acme/widgets · main');
@@ -116,7 +130,7 @@ describe('omni ask hook, with the mode off', () => {
 
 describe('omni ask hook, with the mode on', () => {
   it('pre prints the page\'s answer as one line of hook output', async () => {
-    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await modeOn({ answer: answerFirst });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens })).toBe(0);
     expect(s.out.join('')).toBe(`${JSON.stringify({
@@ -130,7 +144,7 @@ describe('omni ask hook, with the mode on', () => {
   });
 
   it('pre sends where the question came from and what the session had cost, read from the config, git and the transcript', async () => {
-    const { root, write, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, write, tokens } = await modeOn({ answer: answerFirst });
     write('.omni-loop/config.yml', `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n`);
     write('.omni-loop/delivery/inbox/0144-question-history/spec.md', '# spec\n');
     spawnSync('git', ['checkout', '-q', '-b', 'feat/question-history--s1'], { cwd: root });
@@ -143,7 +157,7 @@ describe('omni ask hook, with the mode on', () => {
     const stdin = JSON.stringify({ ...JSON.parse(PRE), session_id: 'claude-7', transcript_path: transcript, cwd: root });
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin, tokens })).toBe(0);
     const [round] = server.rounds.values();
-    expect(round.context).toEqual({
+    expect(dig(round, 'context')).toEqual({
       repo: 'acme/widgets',
       branch: 'feat/question-history--s1',
       prd: 144,
@@ -155,7 +169,7 @@ describe('omni ask hook, with the mode on', () => {
   });
 
   it('pre sends the lead: only the text Claude wrote before asking, never tool input, tool output, thinking or a user message (PRD 752)', async () => {
-    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await modeOn({ answer: answerFirst });
     const transcript = join(root, 'transcript.jsonl');
     writeFileSync(transcript, [
       { type: 'user', message: { role: 'user', content: 'design it, the password is hunter2' } },
@@ -169,22 +183,25 @@ describe('omni ask hook, with the mode on', () => {
     const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: transcript, cwd: root });
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin, tokens })).toBe(0);
     const sent = server.calls.find((call) => call.path.endsWith('/rounds'));
-    expect(sent!.body.lead).toBe('## The design\n\nA lead and a fold.');
-    for (const word of ['hunter2', 'private reasoning', 'tool-input', 'tool output']) expect(JSON.stringify(sent!.body)).not.toContain(word);
-    expect([...server.rounds.values()][0].lead).toBe('## The design\n\nA lead and a fold.');
+    assertDefined(sent, 'the round posted');
+    expect(dig(sent.body, 'lead')).toBe('## The design\n\nA lead and a fold.');
+    for (const word of ['hunter2', 'private reasoning', 'tool-input', 'tool output']) expect(JSON.stringify(sent.body)).not.toContain(word);
+    expect(dig([...server.rounds.values()][0], 'lead')).toBe('## The design\n\nA lead and a fold.');
   });
 
   it('pre sends no lead, and still asks, when the transcript cannot be read', async () => {
-    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await modeOn({ answer: answerFirst });
     const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: join(root, 'gone.jsonl') });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin, tokens })).toBe(0);
-    expect(JSON.parse(s.out.join('')).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
-    expect(server.calls.find((call) => call.path.endsWith('/rounds'))!.body).not.toHaveProperty('lead');
+    expect(dig(JSON.parse(s.out.join('')), 'hookSpecificOutput', 'updatedInput', 'answers')).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    const posted = server.calls.find((call) => call.path.endsWith('/rounds'));
+    assertDefined(posted, 'the round posted');
+    expect(posted.body).not.toHaveProperty('lead');
   });
 
   it('a session open sends context.repo, read from the config', async () => {
-    server = await startFakeAskServer({ answer: (round) => firstOptionAnswers(round.questions) });
+    await startServer({ answer: answerFirst });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n` } });
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
     expect(await main(['ask', 'on'], { cwd: root, ...io(), tokens })).toBe(0);
@@ -192,18 +209,19 @@ describe('omni ask hook, with the mode on', () => {
     expect(server.calls.find((call) => call.path === '/api/ask/sessions')).toBeUndefined();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin: PRE, tokens })).toBe(0);
     const opened = server.calls.find((call) => call.path === '/api/ask/sessions');
-    expect(opened!.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
+    assertDefined(opened, 'the session opened');
+    expect(opened.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
   });
 
   it('pre still asks with nulls in the context when there is no transcript and HEAD is detached', async () => {
-    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await modeOn({ answer: answerFirst });
     spawnSync('git', ['checkout', '-q', '--detach'], { cwd: root });
     const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: join(root, 'gone.jsonl') });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin, tokens })).toBe(0);
-    expect(JSON.parse(s.out.join('')).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(dig(JSON.parse(s.out.join('')), 'hookSpecificOutput', 'updatedInput', 'answers')).toEqual({ [QUESTION.question]: 'System (Recommended)' });
     const [round] = server.rounds.values();
-    expect(round.context).toMatchObject({ branch: null, prd: null, skill: null, model: null, tokens: null });
+    expect(dig(round, 'context')).toMatchObject({ branch: null, prd: null, skill: null, model: null, tokens: null });
   });
 
   it('pre abandons the round and prints nothing when the page never answers', async () => {
@@ -211,7 +229,7 @@ describe('omni ask hook, with the mode on', () => {
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens, limits: { totalMs: 150, callMs: 1000 } })).toBe(0);
     expect(s.out).toEqual([]);
-    expect([...server.rounds.values()][0].status).toBe('abandoned');
+    expect(dig([...server.rounds.values()][0], 'status')).toBe('abandoned');
   });
 
   it('pre prints nothing within 2 s when the server is down', async () => {
@@ -226,7 +244,7 @@ describe('omni ask hook, with the mode on', () => {
 
   it('pre forgets only this terminal\'s session when it is closed, and the mode stays on', async () => {
     // The session closes while the hook waits on its round, the moment that round is posted.
-    const { root, tokens } = await modeOn({ answer: (round) => { setImmediate(() => server.closeSession(round.sessionId)); return null; } });
+    const { root, tokens } = await modeOn({ answer: (round: unknown) => { setImmediate(() => { server.closeSession(digText(round, 'sessionId')); }); return null; } });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens, limits: { totalMs: 2000, callMs: 1000 } })).toBe(0);
     expect(s.out).toEqual([]);
@@ -245,15 +263,17 @@ describe('omni ask hook, with the mode on', () => {
     expect(server.calls).toEqual([]);
     expect(readRound(root, 'toolu_01')).toBeNull();
 
-    const token = tokens.read(server.host)!.access_token;
-    const opened = await fetch(`${server.url}/api/ask/sessions/${sessionId}/rounds`, {
+    const signedIn = tokens.read(server.host);
+    assertDefined(signedIn, 'the sign-in');
+    const token = signedIn.access_token;
+    const opened: unknown = await fetch(`${server.url}/api/ask/sessions/${sessionId}/rounds`, {
       method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ questions: [QUESTION] }),
     }).then((response) => response.json());
-    writeRound(root, 'toolu_01', { roundId: opened.roundId, status: 'abandoned' });
+    writeRound(root, 'toolu_01', { roundId: digText(opened, 'roundId'), status: 'abandoned' });
     const s = io();
     expect(await main(['ask', 'hook', 'post'], { cwd: root, ...s, stdin: post, tokens })).toBe(0);
     expect(s.out).toEqual([]);
-    expect(server.rounds.get(opened.roundId)).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [QUESTION.question]: 'Dark' } });
+    expect(server.rounds.get(digText(opened, 'roundId'))).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [QUESTION.question]: 'Dark' } });
     expect(readRound(root, 'toolu_01')).toBeNull();
   });
 
@@ -264,8 +284,8 @@ describe('omni ask hook, with the mode on', () => {
     const s = io();
     expect(await main(['ask', 'hook', 'end'], { cwd: root, ...s, stdin: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: 'term-a', reason: 'exit' }), tokens })).toBe(0);
     expect(s.out).toEqual([]);
-    expect(server.sessions.get(sessionId).status).toBe('closed');
-    expect(server.sessions.get(other.id).status).toBe('open');
+    expect(dig(server.sessions.get(sessionId), 'status')).toBe('closed');
+    expect(dig(server.sessions.get(other.id), 'status')).toBe('open');
     expect(readTerminal(root, 'term-a')).toBeNull();
     expect(readTerminal(root, 'term-b')).toEqual({ sessionId: other.id, host: server.host });
   });
@@ -279,18 +299,18 @@ describe('omni ask hook, with the mode on', () => {
   });
 
   it('runs end to end as a process: stdin in, the sign-in read from the home folder, stdout out', async () => {
-    const { root } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root } = await modeOn({ answer: answerFirst });
     const home = mkdtempSync(join(tmpdir(), 'omni-home-'));
     mkdirSync(join(home, '.config', 'omni'), { recursive: true });
     writeFileSync(join(home, '.config', 'omni', 'credentials.json'), JSON.stringify({ [server.host]: { access_token: 'expired', refresh_token: 'refresh-1' } }));
     const run = await runCli(['ask', 'hook', 'pre'], { cwd: root, input: PRE, env: { HOME: home } });
     expect(run.stderr).toBe('');
     expect(run.status).toBe(0);
-    expect(JSON.parse(run.stdout).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(dig(JSON.parse(run.stdout), 'hookSpecificOutput', 'updatedInput', 'answers')).toEqual({ [QUESTION.question]: 'System (Recommended)' });
     // The expired token was refreshed once, and the new one kept.
     expect(server.calls.filter((call) => call.path === '/api/ask/token')).toHaveLength(1);
-    const kept = JSON.parse(readFileSync(join(home, '.config', 'omni', 'credentials.json'), 'utf8'));
-    expect(kept[server.host].access_token).toBe('access-2');
+    const kept: unknown = JSON.parse(readFileSync(join(home, '.config', 'omni', 'credentials.json'), 'utf8'));
+    expect(dig(kept, server.host, 'access_token')).toBe('access-2');
   });
 });
 
@@ -304,31 +324,44 @@ describe('omni ask usage', () => {
   });
 });
 
+/** One hook of the plugin's hooks.json, with its entry's matcher. */
+type Hook = { matcher?: string | undefined; type: string; command: string; timeout?: number };
+/** The plugin's hooks.json: each event's entries, each holding its hooks. */
+type HooksFile = { hooks: Record<string, { matcher?: string; hooks: Omit<Hook, 'matcher'>[] }[]> };
+
 describe('the plugin\'s hooks.json', () => {
-  const hooks = JSON.parse(readFileSync(HOOKS, 'utf8')).hooks;
+  const { hooks } = JSON.parse(readFileSync(HOOKS, 'utf8')) as HooksFile;
   /** The event's hooks, each with its entry's matcher, in order. */
-  const all = (event: string) => hooks[event].flatMap((entry: { matcher?: string; hooks: Record<string, unknown>[] }) => {
+  const all = (event: string): Hook[] => (hooks[event] ?? []).map((entry) => {
     expect(entry.hooks).toHaveLength(1);
-    return [{ matcher: entry.matcher, ...entry.hooks[0] }];
+    const [hook] = entry.hooks;
+    assertDefined(hook, `the ${event} hook`);
+    return { matcher: entry.matcher, ...hook };
   });
+  /** The event's first hook. */
+  const first = (event: string): Hook => {
+    const [hook] = all(event);
+    assertDefined(hook, `the ${event} hook`);
+    return hook;
+  };
   const only = (event: string) => {
     expect(hooks[event]).toHaveLength(1);
-    return all(event)[0];
+    return first(event);
   };
 
   it('wires PreToolUse and PostToolUse on AskUserQuestion, UserPromptSubmit and SessionEnd', () => {
     expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'SessionEnd', 'SessionStart', 'UserPromptSubmit']);
     const pre = only('PreToolUse');
-    const [post] = all('PostToolUse');
+    const post = first('PostToolUse');
     const prompt = only('UserPromptSubmit');
-    const [end] = all('SessionEnd');
+    const end = first('SessionEnd');
     expect(pre).toMatchObject({ matcher: 'AskUserQuestion', type: 'command', timeout: 600 });
     expect(post).toMatchObject({ matcher: 'AskUserQuestion', type: 'command' });
     expect(prompt).toMatchObject({ type: 'command' });
     expect(prompt.matcher).toBeUndefined();
     expect(end).toMatchObject({ type: 'command' });
     expect(end.matcher).toBeUndefined();
-    for (const [kind, hook] of [['pre', pre], ['post', post], ['prompt', prompt], ['end', end]]) {
+    for (const [kind, hook] of [['pre', pre], ['post', post], ['prompt', prompt], ['end', end]] as const) {
       expect(hook.command).toMatch(new RegExp(`^node "\\$CLAUDE_PROJECT_DIR/\\.omni-loop/bin/omni\\.mjs" ask hook ${kind}\\b`));
     }
   });
@@ -340,7 +373,7 @@ describe('the plugin\'s hooks.json', () => {
     expect(end).toHaveLength(2);
     expect(post[1]).toMatchObject({ matcher: '*', type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat || true' });
     expect(end[1]).toMatchObject({ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat --end || true' });
-    expect(end[1].matcher).toBeUndefined();
+    expect(end[1]?.matcher).toBeUndefined();
     for (const hook of [...post, ...end]) expect(hook.command.endsWith(' || true')).toBe(true);
   });
 
@@ -348,7 +381,7 @@ describe('the plugin\'s hooks.json', () => {
     const withoutKit = makeRepo({ git: true });
     const oldKit = makeRepo({ git: true, files: { '.omni-loop/bin/omni.mjs': 'process.stderr.write("usage: omni <command>\\n"); process.exit(2);\n' } });
     const cases = [withoutKit, oldKit].flatMap(({ root }) =>
-      Object.keys(hooks).flatMap((event) => all(event).map(({ command }: { command: string }) => ({ root, event, command }))));
+      Object.keys(hooks).flatMap((event) => all(event).map(({ command }) => ({ root, event, command }))));
     const input = join(mkdtempSync(join(tmpdir(), 'omni-hook-input-')), 'pre.json');
     writeFileSync(input, PRE);
     // One shell runs every hook command, each in its checkout with PRE on its stdin, between two markers
@@ -364,12 +397,13 @@ describe('the plugin\'s hooks.json', () => {
     cases.forEach(({ event, command }, index) => {
       const ran = new RegExp(`\\n@@${index}@@\\n([\\s\\S]*?)\\n@@${index}:(\\d+)@@\\n`).exec(run.stdout);
       expect(ran, command).not.toBeNull();
-      expect({ event, command, status: Number(ran![2]), stdout: ran![1] }).toEqual({ event, command, status: 0, stdout: '' });
+      assertDefined(ran, command);
+      expect({ event, command, status: Number(ran[2]), stdout: ran[1] }).toEqual({ event, command, status: 0, stdout: '' });
     });
   });
 
   it('runs the checkout\'s own omni', async () => {
-    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const { root, tokens } = await modeOn({ answer: answerFirst });
     const shim = `import { main } from ${JSON.stringify(CLI)};\nmain(process.argv.slice(2)).then((code) => process.exit(code));\n`;
     mkdirSync(join(root, '.omni-loop', 'bin'), { recursive: true });
     writeFileSync(join(root, '.omni-loop', 'bin', 'omni.mjs'), shim);
@@ -379,10 +413,14 @@ describe('the plugin\'s hooks.json', () => {
     const { command } = only('UserPromptSubmit');
     const run = await new Promise<Omit<CliRun, 'stderr'>>((resolve) => {
       const child = execFile('sh', ['-c', command], { cwd: root, env: { ...process.env, HOME: home, CLAUDE_PROJECT_DIR: root }, encoding: 'utf8' },
-        (error, stdout) => resolve({ status: error ? error.code : 0, stdout }));
-      child.stdin!.end('{"prompt":"hi"}');
+        (error, stdout) => {
+          resolve({ status: error ? error.code : 0, stdout });
+        });
+      const { stdin } = child;
+      assertDefined(stdin, 'the child process stdin');
+      stdin.end('{"prompt":"hi"}');
     });
     expect(run.status).toBe(0);
-    expect(JSON.parse(run.stdout).hookSpecificOutput.additionalContext).toBe(PROMPT_CONTEXT);
+    expect(dig(JSON.parse(run.stdout), 'hookSpecificOutput', 'additionalContext')).toBe(PROMPT_CONTEXT);
   });
 });

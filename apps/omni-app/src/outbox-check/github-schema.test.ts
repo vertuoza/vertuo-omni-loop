@@ -4,7 +4,7 @@ import { readIssue } from '../inbox-check/github.ts';
 import { readPull } from './github.ts';
 import { messageOf, statusOf } from './github-schema.ts';
 
-const answering = (data: unknown) => ({ request: async () => ({ data }) });
+const answering = (data: unknown) => ({ request: () => Promise.resolve({ data }) });
 const WHERE = { owner: 'acme', repo: 'widgets' };
 
 describe('github-schema — a GitHub answer of another shape fails by the name of its field', () => {

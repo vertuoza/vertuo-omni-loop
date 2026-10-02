@@ -158,6 +158,9 @@ function describe(error: unknown): string {
   const { errors, message: said, status } = failure.success ? failure.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(': ');
-  const message = String(said ?? error ?? 'unknown error').split('\n')[0] ?? '';
-  return status ? `HTTP ${status}: ${message}` : message;
+  const message = printed(said ?? error ?? 'unknown error').split('\n')[0] ?? '';
+  return status ? `HTTP ${printed(status)}: ${message}` : message;
 }
+
+/** Any value, as `String` prints it: a failure says whatever GitHub or the network threw. */
+const printed = (value: unknown) => String(value);

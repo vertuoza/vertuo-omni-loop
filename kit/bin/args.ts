@@ -2,7 +2,7 @@
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
+import { at, isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
 import type { Out } from './io.ts';
 
 export function usageError(message: string): Error {
@@ -25,7 +25,7 @@ export function parseArgs<V extends string = never, B extends string = never>(
   const positional: string[] = [];
   const flags: Record<string, string | true> = {};
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index]!; // ts-allow: index stays below argv.length
+    const arg = at(argv, index, 'the argument');
     if (!arg.startsWith('--')) {
       positional.push(arg);
       continue;
@@ -51,7 +51,7 @@ const DIGITS = /^\d+$/;
  * "0x10" or " 16" are refused rather than read as another number (bug #571). */
 export function positiveInt(command: string, what: string, value: string | true | undefined): number {
   const number = Number(value);
-  if (value === undefined || value === true || !DIGITS.test(String(value)) || number <= 0) {
+  if (value === undefined || value === true || !DIGITS.test(value) || number <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === undefined ? '' : `, got "${value}"`}.`);
   }
   return number;
