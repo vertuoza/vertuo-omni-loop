@@ -12,7 +12,6 @@
 // the rounds' sessions and the shares the viewer reads (PRD 144's rule: the session's owner, or a
 // member the round is shared with); the database's own rule still refuses anyone else.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../../supabase/database.types.ts';
 import { readMembers, sendAnswers } from '../../ask/page/source';
 import { askShares } from '../../ask/store';
 import { loadPeople } from '../../people/load';
@@ -80,7 +79,7 @@ export async function readDossier(db: Db, id: string, me: string | null = null):
   if (!dossier) return null;
   const [versions, members, rounds, repos, people] = await Promise.all([
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
-    loadPeople(db as SupabaseClient<Database>, dossier.workspace_id), // ts-allow: loadPeople reads only `from` and `rpc`, the two members a Db has
+    loadPeople(db, dossier.workspace_id),
   ]);
   return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me), people };
 }

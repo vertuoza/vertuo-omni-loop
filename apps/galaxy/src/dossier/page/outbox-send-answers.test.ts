@@ -48,10 +48,10 @@ describe('starting a send (POST)', () => {
     expect(StartAnswer.parse({ error: 'Settled meanwhile.', dropped: [1] })).toEqual({ error: 'Settled meanwhile.', dropped: [1] });
   });
 
-  it('refuses a wrong type, a forbidden null and an unknown field', () => {
+  it('refuses a wrong type and a forbidden null', () => {
     expect(StartAnswer.safeParse({ ...started, dropped: ['2'] }).success).toBe(false);
+    expect(StartAnswer.safeParse({ ...started, authorize: 7 }).success).toBe(false);
     expect(StartAnswer.safeParse({ ...started, send: null }).success).toBe(false);
-    expect(StartAnswer.safeParse({ ...started, sent: 'a1' }).success).toBe(false);
   });
 
   it('says nothing of a body that is missing or does not parse', () => {

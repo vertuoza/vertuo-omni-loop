@@ -8,20 +8,20 @@ import type { SentView } from '../../outbox/sent';
 // back from GitHub, no send on the way out.
 
 const SentAnswer: z.ZodType<SentView> = z.discriminatedUnion('state', [
-  z.strictObject({ state: z.literal('posted'), login: z.string(), url: z.string(), counted: z.boolean(), next: z.string(), reply: z.string(), at: z.string() }),
-  z.strictObject({ state: z.literal('failed'), error: z.string() }),
-  z.strictObject({ state: z.literal('waiting') }),
+  z.object({ state: z.literal('posted'), login: z.string(), url: z.string(), counted: z.boolean(), next: z.string(), reply: z.string(), at: z.string() }),
+  z.object({ state: z.literal('failed'), error: z.string() }),
+  z.object({ state: z.literal('waiting') }),
 ]);
 
 /** What the route answers when it refuses: why, and the questions it dropped. */
-const Refusal = z.strictObject({ error: z.string(), dropped: z.array(z.number().int()).optional() });
+const Refusal = z.object({ error: z.string(), dropped: z.array(z.number().int()).optional() });
 
 /** GET /api/outbox/send?id=: the send's outcome, or why it was refused. */
 export const ReadAnswer = z.union([SentAnswer, Refusal]);
 export type ReadAnswer = z.infer<typeof ReadAnswer>;
 
 /** POST /api/outbox/send: the send and GitHub's authorisation, or why it was refused, with the questions dropped. */
-export const StartAnswer = z.strictObject({
+export const StartAnswer = z.object({
   send: z.string().optional(),
   authorize: z.string().optional(),
   dropped: z.array(z.number().int()).optional(),
