@@ -4,6 +4,7 @@ import { after } from 'next/server';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { serviceDb } from '../../data/sign-in-live';
 import { supabaseEnv } from '../../data/supabase-server';
+import { serverEnv, type ArcadeEnv } from '../../env';
 import { jevDecideDeps } from '../../jev/resolve-live';
 import { judgeQuestion, questionJudge } from '../questions/jev';
 import type { McpDeps } from './server';
@@ -18,7 +19,7 @@ import type { McpDeps } from './server';
 // link names its workspace through the anon client, the service role reads only Jev's settings and key, and
 // without a key (or Off) nothing else runs and the question stays open for a person. Without
 // SUPABASE_SERVICE_ROLE_KEY no Jev decision runs at all, as for every Jev decision.
-export function mcpDeps(env: Record<string, string | undefined> = process.env): McpDeps {
+export function mcpDeps(env: Pick<ArcadeEnv, 'supabase' | 'serviceRole' | 'secretsMasterKey'> = serverEnv()): McpDeps {
   const supabase = supabaseEnv();
   if (!supabase) return { connect: null };
   const connect = () => createClient<Database>(supabase.url, supabase.key, {

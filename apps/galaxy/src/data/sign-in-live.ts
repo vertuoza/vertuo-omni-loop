@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { serverEnv } from '../env';
 import { appCredentials, githubApp } from '../signup/github-app';
 import type { SignupDeps } from '../signup/installation';
 import { signupStore } from '../signup/store';
@@ -17,8 +18,9 @@ import { joinByGithub } from './workspace';
 
 /** The service role's client. Throws when this deployment has no service role key. */
 export function serviceDb() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { supabase, serviceRole } = serverEnv();
+  const url = supabase?.url;
+  const key = serviceRole?.key;
   if (!url || !key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set on this deployment: nobody joins by GitHub org');
   return createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 }

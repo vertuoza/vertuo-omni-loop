@@ -58,10 +58,8 @@ describe('readEnv, the arcade server\'s environment', () => {
 
   it('refuses a half-set pair, naming both variables', () => {
     const error = thrown({ NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co' });
-    expect(error.problems).toEqual([{
-      variables: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'],
-      reason: expect.stringContaining('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set while NEXT_PUBLIC_SUPABASE_URL is'),
-    }]);
+    expect(error.problems.map((problem) => problem.variables)).toEqual([['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']]);
+    expect(error.message).toContain('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set while NEXT_PUBLIC_SUPABASE_URL is');
     expect(thrown({ GITHUB_APP_CLIENT_ID: 'Iv1' }).message).toContain('GITHUB_APP_CLIENT_SECRET is not set');
     expect(thrown({ GITHUB_APP_PRIVATE_KEY: FAKE_SECRET }).message).toContain('GITHUB_APP_ID is not set');
   });

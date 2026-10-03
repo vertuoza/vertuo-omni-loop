@@ -5,7 +5,7 @@ import type { FixSummary } from '../github/fix';
 import { mergeFacts } from '../../fixes/facts/refresh';
 import { fixFactsStore } from '../../fixes/facts/store';
 import { Notice } from '../../ask/page/Notice';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
@@ -176,7 +176,7 @@ function DraftDeleted() {
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') return demoPage(route, id, query, pick);
   const session = await dossierSession(mode);

@@ -1,5 +1,5 @@
 import 'server-only';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { DEMO_MEMBERS, demoHistory } from './demo';
 import type { Member } from './question';
 import { readAsSignedIn, sessionsMembers, type NotRead } from './signed-in-live';
@@ -13,7 +13,7 @@ import type { HistoryRow } from './workspace-history';
 export type HistoryRead = { kind: 'rows'; rows: HistoryRow[]; members: Member[] } | NotRead;
 
 export async function readHistoryLive(now: number): Promise<HistoryRead> {
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   if (mode === 'demo') return { kind: 'rows', rows: demoHistory(now), members: DEMO_MEMBERS };
   return readAsSignedIn(mode, async (db): Promise<HistoryRead> => {
     const rows = await readHistory(db);

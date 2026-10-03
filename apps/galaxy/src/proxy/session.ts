@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // Keeps the Supabase session fresh before a page renders (proxy.ts): an expired access token is
 // refreshed here, and the new cookies go both to the render (request) and to the browser (response).
@@ -38,7 +39,5 @@ export async function refreshSession(
 
 /** The database's public settings, or null for the demo galaxy. */
 export function sessionEnv(): SessionEnv | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+  return serverEnv().supabase;
 }

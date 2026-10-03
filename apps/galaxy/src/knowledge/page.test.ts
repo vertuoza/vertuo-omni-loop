@@ -22,7 +22,10 @@ const reader = vi.hoisted(() => ({
 }));
 
 vi.mock('server-only', () => ({}));
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),

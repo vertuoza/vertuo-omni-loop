@@ -20,7 +20,10 @@ vi.mock('server-only', () => ({}));
 
 const A_DATE: unknown = expect.any(Date);
 const A_404: unknown = expect.stringContaining('404');
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: () => Promise.resolve({ auth: { getClaims } }),

@@ -57,17 +57,17 @@ describe('sealSecret and openSecret', () => {
 describe('masterKey', () => {
   it('reads SECRETS_MASTER_KEY as 32 bytes of base64', () => {
     expect(MASTER_KEY_VAR).toBe('SECRETS_MASTER_KEY');
-    expect(masterKey({ SECRETS_MASTER_KEY: MASTER.toString('base64') })?.equals(MASTER)).toBe(true);
+    expect(masterKey(MASTER.toString('base64'))?.equals(MASTER)).toBe(true);
   });
 
   it('is null when the master key is missing', () => {
-    expect(masterKey({})).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: '' })).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: '   ' })).toBeNull();
+    expect(masterKey(null)).toBeNull();
+    expect(masterKey('')).toBeNull();
+    expect(masterKey('   ')).toBeNull();
   });
 
   it('is null when it is not 32 bytes', () => {
-    expect(masterKey({ SECRETS_MASTER_KEY: randomBytes(16).toString('base64') })).toBeNull();
-    expect(masterKey({ SECRETS_MASTER_KEY: 'not base64 at all!' })).toBeNull();
+    expect(masterKey(randomBytes(16).toString('base64'))).toBeNull();
+    expect(masterKey('not base64 at all!')).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import { jevDecideDeps } from '../jev/resolve-live';
 import { classifierFromEnv } from './classify';
 import { categoryThroughJev } from './classify-jev';
 import type { Database } from '../../../../supabase/database.types';
+import { serverEnv } from '../env';
 
 // The ask API's real dependencies: a Supabase client per call, acting as the caller's access token
 // (never a service key), so the database's row-level security has the last word. Without Supabase
@@ -20,16 +21,16 @@ import type { Database } from '../../../../supabase/database.types';
 export function askDeps(): AskDeps {
   const env = supabaseEnv();
   if (!env) return { connect: null };
-  const jev = jevDecideDeps(process.env);
+  const jev = jevDecideDeps(serverEnv());
   return {
     connect: (token) =>
       createClient<Database>(env.url, env.key, {
         global: { headers: { Authorization: `Bearer ${token}` } },
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       }),
-    classify: classifierFromEnv(process.env),
+    classify: classifierFromEnv(serverEnv().openrouter),
     decideCategory: jev ? categoryThroughJev(jev) : null,
     later: after,
-    installLink: installUrl(process.env.GITHUB_APP_SLUG),
+    installLink: installUrl(serverEnv().githubAppSlug),
   };
 }

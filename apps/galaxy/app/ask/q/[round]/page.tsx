@@ -5,7 +5,7 @@ import { Notice } from '../../../../src/ask/page/Notice';
 import { SignInCard } from '../../../../src/ask/page/SignInCard';
 import { isSessionId, questionCallbackPath } from '../../../../src/ask/page/sign-in';
 import { readMembers, readQuestion } from '../../../../src/ask/page/source';
-import { arcadeMode } from '../../../../src/data/mode';
+import { serverEnv } from '../../../../src/env';
 import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
 
 // /ask/q/<round>: one question, the link a session's owner shares (PRD 144). Rendered per request, as
@@ -24,7 +24,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 
 export default async function AskQuestionPage({ params, searchParams }: Props) {
   const [{ round: id }, query] = await Promise.all([params, searchParams]);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   const now = Date.now();
 
   if (mode === 'demo') {

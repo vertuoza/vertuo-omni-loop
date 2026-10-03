@@ -3,7 +3,8 @@ import { cache } from 'react';
 import type { JwtPayload, User, UserIdentity } from '@supabase/supabase-js';
 import { readWaitingQuestions } from '../waiting/source';
 import type { WaitingQuestion } from '../waiting/waiting';
-import { arcadeMode, type ArcadeMode } from './mode';
+import type { ArcadeMode } from './mode';
+import { serverEnv } from '../env';
 import { supabaseEnv, supabaseServer } from './supabase-server';
 import { memberWorkspace, type Workspace } from './workspace';
 
@@ -112,7 +113,7 @@ type Memo = <T>(read: () => T) => () => T;
 export const viewerOf = (deps: ViewerDeps, memo: Memo) => memo(() => readViewing(deps));
 
 const LIVE: ViewerDeps = {
-  mode: () => arcadeMode(process.env),
+  mode: () => serverEnv().mode,
   env: supabaseEnv,
   client: supabaseServer,
   questions: (db, userId, now) => readWaitingQuestions(db, userId, now),

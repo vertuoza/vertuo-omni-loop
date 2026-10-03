@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { readEnv } from '../../env';
 import { sendOpen } from '../../outbox/open';
 import type { SentView } from '../../outbox/sent';
 import type { GithubSummary } from '../github/summary';
@@ -54,14 +55,16 @@ describe('Send on the tab', () => {
 });
 
 describe('whether the deployment may send', () => {
-  const env = {
-    GITHUB_APP_CLIENT_ID: 'Iv1.client', GITHUB_APP_CLIENT_SECRET: 'shh', NEXT_PUBLIC_SUPABASE_URL: 'http://db', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k',
-  };
+  const client = { GITHUB_APP_CLIENT_ID: 'Iv1.client', GITHUB_APP_CLIENT_SECRET: 'shh' };
+  const database = { NEXT_PUBLIC_SUPABASE_URL: 'http://db', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'k' };
   it('needs the App\'s client id and secret, and a database', () => {
-    expect(sendOpen(env)).toBe(true);
-    expect(sendOpen({ ...env, GITHUB_APP_CLIENT_ID: '' })).toBe(false);
-    expect(sendOpen({ ...env, GITHUB_APP_CLIENT_SECRET: ' ' })).toBe(false);
-    expect(sendOpen({ ...env, NEXT_PUBLIC_SUPABASE_URL: undefined })).toBe(false);
+    expect(sendOpen(readEnv({ ...client, ...database }))).toBe(true);
+    expect(sendOpen(readEnv({ ...client, GITHUB_APP_CLIENT_ID: '', GITHUB_APP_CLIENT_SECRET: ' ', ...database }))).toBe(false);
+    expect(sendOpen(readEnv(client))).toBe(false);
+  });
+
+  it('is refused at startup with only one of the client\'s two values', () => {
+    expect(() => readEnv({ ...database, GITHUB_APP_CLIENT_ID: 'Iv1.client' })).toThrow(/GITHUB_APP_CLIENT_SECRET is not set/);
   });
 });
 

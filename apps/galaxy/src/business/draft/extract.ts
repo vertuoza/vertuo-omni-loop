@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SUGGEST_MODEL } from '../suggest';
 import { maxValue, type ClaimKind } from '../model';
+import type { OpenRouterEnv } from '../../env';
 import type { Candidate } from './verify';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
@@ -98,7 +99,6 @@ export async function extractCandidates(text: string, where: string, { apiKey, f
 export type Extractor = (text: string, where: string) => Promise<Candidate[]>;
 
 /** The extractor when OPENROUTER_API_KEY is set, and null otherwise: then a draft finds nothing. */
-export function extractorFromEnv(env: Record<string, string | undefined>): Extractor | null {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  return apiKey ? (text, where) => extractCandidates(text, where, { apiKey }) : null;
+export function extractorFromEnv(openrouter: OpenRouterEnv | null): Extractor | null {
+  return openrouter ? (text, where) => extractCandidates(text, where, { apiKey: openrouter.key }) : null;
 }

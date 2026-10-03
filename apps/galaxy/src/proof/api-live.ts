@@ -1,6 +1,7 @@
 import 'server-only';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseAs, supabaseEnv } from '../data/supabase-server';
+import { serverEnv } from '../env';
 import type { ProofDeps } from './api';
 import { proofPublic, proofStore } from './store';
 
@@ -11,7 +12,7 @@ import { proofPublic, proofStore } from './store';
 // galaxy) the kit calls answer 503, and without the service key the GIF link does.
 export function proofDeps(): ProofDeps {
   const hasDb = supabaseEnv() !== null;
-  const hasService = hasDb && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const hasService = hasDb && serverEnv().serviceRole !== null;
   return {
     connect: hasDb
       ? (token) => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractCandidates, extractorFromEnv, readCandidates } from './extract';
 import { sure } from '../../arcade/sure';
+import { readEnv } from '../../env';
 import { sentOf } from '../json.fake';
 import { z } from 'zod';
 
@@ -52,8 +53,8 @@ describe('extractCandidates', () => {
     const { fetch, calls } = answering(JSON.stringify(ITEMS));
     expect(await extractCandidates('text', 'x', { apiKey: '  ', fetch })).toEqual([]);
     expect(calls).toHaveLength(0);
-    expect(extractorFromEnv({})).toBeNull();
-    expect(extractorFromEnv({ OPENROUTER_API_KEY: 'k' })).toBeTypeOf('function');
+    expect(extractorFromEnv(readEnv({}).openrouter)).toBeNull();
+    expect(extractorFromEnv(readEnv({ OPENROUTER_API_KEY: 'k' }).openrouter)).toBeTypeOf('function');
   });
 });
 

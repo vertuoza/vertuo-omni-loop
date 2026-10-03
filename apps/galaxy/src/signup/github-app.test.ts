@@ -1,5 +1,6 @@
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { readEnv } from '../env';
 import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl } from './github-app';
 import { item, present } from '../ask/test-item';
 
@@ -23,12 +24,16 @@ describe('the App\'s JWT', () => {
 describe('the App\'s credentials, from the server\'s environment', () => {
   it('reads the id and the key, turning an escaped key back into lines', () => {
     const env = { GITHUB_APP_ID: '123456', GITHUB_APP_PRIVATE_KEY: PEM.replace(/\n/g, '\\n') };
-    expect(appCredentials(env)).toEqual(CREDS);
+    expect(appCredentials(readEnv(env).githubApp)).toEqual(CREDS);
   });
 
-  it('throws, naming what is missing, when either is not set', () => {
-    expect(() => appCredentials({ GITHUB_APP_ID: '1' })).toThrow(/GITHUB_APP_PRIVATE_KEY/);
-    expect(() => appCredentials({ GITHUB_APP_PRIVATE_KEY: PEM })).toThrow(/GITHUB_APP_ID/);
+  it('throws, naming both, when the App is not set up', () => {
+    expect(() => appCredentials(null)).toThrow(/GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY not set/);
+  });
+
+  it('is refused at startup, naming what is missing, when either is not set', () => {
+    expect(() => readEnv({ GITHUB_APP_ID: '1' })).toThrow(/GITHUB_APP_PRIVATE_KEY is not set/);
+    expect(() => readEnv({ GITHUB_APP_PRIVATE_KEY: PEM })).toThrow(/GITHUB_APP_ID is not set/);
   });
 });
 

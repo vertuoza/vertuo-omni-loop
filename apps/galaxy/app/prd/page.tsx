@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { arcadeMode } from '../../src/data/mode';
+import { serverEnv } from '../../src/env';
 import type { DossierListRow } from '../../src/dossier/store';
 import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
@@ -62,7 +62,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
     />
   );
   const login = whoLogin(filters.who);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') {
     const rows = ofWork(demoHistory(Date.now()), 'prd');
