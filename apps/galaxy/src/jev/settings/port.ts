@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { parseRow } from '../../data/parse-rows';
 import type { JevDecisionSettings, JevKeyStatus } from '../store';
 import type { DecisionSaved } from './decision';
 
@@ -25,12 +27,21 @@ export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 export const DEMO_REFUSAL = 'TypeSafe refused this key: Invalid API key';
 const ROUTE = '/api/jev/key';
 
+/** What the key route (./api.ts) answers: the key's status, or why it refused. */
+export const KeyAnswer = z.union([
+  z.strictObject({ key: z.strictObject({ stored: z.boolean(), lastFour: z.string().nullable(), setAt: z.string().nullable() }) }),
+  z.strictObject({ error: z.string() }),
+]);
+
 async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<KeySaved> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const answer = (await res.json().catch(() => null)) as { key?: JevKeyStatus; error?: string } | null; // ts-allow: the key route's own JSON, or null on a failed read; error is checked to be text below
-    if (res.ok && answer?.key) return { ok: true, key: answer.key };
-    return { ok: false, message: typeof answer?.error === 'string' ? answer.error : COULD_NOT_SAVE };
+    const json: unknown = await res.json().catch(() => null);
+    // A body that is no JSON (a proxy's error page) is a failure the route never wrote: nothing to log.
+    const parsed = json === null ? null : parseRow(KeyAnswer, json, `jev/settings: ${method} ${ROUTE}`);
+    const answer = parsed?.ok ? parsed.value : null;
+    if (res.ok && answer && 'key' in answer) return { ok: true, key: answer.key };
+    return { ok: false, message: answer && 'error' in answer ? answer.error : COULD_NOT_SAVE };
   } catch {
     return { ok: false, message: COULD_NOT_SAVE };
   }
