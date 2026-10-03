@@ -8,7 +8,8 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "typecheck": "fumadocs-mdx && tsc --noEmit",
+    "typecheck": "fumadocs-mdx && tsgo --noEmit",
+    "typecheck:tsc": "fumadocs-mdx && tsc --noEmit",
     "artifact": "node artifact/build.ts",
     "seed": "node scripts/seed.ts",
     "shots": "node scripts/shots.ts"
@@ -35,6 +36,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "esbuild": "^0.28.1",
     "playwright": "~1.56.1",
     "typescript": "^5.9.0"
