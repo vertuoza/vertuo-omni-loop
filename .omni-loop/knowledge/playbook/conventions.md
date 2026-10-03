@@ -7,6 +7,8 @@ evidence:
   - package.json@39e6355
   - kit/lib/ids.ts@90d94c1
   - scripts/id-types-guard.test.ts@daaaf9e
+  - kit/lib/env/read.ts@db70924
+  - scripts/env-guard.test.ts@0e2b289
 terraformed: 2026-09-25
 ---
 
@@ -25,6 +27,18 @@ even beside `null` or `undefined`. In a zod object, an ID field takes the brand'
 every source file, with no allowlist and no comment escape: a name on its list that holds something
 else is renamed after what it holds (`sliceLabel`), or typed from the config it comes from. ADR-0056
 records the rule.
+
+The environment is read through the runtime's env module, as feature groups, and nowhere else:
+`kit/lib/env/read.ts` for the kit, the game and the scripts, `apps/omni-app/src/env.ts` for the
+GitHub App, `apps/galaxy/src/env.ts` for the arcade's server and `apps/galaxy/src/env.client.ts` for
+its browser. A new variable is a member of a group there (built with `kit/lib/env/group.ts`'s
+helpers), complete or `null` when it is off, and the code takes the group it needs as a parameter;
+tests pass plain objects and never write `process.env`. A value the platform sets, or one an SDK
+reads itself, goes in the module's named list (`PLATFORM_VARIABLES`, `SDK_VARIABLES`).
+`scripts/env-guard.test.ts` fails on any `process.env` access elsewhere, with no allowlist and no
+comment escape, and `scripts/env-docs.test.ts` fails when `apps/galaxy/.env.example` or a README's
+marked list (the names between its `omni:env-variables` comments) and the module's `VARIABLES`
+differ, either way: add the variable to the list in the same change. ADR-0057 records the rule.
 
 ## Formatting
 <!-- slot: formatting · optional · by: terraform -->

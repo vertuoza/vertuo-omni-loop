@@ -28064,6 +28064,9 @@ function nameOf(names) {
 }
 var sentence = (names) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 var verb = (names) => names.length === 1 ? "is" : "are";
+function variablesOf(groups) {
+  return [...new Set(groups.flatMap((group2) => Object.values(group2.variables).flatMap(listOf)))];
+}
 function requiredVariables(group2) {
   return members2(group2).filter((member) => member.required).map((member) => member.name);
 }
@@ -28176,6 +28179,9 @@ var PACKAGE_MANAGER = envGroup({
   schema: external_exports.object({ execPath: external_exports.string() }),
   variables: { execPath: "npm_execpath" }
 });
+var VARIABLES = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE]);
+var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE]);
+var PLATFORM_VARIABLES = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER]);
 var DEFAULT_COLUMNS = 80;
 function terminalOf(group2) {
   const raw = group2?.columns;
@@ -36862,7 +36868,6 @@ var NO_KEY = "no-key";
 var UNAVAILABLE = "unavailable";
 var REFUSED = "refused";
 var KEY_VAR = "OPENROUTER_API_KEY";
-var MODEL_VAR = "OPENROUTER_MODEL";
 var MODEL_CALL = Object.freeze({
   attempts: 3,
   backoffMs: Object.freeze([1e3, 4e3]),
@@ -36883,27 +36888,21 @@ function maskSecrets(text7) {
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
-function settingsOf(env) {
-  const key = env[KEY_VAR];
-  return key ? { key, model: env[MODEL_VAR] } : null;
-}
 async function askModel({
   system,
   user,
   check: check3,
   schema,
   openrouter,
-  env = {},
   fetch,
   sleep = wait,
   call = MODEL_CALL,
   title = "omni loop",
   stream = false
 }) {
-  const settings = openrouter === void 0 ? settingsOf(env) : openrouter;
-  const key = settings?.key;
+  const key = openrouter?.key;
   if (!key) return failure2(NO_KEY, null, `${KEY_VAR} is not set`);
-  const model = settings.model || DEFAULT_MODEL;
+  const model = openrouter.model || DEFAULT_MODEL;
   if (typeof fetch !== "function") return failure2(UNAVAILABLE, model, "model unavailable (no fetch given)");
   const messages = [
     { role: "system", content: maskSecrets(system) },
@@ -37934,7 +37933,6 @@ async function classifyCandidate({
   candidate,
   summary,
   openrouter,
-  env,
   fetch
 }) {
   if (allowedKinds(summary.places).every((kind) => kind === "covered" || kind === "stays-here")) {
@@ -37947,7 +37945,6 @@ async function classifyCandidate({
     check: check3,
     schema: { name: "classification", schema: classificationJsonSchema(summary) },
     openrouter,
-    env,
     fetch,
     title: "omni harvest"
   });
