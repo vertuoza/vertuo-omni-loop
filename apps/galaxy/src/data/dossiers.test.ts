@@ -8,6 +8,7 @@ import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-27T10:00:00Z');
 const containing = (fields: object): unknown => expect.objectContaining(fields);
@@ -16,7 +17,7 @@ const HOME = 'vertuoza/vertuo-omni-plan';
 /** A dossier as dossier_list() lists it: Vertuoza's plan repository's PRD `prd`, unless told otherwise. */
 function listed(id: string, prd: number | null, more: Partial<DossierListRow> = {}): DossierListRow {
   return {
-    id, workspace_id: VERTUOZA, home_repo: HOME, prd, title: `PRD ${prd ?? 'draft'}`, opened_by: PEOPLE.ada.id,
+    id, workspace_id: VERTUOZA, home_repo: HOME, prd: prd === null ? null : parsePrd(prd), title: `PRD ${prd ?? 'draft'}`, opened_by: PEOPLE.ada.id,
     created_at: '2026-09-20T09:00:00Z', numbered_at: prd === null ? null : '2026-09-20T10:00:00Z',
     repos: [HOME], latest: {}, asked: 0, answered: 0, last_activity: '2026-09-20T10:00:00Z', ...more,
   };

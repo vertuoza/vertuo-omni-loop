@@ -11,14 +11,15 @@ import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
 import { numberOf, textOf } from '../data/unparsed';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const STAGES_TABLE = 'prd_stages';
 const TOPICS_TABLE = 'prd_topics';
 
 /** A PRD of a workspace: its repository (`owner/name`) and its issue number. */
-export type StageKey = { workspace_id: string; repository: string; prd: number };
+export type StageKey = { workspace_id: string; repository: string; prd: PrdNumber };
 /** A PRD within a workspace, when the workspace is given apart. */
-export type PrdRef = { repository: string; prd: number };
+export type PrdRef = { repository: string; prd: PrdNumber };
 /** A stage seen for a PRD, and when it was reached: the event's own date, or the sync's time. */
 export type StageRecord = StageKey & { stage: StoredStage; reached_at: string };
 /** The topic of a PRD's folder, `<nnnn>-<topic>`. */
@@ -38,7 +39,7 @@ export type StageStore = {
   /** How many of the workspace's PRDs (of `prds` only, when given) sit at each stage now. */
   stageCounts(workspace: string, prds?: readonly PrdRef[]): Promise<StageCounts>;
   /** The PRD whose folder has this topic in the repository; null when none is known. */
-  prdByTopic(workspace: string, repository: string, topic: string): Promise<number | null>;
+  prdByTopic(workspace: string, repository: string, topic: string): Promise<PrdNumber | null>;
   /** When the sync last recorded the repository: the latest synced_at of its PRD stages, which only the
    * sync writes (a stage event never does); null when it holds none. */
   lastSynced(workspace: string, repository: string): Promise<string | null>;
@@ -133,7 +134,7 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
         settle('read the stages', error);
         const page = data ?? [];
         for (const row of page) {
-          if (isStoredStage(row.stage)) rows.push({ repository: textOf(row.repository), prd: numberOf(row.prd), stage: row.stage });
+          if (isStoredStage(row.stage)) rows.push({ repository: textOf(row.repository), prd: parsePrd(numberOf(row.prd)), stage: row.stage });
         }
         if (page.length < PAGE) break;
       }
@@ -150,7 +151,7 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
       settle(`find the PRD of topic ${topic}`, error);
       // The row is read as PostgREST sent it: its PRD may be absent.
       const row: { prd?: unknown } | null = data;
-      return row && row.prd !== undefined && row.prd !== null ? Number(row.prd) : null;
+      return row && row.prd !== undefined && row.prd !== null ? parsePrd(numberOf(row.prd)) : null;
     },
 
     async lastSynced(workspace, repository) {

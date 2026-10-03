@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { readFix, type FixGet } from './fix';
 import { UNREAD } from './summary';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A fix on GitHub (PRD 627, s5), read from a fixture: its issue (author, time, risk and regression
 // labels), its `fix/<n>-…` pull request (open or merged, with who merged it), each approving review,
@@ -35,7 +36,7 @@ function fixture(routes: Record<string, unknown>, fail: RegExp | null = null): {
   };
 }
 
-const read = (routes: Record<string, unknown>, fail: RegExp | null = null) => readFix(fixture(routes, fail).get, 548, SHAPE, LABELS);
+const read = (routes: Record<string, unknown>, fail: RegExp | null = null) => readFix(fixture(routes, fail).get, parseIssue(548), SHAPE, LABELS);
 
 describe('a fix read from GitHub', () => {
   it('gives the issue\'s author and time, and no pull request while none is on a fix/548- branch', async () => {

@@ -8,6 +8,7 @@ import type { QuestionState } from './question';
 import type { AskPort, QuestionPort } from './source';
 import type { RoundRow, SessionRow, SessionState } from './view';
 import type { HistoryRow } from './workspace-history';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
 const SCENARIOS: DemoScenario[] = ['open', 'working', 'moved', 'closed', 'empty'];
@@ -105,7 +106,7 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
     created_at: iso(now - ago),
     answered_at: null,
     // Its context line (PRD 144), as a kit that reads it sends it.
-    prd: 71,
+    prd: parsePrd(71),
     skill: '/omni:brainstorm',
     model: 'claude-opus-4-8',
     tokens: { input: 4_200 * n, output: 1_800 * n, cacheRead: 180_000 * n, cacheWrite: 24_000 * n },
@@ -242,7 +243,7 @@ export function demoHistory(now: number): HistoryRow[] {
   const trial: RoundRow = {
     id: 'demo-round-trial', questions: [TRIAL], answers: { [TRIAL.question]: '14 days' }, answered_via: 'page', status: 'answered',
     created_at: iso(now - 3 * 24 * 60 * MIN + 10 * MIN), answered_at: iso(now - 3 * 24 * 60 * MIN + 14 * MIN), answered_by: DEMO_OWNER,
-    prd: 94, skill: '/omni:yolo', model: 'claude-sonnet-4-6', category: 'business', category_by: 'model',
+    prd: parsePrd(94), skill: '/omni:yolo', model: 'claude-sonnet-4-6', category: 'business', category_by: 'model',
     attachments: { [TRIAL.question]: ['demo-round-trial/1.png', 'demo-round-trial/2.png'] },
   };
   // The page answer came from the teammate it was shared with; the terminal's is the owner's.

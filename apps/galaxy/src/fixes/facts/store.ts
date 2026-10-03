@@ -11,6 +11,7 @@ import type { FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
 import { textOf } from '../../data/unparsed';
 import { settle } from '../../stages/store';
+import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const TABLE = 'fix_facts';
 
@@ -29,11 +30,11 @@ const read = <T extends z.ZodType>(part: T) => z.union([z.literal(UNREAD), part]
 
 const Summary = z.object({
   issue: read(z.object({
-    number: z.number(), url: z.string(), state: z.enum(['open', 'closed']), author: z.string().nullable(), createdAt: z.string(),
+    number: IssueNumberSchema, url: z.string(), state: z.enum(['open', 'closed']), author: z.string().nullable(), createdAt: z.string(),
     risk: z.string().nullable(), regression: z.boolean(),
   }).nullable()),
   pull: read(z.object({
-    number: z.number(), url: z.string(), state: z.enum(['open', 'merged']), mergedAt: z.string().nullable(), mergedBy: z.string().nullable(),
+    number: PrNumberSchema, url: z.string(), state: z.enum(['open', 'merged']), mergedAt: z.string().nullable(), mergedBy: z.string().nullable(),
   }).nullable()),
   approvals: read(z.array(z.object({ login: z.string(), at: z.string() }))),
   release: read(z.object({ tag: z.string(), url: z.string(), at: z.string() }).nullable()),

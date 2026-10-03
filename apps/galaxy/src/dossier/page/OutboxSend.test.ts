@@ -7,6 +7,7 @@ import type { GithubSummary } from '../github/summary';
 import { OutboxPane, sendOffOf } from './OutboxPane';
 import { OutboxSend, SendResult } from './OutboxSend';
 import { outboxView, SEND_OFF } from './outbox-view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Send, wired on the Outbox tab (PRD 251, s11): open once this deployment knows the omni-loop App's
 // client, off in the demo and before; and what the tab says once GitHub sent the person back. Rendered as
@@ -14,9 +15,9 @@ import { outboxView, SEND_OFF } from './outbox-view';
 
 const PR = 'https://github.com/acme/widgets/pull/12';
 const summary: GithubSummary = {
-  repo: 'acme/widgets', prd: 7, folder: '0007-widgets', topic: 'widgets',
-  issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
-  phase0: null, feature: { number: 12, url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 1,
+  repo: 'acme/widgets', prd: parsePrd(7), folder: '0007-widgets', topic: 'widgets',
+  issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+  phase0: null, feature: { number: parsePr(12), url: PR, state: 'open', draft: true, mergedAt: null }, retro: null, mergedSlices: 1,
   outbox: {
     open: [{ id: 's11-01-colour', rank: 'high', question: 'Blue?', decision: 'Blue.', options: [{ letter: 'A', text: 'Blue.' }, { letter: 'B', text: 'Red.' }], personSteps: null }],
     settled: [], adopted: [],

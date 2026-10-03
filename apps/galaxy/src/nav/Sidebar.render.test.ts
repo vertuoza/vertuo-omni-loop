@@ -7,6 +7,7 @@ import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test-item';
 import { z } from 'zod';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current
@@ -46,7 +47,7 @@ const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: 
   at.path = path;
   return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, children: createElement(Sidebar, { viewer }) }));
 };
-const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: 459, dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
+const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: item(m, 1), text: text(item(m, 2)) }));
 

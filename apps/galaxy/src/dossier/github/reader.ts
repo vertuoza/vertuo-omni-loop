@@ -29,6 +29,7 @@ import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
 import { readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { CommentIdSchema, type IssueNumber, IssueNumberSchema, type PrdNumber, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -41,10 +42,10 @@ const CONFIG_PATH = '.omni-loop/config.yml';
 const TOPIC = '([a-z0-9]+(?:-[a-z0-9]+)*)';
 
 /** What the reader needs of a dossier: its id (the cache key), its home repository and its PRD. */
-export type DossierRef = { id: string; home_repo: string; prd: number };
+export type DossierRef = { id: string; home_repo: string; prd: PrdNumber };
 
 /** A fix (PRD 627, s5): its issue's number is its `prd`. */
-export type FixRef = DossierRef;
+export type FixRef = { id: string; home_repo: string; prd: IssueNumber };
 
 /** What the reader takes from the repository's config. */
 type RepoConfig = {
@@ -58,7 +59,7 @@ type RepoConfig = {
 };
 
 const Pull = z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   html_url: z.url(),
   state: z.enum(['open', 'closed']),
   draft: z.boolean().optional().default(false),
@@ -69,10 +70,10 @@ const Pull = z.object({
 });
 type Pull = z.infer<typeof Pull>;
 const Pulls = z.array(Pull);
-const Issue = z.object({ number: z.number().int().positive(), html_url: z.url(), state: z.enum(['open', 'closed']) });
+const Issue = z.object({ number: IssueNumberSchema, html_url: z.url(), state: z.enum(['open', 'closed']) });
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
 const Comments = z.array(z.object({
-  id: z.number().int(),
+  id: CommentIdSchema,
   html_url: z.url(),
   body: z.string().nullable().optional().default(null),
   created_at: z.string().optional(),
@@ -225,7 +226,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     const [owner, name] = repo.split('/');
     return {
       /** The pull request's care state (PRD 790, s2): one GraphQL read; null when it is not there. */
-      async care(pr: number, statusMarker: string): Promise<CareState | null> {
+      async care(pr: PrNumber, statusMarker: string): Promise<CareState | null> {
         const res = await fetchImpl(`${GITHUB}/graphql`, {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
@@ -246,13 +247,13 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         });
       },
       /** The PRD's folder under `dir` on `ref`; null when there is none. */
-      async folderIn(dir: string, ref: string, prd: number): Promise<string | null> {
+      async folderIn(dir: string, ref: string, prd: PrdNumber): Promise<string | null> {
         const listed = await contents(dir, ref, false);
         if (listed === null || !Array.isArray(listed)) return null;
         return Entries.parse(listed).find((e) => e.type === 'dir' && parseFolderName(e.name)?.prd === prd)?.name ?? null;
       },
       /** A topic from a recent phase-0 or feature pull request whose body carries the PRD's link line. */
-      async topicFromPulls(config: RepoConfig, prd: number): Promise<string | null> {
+      async topicFromPulls(config: RepoConfig, prd: PrdNumber): Promise<string | null> {
         const kinds = (['phase0', 'feature'] as const).map((kind) => ({
           head: new RegExp(`^${escape(fill(config.branches[kind], { topic: '\u0000' })).replace('\u0000', TOPIC)}$`),
           link: new RegExp(`${escape(fill(config.links[kind], { prd: String(prd) }))}(?!\\d)`),
@@ -265,7 +266,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         }
         return null;
       },
-      async issue(prd: number): Promise<IssueRef | null> {
+      async issue(prd: PrdNumber): Promise<IssueRef | null> {
         const answer = await json(`/issues/${prd}`);
         if (answer === null) return null;
         const issue = Issue.parse(answer);
@@ -297,7 +298,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         };
       },
       /** The pull request's comments: at most the first 100, as GitHub lists them. */
-      async comments(pr: number): Promise<PrComment[]> {
+      async comments(pr: PrNumber): Promise<PrComment[]> {
         return Comments.parse((await json(`/issues/${pr}/comments?per_page=100`)) ?? []);
       },
       /** A file's text on `ref`; null when it is not there. */

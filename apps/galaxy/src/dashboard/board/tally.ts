@@ -4,6 +4,7 @@ import type { StageId, StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
 import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's numbers (PRD 572), in pure functions over what the loader read: the workspace's roster
 // (workspace_roster), its `contributions` over the period, the answered counts per member
@@ -157,9 +158,9 @@ export interface PrdNow {
 
 /** What PRDs now are made of: the stored current stages, the prd-opened rows and the dossiers. */
 export interface PrdsInput {
-  stages: readonly { repository: string; prd: number; stage: StoredStage }[];
+  stages: readonly { repository: string; prd: PrdNumber; stage: StoredStage }[];
   openers: readonly Pick<Activity, 'repo' | 'number' | 'login'>[];
-  dossiers: readonly { home_repo: string; prd: number | null; opened_by: string | null; answered: number }[];
+  dossiers: readonly { home_repo: string; prd: PrdNumber | null; opened_by: string | null; answered: number }[];
 }
 
 const repoName = (repository: string) => at(repository.toLowerCase().split('/'), -1, `the name of ${repository}`);

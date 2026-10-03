@@ -12,6 +12,8 @@
 // Reading runs under the migration's policy: a member of the row's workspace reads it. That the
 // database holds these rules is proved by supabase/checks/working_pings.sql, not here.
 
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 type Row = Record<string, unknown>;
@@ -19,7 +21,7 @@ type Row = Record<string, unknown>;
 /** An account, and the workspaces it belongs to in the order it joined them. */
 export type FakeAccount = { id: string; email: string | null; workspaces: string[] };
 
-type FakeDossierKey = { id: string; workspace_id: string; home_repo: string; kind: 'prd' | 'visual' | 'bug'; prd: number | null };
+type FakeDossierKey = { id: string; workspace_id: string; home_repo: string; kind: 'prd' | 'visual' | 'bug'; prd: PrdNumber | null };
 
 type FakePing = {
   claude_session_id: string; user_id: string; workspace_id: string; repo: string; work_kind: string | null;

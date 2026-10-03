@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readRetro, retroSource } from './retro';
 import type { PullRef } from './summary';
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Where the PRD page reads a PRD's retro.md (PRD 426, s3): from the retro branch while its pull request
 // is open, from the default branch once it is merged, and nowhere when there is no retro PR. Pure: the
 // file is read through a stub, never GitHub.
 
 const WHERE = { delivery: 'loop/delivery', folder: '0426-prd-page-stage', defaultBranch: 'trunk', retroBranch: 'docs/retro-prd-page-stage' };
-const retroPr = (state: PullRef['state']): PullRef => ({ number: 440, url: 'https://github.com/acme/widgets/pull/440', state, draft: false });
+const retroPr = (state: PullRef['state']): PullRef => ({ number: parsePr(440), url: 'https://github.com/acme/widgets/pull/440', state, draft: false });
 
 describe('where the retro is read', () => {
   it('reads retro.md in the shipped folder on the retro branch while its PR is open', () => {

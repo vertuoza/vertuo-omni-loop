@@ -26,6 +26,7 @@ import {
   GIF_LINK_SECONDS, isProofType, isVerdict, PROOF_CRITERIA_MAX, PROOF_FILE_MAX_BYTES, PROOF_FILE_NAME, PROOF_FILES_MAX, PROOF_GIF_NAME,
   PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofPublic, type ProofStore,
 } from './store';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A client acting as one access token: the Auth server's check and the proof store. */
 export type ProofClient = TokenCheck & { proofs: ProofStore };
@@ -96,12 +97,12 @@ async function body(request: Request, max: number): Promise<Record<string, unkno
 }
 
 /** The repository and PRD a call names, or the problem. */
-function prdOf(sent: Record<string, unknown>): { repo: string; prd: number } | { problem: string } {
+function prdOf(sent: Record<string, unknown>): { repo: string; prd: PrdNumber } | { problem: string } {
   const repo = sent.repo;
   if (typeof repo !== 'string' || repo.length > 200 || !REPO.test(repo)) return { problem: 'A proof names its repository as owner/name.' };
   const prd = sent.prd;
   if (!isWhole(prd) || prd <= 0 || prd > PRD_MAX) return { problem: '`prd` is the PRD\'s number.' };
-  return { repo, prd };
+  return { repo, prd: parsePrd(prd) };
 }
 
 /** `Number.isInteger`, as the type guard it is: true only for a number. */
@@ -216,7 +217,7 @@ function urlOf(value: unknown): string | null {
   }
 }
 
-type RunHeader = { repo: string; prd: number; run: string; commit: string; url: string; criteria: ProofCriterion[] };
+type RunHeader = { repo: string; prd: PrdNumber; run: string; commit: string; url: string; criteria: ProofCriterion[] };
 
 /** What a register call names before the store is asked, or the problem. */
 function runHeaderOf(sent: Record<string, unknown>): RunHeader | { problem: string } {

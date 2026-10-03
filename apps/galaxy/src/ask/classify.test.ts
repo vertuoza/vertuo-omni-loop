@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
 import { item } from './test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The classifier (PRD 144's spec, "Six categories"): one call to OpenRouter, stubbed here, and a reply
 // held to the six values. Anything else, an error or a timeout gives null, and nothing retries.
@@ -15,7 +16,7 @@ const INPUT: ClassifyInput = {
       options: [{ label: '€12 a seat (Recommended)', description: 'Like today.' }, { label: '€9 a seat', description: 'A volume discount.' }],
     },
   ],
-  context: { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: 144, skill: '/omni:brainstorm' },
+  context: { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: parsePrd(144), skill: '/omni:brainstorm' },
 };
 
 type Sent = { url: string; init: RequestInit };

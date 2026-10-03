@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORIES } from '../../ask/classify';
 import { questionCategory } from './question-category';
 import { JEV_DECISIONS, jevEntry } from './index';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The question category's registry entry (PRD 812 s2): a Choice over the six categories, what it
 // sends Jev (what Haiku reads today, never an option's preview), and how an answer maps back.
@@ -13,7 +14,7 @@ const INPUT = {
       { label: 'Postgres', description: 'Row-level security per owner.', preview: 'create table secret_preview ();' },
     ] },
   ],
-  context: { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/x', prd: 144, skill: '/omni:brainstorm' },
+  context: { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/x', prd: parsePrd(144), skill: '/omni:brainstorm' },
 };
 
 describe('question-category', () => {

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { parseRows } from '../data/parse-rows';
 import type { OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
 import { prdKey } from '../stages/store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The most dossiers one call reads. */
 export const MAX_DOSSIERS = 30;
@@ -18,7 +19,7 @@ export const MAX_DOSSIERS = 30;
  * two PRDs' items never share one; `title` is the PRD's. */
 export type WaitingOutboxItem = {
   id: string;
-  prd: number;
+  prd: PrdNumber;
   dossierId: string;
   title: string;
   rank: 'human-action' | 'high';
@@ -28,11 +29,11 @@ export type WaitingOutboxItem = {
 export type WaitingOutbox = { items: WaitingOutboxItem[]; unread: number };
 
 /** What the route needs of a dossier. */
-export type WaitingDossier = { id: string; workspace_id: string; home_repo: string; prd: number; title: string };
+export type WaitingDossier = { id: string; workspace_id: string; home_repo: string; prd: PrdNumber; title: string };
 
 /** The dossiers' columns the route reads, as the database answers them. */
 export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, title';
-export const WaitingDossierRow = z.object({ id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: z.number().int().nullable(), title: z.string() });
+export const WaitingDossierRow = z.object({ id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: PrdNumberSchema.nullable(), title: z.string() });
 
 /** What the route needs of the Supabase client: who is signed in, and the dossiers table. */
 export type WaitingDb = {

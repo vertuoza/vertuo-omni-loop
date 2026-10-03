@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The PRD page's GitHub reader (PRD 426, part 1), against a stubbed `fetch`: never GitHub itself.
 // A small fake GitHub answers by route; each test says what the repository holds.
@@ -10,14 +11,14 @@ import { UNREAD } from './summary';
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const CREDS = { appId: '123456', privateKey: privateKey.export({ type: 'pkcs1', format: 'pem' }).toString() };
 const NOW = Date.parse('2026-09-28T10:00:00Z');
-const DOSSIER = { id: 'd-426', home_repo: 'acme/widgets', prd: 426 };
+const DOSSIER = { id: 'd-426', home_repo: 'acme/widgets', prd: parsePrd(426) };
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nbranches:\n  feature: feature/{topic}\npaths:\n  delivery: loop/delivery\n';
 
 type Route = (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const pull = (number: number, head: string, more: Record<string, unknown> = {}) => ({
-  number, html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
+  number: parsePr(number), html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
   created_at: `2026-09-${String(10 + (number % 18)).padStart(2, '0')}T00:00:00Z`, head: { ref: head }, body: null, ...more,
 });
 const merged = (number: number, head: string, more: Record<string, unknown> = {}) =>
@@ -243,12 +244,12 @@ describe('the cache and the token', () => {
     const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
     const reader = githubReader(CREDS, gh.fetchImpl, () => now);
     const configReads = () => gh.calls.filter((c) => c.includes('/contents/.omni-loop/config.yml')).length;
-    await Promise.all([reader.summary(DOSSIER), reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })]);
-    await reader.summary({ ...DOSSIER, id: 'd-428', prd: 428 });
-    await reader.fix({ ...DOSSIER, id: 'd-fix', prd: 429 });
+    await Promise.all([reader.summary(DOSSIER), reader.summary({ ...DOSSIER, id: 'd-427', prd: parsePrd(427) })]);
+    await reader.summary({ ...DOSSIER, id: 'd-428', prd: parsePrd(428) });
+    await reader.fix({ ...DOSSIER, id: 'd-fix', prd: parseIssue(429) });
     expect(configReads()).toBe(1);
     now += SUMMARY_TTL_MS;
-    await reader.summary({ ...DOSSIER, id: 'd-430', prd: 430 });
+    await reader.summary({ ...DOSSIER, id: 'd-430', prd: parsePrd(430) });
     expect(configReads()).toBe(2);
   });
 
@@ -260,7 +261,7 @@ describe('the cache and the token', () => {
     const reader = githubReader(CREDS, flaky, () => NOW);
     expect(await reader.summary(DOSSIER)).toBeNull();
     broken = false;
-    expect(await reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })).not.toBeNull();
+    expect(await reader.summary({ ...DOSSIER, id: 'd-427', prd: parsePrd(427) })).not.toBeNull();
   });
 
   it('a forget while a read is in flight makes the next read fresh (PRD 657, s6)', async () => {
@@ -539,7 +540,7 @@ describe('the numbering and the pending answers (PRD 251, s9)', () => {
 });
 
 describe('a fix, through the same reader (PRD 627, s5)', () => {
-  const FIX = { id: 'd-fix-426', home_repo: 'acme/widgets', prd: 426 };
+  const FIX = { id: 'd-fix-426', home_repo: 'acme/widgets', prd: parseIssue(426) };
 
   it('reads the fix PR on the config\'s fix branch shape, cached 60 s like the PRD summary', async () => {
     let now = NOW;

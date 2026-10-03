@@ -8,6 +8,7 @@ import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
 // through the stubbed client of ../store.fake.ts (the migration's access rules): a member reads the
@@ -132,7 +133,7 @@ describe('the page to share', () => {
   });
 
   it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     expect(await html(numbered)).toContain(
       '<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">acme/widgets</li><li class="dossier-repo">acme/core</li><li class="dossier-repo">acme/web</li></ul>',
@@ -150,9 +151,9 @@ describe('the page to share', () => {
   it('shows a member the questions asked while the PRD was delivered, answered out of asked in the tab', async () => {
     const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
     given.fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'feat/team-inbox--s2' }, [
-      { created_at: later(1), prd: 7, status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
-      { created_at: later(4), prd: 7 },
-      { created_at: later(5), prd: 8 },
+      { created_at: later(1), prd: parsePrd(7), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
+      { created_at: later(4), prd: parsePrd(7) },
+      { created_at: later(5), prd: parsePrd(8) },
     ]);
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
@@ -167,7 +168,7 @@ describe('the page to share', () => {
   it('decides on the server who may answer a quick round on the list: its owner and a member it is shared with (PRD 384)', async () => {
     const quick = [{ question: 'Ship it?', header: '', multiSelect: false, options: [{ label: 'Yes', description: '' }, { label: 'No', description: '' }] }];
     const { rounds: [round] } = given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: 7, questions: quick },
+      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: parsePrd(7), questions: quick },
     ]);
     assertDefined(round, 'the quick round');
     const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
@@ -208,8 +209,8 @@ describe('the page to share', () => {
 
   it('refreshes itself: a member\'s page carries the change check, starting from the signature it was rendered with', async () => {
     given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: 7, status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
-      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: 7 },
+      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: parsePrd(7), status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
+      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: parsePrd(7) },
     ]);
     given.token = 'bob';
     const page = await open(numbered, { tab: 'spec', v: '1' });
@@ -317,7 +318,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
   };
 
   const stored = (stage: 'inbox' | 'shipped') =>
-    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: 7, stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
+    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: parsePrd(7), stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
 
   it('never waits for GitHub before the page: a numbered PRD\'s page streams while the summary is read (PRD 657 s4)', async () => {
     given.summary.mockReturnValue(new Promise(() => {}));
@@ -384,7 +385,7 @@ describe('the history', () => {
   });
 
   it('filters by a repository: a dossier with three shows under each', async () => {
-    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo, who: 'all' })), repo).toEqual([numbered]);
     expect(rows(await list({ repo: 'acme/widgets', who: 'all' }))).toEqual([numbered, draft]);

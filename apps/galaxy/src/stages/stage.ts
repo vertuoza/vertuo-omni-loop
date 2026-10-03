@@ -9,6 +9,7 @@
 // A PRD at building whose feature PR carries open outbox items (the red yolo gate) shows a badge,
 // N questions waiting, linking to where they are answered.
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type StageId = 'idea' | 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 
@@ -69,7 +70,7 @@ function trackOf(current: StageId | null): TrackStop[] {
 
 export type StageInput = {
   /** The PRD's number; null for a draft. */
-  prd: number | null;
+  prd: PrdNumber | null;
   /** A draft only: whether any of its questions was answered. */
   answered?: boolean;
   rows: readonly StageRow[];

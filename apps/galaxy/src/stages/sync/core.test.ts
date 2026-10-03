@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { item } from '../../ask/test-item';
 import { stagesOfRepo, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The sync's core (PRD 587, s2): a repository's snapshot in, the stages and topics it shows out. Pure:
 // no GitHub, no database. Each test says what the repository holds.
@@ -9,7 +10,7 @@ const CONFIG = syncConfig('kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch:
 const SYNC = '2026-09-29T12:00:00.000Z';
 
 const pull = (number: number, head: string, more: Partial<SnapshotPull> = {}): SnapshotPull => ({
-  number, head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null, ...more,
+  number: parsePr(number), head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null, ...more,
 });
 const merged = (number: number, head: string, at: string, more: Partial<SnapshotPull> = {}) => pull(number, head, { state: 'closed', merged_at: at, ...more });
 
@@ -39,7 +40,7 @@ describe('the stages a repository shows', () => {
   it('gives PRD and inbox for a folder in inbox/ with its issue and a merged phase-0', () => {
     const snap = snapshot({
       inbox: ['0042-dark-mode'],
-      issues: [{ number: 42, created_at: '2026-09-18T08:00:00Z' }],
+      issues: [{ number: parsePrd(42), created_at: '2026-09-18T08:00:00Z' }],
       pulls: [merged(5, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z')],
     });
     expect(stages(snap)).toEqual(['42 inbox 2026-09-19T09:00:00Z', '42 prd 2026-09-18T08:00:00Z']);
@@ -48,7 +49,7 @@ describe('the stages a repository shows', () => {
   it('adds building at the first merged slice PR into the feature branch', () => {
     const snap = snapshot({
       inbox: ['0042-dark-mode'],
-      issues: [{ number: 42, created_at: '2026-09-18T08:00:00Z' }],
+      issues: [{ number: parsePrd(42), created_at: '2026-09-18T08:00:00Z' }],
       pulls: [
         merged(5, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z'),
         merged(7, 'feat/dark-mode--s2', '2026-09-21T00:00:00Z', { base: 'feature/dark-mode' }),
@@ -97,7 +98,7 @@ describe('the stages a repository shows', () => {
   });
 
   it('gives PRD for a labelled issue with no folder', () => {
-    expect(stages(snapshot({ issues: [{ number: 50, created_at: '2026-09-28T00:00:00Z' }] }))).toEqual(['50 prd 2026-09-28T00:00:00Z']);
+    expect(stages(snapshot({ issues: [{ number: parsePrd(50), created_at: '2026-09-28T00:00:00Z' }] }))).toEqual(['50 prd 2026-09-28T00:00:00Z']);
   });
 
   it('gives inbox at the sync\'s time for a folder in inbox/ whose phase-0 PR is not found', () => {
@@ -105,15 +106,15 @@ describe('the stages a repository shows', () => {
   });
 
   it('gives nothing for a repository without an .omni-loop config', () => {
-    const snap = snapshot({ config: null, shipped: ['0042-dark-mode'], issues: [{ number: 50, created_at: '2026-09-28T00:00:00Z' }] });
+    const snap = snapshot({ config: null, shipped: ['0042-dark-mode'], issues: [{ number: parsePrd(50), created_at: '2026-09-28T00:00:00Z' }] });
     expect(stagesOfRepo(snap, SYNC)).toEqual({ stages: [], topics: [] });
   });
 
   it('learns each folder\'s topic from its name, and ignores a name that is not a PRD folder', () => {
     const snap = snapshot({ inbox: ['0043-light-mode', 'README.md', 'notes'], shipped: ['0042-dark-mode'] });
     expect(stagesOfRepo(snap, SYNC).topics).toEqual([
-      { repository: 'acme/widgets', prd: 42, topic: 'dark-mode' },
-      { repository: 'acme/widgets', prd: 43, topic: 'light-mode' },
+      { repository: 'acme/widgets', prd: parsePrd(42), topic: 'dark-mode' },
+      { repository: 'acme/widgets', prd: parsePrd(43), topic: 'light-mode' },
     ]);
   });
 

@@ -4,6 +4,7 @@ import { heartbeat, MAX_HEARTBEAT_BYTES, type WorkingDeps } from './api';
 import { fakeWorking, type FakeAccount } from './store.fake';
 import { workingReader } from './store';
 import { workingState } from './state';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // What an answer of the heartbeat carries, checked as it is read.
 const Answer = z.looseObject({ error: z.string().optional() });
@@ -28,9 +29,9 @@ function world({ database = true } = {}) {
   const fake = fakeWorking({ 'ada-token': ADA, 'bob-token': BOB, 'carl-token': CARL, 'nell-token': NELL }, { [ACME]: 'acme', [OTHER]: 'other' }, () => clock.now);
   fake.tables.dossiers.push(
     { id: DRAFT, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: null },
-    { id: PRD_7, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: 7 },
-    { id: VISUAL_12, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'visual', prd: 12 },
-    { id: BUG_13, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'bug', prd: 13 },
+    { id: PRD_7, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: parsePrd(7) },
+    { id: VISUAL_12, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'visual', prd: parsePrd(12) },
+    { id: BUG_13, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'bug', prd: parsePrd(13) },
   );
   // The stub answers only the calls the route makes, so it is not a whole Supabase client.
   const deps: WorkingDeps = { connect: database ? fake.client as unknown as WorkingDeps['connect'] : null };
@@ -107,7 +108,7 @@ describe('the dossier a heartbeat resolves to', () => {
     await w.send({ ...BEAT, work: { kind: 'prd', number: 99 } });
     expect(w.ping()?.dossier_id).toBeNull();
     const later = '00000000-0000-4000-8000-00000000d099';
-    w.fake.tables.dossiers.push({ id: later, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: 99 });
+    w.fake.tables.dossiers.push({ id: later, workspace_id: ACME, home_repo: 'acme/widgets', kind: 'prd', prd: parsePrd(99) });
     await w.send({ ...BEAT, work: { kind: 'prd', number: 99 } });
     expect(w.ping()?.dossier_id).toBe(later);
   });

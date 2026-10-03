@@ -3,6 +3,7 @@ import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
 import { item } from '../ask/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499), as pure functions: its accessible name, how long a question has
 // waited, the panel's groups and lines, and the panel's open and close.
@@ -14,7 +15,7 @@ const q = (id: string, ago: number, sharedBy: string | null = null): WaitingQues
   kind: 'question', id, sessionTitle: `terminal ${id}`, question: `question ${id}`, askedAt: NOW - ago, sharedBy,
 });
 const o = (id: string, prd: number, rank: WaitingOutbox['rank'] = 'high'): WaitingOutbox => ({
-  kind: 'outbox', id, prd, dossierId: `d-${prd}`, title: `PRD title ${prd}`, rank, question: `outbox ${id}?`,
+  kind: 'outbox', id, prd: parsePrd(prd), dossierId: `d-${prd}`, title: `PRD title ${prd}`, rank, question: `outbox ${id}?`,
 });
 
 describe('the bell\'s accessible name', () => {
@@ -85,7 +86,7 @@ describe('the panel', () => {
 });
 
 const d = (prd: number, ago: number, kinds: DocumentGroup['kinds'] = ['spec', 'before-after']): DocumentGroup => ({
-  dossierId: `d-${prd}`, prd, title: `PRD title ${prd}`, kinds, newestId: `v-${prd}`, newestAt: NOW - ago,
+  dossierId: `d-${prd}`, prd: parsePrd(prd), title: `PRD title ${prd}`, kinds, newestId: `v-${prd}`, newestAt: NOW - ago,
 });
 
 describe('the panel\'s New documents group (PRD 579)', () => {

@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { prdOutboxStore, waitingOf } from './store';
 import { fakePrdOutboxStore } from './store.fake';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const REPO = 'acme/widgets';
@@ -34,7 +35,7 @@ describe('the store, on Supabase', () => {
   it('upserts each PRD\'s counts with when they were taken, the repository in lower case, and writes nothing for none', async () => {
     const { calls, db } = recording();
     await prdOutboxStore(db).record([], '2026-09-29T10:00:00Z');
-    await prdOutboxStore(db).record([{ workspace_id: W, repository: 'Acme/Widgets', prd: 7, open_questions: 2, waiting: [] }], '2026-09-29T10:00:00Z');
+    await prdOutboxStore(db).record([{ workspace_id: W, repository: 'Acme/Widgets', prd: parsePrd(7), open_questions: 2, waiting: [] }], '2026-09-29T10:00:00Z');
     expect(calls).toEqual([[
       'upsert', 'prd_outbox',
       [{ workspace_id: W, repository: 'acme/widgets', prd: 7, open_questions: 2, waiting: [], synced_at: '2026-09-29T10:00:00Z' }],
@@ -48,7 +49,7 @@ describe('the store, on Supabase', () => {
       { repository: 'acme/core', prd: 7, open_questions: 5, waiting: [] },
       { repository: REPO, prd: 8, open_questions: 0, waiting: null },
     ]);
-    const counts = await prdOutboxStore(db).countsOf(W, [{ repository: 'Acme/Widgets', prd: 7 }, { repository: REPO, prd: 8 }, { repository: REPO, prd: 7 }]);
+    const counts = await prdOutboxStore(db).countsOf(W, [{ repository: 'Acme/Widgets', prd: parsePrd(7) }, { repository: REPO, prd: parsePrd(8) }, { repository: REPO, prd: parsePrd(7) }]);
     expect([...counts]).toEqual([
       [`${REPO}#7`, { open_questions: 2, waiting: [{ id: 'a', rank: 'high', question: 'Q?' }] }],
       [`${REPO}#8`, { open_questions: 0, waiting: [] }],
@@ -61,7 +62,7 @@ describe('the store, on Supabase', () => {
     expect((await prdOutboxStore(db).countsOf(W, [])).size).toBe(0);
     expect(calls).toEqual([]);
     const refused = recording([], { message: 'permission denied', code: '42501' });
-    await expect(prdOutboxStore(refused.db).countsOf(W, [{ repository: REPO, prd: 7 }])).rejects.toThrow('permission denied (42501)');
+    await expect(prdOutboxStore(refused.db).countsOf(W, [{ repository: REPO, prd: parsePrd(7) }])).rejects.toThrow('permission denied (42501)');
   });
 
   it('keeps only well-formed waiting items', () => {
@@ -74,10 +75,10 @@ describe('the store, on Supabase', () => {
 describe('the store, on its fake', () => {
   it('keeps one row per PRD, a write replacing its counts', async () => {
     const store = fakePrdOutboxStore(() => '2026-09-29T10:00:00Z');
-    await store.record([{ workspace_id: W, repository: 'Acme/Widgets', prd: 7, open_questions: 2, waiting: [] }]);
-    await store.record([{ workspace_id: W, repository: REPO, prd: 7, open_questions: 0, waiting: [] }]);
+    await store.record([{ workspace_id: W, repository: 'Acme/Widgets', prd: parsePrd(7), open_questions: 2, waiting: [] }]);
+    await store.record([{ workspace_id: W, repository: REPO, prd: parsePrd(7), open_questions: 0, waiting: [] }]);
     expect(store.rows).toHaveLength(1);
-    expect([...(await store.countsOf(W, [{ repository: REPO, prd: 7 }]))]).toEqual([[`${REPO}#7`, { open_questions: 0, waiting: [] }]]);
-    expect((await store.countsOf('w-other', [{ repository: REPO, prd: 7 }])).size).toBe(0);
+    expect([...(await store.countsOf(W, [{ repository: REPO, prd: parsePrd(7) }]))]).toEqual([[`${REPO}#7`, { open_questions: 0, waiting: [] }]]);
+    expect((await store.countsOf('w-other', [{ repository: REPO, prd: parsePrd(7) }])).size).toBe(0);
   });
 });

@@ -5,6 +5,7 @@ import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
 import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -152,15 +153,15 @@ describe('reading the questions that shaped it', () => {
     const [before, brainstorm, both, later] = ids(fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'main', claudeSessionId: 'sess-a' }, [
       { created_at: at('08:00') },
       { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
-      { created_at: at('10:00'), prd: 7 },
+      { created_at: at('10:00'), prd: parsePrd(7) },
       { created_at: at('12:30') },
     ]));
     const [delivery, other] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/widgets', branch: 'feat/team-inbox--s2', claudeSessionId: 'sess-b' }, [
-      { created_at: at('15:00'), prd: 7, skill: '/omni:do-work', category: 'product', category_by: 'model' },
-      { created_at: at('15:30'), prd: 8 },
+      { created_at: at('15:00'), prd: parsePrd(7), skill: '/omni:do-work', category: 'product', category_by: 'model' },
+      { created_at: at('15:30'), prd: parsePrd(8) },
     ]));
-    const [gadgets] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/gadgets' }, [{ created_at: at('16:00'), prd: 7 }]));
-    const [elsewhere] = ids(fake.seedAsk({ owner: CARL.id, workspace: OTHER, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: at('10:30'), prd: 7 }]));
+    const [gadgets] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/gadgets' }, [{ created_at: at('16:00'), prd: parsePrd(7) }]));
+    const [elsewhere] = ids(fake.seedAsk({ owner: CARL.id, workspace: OTHER, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: at('10:30'), prd: parsePrd(7) }]));
     return { fake, as, inbox, roster, round: { before, brainstorm, both, later, delivery, other, gadgets, elsewhere } };
   }
 
@@ -228,12 +229,12 @@ describe('reading the history', () => {
     now = Date.parse(at('10:00'));
     const widgets = await push('bob', 'acme/widgets', 'Widget sizes', null);
     const elsewhere = await push('carl', 'other/stuff', 'Elsewhere', null);
-    fake.seedPlanet({ planRepo: 'plans', prd: 7, regions: ['widgets', 'Gadgets', 'gadgets', 'core'] });
-    fake.seedPlanet({ workspace: OTHER, planRepo: 'stuff', prd: 7, regions: ['secret'] });
+    fake.seedPlanet({ planRepo: 'plans', prd: parsePrd(7), regions: ['widgets', 'Gadgets', 'gadgets', 'core'] });
+    fake.seedPlanet({ workspace: OTHER, planRepo: 'stuff', prd: parsePrd(7), regions: ['secret'] });
     fake.seedAsk({ owner: ADA.id, repo: 'Acme/Gadgets', claudeSessionId: 'sess-a' }, [
       { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
     ]);
-    fake.seedAsk({ owner: BOB.id, repo: 'Acme/Plans', branch: 'feat/invoice-reminders--s1' }, [{ created_at: at('11:00'), prd: 7 }]);
+    fake.seedAsk({ owner: BOB.id, repo: 'Acme/Plans', branch: 'feat/invoice-reminders--s1' }, [{ created_at: at('11:00'), prd: parsePrd(7) }]);
     return { fake, as, draft, reminders, widgets, elsewhere };
   }
 
@@ -282,7 +283,7 @@ describe('reading the change check (PRD 384)', () => {
     const first = await readPulse(as('bob'), numbered);
     expect(first).toEqual({ asked: 0, answered: 0, latest: { spec: 1, 'before-after': 2 } });
 
-    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: 7 }]).rounds;
+    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) }]).rounds;
     const asked = await readPulse(as('bob'), numbered);
     expect(asked).toMatchObject({ asked: 1, answered: 0 });
     expect(signature(asked)).not.toBe(signature(first));
@@ -305,8 +306,8 @@ describe('reading the change check (PRD 384)', () => {
   it('agrees with what the page rendered, so a page read and a check of the same dossier match', async () => {
     const { fake, as, numbered } = await world();
     fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: '2026-09-28T10:00:00.000Z', prd: 7, status: 'answered', answered_at: '2026-09-28T10:01:00.000Z' },
-      { created_at: '2026-09-28T10:02:00.000Z', prd: 7 },
+      { created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7), status: 'answered', answered_at: '2026-09-28T10:01:00.000Z' },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: parsePrd(7) },
     ]);
     const read = await readDossier(as('bob'), numbered);
     assertDefined(read, 'the dossier, read');
@@ -334,9 +335,9 @@ describe('who may answer a round on the list (PRD 384), decided on the server', 
     });
     const id = (pushed.data as { id: string }).id;
     const [shared, own, done] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
-      { created_at: '2026-09-28T10:00:00.000Z', prd: 7 },
-      { created_at: '2026-09-28T10:01:00.000Z', prd: 7 },
-      { created_at: '2026-09-28T10:02:00.000Z', prd: 7, status: 'answered', answers: { 'A question?': 'Yes' } },
+      { created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) },
+      { created_at: '2026-09-28T10:01:00.000Z', prd: parsePrd(7) },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: parsePrd(7), status: 'answered', answers: { 'A question?': 'Yes' } },
     ]).rounds.map((r) => r.id);
     assertDefined(shared, 'the shared round');
     assertDefined(done, 'the answered round');

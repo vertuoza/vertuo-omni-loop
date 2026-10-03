@@ -16,6 +16,7 @@ import { stripesOf, type Theme } from '../theme';
 import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -74,7 +75,7 @@ export interface ChartFrame {
   world: number;
 }
 
-export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
+export interface MapSlot { prd: PrdNumber; x: number; y: number; r: number; index: number }
 
 /**
  * How many pages a scene takes on a grid, for the galaxy it shows: a group that splits its tall
@@ -121,7 +122,7 @@ export const RING = ['#3a2a78', '#6a4fd0', '#a88cff', '#2a1f5c'];
 export function planetLook(p: Planet, theme: Theme) {
   const alive = mood(p) === 'alive';
   return {
-    seed: seedOf(p.prd),
+    seed: seedOf(parsePrd(p.prd)),
     progress: p.progress,
     mood: mood(p),
     atmosphere: alive ? (p.progress >= 1 ? theme.cyan : p.progress > 0 ? '#8fd8ff' : '#7a64b8') : null,

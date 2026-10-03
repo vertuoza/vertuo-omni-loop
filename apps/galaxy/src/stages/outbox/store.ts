@@ -8,6 +8,7 @@ import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { numberOf, textOf } from '../../data/unparsed';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const TABLE = 'prd_outbox';
 
@@ -62,7 +63,7 @@ export function prdOutboxStore(db: Pick<SupabaseClient<Database>, 'from'>): PrdO
         .eq('workspace_id', workspace).in('prd', numbers);
       settle('read the outboxes', error);
       for (const row of data ?? []) {
-        const key = prdKey({ repository: textOf(row.repository), prd: numberOf(row.prd) });
+        const key = prdKey({ repository: textOf(row.repository), prd: parsePrd(numberOf(row.prd)) });
         if (!wanted.has(key)) continue;
         counts.set(key, { open_questions: numberOf(row.open_questions) || 0, waiting: waitingOf(row.waiting) });
       }

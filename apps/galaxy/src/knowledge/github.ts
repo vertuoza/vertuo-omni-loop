@@ -11,7 +11,7 @@
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { z } from 'zod';
-import type { KnowledgeGraph } from '../data/knowledge';
+import { withPrd, type KnowledgeGraph } from '../data/knowledge';
 import type { WorkspaceGithub } from '../data/workspace';
 import { githubApp, reachedRepositories, type AppCredentials, type InstallationToken } from '../signup/github-app';
 
@@ -210,7 +210,7 @@ export function knowledgeReader(
           const [name, root] = listed;
           const graph = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name });
           // The map reads version 1 of the kit's graph: another version is left out, not misread.
-          if (graph.version === 1) value = { ...graph, version: 1 };
+          if (graph.version === 1) value = { ...graph, entries: graph.entries.map(withPrd), version: 1 };
           else log(`knowledge map: ${repo} is left out, its graph is version ${graph.version}, not 1`);
         }
       } catch (error) {

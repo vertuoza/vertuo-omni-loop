@@ -5,6 +5,7 @@ import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { loadProfile, placeOf, type ProfileReads, type ProfileRequest } from './load';
 import { sure } from '../arcade/sure';
 import { settled } from '../stages/settled';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A profile's loader on fake reads (PRD 698 s3): a member's header, board and work of the period; a
 // login outside the workspace; no tracked repository; and each read failing alone.
@@ -30,7 +31,7 @@ const pr = (number: number, author: string, openedAt: string, mergedAt: string |
 });
 
 const dossier = (id: string, prd: number, kind: DossierListRow['kind'], opener: string | null): DossierListRow => ({
-  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd, kind, title: id, opened_by: opener, created_at: '2026-09-01T08:00:00Z',
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: parsePrd(prd), kind, title: id, opened_by: opener, created_at: '2026-09-01T08:00:00Z',
   numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: '2026-09-25T08:00:00Z',
 });
 const DOSSIERS = [dossier('p7', 7, 'prd', 'u-ada'), dossier('p8', 8, 'prd', 'u-bob'), dossier('b3', 3, 'bug', 'u-ada'), dossier('v4', 4, 'visual', 'u-ada')];

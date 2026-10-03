@@ -7,6 +7,7 @@
 // cache; this module only reads through the `get` it is handed.
 import { z } from 'zod';
 import { readPart, UNREAD, type Read } from './summary';
+import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
 export type FixGet = (route: string) => Promise<unknown>;
@@ -15,12 +16,12 @@ export type FixGet = (route: string) => Promise<unknown>;
 export type FixLabels = { risk: readonly string[]; regression: string };
 
 export type FixIssue = {
-  number: number; url: string; state: 'open' | 'closed'; author: string | null; createdAt: string;
+  number: IssueNumber; url: string; state: 'open' | 'closed'; author: string | null; createdAt: string;
   /** The first of the config's risk labels the issue carries; null when none. */
   risk: string | null;
   regression: boolean;
 };
-export type FixPull = { number: number; url: string; state: 'open' | 'merged'; mergedAt: string | null; mergedBy: string | null };
+export type FixPull = { number: PrNumber; url: string; state: 'open' | 'merged'; mergedAt: string | null; mergedBy: string | null };
 export type FixApproval = { login: string; at: string };
 export type FixRelease = { tag: string; url: string; at: string };
 
@@ -33,7 +34,7 @@ export type FixSummary = {
 };
 
 const Issue = z.object({
-  number: z.number().int().positive(),
+  number: IssueNumberSchema,
   html_url: z.url(),
   state: z.enum(['open', 'closed']),
   created_at: z.string(),
@@ -41,7 +42,7 @@ const Issue = z.object({
   labels: z.array(z.union([z.string(), z.object({ name: z.string().optional() })])).optional().default([]),
 });
 const Pulls = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   html_url: z.url(),
   state: z.enum(['open', 'closed']),
   merged_at: z.string().nullable().optional().default(null),
@@ -64,7 +65,7 @@ const Releases = z.array(z.object({
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A branch of the fix: `branches.fix` with a topic starting `<n>-`. */
-function fixBranch(shape: string, n: number): RegExp {
+function fixBranch(shape: string, n: IssueNumber): RegExp {
   const [before = '', after = ''] = shape.split('{topic}');
   return new RegExp(`^${escape(before)}${n}-[a-z0-9-]+${escape(after)}$`);
 }
@@ -73,7 +74,7 @@ function fixBranch(shape: string, n: number): RegExp {
 const part = <T>(what: string, run: () => Promise<T>) => readPart('Fix page', what, run);
 
 /** Fix `n` of the repository `get` reads, its branches shaped as `fixShape`. */
-export async function readFix(get: FixGet, n: number, fixShape: string, labels: FixLabels): Promise<FixSummary> {
+export async function readFix(get: FixGet, n: IssueNumber, fixShape: string, labels: FixLabels): Promise<FixSummary> {
   const branch = fixBranch(fixShape, n);
   const [issue, found] = await Promise.all([
     part('the issue', async (): Promise<FixIssue | null> => {

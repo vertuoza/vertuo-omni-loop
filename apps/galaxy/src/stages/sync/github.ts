@@ -12,6 +12,7 @@ import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -21,13 +22,14 @@ const CONFIG_PATH = '.omni-loop/config.yml';
 const MAX_PAGES = 20;
 
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
+// The `labels.prd` issues: each one's number is its PRD's.
 const Issues = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrdNumberSchema,
   created_at: z.string(),
   pull_request: z.unknown().optional(),
 }));
 const Pulls = z.array(z.object({
-  number: z.number().int().positive(),
+  number: PrNumberSchema,
   state: z.enum(['open', 'closed']),
   draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),

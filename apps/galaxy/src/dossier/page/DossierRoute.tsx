@@ -29,6 +29,7 @@ import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
 import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -77,7 +78,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
  * GitHub could not be read, the stages null when they could not be read. */
-function prdReads(db: Db, read: DossierRead, prd: number): DossierReads {
+function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
   const { dossier } = read;
   const reader = dossierGithub();
   const logged = (error: unknown) => {
