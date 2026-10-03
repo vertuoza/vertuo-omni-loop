@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The demo still runs with nothing set, and the client build inlines what it did. My local loop is unchanged.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The error names every variable and never a value. Previews need no production secrets, which is what I asked for.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "A half-set deploy now says which setting is missing. The docs finally list every variable.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Four env modules, a guard with no escape, a docs check and an ADR. The rule holds for every agent.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Customers see nothing. Fewer silent misconfigurations is still worth it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · offering#36 ✓"
     }
   ]
 }
