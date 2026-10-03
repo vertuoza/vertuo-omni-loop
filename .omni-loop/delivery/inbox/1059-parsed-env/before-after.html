@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1059 · Parsed environment</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 1042 · A feedback loop in seconds</h1>
+  <h1>PRD 1059 · Parsed environment</h1>
+  <p class="lede">Nothing on screen changes. What changes is when, and how clearly, a wrong setting is caught.</p>
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+      <h3>83 raw reads, 32 variables, 4 runtimes</h3>
+<pre>const key = process.env.GITHUB_APP_PRIVATE_KEY
+const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL</pre>
+      <h3>A deployment with a half-set pair</h3>
+<pre>GITHUB_APP_ID=12345
+GITHUB_APP_PRIVATE_KEY=      <span class="muted">(forgotten)</span>
+
+deploy ✓  start ✓
+…an hour later, in a request:
+<span class="bad">Error: secretOrPrivateKey must have a value</span></pre>
+      <h3>The GitHub App without its webhook secret</h3>
+<pre><span class="bad">every delivery refused, silently</span></pre>
+      <h3>Docs</h3>
+<pre>.env.example  <span class="bad">12 listed, 5 read but missing</span></pre>
+    </section>
+    <section>
+      <h2>After</h2>
+      <h3>One module per runtime, typed groups</h3>
+<pre>const env = readEnv(process.env)   <span class="muted">// only in env.ts</span>
+env.githubApp   <span class="muted">// { id, privateKey } | null</span>
+env.supabase    <span class="muted">// { url, serviceRoleKey } | null</span>
+env.mode        <span class="muted">// 'supabase' | 'demo' | 'closed'</span></pre>
+      <h3>The same deployment</h3>
+<pre>deploy ✓  start <span class="good">✗ env: GITHUB_APP_PRIVATE_KEY is missing
+          (GITHUB_APP_ID is set)</span>
+<span class="muted">names every variable, never a value</span></pre>
+      <h3>The GitHub App without its webhook secret</h3>
+<pre><span class="good">✗ env: GITHUB_WEBHOOK_SECRET is required in production</span></pre>
+      <h3>Docs, and the code</h3>
+<pre>.env.example  <span class="good">checked against the schema</span>
+process.env.X <span class="good">// env guard: read it through env.ts</span></pre>
+    </section>
+  </div>
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>Every variable, its name and its meaning; no setting is added or removed.</li>
+      <li>An optional feature with nothing set is off, as today; the arcade's demo and closed modes work with no Supabase.</li>
+      <li>Every feature whose settings are complete behaves exactly as it does now.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
