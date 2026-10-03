@@ -19,41 +19,39 @@ type Browser = SupabaseClient<Database>;
 export function supabaseAccount({ url, key, workspace }: { url: string; key: string; workspace: string | null }): Account {
   // Created on first use, in the browser: the server's pre-render of the arcade never needs it.
   let client: Browser | null = null;
-  const db = new Proxy({} as Browser, { // ts-allow: an empty target: every read goes to the client, made on first use
-    get: (_, prop): unknown => Reflect.get((client ??= createBrowserClient<Database>(url, key)), prop),
-  });
+  const db = (): Browser => (client ??= createBrowserClient<Database>(url, key));
   const callback = (next?: string) => `${window.location.origin}/auth/callback${next ? `?next=${next}` : ''}`;
   const fail = (what: string, message: string) => new Error(`${what}: ${message}`);
   return {
     kind: 'supabase',
     async signIn(): Promise<undefined> {
       // The callback joins the workspaces of the person's GitHub orgs and links GitHub (src/data/sign-in.ts).
-      const { error } = await db.auth.signInWithOAuth(githubSignIn(callback()));
+      const { error } = await db().auth.signInWithOAuth(githubSignIn(callback()));
       if (error) throw fail('GitHub sign-in', error.message);
     },
     async linkGithub(): Promise<undefined> {
       // Every sign-in is GitHub's and links it: the arcade's link step signs in again, and the
       // callback answers the linked login (until the step goes, PRD 359 s3).
-      const { error } = await db.auth.signInWithOAuth(githubSignIn(callback('link')));
+      const { error } = await db().auth.signInWithOAuth(githubSignIn(callback('link')));
       if (error) throw fail('GitHub', error.message);
     },
     async save(patch: PlayerPatch, current: Player | null) {
-      const { data: { user } } = await db.auth.getUser();
+      const { data: { user } } = await db().auth.getUser();
       if (!user) throw new Error('Your session ended. Sign in again.');
-      return savePlayer(db, workspace, user.id, patch, current);
+      return savePlayer(db(), workspace, user.id, patch, current);
     },
     async submitScore(game: string, score: number) {
-      return submitScore(db, workspace, game, score);
+      return submitScore(db(), workspace, game, score);
     },
     async scores(game: string) {
       if (!workspace) throw new Error('This account belongs to no workspace yet.');
-      const { data: { user } } = await db.auth.getUser();
-      return loadScores(db, workspace, game, user?.id ?? null);
+      const { data: { user } } = await db().auth.getUser();
+      return loadScores(db(), workspace, game, user?.id ?? null);
     },
     async signOut() {
       // This browser only: the default, global, would also end the sign-in `omni signin` keeps for
       // ask mode, and every terminal would quietly fall back to asking itself.
-      await db.auth.signOut({ scope: 'local' });
+      await db().auth.signOut({ scope: 'local' });
     },
   };
 }
