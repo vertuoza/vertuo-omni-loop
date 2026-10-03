@@ -94,7 +94,7 @@ const str = (value: unknown): string | null => (typeof value === 'string' ? valu
  * A Postgres numeric: PostgREST answers it as a JSON number, and the arcade has always read one
  * written as decimal text too. Nothing else converts: null, an empty text or a word fails.
  */
-const Numeric = z.union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)]).pipe(z.number().finite());
+const Numeric = z.union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)]);
 
 /** A jev_decisions row, as DECISION_COLUMNS selects it: the table's checks, in zod. */
 export const StoredDecision = z.strictObject({
