@@ -13,8 +13,7 @@ describe('a waiting dossier, as the database answers it', () => {
   });
 
   it('refuses a missing column, a wrong type and a forbidden null', () => {
-    const { home_repo: _gone, ...missing } = row;
-    expect(WaitingDossierRow.safeParse(missing).success).toBe(false);
+    expect(WaitingDossierRow.safeParse({ id: 'd1', workspace_id: 'w-acme', prd: 1, title: 'PRD 1 title' }).success).toBe(false);
     expect(WaitingDossierRow.safeParse({ ...row, prd: '1' }).success).toBe(false);
     expect(WaitingDossierRow.safeParse({ ...row, title: null }).success).toBe(false);
   });

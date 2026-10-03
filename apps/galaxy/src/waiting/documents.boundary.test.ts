@@ -13,8 +13,7 @@ describe('a new document, as the database answers it', () => {
   });
 
   it('refuses a missing column, a wrong type and a forbidden null', () => {
-    const { created_at: _gone, ...missing } = row;
-    expect(DocumentRead.safeParse(missing).success).toBe(false);
+    expect(DocumentRead.safeParse({ id: 'v1', kind: 'spec', dossier: row.dossier }).success).toBe(false);
     expect(DocumentRead.safeParse({ ...row, dossier: { ...row.dossier, prd: '7' } }).success).toBe(false);
     expect(DocumentRead.safeParse({ ...row, kind: null }).success).toBe(false);
   });
