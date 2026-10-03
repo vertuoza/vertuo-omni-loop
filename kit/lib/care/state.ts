@@ -58,13 +58,18 @@ const PullRequestNodeSchema = z.object({
 });
 type PullRequestNode = z.infer<typeof PullRequestNodeSchema>;
 
-/** The JSON of `CARE_QUERY`, as far as `careState` reads it. */
-export const CareResponseSchema = z
+/**
+ * The JSON of `CARE_QUERY`, as far as `careState` reads it. Typed as `ZodType<CareResponse>`, which the
+ * compiler checks against what the schema infers: inferring the whole output at every use instead is too
+ * deep for `tsgo` (TS2589) in a file that reads it first (PRD 1042).
+ */
+export const CareResponseSchema: z.ZodType<CareResponse> = z
   .object({ data: z.object({ repository: z.object({ pullRequest: PullRequestNodeSchema.nullish() }).nullish() }).nullish() })
   .nullish();
 
-/** The parsed JSON of `CARE_QUERY`, as far as `careState` reads it. */
-export type CareResponse = z.infer<typeof CareResponseSchema>;
+/** The parsed JSON of `CARE_QUERY`: its three outer levels written out over `PullRequestNode`. */
+type Nullish<T> = T | null | undefined;
+export type CareResponse = Nullish<{ data?: Nullish<{ repository?: Nullish<{ pullRequest?: Nullish<PullRequestNode> }> }> }>;
 
 export type CheckState = 'green' | 'red' | 'running' | 'none';
 export type FailedCheck = { name: string | null | undefined; url: string | null };
