@@ -119,3 +119,35 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
   if (parsed.success) return parsed.data;
   throw new Error(`${context}: ${firstIssue(parsed.error)}`);
 }
+
+// What the collector's steps return, read back through these once Inngest has saved them as JSON
+// (PRD 1030): a deploy between two replays of a run cannot hand the collector a value of another shape.
+
+/** An installation's GraphQL budget, as the collector carries it from one batch to the next; `{}` before its first query. */
+export const BudgetSchema = z.object({
+  limit: z.number().exactOptional(),
+  remaining: z.number().exactOptional(),
+  resetAt: z.string().nullable().exactOptional(),
+});
+
+/** A tracked repository and its installation, as the step "list-repositories" returns them. */
+export const TrackedRepositorySchema = z.object({
+  workspaceId: z.string(),
+  installationId: z.number(),
+  fullName: z.string(),
+  collectedUntil: z.string().nullable(),
+});
+
+/** The step "list-repositories": every tracked repository. */
+export const TrackedRepositoriesSchema = z.array(TrackedRepositorySchema);
+
+/** A step "collect <workspace>/<repo> <n>": what one batch did, and where the cursor and the budget stand. */
+export const BatchOutSchema = z.object({
+  saved: z.number(),
+  cursor: z.string(),
+  more: z.boolean(),
+  paused: z.literal(true).exactOptional(),
+  error: z.string().exactOptional(),
+  budget: BudgetSchema,
+});
+export type BatchOut = z.infer<typeof BatchOutSchema>;

@@ -15,9 +15,10 @@
 // GraphQL, and once a budget would drop under half, the run ends for every repository of that
 // installation, each cursor at what was written and no error recorded; the next run carries on.
 import { type Budget, BudgetLow, type GraphqlOctokit, type ListedPull, affords, pullsUpdatedAfter, readPullRecords } from './github.ts';
-import { FailureSchema } from './schema.ts';
+import { BatchOutSchema, FailureSchema, TrackedRepositoriesSchema, type BatchOut } from './schema.ts';
 import type { PrStatsStore, TrackedRepository } from './supabase-store.ts';
 import type { OctokitFor } from '../octokit-for.ts';
+import { savedStep, type StepRun } from '../saved-step.ts';
 
 export const BACKFILL_DAYS = 90;
 /**
@@ -30,16 +31,13 @@ const MAX_BATCHES = 20;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The part of an Inngest step the collector runs: one memoized, retried unit, its output as JSON. */
-export type CollectStep = { run: <T>(id: string, fn: () => T | Promise<T>) => Promise<T> };
+/** The part of an Inngest step the collector runs: one memoized, retried unit, its output read back through its schema. */
+export type CollectStep = StepRun;
 
 /** What a run did: repositories by how their collection ended, and pull requests saved. */
 export type CollectSummary = { repositories: number; saved: number } & Record<Outcome, number>;
 
 type Outcome = 'collected' | 'failed' | 'unfinished' | 'paused';
-
-/** What one batch did, and where the repository's cursor and its installation's budget stand. */
-type BatchOut = { saved: number; cursor: string; more: boolean; paused?: true; error?: string; budget: Budget };
 
 type RepositoryRun = {
   store: PrStatsStore;
@@ -60,7 +58,7 @@ export async function collectAll({ store, octokitFor, step, now }: {
 }): Promise<CollectSummary> {
   const nowIso = new Date(now).toISOString();
   const backfillFrom = new Date(now - BACKFILL_DAYS * DAY_MS).toISOString();
-  const repositories = await step.run('list-repositories', () => store.trackedRepositories());
+  const repositories = await savedStep(step, 'list-repositories', TrackedRepositoriesSchema, () => store.trackedRepositories());
 
   const summary: CollectSummary = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
   /** Each installation's budget, as its last query answered it; `{}` until its first. */
@@ -85,7 +83,7 @@ async function collectRepository({ store, octokitFor, step, repository, budgets,
   for (let n = 1; ; n += 1) {
     const budget = budgets.get(installationId) ?? {};
     if (!affords(budget)) return { outcome: 'paused', saved };
-    const out = await step.run(`collect ${workspaceId}/${fullName} ${n}`, () =>
+    const out = await savedStep(step, `collect ${workspaceId}/${fullName} ${n}`, BatchOutSchema, () =>
       collectBatch({ store, octokitFor, repository, cursor, nowIso, budget }),
     );
     saved += out.saved;

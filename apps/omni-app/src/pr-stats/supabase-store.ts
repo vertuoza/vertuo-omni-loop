@@ -5,10 +5,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { ReviewRow } from './github.ts';
-import { parsedOr, TrackedRowSchema } from './schema.ts';
+import { parsedOr, TrackedRowSchema, type TrackedRepositorySchema } from './schema.ts';
+import type { z } from 'zod';
 
 /** A tracked repository, the installation it is read through, and its cursor. */
-export type TrackedRepository = { workspaceId: string; installationId: number; fullName: string; collectedUntil: string | null };
+export type TrackedRepository = z.infer<typeof TrackedRepositorySchema>;
 
 /** A `pull_requests` row as written: every column with a default may be left out. */
 export type PullInsert = Database['public']['Tables']['pull_requests']['Insert'];
