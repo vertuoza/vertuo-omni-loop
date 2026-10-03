@@ -12,6 +12,7 @@ import { settled } from '../stages/settled';
 import type { ReleaseRow } from './row';
 import { missingVariables, releasesSync, syncReleases } from './sync-run';
 import type { ReleasesTable } from './sync-table';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
@@ -67,7 +68,7 @@ const FILES = {
 describe('syncReleases — one run', () => {
   it('inserts each newly shipped PRD and refreshes a changed text, printing each PRD it wrote', async () => {
     const root = checkout(FILES);
-    const stored = { prd: 3, release: 1, released_at: '2026-09-27T10:00:00+00:00', title: 'An older title', description: 'The kit packages the loop.' };
+    const stored = { prd: parsePrd(3), release: 1, released_at: '2026-09-27T10:00:00+00:00', title: 'An older title', description: 'The kit packages the loop.' };
     const { table, written } = memoryTable([stored]);
     const { out, err, print } = streams();
 
@@ -85,7 +86,7 @@ describe('syncReleases — one run', () => {
 
   it('writes nothing and says so when the table already holds every release', async () => {
     const root = checkout({ [`${SHIPPED}/0270-next/spec.md`]: spec(270, 'The next PRD') });
-    const { table, written } = memoryTable([{ prd: 270, release: 2, released_at: '2026-09-28T09:15:00+00:00', title: 'The next PRD', description: '' }]);
+    const { table, written } = memoryTable([{ prd: parsePrd(270), release: 2, released_at: '2026-09-28T09:15:00+00:00', title: 'The next PRD', description: '' }]);
     const { out, print } = streams();
     expect(await syncReleases({ root, table, ...print })).toBe(0);
     expect(written).toEqual([]);

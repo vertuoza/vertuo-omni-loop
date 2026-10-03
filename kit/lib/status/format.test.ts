@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fetchedAgo, formatOverview, STAGE_ORDER, STAGE_WORDS } from './format.ts';
 import type { Overview, StagedPrd, YourRow, Yours } from './overview.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -153,8 +154,8 @@ describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
 });
 
 describe('formatOverview — yours (PRD 315, slice s3)', () => {
-  const row = (stage: YourRow['stage'], prd: number, topic: string, more: { openItems?: number } = {}): YourRow => ({ stage, prd, topic, ...more });
-  const entry = (prd: number, topic: string): StagedPrd => ({ prd, topic });
+  const row = (stage: YourRow['stage'], prd: number, topic: string, more: { openItems?: number } = {}): YourRow => ({ stage, prd: parsePrd(prd), topic, ...more });
+  const entry = (prd: number, topic: string): StagedPrd => ({ prd: parsePrd(prd), topic });
 
   /** The lines of the yours section: between the blank line after the bar and the one before help. */
   function yoursLines(text: string) {

@@ -1,3 +1,4 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { InngestTestEngine } from '@inngest/test';
 import { internalEvents } from 'inngest';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,7 +22,7 @@ describe('prStats — the Inngest function', () => {
   });
 
   it('collects every tracked repository of every installed workspace, through each installation', async () => {
-    const github = fakeGitHub({ 'vertuoza/apps': { pulls: [pull(1, { updated_at: '2026-09-28T10:00:00Z' })] }, 'acme/web': { pulls: [pull(4, { updated_at: '2026-09-27T10:00:00Z' })] } });
+    const github = fakeGitHub({ 'vertuoza/apps': { pulls: [pull(parsePr(1), { updated_at: '2026-09-28T10:00:00Z' })] }, 'acme/web': { pulls: [pull(parsePr(4), { updated_at: '2026-09-27T10:00:00Z' })] } });
     const store = fakeStore([
       { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'vertuoza/apps' },
       { workspaceId: 'ws-acme', installationId: 9, fullName: 'acme/web' },

@@ -11,6 +11,7 @@ import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
   ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 627: the kind of a dossier, its new version kinds and dossier_push() taking the kind.
@@ -59,7 +60,7 @@ describe('the dossier store', () => {
   it('pushes through dossier_push(), with the migration\'s parameters, and hands back what it did', async () => {
     const pushed = { id: '00000000-0000-4000-8000-000000000002', added: [{ kind: 'spec', version: 2 }], unchanged: ['plan'] };
     const { calls, db } = recording({ data: pushed, error: null });
-    const push = { repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
+    const push = { repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
     expect(await dossierStore(db).push(push)).toEqual(pushed);
     // A PRD's push names no kind: the function's last parameter defaults to prd.
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
@@ -72,14 +73,14 @@ describe('the dossier store', () => {
 
   it('pushes a fix with its kind, as the last of the migration\'s parameters', async () => {
     const { calls, db } = recording({ data: { id: 'd9', added: [], unchanged: [] }, error: null });
-    await dossierStore(db).push({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
+    await dossierStore(db).push({ repo: 'acme/widgets', prd: parsePrd(548), kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('dossier_push', FIX_MIGRATION));
     expect(firstArgs(calls).p_kind).toBe('visual');
   });
 
   it('turns a refusal into a DossierStoreError carrying Postgres\'s code and reason', async () => {
     const { db } = recording({ data: null, error: { code: 'P0002', message: 'No such draft dossier.' } });
-    const error = await dossierStore(db).push({ repo: 'a/b', prd: 1, title: 't', draftId: null, artifacts: [] }).catch((e: unknown) => e);
+    const error = await dossierStore(db).push({ repo: 'a/b', prd: parsePrd(1), title: 't', draftId: null, artifacts: [] }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: 'P0002', reason: 'No such draft dossier.' });
   });
@@ -162,7 +163,7 @@ describe('reading a dossier as its members do (the page to share)', () => {
 
   it('finds a PRD\'s dossier by its repository, lower-cased, and its number: the most recently numbered first', async () => {
     const { calls, db } = querying({ data: [{ id: 'd2' }], error: null });
-    expect(await dossierReader(db).numbered('Acme/Widgets', 7)).toBe('d2');
+    expect(await dossierReader(db).numbered('Acme/Widgets', parsePrd(7))).toBe('d2');
     expect(calls).toEqual([
       ['from', 'dossiers'], ['select', 'id'], ['eq', 'home_repo', 'acme/widgets'], ['eq', 'kind', 'prd'], ['eq', 'prd', 7],
       ['order', 'numbered_at', { ascending: false, nullsFirst: false }], ['order', 'id', { ascending: true }], ['limit', 1],
@@ -171,13 +172,13 @@ describe('reading a dossier as its members do (the page to share)', () => {
 
   it('finds a fix\'s dossier by its kind (PRD 627)', async () => {
     const { calls, db } = querying({ data: [{ id: 'd3' }], error: null });
-    expect(await dossierReader(db).numbered('acme/widgets', 571, 'bug')).toBe('d3');
+    expect(await dossierReader(db).numbered('acme/widgets', parsePrd(571), 'bug')).toBe('d3');
     expect(calls).toContainEqual(['eq', 'kind', 'bug']);
   });
 
   it('finds no dossier when row-level security hides every row, or there is none', async () => {
-    expect(await dossierReader(querying({ data: [], error: null }).db).numbered('acme/widgets', 7)).toBeNull();
-    expect(await dossierReader(querying({ data: null, error: null }).db).numbered('acme/widgets', 7)).toBeNull();
+    expect(await dossierReader(querying({ data: [], error: null }).db).numbered('acme/widgets', parsePrd(7))).toBeNull();
+    expect(await dossierReader(querying({ data: null, error: null }).db).numbered('acme/widgets', parsePrd(7))).toBeNull();
   });
 
   it('turns a failed read into a DossierStoreError', async () => {

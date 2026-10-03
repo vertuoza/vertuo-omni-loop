@@ -1,3 +1,4 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { failing } from '../../../test/github-replay.ts';
 import { FEATURE, FEATURE_EVENTS, OWNER, PLAN, REPO, SUB_PULLS } from '../../../test/retro-scenario.ts';
@@ -87,8 +88,8 @@ describe('timeline — detect', () => {
     const ctx = await context();
     ctx.pulls = [
       ...ctx.pulls,
-      { number: 16, title: 'S2 again', url: 'u16', state: 'closed', draft: false, headRef: 'feat/widget--s2', headSha: 'sha16', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
-      { number: 17, title: 'Settle', url: 'u17', state: 'open', draft: false, headRef: 'fix/settle-widget', headSha: 'sha17', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
+      { number: parsePr(16), title: 'S2 again', url: 'u16', state: 'closed', draft: false, headRef: 'feat/widget--s2', headSha: 'sha16', openedAt: '2026-09-20T10:10:00Z', closedAt: '2026-09-20T10:20:00Z', mergedAt: null, labels: [] },
+      { number: parsePr(17), title: 'Settle', url: 'u17', state: 'open', draft: false, headRef: 'fix/settle-widget', headSha: 'sha17', openedAt: '2026-09-20T10:30:00Z', closedAt: null, mergedAt: null, labels: [] },
     ];
     const { facts } = detect({ readyAt: null }, ctx);
     expect(facts.slices.map((slice) => [slice.slice, slice.pr, slice.minutes])).toEqual([

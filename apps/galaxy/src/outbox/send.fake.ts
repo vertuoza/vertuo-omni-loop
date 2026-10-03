@@ -10,8 +10,10 @@
 import type { GithubSummary } from '../dossier/github/summary';
 import type { OutboxSource, SendStore, SendTarget } from './send';
 import type { SendRow } from './sent';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-export type FakeDossier = { id: string; homeRepo: string; prd: number | null; members: string[] };
+
+export type FakeDossier = { id: string; homeRepo: string; prd: PrdNumber | null; members: string[] };
 
 /** The store as `viewer` sees it: the dossiers they are a member of, and every send (theirs or not). */
 export function fakeSendStore(viewer: string, dossiers: FakeDossier[]) {

@@ -21,6 +21,7 @@ import type { OutboxItem, OutboxOption } from '../types.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 import { parseItem } from './settle.ts';
 import { plainText } from './plain-text.ts';
+import type { OutboxItemId, PrdNumber } from '../ids.ts';
 
 /** The longest a reason or a prose answer may be, once made one line. */
 export const REASON_MAX_LENGTH = 500;
@@ -67,7 +68,7 @@ export type AnswerableQuestion = {
 };
 
 /** The numbering the pull request comment carries: which item each question number names. */
-export type CommentNumbering = readonly { number: number; id: string; since?: string }[];
+export type CommentNumbering = readonly { number: number; id: OutboxItemId; since?: string }[];
 
 /**
  * A reason or a prose answer as one clean line: every run of whitespace (newlines included) becomes
@@ -124,7 +125,7 @@ function lineFor(question: ReplyQuestion, pick: Pick): { line: string; reason?: 
 /**
  * Writes the reply one person gives through a door. Pure.
  *
- * @param {{ prd: number, door: 'terminal' | 'page',
+ * @param {{ prd: PrdNumber, door: 'terminal' | 'page',
  *   questions: Array<{ number: number, rank: string, options?: { letter: string }[] }>,
  *   picks: Array<{ number: number, pick: string, reason?: string, text?: string }> }} args
  *   `questions` is every question the reply may answer (see {@link answerableQuestions}).
@@ -136,7 +137,7 @@ export function writeReply({
   questions,
   picks,
 }: {
-  prd: number;
+  prd: PrdNumber;
   door: Door;
   questions: readonly ReplyQuestion[] | null | undefined;
   picks: unknown;

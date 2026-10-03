@@ -17,6 +17,8 @@ import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
 import { at, defined, group } from '../narrow.ts';
+import { parsePrd } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** What the idea changes: a new experience, how the product looks, or how it is built. */
 export const CONCEPT_KINDS = ['product', 'identity', 'platform'] as const;
@@ -35,7 +37,7 @@ export type ConceptScale = (typeof CONCEPT_SCALES)[number];
 type AreaColumn = (typeof AREA_COLUMNS)[number];
 
 /** One row of the Areas table, in build order. */
-export type ConceptArea = { id: string; area: string; brief: string; prd: number | null };
+export type ConceptArea = { id: string; area: string; brief: string; prd: PrdNumber | null };
 
 /** A concept.md, parsed. */
 export type ConceptRecord = {
@@ -50,7 +52,7 @@ export type ConceptRecord = {
 export type ConceptParse = { ok: true; record: ConceptRecord } | { ok: false; errors: string[] };
 
 /** An area as read from its row: a cell is `undefined` while the table lacks its column. */
-type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: number | null };
+type AreaRow = { id: string | undefined; area: string | undefined; brief: string | undefined; prd: PrdNumber | null };
 
 type Section = { name: string; lines: string[] };
 
@@ -188,7 +190,7 @@ function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas:
     const prd = cell(row, 'PRD');
     const filled = PRD_CELL.exec(prd ?? '');
     if (prd && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd}", neither empty nor #<number>.`);
-    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? Number(filled[1]) : null };
+    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? parsePrd(at(filled, 1, 'the PRD cell')) : null };
   });
   faults.push(...idFaults(areas.map((area) => area.id)));
 

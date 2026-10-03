@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
+import type { CommentId, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { formatReport, gateResult, type GateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
@@ -26,7 +27,7 @@ export const NOT_ACTIVE_ON_PR = 'omni-loop is not active on this PR';
 
 export type PrFacts = { baseRef: string; headRef: string; headSha: string; labels?: string[] };
 /** `id` null means create, else rewrite that comment. */
-export type CommentPlan = { id: number | null; body: string };
+export type CommentPlan = { id: CommentId | null; body: string };
 export type Conclusion = 'success' | 'failure' | 'neutral' | 'skipped';
 export type Verdict = { conclusion: Conclusion; title: string; summary: string; comment: CommentPlan | null };
 
@@ -42,7 +43,7 @@ export function evaluate({
   head: string;
   pr: PrFacts;
   changes?: { path: string; status: string }[] | null;
-  comments?: { id: number; body?: string | null }[];
+  comments?: { id: CommentId; body?: string | null }[];
   now?: () => string;
 }): Verdict {
   const configFile = join(base, CONFIG_FILE);
@@ -109,14 +110,14 @@ export function prdDirs(config: Config): string[] {
 }
 
 /** The PRD whose folder carries `topic`, among the folder names read under `prdDirs` at the head. */
-export function prdOfTopic(topic: string, folderNames: string[], config: Config): { number: number } | { skip: string } {
+export function prdOfTopic(topic: string, folderNames: string[], config: Config): { number: PrdNumber } | { skip: string } {
   const parsed = folderNames.map(parseFolderName).find((folder) => folder?.topic === topic);
   if (parsed) return { number: parsed.prd };
   return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
 }
 
 /** The PRD a pull request is the feature pull request of, read from the head snapshot — or why not. */
-function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: number } | { skip: string } {
+function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: PrdNumber } | { skip: string } {
   const feature = featureTopic(pr, config);
   if ('skip' in feature) return feature;
   return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
@@ -153,8 +154,8 @@ function conclusionOf(result: GateResult): { conclusion: Conclusion; title: stri
  * against the comments already on the pull request, posted by nobody here.
  */
 function planComment(
-  prd: number,
-  { ctx, comments, now }: { ctx: Context; comments: { id: number; body?: string | null }[]; now: () => string },
+  prd: PrdNumber,
+  { ctx, comments, now }: { ctx: Context; comments: { id: CommentId; body?: string | null }[]; now: () => string },
 ): CommentPlan | null {
   let plan: CommentPlan | null = null;
   const client = {
@@ -163,7 +164,7 @@ function planComment(
       plan = { id: null, body };
       return null;
     },
-    updateComment: (id: number, body: string) => {
+    updateComment: (id: CommentId, body: string) => {
       plan = { id, body };
       return null;
     },

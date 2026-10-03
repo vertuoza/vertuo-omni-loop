@@ -8,6 +8,7 @@ import { EVENT_TYPES, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'v
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
+import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // An event's data is read field by field, as game/projector.ts writes it: a field of another type
 // reads as absent, so a stray value never reaches the view as something it is not.
@@ -99,14 +100,14 @@ type Derived = Omit<Planet, 'sector' | 'earned'>;
 
 // A planet while derive reads its events: each field starts empty and the events fill it.
 type Draft = {
-  prd: number; title: string; captain: string | null; ownerTeam: string | null; chartedAt: string | null;
+  prd: PrdNumber; title: string; captain: string | null; ownerTeam: string | null; chartedAt: string | null;
   regions: string[]; blockers: Set<number>; zones: Map<string, Zone>; wounds: Map<string, Scar>;
   distress: Map<string, string>; rescues: Set<string>;
   ready: boolean; terraformedAt: string | null; lostAt: string | null; lostReason: string | null; decommissioned: boolean;
   expeditions: Set<string>; rescuers: Map<string, string | null>;
 };
 
-function derive(prd: number, home: string | null, events: readonly LedgerEvent[], { sectorOf, now }: { sectorOf: SectorOf; now: Date }): Derived {
+function derive(prd: PrdNumber, home: string | null, events: readonly LedgerEvent[], { sectorOf, now }: { sectorOf: SectorOf; now: Date }): Derived {
   const p: Draft = {
     prd, title: `PRD #${prd}`, captain: null, ownerTeam: null, chartedAt: null,
     regions: [], blockers: new Set<number>(), zones: new Map<string, Zone>(), wounds: new Map<string, Scar>(),
@@ -249,7 +250,8 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
     // A planet is in the map only once it has an event.
     const [first] = evs;
     if (!first) throw new Error(`planet ${key} has no event`);
-    const planet = derive(first.planet, first.home ?? null, evs, { sectorOf, now });
+    // The ledger's planet is a PRD number: the planet takes it as one.
+    const planet = derive(parsePrd(first.planet), first.home ?? null, evs, { sectorOf, now });
     // Home sector: where most of its regions live, else its owning fleet's home.
     const counts = new Map<string, number>();
     for (const r of planet.regions) { const s = sectorOf(r); if (s) counts.set(s, (counts.get(s) ?? 0) + 1); }

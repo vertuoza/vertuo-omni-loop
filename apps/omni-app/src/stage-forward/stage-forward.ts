@@ -14,6 +14,8 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
@@ -29,8 +31,9 @@ const DEFAULT_SHAPES = (() => {
 })();
 
 export type EventStage = 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
-export type StageEvent = { repository: string; topic: string; prd: number | null; stage: EventStage; at: string };
-type Branches = { phase0: string; slice: string; feature: string; retro: string };
+export type StageEvent = { repository: string; topic: string; prd: PrdNumber | null; stage: EventStage; at: string };
+/** The branch shapes the stages read, as the config names them: a shape, not a slice id. */
+type Branches = Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
 export type Shapes = { branches: Branches; prLinks: Record<string, string> };
 
 /**
@@ -151,13 +154,14 @@ export async function forwardStageEvent(
 }
 
 /** The PRD number from the body's first link line (`Closes #7`, `Part of #7`, `Refs #7`); null when none. */
-function prdOf(body: unknown, prLinks: Record<string, string>): number | null {
+function prdOf(body: unknown, prLinks: Record<string, string>): PrdNumber | null {
   if (typeof body !== 'string') return null;
   for (const template of Object.values(prLinks)) {
     if (!template.includes('{prd}')) continue;
     const [before, after] = template.split('{prd}').map(escape);
     const found = new RegExp(`(?:^|\\s)${before}(\\d+)${after}(?!\\d)`, 'im').exec(body);
-    if (found) return Number(found[1]);
+    const prd = PrdNumberSchema.safeParse(Number(found?.[1]));
+    if (prd.success) return prd.data;
   }
   return null;
 }

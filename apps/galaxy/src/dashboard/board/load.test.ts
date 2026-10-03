@@ -3,6 +3,7 @@ import { fakeStageStore } from '../../stages/store.fake';
 import { loadBoard, supabaseReads, type BoardReads, type BoardRequest } from './load';
 import type { Activity, Member, PrdNow } from './tally';
 import { sure } from '../../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's loader on fake reads (PRD 572): the Paul case (a member with no player row and no
 // points, who merged seven PRs and answered nine questions, is a People row with 7, 9 and 0 points),
@@ -243,10 +244,10 @@ describe('supabaseReads', () => {
   it('reads PRDs now through the stage store, with who opened each from prd-opened rows and the dossiers', async () => {
     const store = fakeStageStore(() => '2026-09-29T10:00:00Z');
     await store.recordStages([
-      { workspace_id: 'w-1', repository: 'Vertuoza/Vertuo-Omni-Loop', prd: 12, stage: 'inbox', reached_at: '2026-09-01T00:00:00Z' },
-      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-omni-loop', prd: 12, stage: 'shipped', reached_at: '2026-09-20T00:00:00Z' },
-      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-core', prd: 3, stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
-      { workspace_id: 'w-2', repository: 'other/repo', prd: 1, stage: 'retro', reached_at: '2026-09-02T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'Vertuoza/Vertuo-Omni-Loop', prd: parsePrd(12), stage: 'inbox', reached_at: '2026-09-01T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped', reached_at: '2026-09-20T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-core', prd: parsePrd(3), stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
+      { workspace_id: 'w-2', repository: 'other/repo', prd: parsePrd(1), stage: 'retro', reached_at: '2026-09-02T00:00:00Z' },
     ]);
     const filters: unknown[][] = [];
     const query = (): Record<string, unknown> => {

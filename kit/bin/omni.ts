@@ -12,10 +12,11 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.ts';
 import { loadContext } from '../lib/context.ts';
+import type { PrdNumber } from '../lib/ids.ts';
 import { propertyOf } from '../lib/narrow.ts';
 import { handOver, planLaunch } from '../lib/launch/launch.ts';
 import { recordSession } from '../lib/statusline/sessions.ts';
-import { positiveInt } from './args.ts';
+import { prdArg } from './args.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
 import type { Env, Exec, Out } from './io.ts';
 
@@ -40,10 +41,10 @@ const PRD_BY_POSITION: Readonly<Record<string, readonly string[]>> = Object.free
 });
 const PRD_FLAG = '--prd';
 
-/** `value` as a PRD number, read as the commands read it (`positiveInt`), or `null`. */
-function prdNumber(value: string | undefined): number | null {
+/** `value` as a PRD number, read as the commands read it (`prdArg`), or `null`. */
+function prdNumber(value: string | undefined): PrdNumber | null {
   try {
-    return positiveInt('record', '<prd>', value);
+    return prdArg('record', '<prd>', value);
   } catch {
     return null;
   }
@@ -54,7 +55,7 @@ function prdNumber(value: string | undefined): number | null {
  * value of every `--prd`. `null` when none of them is a positive integer, or when they name two
  * different PRDs.
  */
-export function prdNamedBy(argv: readonly string[]): number | null {
+export function prdNamedBy(argv: readonly string[]): PrdNumber | null {
   const [name = '', ...rest] = argv;
   const named: (string | undefined)[] = [];
   const subcommands = Object.hasOwn(PRD_BY_POSITION, name) ? PRD_BY_POSITION[name] : null;

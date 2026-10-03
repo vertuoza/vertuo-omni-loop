@@ -1,3 +1,4 @@
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
@@ -217,7 +218,7 @@ describe('publishIssues — the first run', () => {
     expect(github.state.issues).toHaveLength(5);
     for (const issue of github.state.issues) {
       const body = bodyOf(issue);
-      const finding = sheet.findings.find((candidate) => body.startsWith(`${issueMarker('omni-outbox', 7, candidate.id)}\n`));
+      const finding = sheet.findings.find((candidate) => body.startsWith(`${issueMarker('omni-outbox', parsePrd(7), candidate.id)}\n`));
       assertDefined(finding, `the finding of ${at(body.split('\n'), 0, 'the marker line')}`);
       expect(yamlBlock(body)).toEqual({
         prd: 7,
@@ -307,7 +308,7 @@ describe('publishIssues — a replay', () => {
       owner: OWNER,
       repo: REPO,
       title: 'retro(PRD 8): A decision drifted from its answer',
-      body: `${issueMarker('omni-outbox', 8, 'drift:s2-04-colour-store')}\nAnother PRD.\n`,
+      body: `${issueMarker('omni-outbox', parsePrd(8), 'drift:s2-04-colour-store')}\nAnother PRD.\n`,
       labels: ['omni:retro'],
     });
     const out = await publishIssues(github.octokit, input());
@@ -353,7 +354,7 @@ describe('renderIssue', () => {
   });
 
   it('matches its golden file with prose: the model’s title, why it matters, its lesson, the lessons citing it and why it is kept', () => {
-    const retroPr = { number: 930, url: `https://github.com/${OWNER}/${REPO}/pull/930` };
+    const retroPr = { number: parsePr(930), url: `https://github.com/${OWNER}/${REPO}/pull/930` };
     const { title, body } = renderIssue({ sheet, finding: red, prose: PROSE, retroPath: RETRO_PATH, retroPr, prefix: 'omni-outbox' });
     expect(title).toBe('retro(PRD 7): The end-to-end check kept failing');
     golden('issue-prose.md', body);

@@ -16,6 +16,7 @@ import { stripesOf, type Theme } from '../theme';
 import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -74,7 +75,7 @@ export interface ChartFrame {
   world: number;
 }
 
-export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
+export interface MapSlot { prd: PrdNumber; x: number; y: number; r: number; index: number }
 
 /**
  * How many pages a scene takes on a grid, for the galaxy it shows: a group that splits its tall

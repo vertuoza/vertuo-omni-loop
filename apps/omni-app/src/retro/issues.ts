@@ -14,6 +14,7 @@
 //   It runs in the step before the branch, the files and the pull request are published, so
 //   `retro.md` can link each issue. On the first run the retro PR is not open yet, so the header
 //   names it only once one is open from the retro branch (a replay, or a later run).
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from './github.ts';
 import { CreatedIssueSchema, IssuesSchema, RetroPullsSchema, parseGitHub } from './github.schema.ts';
 import { ISSUES_PER_RUN } from './rules.ts';
@@ -80,7 +81,7 @@ export function isKept(prose: Prose | null | undefined, id: string): boolean {
  * The marker a retro issue's body starts with, which finds it again: one HTML comment, whatever the
  * finding id holds.
  */
-export function issueMarker(prefix: string, prd: number, findingId: unknown): string {
+export function issueMarker(prefix: string, prd: PrdNumber, findingId: unknown): string {
   const id = String(findingId).replace(/\s+/g, ' ').replaceAll('-->', '--&gt;');
   return `<!-- ${prefix}-retro: prd=${prd} finding=${id} -->`;
 }
@@ -101,7 +102,7 @@ export function renderIssue({
   finding: SheetFinding;
   prose: Prose | null;
   retroPath: string;
-  retroPr: { number: number } | null;
+  retroPr: { number: PrNumber } | null;
   prefix: string;
 }): { title: string; body: string } {
   const prd = sheet.prd.number;
@@ -189,7 +190,7 @@ function pick(issues: readonly Issue[]): Issue | null {
 }
 
 /** The retro PR from the retro branch: the open one, else the latest; `null` before the first is opened. */
-async function findRetroPull(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<{ number: number; url: string } | null> {
+async function findRetroPull(octokit: Octokit, { owner, repo, branch }: Repo & { branch: string }): Promise<{ number: PrNumber; url: string } | null> {
   const { data: answer } = await octokit.request(PULLS, {
     owner,
     repo,

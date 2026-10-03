@@ -2,6 +2,8 @@
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { parseIssue, parsePr, parsePrd, WorkSliceIdSchema } from '../lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber, WorkSliceId } from '../lib/ids.ts';
 import { at, isOneOf, messageOf, propertyOf } from '../lib/narrow.ts';
 import type { Out } from './io.ts';
 
@@ -56,6 +58,28 @@ export function positiveInt(command: string, what: string, value: string | true 
     throw usageError(`omni ${command}: ${what} must be a positive number${value === undefined ? '' : `, got "${value}"`}.`);
   }
   return number;
+}
+
+/** A PRD number argument, read as `positiveInt` reads one. */
+export function prdArg(command: string, what: string, value: string | true | undefined): PrdNumber {
+  return parsePrd(positiveInt(command, what, value));
+}
+
+/** A pull request number argument, read as `positiveInt` reads one. */
+export function prArg(command: string, what: string, value: string | true | undefined): PrNumber {
+  return parsePr(positiveInt(command, what, value));
+}
+
+/** An issue number argument, read as `positiveInt` reads one. */
+export function issueArg(command: string, what: string, value: string | true | undefined): IssueNumber {
+  return parseIssue(positiveInt(command, what, value));
+}
+
+/** A slice argument (`s1`, a rework's `fix-s1-01-…`), or a `UsageError` naming what it is. */
+export function sliceArg(command: string, what: string, value: string): WorkSliceId {
+  const slice = WorkSliceIdSchema.safeParse(value);
+  if (!slice.success) throw usageError(`omni ${command}: ${what} must be a slice id like s1, got "${value}".`);
+  return slice.data;
 }
 
 /** A comma-separated flag as a trimmed, non-empty list. */

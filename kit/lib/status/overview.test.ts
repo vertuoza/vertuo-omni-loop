@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { BAR_CELLS, overviewFor } from './overview.ts';
 import type { OverviewFacts, Yours } from './overview.ts';
+import { parsePrd } from '../ids.ts';
 
 type FeatureFacts = OverviewFacts['features'][number];
 
 /** One PRD folder as `readFacts` reads it: `n` becomes `{ prd: n, topic: 't<n>', name: '000n-t<n>' }`. */
-const folder = (prd: number) => ({ prd, topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
+const folder = (prd: number) => ({ prd: parsePrd(prd), topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
 
 /** Facts as `readFacts` returns them, with a PRD per number, no feature or phase-0 branch, no
  * `user.email` and no commit touching a PRD folder. */
@@ -50,7 +51,7 @@ const CODE = { forked: ['src/widget.mjs'], differs: ['src/widget.mjs'] };
 const phase0 = (prd: number, { inbox = [prd], topic = `t${prd}`, touched = [] }: { inbox?: number[]; topic?: string; touched?: OverviewFacts['touched'] } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder), touched });
 
 /** A commit by `email` touching PRD `prd`'s folder, as `touched` lists it. */
-const touch = (prd: number, email = ME) => ({ prd, email });
+const touch = (prd: number, email = ME) => ({ prd: parsePrd(prd), email });
 
 const ME = 'me@example.com';
 const OTHER = 'other@example.com';
@@ -75,7 +76,7 @@ describe('overviewFor — the shipped and inbox stages', () => {
   });
 
   it('counts two folders of one PRD number once', () => {
-    const overview = overviewFor({ ...facts(), inbox: [{ prd: 7, topic: 'a' }, { prd: 7, topic: 'b' }] });
+    const overview = overviewFor({ ...facts(), inbox: [{ prd: parsePrd(7), topic: 'a' }, { prd: parsePrd(7), topic: 'b' }] });
     expect(overview.counts.inbox).toBe(1);
   });
 

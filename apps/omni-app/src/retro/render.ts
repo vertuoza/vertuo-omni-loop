@@ -15,6 +15,7 @@
 //
 // When the retro is not worth a pull request, or was not judged, nothing of that is written:
 // `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { z } from 'zod';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
@@ -30,7 +31,7 @@ export type { RetroDoc, RunRecord };
  * A run, as far as the checks below read it: its kinds' facts, by kind, which each reader parses with
  * the schema of the facts it reads.
  */
-type KeptRun = { featurePr?: { number?: number } | null; kinds?: Record<string, unknown> | null };
+type KeptRun = { featurePr?: { number?: PrNumber } | null; kinds?: Record<string, unknown> | null };
 /** A finding of a kept run, as far as the checks below read it. */
 type KeptFinding = { evidence?: readonly Evidence[] | null };
 
@@ -67,7 +68,7 @@ export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc 
 }
 
 /** The retro PR's title: `docs(retro): PRD <n> — <PRD title>`. */
-export function retroTitle(prd: { number: number; title: string }): string {
+export function retroTitle(prd: { number: PrdNumber; title: string }): string {
   return `docs(retro): PRD ${prd.number} — ${prd.title}`;
 }
 

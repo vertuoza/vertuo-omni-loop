@@ -4,6 +4,7 @@ import type { FixReader, FixRef } from '../../dossier/github/reader';
 import { UNREAD } from '../../dossier/github/summary';
 import { mergeFacts, refreshFixFacts } from './refresh';
 import { fakeFixFactsStore } from './store.fake';
+import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // PRD 691, s1: what GitHub says of each fix, read through the reader and stored in fix_facts, so /bugs and
 // /visual render without GitHub. A part GitHub could not read keeps what was stored; a fix whose whole
@@ -13,9 +14,9 @@ const W = 'w-vertuoza';
 const REPO = 'vertuoza/vertuo-omni-loop';
 const NOW = '2026-09-29T10:00:00Z';
 
-const ref = (id: string, prd: number): FixRef => ({ id, home_repo: REPO, prd });
-const issue = (n: number) => ({ number: n, url: `https://github.com/${REPO}/issues/${n}`, state: 'open' as const, author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: 'omni:risk-high', regression: false });
-const pull = (n: number) => ({ number: n, url: `https://github.com/${REPO}/pull/${n}`, state: 'merged' as const, mergedAt: '2026-09-28T12:00:00Z', mergedBy: 'bob' });
+const ref = (id: string, prd: number): FixRef => ({ id, home_repo: REPO, prd: parseIssue(prd) });
+const issue = (n: number) => ({ number: parseIssue(n), url: `https://github.com/${REPO}/issues/${n}`, state: 'open' as const, author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: 'omni:risk-high', regression: false });
+const pull = (n: number) => ({ number: parsePr(n), url: `https://github.com/${REPO}/pull/${n}`, state: 'merged' as const, mergedAt: '2026-09-28T12:00:00Z', mergedBy: 'bob' });
 const release = { tag: 'v0.0.99', url: `https://github.com/${REPO}/releases/tag/v0.0.99`, at: '2026-09-28T13:00:00Z' };
 
 const summary = (more: Partial<FixSummary> = {}): FixSummary => ({ issue: issue(601), pull: null, approvals: [], release: null, ...more });

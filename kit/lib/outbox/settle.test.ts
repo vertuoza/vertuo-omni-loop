@@ -22,6 +22,7 @@ import {
   settledHeader,
 } from './settle.ts';
 import type { AnswerChannel } from './settle.ts';
+import { parsePrd } from '../ids.ts';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
@@ -690,7 +691,7 @@ describe('settleItem against the folders layout', () => {
 describe('settledHeader (final review)', () => {
   it('points at the delivery folder\'s README, which is where the format lives', () => {
     const { ctx } = makeRepo();
-    const header = settledHeader(42, { ctx });
+    const header = settledHeader(parsePrd(42), { ctx });
     expect(header).toContain('`.omni-loop/delivery/README.md`');
     expect(header).not.toContain('delivery/outbox/README.md');
   });

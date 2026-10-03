@@ -22,6 +22,7 @@ import { NonRetriableError, type Inngest } from 'inngest';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { domainsDir } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { CheckRequestDataSchema, inngest, INBOX_CHECK_EVENT, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit, notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.ts';
@@ -106,7 +107,7 @@ export function createInboxCheck({ client, octokitFor, canon = null }: { client:
  */
 export async function phase0CheckName(
   octokit: GitHubClient,
-  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: number },
+  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber },
 ): Promise<string | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-inbox-name-'));
@@ -122,7 +123,7 @@ export async function phase0CheckName(
 /** The step "evaluate": the base config, the head's folders, the compare and the PRD issue, graded. */
 async function evaluateAt(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: number; headSha: string; canon: CanonGrader | null },
+  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: PrNumber; headSha: string; canon: CanonGrader | null },
 ): Promise<InboxVerdict | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-inbox-base-'));

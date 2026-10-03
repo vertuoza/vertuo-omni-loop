@@ -6,6 +6,7 @@
 // a click. Pure apart from the one fetch, which a test stubs.
 
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The six values, in the spec's order. Stored as they are; the page shows CATEGORY_LABELS. */
 export const CATEGORIES = ['business', 'product', 'ux-ui', 'architecture', 'harness', 'other'] as const;
@@ -43,7 +44,7 @@ export function readCategory(reply: unknown): Category | null {
 /** What the classifier reads: the round's questions as AskUserQuestion took them, and its context. */
 export type ClassifyInput = {
   questions: unknown[];
-  context: { repo?: string | null; branch?: string | null; prd?: number | null; skill?: string | null };
+  context: { repo?: string | null; branch?: string | null; prd?: PrdNumber | null; skill?: string | null };
 };
 
 export type Classifier = (input: ClassifyInput) => Promise<Category | null>;

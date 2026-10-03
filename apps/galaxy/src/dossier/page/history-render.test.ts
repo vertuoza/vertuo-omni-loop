@@ -7,6 +7,7 @@ import { DossierHistory } from './DossierHistory';
 import { DossierSignIn } from './DossierSignIn';
 import { DEMO_VIEWER, demoHistory } from './demo';
 import { historyChoices, historyItems, historyStageBar, stageKeyOf, type CurrentStages, type HistoryFilters } from './history';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd as the server renders it (PRD 216): what a person sees before any script runs — the filters and
 // the search, a GET form to the same page; the rows, newest activity first, each a link to its dossier;
@@ -22,7 +23,7 @@ const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => 
 });
 const ROWS = [
   row('00000000-0000-4000-8000-0000000000d1', {
-    prd: 216, title: 'PRD dossiers <b>shared</b>', numbered_at: '2026-09-27T10:00:00Z',
+    prd: parsePrd(216), title: 'PRD dossiers <b>shared</b>', numbered_at: '2026-09-27T10:00:00Z',
     repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-core'],
     latest: {
       spec: { id: 's3', version: 3, source: 'github', created_at: '2026-09-28T08:00:00Z' },
@@ -199,7 +200,7 @@ describe('the sign-in', () => {
 
 describe('the open questions (PRD 251)', () => {
   const WAITING = row('00000000-0000-4000-8000-0000000000d6', {
-    prd: 251, title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
+    prd: parsePrd(251), title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
   });
   const rows = [...ROWS, WAITING];
   const open = new Map([[WAITING.id, 2]]);

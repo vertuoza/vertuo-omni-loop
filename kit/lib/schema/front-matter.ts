@@ -4,6 +4,8 @@
 // so every number here is coerced, and each schema is strict: a field it does not name is refused by
 // name. What each parser builds from it is a type in `kit/lib/types.ts`.
 import { z } from 'zod';
+import { OutboxItemIdSchema, PrdNumberSchema, WorkSliceIdSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The two ways a PRD's full prose is reached, in the order the plan lists them. */
 export const SPEC_VALUES = ['file', 'issue'] as const;
@@ -14,9 +16,16 @@ export const PROOF_VALUES = ['video'] as const;
 /** The three ranks a `rank` front-matter value may hold, in the order the plan lists them. */
 export const RANK_VALUES = ['human-action', 'high', 'medium'] as const;
 
+const BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]';
 const BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 const BRACKET_LIST = /^\[([\s\S]*)\]$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A `prd` value, read from its text into a `PrdNumber`. */
+const PrdField = z.coerce.number({ message: 'prd must be a number' }).int().positive().pipe(PrdNumberSchema);
+
+/** A `slice` value: the slice the item or account was raised on (`s1`, `fix-s1-01-…`, `settle`). */
+const SliceField = z.string().trim().min(1, 'slice is required').pipe(WorkSliceIdSchema);
 
 /**
  * `blocked-by`'s raw string into `'none'` or an array of PRD numbers. Structural only — whether a
@@ -27,18 +36,24 @@ const BlockedBySchema = z
   .string()
   .trim()
   .min(1, 'blocked-by is required')
-  .transform((raw, ctx): 'none' | number[] => {
+  .transform((raw, ctx): 'none' | PrdNumber[] => {
     if (raw === 'none') return 'none';
     const match = raw.match(BLOCKED_BY_LIST);
     if (!match) {
       ctx.addIssue({
         code: 'custom',
-        message: 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]',
+        message: BLOCKED_BY_MESSAGE,
       });
       return z.NEVER;
     }
     const inner = (match[1] ?? '').trim();
-    return inner.length === 0 ? [] : inner.split(',').map((token) => Number(token.trim()));
+    const prds = inner.length === 0 ? [] : inner.split(',').map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
+    const read = prds.flatMap((prd) => (prd.success ? [prd.data] : []));
+    if (read.length !== prds.length) {
+      ctx.addIssue({ code: 'custom', message: BLOCKED_BY_MESSAGE });
+      return z.NEVER;
+    }
+    return read;
   });
 
 /**
@@ -66,7 +81,7 @@ const AreasSchema = z
 /** An inbox spec's front matter: written once, never a status. */
 export const SpecFrontMatterSchema = z
   .object({
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
+    prd: PrdField,
     title: z.string().trim().min(1, 'title is required'),
     'blocked-by': BlockedBySchema,
     spec: z.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(', ')}` }),
@@ -79,9 +94,9 @@ export const SpecFrontMatterSchema = z
 /** An outbox item's front matter. */
 export const OutboxItemFrontMatterSchema = z
   .object({
-    id: z.string().trim().min(1, 'id is required'),
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
-    slice: z.string().trim().min(1, 'slice is required'),
+    id: z.string().trim().min(1, 'id is required').pipe(OutboxItemIdSchema),
+    prd: PrdField,
+    slice: SliceField,
     rank: z.enum(RANK_VALUES, {
       message: `rank must be one of: ${RANK_VALUES.join(', ')}`,
     }),
@@ -94,8 +109,8 @@ export const OutboxItemFrontMatterSchema = z
 /** A slice's account's front matter. */
 export const AccountFrontMatterSchema = z
   .object({
-    prd: z.coerce.number({ message: 'prd must be a number' }).int().positive(),
-    slice: z.string().trim().min(1, 'slice is required'),
+    prd: PrdField,
+    slice: SliceField,
     graded: z.string().regex(DATE, 'graded must be a YYYY-MM-DD date'),
   })
   .strict();

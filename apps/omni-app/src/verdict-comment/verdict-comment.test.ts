@@ -1,8 +1,9 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { upsertComment } from './verdict-comment.ts';
 
-const at = { owner: 'acme', repo: 'widgets', prNumber: 43 };
+const at = { owner: 'acme', repo: 'widgets', prNumber: parsePr(43) };
 const MARKER = '<!-- omni-outbox-knowledge-verdict -->';
 type GitHub = ReturnType<typeof replayGitHub>;
 const on = (github: GitHub, issue = 43) => github.state.comments.filter((comment) => comment.issue === issue);
@@ -50,7 +51,7 @@ describe('verdict-comment — one marked comment per pull request', () => {
 
   it('never touches another pull request', async () => {
     const github = replayGitHub();
-    await upsertComment(github.octokit, { ...at, prNumber: 45, marker: MARKER, text: 'elsewhere' });
+    await upsertComment(github.octokit, { ...at, prNumber: parsePr(45), marker: MARKER, text: 'elsewhere' });
     await upsertComment(github.octokit, { ...at, marker: MARKER, text: 'here' });
     expect(on(github, 45).map((comment) => comment.body)).toEqual([`${MARKER}\nelsewhere\n`]);
     expect(on(github).map((comment) => comment.body)).toEqual([`${MARKER}\nhere\n`]);

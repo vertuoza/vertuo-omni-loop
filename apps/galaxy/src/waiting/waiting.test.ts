@@ -5,6 +5,7 @@ import type { TabRow } from '../ask/page/tabs';
 import { peopleOf } from '../people/load';
 import { EMPTY_WAITING, mergeQuestions, ownQuestions, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
 import { sure } from '../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list (PRD 499), as pure functions: the Questions part merged from the person's own
 // sessions and the rounds shared with them, its counts, and the tab title's `(N) ` prefix.
@@ -47,7 +48,7 @@ describe('the Questions part', () => {
   });
 
   it('counts an outbox item in the total', () => {
-    const list = { questions: [q('a', MIN)], outbox: [{ kind: 'outbox' as const, id: 'o1', prd: 459, dossierId: 'd1', title: 'Gate', rank: 'high' as const, question: 'Why?' }] };
+    const list = { questions: [q('a', MIN)], outbox: [{ kind: 'outbox' as const, id: 'o1', prd: parsePrd(459), dossierId: 'd1', title: 'Gate', rank: 'high' as const, question: 'Why?' }] };
     expect(waitingCounts(list)).toMatchObject({ outbox: 1, total: 2 });
   });
 });

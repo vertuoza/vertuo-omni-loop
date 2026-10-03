@@ -16,6 +16,7 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { FetchInit } from '../test/fixture.ts';
 import type { Files, Repo } from '../test/fixture.ts';
+import { parsePr, parsePrd } from '../lib/ids.ts';
 
 const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
@@ -95,7 +96,7 @@ function drifted(id: string) {
 }
 
 const LEDGER_TEXT = [
-  settledHeader(42, { ctx: { config: { paths: { delivery: D } } } }),
+  settledHeader(parsePrd(42), { ctx: { config: { paths: { delivery: D } } } }),
   adopted('s0-01-local-name'),
   adopted('s0-02-cited'),
   adopted('s0-03-refused'),
@@ -345,12 +346,12 @@ describe('omni harvest — refusals', () => {
 const preparedOk = (prepared: ReturnType<typeof prepareHarvest>) => prepared as Extract<ReturnType<typeof prepareHarvest>, { ok: true }>;
 
 describe('the pipeline halves', () => {
-  const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: 43, url: 'https://github.com/acme/widgets/pull/43' };
+  const MERGE = { by: 'octocat', at: '2026-09-26T10:30:00Z', pr: parsePr(43), url: 'https://github.com/acme/widgets/pull/43' };
 
   it('return edits as data, touch no file, and give the same edits for the same input', () => {
     const r = repo();
     const run = () => {
-      const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+      const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
       const classified = prepared.candidates.map((c) =>
         c.id === 's0-03-refused' ? { id: c.id, reply: null, reason: 'refused' } : { id: c.id, reply: REPLIES[c.id as keyof typeof REPLIES] },
       ) as Parameters<typeof finishHarvest>[0]['classified'];
@@ -379,12 +380,12 @@ describe('the pipeline halves', () => {
 
   it('prepare refuses a PRD the tree does not hold', () => {
     const r = repo();
-    expect(prepareHarvest({ ctx: r.ctx, prd: 7, merge: MERGE })).toEqual({ ok: false, errors: ['PRD 7 has no inbox or shipped folder'] });
+    expect(prepareHarvest({ ctx: r.ctx, prd: parsePrd(7), merge: MERGE })).toEqual({ ok: false, errors: ['PRD 7 has no inbox or shipped folder'] });
   });
 
   it('with nothing classified, settles and ships, and places nothing', () => {
     const r = repo();
-    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
     const classified = prepared.candidates.map((c) => ({ id: c.id, reply: null, reason: 'OPENROUTER_API_KEY is not set' }));
     const finished = finishHarvest({ ctx: r.ctx, prepared, classified, merge: MERGE, date: '2026-09-27' });
     expect(finished.placed).toEqual([]);
@@ -398,7 +399,7 @@ describe('the pipeline halves', () => {
     const r = repo();
     await harvest(r);
     execFileSync('git', ['add', '-A'], { cwd: r.root });
-    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: 42, merge: MERGE }));
+    const prepared = preparedOk(prepareHarvest({ ctx: r.ctx, prd: parsePrd(42), merge: MERGE }));
     const leftover = prepared.candidates.map((c) => c.id).sort();
     expect(leftover).toEqual(['s0-02-cited', 's0-03-refused']);
     expect(prepared.edits).toEqual({ deletes: [], moves: [], writes: [] });

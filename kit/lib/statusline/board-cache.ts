@@ -26,6 +26,7 @@ import { LOCAL_DIR } from '../ask/local-state.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { BoardFileSchema, LockFileSchema } from './schema.ts';
 import type { CachedSlice } from './schema.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
 export type Board = { at: number; slices: CachedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
@@ -54,8 +55,8 @@ export const SHOWN_UNDER_MS = 10 * 60 * 1000;
 export const LOCK_ABANDONED_MS = 2 * 60 * 1000;
 const UNREADABLE = 'the board file holds no slices it can read';
 
-export const boardFile = (root: string, prd: number): string => join(root, BOARD_DIR, `board-${prd}.json`);
-export const lockFile = (root: string, prd: number): string => join(root, BOARD_DIR, `board-${prd}.lock`);
+export const boardFile = (root: string, prd: PrdNumber): string => join(root, BOARD_DIR, `board-${prd}.json`);
+export const lockFile = (root: string, prd: PrdNumber): string => join(root, BOARD_DIR, `board-${prd}.lock`);
 
 /** `fn()`, or `fallback` when it throws. */
 function attempt<T, F>(fn: () => T, fallback: F): T | F {
@@ -73,7 +74,7 @@ export function omniScript(): string {
 
 /** PRD `prd`'s board in the checkout at `root`: `{ at, slices }` or `{ at, error }` (`at` in
  * milliseconds), or `null` when the file is missing or its time cannot be read. */
-export function readBoard(root: string, prd: number): Board | null {
+export function readBoard(root: string, prd: PrdNumber): Board | null {
   const value = attempt((): unknown => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')), null);
   const parsed = BoardFileSchema.safeParse(value);
   if (!parsed.success) return null;
@@ -117,7 +118,7 @@ function lockedAt(path: string): number | null {
 }
 
 /** Whether a refresh of PRD `prd` holds the lock: one under 2 minutes old (a time after `now` counts as old). */
-export function lockHeld(root: string, prd: number, now: number): boolean {
+export function lockHeld(root: string, prd: PrdNumber, now: number): boolean {
   const at = lockedAt(lockFile(root, prd));
   return at !== null && now - at >= 0 && now - at < LOCK_ABANDONED_MS;
 }
@@ -126,7 +127,7 @@ export function lockHeld(root: string, prd: number, now: number): boolean {
  * Starts `node <script> statusline --refresh <prd>` in `cwd`, detached, its output ignored, and lets
  * it go. Never waits, never throws: a child that fails to start is ignored.
  */
-export function startRefresh({ spawn, script, cwd, prd, env }: { spawn: Spawn; script: string; cwd: string; prd: number; env?: NodeJS.ProcessEnv | undefined }): void {
+export function startRefresh({ spawn, script, cwd, prd, env }: { spawn: Spawn; script: string; cwd: string; prd: PrdNumber; env?: NodeJS.ProcessEnv | undefined }): void {
   try {
     const child = spawn(process.execPath, [script, 'statusline', '--refresh', String(prd)], {
       cwd,
@@ -150,7 +151,7 @@ export function startRefresh({ spawn, script, cwd, prd, env }: { spawn: Spawn; s
  */
 export function cachedSlices({ root, prd, now, cwd, spawn = null, script, env }: {
   root: string;
-  prd: number;
+  prd: PrdNumber;
   now: number;
   cwd: string;
   spawn?: Spawn | null;
@@ -172,7 +173,7 @@ function ensureBoardDir(root: string): void {
 }
 
 /** Writes PRD `prd`'s board entry: to a temporary name, then renamed into place. */
-export function writeBoard(root: string, prd: number, entry: WrittenEntry): void {
+export function writeBoard(root: string, prd: PrdNumber, entry: WrittenEntry): void {
   ensureBoardDir(root);
   const path = boardFile(root, prd);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
@@ -204,7 +205,7 @@ function createLock(path: string, now: number): string | null {
 
 /** Takes PRD `prd`'s lock, taking over one 2 minutes old or more: its owner token, or `null` while
  * another refresh holds it. */
-export function takeLock(root: string, prd: number, now: number): string | null {
+export function takeLock(root: string, prd: PrdNumber, now: number): string | null {
   ensureBoardDir(root);
   const path = lockFile(root, prd);
   const owner = createLock(path, now);
@@ -214,7 +215,7 @@ export function takeLock(root: string, prd: number, now: number): string | null 
 }
 
 /** Removes PRD `prd`'s lock, unless another refresh took it over since `owner` took it. */
-function releaseLock(root: string, prd: number, owner: string): void {
+function releaseLock(root: string, prd: PrdNumber, owner: string): void {
   const path = lockFile(root, prd);
   const held = attempt(() => readLock(path)?.owner, null);
   if (held === owner) rmSync(path, { force: true });
@@ -228,7 +229,7 @@ const oneLine = (error: unknown): string => (String(prop(error, 'message') ?? er
  * nothing written, while another refresh holds it), writes what `build()` returns as the board's
  * slices, or what it throws as the error entry, then removes the lock (`'written'`).
  */
-export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly WrittenSlice[] }): 'written' | 'held' {
+export function refreshBoard({ root, prd, now, build }: { root: string; prd: PrdNumber; now: number; build: () => readonly WrittenSlice[] }): 'written' | 'held' {
   const owner = takeLock(root, prd, now);
   if (owner === null) return 'held';
   try {

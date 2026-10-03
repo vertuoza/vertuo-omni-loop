@@ -10,6 +10,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { ContentSchema, PullSchema, PullsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import type { Octokit, Pull, PullInto } from './retro.types.ts';
@@ -37,7 +38,7 @@ export async function paginate<T>(fetchPage: (page: number) => Promise<readonly 
 }
 
 /** A pull request as the retro reads it. */
-export async function readPull(octokit: Octokit, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Pull> {
+export async function readPull(octokit: Octokit, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<Pull> {
   const { data: answer } = await octokit.request(PULL, {
     owner,
     repo,

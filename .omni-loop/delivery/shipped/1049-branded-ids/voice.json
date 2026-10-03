@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · offering#36 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-03",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The arcade's route parsing turned out to be one line per page. The guard catches what review would miss.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "A PR number in a PRD slot no longer compiles, and no cast anywhere. Malformed ids fail where they are read.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Agents can't post on the wrong issue by swapping numbers. The installed setups keep working.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One ids module, one folder regex, a guard with no escape and an ADR. That's the rule written down.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Customers see nothing new. Fewer agent slips is still worth it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · offering#36 ✓"
     }
   ]
 }

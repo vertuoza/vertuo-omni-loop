@@ -2,6 +2,7 @@
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { z } from 'zod';
 import { RETRO_EVENT } from '../src/inngest-client.ts';
@@ -148,7 +149,7 @@ export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPul
     events: events ? { [feature.number]: events } : {},
     recording,
   });
-  return { github, event: retroEvent({ prNumber: feature.number, mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
+  return { github, event: retroEvent({ prNumber: parsePr(feature.number), mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
 }
 
 export function retroEvent(over = {}) {
@@ -159,7 +160,7 @@ export function retroEvent(over = {}) {
       owner: OWNER,
       repo: REPO,
       repository: `${OWNER}/${REPO}`,
-      prNumber: 12,
+      prNumber: parsePr(12),
       mergeSha: MERGE_SHA,
       mergedAt: MERGED_AT,
       ...over,

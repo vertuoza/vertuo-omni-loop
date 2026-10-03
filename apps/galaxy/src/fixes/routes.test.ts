@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
 import { sure } from '../arcade/sure';
 import { settled as answering } from '../stages/settled';
+import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The routes of PRD 627, called as the server calls them, reading as the viewer through the stubbed
 // client of ../dossier/store.fake.ts: /visual and /bugs list only their kind, /prd only PRDs; a fix's
@@ -38,10 +39,10 @@ const given = vi.hoisted(() => ({
 /** What GitHub says of every fix here (PRD 627, s5): asked by anna, its fix PR open with one approval. */
 const summaryOf = (prd: number) => ({
   issue: {
-    number: prd, url: `https://github.com/acme/widgets/issues/${prd}`, state: 'open' as const, author: 'anna', createdAt: '2026-09-29T08:00:00Z',
+    number: parseIssue(prd), url: `https://github.com/acme/widgets/issues/${prd}`, state: 'open' as const, author: 'anna', createdAt: '2026-09-29T08:00:00Z',
     risk: prd === 571 ? 'omni:risk-high' : null, regression: prd === 571,
   },
-  pull: { number: 600, url: 'https://github.com/acme/widgets/pull/600', state: 'open' as const, mergedAt: null, mergedBy: null },
+  pull: { number: parsePr(600), url: 'https://github.com/acme/widgets/pull/600', state: 'open' as const, mergedAt: null, mergedBy: null },
   approvals: [{ login: 'carla', at: '2026-09-29T11:00:00Z' }],
   release: null,
 });

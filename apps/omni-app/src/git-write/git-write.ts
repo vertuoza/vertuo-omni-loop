@@ -28,6 +28,7 @@ import {
   type GitHubClient,
   type PullListed,
 } from '../outbox-check/github-schema.ts';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 
 const FILE_MODE = '100644';
@@ -186,7 +187,7 @@ export async function pullsFrom(
 export async function upsertPull(
   octokit: GitHubClient,
   { owner, repo, branch, base, head, title, body }: Where & { branch: string; base: string; head: string; title: string; body: string },
-): Promise<{ number: number; url: string; created: boolean; open: boolean }> {
+): Promise<{ number: PrNumber; url: string; created: boolean; open: boolean }> {
   const pulls = await pullsFrom(octokit, { owner, repo, branch, base });
   const open = pulls.find((pull) => pull.state === 'open');
   if (open) {

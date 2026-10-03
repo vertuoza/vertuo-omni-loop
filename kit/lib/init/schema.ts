@@ -3,6 +3,7 @@
 // throws on what it reads, so a value these refuse is read as missing — the same as one that is
 // not there — and every caller falls back exactly as it does for an absent file or a failed command.
 import { z } from 'zod';
+import { PrNumberSchema } from '../ids.ts';
 
 /** A JSON object: anything else (an array, `null`, a string) is not one. */
 export const JsonObjectSchema = z.record(z.string(), z.unknown());
@@ -26,7 +27,7 @@ export const GhLabelsSchema = z.array(z.looseObject({ name: z.string() }));
 
 /** `gh pr list --json url,number`. */
 export const GhPullRequestsSchema = z.array(
-  z.looseObject({ url: z.string().nullish(), number: z.number().nullish() }),
+  z.looseObject({ url: z.string().nullish(), number: PrNumberSchema.nullish() }),
 );
 
 /** `claude plugin list --json`: an element that is no plugin object reads as `null`, matching nothing. */

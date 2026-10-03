@@ -5,6 +5,7 @@
 // back is what the retro wrote; what is read from GitHub is parsed by the schemas in `github.schema.ts`.
 import type { z } from 'zod';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type {
   DroppedSchema,
   EvidenceSchema,
@@ -104,7 +105,7 @@ export type IssueLinks = z.infer<typeof IssueLinksSchema>;
 export type RunRecord = z.infer<typeof RunRecordSchema>;
 
 /** What `retro.json` holds. */
-export type RetroDoc = { prd: number; runs: RunRecord[] };
+export type RetroDoc = { prd: PrdNumber; runs: RunRecord[] };
 
 /** What the judge compares a retro with (`gatherKnowledge`). */
 export type Known = z.infer<typeof KnownSchema>;

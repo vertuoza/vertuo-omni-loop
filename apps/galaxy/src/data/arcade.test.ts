@@ -12,6 +12,7 @@ import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
 const ANY_OBJECT: unknown = expect.any(Object);
@@ -19,7 +20,7 @@ const containing = (fields: object): unknown => expect.objectContaining(fields);
 
 /** A dossier of the workspace's plan repository, as dossier_list() lists it. */
 const dossierRow = (id: string, workspace_id: string, home_repo: string, prd: number | null, more: Partial<DossierListRow> = {}): DossierListRow => ({
-  id, workspace_id, home_repo, prd, title: `PRD ${prd}`, opened_by: null, created_at: '2026-09-20T09:00:00Z',
+  id, workspace_id, home_repo, prd: prd === null ? null : parsePrd(prd), title: `PRD ${prd}`, opened_by: null, created_at: '2026-09-20T09:00:00Z',
   numbered_at: prd === null ? null : '2026-09-20T10:00:00Z', repos: [home_repo], latest: {}, asked: 0, answered: 0,
   last_activity: '2026-09-20T10:00:00Z', ...more,
 });

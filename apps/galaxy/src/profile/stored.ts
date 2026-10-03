@@ -4,13 +4,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
+import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The columns of a pull request the profile reads. */
 export const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';
 
 /** A pull request as PR_COLUMNS reads it. */
 export const StoredPullRequest = z.strictObject({
-  repo: z.string(), number: z.number(), author: z.string().nullable(), author_is_bot: z.boolean(), opened_at: z.string(),
+  repo: z.string(), number: PrNumberSchema, author: z.string().nullable(), author_is_bot: z.boolean(), opened_at: z.string(),
   merged_at: z.string().nullable(), closed_at: z.string().nullable(), merged_by: z.string().nullable(), commits: z.number(),
   additions: z.number(), deletions: z.number(), omni_signed: z.boolean(),
 });
@@ -19,7 +20,7 @@ export const StoredPullRequest = z.strictObject({
 export const REVIEW_COLUMNS = 'repo, number, reviewer, first_at';
 
 /** A review as REVIEW_COLUMNS reads it. */
-export const StoredReview = z.strictObject({ repo: z.string(), number: z.number(), reviewer: z.string(), first_at: z.string() });
+export const StoredReview = z.strictObject({ repo: z.string(), number: PrNumberSchema, reviewer: z.string(), first_at: z.string() });
 
 /** A tracked repository, as the profile reads its name. */
 export const TrackedRepository = z.strictObject({ full_name: z.string() });

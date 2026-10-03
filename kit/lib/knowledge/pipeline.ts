@@ -58,6 +58,7 @@ import {
 import { defined } from '../narrow.ts';
 import { harvestCandidates, type Candidate } from './harvest.ts';
 import { writeKnowledge, type Classified, type Merge, type Placed, type Taken, type WriteResult } from './write.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A move of one path to another, as the tree holds them before and after. */
 export type Move = { from: string; to: string };
@@ -72,7 +73,7 @@ export type HarvestEdits = { deletes: string[]; moves: Move[]; writes: Write[] }
 export type Prepared =
   | {
       ok: true;
-      prd: number;
+      prd: PrdNumber;
       edits: HarvestEdits;
       settled: { id: string; from: 'open' | 'drift' }[];
       shipped: Move[];
@@ -179,8 +180,8 @@ function mergeWrites(writes: readonly Write[]): Write[] {
 // ── Prepare ───────────────────────────────────────────────────────────────────────────────────
 
 /** The first half: settle at merge, plan the ship, list the candidates. Touches no file of `ctx`'s tree. */
-export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: number | string; merge: Merge }): Prepared {
-  const n = Number(prd);
+export function prepareHarvest({ ctx, prd, merge }: { ctx: Context; prd: PrdNumber; merge: Merge }): Prepared {
+  const n = prd;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch): Prepared => {
     const settle = settleAtMerge({ ctx: scratch, prd: n, merge });
@@ -291,7 +292,7 @@ export function finishHarvest({
   date,
 }: {
   ctx: Context;
-  prepared: { prd: number; edits: HarvestEdits };
+  prepared: { prd: PrdNumber; edits: HarvestEdits };
   classified: readonly { id: string; reply?: ClassificationReply | null; reason?: string | null }[];
   merge: Merge;
   taken?: Taken;

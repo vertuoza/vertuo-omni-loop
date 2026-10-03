@@ -11,6 +11,7 @@ import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { Io } from '../test/fixture.ts';
+import { parsePrd } from '../lib/ids.ts';
 
 function io() {
   const out: string[] = [];
@@ -214,7 +215,7 @@ describe('omni — flags, lookups and guards', () => {
   it('the slice-time guard command runs as emitted', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     execFileSync('git', ['branch', 'feat/topic'], { cwd: root, stdio: 'ignore' });
-    const command = sliceTimeGuardCommand({ base: 'feat/topic', prd: 42 });
+    const command = sliceTimeGuardCommand({ base: 'feat/topic', prd: parsePrd(42) });
     const [, script, ...argv] = command.split(' ');
     expect(script).toBe('.omni-loop/bin/omni.mjs');
     const s = io();

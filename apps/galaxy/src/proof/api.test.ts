@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { previewGif, registerRun, requestUploads, type ProofDeps } from './api';
 import { FakeProofWorld } from './store.fake';
 import { sure } from '../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The routes' answers, read as they came: the run and its signed links, or a refusal's words.
 const Links = z.looseObject({
@@ -23,8 +24,8 @@ beforeEach(() => {
   world = new FakeProofWorld();
   world.account('tok-ada', 'ada', ['ws-acme']);
   world.account('tok-eve', 'eve', ['ws-other']);
-  world.dossier({ id: DOSSIER, workspace: 'ws-acme', repo: 'acme/widgets', prd: 798 });
-  world.dossier({ id: OTHER_DOSSIER, workspace: 'ws-other', repo: 'other/thing', prd: 5 });
+  world.dossier({ id: DOSSIER, workspace: 'ws-acme', repo: 'acme/widgets', prd: parsePrd(798) });
+  world.dossier({ id: OTHER_DOSSIER, workspace: 'ws-other', repo: 'other/thing', prd: parsePrd(5) });
   deps = { connect: (token) => world.client(token), open: () => world.public() };
 });
 

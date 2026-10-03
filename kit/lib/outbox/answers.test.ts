@@ -7,8 +7,9 @@ import { planReplies } from './replies.ts';
 import { answerableQuestions, askBatches, cleanLine, REASON_MAX_LENGTH, writeReply } from './answers.ts';
 import type { Door } from './answers.ts';
 import type { OutboxItem } from '../types.ts';
+import { parseOutboxItemId, parsePrd } from '../ids.ts';
 
-const PRD = 251;
+const PRD = parsePrd(251);
 const markers = makeMarkers('omni-outbox');
 
 /** An item's text, as `omni item new` writes it: options for a decision, steps for a human action. */
@@ -64,16 +65,16 @@ function item(id: string, options?: ItemOptions): OutboxItem {
 }
 
 const ITEMS = [
-  item('s1-01', { rank: 'high' }),
-  item('s1-02', { rank: 'high', letters: ['A', 'B'] }),
-  item('s2-01', { rank: 'human-action' }),
-  item('s2-02', { rank: 'medium' }),
+  item('s1-01-x', { rank: 'high' }),
+  item('s1-02-x', { rank: 'high', letters: ['A', 'B'] }),
+  item('s2-01-x', { rank: 'human-action' }),
+  item('s2-02-x', { rank: 'medium' }),
 ];
 const NUMBERING = [
-  { number: 1, id: 's1-01', since: '2026-09-27T08:00:00Z' },
-  { number: 2, id: 's1-02', since: '2026-09-27T08:00:00Z' },
-  { number: 5, id: 's2-02', since: '2026-09-27T08:00:00Z' },
-  { number: 19, id: 's2-01', since: '2026-09-27T08:00:00Z' },
+  { number: 1, id: parseOutboxItemId('s1-01-x'), since: '2026-09-27T08:00:00Z' },
+  { number: 2, id: parseOutboxItemId('s1-02-x'), since: '2026-09-27T08:00:00Z' },
+  { number: 5, id: parseOutboxItemId('s2-02-x'), since: '2026-09-27T08:00:00Z' },
+  { number: 19, id: parseOutboxItemId('s2-01-x'), since: '2026-09-27T08:00:00Z' },
 ];
 const QUESTIONS = answerableQuestions({ numbering: NUMBERING, items: ITEMS });
 
@@ -177,15 +178,15 @@ describe('the reply writer and planReplies agree (PRD 251)', () => {
   };
 
   it.each([
-    ['A, no reason', { number: 1, pick: 'A' }, 1, { verdict: 'agreed', text: 'A. Option A for s1-01.' }],
-    ['A, with a reason', { number: 1, pick: 'A', reason: 'it is simpler' }, 1, { verdict: 'agreed', text: 'A. Option A for s1-01. — because it is simpler' }],
-    ['another letter, with a reason', { number: 2, pick: 'B', reason: 'shorter' }, 2, { verdict: 'drifted', text: 'B. Option B for s1-02. — because shorter' }],
-    ['another letter, no reason', { number: 1, pick: 'C' }, 1, { verdict: 'drifted', text: 'C. Option C for s1-01.' }],
+    ['A, no reason', { number: 1, pick: 'A' }, 1, { verdict: 'agreed', text: 'A. Option A for s1-01-x.' }],
+    ['A, with a reason', { number: 1, pick: 'A', reason: 'it is simpler' }, 1, { verdict: 'agreed', text: 'A. Option A for s1-01-x. — because it is simpler' }],
+    ['another letter, with a reason', { number: 2, pick: 'B', reason: 'shorter' }, 2, { verdict: 'drifted', text: 'B. Option B for s1-02-x. — because shorter' }],
+    ['another letter, no reason', { number: 1, pick: 'C' }, 1, { verdict: 'drifted', text: 'C. Option C for s1-01-x.' }],
     ['done', { number: 19, pick: 'done' }, 19, { verdict: 'agreed', text: 'ok' }],
     ['not done', { number: 19, pick: 'not-done', reason: 'the grant is missing' }, 19, { verdict: 'drifted', text: 'no, because the grant is missing' }],
     ['prose that agrees', { number: 5, pick: 'prose', text: 'yes, keep it' }, 5, { verdict: 'agreed', text: 'yes, keep it' }],
     ['prose that disagrees', { number: 1, pick: 'prose', text: 'use the other list instead' }, 1, { verdict: 'drifted', text: 'use the other list instead' }],
-    ['a cleaned reason', { number: 2, pick: 'B', reason: 'one\ntwo <!-- x -->' }, 2, { verdict: 'drifted', text: 'B. Option B for s1-02. — because one two x' }],
+    ['a cleaned reason', { number: 2, pick: 'B', reason: 'one\ntwo <!-- x -->' }, 2, { verdict: 'drifted', text: 'B. Option B for s1-02-x. — because one two x' }],
   ])('%s reads back as the same answer', (_name, pick, number, expected) => {
     const { reply } = write([pick]);
     expect(read(reply).get(number)).toEqual(expected);
@@ -208,19 +209,19 @@ describe('the reply writer and planReplies agree (PRD 251)', () => {
 describe('askBatches (PRD 251)', () => {
   it('asks the open human actions first, then the highs by number, at most four at a time, and never a medium', () => {
     const items = [
-      ...['a', 'b', 'c', 'd', 'e'].map((x) => item(`s3-0${x}`, { rank: 'high' })),
-      item('s4-01', { rank: 'human-action' }),
-      item('s4-02', { rank: 'medium' }),
+      ...['1', '2', '3', '4', '5'].map((x) => item(`s3-0${x}-x`, { rank: 'high' })),
+      item('s4-01-x', { rank: 'human-action' }),
+      item('s4-02-x', { rank: 'medium' }),
     ];
     const numbering = [
-      { number: 3, id: 's3-0c', since: 't' },
-      { number: 1, id: 's3-0a', since: 't' },
-      { number: 2, id: 's3-0b', since: 't' },
-      { number: 4, id: 's3-0d', since: 't' },
-      { number: 6, id: 's3-0e', since: 't' },
-      { number: 7, id: 's4-01', since: 't' },
-      { number: 8, id: 's4-02', since: 't' },
-      { number: 9, id: 'gone', since: 't' },
+      { number: 3, id: parseOutboxItemId('s3-03-x'), since: 't' },
+      { number: 1, id: parseOutboxItemId('s3-01-x'), since: 't' },
+      { number: 2, id: parseOutboxItemId('s3-02-x'), since: 't' },
+      { number: 4, id: parseOutboxItemId('s3-04-x'), since: 't' },
+      { number: 6, id: parseOutboxItemId('s3-05-x'), since: 't' },
+      { number: 7, id: parseOutboxItemId('s4-01-x'), since: 't' },
+      { number: 8, id: parseOutboxItemId('s4-02-x'), since: 't' },
+      { number: 9, id: parseOutboxItemId('s9-01-gone'), since: 't' },
     ];
     const batches = askBatches({ numbering, items });
     expect(batches.map((batch) => batch.map((question) => question.number))).toEqual([[7, 1, 2, 3], [4, 6]]);
@@ -228,9 +229,9 @@ describe('askBatches (PRD 251)', () => {
     const [action, high] = batches[0];
     expect(action).toMatchObject({
       number: 7,
-      id: 's4-01',
+      id: 's4-01-x',
       header: 'Q7 · action',
-      text: 'Which way for s4-01? We kept the first way.',
+      text: 'Which way for s4-01-x? We kept the first way.',
       steps: '1. Add the secret to the project.',
       options: [
         { pick: 'done', label: 'Done' },
@@ -241,15 +242,15 @@ describe('askBatches (PRD 251)', () => {
       number: 1,
       header: 'Q1 · high',
       options: [
-        { pick: 'A', label: 'A · built', text: 'Option A for s3-0a.' },
-        { pick: 'B', label: 'B', text: 'Option B for s3-0a.' },
-        { pick: 'C', label: 'C', text: 'Option C for s3-0a.' },
+        { pick: 'A', label: 'A · built', text: 'Option A for s3-01-x.' },
+        { pick: 'B', label: 'B', text: 'Option B for s3-01-x.' },
+        { pick: 'C', label: 'C', text: 'Option C for s3-01-x.' },
       ],
     });
   });
 
   it('asks nothing when nothing is open', () => {
     expect(askBatches({ numbering: [], items: ITEMS })).toEqual([]);
-    expect(askBatches({ numbering: [{ number: 5, id: 's2-02', since: 't' }], items: ITEMS })).toEqual([]);
+    expect(askBatches({ numbering: [{ number: 5, id: parseOutboxItemId('s2-02-x'), since: 't' }], items: ITEMS })).toEqual([]);
   });
 });

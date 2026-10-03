@@ -14,6 +14,7 @@ import { headHeight } from './PinnedHead';
 import { Taken, takenLine } from './QuickAnswer';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import { dossierView, readPick, type DossierPick } from './view';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
 vi.mock('next/navigation', async (original) => ({
@@ -31,7 +32,7 @@ const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: 'Marie' }
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'PRD dossiers',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), title: 'PRD dossiers',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 const draft: DossierRow = { ...numbered, prd: null, numbered_at: null, title: 'Offline quotes on the site app' };
@@ -62,7 +63,7 @@ const rounds = [
     status: 'answered', answers: { [SHAPE.question]: 'Square (Recommended)' }, answered_via: 'page', answered_by: MARIE.user_id,
     answered_at: '2026-09-27T09:16:35Z', category: 'ux-ui', category_by: 'model',
   }),
-  asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
+  asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: parsePrd(216), branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
 ];
 
 type PageOptions = {
@@ -113,10 +114,10 @@ describe('the header', () => {
 
 describe('the stage header (PRD 426, PRD 587)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
-    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+    ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
-    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
   const track = (html: string) => [...html.matchAll(/<li class="stage-stop stage-(\w+)"[^>]*>([^<]+)<\/li>/g)]
@@ -184,7 +185,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   });
 
   it('in the shipped stage, no button and the retro comes next; in the retro stage, Read the retro opens the retro PR', () => {
-    const shipped = summary({ issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
+    const shipped = summary({ issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
     const html = page({ github: shipped, stages: at('shipped') });
     expect(html).toContain('Shipped · the retro is written next');
     expect(button(html)).toBeNull();
@@ -221,10 +222,10 @@ describe('the stage header (PRD 426, PRD 587)', () => {
 
 describe('the header box (PRD 476)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
-    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+    ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
-    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
   /** The one header box: everything between its opening tag and its end. */
@@ -380,9 +381,9 @@ describe('the tabs', () => {
 
 describe('the Outbox tab (PRD 426)', () => {
   const outboxSummary = (outbox: GithubSummary['outbox'], outboxComment: GithubSummary['outboxComment'] = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7'): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: false },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: false },
     mergedSlices: 2, outbox, outboxComment,
   });
   const OPEN = [
@@ -432,12 +433,12 @@ describe('the Outbox tab (PRD 426)', () => {
 describe('the Retro tab (PRD 426, s3)', () => {
   const RETRO_URL = 'https://github.com/vertuoza/vertuo-omni-loop/pull/230';
   const retroSummary = (retro: GithubSummary['retro'], retroText: GithubSummary['retroText']): GithubSummary => ({
-    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
-    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
-    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
+    repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
+    phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
     mergedSlices: 3, retro, retroText,
   });
-  const pr = (state: PullRef['state']): PullRef => ({ number: 230, url: RETRO_URL, state, draft: false });
+  const pr = (state: PullRef['state']): PullRef => ({ number: parsePr(230), url: RETRO_URL, state, draft: false });
   const retro = (github: GithubSummary | null) => page({ pick: tab('retro'), github });
   const RETRO = '# How PRD 216 went\n\nThree waves, <script>alert(1)</script> one rework.\n';
 

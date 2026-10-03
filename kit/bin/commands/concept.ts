@@ -6,10 +6,12 @@
 // (`kit/lib/concept/verdict.ts`). `--base` defaults to `<repo.remote>/<repo.defaultBranch>`; a bad
 // ref is a usage error, exit 2.
 import { conceptVerdict } from '../../lib/concept/verdict.ts';
+import { positiveInt } from '../args.ts';
 import { branchPaths, branchVerdictCommand } from '../branch-range.ts';
 
 export const concept = branchVerdictCommand({
   verb: 'concept',
+  read: positiveInt,
   paths: branchPaths,
   grade: ({ ctx, number, changed, commits }) => conceptVerdict({ ctx, concept: number, changed, commits }),
 });

@@ -7,6 +7,7 @@ import { projectEvents, type Skip } from 'vertuo-omni-plan/game/projector.ts';
 import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
 import type { Bug, OutboxEntry, Snapshot, SnapshotPlanet, SnapshotZone, ZonePr } from 'vertuo-omni-plan/game/types.ts';
 import type { Projects } from './types.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const DEMO_PROJECTS: Projects = Object.freeze({
   sectors: {
@@ -39,9 +40,9 @@ const DEMO_TEAMS: Record<string, string> = {
 const iso = (d: Date): string => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 // A region as the demo writes it: its repository, how many hours ago it was surveyed, its blockers.
-type RegionRow = [repo: string, surveyedH: number, blockedBy?: number[]];
+type RegionRow = [repo: string, surveyedH: number, blockedBy?: PrdNumber[]];
 // A demo planet with a feature PR names its regions; its feature PR lands in the first one.
-function firstRepo(prd: number, regions: readonly RegionRow[]): string {
+function firstRepo(prd: PrdNumber, regions: readonly RegionRow[]): string {
   const [first] = regions;
   if (!first) throw new Error(`demo planet ${prd} has a feature PR and no region`);
   return first[0];
@@ -51,7 +52,7 @@ type FeatureRow = { created: number; ready?: number; merged?: number; activity?:
 // How an item was settled, hours ago.
 type SettledRow = { verdict: string; h: number; by: string; reworkH?: number; reworkBy?: string };
 type PlanetRow = {
-  prd: number; title: string; captain: string; created: number; regions?: RegionRow[]; feature?: FeatureRow | null;
+  prd: PrdNumber; title: string; captain: string; created: number; regions?: RegionRow[]; feature?: FeatureRow | null;
   zones?: SnapshotZone[]; outbox?: OutboxEntry[]; bugs?: Bug[]; closedH?: number | null;
 };
 
@@ -63,7 +64,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
   }
   let prNo = 1000;
   const sub = (author: string, claimedH: number, mergedH: number | null = null, fire: [number, number | null] | null = null): ZonePr => ({
-    number: ++prNo, author, createdAt: ago(claimedH), mergedAt: ago(mergedH), revertedAt: null,
+    number: parsePr(++prNo), author, createdAt: ago(claimedH), mergedAt: ago(mergedH), revertedAt: null,
     labels: ['omni:sub', ...(mergedH === null ? ['omni:in-progress'] : []), ...(fire && fire[1] === null ? ['omni:needs-fix'] : [])],
     ...(fire ? { needsFix: { labeledAt: ago(fire[0]), unlabeledAt: ago(fire[1]) } } : {}),
   });
@@ -78,7 +79,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     // A region's own feature PR is left to the planet's (game/planet-state.ts falls back to it).
     regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy, featurePr: null })),
     featurePr: feature && {
-      repo: firstRepo(prd, regions), number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null),
+      repo: firstRepo(prd, regions), number: parsePr(++prNo), createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null),
       mergedAt: ago(feature.merged ?? null), lastActivityAt: ago(feature.activity ?? feature.created),
     },
     zones, outbox, bugs,
@@ -86,7 +87,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
 
   const planets: SnapshotPlanet[] = [
     planet({
-      prd: 985, title: 'Default Country per Company', captain: 'pm-otto', created: 400,
+      prd: parsePrd(985), title: 'Default Country per Company', captain: 'pm-otto', created: 400,
       regions: [['vertuo-core', 380]],
       feature: { created: 300, ready: 210, merged: 190 },
       zones: [
@@ -97,7 +98,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       outbox: [item('s1-01-default-country', 'vertuo-core', 'high', 285, { verdict: 'agreed', h: 260, by: 'pm-otto' })],
     }),
     planet({
-      prd: 2299, title: 'Stock Movements', captain: 'pm-penny', created: 500,
+      prd: parsePrd(2299), title: 'Stock Movements', captain: 'pm-penny', created: 500,
       regions: [['vertuo-core', 480], ['vertuo-api', 470]],
       feature: { created: 330, ready: 160, merged: 150 },
       zones: [
@@ -105,10 +106,10 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
         zone('s2', 'vertuo-api', 1, [], sub('gold-rush', 329, 290)),
         zone('s3', 'vertuo-core', 2, ['s1', 's2'], sub('bonny-b', 289, 200)),
       ],
-      bugs: [{ repo: 'vertuo-core', number: 4411, createdAt: ago(40), closedAt: null, fixedBy: null }],
+      bugs: [{ repo: 'vertuo-core', number: parseIssue(4411), createdAt: ago(40), closedAt: null, fixedBy: null }],
     }),
     planet({
-      prd: 2332, title: 'Generic Import Engine', captain: 'pm-lina', created: 260,
+      prd: parsePrd(2332), title: 'Generic Import Engine', captain: 'pm-lina', created: 260,
       regions: [['vertuo-core', 250], ['vertuo-ai-domain', 248]],
       feature: { created: 120, activity: 2 },
       zones: [
@@ -127,7 +128,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
     }),
     planet({
-      prd: 2350, title: 'Invoice Reminders', captain: 'pm-penny', created: 300,
+      prd: parsePrd(2350), title: 'Invoice Reminders', captain: 'pm-penny', created: 300,
       regions: [['vertuo-core', 280], ['vertuo-web', 278]],
       feature: { created: 160, ready: 80, merged: 70 },
       zones: [
@@ -138,14 +139,14 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       outbox: [item('s2-01-reminder-cadence', 'vertuo-web', 'human-action', 120, { verdict: 'drifted', h: 110, by: 'pm-penny', reworkH: 95, reworkBy: 'dime' })],
     }),
     planet({
-      prd: 2388, title: 'Time Tracking Mobile', captain: 'pm-otto', created: 700,
+      prd: parsePrd(2388), title: 'Time Tracking Mobile', captain: 'pm-otto', created: 700,
       regions: [['vertuo-mobile', 680]],
       feature: { created: 600, activity: 500 },
       zones: [zone('s1', 'vertuo-mobile', 1, [], sub('inky', 599, 560)), zone('s2', 'vertuo-mobile', 2, ['s1'], sub('kraken-k', 559, null))],
       closedH: 48,
     }),
     planet({
-      prd: 2410, title: 'Peppol e-Invoicing', captain: 'pm-penny', created: 240,
+      prd: parsePrd(2410), title: 'Peppol e-Invoicing', captain: 'pm-penny', created: 240,
       regions: [['vertuo-core', 230], ['vertuo-api', 228], ['vertuo-web', 226]],
       feature: { created: 140 },
       zones: [
@@ -160,7 +161,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
     }),
     planet({
-      prd: 2455, title: 'Site Diary Photos', captain: 'pm-cecil', created: 220,
+      prd: parsePrd(2455), title: 'Site Diary Photos', captain: 'pm-cecil', created: 220,
       regions: [['vertuo-mobile', 210]],
       feature: { created: 100, ready: 10 },
       zones: [
@@ -171,15 +172,15 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       outbox: [item('s2-01-exif-strip', 'vertuo-mobile', 'medium', 60, { verdict: 'agreed', h: 20, by: 'pm-cecil' })],
     }),
     planet({
-      prd: 2471, title: 'Supplier Price Sync', captain: 'pm-anne', created: 150,
-      regions: [['vertuo-api', 140, [2410]], ['vertuo-ai-domain', 138]],
+      prd: parsePrd(2471), title: 'Supplier Price Sync', captain: 'pm-anne', created: 150,
+      regions: [['vertuo-api', 140, [parsePrd(2410)]], ['vertuo-ai-domain', 138]],
     }),
     planet({
-      prd: 2502, title: 'Quote Templates v2', captain: 'pm-lina', created: 60,
+      prd: parsePrd(2502), title: 'Quote Templates v2', captain: 'pm-lina', created: 60,
       regions: [['vertuo-web', 30]],
     }),
     planet({
-      prd: 2520, title: 'Planning Drag & Drop', captain: 'pm-cecil', created: 260,
+      prd: parsePrd(2520), title: 'Planning Drag & Drop', captain: 'pm-cecil', created: 260,
       regions: [['vertuo-web', 250], ['vertuo-mobile', 245]],
       feature: { created: 170, activity: 1 },
       zones: [
@@ -189,7 +190,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
     }),
     planet({
-      prd: 2533, title: 'Client Portal', captain: 'pm-anne', created: 200,
+      prd: parsePrd(2533), title: 'Client Portal', captain: 'pm-anne', created: 200,
       regions: [['vertuo-web', 190]],
       feature: { created: 90, activity: 3 },
       zones: [
@@ -199,7 +200,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
       outbox: [item('s2-01-session-length', 'vertuo-web', 'high', 50, { verdict: 'drifted', h: 30, by: 'pm-anne' })],
     }),
-    planet({ prd: 2541, title: 'VAT Rules Belgium', captain: 'pm-lina', created: 12 }),
+    planet({ prd: parsePrd(2541), title: 'VAT Rules Belgium', captain: 'pm-lina', created: 12 }),
   ];
   return { at: iso(now), teams: DEMO_TEAMS, planets };
 }

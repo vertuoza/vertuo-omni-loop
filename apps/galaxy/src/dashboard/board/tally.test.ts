@@ -6,6 +6,7 @@ import {
   type Activity, type Member, type PrdNow,
 } from './tally';
 import { sure } from '../../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's pure functions (PRD 572): who is in the scope, what of the workspace's contributions
 // falls in the period, and every number the tiles, the charts, the repositories and the People table
@@ -196,16 +197,16 @@ describe('peopleRows', () => {
 
 describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it', () => {
   const STAGES_READ = [
-    { repository: 'vertuoza/vertuo-omni-loop', prd: 12, stage: 'shipped' as const },
-    { repository: 'vertuoza/vertuo-omni-loop', prd: 13, stage: 'building' as const },
-    { repository: 'vertuoza/vertuo-core', prd: 4, stage: 'prd' as const },
+    { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped' as const },
+    { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), stage: 'building' as const },
+    { repository: 'vertuoza/vertuo-core', prd: parsePrd(4), stage: 'prd' as const },
   ];
   const OPENERS = [
     { repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' },
     { repo: 'vertuo-core', number: 13, login: 'bob-gh' }, // another repository's #13
   ];
   const DOSSIERS = [
-    { home_repo: 'vertuoza/vertuo-omni-loop', prd: 13, opened_by: 'u-bob', answered: 2 },
+    { home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), opened_by: 'u-bob', answered: 2 },
     { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-sol', answered: 1 },
     { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 0 },
   ];
@@ -226,7 +227,7 @@ describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it',
   it('the tile\'s seven counts, by stage in track order; shipped and retro are never open', () => {
     const tally = stageTally(prdsNow({ stages: STAGES_READ, openers: OPENERS, dossiers: DOSSIERS }));
     expect(Object.keys(tally)).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
-    expect(tally).toEqual({ idea: 1, prd: 1, inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
+    expect(tally).toEqual({ idea: 1, prd: parsePrd(1), inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
     expect(groupsOf([{ stage: 'shipped', login: null, userId: null }, { stage: 'retro', login: null, userId: null }]))
       .toEqual({ open: 0, building: 0, shipped: 2 });
   });
@@ -236,7 +237,7 @@ describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it',
     const record = perStage((stage) => { asked.push(stage); return stage.length; });
     expect(Object.keys(record)).toEqual([...STAGES]);
     expect(asked).toEqual([...STAGES]);
-    expect(record).toEqual({ idea: 4, prd: 3, inbox: 5, building: 8, outbox: 6, shipped: 7, retro: 5 });
+    expect(record).toEqual({ idea: 4, prd: parsePrd(3), inbox: 5, building: 8, outbox: 6, shipped: 7, retro: 5 });
   });
 
   it('who opened a PRD: you by login or account, a fleet by its members\', the workspace every PRD', () => {

@@ -27375,6 +27375,8 @@ var ConfigError = class extends Error {
 };
 var text = external_exports.string().min(1);
 var nullableText = text.nullable();
+var branchTemplate = external_exports.string().min(1);
+var labelName = external_exports.string().min(1);
 var regexSource = external_exports.string().refine((source) => {
   try {
     new RegExp(source);
@@ -27445,20 +27447,20 @@ var ConfigSchema = external_exports.object({
   }),
   github: section({ user: nullableText.default(null) }),
   branches: section({
-    feature: text.default("feat/{topic}"),
-    fix: text.default("fix/{topic}"),
-    phase0: text.default("docs/phase-0-{topic}"),
-    slice: text.default("feat/{topic}--{slice}"),
-    rework: text.default("fix-{item}"),
-    retro: text.default("docs/retro-{topic}"),
-    knowledge: text.default("docs/knowledge-{topic}"),
-    invade: text.default("docs/omni-invade"),
+    feature: branchTemplate.default("feat/{topic}"),
+    fix: branchTemplate.default("fix/{topic}"),
+    phase0: branchTemplate.default("docs/phase-0-{topic}"),
+    slice: branchTemplate.default("feat/{topic}--{slice}"),
+    rework: branchTemplate.default("fix-{item}"),
+    retro: branchTemplate.default("docs/retro-{topic}"),
+    knowledge: branchTemplate.default("docs/knowledge-{topic}"),
+    invade: branchTemplate.default("docs/omni-invade"),
     // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
-    update: text.default("chore/omni-update-{version}"),
+    update: branchTemplate.default("chore/omni-update-{version}"),
     // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
-    megaInvade: text.default("docs/omni-mega-invade"),
+    megaInvade: branchTemplate.default("docs/omni-mega-invade"),
     // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-    concept: text.default("docs/concept-{topic}")
+    concept: branchTemplate.default("docs/concept-{topic}")
   }),
   worktrees: text.default(".claude/worktrees"),
   paths: section({
@@ -27470,25 +27472,25 @@ var ConfigSchema = external_exports.object({
     context: external_exports.array(text).default(["CLAUDE.md"])
   }),
   labels: section({
-    prd: text.default("omni:prd"),
-    phase0: text.default("omni:phase-0"),
-    feature: text.default("omni:feature"),
-    sub: text.default("omni:sub"),
-    inProgress: text.default("omni:in-progress"),
-    needsFix: text.default("omni:needs-fix"),
-    outboxGo: text.default("omni:outbox-go"),
-    retro: text.default("omni:retro"),
-    knowledge: text.default("omni:knowledge"),
-    visual: text.default("omni:visual"),
+    prd: labelName.default("omni:prd"),
+    phase0: labelName.default("omni:phase-0"),
+    feature: labelName.default("omni:feature"),
+    sub: labelName.default("omni:sub"),
+    inProgress: labelName.default("omni:in-progress"),
+    needsFix: labelName.default("omni:needs-fix"),
+    outboxGo: labelName.default("omni:outbox-go"),
+    retro: labelName.default("omni:retro"),
+    knowledge: labelName.default("omni:knowledge"),
+    visual: labelName.default("omni:visual"),
     // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
-    bug: text.default("omni:bug"),
-    regression: text.default("omni:regression"),
-    riskCritical: text.default("omni:risk-critical"),
-    riskHigh: text.default("omni:risk-high"),
-    riskMedium: text.default("omni:risk-medium"),
-    riskLow: text.default("omni:risk-low"),
+    bug: labelName.default("omni:bug"),
+    regression: labelName.default("omni:regression"),
+    riskCritical: labelName.default("omni:risk-critical"),
+    riskHigh: labelName.default("omni:risk-high"),
+    riskMedium: labelName.default("omni:risk-medium"),
+    riskLow: labelName.default("omni:risk-low"),
     // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
-    concept: text.default("omni:concept"),
+    concept: labelName.default("omni:concept"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
@@ -27640,6 +27642,44 @@ import { realpathSync } from "node:fs";
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync3, readdirSync } from "node:fs";
 import { join as join3, posix } from "node:path";
+
+// kit/lib/ids.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/schema/parse-or-throw.ts
+init_define_OMNI_BUNDLE();
+function parseOrThrow(schema, value, shape) {
+  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed.success) return parsed.data;
+  const issue2 = parsed.error.issues[0];
+  const field3 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
+  throw new Error(`${shape}: ${field3}${issue2?.message ?? "invalid"}`);
+}
+
+// kit/lib/ids.ts
+var IssueNumberSchema = external_exports.number().int().positive().brand();
+var PrdNumberSchema = IssueNumberSchema.brand();
+var PrNumberSchema = external_exports.number().int().positive().brand();
+var CommentIdSchema = external_exports.number().int().positive().brand();
+var WorkSliceIdSchema = external_exports.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var SliceIdSchema = external_exports.string().regex(/^s\d+$/).brand().brand();
+var OutboxItemIdSchema = external_exports.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var DIGITS = /^\d+$/;
+function numeric(value) {
+  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
+}
+function parseId(schema, value, what, given) {
+  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
+}
+function parseIssue(value) {
+  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
+}
+function parsePrd(value) {
+  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
+}
+function parsePr(value) {
+  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
+}
 
 // kit/lib/playbook/forms.ts
 init_define_OMNI_BUNDLE();
@@ -27863,16 +27903,20 @@ function resolvePlaybookId(id, { ctx }) {
 
 // kit/lib/layout.ts
 var FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
-function padPrd(prd2) {
-  return String(Number(prd2)).padStart(4, "0");
-}
 function parseFolderName(name) {
   const match = FOLDER.exec(name);
   if (!match) return null;
-  const [, prd2 = "", topic = ""] = match;
-  return { prd: Number(prd2), topic };
+  const [, digits = "", topic = ""] = match;
+  const prd2 = PrdNumberSchema.safeParse(Number(digits));
+  return prd2.success ? { prd: prd2.data, topic } : null;
 }
-var prdOf = (name) => parseFolderName(name)?.prd ?? Number.NaN;
+function prdFoldersIn(absolute) {
+  if (!existsSync3(absolute)) return [];
+  return readdirSync(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
+    const parsed = parseFolderName(entry.name);
+    return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
+  }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+}
 function foldersLayout(root, paths) {
   const base = paths.delivery;
   const dirs = {
@@ -27882,14 +27926,9 @@ function foldersLayout(root, paths) {
     archive: `${base}/archive`,
     concepts: `${base}/inbox/concepts`
   };
-  function folders(dir) {
-    const absolute = join3(root, dir);
-    if (!existsSync3(absolute)) return [];
-    return readdirSync(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && parseFolderName(entry.name)).map((entry) => entry.name).sort();
-  }
+  const folders = (dir) => prdFoldersIn(join3(root, dir));
   function find(dir, prd2) {
-    const wanted = Number(prd2);
-    return folders(dir).find((name) => prdOf(name) === wanted) ?? null;
+    return folders(dir).find((folder) => folder.prd === prd2)?.name ?? null;
   }
   function whereIs2(prd2) {
     const inbox = find(dirs.inbox, prd2);
@@ -27928,15 +27967,15 @@ function foldersLayout(root, paths) {
       return orphan ? `${dirs.outbox}/${orphan}` : null;
     },
     outboxDirs() {
-      const out = folders(dirs.outbox).map((name) => ({ prd: prdOf(name), dir: `${dirs.outbox}/${name}`, shipped: false }));
-      for (const name of folders(dirs.shipped)) {
+      const out = folders(dirs.outbox).map(({ name, prd: prd2 }) => ({ prd: prd2, dir: `${dirs.outbox}/${name}`, shipped: false }));
+      for (const { name, prd: prd2 } of folders(dirs.shipped)) {
         const dir = `${dirs.shipped}/${name}/outbox`;
-        if (existsSync3(join3(root, dir))) out.push({ prd: prdOf(name), dir, shipped: true });
+        if (existsSync3(join3(root, dir))) out.push({ prd: prd2, dir, shipped: true });
       }
       return out;
     },
     specFiles() {
-      return folders(dirs.inbox).map((name) => `${dirs.inbox}/${name}/spec.md`);
+      return folders(dirs.inbox).map(({ name }) => `${dirs.inbox}/${name}/spec.md`);
     }
   });
 }
@@ -28039,7 +28078,7 @@ var GhRepoSchema = external_exports.looseObject({
 });
 var GhLabelsSchema = external_exports.array(external_exports.looseObject({ name: external_exports.string() }));
 var GhPullRequestsSchema = external_exports.array(
-  external_exports.looseObject({ url: external_exports.string().nullish(), number: external_exports.number().nullish() })
+  external_exports.looseObject({ url: external_exports.string().nullish(), number: PrNumberSchema.nullish() })
 );
 var ClaudePluginsSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown() }).nullable().catch(null));
 var ClaudeMarketplacesSchema = external_exports.array(external_exports.looseObject({ name: external_exports.unknown() }).nullable().catch(null));
@@ -29013,7 +29052,7 @@ var DossierEntrySchema = external_exports.object({
   id: text3,
   url: text3,
   claudeSessionId: text3.nullable(),
-  prd: external_exports.number().int().positive().nullable(),
+  prd: PrdNumberSchema.nullable(),
   openedAt: text3
 });
 function mainCheckout(cwd, exec = execFileSync3) {
@@ -29076,7 +29115,7 @@ var StatusInputSchema = external_exports.object({
   session_id: textOrNull2
 });
 var SessionRecordSchema = external_exports.object({
-  prd: whole.refine((value) => value > 0, "expected a positive PRD number"),
+  prd: whole.refine((value) => value > 0, "expected a positive PRD number").pipe(PrdNumberSchema),
   at: external_exports.string().nullable().catch(null)
 });
 var CachedSliceSchema = external_exports.object({ id: external_exports.string(), wave: whole, state: external_exports.string() });
@@ -29179,13 +29218,27 @@ function parseArgs(command, argv, { values = [], booleans = [] } = {}) {
   }
   return { positional, flags: { ...valueFlags, ...booleanFlags } };
 }
-var DIGITS = /^\d+$/;
+var DIGITS2 = /^\d+$/;
 function positiveInt(command, what, value) {
   const number4 = Number(value);
-  if (value === void 0 || value === true || !DIGITS.test(value) || number4 <= 0) {
+  if (value === void 0 || value === true || !DIGITS2.test(value) || number4 <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === void 0 ? "" : `, got "${value}"`}.`);
   }
   return number4;
+}
+function prdArg(command, what, value) {
+  return parsePrd(positiveInt(command, what, value));
+}
+function prArg(command, what, value) {
+  return parsePr(positiveInt(command, what, value));
+}
+function issueArg(command, what, value) {
+  return parseIssue(positiveInt(command, what, value));
+}
+function sliceArg(command, what, value) {
+  const slice = WorkSliceIdSchema.safeParse(value);
+  if (!slice.success) throw usageError(`omni ${command}: ${what} must be a slice id like s1, got "${value}".`);
+  return slice.data;
 }
 function list(value) {
   return value ? String(value).split(",").map((item2) => item2.trim()).filter(Boolean) : [];
@@ -29284,21 +29337,30 @@ init_define_OMNI_BUNDLE();
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
 var RANK_VALUES = ["human-action", "high", "medium"];
+var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]';
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
 var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
+var PrdField = external_exports.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
+var SliceField = external_exports.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
 var BlockedBySchema = external_exports.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
   const match = raw.match(BLOCKED_BY_LIST);
   if (!match) {
     ctx.addIssue({
       code: "custom",
-      message: 'blocked-by must be "none" or a bracketed list of PRD numbers, e.g. [966]'
+      message: BLOCKED_BY_MESSAGE
     });
     return external_exports.NEVER;
   }
   const inner = (match[1] ?? "").trim();
-  return inner.length === 0 ? [] : inner.split(",").map((token) => Number(token.trim()));
+  const prds = inner.length === 0 ? [] : inner.split(",").map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
+  const read2 = prds.flatMap((prd2) => prd2.success ? [prd2.data] : []);
+  if (read2.length !== prds.length) {
+    ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
+    return external_exports.NEVER;
+  }
+  return read2;
 });
 var AreasSchema = external_exports.string().trim().transform((raw, ctx) => {
   const match = raw.match(BRACKET_LIST);
@@ -29313,7 +29375,7 @@ var AreasSchema = external_exports.string().trim().transform((raw, ctx) => {
   return inner.length === 0 ? [] : inner.split(",").map((token) => token.trim());
 }).optional();
 var SpecFrontMatterSchema = external_exports.object({
-  prd: external_exports.coerce.number({ message: "prd must be a number" }).int().positive(),
+  prd: PrdField,
   title: external_exports.string().trim().min(1, "title is required"),
   "blocked-by": BlockedBySchema,
   spec: external_exports.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
@@ -29322,9 +29384,9 @@ var SpecFrontMatterSchema = external_exports.object({
   proof: external_exports.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
 var OutboxItemFrontMatterSchema = external_exports.object({
-  id: external_exports.string().trim().min(1, "id is required"),
-  prd: external_exports.coerce.number({ message: "prd must be a number" }).int().positive(),
-  slice: external_exports.string().trim().min(1, "slice is required"),
+  id: external_exports.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
+  prd: PrdField,
+  slice: SliceField,
   rank: external_exports.enum(RANK_VALUES, {
     message: `rank must be one of: ${RANK_VALUES.join(", ")}`
   }),
@@ -29333,8 +29395,8 @@ var OutboxItemFrontMatterSchema = external_exports.object({
   wave: external_exports.coerce.number({ message: "wave must be a number" }).int().positive()
 }).strict();
 var AccountFrontMatterSchema = external_exports.object({
-  prd: external_exports.coerce.number({ message: "prd must be a number" }).int().positive(),
-  slice: external_exports.string().trim().min(1, "slice is required"),
+  prd: PrdField,
+  slice: SliceField,
   graded: external_exports.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
 }).strict();
 
@@ -29879,6 +29941,15 @@ function latestPerId(entries3) {
   for (const entry of entries3) byId.set(entry.id, entry);
   return [...byId.values()];
 }
+function openedEntry(id) {
+  const read2 = OutboxItemIdSchema.safeParse(id);
+  return read2.success ? { id: read2.data, fields: {}, blocks: [] } : null;
+}
+function closedEntry({ id, fields, blocks }) {
+  const [answerText = "", itemText = ""] = blocks;
+  const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
+}
 function rawSettledEntries(text7, markers) {
   const lines = text7.split("\n");
   const entries3 = [];
@@ -29887,23 +29958,12 @@ function rawSettledEntries(text7, markers) {
     const line = lines[index] ?? "";
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1] ?? "", fields: {}, blocks: [] };
+      current = openedEntry(openMatch[1]);
       continue;
     }
     if (!current) continue;
     if (line === markers.settledClose(current.id)) {
-      const [answerText = "", itemText = ""] = current.blocks;
-      const closed = /^yes\b/.test(current.fields.Closed ?? "");
-      const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-      entries3.push({
-        id: current.id,
-        verdict: current.fields.Verdict,
-        closed,
-        fields: current.fields,
-        answerText,
-        itemText,
-        became
-      });
+      entries3.push(closedEntry(current));
       current = null;
       continue;
     }
@@ -30634,10 +30694,11 @@ function parseNumbersMarker(body, markers) {
   if (!match) return [];
   const value = (match[1] ?? "").trim();
   if (value === "") return [];
-  return value.split(",").map((entry) => {
+  return value.split(",").flatMap((entry) => {
     const [numberPart, rest = ""] = entry.split(/=(.*)/s);
     const at2 = rest.lastIndexOf("@");
-    return { number: Number(numberPart), id: rest.slice(0, at2), since: rest.slice(at2 + 1) };
+    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at2));
+    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at2 + 1) }] : [];
   });
 }
 function assignNumbers({
@@ -31300,14 +31361,14 @@ import { execFileSync as execFileSync6 } from "node:child_process";
 // kit/bin/schema.ts
 init_define_OMNI_BUNDLE();
 var GhCommentSchema = external_exports.looseObject({
-  id: external_exports.number(),
+  id: CommentIdSchema,
   body: external_exports.string().nullish(),
   html_url: external_exports.string().nullish()
 });
 var GhCommentsSchema = external_exports.array(GhCommentSchema);
-var GhWrittenCommentSchema = external_exports.looseObject({ id: external_exports.number().nullish(), html_url: external_exports.string().nullish() }).nullish();
+var GhWrittenCommentSchema = external_exports.looseObject({ id: CommentIdSchema.nullish(), html_url: external_exports.string().nullish() }).nullish();
 var GhPullRequestSchema = external_exports.looseObject({
-  number: external_exports.number(),
+  number: PrNumberSchema,
   html_url: external_exports.string(),
   merged_at: external_exports.string().nullish(),
   merged_by: external_exports.looseObject({ login: external_exports.string() }).nullish(),
@@ -31316,7 +31377,7 @@ var GhPullRequestSchema = external_exports.looseObject({
   head: external_exports.looseObject({ ref: external_exports.string() }).nullish()
 });
 var GhPrListItemSchema = external_exports.looseObject({
-  number: external_exports.number().optional(),
+  number: PrNumberSchema.optional(),
   title: external_exports.string().optional(),
   headRefName: external_exports.string().optional(),
   baseRefName: external_exports.string().optional(),
@@ -31329,7 +31390,7 @@ var GhPrListItemSchema = external_exports.looseObject({
   createdAt: external_exports.string().nullish()
 });
 var GhPrListSchema = external_exports.array(GhPrListItemSchema);
-var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: external_exports.number(), state: external_exports.string().optional(), updatedAt: external_exports.unknown().optional() }));
+var GhPrStatesSchema = external_exports.array(external_exports.looseObject({ number: PrNumberSchema, state: external_exports.string().optional(), updatedAt: external_exports.unknown().optional() }));
 var GhGraphqlSchema = external_exports.looseObject({
   data: external_exports.unknown().optional(),
   errors: external_exports.array(external_exports.looseObject({ message: external_exports.string() })).nullish()
@@ -31448,8 +31509,8 @@ function printBatches(stdout, batches) {
 function ask(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("answers", args, { values: ["pr", "repo"], booleans: ["json"] });
   if (positional.length !== 1) throw usageError(USAGE);
-  const prd2 = positiveInt("answers", "<prd>", positional[0]);
-  const pr = positiveInt("answers", "--pr", flags.pr);
+  const prd2 = prdArg("answers", "<prd>", positional[0]);
+  const pr = prArg("answers", "--pr", flags.pr);
   const repo = repoSlug("answers", ctx, flags.repo);
   if (!ctx.config.answers.enabled) {
     return fail(stderr, `answers.enabled is false in ${CONFIG_FILE} \u2014 answer on the pull request.`);
@@ -31477,8 +31538,8 @@ function post(args, { ctx, stdout, stderr, exec, env }) {
     booleans: ["print"]
   });
   if (positional.length) throw usageError(USAGE);
-  const prd2 = positiveInt("answers", "--prd", flags.prd);
-  const pr = positiveInt("answers", "--pr", flags.pr);
+  const prd2 = prdArg("answers", "--prd", flags.prd);
+  const pr = prArg("answers", "--pr", flags.pr);
   const repo = repoSlug("answers", ctx, flags.repo);
   if (typeof flags.answers !== "string") throw usageError(`omni answers: --answers <file> is required. ${USAGE}`);
   const source = readUserFile("answers", ctx, flags.answers);
@@ -31700,6 +31761,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 757: this Claude session is working on `work` (null: the session alone); `ended` only
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended ? { ended: true } : {} } }),
+    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
     findDossier: ({ repo, prd: prd2, kind = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind && kind !== "prd" ? { kind } : {} })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
@@ -31789,7 +31851,6 @@ import { readdirSync as readdirSync9, readFileSync as readFileSync15 } from "nod
 import { join as join19 } from "node:path";
 var QUIET5 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 2e3 };
 var COMMAND = /<command-name>\s*(\/[^<\s]+)\s*<\/command-name>/g;
-var FOLDER2 = /^(\d{4})-(.+)$/;
 function attempt2(fn) {
   try {
     return fn();
@@ -31848,8 +31909,8 @@ function prdOfBranch(branch, { branches, folders }) {
     const topic = attempt2(() => branchPattern(template).exec(branch)?.[1]);
     if (!topic) continue;
     for (const folder of folders) {
-      const match = FOLDER2.exec(folder);
-      if (match && match[2] === topic) return Number(match[1]);
+      const named3 = parseFolderName(folder);
+      if (named3 && named3.topic === topic) return named3.prd;
     }
   }
   return null;
@@ -32669,10 +32730,15 @@ init_define_OMNI_BUNDLE();
 // kit/lib/inbox/territory.ts
 init_define_OMNI_BUNDLE();
 var NOTHING = /^[—–-]?$/;
+function sliceIdOf(text7) {
+  const id = WorkSliceIdSchema.safeParse(text7);
+  if (!id.success) throw new Error(`This plan's slice table names "${text7}", which is no slice id like s1.`);
+  return id.data;
+}
 function blockedByCell(cell2) {
   const text7 = (cell2 ?? "").trim();
   if (NOTHING.test(text7)) return [];
-  return text7.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean);
+  return text7.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell2) {
   const text7 = (cell2 ?? "").trim();
@@ -32731,7 +32797,7 @@ function parsePlanSlices(markdown) {
     const id = row[column("id")];
     if (!id) continue;
     slices.push({
-      id,
+      id: sliceIdOf(id),
       repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
       title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
       territory: territoryPrefixes(row[column("territory")]),
@@ -33077,7 +33143,7 @@ var board = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const { positional, flags } = parseArgs("board", args, { values: ["repo"], booleans: ["json"] });
     if (positional.length !== 1) throw usageError(USAGE3);
-    const prd2 = positiveInt("board", "<prd>", positional[0]);
+    const prd2 = prdArg("board", "<prd>", positional[0]);
     const { slices, result, unreadable: unreadable2 } = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
     if (flags.json) {
       println(stdout, JSON.stringify(result, null, 2));
@@ -33184,9 +33250,9 @@ var ThreadNodeSchema = external_exports.object({
   line: external_exports.number().nullish(),
   comments: nodesOf(CommentNodeSchema)
 });
-var IssueCommentNodeSchema = external_exports.object({ databaseId: external_exports.number().nullish(), body: text4 });
+var IssueCommentNodeSchema = external_exports.object({ databaseId: CommentIdSchema.nullish(), body: text4 });
 var PullRequestNodeSchema = external_exports.object({
-  number: external_exports.number(),
+  number: PrNumberSchema,
   url: external_exports.string(),
   state: external_exports.string(),
   isDraft: external_exports.boolean().nullish(),
@@ -33362,11 +33428,11 @@ function waveClaims(prd2, { ctx, exec, env, repo }) {
 function runState(args, { ctx, stdout, stderr, exec, env }) {
   const { positional, flags } = parseArgs("care", args, { values: ["pr", "repo"] });
   if (positional.length !== 1) throw usageError(USAGE4);
-  const prd2 = positiveInt("care", "<prd>", positional[0]);
+  const prd2 = prdArg("care", "<prd>", positional[0]);
   const repo = repoSlug("care", ctx, flags.repo);
   const branch = featureBranchFor(prd2, ctx);
   const ghEnv = githubEnv(ctx, { exec, env });
-  const number4 = flags.pr !== void 0 ? positiveInt("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  const number4 = flags.pr !== void 0 ? prArg("care", "--pr", flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
   if (number4 === null) {
     println(stderr, `omni care: PRD ${prd2} has no feature PR yet (no pull request from ${branch}).`);
     return 1;
@@ -33644,7 +33710,7 @@ function signatureViolations(ctx, commits) {
 }
 function fixVerdict({
   ctx,
-  issue: issue2,
+  number: number4,
   root,
   prefix,
   folders,
@@ -33655,9 +33721,9 @@ function fixVerdict({
   let folder = null;
   const [only] = folders;
   if (only === void 0) {
-    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue2}.`);
+    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${number4}.`);
   } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue2}, one expected: ${folders.join(", ")}.`);
+    failures.push(`${folders.length} folders for issue ${number4}, one expected: ${folders.join(", ")}.`);
   } else {
     folder = only;
     failures.push(...grade(only));
@@ -33744,7 +33810,7 @@ function bugVerdict({ ctx, issue: issue2, changed, commits }) {
   const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
     ctx,
-    issue: issue2,
+    number: issue2,
     commits,
     root: bugRoot(ctx),
     prefix: issuePrefix(issue2),
@@ -33788,6 +33854,7 @@ function branchPaths(root, base, exec) {
 }
 function branchVerdictCommand({
   verb,
+  read: read2,
   paths,
   grade
 }) {
@@ -33796,7 +33863,7 @@ function branchVerdictCommand({
     run: synchronous((args, { ctx, stdout, exec }) => {
       const { positional, flags } = parseArgs(verb, args, { values: ["base"] });
       if (positional.length !== 1) throw usageError(usage);
-      const number4 = positiveInt(verb, "<n>", positional[0]);
+      const number4 = read2(verb, "<n>", positional[0]);
       const base = rangeBase(verb, ctx, flags, exec);
       const changed = paths ? paths(ctx.root, base, exec) : void 0;
       const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
@@ -33811,6 +33878,7 @@ function branchVerdictCommand({
 // kit/bin/commands/bug.ts
 var bug = branchVerdictCommand({
   verb: "bug",
+  read: issueArg,
   paths: loggedPaths,
   grade: ({ ctx, number: number4, changed, commits }) => bugVerdict({ ctx, issue: number4, changed, commits })
 });
@@ -34993,7 +35061,7 @@ function describeUnaccounted(prd2, change) {
 
 // kit/lib/releases/check-releases.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync26, readdirSync as readdirSync14, readFileSync as readFileSync24 } from "node:fs";
+import { existsSync as existsSync26, readFileSync as readFileSync24 } from "node:fs";
 import { join as join33 } from "node:path";
 
 // kit/lib/releases/note.ts
@@ -35056,6 +35124,14 @@ function bodyLines(body) {
   while (lines.length && lines.at(-1) === "") lines.pop();
   return lines;
 }
+function notePrd(fields, errors) {
+  if (!Object.hasOwn(fields, "prd")) return null;
+  const prd2 = unquote(fields.prd ?? "");
+  const number4 = PrdNumberSchema.safeParse(Number(prd2));
+  if (PRD_NUMBER.test(prd2) && number4.success) return number4.data;
+  errors.push(`prd "${prd2}" is not a PRD number`);
+  return null;
+}
 function parseReleaseNote(text7) {
   const parts = splitNote(text7);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
@@ -35066,13 +35142,12 @@ function parseReleaseNote(text7) {
   for (const key of REQUIRED) {
     if (!Object.hasOwn(fields, key)) errors.push(`front matter lacks ${key}`);
   }
-  const prd2 = Object.hasOwn(fields, "prd") ? unquote(fields.prd ?? "") : null;
-  if (prd2 !== null && !PRD_NUMBER.test(prd2)) errors.push(`prd "${prd2}" is not a PRD number`);
-  if (errors.length) return { ok: false, errors };
+  const prd2 = notePrd(fields, errors);
+  if (errors.length || prd2 === null) return { ok: false, errors };
   return {
     ok: true,
     note: {
-      prd: Number(prd2),
+      prd: prd2,
       title: (fields.title ?? "").split("\n").map(unquote).join("\n"),
       version: Object.hasOwn(fields, "version") ? unquote(fields.version ?? "") : null,
       description: bodyLines(parts.body).join(" ")
@@ -35125,15 +35200,10 @@ function gradeReleaseNote(text7, { prd: prd2 }) {
 function releaseNotePath(dir) {
   return `${dir}/${RELEASE_NOTE_FILE}`;
 }
-function prdFolders(ctx, dir) {
-  const absolute = join33(ctx.root, dir);
-  if (!existsSync26(absolute)) return [];
-  return readdirSync14(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && parseFolderName(entry.name)).map((entry) => entry.name).sort();
-}
 function releaseNoteFiles({ ctx }) {
   const { inbox, shipped } = ctx.layout.dirs;
   return [inbox, shipped].flatMap(
-    (dir) => prdFolders(ctx, dir).map((name) => ({ file: releaseNotePath(`${dir}/${name}`), prd: parseFolderName(name)?.prd ?? Number.NaN })).filter(({ file: file2 }) => existsSync26(join33(ctx.root, file2)))
+    (dir) => prdFoldersIn(join33(ctx.root, dir)).map(({ name, prd: prd2 }) => ({ file: releaseNotePath(`${dir}/${name}`), prd: prd2 })).filter(({ file: file2 }) => existsSync26(join33(ctx.root, file2)))
   );
 }
 function findReleaseViolations({ ctx }) {
@@ -35263,7 +35333,7 @@ var check2 = {
     const { positional, flags } = parseArgs("check", args, { values: ["base", "prd"] });
     if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE6);
     const guard = positional[0] ?? "all";
-    const prd2 = flags.prd === void 0 ? null : positiveInt("check", "--prd", flags.prd);
+    const prd2 = flags.prd === void 0 ? null : prdArg("check", "--prd", flags.prd);
     const base = flags.base ?? defaultBase(ctx);
     const baseKnown = refExists2(ctx, base, exec);
     if (flags.base !== void 0 && !baseKnown) {
@@ -35297,11 +35367,11 @@ var comment = {
       values: ["prd", "pr", "repo", "result", "branch", "ref", "base", "labels", "slack-note", "title", "owner-slack-id", "owner-login", "pr-comment"]
     });
     if (positional.length) throw usageError(USAGE7);
-    const prd2 = positiveInt("comment", "--prd", flags.prd);
+    const prd2 = prdArg("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
     const [owner = "", name = ""] = repo.split("/");
     if (flags.pr !== void 0) {
-      const pr = positiveInt("comment", "--pr", flags.pr);
+      const pr = prArg("comment", "--pr", flags.pr);
       const result2 = upsertOutboxPrComment({ prd: prd2, ctx }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
       println(
         stdout,
@@ -35524,7 +35594,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/concept/verdict.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync15, readFileSync as readFileSync26 } from "node:fs";
+import { readdirSync as readdirSync14, readFileSync as readFileSync26 } from "node:fs";
 import { join as join36 } from "node:path";
 
 // kit/lib/concept/parse.ts
@@ -35646,7 +35716,7 @@ function areasOf(lines, scale) {
     const prd2 = cell2(row, "PRD");
     const filled = PRD_CELL.exec(prd2 ?? "");
     if (prd2 && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd2}", neither empty nor #<number>.`);
-    return { id, area: cell2(row, "area"), brief: cell2(row, "brief"), prd: filled ? Number(filled[1]) : null };
+    return { id, area: cell2(row, "area"), brief: cell2(row, "brief"), prd: filled ? parsePrd(at(filled, 1, "the PRD cell")) : null };
   });
   faults.push(...idFaults(areas.map((area) => area.id)));
   const allowed = scale ? AREA_ROWS[scale] : void 0;
@@ -35703,7 +35773,7 @@ var SCRIPT_LOADS = [
   ["fetch", /\bfetch\s*\(\s*["'`]((?:https?:)?\/\/[^"'`\s]+)/gi]
 ];
 function folderPrefix(concept2) {
-  return `${padPrd(concept2)}-`;
+  return `${String(Number(concept2)).padStart(4, "0")}-`;
 }
 function textLoads(texts, patterns) {
   return patterns.flatMap(([what, pattern]) => texts.flatMap((text7) => [...text7.matchAll(pattern)].map((match) => `${what} ${match[1]}`)));
@@ -35758,7 +35828,7 @@ function entryKind(entry) {
 }
 function folderEntries(ctx, folder) {
   const sorted = { present: /* @__PURE__ */ new Set(), rounds: [], misnamed: [], others: [] };
-  for (const entry of readdirSync15(join36(ctx.root, folder), { withFileTypes: true })) {
+  for (const entry of readdirSync14(join36(ctx.root, folder), { withFileTypes: true })) {
     const found = entryKind(entry);
     const { kind } = found;
     if (found.kind === "round") sorted.rounds.push({ name: entry.name, k: found.k });
@@ -35798,7 +35868,7 @@ function conceptVerdict({
 }) {
   return fixVerdict({
     ctx,
-    issue: concept2,
+    number: concept2,
     commits,
     root: ctx.layout.dirs.concepts,
     prefix: folderPrefix(concept2),
@@ -35810,6 +35880,7 @@ function conceptVerdict({
 // kit/bin/commands/concept.ts
 var concept = branchVerdictCommand({
   verb: "concept",
+  read: positiveInt,
   paths: branchPaths,
   grade: ({ ctx, number: number4, changed, commits }) => conceptVerdict({ ctx, concept: number4, changed, commits })
 });
@@ -35986,18 +36057,6 @@ import { execFileSync as execFileSync9 } from "node:child_process";
 
 // kit/lib/credits/schema.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/schema/parse-or-throw.ts
-init_define_OMNI_BUNDLE();
-function parseOrThrow(schema, value, shape) {
-  const parsed = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed.success) return parsed.data;
-  const issue2 = parsed.error.issues[0];
-  const field3 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
-  throw new Error(`${shape}: ${field3}${issue2?.message ?? "invalid"}`);
-}
-
-// kit/lib/credits/schema.ts
 var named2 = external_exports.object({ name: external_exports.string() });
 var login = external_exports.object({ login: external_exports.string().nullish() });
 var ViewedPullRequestSchema = external_exports.object({
@@ -36349,7 +36408,7 @@ function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
 // kit/lib/dossier/folder.ts
 init_define_OMNI_BUNDLE();
 import { createHash } from "node:crypto";
-import { existsSync as existsSync28, readdirSync as readdirSync16, readFileSync as readFileSync27 } from "node:fs";
+import { existsSync as existsSync28, readdirSync as readdirSync15, readFileSync as readFileSync27 } from "node:fs";
 import { join as join37 } from "node:path";
 var ARTIFACT_MAX_BYTES = 512 * 1024;
 var TITLE_MAX3 = 200;
@@ -36388,7 +36447,7 @@ function readDossierFolder(ctx, prd2) {
     artifacts.push({ kind, path, content, sha256: sha256(content), bytes: Buffer.byteLength(content, "utf8") });
   }
   const topic = parseFolderName(where.name)?.topic ?? where.name;
-  return { prd: Number(prd2), dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX3), artifacts, tooLarge };
+  return { prd: prd2, dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX3), artifacts, tooLarge };
 }
 var FIX_ROOTS = Object.freeze({ visual: "visual", bug: "bugs" });
 var ROUND2 = /^variations-r([1-9]\d*)\.html$/;
@@ -36411,12 +36470,12 @@ function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {
   const absolute = join37(ctx.root, root);
   if (!existsSync28(absolute)) return null;
   const prefix = `${String(issue2).padStart(4, "0")}-`;
-  const name = readdirSync16(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => entry.name).sort()[0];
+  const name = readdirSync15(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => entry.name).sort()[0];
   if (!name) return null;
   const dir = `${root}/${name}`;
   const artifacts = [];
   const tooLarge = [];
-  for (const file2 of fixFiles(kind, readdirSync16(join37(ctx.root, dir)))) {
+  for (const file2 of fixFiles(kind, readdirSync15(join37(ctx.root, dir)))) {
     const path = `${dir}/${file2.name}`;
     const raw = readFileSync27(join37(ctx.root, path));
     if (raw.length > ARTIFACT_MAX_BYTES) {
@@ -36434,7 +36493,7 @@ function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {
     });
   }
   const topic = name.slice(prefix.length);
-  return { issue: Number(issue2), kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
+  return { issue: issue2, kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
 }
 
 // kit/bin/commands/dossier.ts
@@ -36578,6 +36637,10 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   println(stdout, url2);
   return 0;
 }
+function namedBy(verb, kind, value) {
+  const command = `dossier ${verb}`;
+  return kind === "prd" ? { kind, prd: prdArg(command, "<n>", value) } : { kind, issue: issueArg(command, "<n>", value) };
+}
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
   if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE11);
@@ -36595,7 +36658,7 @@ var dossier = {
     if (!runnable) throw usageError(USAGE11);
     const kind = kindOf2(flags.kind, numbered);
     if (verb === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE11);
-    const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
+    const named3 = numbered ? namedBy(verb, kind, rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (verb === "status") {
@@ -36614,10 +36677,10 @@ var dossier = {
       return 1;
     }
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    if (prd2 === null) return open2(title, options);
-    if (verb === "link") return link(prd2, kind, options);
-    if (verb === "push" && kind !== "prd") return pushFix(prd2, kind, options);
-    return push(prd2, options);
+    if (named3 === null) return open2(title, options);
+    if (verb === "link") return link(named3.kind === "prd" ? named3.prd : named3.issue, named3.kind, options);
+    if (named3.kind !== "prd") return pushFix(named3.issue, named3.kind, options);
+    return push(named3.prd, options);
   }
 };
 
@@ -36860,7 +36923,7 @@ import {
   existsSync as existsSync35,
   mkdirSync as mkdirSync9,
   mkdtempSync,
-  readdirSync as readdirSync18,
+  readdirSync as readdirSync17,
   readFileSync as readFileSync33,
   renameSync,
   rmSync as rmSync6,
@@ -36944,13 +37007,14 @@ import { existsSync as existsSync30 } from "node:fs";
 import { join as join39 } from "node:path";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
+var PrField = external_exports.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
 var MergeSchema = external_exports.object({
   by: external_exports.string().trim().transform((login2) => login2.replace(/^@/, "")).pipe(external_exports.string().min(1, "merge.by is required \u2014 who merged")),
   at: external_exports.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
-  pr: external_exports.coerce.number({ message: "merge.pr must be a number" }).int().positive(),
+  pr: PrField,
   url: external_exports.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge2) {
@@ -36977,7 +37041,7 @@ function itemFromEntry(entry) {
     rank: fields.Rank,
     bearsOn: fields["Bears on"],
     raised: fields.Raised,
-    slice: fields.Slice,
+    slice: WorkSliceIdSchema.safeParse(fields.Slice).data,
     wave: fields.Wave
   };
 }
@@ -37049,14 +37113,14 @@ import { join as join41 } from "node:path";
 
 // kit/lib/playbook/decisions.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync31, readdirSync as readdirSync17, readFileSync as readFileSync29 } from "node:fs";
+import { existsSync as existsSync31, readdirSync as readdirSync16, readFileSync as readFileSync29 } from "node:fs";
 import { join as join40 } from "node:path";
 var RECORD3 = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
   const absolute = join40(ctx.root, dir);
-  const names = existsSync31(absolute) ? readdirSync17(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD3.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const names = existsSync31(absolute) ? readdirSync16(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD3.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file2 = `${dir}/${name}`;
     const title = readFileSync29(join40(ctx.root, file2), "utf8").match(TITLE2)?.[1] ?? null;
@@ -37604,7 +37668,7 @@ function loopPaths(ctx) {
 function overlay(root, keep) {
   const scratch = mkdtempSync(join44(tmpdir(), "omni-harvest-"));
   const walk = (dir) => {
-    for (const name of readdirSync18(join44(root, dir))) {
+    for (const name of readdirSync17(join44(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
       if (keep.includes(rel)) {
@@ -37632,7 +37696,7 @@ function filesUnder(root, dir) {
   const absolute = join44(root, dir);
   if (!existsSync35(absolute)) return [];
   const out = [];
-  for (const entry of readdirSync18(absolute, { withFileTypes: true })) {
+  for (const entry of readdirSync17(absolute, { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) out.push(...filesUnder(root, rel));
     else if (entry.isFile()) out.push(rel);
@@ -37656,7 +37720,7 @@ function mergeWrites(writes) {
   return [...byPath].map(([path, text7]) => ({ path, text: text7 }));
 }
 function prepareHarvest({ ctx, prd: prd2, merge: merge2 }) {
-  const n = Number(prd2);
+  const n = prd2;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
     const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge: merge2 });
@@ -37807,8 +37871,8 @@ var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
     if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE12);
-    const prd2 = positiveInt("harvest", "<prd>", positional[0]);
-    const number4 = positiveInt("harvest", "--pr", flags.pr);
+    const prd2 = prdArg("harvest", "<prd>", positional[0]);
+    const number4 = prArg("harvest", "--pr", flags.pr);
     if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
     if (ctx.layout.whereIs(prd2) === null) throw usageError(`omni harvest: PRD ${prd2} has no inbox or shipped folder.`);
     const pr = pullRequestFor(ctx, { number: number4, exec, env });
@@ -37865,12 +37929,11 @@ init_define_OMNI_BUNDLE();
 // kit/lib/ask/heartbeat.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-import { existsSync as existsSync36, mkdirSync as mkdirSync10, readdirSync as readdirSync19, readFileSync as readFileSync34, rmSync as rmSync7, writeFileSync as writeFileSync14 } from "node:fs";
+import { existsSync as existsSync36, mkdirSync as mkdirSync10, readdirSync as readdirSync18, readFileSync as readFileSync34, rmSync as rmSync7, writeFileSync as writeFileSync14 } from "node:fs";
 import { join as join45 } from "node:path";
 var HEARTBEAT_EVERY_MS = 6e4;
 var HEARTBEAT_LIMIT_MS = 2e3;
 var WINDOWS_DIR = "heartbeat";
-var FOLDER3 = /^(\d{4})-(.+)$/;
 var QUIET7 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: HEARTBEAT_LIMIT_MS };
 function attempt4(fn) {
   try {
@@ -37887,8 +37950,8 @@ function topicOf(template, branch) {
 }
 function numberOf(topic, folders) {
   for (const folder of folders ?? []) {
-    const match = FOLDER3.exec(folder);
-    if (match && match[2] === topic) return Number(match[1]);
+    const named3 = parseFolderName(folder);
+    if (named3 && named3.topic === topic) return named3.prd;
   }
   return null;
 }
@@ -37904,10 +37967,10 @@ function draftWork(claudeSessionId, drafts) {
   return own2.prd === null ? { kind: "draft", draftId: own2.id } : { kind: "prd", number: own2.prd };
 }
 function prdWork(branch, branches, folders) {
-  const prdFolders2 = [...folders.inbox ?? [], ...folders.shipped ?? []];
+  const prdFolders = [...folders.inbox ?? [], ...folders.shipped ?? []];
   for (const template of [branches.slice, branches.phase0, branches.feature]) {
     const topic = topicOf(template, branch);
-    const number4 = topic && numberOf(topic, prdFolders2);
+    const number4 = topic && numberOf(topic, prdFolders);
     if (number4) return { kind: "prd", number: number4 };
   }
   return null;
@@ -37926,7 +37989,7 @@ function readWork({ cwd, config: config3, claudeSessionId, exec = execFileSync11
   const head = attempt4(() => exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, ...QUIET7 }).trim());
   const branch = head && head !== "HEAD" ? head : null;
   const top = attempt4(() => exec("git", ["rev-parse", "--show-toplevel"], { cwd, ...QUIET7 }).trim());
-  const list3 = (folder) => top ? attempt4(() => readdirSync19(join45(top, config3.paths.delivery, folder))) ?? [] : [];
+  const list3 = (folder) => top ? attempt4(() => readdirSync18(join45(top, config3.paths.delivery, folder))) ?? [] : [];
   const folders = { inbox: list3("inbox"), shipped: list3("shipped"), visual: list3("visual"), bugs: list3("bugs") };
   return attempt4(() => findWork({ claudeSessionId, drafts, branch, branches: config3.branches, folders })) ?? null;
 }
@@ -39025,7 +39088,7 @@ function detectLawsSource({ ctx }) {
 
 // kit/lib/init/notices.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync38, readdirSync as readdirSync20, readFileSync as readFileSync37 } from "node:fs";
+import { existsSync as existsSync38, readdirSync as readdirSync19, readFileSync as readFileSync37 } from "node:fs";
 import { join as join47 } from "node:path";
 var WORKFLOWS = join47(".github", "workflows");
 var PRETTIER_CONFIGS = [
@@ -39055,7 +39118,7 @@ function read(root, path) {
 function legacyLoopWorkflows(root) {
   let names = [];
   try {
-    names = readdirSync20(join47(root, WORKFLOWS));
+    names = readdirSync19(join47(root, WORKFLOWS));
   } catch {
     return [];
   }
@@ -39418,9 +39481,9 @@ function findPr(root, exec) {
   const listed2 = attempt6(() => GhPullRequestsSchema.parse(JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET10 }))));
   if (!listed2.ok) return void 0;
   const [pr] = listed2.value;
-  return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
+  return pr?.url ? { url: pr.url, number: pr.number ?? null, already: true } : null;
 }
-var prNumber = (url2) => Number(/\/pull\/(\d+)/.exec(url2)?.[1]) || null;
+var prNumberOf = (url2) => PrNumberSchema.safeParse(Number(/\/pull\/(\d+)/.exec(url2)?.[1])).data ?? null;
 function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
   const paths = wanted.filter((path) => existsSync40(join50(root, path)));
   const on = currentBranch2(root, exec) === INSTALL_BRANCH;
@@ -39455,7 +39518,7 @@ function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
   if (found === void 0) return result;
   const created = attempt6(() => exec("gh", ["pr", "create", "--base", base, "--head", INSTALL_BRANCH, "--title", INSTALL_COMMIT, "--body", PR_BODY], { cwd: root, ...QUIET10 }));
   const url2 = created.ok ? created.value.trim().split("\n").pop() : null;
-  if (url2?.startsWith("http")) result.pr = { url: url2, number: prNumber(url2), already: false };
+  if (url2?.startsWith("http")) result.pr = { url: url2, number: prNumberOf(url2), already: false };
   else result.pr = findPr(root, exec) ?? null;
   return result;
 }
@@ -39636,16 +39699,16 @@ var init = {
 
 // kit/bin/commands/item.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync43, mkdirSync as mkdirSync14, readdirSync as readdirSync22, readFileSync as readFileSync42, statSync as statSync8, writeFileSync as writeFileSync18 } from "node:fs";
+import { existsSync as existsSync43, mkdirSync as mkdirSync14, readdirSync as readdirSync21, readFileSync as readFileSync42, statSync as statSync8, writeFileSync as writeFileSync18 } from "node:fs";
 import { basename as basename8, join as join53 } from "node:path";
 
 // kit/lib/outbox/relay.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync42, mkdirSync as mkdirSync13, readdirSync as readdirSync21, readFileSync as readFileSync41, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync17 } from "node:fs";
+import { existsSync as existsSync42, mkdirSync as mkdirSync13, readdirSync as readdirSync20, readFileSync as readFileSync41, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync17 } from "node:fs";
 import { basename as basename7, join as join52 } from "node:path";
 function markdownFiles(dir) {
   if (!existsSync42(dir)) return [];
-  return readdirSync21(dir).filter((name) => name.endsWith(".md") && statSync7(join52(dir, name)).isFile()).sort();
+  return readdirSync20(dir).filter((name) => name.endsWith(".md") && statSync7(join52(dir, name)).isFile()).sort();
 }
 function settledIds(ctx, outboxDir) {
   const file2 = join52(ctx.root, outboxDir, SETTLED_FILE);
@@ -40059,7 +40122,7 @@ function spentIds(prd2, { ctx, outDir = null }) {
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename8(path, ".md"))
   );
   if (outDir !== null && existsSync43(outDir)) {
-    for (const name of readdirSync22(outDir)) {
+    for (const name of readdirSync21(outDir)) {
       if (name.endsWith(".md") && statSync8(join53(outDir, name)).isFile()) ids.add(basename8(name, ".md"));
     }
   }
@@ -40086,7 +40149,10 @@ function nextItemId(prd2, slice, slug, { ctx, outDir = null }) {
   const spent = spentNumbers(prd2, slice, { ctx, outDir });
   for (let n = 1; n <= 99; n += 1) {
     const nn = String(n).padStart(2, "0");
-    if (!spent.has(nn)) return `${slice}-${nn}-${slug}`;
+    if (spent.has(nn)) continue;
+    const id = OutboxItemIdSchema.safeParse(`${slice}-${nn}-${slug}`);
+    if (!id.success) throw usageError(`omni item new: slice ${slice} names no item id \u2014 an item is raised on a slice like s1, or on a rework of one.`);
+    return id.data;
   }
   throw usageError(`omni item new: ${slice} under PRD ${prd2} has already spent every number 01-99.`);
 }
@@ -40104,10 +40170,10 @@ function newRequest(args, ctx) {
   if (flags.out !== void 0 && flags.adopt) {
     throw usageError("omni item new: --out never adopts \u2014 pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.");
   }
-  const prd2 = positiveInt("item new", "--prd", flags.prd);
+  const prd2 = prdArg("item new", "--prd", flags.prd);
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd2} has no inbox or shipped folder.`);
-  return { prd: prd2, slice: flags.slice, asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
+  return { prd: prd2, slice: sliceArg("item new", "--slice", flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
 }
 function destinationOf(ctx, outboxDir, out) {
   if (out === void 0) return { outDir: null, destination: { abs: join53(ctx.root, outboxDir), shown: outboxDir } };
@@ -40235,7 +40301,7 @@ function relayRequest(args, ctx) {
   const { positional, flags } = parseArgs("item relay", args, { values: ["prd"] });
   const [named3] = positional;
   if (positional.length !== 1 || named3 === void 0 || flags.prd === void 0) throw usageError(RELAY_USAGE);
-  const prd2 = positiveInt("item relay", "--prd", flags.prd);
+  const prd2 = prdArg("item relay", "--prd", flags.prd);
   if (ctx.layout.outboxDir(prd2) === null) throw usageError(`omni item relay: PRD ${prd2} has no inbox or shipped folder.`);
   const dir = inRoot(ctx, named3);
   if (!existsSync43(dir) || !statSync8(dir).isDirectory()) {
@@ -40274,9 +40340,10 @@ function hasKind(entry) {
   return KINDS5.includes(entry.kind);
 }
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
-function prdOf2(source) {
+function prdOf(source) {
   const match = PRD_IN_SOURCE.exec(source ?? "");
-  return match ? Number(match[1]) : null;
+  const prd2 = PrdNumberSchema.safeParse(Number(match?.[1]));
+  return prd2.success ? prd2.data : null;
 }
 function graphEntry(entry, pairs) {
   const crossDomain = entry.scope === "cross-domain";
@@ -40291,7 +40358,7 @@ function graphEntry(entry, pairs) {
     serves: entry.serves,
     enforced: entry.enforced,
     enforcedBy: entry.enforcedBy,
-    prd: prdOf2(entry.source),
+    prd: prdOf(entry.source),
     file: entry.file
   };
 }
@@ -40670,7 +40737,7 @@ var phase0 = {
   run: synchronous((args, { ctx, stdout, exec }) => {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
     if (positional.length !== 1) throw usageError(USAGE15);
-    const prd2 = positiveInt("phase0", "<prd>", positional[0]);
+    const prd2 = prdArg("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths(ctx, base, exec);
     const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
@@ -40911,7 +40978,7 @@ function checkPlan(prd2, { ctx }) {
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
   if (positional.length !== 1) throw usageError(USAGE16);
-  const prd2 = positiveInt("plan moved", "<prd>", positional[0]);
+  const prd2 = prdArg("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
     println(stdout, "not a plan repository");
@@ -40933,7 +41000,7 @@ var plan = {
     if (sub !== "check") throw usageError(USAGE16);
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE16);
-    const prd2 = positiveInt("plan check", "<prd>", positional[0]);
+    const prd2 = prdArg("plan check", "<prd>", positional[0]);
     const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
       stdout,
@@ -40973,16 +41040,16 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync44, readFileSync as readFileSync44, readdirSync as readdirSync23 } from "node:fs";
+import { existsSync as existsSync44, readFileSync as readFileSync44, readdirSync as readdirSync22 } from "node:fs";
 import { join as join55 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
   const absolute = join55(ctx.root, where.dir);
-  const files = readdirSync23(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const files = readdirSync22(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
-    prd: Number(prd2),
+    prd: prd2,
     name: where.name,
     state: where.state,
     dir: where.dir,
@@ -41014,7 +41081,7 @@ var prd = {
   run: synchronous((args, { ctx, stdout, stderr }) => {
     const { positional } = parseArgs("prd", args);
     if (positional.length !== 1) throw usageError("usage: omni prd <n>");
-    const number4 = positiveInt("prd", "<n>", positional[0]);
+    const number4 = prdArg("prd", "<n>", positional[0]);
     const where = whereIs(ctx, number4);
     if (!where) {
       println(stderr, `omni prd: PRD ${number4} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
@@ -41272,7 +41339,7 @@ function argsOf(args, env) {
     return { verb, file: file2 };
   }
   if (verb !== "push" || second === void 0 || rest.length) throw usageError(USAGE17);
-  return { verb, prd: positiveInt("proof push", "<n>", first), dir: second };
+  return { verb, prd: prdArg("proof push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir) {
   const folder = isAbsolute5(dir) ? dir : resolve3(cwd, dir);
@@ -41375,7 +41442,7 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync46, readFileSync as readFileSync47, writeFileSync as writeFileSync20 } from "node:fs";
 import { join as join57 } from "node:path";
 var ReplyCommentSchema = external_exports.object({
-  id: external_exports.number(),
+  id: CommentIdSchema,
   body: external_exports.string().nullish(),
   created_at: external_exports.string().optional(),
   user: external_exports.object({ login: external_exports.string().optional() }).nullish(),
@@ -41383,7 +41450,7 @@ var ReplyCommentSchema = external_exports.object({
   html_url: external_exports.string().optional()
 });
 var RepliedItemSchema = external_exports.looseObject({
-  id: external_exports.string(),
+  id: OutboxItemIdSchema,
   rank: external_exports.enum(RANK_VALUES),
   sections: external_exports.looseObject({
     options: external_exports.array(external_exports.object({ letter: external_exports.string(), text: external_exports.string() })).optional(),
@@ -41705,8 +41772,8 @@ var replies = {
   run: synchronous((args, { ctx, stdout, exec, env }) => {
     const { positional, flags } = parseArgs("replies", args, { values: ["prd", "pr", "repo"], booleans: ["post"] });
     if (positional.length) throw usageError("usage: omni replies --prd <n> --pr <n> [--repo <owner/name>] [--post]");
-    const prd2 = positiveInt("replies", "--prd", flags.prd);
-    const pr = positiveInt("replies", "--pr", flags.pr);
+    const prd2 = prdArg("replies", "--prd", flags.prd);
+    const pr = prArg("replies", "--pr", flags.pr);
     const repo = repoSlug("replies", ctx, flags.repo);
     const post2 = flags.post === true;
     const result = readReplies({ ctx, prd: prd2, pr, post: post2 }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
@@ -41769,7 +41836,9 @@ function topicOf2(featureBranch, featureTemplate) {
   return topic || null;
 }
 function reworkSliceId(itemId, branches = DEFAULT_BRANCHES) {
-  return fill(branches.rework, { item: itemId });
+  const id = WorkSliceIdSchema.safeParse(fill(branches.rework, { item: itemId }));
+  if (!id.success) throw new Error(`branches.rework "${branches.rework}" names no slice for item ${itemId}: a rework's id is lower-case words joined by hyphens.`);
+  return id.data;
 }
 function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
   const topic = topicOf2(featureBranch, branches.feature);
@@ -41955,7 +42024,7 @@ function printPlan(stdout, result) {
 function runPlan(args, { ctx, stdout }) {
   const { positional, flags } = parseArgs("rework plan", args, { booleans: ["json"] });
   if (positional.length !== 1) throw usageError(PLAN_USAGE);
-  const prd2 = positiveInt("rework plan", "<prd>", positional[0]);
+  const prd2 = prdArg("rework plan", "<prd>", positional[0]);
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni rework plan: PRD ${prd2} has no inbox or shipped folder.`);
   const outboxDir = ctx.layout.outboxDir(prd2);
@@ -41986,8 +42055,8 @@ function runClose(args, { ctx, stdout }) {
     throw usageError(CLOSE_USAGE);
   }
   const id = positional[0] ?? "";
-  const prd2 = positiveInt("rework close", "--prd", flags.prd);
-  const pr = positiveInt("rework close", "--pr", flags.pr);
+  const prd2 = prdArg("rework close", "--prd", flags.prd);
+  const pr = prArg("rework close", "--pr", flags.pr);
   const pullRequest2 = `#${pr}`;
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni rework close: PRD ${prd2} has no inbox or shipped folder.`);
@@ -42065,7 +42134,7 @@ var ship = {
   run: synchronous((args, { ctx, stdout, stderr, exec }) => {
     const { positional } = parseArgs("ship", args);
     if (positional.length !== 1) throw usageError("usage: omni ship <prd>");
-    const prd2 = positiveInt("ship", "<prd>", positional[0]);
+    const prd2 = prdArg("ship", "<prd>", positional[0]);
     let plan2;
     try {
       plan2 = applyShip(ctx, prd2, { exec });
@@ -42369,7 +42438,7 @@ function buildingAndOutboxOf(inbox, features) {
   }
   return out;
 }
-function prdOf3(phase02, taken) {
+function prdOf2(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
   return stage(held, taken);
 }
@@ -42401,7 +42470,7 @@ function overviewFor(facts) {
   const { building, outbox } = buildingAndOutboxOf(onBase, facts.features);
   const past = new Set([...building, ...outbox].map(({ prd: prd3 }) => prd3));
   const inbox = onBase.filter(({ prd: prd3 }) => !past.has(prd3));
-  const prd2 = prdOf3(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
+  const prd2 = prdOf2(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
   const inProgress = inbox.length + building.length + outbox.length;
   const stages = { prd: prd2, inbox, building, outbox, shipped, retro };
   return {
@@ -42575,7 +42644,7 @@ var status2 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
     if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE21);
-    const prd2 = positiveInt("status", "<prd>", positional[0]);
+    const prd2 = prdArg("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     let changes = null;
@@ -42777,7 +42846,7 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 
 // kit/lib/statusline/facts.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync24 } from "node:fs";
+import { readdirSync as readdirSync23 } from "node:fs";
 import { join as join60 } from "node:path";
 
 // kit/lib/statusline/stage.ts
@@ -42843,7 +42912,7 @@ function branchNames(branch, branches) {
     const template = branches?.[key];
     if (typeof template !== "string" || !template.includes("{topic}")) continue;
     const groups = templatePattern(template).exec(branch)?.groups;
-    if (groups?.topic !== void 0) return { topic: groups.topic, slice: groups.slice ?? null };
+    if (groups?.topic !== void 0) return { topic: groups.topic, slice: WorkSliceIdSchema.safeParse(groups.slice).data ?? null };
   }
   return null;
 }
@@ -42920,7 +42989,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt8(
-    () => readdirSync24(join60(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync23(join60(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -43161,7 +43230,7 @@ async function statusLines({
 }
 function prdNumber(value) {
   try {
-    return positiveInt("statusline", "<n>", value);
+    return prdArg("statusline", "<n>", value);
   } catch {
     return null;
   }
@@ -43325,7 +43394,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync48, readdirSync as readdirSync25, readFileSync as readFileSync51 } from "node:fs";
+import { existsSync as existsSync48, readdirSync as readdirSync24, readFileSync as readFileSync51 } from "node:fs";
 import { join as join62 } from "node:path";
 var PAGE = "before-after.html";
 var ROUND3 = /^variations-r([1-9]\d*)\.html$/;
@@ -43345,7 +43414,7 @@ function folderViolations(ctx, folder) {
   const rounds = [];
   const misnamed = [];
   const others = [];
-  for (const entry of readdirSync25(join62(ctx.root, folder), { withFileTypes: true })) {
+  for (const entry of readdirSync24(join62(ctx.root, folder), { withFileTypes: true })) {
     const { name } = entry;
     const round = entry.isFile() ? ROUND3.exec(name) : null;
     if (round) rounds.push({ name, k: Number(round[1]) });
@@ -43363,7 +43432,7 @@ function folderViolations(ctx, folder) {
 function visualVerdict({ ctx, issue: issue2, commits }) {
   return fixVerdict({
     ctx,
-    issue: issue2,
+    number: issue2,
     commits,
     root: visualRoot(ctx),
     prefix: issuePrefix(issue2),
@@ -43375,6 +43444,7 @@ function visualVerdict({ ctx, issue: issue2, commits }) {
 // kit/bin/commands/visual.ts
 var visual = branchVerdictCommand({
   verb: "visual",
+  read: issueArg,
   grade: ({ ctx, number: number4, commits }) => visualVerdict({ ctx, issue: number4, commits })
 });
 
@@ -43402,7 +43472,7 @@ var PRD_BY_POSITION = Object.freeze({
 var PRD_FLAG = "--prd";
 function prdNumber2(value) {
   try {
-    return positiveInt("record", "<prd>", value);
+    return prdArg("record", "<prd>", value);
   } catch {
     return null;
   }

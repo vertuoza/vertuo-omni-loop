@@ -4,11 +4,13 @@
 // range signed. Prints `ok`, or `not ok` then one `- ` line per failed check
 // (`kit/lib/bug/verdict.ts`). It runs no test. `--base` defaults to
 // `<repo.remote>/<repo.defaultBranch>`; a bad ref is a usage error, exit 2.
+import { issueArg } from '../args.ts';
 import { bugVerdict } from '../../lib/bug/verdict.ts';
 import { branchVerdictCommand, loggedPaths } from '../branch-range.ts';
 
 export const bug = branchVerdictCommand({
   verb: 'bug',
+  read: issueArg,
   paths: loggedPaths,
   grade: ({ ctx, number, changed, commits }) => bugVerdict({ ctx, issue: number, changed, commits }),
 });

@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PROOF_BUCKET = 'proof-videos';
@@ -93,7 +94,7 @@ export type SignedUpload = { name: string; path: string; url: string };
 
 export type ProofStore = {
   /** The id of PRD `prd`'s dossier in `repo` the caller may read, or null. */
-  dossierOf(repo: string, prd: number): Promise<string | null>;
+  dossierOf(repo: string, prd: PrdNumber): Promise<string | null>;
   /** One signed upload link per name, under the run's folder, in order. */
   signUploads(dossierId: string, runId: string, names: string[]): Promise<SignedUpload[]>;
   /** The names of the files the run's folder holds. */

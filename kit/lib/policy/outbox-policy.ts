@@ -35,7 +35,8 @@ import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/
 import { isList, plainText } from '../outbox/plain-text.ts';
 import { isOneOf } from '../narrow.ts';
 import type { Laws } from '../laws.ts';
-import type { Layout, PrdNumber } from '../layout.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
+import type { Layout } from '../layout.ts';
 import type { Rank } from '../types.ts';
 
 /** The three places a slice built under the recording policy can end. */
@@ -82,7 +83,7 @@ export type ConsultedAnswer = {
   text: string;
   approvedBy: string;
   approvedAt: string;
-  channel: { kind: 'prd-issue'; number: number };
+  channel: { kind: 'prd-issue'; number: PrdNumber };
 };
 
 /** What one item's consultation came to: never a stop. */
@@ -99,9 +100,9 @@ export type Consultation = {
 
 /** The fields {@link renderOutboxItem} renders an item from. */
 export type OutboxItemFields = {
-  id: string;
+  id: OutboxItemId;
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   wave: number | string;
   raised: string;
   bearsOn: string;
@@ -367,7 +368,7 @@ export function consult({
 }: {
   command: string;
   rank: string;
-  prd: number;
+  prd: PrdNumber;
   answer?: unknown;
   session?: string | null;
   at?: string | null;
@@ -651,7 +652,7 @@ export const ACCOUNT_FORMS: Readonly<Record<AccountLine['kind'], AccountForm>> =
  * and `ACCOUNTS_DIR` (`account.mjs`). Throws when the PRD names no inbox or shipped folder at all,
  * the same guard `settle.mjs`'s own outbox-directory lookups use.
  */
-export function accountFile(prd: PrdNumber, slice: string, { ctx }: { ctx: AccountCtx }): string {
+export function accountFile(prd: PrdNumber, slice: WorkSliceId, { ctx }: { ctx: AccountCtx }): string {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   return `${outboxDir}/${ACCOUNTS_DIR}/${slice}.md`;
@@ -690,7 +691,7 @@ export function renderAccount({
   entries,
 }: {
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   graded: string;
   entries: readonly (RiskyPath & { account: GivenAccount })[] | null | undefined;
 }): string {
@@ -747,7 +748,7 @@ export function planAccount({
   ctx,
 }: {
   prd: PrdNumber;
-  slice: string;
+  slice: WorkSliceId;
   graded: string;
   risky?: readonly (RiskyPath & { status?: string })[];
   accountFor: (change: RiskyPath) => AccountLine | null | undefined;

@@ -38,6 +38,8 @@ import {
   type KnowledgeCtx,
   type KnowledgeEntry,
 } from './registers.ts';
+import { PrdNumberSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 export const GRAPH_VERSION = 1;
 
@@ -53,7 +55,7 @@ export type GraphEntry = {
   serves: string | null;
   enforced: boolean;
   enforcedBy: string | null;
-  prd: number | null;
+  prd: PrdNumber | null;
   file: string;
 };
 
@@ -79,9 +81,10 @@ function hasKind(entry: KnowledgeEntry): entry is KnowledgeEntry & { kind: Entry
 const PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 
 /** The PRD number a `Source:` line names (`…, PRD #7`), or `null`. */
-export function prdOf(source: string | null | undefined): number | null {
+export function prdOf(source: string | null | undefined): PrdNumber | null {
   const match = PRD_IN_SOURCE.exec(source ?? '');
-  return match ? Number(match[1]) : null;
+  const prd = PrdNumberSchema.safeParse(Number(match?.[1]));
+  return prd.success ? prd.data : null;
 }
 
 /** A parsed entry as the graph carries it. `pairs` maps a cross-domain file to its pair. */

@@ -58,10 +58,12 @@ import { relayFolder } from '../../lib/outbox/relay.ts';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.ts';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.ts';
 import { KIT_MESSAGES } from '../../lib/schema/messages.ts';
-import { errorMessage, inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.ts';
+import { errorMessage, inRoot, parseArgs, prdArg, println, readUserFile, sliceArg, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
+import { OutboxItemIdSchema } from '../../lib/ids.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 
 const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
 const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>';
@@ -171,7 +173,7 @@ function readItemInput(ctx: Context, path: string): z.infer<typeof ItemInputSche
 
 /** Every id this PRD's slice has already spent: an open item file's basename, or an id `settled.md`
  * already carries — a medium item adopted at raise time leaves no open file behind at all. */
-function spentIds(prd: number, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string> {
+function spentIds(prd: PrdNumber, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string> {
   const outboxDir = defined(ctx.layout.outboxDir(prd), `PRD ${prd}'s outbox folder`);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
@@ -197,7 +199,7 @@ function spentIds(prd: number, { ctx, outDir = null }: { ctx: Context; outDir?: 
 
 /** Every two-digit number this slice has already spent, whatever slug it was raised with — an
  * open file's own number, or one `settled.md` already carries. */
-function spentNumbers(prd: number, slice: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string | undefined> {
+function spentNumbers(prd: PrdNumber, slice: WorkSliceId, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): Set<string | undefined> {
   const prefix = `${slice}-`;
   const shape = /^-(\d{2})-/;
   const numbers = new Set<string | undefined>();
@@ -212,11 +214,14 @@ function spentNumbers(prd: number, slice: string, { ctx, outDir = null }: { ctx:
 /** The next free `<slice>-<nn>-<slug>` id, `nn` the smallest two-digit number this slice has not
  * already spent under ANY slug (as an open file or in `settled.md`) — a running counter per
  * slice, not per slug. */
-function nextItemId(prd: number, slice: string, slug: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): string {
+function nextItemId(prd: PrdNumber, slice: WorkSliceId, slug: string, { ctx, outDir = null }: { ctx: Context; outDir?: string | null }): OutboxItemId {
   const spent = spentNumbers(prd, slice, { ctx, outDir });
   for (let n = 1; n <= 99; n += 1) {
     const nn = String(n).padStart(2, '0');
-    if (!spent.has(nn)) return `${slice}-${nn}-${slug}`;
+    if (spent.has(nn)) continue;
+    const id = OutboxItemIdSchema.safeParse(`${slice}-${nn}-${slug}`);
+    if (!id.success) throw usageError(`omni item new: slice ${slice} names no item id — an item is raised on a slice like s1, or on a rework of one.`);
+    return id.data;
   }
   throw usageError(`omni item new: ${slice} under PRD ${prd} has already spent every number 01-99.`);
 }
@@ -230,7 +235,7 @@ type ItemInput = z.infer<typeof ItemInputSchema>;
 type Decision = ReturnType<typeof decideRecording>;
 type Out = CommandIo['stdout'];
 /** What `item new` was asked: the PRD, the slice, where the item goes, and how to answer. */
-type NewRequest = { prd: number; slice: string; asJson: boolean; adopt: boolean; outboxDir: string; outDir: string | null; destination: Destination; file: string };
+type NewRequest = { prd: PrdNumber; slice: WorkSliceId; asJson: boolean; adopt: boolean; outboxDir: string; outDir: string | null; destination: Destination; file: string };
 
 /** `item new`'s arguments, checked: a usage error for any that is missing or clashes. */
 function newRequest(args: string[], ctx: Context): NewRequest {
@@ -244,11 +249,11 @@ function newRequest(args: string[], ctx: Context): NewRequest {
   if (flags.out !== undefined && flags.adopt) {
     throw usageError('omni item new: --out never adopts — pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.');
   }
-  const prd = positiveInt('item new', '--prd', flags.prd);
+  const prd = prdArg('item new', '--prd', flags.prd);
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd} has no inbox or shipped folder.`);
 
-  return { prd, slice: flags.slice, asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
+  return { prd, slice: sliceArg('item new', '--slice', flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
 }
 
 /** Where the item file goes: the PRD's outbox (repo-relative), or `--out`'s folder (PRD 563). */
@@ -286,7 +291,7 @@ function requireSections(input: ItemInput, decision: Decision): void {
 }
 
 /** The item's text, at the rank `decision` settled. */
-function renderedItem(input: ItemInput, decision: Decision, { id, prd, slice, laws }: { id: string; prd: number; slice: string; laws: ReturnType<typeof lawsFor> }): string {
+function renderedItem(input: ItemInput, decision: Decision, { id, prd, slice, laws }: { id: OutboxItemId; prd: PrdNumber; slice: WorkSliceId; laws: ReturnType<typeof lawsFor> }): string {
   const humanAction = decision.rank === 'human-action';
   try {
     return renderOutboxItem({
@@ -411,11 +416,11 @@ function writeItemFile(destination: Destination, id: string, text: string): stri
 // stdout; each refused file on stderr with its reason, left in place, and the exit is 2 while the
 // others still move. An empty folder relays nothing, exit 0.
 /** `item relay`'s arguments, checked: the PRD and the folder, as named and as found. */
-function relayRequest(args: string[], ctx: Context): { prd: number; named: string; dir: string } {
+function relayRequest(args: string[], ctx: Context): { prd: PrdNumber; named: string; dir: string } {
   const { positional, flags } = parseArgs('item relay', args, { values: ['prd'] });
   const [named] = positional;
   if (positional.length !== 1 || named === undefined || flags.prd === undefined) throw usageError(RELAY_USAGE);
-  const prd = positiveInt('item relay', '--prd', flags.prd);
+  const prd = prdArg('item relay', '--prd', flags.prd);
   if (ctx.layout.outboxDir(prd) === null) throw usageError(`omni item relay: PRD ${prd} has no inbox or shipped folder.`);
   const dir = inRoot(ctx, named);
   if (!existsSync(dir) || !statSync(dir).isDirectory()) {

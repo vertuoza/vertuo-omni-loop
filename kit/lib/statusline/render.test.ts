@@ -18,6 +18,7 @@ import {
   visibleLength,
 } from './render.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd, parseWorkSliceId } from '../ids.ts';
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -209,15 +210,15 @@ describe('fit and visibleLength', () => {
 });
 
 describe('line 2: the PRD', () => {
-  const BRAVO = { number: 7, topic: 'bravo', slice: null, stage: 'outbox', openItems: 2 };
-  const LONG = { number: 324, topic: 'statusline-for-claude-code', slice: 's4', stage: 'outbox', openItems: 3 };
+  const BRAVO = { number: parsePrd(7), topic: 'bravo', slice: null, stage: 'outbox', openItems: 2 };
+  const LONG = { number: parsePrd(324), topic: 'statusline-for-claude-code', slice: parseWorkSliceId('s4'), stage: 'outbox', openItems: 3 };
 
   it('names the PRD, its topic, its stage and its open items', () => {
     expect(prdLine(BRAVO)).toBe('PRD 7 bravo · outbox · 2 open items');
   });
 
   it('names the slice on a slice branch, between the topic and the stage', () => {
-    expect(prdLine({ ...BRAVO, slice: 's2' })).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
+    expect(prdLine({ ...BRAVO, slice: parseWorkSliceId('s2') })).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
   });
 
   it('says `1 open item`, and leaves the part out at zero', () => {
@@ -230,16 +231,16 @@ describe('line 2: the PRD', () => {
 
   it('shows open items in the outbox only', () => {
     expect(prdLine({ ...BRAVO, stage: 'inbox', openItems: 0 })).toBe('PRD 7 bravo · inbox');
-    expect(prdLine({ ...BRAVO, number: 11, topic: 'delta', stage: 'in review' })).toBe('PRD 11 delta · in review');
+    expect(prdLine({ ...BRAVO, number: parsePrd(11), topic: 'delta', stage: 'in review' })).toBe('PRD 11 delta · in review');
   });
 
   it('reads `PRD <n> <topic> · shipped`, and nothing after', () => {
-    expect(prdLine({ number: 3, topic: 'alpha', slice: 's2', stage: 'shipped', openItems: 4 })).toBe('PRD 3 alpha · shipped');
+    expect(prdLine({ number: parsePrd(3), topic: 'alpha', slice: parseWorkSliceId('s2'), stage: 'shipped', openItems: 4 })).toBe('PRD 3 alpha · shipped');
   });
 
   it('leaves the stage out without one', () => {
     expect(prdLine({ ...BRAVO, stage: null })).toBe('PRD 7 bravo');
-    expect(prdLine({ ...BRAVO, slice: 's2', stage: null })).toBe('PRD 7 bravo · s2');
+    expect(prdLine({ ...BRAVO, slice: parseWorkSliceId('s2'), stage: null })).toBe('PRD 7 bravo · s2');
   });
 
   it('cuts the topic first, just enough to fit, ending in `…`', () => {
@@ -260,7 +261,7 @@ describe('line 2: the PRD', () => {
   });
 
   it('prints the PRD line where the loop is installed and a PRD was read', () => {
-    const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: 's2' } };
+    const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: parseWorkSliceId('s2') } };
     expect(renderLines({ input: INPUT, facts, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
     const none = { installed: true, askOn: true, prd: null };
     expect(renderLines({ input: INPUT, facts: none, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
@@ -285,7 +286,7 @@ describe('line 2: the slices, from the board (slice s6)', () => {
   const slice = (id: string, wave: number, state: string) => ({ id, wave, state });
   /** Five slices over four waves: three merged, the lowest wave not all merged is 2. */
   const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'runnable'), slice('s5', 4, 'blocked')];
-  const HELP = { number: 315, topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
+  const HELP = { number: parsePrd(315), topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
 
   it('reads the lowest wave not all merged, the highest wave, and the slices merged', () => {
     expect(slicesPart(FIVE)).toBe('wave 2 of 4 · 3/5 slices merged');
@@ -322,7 +323,7 @@ describe('line 2: the slices, from the board (slice s6)', () => {
   it('sits in the outbox line after the stage and before the open items', () => {
     const stuck = [...FIVE.slice(0, 3), slice('s4', 2, 'stuck'), slice('s5', 4, 'blocked')];
     expect(prdLine({ ...HELP, slices: stuck })).toBe('PRD 315 help-and-status · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items');
-    expect(prdLine({ ...HELP, slice: 's2', openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged');
+    expect(prdLine({ ...HELP, slice: parseWorkSliceId('s2'), openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged');
     expect(prdLine({ ...HELP, slices: null })).toBe('PRD 315 help-and-status · outbox · 2 open items');
   });
 

@@ -31,7 +31,8 @@ import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
 import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
-import { positiveInt } from '../args.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
+import { prdArg } from '../args.ts';
 import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
 import { buildBoard } from './board.ts';
 
@@ -85,9 +86,9 @@ async function statusLines({
 }
 
 /** `value` as a PRD number, or `null`. */
-function prdNumber(value: string | undefined): number | null {
+function prdNumber(value: string | undefined): PrdNumber | null {
   try {
-    return positiveInt('statusline', '<n>', value);
+    return prdArg('statusline', '<n>', value);
   } catch {
     return null;
   }

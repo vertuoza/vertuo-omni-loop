@@ -1,7 +1,7 @@
 // `omni prd <n>` — where PRD <n> lives today, as text: the one lookup an agent runs before following
 // any delivery path.
 import { whereIs } from '../../lib/delivery/prd.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
@@ -9,7 +9,7 @@ export const prd: Command = {
   run: synchronous((args: string[], { ctx, stdout, stderr }: CommandIo): number => {
     const { positional } = parseArgs('prd', args);
     if (positional.length !== 1) throw usageError('usage: omni prd <n>');
-    const number = positiveInt('prd', '<n>', positional[0]);
+    const number = prdArg('prd', '<n>', positional[0]);
     const where = whereIs(ctx, number);
     if (!where) {
       println(stderr, `omni prd: PRD ${number} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);

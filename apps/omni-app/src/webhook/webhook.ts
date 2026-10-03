@@ -25,6 +25,7 @@
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
+import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   HARVEST_EVENT,
   INBOX_CHECK_EVENT,
@@ -70,14 +71,14 @@ export const HANDLED = Object.freeze({
 });
 
 const PullRefSchema = z.looseObject({
-  number: z.number().nullish(),
+  number: PrNumberSchema.nullish(),
   head: z.looseObject({ sha: z.string().nullish() }).nullish(),
 });
 
 /** The parts of a delivery the router reads; any of them may be missing. */
 const PayloadSchema = z.looseObject({
   action: z.unknown(),
-  number: z.number().nullish(),
+  number: PrNumberSchema.nullish(),
   installation: z.looseObject({ id: z.number().nullish() }).nullish(),
   repository: z
     .looseObject({
@@ -209,8 +210,8 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
   const pull = payload.pull_request;
   if (!source || pull?.merged !== true) return [];
 
-  const prNumber = pull.number ?? payload.number;
-  if (!isInteger(prNumber) || !pull.merge_commit_sha || !pull.merged_at) return [];
+  const prNumber = pull.number ?? payload.number ?? undefined;
+  if (prNumber === undefined || !pull.merge_commit_sha || !pull.merged_at) return [];
 
   return [
     {
@@ -272,11 +273,9 @@ function handles(table: ActionTable, event: string, action: unknown): boolean {
   return table[event]?.includes(action) ?? false;
 }
 
-const isInteger = (value: unknown): value is number => Number.isInteger(value);
-
 /** A pull request named by an integer number and a head SHA. */
-function isNamed(pull: { number: number | null | undefined; sha: string | null | undefined }): pull is { number: number; sha: string } {
-  return isInteger(pull.number) && Boolean(pull.sha);
+function isNamed(pull: { number: PrNumber | null | undefined; sha: string | null | undefined }): pull is { number: PrNumber; sha: string } {
+  return pull.number !== null && pull.number !== undefined && Boolean(pull.sha);
 }
 
 /** The live forward: galaxy's event route, the secret read at the call. */

@@ -52,6 +52,8 @@
  * — the earlier slice is kept and the later one deferred — rather than dropping both, so one
  * colliding pair costs the wave a single slice, not two.
  */
+import type { PrNumber, WorkSliceId } from './ids.ts';
+import type { Config } from './types.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
@@ -62,7 +64,7 @@ export type PrLabel = string | { name?: string | null | undefined } | null | und
  * head branch is optional: the board reads a missing one as "not known", as it always has.
  */
 export type BoardPr = {
-  number?: number | undefined;
+  number?: PrNumber | undefined;
   title?: string | undefined;
   headRefName?: string | undefined;
   baseRefName?: string | undefined;
@@ -81,12 +83,12 @@ export type BoardPr = {
 
 /** One slice of the plan, as the board reads it. */
 export type BoardSlice = {
-  id: string;
+  id: WorkSliceId;
   title?: string;
   territory: string[];
   /** `null` for a plan with no `wave` column: such a slice is never in the frontier's wave. */
   wave: number | null;
-  blockedBy?: string[];
+  blockedBy?: WorkSliceId[];
   /** In a plan repository: the short name of the repository the slice lands in. */
   repo?: string | null;
 };
@@ -103,20 +105,20 @@ export type BoardRow<S extends BoardSlice = BoardSlice> = Omit<S, 'repo'> & {
 };
 
 /** What the board's frontier reads of a row. */
-export type FrontierRow = { id: string; territory: string[]; wave: number | null; state: string };
+export type FrontierRow = { id: WorkSliceId; territory: string[]; wave: number | null; state: string };
 
 /** The wave a person or a wave runner should take next. */
 export type Frontier = {
   wave: number | null;
-  runnable: string[];
-  takeable: string[];
-  excluded: string[];
+  runnable: WorkSliceId[];
+  takeable: WorkSliceId[];
+  excluded: WorkSliceId[];
   collisions: ReturnType<typeof sameWaveCollisions>;
 };
 
-/** The config sections the board reads. */
+/** The config sections the board reads: the branch templates as the config declares them. */
 export type BoardConfig = {
-  branches: { feature: string; slice: string };
+  branches: Pick<Config['branches'], 'feature' | 'slice'>;
   board: { matchBy: string };
   labels: { sub: string; needsFix: string };
 };
@@ -128,7 +130,7 @@ export type BoardRepos = Record<string, { slug: string | null; readable: boolean
  * `branches.feature` and `branches.slice` are declared in (`kit/lib/config.ts`). A placeholder
  * `values` does not carry is left untouched. Exported so the CLI half can compute the same feature
  * branch name to narrow its own `gh pr list` call. */
-export function fillBranch(template: string, values: { topic?: string; slice?: string }): string {
+export function fillBranch(template: string, values: { topic?: string; slice?: WorkSliceId }): string {
   return template.replace(/\{(topic|slice)\}/g, (whole: string, key: 'topic' | 'slice') => (values[key] ?? whole));
 }
 
@@ -237,8 +239,8 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
   const inWave = takeableRows.filter((row) => row.wave === wave);
   const collisions = sameWaveCollisions(inWave);
 
-  const collidesWith = new Map<string, Set<string>>();
-  const rivalsOf = (id: string): Set<string> => {
+  const collidesWith = new Map<WorkSliceId, Set<WorkSliceId>>();
+  const rivalsOf = (id: WorkSliceId): Set<WorkSliceId> => {
     let rivals = collidesWith.get(id);
     if (!rivals) {
       rivals = new Set();
@@ -254,7 +256,7 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
   }
 
   const kept: FrontierRow[] = [];
-  const excluded: string[] = [];
+  const excluded: WorkSliceId[] = [];
   for (const row of inWave) {
     const rivals = collidesWith.get(row.id);
     const alreadyKeptRival = rivals && kept.some((keptRow) => rivals.has(keptRow.id));

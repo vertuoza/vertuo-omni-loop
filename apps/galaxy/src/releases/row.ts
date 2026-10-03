@@ -7,6 +7,7 @@
 // No Next.js, no Node-only import: the page and the sync's plain Node script both load this module.
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
+import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const RELEASES_TABLE = 'releases';
 /** Every column, in the table's order: what a read selects. */
@@ -17,7 +18,7 @@ export const INITIAL_RELEASE = 1;
 
 export const ReleaseRow = z.object({
   /** The PRD number. */
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   /** The patch number: the release is shown as `0.0.<release>`. Unique above 1; 1 is shared. */
   release: z.number().int().min(INITIAL_RELEASE),
   /** When the PRD's shipped folder first reached main, ISO 8601 with its offset, as Postgres returns it. */

@@ -11,7 +11,7 @@ import type { Inngest } from 'inngest';
 import { CanonActionRequestDataSchema, inngest } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
-import { CreatedSchema } from '../outbox-check/github-schema.ts';
+import { CommentWrittenSchema } from '../outbox-check/github-schema.ts';
 import { listComments, type GitHubClient } from '../outbox-check/github.ts';
 import { stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { CANON_ACTION_EVENT, canonComment, commentMarker } from './canon-actions.ts';
@@ -53,7 +53,7 @@ export function createCanonAction({ client, octokitFor, galaxyUrl }: { client: I
           issue_number: prNumber,
           body,
         });
-        return { posted: true, comment: 'created', id: CreatedSchema.parse(data).id };
+        return { posted: true, comment: 'created', id: CommentWrittenSchema.parse(data).id };
       });
     },
   );

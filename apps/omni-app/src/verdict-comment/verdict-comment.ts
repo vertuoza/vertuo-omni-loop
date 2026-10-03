@@ -3,8 +3,9 @@
 // found by its marker and edited in place, or created when there is none, so a replay rewrites it
 // and never adds a second. Each caller keeps its own marker: two functions finishing at once never
 // edit each other's comment.
+import { CommentIdSchema, type CommentId, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { listComments } from '../outbox-check/github.ts';
-import { CreatedSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
+import { CommentWrittenSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { savedStep, type StepRun } from '../saved-step.ts';
 import { z } from 'zod';
@@ -15,8 +16,8 @@ import { z } from 'zod';
  */
 export async function upsertComment(
   octokit: GitHubClient,
-  { owner, repo, prNumber, marker, text }: { owner: string; repo: string; prNumber: number; marker: string; text: unknown },
-): Promise<{ commentId: number; created: boolean }> {
+  { owner, repo, prNumber, marker, text }: { owner: string; repo: string; prNumber: PrNumber; marker: string; text: unknown },
+): Promise<{ commentId: CommentId; created: boolean }> {
   const body = `${marker}\n${String(text).trimEnd()}\n`;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker));
@@ -35,14 +36,14 @@ export async function upsertComment(
     issue_number: prNumber,
     body,
   });
-  return { commentId: CreatedSchema.parse(data).id, created: true };
+  return { commentId: CommentWrittenSchema.parse(data).id, created: true };
 }
 
 /** What a failed run's event names of its merged PR: the installation and the repository. */
 type FailedMerge = { installationId: number; owner?: string | undefined; repo?: string | undefined };
 
 /** What a failure handler's comment step returns: the comment, the reason it gives, and whether it is new. */
-export const FailureCommentSchema = z.object({ commentId: z.number(), reason: z.string(), created: z.boolean() });
+export const FailureCommentSchema = z.object({ commentId: CommentIdSchema, reason: z.string(), created: z.boolean() });
 
 /** The step a failure handler comments in. */
 const COMMENT_FAILURE_STEP = 'comment-failure';

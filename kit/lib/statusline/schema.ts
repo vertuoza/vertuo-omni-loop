@@ -4,6 +4,7 @@
 // wrong kind reads as absent, and a file that is not the shape reads as none, so each schema is used
 // through `safeParse` and a value that fails it is dropped, not reported.
 import { z } from 'zod';
+import { PrdNumberSchema } from '../ids.ts';
 
 /** A string with at least one character, else `null`. */
 const textOrNull = z.string().min(1).nullable().catch(null);
@@ -38,7 +39,7 @@ export const StatusInputSchema = z.object({
 
 /** `.omni-loop/local/sessions/<session id>.json`: the PRD a session last worked on, and when. */
 export const SessionRecordSchema = z.object({
-  prd: whole.refine((value) => value > 0, 'expected a positive PRD number'),
+  prd: whole.refine((value) => value > 0, 'expected a positive PRD number').pipe(PrdNumberSchema),
   at: z.string().nullable().catch(null),
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;

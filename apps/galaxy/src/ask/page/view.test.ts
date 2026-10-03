@@ -3,6 +3,7 @@ import {
   categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, tabWorking, withCategory, withPageAnswer, type RoundRow, type SessionState,
 } from './view';
 import { item } from '../test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -166,7 +167,7 @@ describe('a read that crosses an answer sent from the page', () => {
 describe('the context line (PRD 144)', () => {
   const full = state([], { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history--s1' }).session;
   const facts = {
-    prd: 144,
+    prd: parsePrd(144),
     skill: '/omni:brainstorm',
     model: 'claude-sonnet-4-6',
     tokens: { input: 1200, output: 300, cacheRead: 1_000_000, cacheWrite: 200_000 },

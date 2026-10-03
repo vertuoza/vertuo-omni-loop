@@ -10,6 +10,7 @@
 import { openThreads, type CareState } from '../github/care';
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
 import { storedStageOf, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export { STAGES, STAGE_LABELS, type StageId } from '../../stages/stage';
 
@@ -40,7 +41,7 @@ function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
 }
 
 /** The stage from the GitHub summary alone (PRD 426), for the page's pulse. `slices` is the plan's slice count. */
-export function stageOf(prd: number | null, summary: GithubSummary | null, slices: number | null = null): Stage {
+export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, slices: number | null = null): Stage {
   if (prd === null) return { id: 'idea', action: null, caption: 'Brainstorm in progress' };
   if (!summary) return unknown;
   const { retro, feature, mergedSlices, phase0 } = summary;
@@ -63,7 +64,7 @@ export function stageOf(prd: number | null, summary: GithubSummary | null, slice
 type Action = { action: NextAction | null; caption: string | null };
 const none: Action = { action: null, caption: null };
 
-type ActionInput = { prd: number | null; read: GithubSummary | null; slices: number | null };
+type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null };
 
 const caption = (text: string): Action => ({ action: null, caption: text });
 const link = (label: string, href: string): Action => ({ action: { kind: 'link', label, href }, caption: null });
@@ -120,7 +121,7 @@ const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Actio
 };
 
 /** The one button and the caption of a stage, by PRD 426's rules, from what the GitHub summary holds. */
-function actionOf(id: CurrentStage['id'], prd: number | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
+function actionOf(id: CurrentStage['id'], prd: PrdNumber | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
   return ACTIONS[id]({ prd, read: summary ?? null, slices });
 }
 
@@ -179,7 +180,7 @@ export function syncedWords(iso: string | null): string {
 }
 
 export type StageViewInput = {
-  prd: number | null;
+  prd: PrdNumber | null;
   /** A draft only: whether any of its questions was answered. */
   answered?: boolean;
   /** The PRD's stored stages; none yet reads Syncing…. */

@@ -4,6 +4,7 @@ import { projectEvents, type Skip } from './projector.ts';
 import type { GameEvent } from './events.ts';
 import type { Snapshot, SnapshotPlanet } from './types.ts';
 import { present } from './test/present.ts';
+import { parsePrd } from '../kit/lib/ids.ts';
 
 const config = configFrom({
   sectors: [{ name: 'core', repos: ['core-repo'] }],
@@ -148,7 +149,7 @@ describe('projectEvents', () => {
   it('skips an event it cannot build, reports it through onSkip, and still projects the rest (F4)', () => {
     const s = snapshot();
     s.planets.push({
-      prd: 2400, title: 'Broken', captain: null, ownerTeam: null,
+      prd: parsePrd(2400), title: 'Broken', captain: null, ownerTeam: null,
       issue: { createdAt: 'not-a-date', closedAt: null },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
     });

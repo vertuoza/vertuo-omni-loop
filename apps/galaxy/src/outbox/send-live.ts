@@ -7,6 +7,7 @@ import { dossierGithub } from '../dossier/github/server';
 import { recountLive } from '../stages/outbox/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore } from './send';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/send-live.ts (PRD 251, s11); the outbox
 // is read through PRD 426's GitHub reader, not a stored copy.
@@ -39,7 +40,7 @@ export function sendStore(db: Db): SendStore {
       if (error) throw new SendStoreError('read the dossier', error.code, error.message);
       if (!data) return null;
       const row = data;
-      return { dossierId: row.id, homeRepo: row.home_repo, prd: row.prd };
+      return { dossierId: row.id, homeRepo: row.home_repo, prd: row.prd === null ? null : parsePrd(row.prd) };
     },
     async create({ dossierId, prNumber, reply, nonceHash }) {
       const { data, error } = await db.from('outbox_sends')
@@ -50,7 +51,7 @@ export function sendStore(db: Db): SendStore {
     async read(sendId) {
       const { data, error } = await db.from('outbox_sends').select(SEND_COLUMNS).eq('id', sendId).maybeSingle();
       if (error) throw new SendStoreError('read the send', error.code, error.message);
-      return data ?? null;
+      return data ? { ...data, pr_number: parsePr(data.pr_number) } : null;
     },
     async done(sendId, outcome) {
       const { error } = await db.rpc('outbox_send_done', 'error' in outcome
@@ -82,7 +83,7 @@ async function recountDossier(dossierId: string): Promise<void> {
   if (error) throw new SendStoreError('read the dossier to recount', error.code, error.message);
   const row = data;
   if (!row || row.prd === null) return;
-  await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: row.prd, id: dossierId }]);
+  await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: parsePrd(row.prd), id: dossierId }]);
 }
 
 export function sendDeps(): SendDeps {

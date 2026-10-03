@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { ARTIFACT_MAX_BYTES, fixTitle, readDossierFolder, readFixFolder } from './folder.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 
 const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 const INBOX = '.omni-loop/delivery/inbox/0007-team-inbox';
@@ -13,7 +14,7 @@ const PAGE = '<!doctype html>\n<title>Before and after</title>\n<p>été</p>\n';
 describe('readDossierFolder', () => {
   it('reads the three kinds with their hashes and sizes, and the title from the front matter', () => {
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/plan.md`]: PLAN, [`${INBOX}/before-after.html`]: PAGE } });
-    const folder = readDossierFolder(ctx, 7);
+    const folder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(folder, 'folder');
 
     expect(folder.dir).toBe(INBOX);
@@ -32,7 +33,7 @@ describe('readDossierFolder', () => {
   it('reads voice.json as the voice artifact, sent last (PRD 822)', () => {
     const VOICE = '{"rounds": []}\n';
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: SPEC, [`${INBOX}/voice.json`]: VOICE } });
-    const folder = readDossierFolder(ctx, 7);
+    const folder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(folder, 'folder');
     expect(folder.artifacts.map((a) => a.kind)).toEqual(['spec', 'voice']);
     expect(folder.artifacts[1]).toEqual({ kind: 'voice', path: `${INBOX}/voice.json`, content: VOICE, sha256: sha256(VOICE), bytes: Buffer.byteLength(VOICE) });
@@ -40,7 +41,7 @@ describe('readDossierFolder', () => {
 
   it('skips a missing file without naming it', () => {
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: SPEC } });
-    const folder = readDossierFolder(ctx, 7);
+    const folder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(folder, 'folder');
     expect(folder.artifacts.map((a) => a.kind)).toEqual(['spec']);
     expect(folder.tooLarge).toEqual([]);
@@ -49,7 +50,7 @@ describe('readDossierFolder', () => {
   it('skips a file over 512 KiB, naming it, and still reads the others and the title', () => {
     const big = `---\ntitle: Big one\n---\n${'x'.repeat(ARTIFACT_MAX_BYTES)}`;
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: big, [`${INBOX}/plan.md`]: PLAN } });
-    const folder = readDossierFolder(ctx, 7);
+    const folder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(folder, 'folder');
 
     expect(ARTIFACT_MAX_BYTES).toBe(512 * 1024);
@@ -61,25 +62,25 @@ describe('readDossierFolder', () => {
   it('takes a file of exactly 512 KiB', () => {
     const exact = 'y'.repeat(ARTIFACT_MAX_BYTES);
     const { ctx } = makeRepo({ files: { [`${INBOX}/plan.md`]: exact } });
-    const dossierFolder = readDossierFolder(ctx, 7);
+    const dossierFolder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(dossierFolder, 'the dossier folder');
     expect(dossierFolder.artifacts.map((a) => a.bytes)).toEqual([ARTIFACT_MAX_BYTES]);
   });
 
   it('titles the dossier after the folder\'s topic when the spec has no title, or there is no spec', () => {
     const untitled = makeRepo({ files: { [`${INBOX}/spec.md`]: '# No front matter\n' } });
-    const dossierFolder = readDossierFolder(untitled.ctx, 7);
+    const dossierFolder = readDossierFolder(untitled.ctx, parsePrd(7));
     assertDefined(dossierFolder, 'the dossier folder');
     expect(dossierFolder.title).toBe('team-inbox');
     const noSpec = makeRepo({ files: { [`${INBOX}/plan.md`]: PLAN } });
-    const dossierFolder2 = readDossierFolder(noSpec.ctx, 7);
+    const dossierFolder2 = readDossierFolder(noSpec.ctx, parsePrd(7));
     assertDefined(dossierFolder2, 'the dossier folder');
     expect(dossierFolder2.title).toBe('team-inbox');
   });
 
   it('cuts a title to the 200 characters the contract takes', () => {
     const { ctx } = makeRepo({ files: { [`${INBOX}/spec.md`]: `---\ntitle: ${'t'.repeat(250)}\n---\n` } });
-    const dossierFolder = readDossierFolder(ctx, 7);
+    const dossierFolder = readDossierFolder(ctx, parsePrd(7));
     assertDefined(dossierFolder, 'the dossier folder');
     expect(dossierFolder.title).toBe('t'.repeat(200));
   });
@@ -87,7 +88,7 @@ describe('readDossierFolder', () => {
   it('reads a shipped PRD\'s folder', () => {
     const shipped = '.omni-loop/delivery/shipped/0003-omni-loop-kit';
     const { ctx } = makeRepo({ files: { [`${shipped}/spec.md`]: '---\ntitle: The kit\n---\n' } });
-    const folder = readDossierFolder(ctx, 3);
+    const folder = readDossierFolder(ctx, parsePrd(3));
     assertDefined(folder, 'folder');
     expect(folder.dir).toBe(shipped);
     expect(folder.title).toBe('The kit');
@@ -95,7 +96,7 @@ describe('readDossierFolder', () => {
 
   it('is null for a PRD with no folder', () => {
     const { ctx } = makeRepo();
-    expect(readDossierFolder(ctx, 99)).toBeNull();
+    expect(readDossierFolder(ctx, parsePrd(99))).toBeNull();
   });
 });
 
@@ -114,7 +115,7 @@ describe('readFixFolder (PRD 627)', () => {
         [`${VISUAL}/notes.txt`]: 'not an artifact',
       },
     });
-    const folder = readFixFolder(ctx, 'visual', 548);
+    const folder = readFixFolder(ctx, 'visual', parseIssue(548));
     assertDefined(folder, 'folder');
     expect(folder.dir).toBe(VISUAL);
     expect(folder.artifacts.map(({ kind, path, round: k }) => ({ kind, path, round: k }))).toEqual([
@@ -129,26 +130,26 @@ describe('readFixFolder (PRD 627)', () => {
 
   it('reads a bug fix\'s bug.md as its record', () => {
     const { ctx } = makeRepo({ files: { [`${BUGS}/bug.md`]: '# Bug 571: numbers\n' } });
-    const folder = readFixFolder(ctx, 'bug', 571);
+    const folder = readFixFolder(ctx, 'bug', parseIssue(571));
     assertDefined(folder, 'folder');
     expect(folder.artifacts.map(({ kind, path }) => ({ kind, path }))).toEqual([{ kind: 'bug-record', path: `${BUGS}/bug.md` }]);
   });
 
   it('titles the fix after its issue without its Visual: or Bug: prefix, else after the folder\'s topic', () => {
     const { ctx } = makeRepo({ files: { [`${VISUAL}/before-after.html`]: PAGE, [`${BUGS}/bug.md`]: '# Bug\n' } });
-    const fixFolder = readFixFolder(ctx, 'visual', 548, { issueTitle: 'Visual: Omni links open in a new tab' });
+    const fixFolder = readFixFolder(ctx, 'visual', parseIssue(548), { issueTitle: 'Visual: Omni links open in a new tab' });
     assertDefined(fixFolder, 'the fix folder');
     expect(fixFolder.title).toBe('Omni links open in a new tab');
-    const fixFolder2 = readFixFolder(ctx, 'bug', 571, { issueTitle: 'Bug: omni reads 1e2 as a number' });
+    const fixFolder2 = readFixFolder(ctx, 'bug', parseIssue(571), { issueTitle: 'Bug: omni reads 1e2 as a number' });
     assertDefined(fixFolder2, 'the fix folder');
     expect(fixFolder2.title).toBe('omni reads 1e2 as a number');
-    const fixFolder3 = readFixFolder(ctx, 'visual', 548, { issueTitle: 'Links in a new tab' });
+    const fixFolder3 = readFixFolder(ctx, 'visual', parseIssue(548), { issueTitle: 'Links in a new tab' });
     assertDefined(fixFolder3, 'the fix folder');
     expect(fixFolder3.title).toBe('Links in a new tab');
-    const fixFolder4 = readFixFolder(ctx, 'visual', 548);
+    const fixFolder4 = readFixFolder(ctx, 'visual', parseIssue(548));
     assertDefined(fixFolder4, 'the fix folder');
     expect(fixFolder4.title).toBe('omni-links-new-tab');
-    const fixFolder5 = readFixFolder(ctx, 'bug', 571, { issueTitle: '  ' });
+    const fixFolder5 = readFixFolder(ctx, 'bug', parseIssue(571), { issueTitle: '  ' });
     assertDefined(fixFolder5, 'the fix folder');
     expect(fixFolder5.title).toBe('number-args');
     expect(fixTitle(`Visual: ${'t'.repeat(250)}`, 'topic')).toBe('t'.repeat(200));
@@ -157,7 +158,7 @@ describe('readFixFolder (PRD 627)', () => {
   it('skips a file over 512 KiB, naming it, and still reads the others', () => {
     const big = 'x'.repeat(ARTIFACT_MAX_BYTES + 1);
     const { ctx } = makeRepo({ files: { [`${VISUAL}/before-after.html`]: PAGE, [`${VISUAL}/variations-r1.html`]: big } });
-    const folder = readFixFolder(ctx, 'visual', 548);
+    const folder = readFixFolder(ctx, 'visual', parseIssue(548));
     assertDefined(folder, 'folder');
     expect(folder.artifacts.map((a) => a.kind)).toEqual(['before-after']);
     expect(folder.tooLarge).toEqual([{ kind: 'variations', path: `${VISUAL}/variations-r1.html`, bytes: big.length }]);
@@ -165,9 +166,9 @@ describe('readFixFolder (PRD 627)', () => {
 
   it('is null for an issue with no folder of its kind, and never reads another issue\'s', () => {
     const { ctx } = makeRepo({ files: { [`${VISUAL}/before-after.html`]: PAGE, '.omni-loop/delivery/visual/5480-other/before-after.html': PAGE } });
-    expect(readFixFolder(ctx, 'bug', 548)).toBeNull();
-    expect(readFixFolder(ctx, 'visual', 54)).toBeNull();
-    const fixFolder = readFixFolder(ctx, 'visual', 548);
+    expect(readFixFolder(ctx, 'bug', parseIssue(548))).toBeNull();
+    expect(readFixFolder(ctx, 'visual', parseIssue(54))).toBeNull();
+    const fixFolder = readFixFolder(ctx, 'visual', parseIssue(548));
     assertDefined(fixFolder, 'the fix folder');
     expect(fixFolder.dir).toBe(VISUAL);
   });

@@ -9,15 +9,16 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { at } from '../narrow.ts';
 import type { ProofCriterion, ProofFile, ProofRun } from './run.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A file of the run, as the upload call asks for it. */
 type UploadRequest = { name: string; bytes: number; type: string };
 
 /** The Omni page's three proof calls (`kit/lib/ask/client.ts`). Their replies are read as unknown. */
 export type ProofClient = {
-  requestProofUploads: (request: { repo: string; prd: number; files: UploadRequest[] }) => Promise<unknown>;
+  requestProofUploads: (request: { repo: string; prd: PrdNumber; files: UploadRequest[] }) => Promise<unknown>;
   upload: (url: string, bytes: Uint8Array<ArrayBuffer>, type: string) => Promise<unknown>;
-  registerProof: (request: { repo: string; prd: number; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
+  registerProof: (request: { repo: string; prd: PrdNumber; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -62,7 +63,7 @@ export async function pushProof({
 }: {
   client: ProofClient;
   repo: string;
-  prd: number;
+  prd: PrdNumber;
   run: ProofRun;
   read?: (path: string) => Uint8Array<ArrayBuffer>;
   newRunId?: () => string;

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { featureTopic, NOT_ACTIVE_ON_PR, prdDirs, prdOfTopic } from '../evaluate/evaluate.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
@@ -47,10 +48,10 @@ export type PullFacts = { baseRef: string; baseSha: string; headRef: string; hea
 export type Change = { path: string; status: string };
 
 /** A comment on a pull request. */
-export type Comment = { id: number; body: string };
+export type Comment = { id: CommentId; body: string };
 
 /** The pull request's facts, read fresh: a debounced run sees the latest labels and refs. */
-export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<PullFacts> {
+export async function readPull(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<PullFacts> {
   const { data: answer } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
     owner,
     repo,
@@ -108,7 +109,7 @@ export type CheckTarget = { active: boolean; name: string; gated: boolean; reaso
  */
 export async function checkTarget(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha }: Repo & { prNumber: number; headSha?: string | undefined },
+  { owner, repo, prNumber, headSha }: Repo & { prNumber: PrNumber; headSha?: string | undefined },
 ): Promise<CheckTarget> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const folder = mkdtempSync(join(tmpdir(), 'omni-name-'));
@@ -152,7 +153,7 @@ async function folderNamesAt(
 }
 
 /** Every comment on the pull request, as `{ id, body }`. */
-export async function listComments(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: number }): Promise<Comment[]> {
+export async function listComments(octokit: GitHubClient, { owner, repo, prNumber }: Repo & { prNumber: PrNumber }): Promise<Comment[]> {
   const comments = await paginate((page) =>
     octokit
       .request('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {

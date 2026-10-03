@@ -8,7 +8,7 @@ import { formatReport, gateResult } from '../../lib/outbox/status.ts';
 import { baseNames, fetchRemote, readFacts } from '../../lib/status/facts.ts';
 import { formatOverview } from '../../lib/status/format.ts';
 import { overviewFor } from '../../lib/status/overview.ts';
-import { errorMessage, list, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorMessage, list, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
@@ -36,7 +36,7 @@ export const status: Command = {
     const gateFlags = flags.labels !== undefined || flags.base !== undefined || flags.changes === true;
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
     if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE);
-    const prd = positiveInt('status', '<prd>', positional[0]);
+    const prd = prdArg('status', '<prd>', positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
 

@@ -6,6 +6,7 @@ import { makeEvent, planetKey, type EventType, type GameEvent } from './events.t
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { GameConfig } from './config.ts';
 import type { DerivedPlanet, Snapshot, SnapshotPlanet } from './types.ts';
+import type { PrNumber } from '../kit/lib/ids.ts';
 
 /** One fact that could not become an event, and why. */
 export type Skip = { id: string; message: string };
@@ -141,6 +142,6 @@ function endEvents(push: Push, { planet, state, key, on }: At): void {
   if (state.state === 'decommissioned') push({ id: `planet:${key}:decommissioned`, at: planet.issue.closedAt, type: 'PLANET_DECOMMISSIONED', ...on });
 }
 
-function prNumber(planet: SnapshotPlanet, zoneId: string, repo: string): number | null {
+function prNumber(planet: SnapshotPlanet, zoneId: string, repo: string): PrNumber | null {
   return planet.zones.find((z) => z.id === zoneId && (!repo || z.repo === repo))?.pr?.number ?? null;
 }

@@ -38,6 +38,7 @@ import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { sentView, type SendErrorCode, type SendRow } from './sent';
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type { SendRow } from './sent';
 
@@ -55,7 +56,7 @@ const API = 'https://api.github.com';
 // ── The ports ──────────────────────────────────────────────────────────────────
 
 /** A dossier as the signed-in person reads it: its home repository and its PRD (null on a draft). */
-export type SendTarget = { dossierId: string; homeRepo: string; prd: number | null };
+export type SendTarget = { dossierId: string; homeRepo: string; prd: PrdNumber | null };
 
 export type SendOutcome = { commentUrl: string; login: string; counted: boolean } | { error: string };
 
@@ -64,7 +65,7 @@ export type SendStore = {
   /** The dossier, or null when the caller is no member of its workspace (or it never was). */
   target(dossierId: string): Promise<SendTarget | null>;
   /** Records a send; its id. */
-  create(send: { dossierId: string; prNumber: number; reply: string; nonceHash: string }): Promise<string>;
+  create(send: { dossierId: string; prNumber: PrNumber; reply: string; nonceHash: string }): Promise<string>;
   /** The caller's own send, or null. */
   read(sendId: string): Promise<SendRow | null>;
   /** Records its outcome, once (outbox_send_done()). */
@@ -95,7 +96,7 @@ export type GitHubUser = {
   /** A user token for the code GitHub sent back. */
   exchange(code: string): Promise<string>;
   /** Posts `body` on the pull request as the token's person. */
-  comment(token: string, repo: string, number: number, body: string): Promise<{ url: string; login: string; association: string }>;
+  comment(token: string, repo: string, number: PrNumber, body: string): Promise<{ url: string; login: string; association: string }>;
 };
 
 export type SendDeps = {
@@ -181,7 +182,7 @@ export type SendBody = z.infer<typeof SendBody>;
 export type Question = { number: number; rank: string; options: Array<{ letter: string; text: string }> };
 
 export type Questions =
-  | { ok: true; prd: number; prNumber: number; questions: Question[] }
+  | { ok: true; prd: PrdNumber; prNumber: PrNumber; questions: Question[] }
   | { ok: false; status: number; error: string };
 
 const UNREACHABLE = 'GitHub did not answer, so nothing was sent. Try again in a moment.';
@@ -210,7 +211,7 @@ export type BuiltReply = { ok: true; reply: string; dropped: number[] } | { ok: 
 
 /** The reply the picks write: every question still open or adopted may be answered; a pick on any other
  * was settled meanwhile and is dropped. Pure. */
-export function buildReply(questions: Question[], prd: number, picks: SendBody['picks']): BuiltReply {
+export function buildReply(questions: Question[], prd: PrdNumber, picks: SendBody['picks']): BuiltReply {
   const known = new Set(questions.map((q) => q.number));
   const dropped = picks.filter((p) => !known.has(p.number)).map((p) => p.number).sort((a, b) => a - b);
   const kept = picks.filter((p) => known.has(p.number)).map(({ number, pick, reason }) => (reason?.trim() ? { number, pick, reason } : { number, pick }));
@@ -292,7 +293,7 @@ function sameNonce(given: string, cookie: string | null, hash: string): boolean 
 }
 
 /** The words a send records when GitHub posted nothing. */
-export function failureWords(error: GitHubError, repo: string | null, number: number): string {
+export function failureWords(error: GitHubError, repo: string | null, number: PrNumber): string {
   const pr = repo ? `pull request #${number} of ${repo}` : `pull request #${number}`;
   switch (error.kind) {
     case 'refused': return "GitHub's authorisation was refused, so nothing was posted.";

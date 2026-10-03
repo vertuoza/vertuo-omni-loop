@@ -6,6 +6,7 @@
 // `gather` reads the feature PR's issue events, for the moment it was marked ready; the sub-PRs come
 // from the retro's shared step "gather-pulls". `detect` and `describe` are pure.
 import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
+import type { PrNumber, SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { ListSchema, parseGitHub } from '../github.schema.ts';
@@ -21,8 +22,8 @@ const EVENTS = 'GET /repos/{owner}/{repo}/issues/{issue_number}/events';
 type Records = z.infer<typeof TimelineRecordsSchema>;
 
 type SliceTime = {
-  slice: string;
-  pr: number;
+  slice: SliceId;
+  pr: PrNumber;
   url: string | null;
   openedAt: string;
   mergedAt: string | null;
@@ -33,7 +34,7 @@ type SliceTime = {
 };
 
 type Facts = {
-  featurePr: { number: number; url: string | null; openedAt: string | null; readyAt: string | null; mergedAt: string | null; minutes: number };
+  featurePr: { number: PrNumber; url: string | null; openedAt: string | null; readyAt: string | null; mergedAt: string | null; minutes: number };
   slices: SliceTime[];
   sliceCount: number;
   waves: { planned: number | null; merged: number };
@@ -76,7 +77,7 @@ export const timeline: Kind<Records, Facts> = Object.freeze({
     const sliceTemplate = config.branches.slice.replace('{topic}', prd.topic);
     const subs = pulls
       .map((pull) => ({ pull, slice: sliceOf(pull.headRef, sliceTemplate) }))
-      .filter((sub): sub is { pull: RetroPull; slice: string } => sub.slice !== null);
+      .filter((sub): sub is { pull: RetroPull; slice: SliceId } => sub.slice !== null);
     const merged = wavesAsMerged(subs.map(({ pull }) => pull));
 
     const slices: SliceTime[] = subs.map(({ pull, slice }, index) => ({

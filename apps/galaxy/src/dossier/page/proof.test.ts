@@ -4,6 +4,7 @@ import type { ProofRunRow } from '../../proof/store';
 import type { DossierRow } from '../store';
 import { proofView, type ProofRead } from './proof';
 import { dossierView, readPick } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The Proof tab of /prd/<id> (PRD 798, s4), as pure functions of the runs the viewer reads: hidden with
 // no run; the newest run first, its commit, URL, date and ✓/✗/— counts, then one row per criterion with
@@ -13,7 +14,7 @@ const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 
 const numbered: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 798, title: 'Proof video',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(798), title: 'Proof video',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:40Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 

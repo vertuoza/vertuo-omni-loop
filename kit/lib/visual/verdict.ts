@@ -23,6 +23,7 @@ import { beforeAfterViolation } from '../inbox/check-inbox.ts';
 import { fixVerdict, issuePrefix, numberedFolders, rasterFaults } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
+import type { IssueNumber } from '../ids.ts';
 
 /** What a visual verdict reads of the context: the root, the delivery path, the page cap and the signature. */
 type VisualContext = {
@@ -77,11 +78,11 @@ function folderViolations(ctx: VisualContext, folder: string): string[] {
  */
 export function visualVerdict({ ctx, issue, commits }: {
   ctx: VisualContext;
-  issue: number;
+  issue: IssueNumber;
   commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
-    ctx, issue, commits, root: visualRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue)),
+    ctx, number: issue, commits, root: visualRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue)),
     grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
   });
 }

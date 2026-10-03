@@ -5,6 +5,7 @@ import { renderAdoptedEntry, renderSettledEntry, settledHeader } from '../outbox
 import { parseOutboxItem } from '../outbox/outbox.ts';
 import { candidatesFromLedger, harvestCandidates, writtenBack, type Candidate } from './harvest.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -90,7 +91,7 @@ function withLine(entry: string, line: string): string {
 
 function ledger(...entries: string[]): string {
   const ctx = { config: { paths: { delivery: '.omni-loop/delivery' } } };
-  return [settledHeader(7, { ctx }), ...entries].join('\n');
+  return [settledHeader(parsePrd(7), { ctx }), ...entries].join('\n');
 }
 
 const LEDGER = ledger(
@@ -163,7 +164,7 @@ describe('harvestCandidates', () => {
         '.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md': LEDGER,
       },
     });
-    const candidates = harvestCandidates({ ctx, prd: 7 });
+    const candidates = harvestCandidates({ ctx, prd: parsePrd(7) });
     expect(candidates.map((candidate) => candidate.id)).toEqual(['s1-03-twice', 's1-04-plain']);
     assertDefined(candidates[0], 'candidates[0]');
     expect(candidates[0].ledgerFile).toBe('.omni-loop/delivery/shipped/0007-widgets/outbox/settled.md');
@@ -171,7 +172,7 @@ describe('harvestCandidates', () => {
 
   it('is empty for a PRD with no folder or no ledger', () => {
     const { ctx } = makeRepo({ files: { '.omni-loop/delivery/inbox/0007-widgets/spec.md': '# spec\n' } });
-    expect(harvestCandidates({ ctx, prd: 7 })).toEqual([]);
-    expect(harvestCandidates({ ctx, prd: 8 })).toEqual([]);
+    expect(harvestCandidates({ ctx, prd: parsePrd(7) })).toEqual([]);
+    expect(harvestCandidates({ ctx, prd: parsePrd(8) })).toEqual([]);
   });
 });

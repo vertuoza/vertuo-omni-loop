@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { inboxViolationsFor } from 'vertuo-omni-plan/kit/lib/inbox/check-inbox.ts';
 import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
@@ -54,7 +55,7 @@ export type CanonGrader = {
 
 export type InboxVerdict = {
   name: string;
-  prd: number | null;
+  prd: PrdNumber | null;
   conclusion: 'success' | 'failure';
   title: string;
   summary: string;
@@ -84,7 +85,7 @@ function readConfigAt(base: string): Config | null {
 }
 
 /** The PRD number of the inbox folder `<nnnn>-<topic>` in the head snapshot, or `null`. */
-export function inboxPrd({ head, config, topic }: { head: string; config: Config; topic: string }): number | null {
+export function inboxPrd({ head, config, topic }: { head: string; config: Config; topic: string }): PrdNumber | null {
   const dir = join(head, createContext(head, config).layout.dirs.inbox);
   if (!existsSync(dir)) return null;
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -164,7 +165,7 @@ async function canonGateOf({
 }: {
   canon: CanonGrader | null | undefined;
   ctx: Context;
-  prd: number;
+  prd: PrdNumber;
   head: string;
   repo: string | undefined;
 }): Promise<Gate & { canon: CanonGateFacts }> {
@@ -175,14 +176,14 @@ async function canonGateOf({
 }
 
 /** Where the PRD's folder is; it is there, since its number was read from it. */
-function placeOf(ctx: Context, prd: number): { name: string; dir: string } {
+function placeOf(ctx: Context, prd: PrdNumber): { name: string; dir: string } {
   const place = ctx.layout.whereIs(prd);
   if (!place) throw new Error(`PRD ${prd} has no folder in the head snapshot.`);
   return place;
 }
 
 /** A file of the PRD's folder; it is there, since its number was read from it. */
-function inFolder(file: string | null, prd: number): string {
+function inFolder(file: string | null, prd: PrdNumber): string {
   if (file === null) throw new Error(`PRD ${prd} has no folder in the head snapshot.`);
   return file;
 }
@@ -204,7 +205,7 @@ function phase0Gate({
   commits,
 }: {
   ctx: Context;
-  prd: number;
+  prd: PrdNumber;
   changes: { path: string }[] | null | undefined;
   commits: Commit[];
 }): Gate {
@@ -215,14 +216,14 @@ function phase0Gate({
   return { name: 'phase-0 verdict', ok: verdict.ok, reason: verdict.reason };
 }
 
-function inboxGate({ ctx, prd }: { ctx: Context; prd: number }): Gate {
+function inboxGate({ ctx, prd }: { ctx: Context; prd: PrdNumber }): Gate {
   const violations = inboxViolationsFor({ ctx, prd });
   return violations.length === 0
     ? { name: 'inbox folder', ok: true, reason: `${placeOf(ctx, prd).dir} follows the inbox rules` }
     : { name: 'inbox folder', ok: false, reason: violations.join('; ') };
 }
 
-function planGate({ ctx, prd, head }: { ctx: Context; prd: number; head: string }): Gate {
+function planGate({ ctx, prd, head }: { ctx: Context; prd: PrdNumber; head: string }): Gate {
   const file = inFolder(ctx.layout.planPath(prd), prd);
   const absolute = join(head, file);
   if (!existsSync(absolute)) {
@@ -239,7 +240,7 @@ function planGate({ ctx, prd, head }: { ctx: Context; prd: number; head: string 
   };
 }
 
-function issueGate({ prd, issue, label }: { prd: number; issue: IssueFacts; label: string }): Gate {
+function issueGate({ prd, issue, label }: { prd: PrdNumber; issue: IssueFacts; label: string }): Gate {
   const fail = (reason: string): Gate => ({ name: 'PRD issue', ok: false, reason });
   if (!issue) return fail(`issue #${prd} does not exist`);
   if (issue.isPullRequest) return fail(`#${prd} is a pull request, not an issue`);
@@ -249,7 +250,7 @@ function issueGate({ prd, issue, label }: { prd: number; issue: IssueFacts; labe
 }
 
 /** The gates line by line; a red canon's facts last, hidden, for its buttons (./canon-actions.ts). */
-function summaryOf({ prd, folder, gates, marker }: { prd: number; folder: string; gates: Gate[]; marker: string | null }): string {
+function summaryOf({ prd, folder, gates, marker }: { prd: PrdNumber; folder: string; gates: Gate[]; marker: string | null }): string {
   const lines = gates.flatMap((gate) => [
     `- ${gate.neutral ? 'neutral' : gate.ok ? 'ok' : 'not ok'} — ${gate.name}: ${gate.reason}`,
     ...(gate.details ?? []).map((detail) => `  - ${detail}`),

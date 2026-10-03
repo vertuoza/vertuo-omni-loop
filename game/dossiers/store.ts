@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { DossierRowSchema, type VERSION_KINDS } from './store.schema.ts';
 import { causeOf, supabaseRest, type FetchLike } from '../sources/supabase.ts';
+import type { IssueNumber, PrdNumber } from '../../kit/lib/ids.ts';
 
 export type DossierVersionKind = (typeof VERSION_KINDS)[number];
 
@@ -21,7 +22,7 @@ export type DossierVersion = { id: string; gitBlob: string | null; bytes: number
 /** A dossier, read from its row: the latest version of each kind. */
 export type Dossier = {
   id: string;
-  prd: number;
+  prd: PrdNumber;
   title: string;
   latest: Partial<Record<DossierVersionKind, DossierVersion>>;
   /** A visual fix's only: every `variations` version, since each round is its own. */
@@ -30,8 +31,9 @@ export type Dossier = {
 
 /** The fallback's way into the dossier tables. */
 export type DossierStore = {
-  dossiersOf: (workspaceId: string, homeRepo: string, prd?: number | null, options?: { kind?: string }) => Promise<Map<number, Dossier>>;
-  open: (dossier: { workspaceId: string; homeRepo: string; kind?: string; prd: number; title: string; at: string }) => Promise<Dossier | null>;
+  // A fix's dossier is keyed by its issue's number (PRD 627): `prd` takes either kind.
+  dossiersOf: (workspaceId: string, homeRepo: string, prd?: PrdNumber | IssueNumber | null, options?: { kind?: string }) => Promise<Map<number, Dossier>>;
+  open: (dossier: { workspaceId: string; homeRepo: string; kind?: string; prd: PrdNumber | IssueNumber; title: string; at: string }) => Promise<Dossier | null>;
   retitle: (id: string, title: string) => Promise<void>;
   addVersion: (version: { dossierId: string; kind: string; content: string; commitSha: string; gitBlob: string }) => Promise<number | null>;
   content: (versionId: string) => Promise<string | null>;

@@ -18,6 +18,7 @@ import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
+import { parsePrd } from '../lib/ids.ts';
 
 const CLI = fileURLToPath(new URL('./omni.ts', import.meta.url));
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
@@ -379,7 +380,7 @@ describe('omni statusline: the slices, from a board refreshed in the background'
   /** PRD `prd`'s board in the fixture's main checkout, written `age` milliseconds before `NOW`. */
   function plantBoard(prd: number, age: number, body: Record<string, unknown>) {
     mkdirSync(join(fixture.root, BOARD_DIR), { recursive: true });
-    writeFileSync(boardFile(fixture.root, prd), JSON.stringify({ at: iso(NOW - age), ...body }));
+    writeFileSync(boardFile(fixture.root, parsePrd(prd)), JSON.stringify({ at: iso(NOW - age), ...body }));
   }
 
   /** Line 2 in `dir`, and the refreshes the run started; exit 0, nothing on stderr, no `gh`, no fetch. */
@@ -438,11 +439,11 @@ describe('omni statusline: the slices, from a board refreshed in the background'
 
   it('starts none while a refresh holds the lock', async () => {
     plantBoard(7, 5 * 60 * SECOND, { slices: FIVE });
-    writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    writeFileSync(lockFile(fixture.root, parsePrd(7)), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
     try {
       expect((await run(fixture.on('feat/bravo--s11', 'origin/feat/bravo'))).spawns).toEqual([]);
     } finally {
-      writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 2 * 60 * SECOND) }));
+      writeFileSync(lockFile(fixture.root, parsePrd(7)), JSON.stringify({ at: iso(NOW - 2 * 60 * SECOND) }));
     }
     expect((await run(fixture.on('feat/bravo--s12', 'origin/feat/bravo'))).spawns).toHaveLength(1);
   });
@@ -550,7 +551,7 @@ describe('omni statusline --refresh <n>', () => {
     return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
   }
 
-  const readBoardJson = (root: string, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')) as { slices: unknown[] };
+  const readBoardJson = (root: string, prd = parsePrd(7)) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8')) as { slices: unknown[] };
 
   it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
@@ -565,7 +566,7 @@ describe('omni statusline --refresh <n>', () => {
         { id: 's4', wave: 3, state: 'blocked' },
       ],
     });
-    expect(existsSync(lockFile(root, 7))).toBe(false);
+    expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
     expect(run.calls.filter((call) => call.startsWith('gh '))).toEqual([
       'gh pr list --repo acme/widgets --json number,title,headRefName,baseRefName,state,isDraft,mergedAt,body,labels,updatedAt,createdAt --state all --limit 200 --base feat/widgets',
     ]);
@@ -576,21 +577,21 @@ describe('omni statusline --refresh <n>', () => {
   it('writes nothing and exits 0 while another refresh holds the lock', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
     mkdirSync(join(root, BOARD_DIR), { recursive: true });
-    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    writeFileSync(lockFile(root, parsePrd(7)), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
     const run = await refresh(root);
     expect(run).toMatchObject({ code: 0, out: '', err: '' });
-    expect(existsSync(boardFile(root, 7))).toBe(false);
-    expect(existsSync(lockFile(root, 7))).toBe(true);
+    expect(existsSync(boardFile(root, parsePrd(7)))).toBe(false);
+    expect(existsSync(lockFile(root, parsePrd(7)))).toBe(true);
     expect(run.calls.some((call) => call.startsWith('gh '))).toBe(false);
   });
 
   it('takes over a lock 2 minutes old', async () => {
     const { root } = makeRepo({ git: true, files: FILES });
     mkdirSync(join(root, BOARD_DIR), { recursive: true });
-    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 2 * MINUTE) }));
+    writeFileSync(lockFile(root, parsePrd(7)), JSON.stringify({ at: iso(NOW - 2 * MINUTE) }));
     expect((await refresh(root)).code).toBe(0);
     expect(readBoardJson(root).slices).toHaveLength(4);
-    expect(existsSync(lockFile(root, 7))).toBe(false);
+    expect(existsSync(lockFile(root, parsePrd(7)))).toBe(false);
   });
 
   it('writes the error entry when gh fails, when there is no plan, or no such PRD', async () => {
@@ -598,10 +599,10 @@ describe('omni statusline --refresh <n>', () => {
     expect((await refresh(root, '7', stubbedExec({ ghFails: true }))).code).toBe(0);
     expect(readBoardJson(root)).toEqual({ at: iso(NOW), error: 'spawnSync gh ENOENT' });
     expect((await refresh(root, '9')).code).toBe(0);
-    expect(readBoardJson(root, 9)).toEqual({ at: iso(NOW), error: 'omni board: no plan at .omni-loop/delivery/inbox/0009-nothing/plan.md.' });
+    expect(readBoardJson(root, parsePrd(9))).toEqual({ at: iso(NOW), error: 'omni board: no plan at .omni-loop/delivery/inbox/0009-nothing/plan.md.' });
     expect((await refresh(root, '42')).code).toBe(0);
-    expect(readBoardJson(root, 42)).toEqual({ at: iso(NOW), error: 'omni board: PRD 42 has no inbox or shipped folder.' });
-    for (const prd of [7, 9, 42]) expect(existsSync(lockFile(root, prd))).toBe(false);
+    expect(readBoardJson(root, parsePrd(42))).toEqual({ at: iso(NOW), error: 'omni board: PRD 42 has no inbox or shipped folder.' });
+    for (const prd of [7, 9, 42]) expect(existsSync(lockFile(root, parsePrd(prd)))).toBe(false);
   });
 
   it('writes the board in the main checkout when run from a worktree', async () => {
