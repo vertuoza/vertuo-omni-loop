@@ -29,12 +29,17 @@ import type { Context } from '../context.ts';
 import type { EntryAnswer, Judgement, SettledEntry, SettledItemFacts } from './settle.ts';
 import { openItemFiles } from './status.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { PrNumberSchema, WorkSliceIdSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The basis every entry settled at the merge carries. */
 export const MERGED_OVER_RED_BASIS = 'merged-over-red';
 
 const MERGED_OVER_RED_REASON =
   'the feature pull request merged while this item was open; merging adopts what was built';
+
+/** The merged pull request's number, read from its text into a `PrNumber`. */
+const PrField = z.coerce.number({ message: 'merge.pr must be a number' }).int().positive().pipe(PrNumberSchema);
 
 /** The merge's facts, read from the pull request itself. */
 export const MergeSchema = z
@@ -50,7 +55,7 @@ export const MergeSchema = z
         /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
         'merge.at must be an ISO date or date-time',
       ),
-    pr: z.coerce.number({ message: 'merge.pr must be a number' }).int().positive(),
+    pr: PrField,
     url: z.string().trim().min(1).optional(),
   })
   .strict();
@@ -84,13 +89,13 @@ function itemFromEntry(entry: SettledEntry): SettledItemFacts {
     rank: fields.Rank,
     bearsOn: fields['Bears on'],
     raised: fields.Raised,
-    slice: fields.Slice,
+    slice: WorkSliceIdSchema.safeParse(fields.Slice).data,
     wave: fields.Wave,
   };
 }
 
 /**
- * @param {{ ctx: object, prd: string | number, merge: { by: string, at: string, pr: number, url?: string } }} input
+ * @param {{ ctx: object, prd: PrdNumber, merge: { by: string, at: string, pr: PrNumber, url?: string } }} input
  * @returns {{ ok: true, settledFile: string, entries: { id: string, from: 'open' | 'drift', entry: string }[],
  *   append: string, text: string | null, deletes: string[] } | { ok: false, errors: string[] }}
  */
@@ -100,7 +105,7 @@ export function settleAtMerge({
   merge,
 }: {
   ctx: Context;
-  prd: string | number;
+  prd: PrdNumber;
   merge: unknown;
 }):
   | {

@@ -17,7 +17,7 @@ import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumber
 import { answerableQuestions, askBatches, writeReply } from '../../lib/outbox/answers.ts';
 import { propertyOf } from '../../lib/narrow.ts';
 import { githubClientFor } from '../github.ts';
-import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
+import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { CommentClient } from '../../lib/outbox/comment.ts';
 import type { Context } from '../../lib/context.ts';
@@ -62,8 +62,8 @@ function printBatches(stdout: Out, batches: ReturnType<typeof askBatches>): void
 function ask(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
   const { positional, flags } = parseArgs('answers', args, { values: ['pr', 'repo'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
-  const prd = positiveInt('answers', '<prd>', positional[0]);
-  const pr = positiveInt('answers', '--pr', flags.pr);
+  const prd = prdArg('answers', '<prd>', positional[0]);
+  const pr = prArg('answers', '--pr', flags.pr);
   const repo = repoSlug('answers', ctx, flags.repo);
   if (!ctx.config.answers.enabled) {
     return fail(stderr, `answers.enabled is false in ${CONFIG_FILE} — answer on the pull request.`);
@@ -93,8 +93,8 @@ function post(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): nu
     booleans: ['print'],
   });
   if (positional.length) throw usageError(USAGE);
-  const prd = positiveInt('answers', '--prd', flags.prd);
-  const pr = positiveInt('answers', '--pr', flags.pr);
+  const prd = prdArg('answers', '--prd', flags.prd);
+  const pr = prArg('answers', '--pr', flags.pr);
   const repo = repoSlug('answers', ctx, flags.repo);
   if (typeof flags.answers !== 'string') throw usageError(`omni answers: --answers <file> is required. ${USAGE}`);
   const source = readUserFile('answers', ctx, flags.answers);

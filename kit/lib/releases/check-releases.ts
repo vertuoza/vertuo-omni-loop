@@ -13,23 +13,27 @@ import { join } from 'node:path';
 import { parseFolderName } from '../layout.ts';
 import { gradeReleaseNote, RELEASE_NOTE_FILE } from './note.ts';
 import type { Context } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A release note's file, from the root, and the PRD whose folder holds it. */
-export type ReleaseNoteFile = { file: string; prd: number };
+export type ReleaseNoteFile = { file: string; prd: PrdNumber };
 
 /** The release note's path in a PRD's folder, `dir` as the layout names it. */
 export function releaseNotePath(dir: string): string {
   return `${dir}/${RELEASE_NOTE_FILE}`;
 }
 
-/** The PRD folders under `dir`, sorted by name. */
-function prdFolders(ctx: Context, dir: string): string[] {
+/** The PRD folders under `dir`, sorted by name, each with its number. */
+function prdFolders(ctx: Context, dir: string): { name: string; prd: PrdNumber }[] {
   const absolute = join(ctx.root, dir);
   if (!existsSync(absolute)) return [];
   return readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && parseFolderName(entry.name))
-    .map((entry) => entry.name)
-    .sort();
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const parsed = parseFolderName(entry.name);
+      return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
+    })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /** Every release note in the inbox, then in the shipped folders: `[{ file, prd }]`. */
@@ -37,7 +41,7 @@ export function releaseNoteFiles({ ctx }: { ctx: Context }): ReleaseNoteFile[] {
   const { inbox, shipped } = ctx.layout.dirs;
   return [inbox, shipped].flatMap((dir) =>
     prdFolders(ctx, dir)
-      .map((name) => ({ file: releaseNotePath(`${dir}/${name}`), prd: parseFolderName(name)?.prd ?? Number.NaN }))
+      .map(({ name, prd }) => ({ file: releaseNotePath(`${dir}/${name}`), prd }))
       .filter(({ file }) => existsSync(join(ctx.root, file))),
   );
 }

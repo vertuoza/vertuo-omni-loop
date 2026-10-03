@@ -23,9 +23,12 @@ import type { ExecText } from '../context.ts';
 import type { DossierEntry } from '../dossier/draft.ts';
 import { isSafeId, LOCAL_DIR } from './local-state.ts';
 import { HeartbeatWindowSchema } from './schema.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { parseFolderName } from '../layout.ts';
 
-/** What a Claude session works on: its draft, a PRD, a visual or a bug fix; `null` is the session alone. */
-export type Work = { kind: 'draft'; draftId: string } | { kind: 'prd' | 'visual' | 'bug'; number: number } | null;
+/** What a Claude session works on: its draft, a PRD, a visual or a bug fix (keyed by its issue); `null`
+ * is the session alone. */
+export type Work = { kind: 'draft'; draftId: string } | { kind: 'prd'; number: PrdNumber } | { kind: 'visual' | 'bug'; number: IssueNumber } | null;
 
 /** The branch templates the work finder reads. */
 type Branches = { feature: string; phase0: string; slice: string; fix: string };
@@ -39,7 +42,6 @@ export const HEARTBEAT_EVERY_MS = 60_000;
 export const HEARTBEAT_LIMIT_MS = 2000;
 
 const WINDOWS_DIR = 'heartbeat';
-const FOLDER = /^(\d{4})-(.+)$/;
 const QUIET: { encoding: 'utf8'; stdio: StdioOptions; timeout: number } = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: HEARTBEAT_LIMIT_MS };
 
 function attempt<T>(fn: () => T): T | null {
@@ -58,11 +60,12 @@ function topicOf(template: unknown, branch: string): string | null {
   return pattern.exec(branch)?.[1] ?? null;
 }
 
-/** The number of the `<nnnn>-<topic>` folder among `folders`, or null. */
-function numberOf(topic: string, folders: readonly string[] | undefined): number | null {
+/** The number of the `<nnnn>-<topic>` folder among `folders`, or null. A fix's folder is named the
+ * way a PRD's is, by its issue's number, which a PRD's number is too. */
+function numberOf(topic: string, folders: readonly string[] | undefined): PrdNumber | null {
   for (const folder of folders ?? []) {
-    const match = FOLDER.exec(folder);
-    if (match && match[2] === topic) return Number(match[1]);
+    const named = parseFolderName(folder);
+    if (named && named.topic === topic) return named.prd;
   }
   return null;
 }

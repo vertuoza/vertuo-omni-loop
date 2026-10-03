@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { readCareVerdict } from './marker.ts';
 import { at, propertyOf } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
+import { CommentIdSchema, PrNumberSchema } from '../ids.ts';
+import type { CommentId, PrNumber } from '../ids.ts';
 
 // The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
 // GitHub's answer with it. Every field but a few GitHub always sends may be missing or null, and this
@@ -41,10 +43,10 @@ const ThreadNodeSchema = z.object({
   comments: nodesOf(CommentNodeSchema),
 });
 type ThreadNode = z.infer<typeof ThreadNodeSchema>;
-const IssueCommentNodeSchema = z.object({ databaseId: z.number().nullish(), body: text });
+const IssueCommentNodeSchema = z.object({ databaseId: CommentIdSchema.nullish(), body: text });
 type IssueCommentNode = z.infer<typeof IssueCommentNodeSchema>;
 const PullRequestNodeSchema = z.object({
-  number: z.number(),
+  number: PrNumberSchema,
   url: z.string(),
   state: z.string(),
   isDraft: z.boolean().nullish(),
@@ -94,9 +96,9 @@ export type CareThread = {
   reason: string | null;
   needs: ThreadNeed;
 };
-export type CareStatus = { commentId: number | null; watchingSince: string | null; lastRound: string | null };
+export type CareStatus = { commentId: CommentId | null; watchingSince: string | null; lastRound: string | null };
 export type CareState = {
-  pr: { number: number; url: string; state: string; isDraft: boolean; base: string; head: string; labels: string[] };
+  pr: { number: PrNumber; url: string; state: string; isDraft: boolean; base: string; head: string; labels: string[] };
   checks: CareChecks;
   mergeable: string;
   threads: CareThread[];

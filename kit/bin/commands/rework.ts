@@ -8,11 +8,12 @@ import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { closeDriftedEntry, planRework } from '../../lib/policy/rework.ts';
-import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Rework, ReworkPlan } from '../../lib/policy/rework.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>';
 const PLAN_USAGE = 'usage: omni rework plan <prd> [--json]';
@@ -30,7 +31,7 @@ function readIfExists(ctx: Context, path: string): string {
 
 /** The PRD folder's own topic, which fills `{topic}` in `branches.feature` — the same reading
  * `omni board` already does. */
-function topicFor(prd: number, { ctx }: { ctx: Context }): string | null {
+function topicFor(prd: PrdNumber, { ctx }: { ctx: Context }): string | null {
   const where = ctx.layout.whereIs(prd);
   const parsed = where ? parseFolderName(where.name) : null;
   return parsed ? parsed.topic : null;
@@ -60,7 +61,7 @@ function printPlan(stdout: Out, result: ReworkPlan): void {
 function runPlan(args: string[], { ctx, stdout }: CommandIo): number {
   const { positional, flags } = parseArgs('rework plan', args, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(PLAN_USAGE);
-  const prd = positiveInt('rework plan', '<prd>', positional[0]);
+  const prd = prdArg('rework plan', '<prd>', positional[0]);
 
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni rework plan: PRD ${prd} has no inbox or shipped folder.`);
@@ -97,8 +98,8 @@ function runClose(args: string[], { ctx, stdout }: CommandIo): number {
     throw usageError(CLOSE_USAGE);
   }
   const id = positional[0] ?? '';
-  const prd = positiveInt('rework close', '--prd', flags.prd);
-  const pr = positiveInt('rework close', '--pr', flags.pr);
+  const prd = prdArg('rework close', '--prd', flags.prd);
+  const pr = prArg('rework close', '--pr', flags.pr);
   const pullRequest = `#${pr}`;
 
   // Item ids are unique only within one PRD (`<slice>-<nn>-<slug>`, and slice numbering restarts

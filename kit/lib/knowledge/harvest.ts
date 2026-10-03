@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { SETTLED_FILE, parseOutboxItem } from '../outbox/outbox.ts';
 import { parseSettledEntries } from '../outbox/settle.ts';
 import type { Context } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A ledger's markers, as the context carries them. */
 type Markers = Context['markers'];
@@ -95,7 +96,7 @@ export function candidatesFromLedger(
  * The candidates of PRD `prd`, read from the working tree: `[]` when the PRD has no outbox
  * directory or no ledger yet.
  */
-export function harvestCandidates({ ctx, prd }: { ctx: Context; prd: number | string }): Candidate[] {
+export function harvestCandidates({ ctx, prd }: { ctx: Context; prd: PrdNumber }): Candidate[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const ledgerFile = `${outboxDir}/${SETTLED_FILE}`;

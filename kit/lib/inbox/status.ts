@@ -16,6 +16,7 @@
  * the PRD at all. Matching is anchored right after the number (a word boundary), so a longer PRD
  * number never falsely matches a shorter one: `Closes #123` never matches `Closes #1234`.
  */
+import type { PrdNumber } from '../ids.ts';
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox-status.mjs — changes in kit/porting/inbox--status.md.
 
 /** What the rule reads of one pull request, in whichever shape its list payload carries. */
@@ -42,13 +43,13 @@ function escapeRegExp(text: string): string {
  * text around `{prd}` is escaped, the number is substituted verbatim, and a word boundary sits
  * right after it so a longer PRD number can never falsely match a shorter one.
  */
-function prLinkPattern(template: string, prd: string | number): RegExp {
+function prLinkPattern(template: string, prd: PrdNumber): RegExp {
   const [before = '', after = ''] = template.split('{prd}');
   return new RegExp(`${escapeRegExp(before)}${Number(prd)}\\b${escapeRegExp(after)}`);
 }
 
 /** Whether a pull request's body names this PRD through the given link template. */
-function refersTo(template: string, body: string | null | undefined, prd: string | number): boolean {
+function refersTo(template: string, body: string | null | undefined, prd: PrdNumber): boolean {
   return prLinkPattern(template, prd).test(body ?? '');
 }
 
@@ -58,12 +59,12 @@ function isMerged(pr: StatusPr): boolean {
 }
 
 /** The one pull request that closes this PRD — `null` when none does. Matched by body, not branch. */
-export function findFeaturePr<P extends StatusPr>(prd: string | number, prs: readonly P[], prLinks: PrLinks): P | null {
+export function findFeaturePr<P extends StatusPr>(prd: PrdNumber, prs: readonly P[], prLinks: PrLinks): P | null {
   return prs.find((pr) => refersTo(prLinks.feature, pr.body, prd)) ?? null;
 }
 
 /** Every pull request that declares itself part of this PRD. Matched by body, not branch. */
-export function findSubPrs<P extends StatusPr>(prd: string | number, prs: readonly P[], prLinks: PrLinks): P[] {
+export function findSubPrs<P extends StatusPr>(prd: PrdNumber, prs: readonly P[], prLinks: PrLinks): P[] {
   return prs.filter((pr) => refersTo(prLinks.sub, pr.body, prd));
 }
 
@@ -106,7 +107,7 @@ export function deriveStatus({
   stallDays,
   prLinks,
 }: {
-  prd: string | number;
+  prd: PrdNumber;
   featurePrs: readonly StatusPr[] | null | undefined;
   lastCommit?: string | number | Date | null;
   now?: number;

@@ -24,16 +24,17 @@ import type { Slice } from '../../lib/inbox/territory.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { githubEnv } from '../github.ts';
-import { errorCode, errorMessage, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import { defined, propertyOf } from '../../lib/narrow.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhPrCommitsSchema, GhPrListSchema } from '../schema.ts';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { synchronous } from '../synchronous.ts';
+import type { PrNumber, PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
 
-function readPlan(prd: number, { ctx }: { ctx: Context }): { planPath: string; markdown: string } {
+function readPlan(prd: PrdNumber, { ctx }: { ctx: Context }): { planPath: string; markdown: string } {
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   try {
@@ -45,7 +46,7 @@ function readPlan(prd: number, { ctx }: { ctx: Context }): { planPath: string; m
 }
 
 /** The PRD folder's own topic, which fills `{topic}` in `branches.feature` and `branches.slice`. */
-function topicFor(prd: number, { ctx }: { ctx: Context }): string {
+function topicFor(prd: PrdNumber, { ctx }: { ctx: Context }): string {
   const where = ctx.layout.whereIs(prd);
   if (!where) throw usageError(`omni board: PRD ${prd} has no inbox or shipped folder.`);
   const parsed = parseFolderName(where.name);
@@ -104,7 +105,7 @@ function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
 
 /** The head commit's own date for one pull request, read with a second, narrow `gh pr view` call —
  * `null` when the payload carries no commit at all. */
-function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: number | undefined; exec: Exec; env: Env | undefined }): string | null {
+function fetchHeadCommitDate({ repo, number, exec, env }: { repo: string; number: PrNumber | undefined; exec: Exec; env: Env | undefined }): string | null {
   const options: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', ...(env ? { env } : {}) };
   const raw = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'commits'], options);
   const commits = GhPrCommitsSchema.parse(JSON.parse(raw)).commits ?? [];
@@ -151,7 +152,7 @@ function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
  * repository).
  */
 export function buildBoard(
-  prd: number,
+  prd: PrdNumber,
   { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
 ): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[] } {
   const { markdown } = readPlan(prd, { ctx });
@@ -236,7 +237,7 @@ export const board: Command = {
   run: synchronous((args: string[], { ctx, stdout, exec, env }: CommandIo): number => {
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
-    const prd = positiveInt('board', '<prd>', positional[0]);
+    const prd = prdArg('board', '<prd>', positional[0]);
 
     const { slices, result, unreadable } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
 

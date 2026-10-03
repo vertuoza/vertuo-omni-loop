@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { join } from 'node:path';
 import { isSafeId, LOCAL_DIR } from '../ask/local-state.ts';
 import type { ExecText } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 import { mainCheckout } from '../dossier/local.ts';
 import { SessionRecordSchema } from './schema.ts';
 import type { SessionRecord } from './schema.ts';
@@ -94,7 +95,7 @@ export function recordSession({ cwd, exec, sessionId, prd, now }: { cwd: string;
  * The PRD session `sessionId` last worked on, read in the main checkout of the repository `cwd` is
  * in; `null` for none, an unsafe id, no repository, or anything that cannot be read. Never throws.
  */
-export function recordedPrd({ cwd, exec, sessionId }: { cwd: string; exec: ExecText; sessionId: unknown }): number | null {
+export function recordedPrd({ cwd, exec, sessionId }: { cwd: string; exec: ExecText; sessionId: unknown }): PrdNumber | null {
   if (!isSafeId(sessionId)) return null;
   try {
     const root = mainCheckout(cwd, exec);

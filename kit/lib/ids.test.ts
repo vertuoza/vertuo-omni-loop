@@ -14,12 +14,14 @@ import {
   parsePr,
   parsePrd,
   parseSliceId,
+  parseWorkSliceId,
   type PrdNumber,
   PrdNumberSchema,
   type PrNumber,
   PrNumberSchema,
   type SliceId,
   SliceIdSchema,
+  type WorkSliceId,
 } from './ids.ts';
 
 const NUMERIC = [
@@ -62,10 +64,30 @@ describe('parseSliceId — s and a number', () => {
   });
 });
 
+describe('parseWorkSliceId — a plan slice, a rework or the settling of a ledger', () => {
+  it.each(['s1', 's12', 'fix-s1-01-migration-after-ask-mode', 'settle'])('accepts %j', (value) => {
+    expect(parseWorkSliceId(value)).toBe(value);
+  });
+
+  it.each(['', 'S1', 'fix-', '-s1', 'fix--s1', 's 1'])('refuses %j, naming the value', (value) => {
+    expect(() => parseWorkSliceId(value)).toThrow(`slice ${JSON.stringify(value)}: `);
+  });
+
+  it('a plan slice fits where a work slice is expected, not the reverse', () => {
+    expectTypeOf<SliceId>().toExtend<WorkSliceId>();
+    expectTypeOf<WorkSliceId>().not.toExtend<SliceId>();
+  });
+});
+
 describe('parseOutboxItemId — the slice, a two-digit count and a slug', () => {
   it('accepts an item id', () => {
     expect(parseOutboxItemId('s1-01-untracked-files-not-linted')).toBe('s1-01-untracked-files-not-linted');
     expect(parseOutboxItemId('s12-03-zod')).toBe('s12-03-zod');
+  });
+
+  it('accepts an item a rework raised, its slice the rework', () => {
+    const id = 'fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace';
+    expect(parseOutboxItemId(id)).toBe(id);
   });
 
   it.each(['s1-01', 's1-01-', 's1-1-zod', 'S1-01-zod', 's1-01-Zod', 's1-01-zod-', 's1-01--zod', 's-01-zod', ''])('refuses %j, naming the value', (value) => {

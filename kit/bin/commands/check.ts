@@ -25,10 +25,11 @@ import { riskyChanges } from '../../lib/outbox/decision-coverage.ts';
 import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Command, CommandIo, Exec, Out } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
@@ -137,7 +138,7 @@ function refExists(ctx: Context, ref: string, exec: Exec): boolean {
   }
 }
 
-function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: string; prd: number | null }): boolean {
+function checkCoverage({ ctx, stdout, exec }: CommandIo, { base, prd }: { base: string; prd: PrdNumber | null }): boolean {
   let ok = report(
     stdout,
     'check coverage — an account file does not hold what it claims:',
@@ -173,7 +174,7 @@ export const check: Command = {
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     if (positional.length > 1 || (positional[0] && !GUARDS.includes(positional[0]))) throw usageError(USAGE);
     const guard = positional[0] ?? 'all';
-    const prd = flags.prd === undefined ? null : positiveInt('check', '--prd', flags.prd);
+    const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
     const base = flags.base ?? defaultBase(ctx);
     const baseKnown = refExists(ctx, base, exec);
     // An explicit --base is the user's own ref: when it does not resolve, say so rather than skip.

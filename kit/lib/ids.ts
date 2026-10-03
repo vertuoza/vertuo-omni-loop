@@ -27,14 +27,27 @@ export type PrNumber = z.infer<typeof PrNumberSchema>;
 export const CommentIdSchema = z.number().int().positive().brand<'CommentId'>();
 export type CommentId = z.infer<typeof CommentIdSchema>;
 
-/** A slice of a plan: `s1`, `s12`. */
-export const SliceIdSchema = z.string().regex(/^s\d+$/).brand<'SliceId'>();
+/**
+ * The slice a piece of work ran as, which an outbox item or a slice's account is raised on: a
+ * plan's slice (`s1`), or one the loop names itself — a rework, `branches.rework` filled with the
+ * item it closes (`fix-s1-01-…`), or the settling of a ledger (`settle`). Lower-case words joined
+ * by hyphens.
+ */
+export const WorkSliceIdSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand<'WorkSliceId'>();
+export type WorkSliceId = z.infer<typeof WorkSliceIdSchema>;
+
+/** A slice of a plan: `s1`, `s12`. It fits where a `WorkSliceId` is expected. */
+export const SliceIdSchema = z.string().regex(/^s\d+$/).brand<'WorkSliceId'>().brand<'SliceId'>();
 export type SliceId = z.infer<typeof SliceIdSchema>;
 
-/** An outbox item: its slice, a two-digit count and a slug, `s1-01-untracked-files-not-linted`. */
+/**
+ * An outbox item: its slice, a two-digit count and a slug, `s1-01-untracked-files-not-linted`. An
+ * item a rework raised carries the rework's name before it (`fix-s1-01-zod-01-crew`), as its slice
+ * does.
+ */
 export const OutboxItemIdSchema = z
   .string()
-  .regex(/^s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  .regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/)
   .brand<'OutboxItemId'>();
 export type OutboxItemId = z.infer<typeof OutboxItemIdSchema>;
 
@@ -73,6 +86,11 @@ export function parseCommentId(value: number | string): CommentId {
 /** A slice id: `s1`. */
 export function parseSliceId(value: string): SliceId {
   return parseId(SliceIdSchema, value, 'slice id', value);
+}
+
+/** The slice a piece of work ran as: `s1`, `fix-s1-01-zod`, `settle`. */
+export function parseWorkSliceId(value: string): WorkSliceId {
+  return parseId(WorkSliceIdSchema, value, 'slice', value);
 }
 
 /** An outbox item id: `s1-01-untracked-files-not-linted`. */

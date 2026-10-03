@@ -24,11 +24,12 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox-collisions.mjs — changes in kit/porting/inbox--collisions.md.
 import type { Slice } from '../types.ts';
 import { parsePlanSlices, sharedGround } from './territory.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** What a plan's slice must carry to be compared: its id and its declared ground. */
 export type PlanSlice = { id: string; territory?: string[] };
 /** One PRD's plan, as already-parsed slices. */
-export type Plan = { prd: number | string; slices?: PlanSlice[] };
+export type Plan = { prd: PrdNumber; slices?: PlanSlice[] };
 /** Two PRDs whose plans claim the same ground. */
 export type PlanCollision = { left: number | string; right: number | string; shared: string[] };
 

@@ -11,7 +11,7 @@
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
-import { type PrdNumber, type PrNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 
@@ -89,7 +89,7 @@ function foldersOf(snapshot: RepoSnapshot): Folder[] {
     for (const name of names) {
       const parsed = parseFolderName(name);
       if (!parsed) continue;
-      const prd = parsePrd(parsed.prd);
+      const { prd } = parsed;
       if (!folders.has(prd)) folders.set(prd, { prd, topic: parsed.topic, place });
     }
   }

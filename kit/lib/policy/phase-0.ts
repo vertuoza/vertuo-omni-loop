@@ -32,7 +32,7 @@
 import { carriesTrailer, trailerLine } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
 import type { Context } from '../context.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 import { plainText } from '../outbox/plain-text.ts';
 
 /** What the phase-0 policy reads of the context: the config and the layout. */

@@ -15,11 +15,12 @@ import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import { isOneOf, propertyOf } from '../../lib/narrow.ts';
 import { githubEnv } from '../github.ts';
-import { parseArgs, positiveInt, println, readUserFile, repoSlug, usageError } from '../args.ts';
+import { parseArgs, prArg, prdArg, println, readUserFile, repoSlug, usageError } from '../args.ts';
 import { buildBoard } from './board.ts';
 import type { Command, CommandIo, Env, Exec } from '../io.ts';
 import { GhGraphqlSchema, GhPrStatesSchema, GhReplyMutationSchema } from '../schema.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE =
   'usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n' +
@@ -49,7 +50,7 @@ function graphql({ query, variables }: { query: string; variables: Record<string
   return parsed;
 }
 
-function featureBranchFor(prd: number, ctx: Context): string {
+function featureBranchFor(prd: PrdNumber, ctx: Context): string {
   const where = ctx.layout.whereIs(prd);
   const parsed = where ? parseFolderName(where.name) : null;
   if (parsed) return fillBranch(ctx.config.branches.feature, { topic: parsed.topic });
@@ -74,7 +75,7 @@ function findFeaturePr({ repo, branch, exec, env }: { repo: string; branch: stri
 
 /** Whether a wave holds claims: `holdsClaims` is `null` when the board could not be read. */
 function waveClaims(
-  prd: number,
+  prd: PrdNumber,
   { ctx, exec, env, repo }: { ctx: Context; exec: Exec; env: Env; repo: string | undefined },
 ): { holdsClaims: boolean | null; claimed: string[]; unreadable?: string } {
   try {
@@ -89,12 +90,12 @@ function waveClaims(
 function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo): number {
   const { positional, flags } = parseArgs('care', args, { values: ['pr', 'repo'] });
   if (positional.length !== 1) throw usageError(USAGE);
-  const prd = positiveInt('care', '<prd>', positional[0]);
+  const prd = prdArg('care', '<prd>', positional[0]);
   const repo = repoSlug('care', ctx, flags.repo);
   const branch = featureBranchFor(prd, ctx);
   const ghEnv = githubEnv(ctx, { exec, env });
 
-  const number = flags.pr !== undefined ? positiveInt('care', '--pr', flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
+  const number = flags.pr !== undefined ? prArg('care', '--pr', flags.pr) : findFeaturePr({ repo, branch, exec, env: ghEnv });
   if (number === null) {
     println(stderr, `omni care: PRD ${prd} has no feature PR yet (no pull request from ${branch}).`);
     return 1;

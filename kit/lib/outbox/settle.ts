@@ -46,6 +46,8 @@ import type { makeMarkers } from '../markers.ts';
 import type { OutboxItem } from '../types.ts';
 import { SETTLED_FILE, parseOutboxItem, type ParsedOutboxItem } from './outbox.ts';
 import { KIT_MESSAGES } from '../schema/messages.ts';
+import { OutboxItemIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The markers the ledger is written and read with. */
 export type Markers = ReturnType<typeof makeMarkers>;
@@ -151,13 +153,13 @@ export type SettledItemFacts = {
   rank: string | undefined;
   bearsOn: string | null | undefined;
   raised: string | undefined;
-  slice: string | undefined;
+  slice: WorkSliceId | undefined;
   wave: number | string | undefined;
 };
 
 /** One entry of `settled.md`, read back (`parseSettledEntries`). */
 export type SettledEntry = {
-  id: string;
+  id: OutboxItemId;
   verdict: string | undefined;
   closed: boolean;
   /** Every `- <Name>: <value>` line, by name. */
@@ -361,7 +363,7 @@ function closedLine(verdict: SettledVerdict | null): string {
 }
 
 /** The header a fresh `settled.md` starts with. Written once; every settling after this appends. */
-export function settledHeader(prd: number | string, { ctx }: { ctx: Pick<SettleContext, 'config'> }): string {
+export function settledHeader(prd: PrdNumber, { ctx }: { ctx: Pick<SettleContext, 'config'> }): string {
   return [
     `# Settled outbox items — PRD ${prd}`,
     '',
@@ -451,7 +453,7 @@ export function parseSettledEntries(text: string, markers: Pick<Markers, 'settle
  * "latest wins" rule. A repeated id keeps its first position (so unrelated ids keep reading in
  * raised order) with the later entry's own facts. */
 function latestPerId(entries: SettledEntry[]): SettledEntry[] {
-  const byId = new Map<string, SettledEntry>();
+  const byId = new Map<OutboxItemId, SettledEntry>();
   for (const entry of entries) byId.set(entry.id, entry);
   return [...byId.values()];
 }
@@ -461,13 +463,15 @@ function latestPerId(entries: SettledEntry[]): SettledEntry[] {
 function rawSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' | 'settledClose'>): SettledEntry[] {
   const lines = text.split('\n');
   const entries: SettledEntry[] = [];
-  let current: { id: string; fields: Record<string, string>; blocks: string[] } | null = null;
+  let current: { id: OutboxItemId; fields: Record<string, string>; blocks: string[] } | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      current = { id: openMatch[1] ?? '', fields: {}, blocks: [] };
+      // An entry is an outbox item's: an opening marker whose id is no item id opens none.
+      const id = OutboxItemIdSchema.safeParse(openMatch[1]);
+      current = id.success ? { id: id.data, fields: {}, blocks: [] } : null;
       continue;
     }
     if (!current) continue;

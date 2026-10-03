@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { parsePrd, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { listFolder, readFiles, readPull } from './github.ts';
 import type { Config, FeaturePull, Octokit, Pull, PrdFacts } from './retro.types.ts';
@@ -99,8 +99,7 @@ async function prdFolder(
     const entries = (await listFolder(octokit, { owner, repo, ref: sha, path: dirs[state] })) ?? [];
     for (const entry of entries) {
       const parsed = entry.type === 'tree' ? parseFolderName(entry.name) : null;
-      // The kit's folder parser still gives a bare number (PRD 1049, s5 makes it a PrdNumber).
-      if (parsed?.topic === topic) return { state, name: entry.name, prd: parsePrd(parsed.prd) };
+      if (parsed?.topic === topic) return { state, name: entry.name, prd: parsed.prd };
     }
   }
   return null;

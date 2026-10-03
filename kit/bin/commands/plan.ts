@@ -15,11 +15,12 @@ import { gradePlan } from '../../lib/inbox/plan-grade.ts';
 import { parsePlanRepositories, parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { defined } from '../../lib/narrow.ts';
 import { movedTable, planMoved } from '../../lib/plan-repo/moved.ts';
-import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { errorCode, errorMessage, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
 import { githubEnv } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni plan check <prd> | omni plan moved <prd> [--json]';
 
@@ -29,7 +30,7 @@ function counted(count: number, singular: string, pluralForm: string): string {
 }
 
 /** PRD n's plan: its path and its Markdown. */
-function readPlanText(prd: number, { ctx, verb }: { ctx: Context; verb: string }): { planPath: string; markdown: string } {
+function readPlanText(prd: PrdNumber, { ctx, verb }: { ctx: Context; verb: string }): { planPath: string; markdown: string } {
   const planPath = ctx.layout.planPath(prd);
   if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd} has no inbox or shipped folder.`);
 
@@ -42,7 +43,7 @@ function readPlanText(prd: number, { ctx, verb }: { ctx: Context; verb: string }
 }
 
 /** PRD n's plan, read and parsed: its path, its slices and its `## Repositories` rows. */
-function readPlan(prd: number, { ctx, verb }: { ctx: Context; verb: string }) {
+function readPlan(prd: PrdNumber, { ctx, verb }: { ctx: Context; verb: string }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb });
   let slices;
   try {
@@ -54,7 +55,7 @@ function readPlan(prd: number, { ctx, verb }: { ctx: Context; verb: string }) {
 }
 
 /** PRD n's plan, graded; a slice table that cannot be read is a usage error, as it always was. */
-function checkPlan(prd: number, { ctx }: { ctx: Context }) {
+function checkPlan(prd: PrdNumber, { ctx }: { ctx: Context }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb: 'check' });
   const graded = gradePlan(markdown, { config: ctx.config });
   if (graded.parseError !== null) throw usageError(`omni plan check: ${planPath}: ${graded.parseError}`);
@@ -65,7 +66,7 @@ function checkPlan(prd: number, { ctx }: { ctx: Context }) {
 function moved(rest: string[], { ctx, stdout, exec, env }: Omit<CommandIo, 'stderr'>): number {
   const { positional, flags } = parseArgs('plan moved', rest, { booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
-  const prd = positiveInt('plan moved', '<prd>', positional[0]);
+  const prd = prdArg('plan moved', '<prd>', positional[0]);
   const planSection = ctx.config.plan ?? null;
   if (planSection === null) {
     println(stdout, 'not a plan repository');
@@ -88,7 +89,7 @@ export const plan: Command = {
     if (sub !== 'check') throw usageError(USAGE);
     const { positional } = parseArgs('plan check', rest);
     if (positional.length !== 1) throw usageError(USAGE);
-    const prd = positiveInt('plan check', '<prd>', positional[0]);
+    const prd = prdArg('plan check', '<prd>', positional[0]);
 
     const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd, { ctx });
 

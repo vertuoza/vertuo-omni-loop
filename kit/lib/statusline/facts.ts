@@ -43,12 +43,13 @@ import { recordedPrd } from './sessions.ts';
 import { isBuilt, openItemCount, stageOf } from './stage.ts';
 import type { FeatureFacts, PrdStage } from './stage.ts';
 import { branchNames, whichPrd } from './which-prd.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The PRD line's facts: the PRD, the slice its branch names, where it stands, and its board. */
 export type PrdFacts = {
-  number: number;
+  number: PrdNumber;
   topic: string;
-  slice: string | null;
+  slice: WorkSliceId | null;
   stage: PrdStage | null;
   openItems: number;
   slices: CachedSlice[] | null;
@@ -154,7 +155,7 @@ function featureFacts(ctx: Context, { base, topic, folder }: { base: string; top
 
 /** The slices PRD `prd`'s cached board shows, read in the main checkout of `folder`, its refresh
  * started in `folder` when due and `spawn` is given; `null` for none. */
-function boardSlices({ folder, prd, now, spawn, env }: Refresh & { folder: string; prd: number }, exec: ExecText): CachedSlice[] | null {
+function boardSlices({ folder, prd, now, spawn, env }: Refresh & { folder: string; prd: PrdNumber }, exec: ExecText): CachedSlice[] | null {
   const root = attempt(() => mainCheckout(folder, exec), null);
   return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, env }) : null;
 }
