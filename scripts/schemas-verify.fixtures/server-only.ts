@@ -6,8 +6,9 @@ import { z } from 'zod';
 import type { Boundary } from '../../apps/galaxy/src/data/parse-rows.ts';
 
 const LIVE = '../../apps/galaxy/src/outbox-waiting/live.ts';
-const live: object = await import(LIVE);
+const live: unknown = await import(LIVE);
+const loaded = typeof live === 'object' && live !== null && Object.keys(live).length > 0;
 
 export const boundaries: Boundary[] = [
-  { name: `fixtures/server-only: ${String(Object.keys(live).length > 0)}`, read: (db) => db.from('teams').select('name'), schema: z.strictObject({ name: z.string() }), shape: 'rows' },
+  { name: `fixtures/server-only: ${String(loaded)}`, read: (db) => db.from('teams').select('name'), schema: z.strictObject({ name: z.string() }), shape: 'rows' },
 ];
