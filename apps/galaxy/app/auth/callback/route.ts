@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { cliSignInReturn } from '../../../src/ask/cli-code';
 import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
-import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, type SignedIn } from '../../../src/data/sign-in';
+import { afterSignIn, appLanding, joinBeforeIssue, sessionOf, settleSignIn } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 import { landingAfterSignIn } from '../../../src/data/workspace';
@@ -52,8 +51,8 @@ export async function GET(request: NextRequest) {
     return back('signin_error', 'That sign-in could not be finished. Start again from this browser.');
   }
 
-  // The answer as it came: nothing parsed it, so one with no body reads as no session.
-  const session = (propertyOf(data, 'session') as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
+  // The answer parsed: one with no body, or a session that does not parse, reads as no session.
+  const session = sessionOf(data, 'auth callback: exchangeCodeForSession');
   const next = params.get('next');
   const [key, value] = await afterSignIn(db, session, signInDeps, next);
   // Someone still in no workspace goes straight on to sign-up, not to the arcade's dead end.
