@@ -190,7 +190,7 @@ describe('the terminal\'s sign-in (omni signin)', () => {
       revoke: () => Promise.resolve(),
     };
     const url = new URL('https://galaxy.example/auth/callback?next=ask-cli&port=49152&state=Zm9vYmFyYmF6cXV4LXN0YXRl&code=github');
-    const join = (s: CliSession) => settleSignIn(w.client(PEOPLE.bea) as unknown as SupabaseClient<Database>, s, signIn);
+    const join = (s: CliSession) => settleSignIn(w.client(PEOPLE.bea), s, signIn);
     expect(await cliSignInReturn(url, 'https://galaxy.example', joinBeforeIssue(deps, join))).toMatch(/^http:\/\/127\.0\.0\.1:49152\/callback\?/);
     expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
   });

@@ -64,7 +64,7 @@ export function userOfClaims(claims: JwtPayload): User {
     aud: typeof claims.aud === 'string' ? claims.aud : 'authenticated',
     ...(claims.email === undefined ? {} : { email: claims.email }),
     ...(claims.phone === undefined ? {} : { phone: claims.phone }),
-    ...(claims.role === undefined ? {} : { role: claims.role }),
+    role: claims.role,
     ...(claims.is_anonymous === undefined ? {} : { is_anonymous: claims.is_anonymous }),
     app_metadata: app,
     user_metadata: meta,
