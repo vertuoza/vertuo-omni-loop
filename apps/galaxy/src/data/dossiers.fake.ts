@@ -8,7 +8,7 @@
 // by supabase/checks/dossiers.sql, not here.
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
-import type { fakeGalaxyDb, FakeUser } from './galaxy.fake';
+import { isFakeTable, type fakeGalaxyDb, type FakeUser } from './galaxy.fake';
 
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
@@ -77,7 +77,11 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
 
     return {
       ...base,
-      from: (table: string) => (table === 'dossiers' ? new DossierQuery() : base.from(table as Parameters<typeof base.from>[0])), // ts-allow: a test fake passes on any other table
+      from: (table: string) => {
+        if (table === 'dossiers') return new DossierQuery();
+        if (isFakeTable(table)) return base.from(table);
+        throw new Error(`fake: no table ${table}`);
+      },
       rpc,
     };
   }

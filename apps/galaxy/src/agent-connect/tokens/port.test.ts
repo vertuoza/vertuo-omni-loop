@@ -88,3 +88,10 @@ describe('tokensReducer', () => {
     expect(tokensReducer(s, { type: 'name', name: 'x' }).refusal).toBeNull();
   });
 });
+
+describe('the route\'s JSON, parsed (PRD 1030)', () => {
+  it('reads an answer that is not an object of fields as one it could not use', async () => {
+    expect(await httpTokensPort('ws-1', fetcher(201, ['omb_x']).fetch).make('x')).toEqual({ ok: false, message: COULD_NOT });
+    expect(await httpTokensPort('ws-1', fetcher(200, 'revoked').fetch).revoke(link())).toEqual({ ok: false, message: COULD_NOT });
+  });
+});

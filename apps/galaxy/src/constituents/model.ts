@@ -41,18 +41,26 @@ export type ConstituentsRead = z.infer<typeof constituentsReadSchema>;
 
 export const CONSTITUENT_COLUMNS = 'id, product_id, kind, seq, body, created_by, created_at, updated_at, removed_at, removed_by';
 
-export type StoredConstituent = {
-  id: string;
-  product_id: string;
-  kind: ConstituentKind;
-  seq: number | null;
-  body: string;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-  removed_at: string | null;
-  removed_by: string | null;
-};
+const CONSTITUENT_KINDS = ['statement', 'never'] as const satisfies readonly ConstituentKind[];
+const EVENT_ACTIONS = ['added', 'edited', 'removed', 'moved'] as const satisfies readonly EventAction[];
+
+/** A constituent's row as CONSTITUENT_COLUMNS reads it. */
+export const StoredConstituent = z.strictObject({
+  id: z.string(),
+  product_id: z.string(),
+  kind: z.enum(CONSTITUENT_KINDS),
+  seq: z.number().nullable(),
+  body: z.string(),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  removed_at: z.string().nullable(),
+  removed_by: z.string().nullable(),
+});
+export type StoredConstituent = z.infer<typeof StoredConstituent>;
+
+/** The whole row the constituent functions answer (`returns public.constituents`): its workspace too. */
+export const SavedConstituentRow = StoredConstituent.extend({ workspace_id: z.string() });
 
 export type Constituent = {
   id: string;
@@ -67,18 +75,21 @@ export type Constituent = {
 
 export const EVENT_COLUMNS = 'id, product_id, constituent_id, action, before, after, note, claim_id, changed_by, changed_at';
 
-export type StoredConstituentEvent = {
-  id: number | string;
-  product_id: string;
-  constituent_id: string;
-  action: EventAction;
-  before: string | null;
-  after: string | null;
-  note: string | null;
-  claim_id: string | null;
-  changed_by: string | null;
-  changed_at: string;
-};
+/** An event's row as EVENT_COLUMNS reads it. Its id is a bigint, which PostgREST may send as text:
+ * eventOf() reads it as a number on purpose. */
+export const StoredConstituentEvent = z.strictObject({
+  id: z.union([z.number(), z.string()]),
+  product_id: z.string(),
+  constituent_id: z.string(),
+  action: z.enum(EVENT_ACTIONS),
+  before: z.string().nullable(),
+  after: z.string().nullable(),
+  note: z.string().nullable(),
+  claim_id: z.string().nullable(),
+  changed_by: z.string().nullable(),
+  changed_at: z.string(),
+});
+export type StoredConstituentEvent = z.infer<typeof StoredConstituentEvent>;
 
 export type ConstituentEvent = {
   /** The event's number: a later change has a larger one. */

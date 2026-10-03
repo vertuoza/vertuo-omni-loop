@@ -6,15 +6,27 @@
 // the Supabase account sends a finished game's score. The demo keeps its own in browser storage.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
-import type { Hero } from '@omni/design';
 import { GAMES } from '../arcade/games';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
-import { listOf, numberOf } from './unparsed';
+import { z } from 'zod';
+import { orThrow, parseRows } from './parse-rows';
+import { StoredHero } from './players';
+import { numberOf } from './unparsed';
 
 /** How many lines a cabinet shows: the crew's top five. */
 export const TOP = 5;
 
-type ScoreRow = { id: string; best: number; player: { display_name: string; hero: Hero | null; team: string | null } | null };
+/** The columns of a line of a game's table: the score, and its player's name, hero and fleet. */
+export const SCORE_COLUMNS = 'id:user_id, best, player:players(display_name, hero, team)';
+
+/** A line of a game's table as SCORE_COLUMNS reads it. `best` is read as a number on purpose: PostgREST
+ * may send a bigint as text. */
+export const ScoreRow = z.strictObject({
+  id: z.string(),
+  best: z.coerce.number(),
+  player: z.strictObject({ display_name: z.string(), hero: StoredHero.nullable(), team: z.string().nullable() }).nullable(),
+});
+type ScoreRow = z.infer<typeof ScoreRow>;
 
 const lineOf = (row: ScoreRow): ScoreLine => ({
   id: row.id, name: row.player?.display_name ?? '???', hero: row.player?.hero ?? null, team: row.player?.team ?? null, best: numberOf(row.best),
@@ -28,7 +40,7 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
   const table = () => db.from('arcade_scores');
   const [top, mine] = await Promise.all([
     table()
-      .select('id:user_id, best, player:players(display_name, hero, team)')
+      .select(SCORE_COLUMNS)
       .eq('workspace_id', workspace)
       .eq('game', game)
       .order('best', { ascending: false })
@@ -39,7 +51,8 @@ export async function loadScores(db: Pick<SupabaseClient<Database>, 'from'>, wor
   const error = top.error ?? mine?.error;
   if (error) throw new Error(`Supabase: could not read the high scores (${error.message})`);
   const own = mine?.data;
-  return { top: (listOf(top.data) as unknown as ScoreRow[]).map(lineOf), mine: own ? numberOf(own.best) : null }; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
+  const lines = orThrow(parseRows(ScoreRow, top.data, 'data/scores: arcade_scores'));
+  return { top: lines.map(lineOf), mine: own ? numberOf(own.best) : null };
 }
 
 /**

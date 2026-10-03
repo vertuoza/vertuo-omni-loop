@@ -8,7 +8,7 @@ import {
 // calls Supabase), their refusals as the panel says them, and the demo's same rules in memory.
 
 const ROW = {
-  id: 'c-1', product_id: 'p-1', kind: 'never', seq: 1, body: 'Calls real Vertuoza APIs', created_by: 'u-1',
+  id: 'c-1', workspace_id: 'w-1', product_id: 'p-1', kind: 'never', seq: 1, body: 'Calls real Vertuoza APIs', created_by: 'u-1',
   created_at: '2026-10-01T09:00:00Z', updated_at: '2026-10-01T09:00:00Z', removed_at: null, removed_by: null,
 };
 
