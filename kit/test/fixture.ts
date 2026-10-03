@@ -24,7 +24,7 @@ export type SlotFixture = {
 
 export function deepMerge(base: unknown, over: unknown): unknown {
   if (Array.isArray(over) || over === null || typeof over !== 'object') return over;
-  const from = base as Overrides | null | undefined; // ts-allow: spread and read as JavaScript spreads and reads it, whatever it is
+  const from = base as Overrides | null | undefined;
   const out: Overrides = { ...from };
   for (const [key, value] of Object.entries(over)) {
     out[key] = from && typeof from[key] === 'object' && from[key] !== null && !Array.isArray(from[key])
@@ -45,7 +45,7 @@ export function makeRepo({ files = {}, config = {}, git = false }: { files?: Rea
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
   };
-  for (const [path, text] of Object.entries(files)) write(path, text as string); // ts-allow: a fixture names only files it writes
+  for (const [path, text] of Object.entries(files)) write(path, text as string);
   if (git) {
     const run = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
     run('init', '-q', '-b', 'main');
@@ -68,7 +68,7 @@ export type Files = Record<string, string>;
 export type FakeExec = (file: string, args: readonly string[], options?: ExecFileSyncOptions) => string;
 
 /** The real `execFileSync`, for the calls a fake does not answer: the kit always asks for text. */
-export const realExec: FakeExec = (file, args, options) => execFileSync(file, args, options) as string; // ts-allow: the kit runs every process with a text encoding
+export const realExec: FakeExec = (file, args, options) => execFileSync(file, args, options) as string;
 
 /** What a fake `fetch` reads of a request: its method, its headers and its body. */
 export type FetchInit = { method?: string; headers: Record<string, string>; body?: string; signal?: AbortSignal | null };

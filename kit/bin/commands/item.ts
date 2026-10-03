@@ -292,7 +292,7 @@ function runNew(args: string[], { ctx, stdout, stderr }: CommandIo): number {
       wave: input.wave,
       raised: input.raised ?? todayUtc(),
       bearsOn,
-      rank: decision.rank as string, // ts-allow: a decision that writes an item carries a rank
+      rank: defined(decision.rank, 'the rank of a decision that writes an item'),
       questionPlain: input.questionPlain,
       decisionPlain: input.decisionPlain,
       introFun: input.introFun,

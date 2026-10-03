@@ -23,7 +23,8 @@ export function parseArgs<V extends string = never, B extends string = never>(
   { values = [], booleans = [] }: { values?: readonly V[]; booleans?: readonly B[] } = {},
 ): { positional: string[]; flags: Flags<V, B> } {
   const positional: string[] = [];
-  const flags: Record<string, string | true> = {};
+  const valueFlags: { [K in V]?: string } = {};
+  const booleanFlags: { [K in B]?: true } = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = at(argv, index, 'the argument');
     if (!arg.startsWith('--')) {
@@ -32,17 +33,17 @@ export function parseArgs<V extends string = never, B extends string = never>(
     }
     const name = arg.slice(2);
     if (isOneOf(booleans, name)) {
-      flags[name] = true;
+      booleanFlags[name] = true;
     } else if (isOneOf(values, name)) {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith('--')) throw usageError(`omni ${command}: ${arg} needs a value.`);
-      flags[name] = value;
+      valueFlags[name] = value;
       index += 1;
     } else {
       throw usageError(`omni ${command}: unknown flag ${arg}.`);
     }
   }
-  return { positional, flags: flags as Flags<V, B> }; // ts-allow: each key was set from `values` (a string) or `booleans` (true)
+  return { positional, flags: { ...valueFlags, ...booleanFlags } };
 }
 
 const DIGITS = /^\d+$/;

@@ -178,9 +178,10 @@ function idFaults(ids: readonly (string | undefined)[]): string[] {
 function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas: AreaRow[]; faults: string[] } {
   const table = firstTable(lines);
   if (!table) return { areas: [], faults: [`Areas: no table; it holds one with the columns ${AREA_COLUMNS.slice(0, -1).join(', ')} and ${AREA_COLUMNS.at(-1)}.`] };
-  const column: Record<AreaColumn, number> = Object.fromEntries(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())])) as Record<AreaColumn, number>; // ts-allow: `fromEntries` keys every column of AREA_COLUMNS
-  const faults = AREA_COLUMNS.filter((name) => column[name] === -1).map((name) => `Areas: the table has no "${name}" column.`);
-  const cell = (row: readonly string[], name: AreaColumn): string | undefined => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
+  const positions = new Map(AREA_COLUMNS.map((name) => [name, table.header.findIndex((cell) => cell.toLowerCase() === name.toLowerCase())]));
+  const column = (name: AreaColumn): number => positions.get(name) ?? -1;
+  const faults = AREA_COLUMNS.filter((name) => column(name) === -1).map((name) => `Areas: the table has no "${name}" column.`);
+  const cell = (row: readonly string[], name: AreaColumn): string | undefined => (column(name) === -1 ? undefined : (row[column(name)] ?? ''));
 
   const areas = table.rows.map((row, index): AreaRow => {
     const id = cell(row, 'id');
@@ -197,6 +198,11 @@ function areasOf(lines: readonly string[], scale: ConceptScale | null): { areas:
     faults.push(`Areas: ${count}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
+}
+
+/** An area of a table with every column, where each cell is a string. */
+function conceptArea({ id, area, brief, prd }: AreaRow): ConceptArea {
+  return { id: defined(id, 'the area id'), area: defined(area, 'the area name'), brief: defined(brief, 'the area brief'), prd };
 }
 
 /** Parses one concept.md (`text`, the file's text) into a typed record, or every fault it has. */
@@ -219,6 +225,6 @@ export function parseConcept(text: string): ConceptParse {
   const data = defined(front.data, 'the parsed front matter');
   return {
     ok: true,
-    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas as ConceptArea[] }, // ts-allow: with every column present, each cell is a string
+    record: { ...data, sections: Object.fromEntries(CONCEPT_SECTIONS.map((name) => [name, named.get(name) ?? ''])), areas: areas.map(conceptArea) },
   };
 }

@@ -128,13 +128,10 @@ function fetchHeadCommitDates(
 
 const STATE_WIDTH = 'claimed-stale'.length;
 
-/** A plan slice as the board reads it: `board.ts` types its wave as a number, the plan as a number or null. */
-type PlanSlice = Slice & { wave: number };
-
 /** A repository of a plan repository's slices that could not be read. */
 type Unreadable = { repo: string | null | undefined; slug: string | null; reason: string };
 
-function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
+function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
   const repoCol = row.repo === undefined ? '' : `${defined(row.repo, `the repository of ${row.id}`).padEnd(repoWidth)}  `;
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
@@ -156,11 +153,11 @@ function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
 export function buildBoard(
   prd: number,
   { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
-): { slices: PlanSlice[]; result: ReturnType<typeof boardFor<PlanSlice>>; unreadable: Unreadable[] } {
+): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[] } {
   const { markdown } = readPlan(prd, { ctx });
-  let slices: PlanSlice[];
+  let slices: Slice[];
   try {
-    slices = parsePlanSlices(markdown) as PlanSlice[]; // ts-allow: a slice with no wave reaches boardFor as it always has
+    slices = parsePlanSlices(markdown);
   } catch (error) {
     throw usageError(`omni board: ${errorMessage(error)}`);
   }

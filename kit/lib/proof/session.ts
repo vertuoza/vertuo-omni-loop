@@ -8,22 +8,25 @@
 // token only: with an empty refresh token the browser can never rotate, and so never sign out, the
 // CLI's own sign-in. The session ends with the access token, an hour after `omni signin` renewed it.
 
+import { z } from 'zod';
+
 /** The longest value @supabase/ssr puts in one cookie before it splits the session. */
 const CHUNK = 3180;
 
 export class SessionRefused extends Error {}
 
 /** The claims of a Supabase access token this file reads. */
-type Claims = {
-  iss?: string;
-  sub?: string;
-  aud?: string | string[];
-  role?: string;
-  email?: string;
-  app_metadata?: Record<string, unknown> | null;
-  user_metadata?: Record<string, unknown> | null;
-  exp: number;
-};
+const ClaimsSchema = z.object({
+  iss: z.string().optional(),
+  sub: z.string().optional(),
+  aud: z.union([z.string(), z.array(z.string())]).optional(),
+  role: z.string().optional(),
+  email: z.string().optional(),
+  app_metadata: z.record(z.string(), z.unknown()).nullish(),
+  user_metadata: z.record(z.string(), z.unknown()).nullish(),
+  exp: z.number(),
+});
+type Claims = z.infer<typeof ClaimsSchema>;
 
 /** A cookie of a Playwright storageState. */
 export type StateCookie = {
@@ -42,7 +45,8 @@ function claimsOf(token: unknown): Claims | null {
   const parts = typeof token === 'string' ? token.split('.') : [];
   if (parts.length !== 3) return null;
   try {
-    return JSON.parse(Buffer.from(parts[1] ?? '', 'base64url').toString()) as Claims; // ts-allow: read as it always was, `iss` through `new URL` and `exp` by comparison (PRD 725 outbox item s16-01-hand-checks-stand-in-for-schemas)
+    const parsed = ClaimsSchema.safeParse(JSON.parse(Buffer.from(parts[1] ?? '', 'base64url').toString()));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

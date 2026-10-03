@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
 import { gradePlan } from '../../lib/inbox/plan-grade.ts';
 import { parsePlanRepositories, parsePlanSlices } from '../../lib/inbox/territory.ts';
+import { defined } from '../../lib/narrow.ts';
 import { movedTable, planMoved } from '../../lib/plan-repo/moved.ts';
 import { errorCode, errorMessage, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Context } from '../../lib/context.ts';
@@ -72,7 +73,7 @@ function moved(rest: string[], { ctx, stdout, exec, env }: Omit<CommandIo, 'stde
   }
   const { slices, repositories } = readPlan(prd, { ctx, verb: 'moved' });
   const rows = planMoved(
-    { slices, repositories, planSlug: ctx.config.repo.slug as string, targets: planSection.targets }, // ts-allow: a plan repository with no slug still crashes in planMoved (PRD 725 outbox item s10-01-plan-repo-without-slug-still-crashes)
+    { slices, repositories, planSlug: defined(ctx.config.repo.slug, "the plan repository's slug"), targets: planSection.targets },
     { exec, env: githubEnv(ctx, { exec, env }) },
   );
   if (flags.json) println(stdout, JSON.stringify(rows.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));

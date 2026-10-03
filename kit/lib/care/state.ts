@@ -2,45 +2,69 @@
 // state, its review threads with each one's verdict, and the care line of `/omni:pr`'s status comment.
 // Pure: `kit/bin/commands/care.ts` runs the query (`CARE_QUERY`) and adds whether a wave holds
 // claims; the decision (`decide.mjs`) reads what this returns.
+import { z } from 'zod';
 import { readCareVerdict } from './marker.ts';
-import { at } from '../narrow.ts';
+import { at, propertyOf } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
 
-// The parts of `CARE_QUERY`'s answer this file reads. Every field may be missing or null: GitHub's
-// answer is checked where `kit/bin/commands/care.ts` reads it (PRD 725 outbox item s4-03), and this
+// The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
+// GitHub's answer with it. Every field but a few GitHub always sends may be missing or null, and this
 // parser keeps reading a missing field as it always has.
-type Maybe<T> = T | null | undefined;
-type Nodes<T> = Maybe<{ nodes?: Maybe<T[]> }>;
+const text = z.string().nullish();
+const nodesOf = <T extends z.ZodType>(node: T) => z.object({ nodes: z.array(node).nullish() }).nullish();
 
-type ContextNode = {
-  __typename?: Maybe<string>;
-  name?: Maybe<string>;
-  conclusion?: Maybe<string>;
-  detailsUrl?: Maybe<string>;
-  context?: Maybe<string>;
-  state?: Maybe<string>;
-  targetUrl?: Maybe<string>;
-};
-type Rollup = { state?: Maybe<string>; contexts?: Nodes<Maybe<ContextNode>> };
-type CommentNode = { author?: Maybe<{ login?: Maybe<string>; avatarUrl?: Maybe<string> }>; body?: Maybe<string>; createdAt?: Maybe<string>; url?: Maybe<string> };
-type ThreadNode = { id: string; isResolved?: Maybe<boolean>; path?: Maybe<string>; line?: Maybe<number>; comments?: Nodes<CommentNode> };
-type IssueCommentNode = { databaseId?: Maybe<number>; body?: Maybe<string> };
-type PullRequestNode = {
-  number: number;
-  url: string;
-  state: string;
-  isDraft?: Maybe<boolean>;
-  baseRefName: string;
-  headRefName: string;
-  mergeable?: Maybe<string>;
-  labels?: Nodes<{ name: string }>;
-  commits?: Nodes<Maybe<{ commit?: Maybe<{ statusCheckRollup?: Maybe<Rollup> }> }>>;
-  reviewThreads?: Nodes<ThreadNode>;
-  comments?: Nodes<IssueCommentNode>;
-};
+const ContextNodeSchema = z.object({
+  __typename: text,
+  name: text,
+  conclusion: text,
+  detailsUrl: text,
+  context: text,
+  state: text,
+  targetUrl: text,
+});
+type ContextNode = z.infer<typeof ContextNodeSchema>;
+const RollupSchema = z.object({ state: text, contexts: nodesOf(ContextNodeSchema.nullish()) });
+type Rollup = z.infer<typeof RollupSchema>;
+const AuthorSchema = z.object({ login: text, avatarUrl: text });
+const CommentNodeSchema = z.object({
+  author: AuthorSchema.nullish(),
+  body: text,
+  createdAt: text,
+  url: text,
+});
+type CommentNode = z.infer<typeof CommentNodeSchema>;
+const ThreadNodeSchema = z.object({
+  id: z.string(),
+  isResolved: z.boolean().nullish(),
+  path: text,
+  line: z.number().nullish(),
+  comments: nodesOf(CommentNodeSchema),
+});
+type ThreadNode = z.infer<typeof ThreadNodeSchema>;
+const IssueCommentNodeSchema = z.object({ databaseId: z.number().nullish(), body: text });
+type IssueCommentNode = z.infer<typeof IssueCommentNodeSchema>;
+const PullRequestNodeSchema = z.object({
+  number: z.number(),
+  url: z.string(),
+  state: z.string(),
+  isDraft: z.boolean().nullish(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  mergeable: text,
+  labels: nodesOf(z.object({ name: z.string() })),
+  commits: nodesOf(z.object({ commit: z.object({ statusCheckRollup: RollupSchema.nullish() }).nullish() }).nullish()),
+  reviewThreads: nodesOf(ThreadNodeSchema),
+  comments: nodesOf(IssueCommentNodeSchema),
+});
+type PullRequestNode = z.infer<typeof PullRequestNodeSchema>;
+
+/** The JSON of `CARE_QUERY`, as far as `careState` reads it. */
+export const CareResponseSchema = z
+  .object({ data: z.object({ repository: z.object({ pullRequest: PullRequestNodeSchema.nullish() }).nullish() }).nullish() })
+  .nullish();
 
 /** The parsed JSON of `CARE_QUERY`, as far as `careState` reads it. */
-export type CareResponse = Maybe<{ data?: Maybe<{ repository?: Maybe<{ pullRequest?: Maybe<PullRequestNode> }> }> }>;
+export type CareResponse = z.infer<typeof CareResponseSchema>;
 
 export type CheckState = 'green' | 'red' | 'running' | 'none';
 export type FailedCheck = { name: string | null | undefined; url: string | null };
@@ -108,7 +132,7 @@ function failedRun(node: ContextNode): FailedCheck | null {
   return FAILED_RUN.has(node.conclusion ?? '') ? { name: node.name, url: node.detailsUrl ?? null } : null;
 }
 
-function failedContexts(contexts: readonly Maybe<ContextNode>[]): FailedCheck[] {
+function failedContexts(contexts: readonly (ContextNode | null | undefined)[]): FailedCheck[] {
   const failed: FailedCheck[] = [];
   for (const node of contexts) {
     const check = node ? (node.__typename === 'StatusContext' ? failedStatus(node) : failedRun(node)) : null;
@@ -136,10 +160,16 @@ function readChecks(pr: PullRequestNode, labels: readonly string[], { needsFixLa
   return { state, failed, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
 
+/** A comment author's field: its text, or null when the comment has no author or no such field. */
+function authorField(node: CommentNode, key: 'login' | 'avatarUrl'): string | null {
+  const value = propertyOf(node.author, key);
+  return typeof value === 'string' ? value : null;
+}
+
 function readComment(node: CommentNode): CareComment {
   return {
-    author: node.author?.login ?? null,
-    avatarUrl: node.author?.avatarUrl ?? null,
+    author: authorField(node, 'login'),
+    avatarUrl: authorField(node, 'avatarUrl'),
     body: node.body ?? '',
     createdAt: node.createdAt ?? null,
     url: node.url ?? null,

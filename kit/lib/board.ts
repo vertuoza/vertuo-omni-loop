@@ -84,7 +84,8 @@ export type BoardSlice = {
   id: string;
   title?: string;
   territory: string[];
-  wave: number;
+  /** `null` for a plan with no `wave` column: such a slice is never in the frontier's wave. */
+  wave: number | null;
   blockedBy?: string[];
   /** In a plan repository: the short name of the repository the slice lands in. */
   repo?: string | null;
@@ -102,7 +103,7 @@ export type BoardRow<S extends BoardSlice = BoardSlice> = Omit<S, 'repo'> & {
 };
 
 /** What the board's frontier reads of a row. */
-export type FrontierRow = { id: string; territory: string[]; wave: number; state: string };
+export type FrontierRow = { id: string; territory: string[]; wave: number | null; state: string };
 
 /** The wave a person or a wave runner should take next. */
 export type Frontier = {
@@ -231,7 +232,8 @@ export function runnableFrontier(rows: readonly FrontierRow[]): Frontier {
   const takeableRows = rows.filter((row) => TAKEABLE_STATES.has(row.state));
   if (takeableRows.length === 0) return { wave: null, runnable: [], takeable: [], excluded: [], collisions: [] };
 
-  const wave = Math.min(...takeableRows.map((row) => row.wave));
+  // A wave read as `Math.min` reads it: `null` counts as 0, though no row of wave `null` is in it.
+  const wave = Math.min(...takeableRows.map((row) => Number(row.wave)));
   const inWave = takeableRows.filter((row) => row.wave === wave);
   const collisions = sameWaveCollisions(inWave);
 
