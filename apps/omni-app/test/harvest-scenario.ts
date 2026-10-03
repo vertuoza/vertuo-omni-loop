@@ -12,6 +12,7 @@ import { vi } from 'vitest';
 import { z } from 'zod';
 import { HARVEST_EVENT } from '../src/inngest-client.ts';
 import { replayGitHub } from './github-replay.ts';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
@@ -104,7 +105,7 @@ function drifted(id: string) {
   });
 }
 
-const header = (prd: number) => settledHeader(prd, { ctx: { config: { paths: { delivery: D } } } });
+const header = (prd: number) => settledHeader(parsePrd(prd), { ctx: { config: { paths: { delivery: D } } } });
 
 export const LEDGER_TEXT = [header(42), adopted('s0-01-local-name'), adopted('s0-02-cited'), adopted('s0-03-refused'), drifted('s0-04-drift')].join('\n');
 

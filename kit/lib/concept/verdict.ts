@@ -24,7 +24,6 @@ import { join } from 'node:path';
 import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import { beforeAfterViolation } from '../inbox/check-inbox.ts';
-import { padPrd } from '../layout.ts';
 import { parseConcept } from './parse.ts';
 import type { TrailerSignature } from '../signature.ts';
 
@@ -76,7 +75,7 @@ const SCRIPT_LOADS: readonly Load[] = [
 
 /** The folder name prefix of a concept: its number, zero-padded to four digits, then `-`. */
 export function folderPrefix(concept: number | string): string {
-  return `${padPrd(concept)}-`;
+  return `${String(Number(concept)).padStart(4, '0')}-`;
 }
 
 /** Each `[what, pattern]` of `patterns` found in `texts`, as `<what> <url>`. */
@@ -210,7 +209,7 @@ export function conceptVerdict({
 }): { ok: boolean; folder: string | null; failures: string[] } {
   return fixVerdict({
     ctx,
-    issue: concept,
+    number: concept,
     commits,
     root: ctx.layout.dirs.concepts,
     prefix: folderPrefix(concept),

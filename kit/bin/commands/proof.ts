@@ -35,8 +35,9 @@ import { ProofReplyError, pushProof } from '../../lib/proof/push.ts';
 import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.ts';
 import type { ProofRun } from '../../lib/proof/run.ts';
 import { SessionRefused, storageState } from '../../lib/proof/session.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Env, FreeCommand, FreeIo, Out } from '../io.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 /** What a test hands `omni proof` beyond `main()`'s own. */
 type ProofOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
@@ -57,7 +58,7 @@ function skipLine(error: unknown): string {
 }
 
 /** What `omni proof push <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
-function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | { verb: 'push'; prd: number; dir: string } {
+function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | { verb: 'push'; prd: PrdNumber; dir: string } {
   const { positional } = parseArgs('proof', args);
   const [verb, first, second, ...rest] = positional;
   if (verb === 'session') {
@@ -66,7 +67,7 @@ function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | {
     return { verb, file };
   }
   if (verb !== 'push' || second === undefined || rest.length) throw usageError(USAGE);
-  return { verb, prd: positiveInt('proof push', '<n>', first), dir: second };
+  return { verb, prd: prdArg('proof push', '<n>', first), dir: second };
 }
 
 /** The run in `dir`, or the one line a local refusal is reported with. */
@@ -85,7 +86,7 @@ function localRun(cwd: string, dir: string): { line: string; run?: undefined } |
 
 /** Sends the run and prints its links, or the one line that stopped it; the exit code. */
 async function send(
-  { toggle, repo, prd, run }: { toggle: { askUrl: string }; repo: string; prd: number; run: ProofRun },
+  { toggle, repo, prd, run }: { toggle: { askUrl: string }; repo: string; prd: PrdNumber; run: ProofRun },
   { stdout, stderr, tokens, home, fetch, callMs }: CallIo,
 ): Promise<number> {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });

@@ -46,6 +46,7 @@ import {
   verdictMarker,
 } from './knowledge-harvest.ts';
 import type { RequestOctokit } from './github.ts';
+import { parsePrd } from '../../../../kit/lib/ids.ts';
 
 type Octokit = RequestOctokit;
 type Replies = Record<string, unknown>;
@@ -255,7 +256,7 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
     const files = ['principles', 'rules', 'invariants'].map((f) => `${K}/product/${f}.md`);
     expect(gradeKnowledge({ ctx, files }).violations).toEqual([]);
     expect(findOutboxViolations({ ctx })).toEqual([]);
-    expect(gateResult(42, { ctx }).ok).toBe(true);
+    expect(gateResult(parsePrd(42), { ctx }).ok).toBe(true);
   });
 
   it('writes a body whose rows match the ledger lines: proposed principles first, then the table, the not placed, the facts', async () => {

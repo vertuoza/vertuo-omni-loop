@@ -21,6 +21,7 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
+import type { IssueNumber } from '../ids.ts';
 
 /** What a bug verdict reads of the context: the root, where deliveries live and the signature. */
 type BugContext = { root: string; config: { paths: { delivery: string }; signature: TrailerSignature | null } };
@@ -119,13 +120,13 @@ function recordViolations(ctx: { root: string }, record: string, changed: Set<st
  */
 export function bugVerdict({ ctx, issue, changed, commits }: {
   ctx: BugContext;
-  issue: number;
+  issue: IssueNumber;
   changed?: Iterable<string> | undefined;
   commits?: readonly Commit[] | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   return fixVerdict({
-    ctx, issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
+    ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
     grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet),
   });
 }

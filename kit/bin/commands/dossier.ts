@@ -38,8 +38,9 @@ import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
 import { fixTitle, readDossierFolder, readFixFolder, TITLE_MAX } from '../../lib/dossier/folder.ts';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.ts';
+import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
 import { isOneOf } from '../../lib/narrow.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { Env, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
 /** What a test hands `omni dossier` beyond `main()`'s own. */
@@ -122,7 +123,7 @@ async function open(title: string, { ctx, repo, client, home, claudeSessionId, s
 }
 
 /** Issue n's title, as `gh` reads it, or null when it cannot: the push then titles the fix after its folder. */
-function issueTitle(issue: number, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
+function issueTitle(issue: IssueNumber, { ctx, repo, exec }: Pick<VerbIo, 'ctx' | 'repo' | 'exec'>): string | null {
   try {
     const title = exec('gh', ['issue', 'view', String(issue), '--repo', repo, '--json', 'title', '--jq', '.title'], {
       cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: ISSUE_TITLE_MS,
@@ -147,7 +148,7 @@ function reportPush(result: unknown, tooLarge: readonly TooLarge[], { stdout, st
 }
 
 /** Issue n's fix of `kind`: its folder, sent with its kind. No draft: a fix never has one. */
-async function pushFix(issue: number, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
+async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, exec, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readFixFolder(ctx, kind, issue);
   if (!folder) throw usageError(`omni dossier push: issue ${issue} has no ${kind} fix folder.`);
   // Titled after its issue, asked of GitHub only once the folder is there; after the folder when it cannot.
@@ -162,7 +163,7 @@ async function pushFix(issue: number, kind: FixKind, { ctx, repo, client, exec, 
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd: number, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
+async function push(prd: PrdNumber, { ctx, repo, client, home, claudeSessionId, stdout, stderr }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
@@ -196,12 +197,14 @@ async function push(prd: number, { ctx, repo, client, home, claudeSessionId, std
 }
 
 /** The last link this computer recorded for PRD n, or null. It records PRDs only: a fix has none. */
-function recordedLink(home: string | null, prd: number, kind: string) {
+function recordedLink(home: string | null, prd: PrdNumber | IssueNumber, kind: string) {
   if (!home || kind !== 'prd') return null;
   return readDossiers(home).filter((entry) => entry.prd === prd).at(-1) ?? null;
 }
 
-async function link(prd: number, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
+/** PRD n's link, or with a fix's kind issue n's: a fix's dossier is keyed by its issue, so `prd` is
+ * a PRD's number or an issue's. */
+async function link(prd: PrdNumber | IssueNumber, kind: string, { repo, client, home, stdout, stderr }: VerbIo): Promise<number> {
   let found: unknown;
   try {
     found = await client.findDossier({ repo, prd, kind });
@@ -228,6 +231,15 @@ async function link(prd: number, kind: string, { repo, client, home, stdout, std
   return 0;
 }
 
+/** What `push` and `link` name: PRD n, or with `--kind visual|bug` issue n's fix. */
+type Named = { kind: 'prd'; prd: PrdNumber } | { kind: FixKind; issue: IssueNumber };
+
+/** `<n>` read as the kind names it: a PRD's number, or a fix's issue. */
+function namedBy(verb: string, kind: 'prd' | FixKind, value: string | undefined): Named {
+  const command = `dossier ${verb}`;
+  return kind === 'prd' ? { kind, prd: prdArg(command, '<n>', value) } : { kind, issue: issueArg(command, '<n>', value) };
+}
+
 /** The kind `--kind` names (prd when it names none); only push and link take one. */
 function kindOf(flag: string | undefined, numbered: boolean): 'prd' | FixKind {
   if (flag === undefined) return 'prd';
@@ -250,7 +262,7 @@ export const dossier = {
     if (!runnable) throw usageError(USAGE);
     const kind = kindOf(flags.kind, numbered);
     if (verb === 'link' && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE);
-    const prd = numbered ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
+    const named = numbered ? namedBy(verb, kind, rest[0]) : null;
 
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -271,10 +283,10 @@ export const dossier = {
       return 1;
     }
     const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    // `prd` is a number for `push` and `link`, the two verbs that read it, and null for `open`.
-    if (prd === null) return open(title, options);
-    if (verb === 'link') return link(prd, kind, options);
-    if (verb === 'push' && kind !== 'prd') return pushFix(prd, kind, options);
-    return push(prd, options);
+    // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
+    if (named === null) return open(title, options);
+    if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);
+    if (named.kind !== 'prd') return pushFix(named.issue, named.kind, options);
+    return push(named.prd, options);
   },
 } satisfies FreeCommand;

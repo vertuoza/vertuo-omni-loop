@@ -2,6 +2,7 @@
 // outside the process is a Zod schema in `kit/lib/schema/` and its type here is `z.infer` of it; a
 // shape the kit only builds itself is written here as a type. Types only: this file holds no value.
 import type { z } from 'zod';
+import type { PrdNumber, WorkSliceId } from './ids.ts';
 import type { ConfigSchema } from './schema/config.ts';
 import type { OutboxItemFrontMatterSchema, PROOF_VALUES, RANK_VALUES, SPEC_VALUES, SpecFrontMatterSchema } from './schema/front-matter.ts';
 
@@ -16,7 +17,7 @@ export type PrdState = 'inbox' | 'shipped';
 
 /** Where PRD `prd` lives today, as `omni prd <n>` prints it (`kit/lib/delivery/prd.ts`). */
 export type PRD = {
-  prd: number;
+  prd: PrdNumber;
   /** The folder's name, `<nnnn>-<topic>`. */
   name: string;
   state: PrdState;
@@ -33,14 +34,15 @@ export type PRD = {
 
 /** One row of a plan's slice table (`parsePlanSlices`, `kit/lib/inbox/territory.ts`). */
 export type Slice = {
-  id: string;
+  /** A plan's slice (`s1`), or in a rework plan a rework (`fix-s1-01-…`). */
+  id: WorkSliceId;
   /** The repository the slice lands in, for a plan repository's plan; `null` otherwise. */
   repo: string | null;
   title: string;
   /** The path prefixes the slice may create or change. */
   territory: string[];
   /** The ids of the slices that must merge first. */
-  blockedBy: string[];
+  blockedBy: WorkSliceId[];
   /** `null` for a plan with no `wave` column. */
   wave: number | null;
 };
@@ -50,7 +52,7 @@ export type Proof = (typeof PROOF_VALUES)[number];
 
 /** An inbox spec's front matter, parsed (`parseSpec`, `kit/lib/inbox/inbox.ts`), and its file. */
 export type InboxItem = {
-  prd: number;
+  prd: PrdNumber;
   title: string;
   blockedBy: z.infer<typeof SpecFrontMatterSchema>['blocked-by'];
   spec: SpecSource;

@@ -39,6 +39,8 @@ import { parseSettledEntries } from '../outbox/settle.ts';
 import { COMMANDS } from '../commands.ts';
 import type { makeMarkers } from '../markers.ts';
 import type { Config, OutboxItem, OutboxOption } from '../types.ts';
+import { WorkSliceIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The markers this module reads: a settled entry's opening and closing lines. */
 export type ReworkMarkers = Pick<ReturnType<typeof makeMarkers>, 'settledOpen' | 'settledOpenRe' | 'settledClose'>;
@@ -48,7 +50,7 @@ export type ReworkBranches = Pick<Config['branches'], 'feature' | 'slice' | 'rew
 
 /** One settled entry of the ledger, as `parseSettledEntries` reads it (`kit/lib/outbox/settle.ts`). */
 export type ReworkEntry = {
-  id: string;
+  id: OutboxItemId;
   verdict?: string | undefined;
   closed: boolean;
   fields: Record<string, string | undefined>;
@@ -57,15 +59,15 @@ export type ReworkEntry = {
 };
 
 /** A plan slice a rework reads: its id, its repository and its territory. */
-export type ReworkPlanSlice = { id: string; repo?: string | null; territory: string[] };
+export type ReworkPlanSlice = { id: WorkSliceId; repo?: string | null; territory: string[] };
 
 /** The option an answer chose, and the reason it gave; both `null` when it chose none. */
 export type ChosenOption = { chosenOption: OutboxOption | null; reason: string | null };
 
 /** One rework slice, derived from one drifted entry. */
 export type Rework = {
-  id: string;
-  itemId: string;
+  id: WorkSliceId;
+  itemId: OutboxItemId;
   slice: OutboxItem['slice'];
   rank: OutboxItem['rank'];
   bearsOn: OutboxItem['bearsOn'];
@@ -88,7 +90,7 @@ export type Rework = {
 
 /** What {@link planRework} returns: the reworks to run, and the report that names them. */
 export type ReworkPlan = {
-  prd: number;
+  prd: PrdNumber;
   /** `null` when the PRD's folder names no topic: every rework then reads its branch as unknown. */
   featureBranch: string | null;
   settledCount: number;
@@ -156,7 +158,7 @@ export function chosenOptionOf(answerText: string | null | undefined, options: r
 /** The branch templates when none are passed: config's own defaults, never restated here. */
 const DEFAULT_BRANCHES: Readonly<ReworkBranches> = Object.freeze(ConfigSchema.shape.branches.parse(undefined));
 
-function fill(template: string, values: { topic?: string; slice?: string; item?: string }): string {
+function fill(template: string, values: { topic?: string; slice?: WorkSliceId; item?: string }): string {
   return template.replace(/\{(topic|slice|item)\}/g, (whole, key: 'topic' | 'slice' | 'item') => values[key] ?? whole);
 }
 
@@ -171,13 +173,15 @@ function topicOf(featureBranch: string, featureTemplate: string): string | null 
 
 /** `branches.rework` with `{item}` filled — `fix-<item id>` by default: one rework per drifted item,
  * and the id names the item it closes. */
-export function reworkSliceId(itemId: string, branches: ReworkBranches = DEFAULT_BRANCHES): string {
-  return fill(branches.rework, { item: itemId });
+export function reworkSliceId(itemId: OutboxItemId, branches: ReworkBranches = DEFAULT_BRANCHES): WorkSliceId {
+  const id = WorkSliceIdSchema.safeParse(fill(branches.rework, { item: itemId }));
+  if (!id.success) throw new Error(`branches.rework "${branches.rework}" names no slice for item ${itemId}: a rework's id is lower-case words joined by hyphens.`);
+  return id.data;
 }
 
 /** The rework's own branch: `branches.slice` with the feature branch's `{topic}` and the rework id
  * as `{slice}` — `<feature branch>--fix-<item id>` by default. */
-export function reworkBranch(featureBranch: string, sliceId: string, branches: ReworkBranches = DEFAULT_BRANCHES): string {
+export function reworkBranch(featureBranch: string, sliceId: WorkSliceId, branches: ReworkBranches = DEFAULT_BRANCHES): string {
   const topic = topicOf(featureBranch, branches.feature);
   if (topic === null) {
     throw new Error(`feature branch "${featureBranch}" does not match branches.feature "${branches.feature}"`);
@@ -284,7 +288,7 @@ export function planRework({
 }: {
   settledText?: string;
   planMarkdown?: string | null;
-  prd: number;
+  prd: PrdNumber;
   featureBranch: string | null;
   markers: ReworkMarkers;
   branches?: ReworkBranches;

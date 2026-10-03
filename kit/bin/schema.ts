@@ -2,10 +2,11 @@
 // an update hands back, and one pull request. Each keeps every other field GitHub sends; a value of
 // another shape fails with Zod's error, which names the field.
 import { z } from 'zod';
+import { CommentIdSchema, PrNumberSchema } from '../lib/ids.ts';
 
 /** One comment of an issue or a pull request (`GET repos/<slug>/issues/<n>/comments`). */
 const GhCommentSchema = z.looseObject({
-  id: z.number(),
+  id: CommentIdSchema,
   body: z.string().nullish(),
   html_url: z.string().nullish(),
 });
@@ -14,11 +15,11 @@ const GhCommentSchema = z.looseObject({
 export const GhCommentsSchema = z.array(GhCommentSchema);
 
 /** The comment `gh` hands back after a create or an update. */
-export const GhWrittenCommentSchema = z.looseObject({ id: z.number().nullish(), html_url: z.string().nullish() }).nullish();
+export const GhWrittenCommentSchema = z.looseObject({ id: CommentIdSchema.nullish(), html_url: z.string().nullish() }).nullish();
 
 /** One pull request (`GET repos/<slug>/pulls/<n>`), the fields the harvest reads. */
 export const GhPullRequestSchema = z.looseObject({
-  number: z.number(),
+  number: PrNumberSchema,
   html_url: z.string(),
   merged_at: z.string().nullish(),
   merged_by: z.looseObject({ login: z.string() }).nullish(),
@@ -29,7 +30,7 @@ export const GhPullRequestSchema = z.looseObject({
 
 /** One pull request of `gh pr list --json …`, the fields the board reads; each may be missing. */
 const GhPrListItemSchema = z.looseObject({
-  number: z.number().optional(),
+  number: PrNumberSchema.optional(),
   title: z.string().optional(),
   headRefName: z.string().optional(),
   baseRefName: z.string().optional(),
@@ -46,7 +47,7 @@ const GhPrListItemSchema = z.looseObject({
 export const GhPrListSchema = z.array(GhPrListItemSchema);
 
 /** What `gh pr list --json number,state,updatedAt` prints: the feature branch's pull requests. */
-export const GhPrStatesSchema = z.array(z.looseObject({ number: z.number(), state: z.string().optional(), updatedAt: z.unknown().optional() }));
+export const GhPrStatesSchema = z.array(z.looseObject({ number: PrNumberSchema, state: z.string().optional(), updatedAt: z.unknown().optional() }));
 
 /** Any answer of `gh api graphql`: its data, read by the caller, and the errors GitHub gave. */
 export const GhGraphqlSchema = z.looseObject({

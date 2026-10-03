@@ -11,12 +11,13 @@ import { fillBranch } from '../board.ts';
 import { parseFolderName } from '../layout.ts';
 import { plainText } from '../outbox/plain-text.ts';
 import type { Context, ExecText } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** A PRD folder read at a commit: its number, its topic and its name. */
-export type FactsFolder = { prd: number; topic: string; name: string };
+export type FactsFolder = { prd: PrdNumber; topic: string; name: string };
 
 /** One PRD folder an author's commits touched. */
-export type Touch = { prd: number; email: string };
+export type Touch = { prd: PrdNumber; email: string };
 
 /** One commit of a log: the email it was authored with and the paths it changed. */
 type Commit = { email: string; paths: string[] };

@@ -9,8 +9,9 @@ import {
   phase0Verdict,
   PHASE_0_REQUIRED_KINDS,
 } from './phase-0.ts';
+import { parsePrd } from '../ids.ts';
 
-const PRD = 1015;
+const PRD = parsePrd(1015);
 const TOPIC = 'inbox-and-planner';
 const FOLDER = `${padPrd(PRD)}-${TOPIC}`;
 const DIR = `.omni-loop/delivery/inbox/${FOLDER}`;

@@ -1,6 +1,7 @@
 // PRD 262, slice s1: the release note's parser and its six rules, on valid and invalid texts.
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTION_MAX, gradeReleaseNote, INITIAL_VERSION, parseReleaseNote, RELEASE_NOTE_FILE, TITLE_MAX } from './note.ts';
+import { parsePrd } from '../ids.ts';
 
 const TITLE = 'Jump between work and play in one tap';
 const DESCRIPTION =
@@ -16,7 +17,7 @@ function note({ fields = {}, body = DESCRIPTION }: { fields?: Record<string, str
   return ['---', ...lines, '---', body, ''].join('\n');
 }
 
-const grade = (text: string, prd: number | string = 238) => gradeReleaseNote(text, { prd });
+const grade = (text: string, prd: number | string = 238) => gradeReleaseNote(text, { prd: parsePrd(prd) });
 
 describe('the note file', () => {
   it('is release.md, beside spec.md, and the initial release is 0.0.1', () => {

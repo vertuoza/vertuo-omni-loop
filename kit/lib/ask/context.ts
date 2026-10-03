@@ -21,6 +21,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from '../config.ts';
 import type { ExecText } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
+import { parseFolderName } from '../layout.ts';
 import { field, textOrNull } from './schema.ts';
 
 /** The token counts a transcript holds, summed over its assistant messages. */
@@ -30,11 +32,10 @@ export type TokenCounts = { input: number; output: number; cacheRead: number; ca
 export type TranscriptFacts = { skill: string | null; model: string | null; tokens: TokenCounts | null };
 
 /** The context a new round carries. */
-export type AskContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null } & TranscriptFacts;
+export type AskContext = { repo: string | null; branch: string | null; prd: PrdNumber | null; claudeSessionId: string | null } & TranscriptFacts;
 
 const QUIET: { encoding: 'utf8'; stdio: StdioOptions; timeout: number } = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000 };
 const COMMAND = /<command-name>\s*(\/[^<\s]+)\s*<\/command-name>/g;
-const FOLDER = /^(\d{4})-(.+)$/;
 
 function attempt<T>(fn: () => T): T | null {
   try {
@@ -107,14 +108,14 @@ function branchPattern(template: string): RegExp {
  * The PRD number a branch of the loop works on: the topic a slice or feature branch carries, looked
  * up among the inbox's `<nnnn>-<topic>` folders. `null` for any other branch.
  */
-export function prdOfBranch(branch: unknown, { branches, folders }: { branches: { feature: string; slice: string }; folders: readonly string[] }): number | null {
+export function prdOfBranch(branch: unknown, { branches, folders }: { branches: { feature: string; slice: string }; folders: readonly string[] }): PrdNumber | null {
   if (typeof branch !== 'string' || !branch) return null;
   for (const template of [branches.slice, branches.feature]) {
     const topic = attempt(() => branchPattern(template).exec(branch)?.[1]);
     if (!topic) continue;
     for (const folder of folders) {
-      const match = FOLDER.exec(folder);
-      if (match && match[2] === topic) return Number(match[1]);
+      const named = parseFolderName(folder);
+      if (named && named.topic === topic) return named.prd;
     }
   }
   return null;

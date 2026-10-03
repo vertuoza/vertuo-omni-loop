@@ -5,6 +5,7 @@
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { ExecText } from '../lib/context.ts';
+import type { IssueNumber, PrNumber } from '../lib/ids.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
 import type { Env } from './io.ts';
 import { GhCommentsSchema, GhPullRequestSchema, GhWrittenCommentSchema } from './schema.ts';
@@ -27,7 +28,8 @@ export function ghClient({
 }: {
   owner: string | undefined;
   repo: string | undefined;
-  issue: number;
+  /** An issue, or a pull request: GitHub's issue-comment API takes either. */
+  issue: IssueNumber | PrNumber;
   exec?: ExecText;
   env?: Env | undefined;
 }): CommentClient {
@@ -73,11 +75,12 @@ export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = proce
 
 /**
  * The comment client for one issue or pull request of `repo` (default `ctx.config.repo.slug`) —
- * what `omni comment` and `omni replies` hand to the library.
+ * what `omni comment` and `omni replies` hand to the library. `issue` is an issue's number or a
+ * pull request's: GitHub's issue-comment API takes either.
  */
 export function githubClientFor(
   ctx: GithubContext,
-  { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }: { repo?: string | null; issue: number; exec?: ExecText; env?: Env },
+  { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = process.env }: { repo?: string | null; issue: IssueNumber | PrNumber; exec?: ExecText; env?: Env },
 ): CommentClient {
   const [owner, name] = (repo ?? '').split('/');
   let resolved: Env | undefined;
@@ -99,7 +102,7 @@ export function githubClientFor(
 
 /** One pull request, as the harvest reads it. */
 export type PullRequest = {
-  number: number;
+  number: PrNumber;
   url: string;
   merged: boolean;
   mergedAt: string | null;
@@ -116,7 +119,7 @@ export type PullRequest = {
  */
 export function pullRequestFor(
   ctx: GithubContext,
-  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }: { repo?: string | null; number: number; exec?: ExecText; env?: Env },
+  { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }: { repo?: string | null; number: PrNumber; exec?: ExecText; env?: Env },
 ): PullRequest {
   const ghEnv = githubEnv(ctx, { exec, env });
   const data = GhPullRequestSchema.parse(

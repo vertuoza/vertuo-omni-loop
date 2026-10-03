@@ -26,6 +26,7 @@ import {
   sliceTimeGuardCommand,
   unknowable,
 } from './outbox-policy.ts';
+import { parseOutboxItemId, parsePrd, parseWorkSliceId } from '../ids.ts';
 
 const COMMAND_NAMES = Object.keys(CONSULTATION_POLICIES);
 
@@ -63,9 +64,9 @@ const ctx = flatCtx('/virtual-repo');
 /** The fields `renderOutboxItem` needs that no test below cares about. */
 function itemFields(overrides = {}) {
   return {
-    id: 's7-01-default-country',
-    prd: 985,
-    slice: 's7',
+    id: parseOutboxItemId('s7-01-default-country'),
+    prd: parsePrd(985),
+    slice: parseWorkSliceId('s7'),
     wave: 4,
     raised: '2026-09-22',
     bearsOn: 'none',
@@ -117,7 +118,7 @@ describe('An agent records instead of stopping', () => {
       expect(adopted.ok).toBe(true);
 
       expect(existsSync(join(root, 'docs/outbox/985/s7-01-default-country.md'))).toBe(false);
-      expect(gateResult('985', { ctx: tctx })).toEqual({
+      expect(gateResult(parsePrd('985'), { ctx: tctx })).toEqual({
         ok: true,
         items: [],
         overridden: false,
@@ -465,7 +466,7 @@ describe('Two commands ask at two different moments', () => {
       const outcome = consult({
         command: COMMANDS.deliver,
         rank: 'high',
-        prd: 985,
+        prd: parsePrd(985),
         answer: 'Yes — the tenant’s country is right.',
         session: 'claude-opus-5 session 3f92cf00',
         at: '2026-09-22T09:15:00Z',
@@ -484,7 +485,7 @@ describe('Two commands ask at two different moments', () => {
 
     it('an answer with no session to attribute it to is refused rather than attributed to nobody', () => {
       expect(() =>
-        consult({ command: COMMANDS.deliver, rank: 'high', prd: 985, answer: 'Yes.' }),
+        consult({ command: COMMANDS.deliver, rank: 'high', prd: parsePrd(985), answer: 'Yes.' }),
       ).toThrow(/session/i);
     });
   });
@@ -493,7 +494,7 @@ describe('Two commands ask at two different moments', () => {
     it('a medium item is not asked about, and is still recorded', () => {
       expect(asksAbout(COMMANDS.deliver, 'medium')).toBe(false);
 
-      const outcome = consult({ command: COMMANDS.deliver, rank: 'medium', prd: 985 });
+      const outcome = consult({ command: COMMANDS.deliver, rank: 'medium', prd: parsePrd(985) });
       expect(outcome.asked).toBe(false);
       expect(outcome.settled).toBe(false);
       expect(outcome.recorded).toBe(true);
@@ -506,7 +507,7 @@ describe('Two commands ask at two different moments', () => {
         expect(asksAbout(COMMANDS.yolo, rank)).toBe(false);
       }
 
-      const outcome = consult({ command: COMMANDS.yolo, rank: 'high', prd: 985 });
+      const outcome = consult({ command: COMMANDS.yolo, rank: 'high', prd: parsePrd(985) });
       expect(outcome.asked).toBe(false);
       expect(outcome.settled).toBe(false);
       expect(outcome.recorded).toBe(true);
@@ -518,7 +519,7 @@ describe('Two commands ask at two different moments', () => {
       const outcome = consult({
         command: COMMANDS.deliver,
         rank: 'high',
-        prd: 985,
+        prd: parsePrd(985),
         answer: '   ',
         session: 'claude-opus-5 session 3f92cf00',
       });
@@ -534,7 +535,7 @@ describe('Two commands ask at two different moments', () => {
   it('an unanswered question is never a stop, whatever the command and whatever the rank', () => {
     for (const command of COMMAND_NAMES) {
       for (const rank of RANK_VALUES) {
-        const outcome = consult({ command, rank, prd: 985 });
+        const outcome = consult({ command, rank, prd: parsePrd(985) });
         expect(outcome.stopped, `${command} · ${rank}`).toBe(false);
         expect(outcome.recorded, `${command} · ${rank}`).toBe(true);
       }
@@ -544,7 +545,7 @@ describe('Two commands ask at two different moments', () => {
   it('the recording path underneath is the same in both — consultation never touches the rank', () => {
     for (const command of COMMAND_NAMES) {
       for (const rank of RANK_VALUES) {
-        expect(consult({ command, rank, prd: 985 }).rank).toBe(rank);
+        expect(consult({ command, rank, prd: parsePrd(985) }).rank).toBe(rank);
       }
     }
   });
@@ -566,8 +567,8 @@ describe('The guard runs on the agent and on the branch', () => {
   describe('The agent is told before it opens its sub-pull-request', () => {
     it('names every risky change it owes an account for, keyed on the path AND the rule', () => {
       const plan = planAccount({
-        prd: 1044,
-        slice: 's6',
+        prd: parsePrd(1044),
+        slice: parseWorkSliceId('s6'),
         graded: '2026-09-23',
         risky: [
           STORED_SHAPE,
@@ -593,17 +594,17 @@ describe('The guard runs on the agent and on the branch', () => {
 
     it('spells the base and the PRD out, because a bare run grades no range at all', () => {
       expect(SLICE_TIME_GUARD.needsExplicitArguments).toBe(true);
-      expect(sliceTimeGuardCommand({ base: 'origin/feat/decision-coverage', prd: 1044 })).toBe(
+      expect(sliceTimeGuardCommand({ base: 'origin/feat/decision-coverage', prd: parsePrd(1044) })).toBe(
         'node .omni-loop/bin/omni.mjs check coverage --base origin/feat/decision-coverage --prd 1044',
       );
       expect(() => sliceTimeGuardCommand({ base: 'origin/feat/x' })).toThrow(/prd/i);
-      expect(() => sliceTimeGuardCommand({ prd: 1044 })).toThrow(/base/i);
+      expect(() => sliceTimeGuardCommand({ prd: parsePrd(1044) })).toThrow(/base/i);
     });
 
     it('accounts for them before opening: what it writes leaves nothing unaccounted', () => {
       const plan = planAccount({
-        prd: 1044,
-        slice: 's6',
+        prd: parsePrd(1044),
+        slice: parseWorkSliceId('s6'),
         graded: '2026-09-23',
         risky: [STORED_SHAPE, SHARED_CONTRACT],
         accountFor: (change) =>
@@ -631,8 +632,8 @@ describe('The guard runs on the agent and on the branch', () => {
 
     it('writes no file at all when nothing fired — silence stays free where nothing was risky', () => {
       const plan = planAccount({
-        prd: 1044,
-        slice: 's6',
+        prd: parsePrd(1044),
+        slice: parseWorkSliceId('s6'),
         graded: '2026-09-23',
         risky: [],
         accountFor: () => ({ kind: 'spec', where: 'never asked' }),
@@ -672,7 +673,7 @@ describe('The guard runs on the agent and on the branch', () => {
       const tctx = fixtureCtx();
       const changes = [{ path: STORED_SHAPE.path, status: 'M' }];
 
-      const result = gateResult(1044, { ctx: tctx, changes });
+      const result = gateResult(parsePrd(1044), { ctx: tctx, changes });
 
       expect(result.ok).toBe(false);
       expect(result.items).toEqual([]);
@@ -681,8 +682,8 @@ describe('The guard runs on the agent and on the branch', () => {
 
     it('and the slice’s own run is not what reported it — that run never fails a slice', () => {
       const plan = planAccount({
-        prd: 1044,
-        slice: 's6',
+        prd: parsePrd(1044),
+        slice: parseWorkSliceId('s6'),
         graded: '2026-09-23',
         risky: [STORED_SHAPE],
         accountFor: () => null,
@@ -700,8 +701,8 @@ describe('The guard runs on the agent and on the branch', () => {
   describe('A slice is never stopped', () => {
     it('a change it cannot account for still opens the sub-pull-request, and no sibling falls', () => {
       const plan = planAccount({
-        prd: 1044,
-        slice: 's6',
+        prd: parsePrd(1044),
+        slice: parseWorkSliceId('s6'),
         graded: '2026-09-23',
         risky: [STORED_SHAPE, SHARED_CONTRACT],
         accountFor: (change) =>
@@ -721,8 +722,8 @@ describe('The guard runs on the agent and on the branch', () => {
       expect(Object.keys(ACCOUNT_FORMS)).toEqual(['item', 'spec']);
       expect(() =>
         renderAccount({
-          prd: 1044,
-          slice: 's6',
+          prd: parsePrd(1044),
+          slice: parseWorkSliceId('s6'),
           graded: '2026-09-23',
           entries: [{ ...STORED_SHAPE, account: { kind: 'fine', why: 'it is fine' } }],
         }),
@@ -731,7 +732,7 @@ describe('The guard runs on the agent and on the branch', () => {
 
     it('a rendered account with no entry is refused — the empty file the spec calls ceremony', () => {
       expect(() =>
-        renderAccount({ prd: 1044, slice: 's6', graded: '2026-09-23', entries: [] }),
+        renderAccount({ prd: parsePrd(1044), slice: parseWorkSliceId('s6'), graded: '2026-09-23', entries: [] }),
       ).toThrow(/no risky change/i);
     });
   });

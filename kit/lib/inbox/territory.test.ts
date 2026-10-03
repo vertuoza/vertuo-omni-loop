@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   breaches,
   collisionRows,
@@ -11,6 +11,8 @@ import {
   territoryVerdict,
 } from './territory.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parseWorkSliceId } from '../ids.ts';
+import type { WorkSliceId } from '../ids.ts';
 
 /** A plan in the shape this slice introduces: a `territory` column beside the wave. */
 const PLAN = `# Plan: a plan
@@ -291,7 +293,7 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
   const plan = parsePlanSlices(PLAN);
 
   it('flags the breach, names the path, and stays non-fatal so the merge proceeds', () => {
-    const verdict = territoryVerdict(plan, 's6', [
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s6'), [
       '.claude/skills/vertuo-plan/SKILL.md',
       'docs/glossary.md',
     ]);
@@ -302,14 +304,14 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
   });
 
   it('says so plainly when the slice stayed inside its ground', () => {
-    const verdict = territoryVerdict(plan, 's6', ['scripts/check-territory.test.mjs']);
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s6'), ['scripts/check-territory.test.mjs']);
     expect(verdict.breaches).toEqual([]);
     expect(verdict.fatal).toBe(false);
     expect(verdict.lines.join('\n')).toMatch(/s6/);
   });
 
   it('reports a slice the plan does not hold rather than pretending it passed', () => {
-    const verdict = territoryVerdict(plan, 's99', ['package.json']);
+    const verdict = territoryVerdict(plan, parseWorkSliceId('s99'), ['package.json']);
     expect(verdict.fatal).toBe(false);
     expect(verdict.lines.join('\n')).toMatch(/s99/);
     expect(verdict.unknownSlice).toBe(true);
@@ -376,5 +378,19 @@ describe('PRD 549: a slice names its repository', () => {
     expect(sameWaveCollisions(parsePlanSlices(same))).toEqual([
       { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
     ]);
+  });
+});
+
+describe('parsePlanSlices — slice ids (PRD 1049)', () => {
+  it('gives each id and blocker as a slice id', () => {
+    const [, second] = parsePlanSlices(PLAN);
+    assertDefined(second, 'the second slice');
+    expectTypeOf(second.id).toEqualTypeOf<WorkSliceId>();
+    expect(second.blockedBy).toEqual(['s1']);
+  });
+
+  it('fails where it reads a malformed id, naming it', () => {
+    expect(() => parsePlanSlices(PLAN.replace('| s2  |', '| S2  |'))).toThrow('This plan\'s slice table names "S2", which is no slice id like s1.');
+    expect(() => parsePlanSlices(PLAN.replace('| s1         |', '| S1         |'))).toThrow('names "S1"');
   });
 });

@@ -16,7 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { inboxViolationsFor } from 'vertuo-omni-plan/kit/lib/inbox/check-inbox.ts';
 import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
@@ -90,8 +90,7 @@ export function inboxPrd({ head, config, topic }: { head: string; config: Config
   if (!existsSync(dir)) return null;
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const parsed = entry.isDirectory() ? parseFolderName(entry.name) : null;
-    // The kit's folder parser still gives a bare number (PRD 1049, s5 makes it a PrdNumber).
-    if (parsed?.topic === topic) return parsePrd(parsed.prd);
+    if (parsed?.topic === topic) return parsed.prd;
   }
   return null;
 }

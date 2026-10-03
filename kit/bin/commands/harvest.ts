@@ -6,7 +6,7 @@
 // OPENROUTER_API_KEY, with nothing written.
 import { KEY_VAR } from '../../lib/openrouter.ts';
 import { applyHarvestEdits, classifyCandidate, finishHarvest, noEdits, prepareHarvest } from '../../lib/knowledge/pipeline.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prArg, prdArg, println, usageError } from '../args.ts';
 import { pullRequestFor } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import type { Merge, Placed } from '../../lib/knowledge/write.ts';
@@ -30,8 +30,8 @@ export const harvest: Command = {
   async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
     const { positional, flags } = parseArgs('harvest', args, { values: ['pr'] });
     if (positional.length !== 1 || flags.pr === undefined) throw usageError(USAGE);
-    const prd = positiveInt('harvest', '<prd>', positional[0]);
-    const number = positiveInt('harvest', '--pr', flags.pr);
+    const prd = prdArg('harvest', '<prd>', positional[0]);
+    const number = prArg('harvest', '--pr', flags.pr);
     if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
     if (ctx.layout.whereIs(prd) === null) throw usageError(`omni harvest: PRD ${prd} has no inbox or shipped folder.`);
 

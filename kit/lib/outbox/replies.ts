@@ -54,10 +54,12 @@ import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } fr
 import { RANK_VALUES, SETTLED_FILE } from './outbox.ts';
 import { defined } from '../narrow.ts';
 import { plainText } from './plain-text.ts';
+import { CommentIdSchema, OutboxItemIdSchema } from '../ids.ts';
+import type { OutboxItemId, PrdNumber, PrNumber } from '../ids.ts';
 
 /** A pull request comment, as GitHub lists it: only the fields the reader looks at. */
 const ReplyCommentSchema = z.object({
-  id: z.number(),
+  id: CommentIdSchema,
   body: z.string().nullish(),
   created_at: z.string().optional(),
   user: z.object({ login: z.string().optional() }).nullish(),
@@ -71,7 +73,7 @@ type ReplyComment = z.infer<typeof ReplyCommentSchema>;
  * Every other field the caller's item carries is kept, so what comes back is the item that went in.
  */
 const RepliedItemSchema = z.looseObject({
-  id: z.string(),
+  id: OutboxItemIdSchema,
   rank: z.enum(RANK_VALUES),
   sections: z.looseObject({
     options: z.array(z.object({ letter: z.string(), text: z.string() })).optional(),
@@ -83,7 +85,7 @@ const RepliedItemSchema = z.looseObject({
 type RepliedItem = z.infer<typeof RepliedItemSchema>;
 
 /** An adopted settled entry, as far as the reader needs it: its id and its item's text. */
-type AdoptedEntry = { id: string; itemText: string };
+type AdoptedEntry = { id: OutboxItemId; itemText: string };
 
 /** One reply line: a numbered answer, or an `approve all` (`go with recommendation`). */
 type ReplyLine = { kind: 'numbered'; number: number; text: string } | { kind: 'approve-all'; text: string };
@@ -235,12 +237,12 @@ function lastReaskedAt(comments: readonly ReplyComment[], markers: Markers): { a
  * embedded item no longer parses is left out rather than guessed at.
  */
 function answerableQuestions<I extends RepliedItem>(
-  numbering: readonly { number: number; id: string; since: string }[],
+  numbering: readonly { number: number; id: OutboxItemId; since: string }[],
   items: readonly I[],
   adopted: readonly AdoptedEntry[],
 ): Question<I>[] {
   const itemsById = new Map(items.map((item) => [item.id, item]));
-  const adoptedById = new Map<string, { entry: AdoptedEntry; item: OutboxItem }>();
+  const adoptedById = new Map<OutboxItemId, { entry: AdoptedEntry; item: OutboxItem }>();
   for (const entry of adopted) {
     const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
@@ -291,7 +293,7 @@ function replyComments(comments: unknown): ReplyComment[] {
 /** {@link planReplies}, on comments and items already parsed: each item comes back as it went in. */
 function planFor<I extends RepliedItem>({ comments: all, items, adopted, markers }: { comments: ReplyComment[]; items: readonly I[]; adopted: readonly AdoptedEntry[]; markers: Markers }) {
   const prComment: ReplyComment | null = findPrMarkerComment(all, markers);
-  const numbering: { number: number; id: string; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
+  const numbering: { number: number; id: OutboxItemId; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
   const questions = answerableQuestions(numbering, items, adopted);
   const byNumber = new Map(questions.map((question) => [question.number, question]));
   const open = questions.filter((question) => question.adoptedEntry === null);
@@ -442,7 +444,7 @@ export function appendObjection({
   judgement,
 }: {
   ctx: Pick<Context, 'root' | 'layout' | 'markers'>;
-  prd: number | string;
+  prd: PrdNumber;
   adoptedEntry: Pick<AdoptedEntry, 'itemText'>;
   item: SettledItemFacts;
   answer: unknown;
@@ -474,11 +476,11 @@ export function appendObjection({
  * appends a `drifted` entry and deletes nothing ({@link appendObjection}). With `post`, a due round
  * comment is posted as a NEW comment (by body); without it, the body is only returned.
  *
- * @param {{ ctx: object, prd: number, pr: number, post?: boolean }} args
+ * @param {{ ctx: object, prd: PrdNumber, pr: PrNumber, post?: boolean }} args
  * @param {{ listComments: () => Array, createComment: (body: string) => any }} client
  */
 export function readReplies(
-  { ctx, prd, pr, post = false }: { ctx: Context; prd: number; pr: number; post?: boolean },
+  { ctx, prd, pr, post = false }: { ctx: Context; prd: PrdNumber; pr: PrNumber; post?: boolean },
   client: { listComments: () => object[]; createComment: (body: string) => unknown },
 ) {
   const comments = client.listComments();

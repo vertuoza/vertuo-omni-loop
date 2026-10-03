@@ -16,6 +16,7 @@ import { readFacts } from './facts.ts';
 import type { SessionInput } from './input.ts';
 import { writeRecord } from './sessions.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
 const DELIVERY = '.omni-loop/delivery';
@@ -240,7 +241,7 @@ describe('readFacts: the board (slice s6)', () => {
   /** A board file in the checkout at `root`, written `age` milliseconds before `NOW`. */
   function plantBoard(root: string, prd: number, age: number, body: Record<string, unknown> = { slices: IN_FLIGHT }) {
     mkdirSync(join(root, BOARD_DIR), { recursive: true });
-    writeFileSync(boardFile(root, prd), JSON.stringify({ at: new Date(NOW - age).toISOString(), ...body }));
+    writeFileSync(boardFile(root, parsePrd(prd)), JSON.stringify({ at: new Date(NOW - age).toISOString(), ...body }));
   }
 
   /** A spawn that starts nothing and records each call. */
@@ -287,7 +288,7 @@ describe('readFacts: the board (slice s6)', () => {
     const { root } = localRepo();
     expect(read(root).spawns).toHaveLength(1);
     mkdirSync(join(root, BOARD_DIR), { recursive: true });
-    writeFileSync(lockFile(root, 7), JSON.stringify({ at: new Date(NOW - MINUTE).toISOString() }));
+    writeFileSync(lockFile(root, parsePrd(7)), JSON.stringify({ at: new Date(NOW - MINUTE).toISOString() }));
     expect(read(root).spawns).toHaveLength(0);
     const quiet = localRepo();
     expect(readFacts(input({ currentDir: quiet.root }), { cwd: quiet.root, exec: execFileSync, now: NOW }).prd).toMatchObject({ stage: 'inbox', slices: null });

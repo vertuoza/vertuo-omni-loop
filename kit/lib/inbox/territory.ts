@@ -36,6 +36,8 @@
  * base branch is a caller's job.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
+import { WorkSliceIdSchema } from '../ids.ts';
+import type { WorkSliceId } from '../ids.ts';
 import type { Slice } from '../types.ts';
 
 export type { Slice };
@@ -44,11 +46,11 @@ export type { Slice };
 export type PlanRepository = { repo: string; role: string; readAt: string; knowledge: string };
 
 /** Two slices whose declarations intersect, and the ground they share. */
-export type Collision = { left: string; right: string; shared: string[] };
+export type Collision = { left: WorkSliceId; right: WorkSliceId; shared: string[] };
 
 /** One slice's diff graded against its declaration. */
 export type TerritoryVerdict = {
-  slice: string;
+  slice: WorkSliceId;
   unknownSlice: boolean;
   declared: string[];
   breaches: string[];
@@ -65,15 +67,24 @@ type CollidingSlice = Pick<Slice, 'id' | 'territory'> & { repo?: string | null; 
 /** A cell that declares nothing: an em dash, or nothing at all. */
 const NOTHING = /^[—–-]?$/;
 
+/** A slice id the plan wrote — a plan's `s1`, or a rework plan's `fix-s1-01-…` — or an error naming
+ * it: a malformed id fails where it is read. */
+function sliceIdOf(text: string): WorkSliceId {
+  const id = WorkSliceIdSchema.safeParse(text);
+  if (!id.success) throw new Error(`This plan's slice table names "${text}", which is no slice id like s1.`);
+  return id.data;
+}
+
 /** The ids one `blocked by` cell names — comma- or space-separated, backticks stripped. `[]` for a
  * cell that declares nothing (an em dash, a bare hyphen, or empty). */
-function blockedByCell(cell: string | undefined): string[] {
+function blockedByCell(cell: string | undefined): WorkSliceId[] {
   const text = (cell ?? '').trim();
   if (NOTHING.test(text)) return [];
   return text
     .split(/[\s,]+/)
     .map((token) => token.replace(/`/g, '').trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(sliceIdOf);
 }
 
 /**
@@ -174,7 +185,7 @@ export function parsePlanSlices(markdown: string): Slice[] {
     const id = row[column('id')];
     if (!id) continue;
     slices.push({
-      id,
+      id: sliceIdOf(id),
       repo: column('repo') === -1 ? null : plainCell(row[column('repo')]),
       title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
       territory: territoryPrefixes(row[column('territory')]),
@@ -295,7 +306,7 @@ export function collisionRows(slices: readonly CollidingSlice[]): { pair: string
  */
 export function territoryVerdict(
   slices: readonly Pick<Slice, 'id' | 'territory'>[],
-  sliceId: string,
+  sliceId: WorkSliceId,
   changedPaths: readonly string[],
 ): TerritoryVerdict {
   const slice = slices.find((candidate) => candidate.id === sliceId);

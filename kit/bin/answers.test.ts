@@ -9,6 +9,7 @@ import { main } from './omni.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { Files, Repo } from '../test/fixture.ts';
+import { parseOutboxItemId } from '../lib/ids.ts';
 
 const markers = makeMarkers('omni-outbox');
 const OUTBOX = '.omni-loop/delivery/outbox/0042-widgets';
@@ -40,13 +41,13 @@ const ITEMS = {
   's2-02-width': 'medium',
 };
 const NUMBERING = [
-  { number: 1, id: 's1-01-list' },
-  { number: 2, id: 's1-02-order' },
-  { number: 3, id: 's1-03-label' },
-  { number: 4, id: 's1-04-copy' },
-  { number: 5, id: 's2-02-width' },
-  { number: 6, id: 's1-05-color' },
-  { number: 19, id: 's2-01-secret' },
+  { number: 1, id: parseOutboxItemId('s1-01-list') },
+  { number: 2, id: parseOutboxItemId('s1-02-order') },
+  { number: 3, id: parseOutboxItemId('s1-03-label') },
+  { number: 4, id: parseOutboxItemId('s1-04-copy') },
+  { number: 5, id: parseOutboxItemId('s2-02-width') },
+  { number: 6, id: parseOutboxItemId('s1-05-color') },
+  { number: 19, id: parseOutboxItemId('s2-01-secret') },
 ].map((entry) => ({ ...entry, since: '2026-09-27T08:00:00Z' }));
 
 function files({ items = ITEMS, config = '' }: { items?: Record<string, string>; config?: string } = {}) {

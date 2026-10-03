@@ -16,6 +16,7 @@ import { harvestCandidates } from './harvest.ts';
 import type { ClassificationReply } from './classify.ts';
 import { applyKnowledgeWrites, decidedLine, writeKnowledge, type Taken, type WriteResult } from './write.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePr, parsePrd } from '../ids.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -107,7 +108,7 @@ const FEATURE_PR: AnswerChannel = { kind: 'feature-pull-request', number: 12, ur
 const MERGE_PR: AnswerChannel = { kind: 'feature-pull-request', number: 29, url: 'https://github.com/acme/widgets/pull/29' };
 
 const ledgerText = [
-  settledHeader(28, { ctx: { config: { paths: { delivery: '.omni-loop/delivery' } } } }),
+  settledHeader(parsePrd(28), { ctx: { config: { paths: { delivery: '.omni-loop/delivery' } } } }),
   adopted('s1-01-two-snapshots'),
   answered('s1-02-intro-cap', {
     verdict: 'adopted',
@@ -152,7 +153,7 @@ const FILES = {
   [LEDGER]: ledgerText,
 };
 
-const MERGE = { by: 'grace', at: '2026-09-26T09:30:00Z', pr: 29, url: 'https://github.com/acme/widgets/pull/29' };
+const MERGE = { by: 'grace', at: '2026-09-26T09:30:00Z', pr: parsePr(29), url: 'https://github.com/acme/widgets/pull/29' };
 const DATE = '2026-09-27';
 
 const REPLIES: Record<string, ClassificationReply | null> = {
@@ -190,7 +191,7 @@ const REPLIES: Record<string, ClassificationReply | null> = {
 
 function setup({ taken }: { taken?: Taken } = {}) {
   const repo = makeRepo({ files: FILES });
-  const candidates = harvestCandidates({ ctx: repo.ctx, prd: 28 });
+  const candidates = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) });
   const classified = candidates.map((candidate) =>
     REPLIES[candidate.id] === null
       ? { candidate, reply: null, reason: "the model's reply was refused twice" }
@@ -334,7 +335,7 @@ describe('writeKnowledge', () => {
         [LEDGER]: [ledgerText, answered('s1-01-two-snapshots', { verdict: 'agreed', channel: FEATURE_PR })].join('\n'),
       },
     });
-    const [first] = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-01-two-snapshots');
+    const [first] = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) }).filter((c) => c.id === 's1-01-two-snapshots');
     assertDefined(first, 'the candidate s1-01-two-snapshots');
     const result = writeKnowledge({
       ctx: repo.ctx,
@@ -356,7 +357,7 @@ describe('writeKnowledge', () => {
 
   it('records a reworked drift with the answer that asked for the change', () => {
     const repo = makeRepo({ files: FILES });
-    const [candidate] = harvestCandidates({ ctx: repo.ctx, prd: 28 }).filter((c) => c.id === 's1-06-reworked');
+    const [candidate] = harvestCandidates({ ctx: repo.ctx, prd: parsePrd(28) }).filter((c) => c.id === 's1-06-reworked');
     const reply: ClassificationReply = { kind: 'adr', title: 'Invoices read the head', statement: 'Invoices are read from the head.', reason: 'how it is built' };
     assertDefined(candidate, 'candidate');
     const { writes } = writeKnowledge({ ctx: repo.ctx, classified: [{ candidate: candidate, reply }], merge: MERGE, date: DATE });

@@ -12,7 +12,7 @@ import { SETTLED_FILE } from '../outbox/outbox.ts';
 import { releaseNotePath } from '../releases/check-releases.ts';
 import { gradeReleaseNote } from '../releases/note.ts';
 import type { Context, ExecRaw } from '../context.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** Reads a repository file's text, by its path from the root. */
 export type ReadFile = (file: string) => string;

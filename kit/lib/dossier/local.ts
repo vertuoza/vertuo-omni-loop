@@ -14,6 +14,8 @@ import { z } from 'zod';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import type { ExecText } from '../context.ts';
 import type { DossierEntry } from './draft.ts';
+import { PrdNumberSchema } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 
 export const DOSSIERS_FILE = join(LOCAL_DIR, 'dossiers.json');
 
@@ -26,7 +28,7 @@ const DossierEntrySchema = z.object({
   id: text,
   url: text,
   claudeSessionId: text.nullable(),
-  prd: z.number().int().positive().nullable(),
+  prd: PrdNumberSchema.nullable(),
   openedAt: text,
 });
 
@@ -76,7 +78,7 @@ export function recordDraft(root: string, entry: DossierEntry): void {
 }
 
 /** Records that a push numbered draft `draftId` as PRD `prd`, now the dossier `id` at `url`. */
-export function markNumbered(root: string, draftId: string, { prd, id, url }: { prd: number; id: string; url: string }): void {
+export function markNumbered(root: string, draftId: string, { prd, id, url }: { prd: PrdNumber; id: string; url: string }): void {
   writeDossiers(root, readDossiers(root).map((entry) => (entry.id === draftId ? { ...entry, id, url, prd } : entry)));
 }
 

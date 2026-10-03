@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
 import { DOSSIERS_FILE, mainCheckout, markNumbered, readDossiers, recordDraft } from './local.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 const DRAFT = { id: 'd-1', url: 'https://omni.example/prd/d-1', claudeSessionId: 'sess-a', prd: null, openedAt: '2026-09-27T09:00:00.000Z' };
 
@@ -26,7 +27,7 @@ describe('the local dossiers file', () => {
     const { root } = makeRepo();
     recordDraft(root, DRAFT);
     recordDraft(root, { ...DRAFT, id: 'd-2' });
-    markNumbered(root, 'd-1', { prd: 7, id: 'dossier-7', url: 'https://omni.example/prd/dossier-7' });
+    markNumbered(root, 'd-1', { prd: parsePrd(7), id: 'dossier-7', url: 'https://omni.example/prd/dossier-7' });
     expect(readDossiers(root)).toEqual([
       { ...DRAFT, id: 'dossier-7', url: 'https://omni.example/prd/dossier-7', prd: 7 },
       { ...DRAFT, id: 'd-2' },

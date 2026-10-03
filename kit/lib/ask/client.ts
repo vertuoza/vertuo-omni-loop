@@ -22,6 +22,7 @@
 // itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
 import { jsonObject, TokenReplySchema } from './schema.ts';
 import type { JsonObject, Tokens } from './schema.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 export type { Tokens } from './schema.ts';
 
@@ -261,7 +262,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended = false }: { claudeSessionId: unknown; repo: unknown; work: unknown; ended?: boolean }) =>
       call('POST', '/api/ask/heartbeat', { body: { claudeSessionId, repo, work, ...(ended ? { ended: true } : {}) } }),
-    findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: number | string; kind?: string | null }) =>
+    // A fix's dossier (`kind` visual or bug) is keyed by its issue, so `prd` is a PRD's number or an issue's.
+    findDossier: ({ repo, prd, kind = 'prd' }: { repo: string; prd: PrdNumber | IssueNumber; kind?: string | null }) =>
       call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */

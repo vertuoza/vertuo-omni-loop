@@ -19,18 +19,19 @@
 // the base.
 import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import { SETTLED_FILE } from '../outbox/outbox.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The bar's width, in cells. */
 export const BAR_CELLS = 30;
 
 /** A PRD in a stage: its number and its folder's topic. */
-export type StagedPrd = { prd: number; topic: string };
+export type StagedPrd = { prd: PrdNumber; topic: string };
 
 /** A PRD past the inbox: building or in the outbox, with its feature branches' open items. */
 export type BuildingPrd = StagedPrd & { openItems: number };
 
 /** A PRD folder an author's commits touched. */
-type Touched = { prd: number; email: string };
+type Touched = { prd: PrdNumber; email: string };
 
 /** A feature branch, as the facts read it. */
 type FeatureBranch = {

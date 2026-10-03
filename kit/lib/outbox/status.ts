@@ -50,6 +50,7 @@ import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import type { CoverageContext, RiskyChange } from './decision-coverage.ts';
 import { parseSettledEntries } from './settle.ts';
+import type { PrdNumber } from '../ids.ts';
 
 /** The part of the context the gate reads. */
 type GateContext = OutboxContext & CoverageContext;
@@ -74,7 +75,7 @@ export type GateResult = {
  * Every open item file for one PRD, sorted — `outboxItemFiles({ ctx })` scoped to its own
  * directory. A PRD with no folder at all (`ctx.layout.outboxDir(prd)` is `null`) has nothing open.
  */
-export function openItemFiles(prd: string | number, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): string[] {
+export function openItemFiles(prd: PrdNumber, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): string[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const prefix = `${outboxDir}/`;
@@ -95,7 +96,7 @@ function describeItem(file: string, { ctx }: { ctx: { root: string } }): OpenIte
 }
 
 /** Every open item for one PRD, described for the report. */
-export function openItems(prd: string | number, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): OpenItem[] {
+export function openItems(prd: PrdNumber, { ctx }: { ctx: Pick<OutboxContext, 'root' | 'layout'> }): OpenItem[] {
   return openItemFiles(prd, { ctx }).map((file) => describeItem(file, { ctx }));
 }
 
@@ -112,7 +113,7 @@ export function openItems(prd: string | number, { ctx }: { ctx: Pick<OutboxConte
  * @returns {{ path: string, status: string, rule: string }[]}
  */
 export function unaccountedChanges(
-  prd: string | number,
+  prd: PrdNumber,
   changes: readonly Change[],
   { ctx }: { ctx: GateContext },
 ): RiskyChange[] {
@@ -132,7 +133,7 @@ export function unaccountedChanges(
  * @param {{ ctx: object }} options
  * @returns {{ id: string, closedLine: string }[]}
  */
-export function unreworkedDrift(prd: string | number, { ctx }: { ctx: OutboxContext }): UnreworkedEntry[] {
+export function unreworkedDrift(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): UnreworkedEntry[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
@@ -158,7 +159,7 @@ export function unreworkedDrift(prd: string | number, { ctx }: { ctx: OutboxCont
  * @param {{ ctx: object, labels?: string[], changes?: { path: string, status: string }[] | null }} options
  */
 export function gateResult(
-  prd: string | number,
+  prd: PrdNumber,
   { ctx, labels = [], changes = null }: { ctx: GateContext; labels?: readonly string[]; changes?: readonly Change[] | null },
 ): GateResult {
   const items = openItems(prd, { ctx });
@@ -196,7 +197,7 @@ function formatUnreworked(entry: UnreworkedEntry): string {
  * the range), the unaccounted-change count too.
  */
 export function formatReport(
-  prd: string | number,
+  prd: PrdNumber,
   result: {
     ok?: boolean;
     items: readonly OpenItem[];

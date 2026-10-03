@@ -73,7 +73,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { z } from 'zod';
 import { parseFrontMatterLines, withFile } from '../front-matter.ts';
-import type { PrdNumber } from '../layout.ts';
+import type { PrdNumber } from '../ids.ts';
 import type { Laws, Resolution } from '../laws.ts';
 import type { makeMarkers } from '../markers.ts';
 import { OutboxItemFrontMatterSchema, RANK_VALUES } from '../schema/front-matter.ts';

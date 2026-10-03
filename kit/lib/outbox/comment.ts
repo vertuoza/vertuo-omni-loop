@@ -100,6 +100,8 @@ import type { OutboxContext } from './outbox.ts';
 import { ADOPTED_VERDICT, parseSettledEntries, type SettledEntry } from './settle.ts';
 import type { CoverageContext } from './decision-coverage.ts';
 import { unaccountedChanges, unreworkedDrift } from './status.ts';
+import { OutboxItemIdSchema } from '../ids.ts';
+import type { CommentId, OutboxItemId, PrdNumber } from '../ids.ts';
 
 type Markers = OutboxContext['markers'];
 
@@ -110,19 +112,19 @@ type CommentContext = OutboxContext & CoverageContext;
 export type SettledEntryView = SettledEntry;
 
 /** One permanent question number: `<number>=<item id>@<ISO time first listed>`. */
-export type Numbering = { number: number; id: string; since: string };
+export type Numbering = { number: number; id: OutboxItemId; since: string };
 
 /** One comment of an issue or a pull request, as the client lists it. */
-export type IssueComment = { id: number; body?: string | null | undefined; html_url?: string | null | undefined };
+export type IssueComment = { id: CommentId; body?: string | null | undefined; html_url?: string | null | undefined };
 
 /** The comment as the client hands it back after a create or an update. */
-type WrittenComment = { id?: number | null | undefined; html_url?: string | null | undefined } | null | undefined;
+type WrittenComment = { id?: CommentId | null | undefined; html_url?: string | null | undefined } | null | undefined;
 
 /** The client a comment writer goes through, scoped to one issue or pull request. */
 export type CommentClient = {
   listComments: () => IssueComment[];
   createComment: (body: string) => WrittenComment;
-  updateComment: (id: number, body: string) => WrittenComment;
+  updateComment: (id: CommentId, body: string) => WrittenComment;
 };
 
 /** Who the Slack note names: a Slack id (a mention) or a GitHub login (plain text). */
@@ -145,7 +147,7 @@ export { unaccountedChanges };
  * @param {{ ctx: object }} options
  * @returns {object[]} parsed items (see `outbox.mjs`'s `parseOutboxItem`), unsorted
  */
-export function openItemsForPrd(prd: string | number, { ctx }: { ctx: OutboxContext }): OutboxItem[] {
+export function openItemsForPrd(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): OutboxItem[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const prefix = `${outboxDir}/`;
@@ -241,7 +243,7 @@ export function parseAnnouncedMarker(body: string | null | undefined, markers: M
  * When nothing is open but `unreworked` (`unreworkedDrift`'s `{ id }[]`) is not empty, the
  * "nothing open" line instead names those ids and the fix command.
  *
- * @param {{ prd: number, owner: string, repo: string, branch: string, ref?: string, items: object[], unaccounted?: { path: string, rule: string }[], unreworked?: { id: string }[], labels?: string[], ctx: object }} args
+ * @param {{ prd: PrdNumber, owner: string, repo: string, branch: string, ref?: string, items: object[], unaccounted?: { path: string, rule: string }[], unreworked?: { id: string }[], labels?: string[], ctx: object }} args
  */
 export function formatOutboxComment({
   prd,
@@ -255,7 +257,7 @@ export function formatOutboxComment({
   labels = [],
   ctx,
 }: {
-  prd: number;
+  prd: PrdNumber;
   owner: string;
   repo: string;
   branch: string;
@@ -383,10 +385,12 @@ export function parseNumbersMarker(body: string | null | undefined, markers: Mar
   if (!match) return [];
   const value = (match[1] ?? '').trim();
   if (value === '') return [];
-  return value.split(',').map((entry) => {
+  // An entry whose id is no outbox item's names no question: it is left out.
+  return value.split(',').flatMap((entry) => {
     const [numberPart, rest = ''] = entry.split(/=(.*)/s);
     const at = rest.lastIndexOf('@');
-    return { number: Number(numberPart), id: rest.slice(0, at), since: rest.slice(at + 1) };
+    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at));
+    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at + 1) }] : [];
   });
 }
 
@@ -408,7 +412,7 @@ export function assignNumbers({
   previous = [],
   now = () => new Date().toISOString(),
 }: {
-  items: readonly { id: string; rank: Rank }[];
+  items: readonly { id: OutboxItemId; rank: Rank }[];
   previous?: readonly Numbering[];
   now?: () => string;
 }): Numbering[] {
@@ -459,7 +463,7 @@ function recordRound(rounds: Map<number, number>, round: number, numbersText: st
 /** Reads a PRD's `settled.md` back into entries, through `settle.mjs`'s own reader — never a second
  * parser for the same ledger. A PRD with no inbox or shipped folder, or an absent ledger, reads as
  * no entries at all, the same as a PRD that has settled nothing yet. */
-function readSettledEntries(prd: string | number, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
+function readSettledEntries(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
@@ -475,7 +479,7 @@ function readSettledEntries(prd: string | number, { ctx }: { ctx: OutboxContext 
  * @param {number} prd
  * @param {{ ctx: object }} options
  */
-export function adoptedEntriesForPrd(prd: string | number, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
+export function adoptedEntriesForPrd(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): SettledEntryView[] {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
 
@@ -800,7 +804,7 @@ function adoptedQuestionLines(entry: SettledEntryView, { number, round, banter }
  * outcome. Finally the hidden numbering marker, always present. Pure — no GitHub call, no filesystem
  * access.
  *
- * @param {{ items: object[], adopted?: object[], answered?: object[], numbering: { number: number, id: string, since: string }[], roundMarkers?: Map<number, number>, prd?: number | null, ctx: object }} args
+ * @param {{ items: object[], adopted?: object[], answered?: object[], numbering: { number: number, id: string, since: string }[], roundMarkers?: Map<number, number>, prd?: PrdNumber | null, ctx: object }} args
  */
 export function formatOutboxPrComment({
   items,
@@ -816,12 +820,12 @@ export function formatOutboxPrComment({
   answered?: readonly SettledEntryView[];
   numbering: readonly Numbering[];
   roundMarkers?: ReadonlyMap<number, number>;
-  prd?: number | null;
+  prd?: PrdNumber | null;
   ctx: Pick<CommentContext, 'markers' | 'config'>;
 }): string {
   const sorted = sortItems(items);
   const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
-  const byNumber = (a: { id: string }, b: { id: string }): number =>
+  const byNumber = (a: { id: OutboxItemId }, b: { id: OutboxItemId }): number =>
     (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
   const facts = { numberById, roundMarkers, banter };
@@ -893,7 +897,7 @@ export function formatOutboxPrComment({
  * `answers.enabled` is on, `ask.url` is set, the repository names its slug and the PRD is known. The
  * kit names only the address a repository configured, never the page behind it. Pure.
  */
-export function omniPageLink(prd: number | null | undefined, ctx: { config: Config }): string | null {
+export function omniPageLink(prd: PrdNumber | null | undefined, ctx: { config: Config }): string | null {
   const { answers, ask, repo } = ctx.config;
   if (!answers.enabled || !ask.url || !repo.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
   return `${ask.url.replace(/\/+$/, '')}/prd/at/${repo.slug}/${prd}`;
@@ -912,7 +916,7 @@ export function omniPageLink(prd: number | null | undefined, ctx: { config: Conf
  * comment is always rewritten, same "found, not created" rule {@link upsertOutboxComment} already
  * keeps.
  *
- * @param {{ prd: number, ctx: object, now?: () => string }} args
+ * @param {{ prd: PrdNumber, ctx: object, now?: () => string }} args
  * @param {{ listComments: () => Array, createComment: (body: string) => any, updateComment: (id: number, body: string) => any }} client
  * `adoptedCount` is how many adopted items the comment lists; `newAdoptedCount` how many of those
  * it numbered for the first time on this call (PRD #1166 s7) — the caller hands both, with
@@ -921,7 +925,7 @@ export function omniPageLink(prd: number | null | undefined, ctx: { config: Conf
  * @returns {{ action: 'created' | 'updated' | 'skipped', id: number | null, htmlUrl: string | null, openCount: number, answeredCount: number, adoptedCount: number, newAdoptedCount: number, body: string | null }}
  */
 export function upsertOutboxPrComment(
-  { prd, ctx, now = () => new Date().toISOString() }: { prd: number; ctx: CommentContext; now?: () => string },
+  { prd, ctx, now = () => new Date().toISOString() }: { prd: PrdNumber; ctx: CommentContext; now?: () => string },
   client: CommentClient,
 ): {
   action: 'created' | 'updated' | 'skipped';
@@ -943,7 +947,7 @@ export function upsertOutboxPrComment(
   const adopted = settledEntries.filter((entry) => entry.verdict === ADOPTED_VERDICT);
   const previous = existing ? parseNumbersMarker(existing.body, ctx.markers) : [];
   const numbering = assignNumbers({
-    items: [...items, ...adopted.map((entry): { id: string; rank: Rank } => ({ id: entry.id, rank: 'medium' }))],
+    items: [...items, ...adopted.map((entry): { id: OutboxItemId; rank: Rank } => ({ id: entry.id, rank: 'medium' }))],
     previous,
     now,
   });
@@ -1083,7 +1087,7 @@ function linkLabel(url: string): string {
  * link line. `newCount` is part of the input for {@link maybeWriteSlackNote}'s news rule and is not
  * printed. Pure — no GitHub call, no Slack call, no file write.
  *
- * @param {{ prd: number, title?: string | null, owner?: { slackId: string } | { login: string } | null, counts: Record<string, number>, adoptedCount?: number, unaccountedCount?: number, newCount?: number, url: string | null }} args
+ * @param {{ prd: PrdNumber, title?: string | null, owner?: { slackId: string } | { login: string } | null, counts: Record<string, number>, adoptedCount?: number, unaccountedCount?: number, newCount?: number, url: string | null }} args
  * @returns {string}
  */
 export function slackLine({
@@ -1095,7 +1099,7 @@ export function slackLine({
   unaccountedCount = 0,
   url,
 }: {
-  prd: number;
+  prd: PrdNumber;
   title?: string | null;
   owner?: { slackId?: string; login?: string } | null;
   counts: Record<string, number>;
@@ -1167,7 +1171,7 @@ export function readPrCommentResult(
  * The link prefers the pull request comment's url and falls back to the PRD issue's. `write`
  * defaults to `writeFileSync` so a test can hand in a spy instead.
  *
- * @param {{ ctx: object, prd: number, title?: string | null, owner?: { slackId: string } | { login: string } | null, result: { counts: Record<string, number>, adoptedCount?: number, unaccountedCount: number, newCount: number, htmlUrl: string | null }, prComment?: { htmlUrl?: string | null, newAdoptedCount?: number } | null, path?: string | null, write?: typeof writeFileSync }} args
+ * @param {{ ctx: object, prd: PrdNumber, title?: string | null, owner?: { slackId: string } | { login: string } | null, result: { counts: Record<string, number>, adoptedCount?: number, unaccountedCount: number, newCount: number, htmlUrl: string | null }, prComment?: { htmlUrl?: string | null, newAdoptedCount?: number } | null, path?: string | null, write?: typeof writeFileSync }} args
  */
 export function maybeWriteSlackNote({
   ctx,
@@ -1180,7 +1184,7 @@ export function maybeWriteSlackNote({
   write = writeFileSync,
 }: {
   ctx: { config: Config };
-  prd: number;
+  prd: PrdNumber;
   title?: string | null;
   owner?: { slackId?: string; login?: string } | null;
   result: {
@@ -1232,7 +1236,7 @@ export function maybeWriteSlackNote({
  * read off whatever `client.createComment`/`updateComment` hand back — the production client's is
  * GitHub's own `html_url` for the comment.
  *
- * @param {{ prd: number, owner: string, repo: string, branch: string, ref?: string, ctx: object, changes?: { path: string, status: string }[], labels?: string[] }} args
+ * @param {{ prd: PrdNumber, owner: string, repo: string, branch: string, ref?: string, ctx: object, changes?: { path: string, status: string }[], labels?: string[] }} args
  * @param {{ listComments: () => Array, createComment: (body: string) => any, updateComment: (id: number, body: string) => any }} client
  * @returns {{ action: 'created' | 'updated' | 'skipped', id: number | null, htmlUrl: string | null, itemCount: number, unaccountedCount: number, newCount: number, counts: Record<string, number>, body: string }}
  */
@@ -1247,7 +1251,7 @@ export function upsertOutboxComment(
     changes = [],
     labels = [],
   }: {
-    prd: number;
+    prd: PrdNumber;
     owner: string;
     repo: string;
     branch: string;

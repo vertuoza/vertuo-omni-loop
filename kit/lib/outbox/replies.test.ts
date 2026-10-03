@@ -16,14 +16,15 @@ import {
   readReplies,
   WRITER_ASSOCIATIONS,
 } from './replies.ts';
+import { parseOutboxItemId, parsePr, parsePrd } from '../ids.ts';
 
 /** The flat test layout's context, typed as the kit's own (it carries every field the code reads). */
 const flatCtx = (root: string): Context => untypedFlatCtx(root) as unknown as Context;
 
 type OptionedSpec = { rank?: string; options?: string[] };
 
-const PRD = 1071;
-const PR = 1080;
+const PRD = parsePrd(1071);
+const PR = parsePr(1080);
 
 // flatCtx (kit/test/flat-layout.ts) is configured with prefix `vertuo-outbox` — the exact prefix
 // upstream hard-coded — so every marker literal below reproduces upstream's own text byte for byte.
@@ -91,9 +92,10 @@ function writeItem(
 
 /** The pull request comment s2 writes, carrying only what s3 reads off it: the numbering. */
 function prComment(numbering: { number: number; id: string; since: string }[], { id = 1 }: { id?: number } = {}) {
+  const numbered = numbering.map((entry) => ({ ...entry, id: parseOutboxItemId(entry.id) }));
   return {
     id,
-    body: `${markers.prComment}\n${formatNumbersMarker(numbering, markers)}\n\n## Outbox questions`,
+    body: `${markers.prComment}\n${formatNumbersMarker(numbered, markers)}\n\n## Outbox questions`,
     user: { login: 'github-actions[bot]' },
     author_association: 'NONE',
     created_at: '2026-09-23T08:00:00Z',

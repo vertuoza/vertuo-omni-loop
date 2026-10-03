@@ -8,10 +8,11 @@
 import { phase0Verdict } from '../../lib/policy/phase-0.ts';
 import type { Phase0Verdict } from '../../lib/policy/phase-0.ts';
 import type { ExecText } from '../../lib/context.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
+import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import { rangeBase, rangeCommits } from '../branch-range.ts';
 import type { Command, CommandIo, Out } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
+import type { PrdNumber } from '../../lib/ids.ts';
 
 const USAGE = 'usage: omni phase0 <prd> [--base <ref>]';
 
@@ -38,7 +39,7 @@ function carriesLine(label: string, files: readonly string[]): string {
   return `  ${label}: ${files.length > 0 ? files.map((file) => `\`${file}\``).join(', ') : '(none)'}`;
 }
 
-function printVerdict(stdout: Out, prd: number, base: string, verdict: Phase0Verdict): void {
+function printVerdict(stdout: Out, prd: PrdNumber, base: string, verdict: Phase0Verdict): void {
   println(stdout, `omni phase0 — PRD ${prd}, range ${base}...HEAD:`);
   println(stdout, `${verdict.ok ? 'ok' : 'not ok'} — ${verdict.reason}`);
   println(stdout, `docs-only: ${verdict.docsOnly ? 'yes' : 'no'}`);
@@ -66,7 +67,7 @@ export const phase0: Command = {
   run: synchronous((args: string[], { ctx, stdout, exec }: CommandIo): number => {
     const { positional, flags } = parseArgs('phase0', args, { values: ['base'] });
     if (positional.length !== 1) throw usageError(USAGE);
-    const prd = positiveInt('phase0', '<prd>', positional[0]);
+    const prd = prdArg('phase0', '<prd>', positional[0]);
     const base = rangeBase('phase0', ctx, flags, exec);
 
     const paths = changedPaths(ctx, base, exec);

@@ -22,6 +22,7 @@ import type { SessionInput } from './input.ts';
 import type { CachedSlice } from './schema.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.ts';
 import { isList } from '../outbox/plain-text.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** The environment the lines read: `COLUMNS` and `NO_COLOR`. */
 type Env = Readonly<Record<string, string | null | undefined>> | null | undefined;
@@ -31,9 +32,9 @@ type FiveHour = { percent: number; resetsAt: number };
 
 /** What line 2 draws for a PRD: `slices` is the board shown. */
 export type PrdLineFacts = {
-  number: number;
+  number: PrdNumber;
   topic: string;
-  slice: string | null;
+  slice: WorkSliceId | null;
   stage: string | null;
   openItems: number;
   slices?: readonly CachedSlice[] | null;

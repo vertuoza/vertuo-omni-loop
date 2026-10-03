@@ -1,8 +1,9 @@
 // Bug #571: a number an omni command is given (a PRD, an issue, a pull request) is plain digits.
 // "1e2" or "0x10" used to be read as PRD 100 or PRD 16 instead of being refused.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
-import { errorCode, errorMessage, positiveInt } from './args.ts';
+import type { IssueNumber, PrdNumber, PrNumber, WorkSliceId } from '../lib/ids.ts';
+import { errorCode, errorMessage, issueArg, positiveInt, prArg, prdArg, sliceArg } from './args.ts';
 import { main } from './omni.ts';
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
@@ -56,6 +57,33 @@ describe('positiveInt', () => {
   it('refuses every form other than plain digits, for every command that reads a number', () => {
     for (const value of ['0x10', '0o20', '0b10', '1e2', '16.0', '+16', ' 16', '16\n', '1_000', 'Infinity']) {
       expect(() => positiveInt('item new', '--prd', value)).toThrow(`omni item new: --prd must be a positive number, got "${value}".`);
+    }
+  });
+});
+
+describe('one reader per kind of ID (PRD 1049)', () => {
+  it('reads each number as positiveInt does, into its own brand', () => {
+    expect(prdArg('prd', '<n>', '0042')).toBe(42);
+    expect(prArg('answers', '--pr', '7')).toBe(7);
+    expect(issueArg('bug', '<n>', '556')).toBe(556);
+    expectTypeOf(prdArg('prd', '<n>', '1')).toEqualTypeOf<PrdNumber>();
+    expectTypeOf(prArg('answers', '--pr', '1')).toEqualTypeOf<PrNumber>();
+    expectTypeOf(issueArg('bug', '<n>', '1')).toEqualTypeOf<IssueNumber>();
+  });
+
+  it('refuses what positiveInt refuses, with its usage error', () => {
+    for (const read of [prdArg, prArg, issueArg]) {
+      expect(() => read('item new', '--prd', '0x10')).toThrow('omni item new: --prd must be a positive number, got "0x10".');
+      expect(() => read('prd', '<n>', undefined)).toThrow(/must be a positive number/);
+    }
+  });
+
+  it('reads a slice, a plan\'s or a rework\'s, and refuses anything else by name', () => {
+    expect(sliceArg('item new', '--slice', 's3')).toBe('s3');
+    expect(sliceArg('item new', '--slice', 'fix-s1-01-zod')).toBe('fix-s1-01-zod');
+    expectTypeOf(sliceArg('item new', '--slice', 's3')).toEqualTypeOf<WorkSliceId>();
+    for (const value of ['S3', 's 3', '', '-s3']) {
+      expect(() => sliceArg('item new', '--slice', value)).toThrow(`omni item new: --slice must be a slice id like s1, got "${value}".`);
     }
   });
 });

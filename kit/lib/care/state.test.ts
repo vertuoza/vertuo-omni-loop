@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CareResponseSchema, careState } from './state.ts';
 import type { CareResponse } from './state.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePr } from '../ids.ts';
 
 const STATUS = '<!-- omni-outbox-status -->';
 const OPTIONS = { statusMarker: STATUS, needsFixLabel: 'omni:needs-fix', gateContexts: ['outbox', 'inbox'] };
@@ -29,7 +30,7 @@ function response(over: Record<string, unknown> = {}): CareResponse {
     data: {
       repository: {
         pullRequest: {
-          number: 9,
+          number: parsePr(9),
           url: 'https://github.com/acme/widgets/pull/9',
           state: 'OPEN',
           isDraft: false,

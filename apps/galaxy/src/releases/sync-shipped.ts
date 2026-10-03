@@ -19,7 +19,7 @@ import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-release
 import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
 import { firstAdded, type Git } from './git.ts';
 import type { ShippedPrd } from './sync.ts';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 export type ShippedReading = {
   /** Every shipped PRD main holds, by PRD number. */
@@ -42,7 +42,7 @@ function shippedFolders(root: string): Folder[] {
       const folder = entry.isDirectory() ? parseFolderName(entry.name) : null;
       if (!folder) return [];
       const dir = `${shipped}/${entry.name}`;
-      return [{ prd: parsePrd(folder.prd), dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) }];
+      return [{ prd: folder.prd, dir, spec: `${dir}/spec.md`, note: releaseNotePath(dir) }];
     })
     .sort((a, b) => a.prd - b.prd);
 }

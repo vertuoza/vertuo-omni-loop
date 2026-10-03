@@ -99,7 +99,7 @@ export function repoLinks(pr: RetroPr) {
 
 /**
  * A settled entry's `Slice:` line as a slice id, or `null` when it has none or it is no slice id: the
- * kit's settled parser still gives it as text (PRD 1049, s5 makes it a SliceId).
+ * ledger keeps an entry's lines as text, so the slice is parsed where it is read.
  */
 function sliceIdOrNull(value: string | undefined): SliceId | null {
   const read = SliceIdSchema.safeParse(value);
