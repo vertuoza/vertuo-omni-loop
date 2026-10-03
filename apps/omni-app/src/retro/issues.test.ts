@@ -126,6 +126,7 @@ const RANKED = ['drift:s2-04-colour-store', 'repeated-red:e2e', AWKWARD, 'review
 const found = (findings: Finding[]): Kind => ({
   id: 'found',
   section: 'Found',
+  records: z.unknown(),
   runs: ['merge'],
   gather: () => Promise.resolve(null),
   detect: () => ({ facts: null, findings }),

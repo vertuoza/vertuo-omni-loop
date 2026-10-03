@@ -18,12 +18,14 @@ import {
   slicePulls,
   territoryFacts,
 } from './delivery.facts.ts';
-import type { DecisionFacts, FrictionFacts, Reads, ReviewFacts, TerritoryFacts } from './delivery.facts.ts';
+import type { DecisionFacts, FrictionFacts, ReviewFacts, TerritoryFacts } from './delivery.facts.ts';
 import { listChangedPaths, listLabelAdds, listReviewThreads, listReviews, listStuckComments, readOrNull } from './delivery.reads.ts';
 import type { PullReads } from './delivery.reads.ts';
 import type { Kind } from './index.ts';
+import { DeliveryRecordsSchema } from './records.ts';
+import type { z } from 'zod';
 
-type Records = { pulls: Reads };
+type Records = z.infer<typeof DeliveryRecordsSchema>;
 
 type Facts = {
   decisions: DecisionFacts;
@@ -35,6 +37,7 @@ type Facts = {
 
 export const delivery: Kind<Records, Facts> = Object.freeze({
   id: 'delivery',
+  records: DeliveryRecordsSchema,
   section: 'Decisions',
   runs: Object.freeze(['merge'] as const),
 

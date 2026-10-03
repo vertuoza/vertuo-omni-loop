@@ -16,15 +16,16 @@
 // `develop`. A batch with none sends no second query.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
+import type { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { type Actor, parseAnswer, type PullDetail, PullCommentsSchema, PullDetailSchema, PullDetailsSchema, PullsUpdatedSchema, RateLimited } from './schema.ts';
+import { type Actor, type BudgetSchema, parseAnswer, type PullDetail, PullCommentsSchema, PullDetailSchema, PullDetailsSchema, PullsUpdatedSchema, RateLimited } from './schema.ts';
 import { isBot, isOmniSigned } from './signed.ts';
 
 /** The one seam of GitHub the collector reads through: a GraphQL query and its variables. */
 export type GraphqlOctokit = { graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown> };
 
 /** An installation's budget as `rateLimit` last answered it; `{}` until its first query. */
-export type Budget = { limit?: number; remaining?: number; resetAt?: string | null };
+export type Budget = z.infer<typeof BudgetSchema>;
 
 type Tables = Database['public']['Tables'];
 /** A `pull_requests` row, as the collector writes it. */

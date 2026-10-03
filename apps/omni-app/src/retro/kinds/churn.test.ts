@@ -10,7 +10,7 @@ import { listPullsInto } from '../github.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { churn } from './churn.ts';
 import type { RetroPull } from './index.ts';
-import { handles, replay, retroFunction, scenario } from './test-handles.ts';
+import { handles, replay, retroFunction, scenario } from './test/handles.ts';
 import {
   FEATURE,
   GET_COMMIT,

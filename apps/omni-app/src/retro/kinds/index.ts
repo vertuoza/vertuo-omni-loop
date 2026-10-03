@@ -17,6 +17,7 @@
 //   - `describe(facts)` is pure: the markdown lines of its section, or `null` to leave it out.
 //     `render` adds the kind's findings below them.
 //   - `runs` names the runs it takes part in: `merge`, `day-14`.
+import type { z } from 'zod';
 import type { DetectContext, Finding, Octokit, Run, Scope } from '../retro.types.ts';
 import { afterMerge } from './after-merge.ts';
 import { churn } from './churn.ts';
@@ -48,6 +49,8 @@ export type Kind<Records = unknown, Facts = unknown> = {
   readonly id: string;
   readonly section: string;
   readonly runs: readonly Run[];
+  /** What `gather` returns, as the run reads it back from the step Inngest saved it in. */
+  readonly records: z.ZodType<Records>;
   gather(octokit: Octokit, scope: Scope): Promise<Records>;
   detect(records: Records | null, context: DetectContext): { facts: Facts | null; findings: Finding[] };
   describe(facts: Facts | null): string[] | null;

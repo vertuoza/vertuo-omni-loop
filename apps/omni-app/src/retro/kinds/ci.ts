@@ -18,27 +18,17 @@ import type { Counts, Reporter } from './ci-logs.ts';
 import type { Evidence, GatherScope, Kind, RetroPrd, RetroPull } from './index.ts';
 import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
 import type { Job, WorkflowRun } from './schema.ts';
+import { CiRecordsSchema, type JobRecordSchema } from './records.ts';
+import type { z } from 'zod';
 import { sliceOf } from './slice-of.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 
 /** One job of one run, as the kind keeps it. */
-type JobRecord = {
-  id: number;
-  run: number;
-  workflow: string | null;
-  check: string;
-  slice: string;
-  sha: string | null | undefined;
-  attempt: number;
-  status: string | null | undefined;
-  conclusion: string | null;
-  url: string | null;
-  completedAt: string | null;
-};
+type JobRecord = z.infer<typeof JobRecordSchema>;
 
-type Unread = { slice: string; run?: number; status: number };
-type Log = { tail: string | null; status?: number };
-type Records = { slices: string[]; unread: Unread[]; jobs: JobRecord[]; logs: Record<string, Log | undefined> };
+type Records = z.infer<typeof CiRecordsSchema>;
+type Unread = Records['unread'][number];
+type Log = NonNullable<Records['logs'][string]>;
 
 type RedRun = {
   id: number;
@@ -87,6 +77,7 @@ const COUNT_ORDER: readonly string[] = Object.freeze(['failed', 'errors', 'flaky
 
 export const ci: Kind<Records | null, Facts> = Object.freeze({
   id: 'ci',
+  records: CiRecordsSchema.nullable(),
   section: 'Checks',
   runs: Object.freeze(['merge'] as const),
 

@@ -19,26 +19,20 @@ import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate, readContent } from '../github.ts';
 import { leftOutAs } from './churn-generated.ts';
 import { changeBlocks, followLines, rewrittenRanges } from './churn-lines.ts';
-import type { Block, Line } from './churn-lines.ts';
+import type { Line } from './churn-lines.ts';
 import type { LeftOut } from './churn-generated.ts';
 import type { Evidence, GatherScope, Kind, Octokit, RetroPr, RetroPrd } from './index.ts';
+import { ChurnRecordsSchema } from './records.ts';
+import type { z } from 'zod';
 import { ChangedFileSchema, CommitPageSchema, PullCommitSchema } from './schema.ts';
 import type { ChangedFile, PullCommit } from './schema.ts';
 import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
-type FinalFile = { path: string; additions: number | null | undefined; deletions: number | null | undefined };
-type CommitFile = {
-  path: string;
-  previous: string | null;
-  status: string | null | undefined;
-  additions: number;
-  deletions: number;
-  blocks: Block[] | null;
-};
-type CommitRecord = { sha: string; url: string | null; files: CommitFile[] | null };
-type PullRecord = { number: number; url: string | null; headRef: string; mergedAt: string | null; commits: CommitRecord[] | null };
-type Records = { gitattributes: string | null; final: FinalFile[] | null; pulls: PullRecord[] };
+type Records = z.infer<typeof ChurnRecordsSchema>;
+type FinalFile = NonNullable<Records['final']>[number];
+type PullRecord = Records['pulls'][number];
+type CommitRecord = NonNullable<PullRecord['commits']>[number];
 type Repo = { owner: string; repo: string };
 
 type Walked = ReturnType<typeof walk>;
@@ -66,6 +60,7 @@ const SHORT = 7;
 
 export const churn: Kind<Records | null, Facts> = Object.freeze({
   id: 'churn',
+  records: ChurnRecordsSchema.nullable(),
   section: 'Churn',
   runs: Object.freeze(['merge'] as const),
 
@@ -290,7 +285,10 @@ function linker(pr: RetroPr | undefined, commits: Map<string, CommitSeen>) {
   return {
     commits: (shas: Iterable<string>): Evidence[] =>
       [...shas]
-        .map((sha) => ({ sha, ...(commits.get(sha) as CommitSeen) })) // ts-allow: every sha linked is a commit walked
+        .flatMap((sha) => {
+          const seen = commits.get(sha);
+          return seen ? [{ sha, ...seen }] : [];
+        })
         .sort((a, b) => a.index - b.index)
         .map((commit) => ({
           label: `${commit.short} (${commit.slice})`,
