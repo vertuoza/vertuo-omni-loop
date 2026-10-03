@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 1049
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-ids-stop-at-safe-integers -->
+
+## s1-01-ids-stop-at-safe-integers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-ids-stop-at-safe-integers
 prd: 1049
@@ -47,3 +77,7 @@ Accepting them instead is a one-line change in kit/lib/ids.ts (drop the integer 
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The spec asks the numeric parsers to accept every digit string positiveInt accepts; positiveInt also accepts digit strings beyond Number.MAX_SAFE_INTEGER, even ones that read as Infinity, which zod 4's .int() refuses. The tests check digit strings up to Number.MAX_SAFE_INTEGER. (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-ids-stop-at-safe-integers -->
