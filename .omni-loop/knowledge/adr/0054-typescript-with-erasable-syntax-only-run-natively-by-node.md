@@ -37,3 +37,30 @@ second way to run every file.
   (`s1-01-arcade-keeps-erasable-syntax-off`).
 - Until the rename, the root project reads `.mjs` files (`allowJs`) without checking them; the
   ratchet turns `allowJs` off.
+
+## Amended by PRD 1030: no `as` cast and no `any` in source
+
+Source holds no `as` cast, no angle-bracket cast and no `any`, and no comment lets one through: the
+`// ts-allow: <reason>` comment PRD 942 allowed and its per-area ceilings
+(`scripts/typescript-ceilings.json`) are gone. `scripts/typescript-guard.test.ts` refuses each one
+on every file git tracks. `as const`, import and export aliases and non-null assertions are no
+casts, and tests (`*.test.ts`, `*.spec.ts`, a `test/` folder) may still cast their fixtures; the
+generated `supabase/database.types.ts` is left alone.
+
+What a cast used to assert is now checked where the value comes in:
+
+- **Outside data is parsed at the boundary with zod.** Every Supabase row or rpc answer, route or
+  API JSON, GitHub or model answer, file read back and Inngest saved step is parsed with a strict
+  zod schema, and the module's type is `z.infer` of it, so the two cannot drift. A failed parse goes
+  through the module's existing failed read, by way of `parseRows` and `parseRow`
+  (`apps/galaxy/src/data/parse-rows.ts`), which log the module, the table or route and the zod
+  issue path, never a row's values.
+- **Each database read registers itself** in a `*.boundary.ts` file beside its module, and
+  `pnpm schemas:verify` runs every one against a real database and parses the answer: `--local` in
+  the `supabase` workflow on every pull request that touches a schema, `--production` read-only
+  before a feature that changes one is marked ready.
+- **A game-engine object** is narrowed with the checking helpers of
+  `apps/galaxy/src/arcade/phaser-narrow.ts` (`bodyOf`, `spriteOf`, `tileOf`, `layerOf`), which throw
+  on the wrong class.
+- **A fake or a partial client** satisfies a narrow port, an interface naming only the methods the
+  module calls, rather than being cast to the whole client.
