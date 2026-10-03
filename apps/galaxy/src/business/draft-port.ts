@@ -1,7 +1,10 @@
-import { claimOf, type Claim, type StoredClaim, type StoredReceipt } from './model';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { CLAIM_COLUMNS, claimOf, RECEIPT_COLUMNS, StoredClaim, StoredReceipt, type Claim } from './model';
 import type { DraftView, WebPage } from './reveal';
 import { MAX_PAGES } from './reveal';
 import { COULD_NOT_SAVE, refusalOf } from './store';
+import { orNull, parseRow, parseRows } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // The draft's calls from Settings › Business (PRD 774 s3), as the signed-in person. Draft from my repos
@@ -35,7 +38,7 @@ export interface DraftPort {
 
 type Answer = { data: unknown; error: unknown };
 interface Query extends PromiseLike<Answer> {
-  eq(column: string, value: unknown): Query;
+  eq(column: string, value: string): Query;
   order(column: string, options?: { ascending: boolean }): Query;
   limit(n: number): Query;
 }
@@ -44,25 +47,63 @@ export interface DraftDb {
   rpc(fn: string, args: Record<string, unknown>): PromiseLike<Answer>;
 }
 
-/** A draft row as the page keeps it. */
-export function draftOf(row: unknown): DraftView {
-  const state = propertyOf(row, 'state');
-  const counts = propertyOf(row, 'counts');
-  const scanned = propertyOf(row, 'scanned');
-  const reason = propertyOf(row, 'reason');
+/** One link of a select's chain, kept until the query is awaited. */
+type Step =
+  | { kind: 'eq'; column: string; value: string }
+  | { kind: 'order'; column: string; options?: { ascending: boolean } | undefined }
+  | { kind: 'limit'; n: number };
+
+/** A Query that records its chain and hands it to `run` when it is awaited. */
+function recorded(run: (steps: readonly Step[]) => PromiseLike<Answer>, steps: readonly Step[] = []): Query {
+  const next = (step: Step) => recorded(run, [...steps, step]);
   return {
-    id: String(propertyOf(row, 'id')),
-    kind: propertyOf(row, 'kind') === 'recheck' ? 'recheck' : 'draft',
-    state: state === 'done' || state === 'failed' ? state : 'running',
-    counts: (counts && typeof counts === 'object' ? counts : {}),
-    scanned: Array.isArray(scanned) ? (scanned as DraftView['scanned']) : [], // ts-allow: scanned is a JSON column the draft run writes in DraftView's shape
-    reason: typeof reason === 'string' ? reason : null,
+    eq: (column, value) => next({ kind: 'eq', column, value }),
+    order: (column, options) => next({ kind: 'order', column, options }),
+    limit: (n) => next({ kind: 'limit', n }),
+    then: (ok, ko) => run(steps).then(ok, ko),
   };
 }
 
+/** A Supabase client seen through DraftDb: each select's chain is replayed on the client's own query
+ * builder when awaited, so the deep builder types are never compared with the port's. */
+export function draftDbOver(client: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDb {
+  return {
+    from: (table) => ({
+      select: (columns) => recorded((steps) => {
+        let query = client.from(table).select(columns);
+        for (const step of steps) {
+          if (step.kind === 'eq') query = query.eq(step.column, step.value);
+          else if (step.kind === 'order') query = query.order(step.column, step.options);
+          else query = query.limit(step.n);
+        }
+        return query;
+      }),
+    }),
+    rpc: (fn, args) => client.rpc(fn, args),
+  };
+}
+
+/** One source a draft scanned, as its run writes it in `business_drafts.scanned` (./draft/run.ts). */
+const ScannedSource = z.object({ source: z.string(), state: z.enum(['read', 'skipped']), why: z.string().optional() });
+
+/** A public.business_drafts row, as the page reads it: the columns of DRAFT_COLUMNS, or the whole row
+ * the draft route answers. `counts` and `scanned` are the JSON columns the draft run writes. */
+export const StoredDraft = z.object({
+  id: z.string(),
+  kind: z.enum(['draft', 'recheck']),
+  state: z.enum(['running', 'done', 'failed']),
+  counts: z.record(z.string(), z.number()),
+  scanned: z.array(ScannedSource),
+  reason: z.string().nullable(),
+});
+export type StoredDraft = z.infer<typeof StoredDraft>;
+
 export const DRAFT_COLUMNS = 'id, kind, state, counts, scanned, reason';
-export const CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id, replaces, last_seen';
-export const RECEIPT_COLUMNS = 'claim_id, kind, location, quote, seen_at';
+
+/** A draft row as the page keeps it, or null (logged) when it is not one. */
+export function draftOf(row: unknown, where: string): DraftView | null {
+  return orNull(parseRow(StoredDraft, row, where));
+}
 
 export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof globalThis.fetch = (...args) => globalThis.fetch(...args)): DraftPort {
   /** A route's answer: its body when it said yes, else its `{error}` in plain words. */
@@ -81,14 +122,14 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
     async start() {
       const sent = await send(DRAFT_ROUTE, 'POST', { workspace });
       if (!sent.ok) return sent;
-      const row = propertyOf(sent.body, 'draft');
-      return row && typeof row === 'object' ? { ok: true, draft: draftOf(row) } : { ok: false, message: COULD_NOT_SAVE };
+      const draft = draftOf(propertyOf(sent.body, 'draft'), `business/draft-port: ${DRAFT_ROUTE}`);
+      return draft ? { ok: true, draft } : { ok: false, message: COULD_NOT_SAVE };
     },
     async latest() {
       try {
         const { data, error } = await db.from('business_drafts').select(DRAFT_COLUMNS).eq('workspace_id', workspace).order('started_at', { ascending: false }).limit(1);
         const row: unknown = Array.isArray(data) ? data[0] : null;
-        return error || !row ? null : draftOf(row);
+        return error || !row ? null : draftOf(row, 'business/draft-port: business_drafts');
       } catch {
         return null;
       }
@@ -100,8 +141,10 @@ export function databaseDraft(db: DraftDb, workspace: string, fetch: typeof glob
           db.from('claim_receipts').select(RECEIPT_COLUMNS).eq('workspace_id', workspace),
         ]);
         if (claims.error || receipts.error) return null;
-        const quoted = (receipts.data ?? []) as StoredReceipt[]; // ts-allow: the select names RECEIPT_COLUMNS, the columns of StoredReceipt
-        return ((claims.data ?? []) as StoredClaim[]).map((row) => claimOf(row, [], quoted)).sort((a, b) => a.seq - b.seq); // ts-allow: the select names CLAIM_COLUMNS, the columns of StoredClaim
+        const quoted = parseRows(StoredReceipt, receipts.data, 'business/draft-port: claim_receipts');
+        const rows = parseRows(StoredClaim, claims.data, 'business/draft-port: claims');
+        if (!quoted.ok || !rows.ok) return null;
+        return rows.value.map((row) => claimOf(row, [], quoted.value)).sort((a, b) => a.seq - b.seq);
       } catch {
         return null;
       }

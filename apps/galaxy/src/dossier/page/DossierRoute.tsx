@@ -77,9 +77,8 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
  * GitHub could not be read, the stages null when they could not be read. */
-function prdReads(db: Db, read: DossierRead): DossierReads {
+function prdReads(db: Db, read: DossierRead, prd: number): DossierReads {
   const { dossier } = read;
-  const prd = dossier.prd as number; // ts-allow: prdReads runs for a numbered PRD dossier only, as its comment says
   const reader = dossierGithub();
   const logged = (error: unknown) => {
     console.error(error);
@@ -209,13 +208,14 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     const pulse = pulseOf(seen);
     return <LiveRefresh supabase={env} id={dossier.id} signature={pulse ? signature(pulse) : null} dock={await dock} />;
   };
-  if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
+  const { prd } = read.dossier;
+  if (prd !== null && kindOf(read.dossier) === 'prd') {
     read = { ...read, proofs: await proofs };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read)} markdown={markdown} voice={voice} supabase={env} live={live} />;
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} />;
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);

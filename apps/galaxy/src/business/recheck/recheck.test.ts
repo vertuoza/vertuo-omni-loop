@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DraftRow } from '../draft/run';
 import { recheckRoute, type RecheckDeps } from './recheck';
 import { answerOf } from '../json.fake';
@@ -130,6 +130,13 @@ describe('the businesses a recheck reads', () => {
     };
     expect(await rechecked(db)).toEqual(['ws-a', 'ws-b']);
     expect(asked).toEqual(['claims', 'workspace_id', 'state=confirmed']);
+  });
+
+  it('throw when a row is not a workspace\'s (PRD 1030)', async () => {
+    const { rechecked } = await import('./recheck');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const db = { from: () => ({ select: () => ({ eq: () => Promise.resolve({ data: [{ workspace_id: null }], error: null }) }) }) };
+    await expect(rechecked(db)).rejects.toThrow(/business\/recheck: claims: the answer does not parse: \[0\]\.workspace_id/);
   });
 
   it('throw when the claims cannot be read', async () => {
