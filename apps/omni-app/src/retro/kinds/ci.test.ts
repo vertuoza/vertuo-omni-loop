@@ -12,6 +12,7 @@ import { ci } from './ci.ts';
 import type { Finding, RetroPull } from './index.ts';
 import { handles, replay, retroFunction, scenario } from './test/handles.ts';
 import { cleanLog, tailOf } from './ci-logs.ts';
+import { readEnv } from '../../env.ts';
 
 const { gather, detect, section } = handles(ci);
 
@@ -364,7 +365,7 @@ describe('ci — through the retro function', () => {
 
   async function retroOf() {
     const widget = scenario({ recording: recording() });
-    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, env: JUDGE_ENV, fetch: judge() });
+    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() });
     const { error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
     const files = widget.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
     return { error, github: widget.github, markdown: defined(files[`${FOLDER}/retro.md`], 'retro.md'), json: defined(files[`${FOLDER}/retro.json`], 'retro.json') };

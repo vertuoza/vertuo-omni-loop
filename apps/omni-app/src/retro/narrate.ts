@@ -23,7 +23,7 @@
 // gets one repair request.
 //
 // The contract the function relies on:
-//   in:  { sheet, prd: { title, problem }, knowledge?, lessons?, env, fetch }
+//   in:  { sheet, prd: { title, problem }, knowledge?, lessons?, openrouter, fetch }
 //        `knowledge` is what the kit's `knowledgeSummary` returns (its `principles`, `laws` and
 //        `decisions` are read), `lessons` the `lessons[].text` of earlier retros, oldest first.
 //   out: { model: string | null, reply: object | null, reason: string | null }
@@ -46,6 +46,7 @@ import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
 import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.ts';
+import type { OpenRouterEnv } from '../env.ts';
 
 /** What the model is given of a finding: what `detect` put on the fact sheet. */
 type NarratedFinding = {
@@ -334,7 +335,8 @@ export type NarrateInput = {
   prd: NarratePrd;
   knowledge?: KnowledgeInput;
   lessons?: readonly unknown[] | null;
-  env?: Record<string, string | undefined>;
+  /** OpenRouter's key and model, from the app's environment (../env.ts); `null`: no model, facts only. */
+  openrouter: OpenRouterEnv | null;
   fetch?: typeof fetch | undefined;
   sleep?: (ms: number) => Promise<void>;
   call?: typeof MODEL_CALL;
@@ -345,13 +347,13 @@ export async function narrate({
   prd,
   knowledge = null,
   lessons = [],
-  env = process.env,
+  openrouter,
   fetch = globalThis.fetch,
   sleep,
   call = MODEL_CALL,
 }: NarrateInput): Promise<Narrated> {
   const { system, user } = modelInput({ sheet, prd, knowledge, lessons });
-  const out = await askModel({ system, user, check: checkReply, env, fetch, sleep, call, title: TITLE, stream: true });
+  const out = await askModel({ system, user, check: checkReply, openrouter, fetch, sleep, call, title: TITLE, stream: true });
   if (out.ok) return { model: out.model, reply: ModelReplySchema.parse(out.reply), reason: null };
   if (out.error === NO_KEY) return { model: null, reply: null, reason: NO_MODEL_KEY };
   if (out.error === REFUSED) return { model: out.model, reply: null, reason: REPLY_INVALID };

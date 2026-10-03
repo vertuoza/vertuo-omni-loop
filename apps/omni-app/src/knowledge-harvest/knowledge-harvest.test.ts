@@ -41,12 +41,16 @@ import {
   VERDICT_MARKER,
   createHarvestFailureHandler,
   createKnowledgeHarvest,
-  knowledgeHarvest,
   nothingNewText,
   verdictMarker,
 } from './knowledge-harvest.ts';
 import type { RequestOctokit } from './github.ts';
 import { parsePrd } from '../../../../kit/lib/ids.ts';
+import { readEnv } from '../env.ts';
+import { appFunctions } from '../functions.ts';
+
+/** The functions the app serves, bound to an empty environment. */
+const { knowledgeHarvest } = appFunctions(readEnv({}));
 
 type Octokit = RequestOctokit;
 type Replies = Record<string, unknown>;
@@ -95,7 +99,7 @@ function engine(
     saved?: string[];
   } = {},
 ) {
-  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => octokit, env, fetch, now: () => TODAY });
+  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => octokit, openrouter: readEnv(env).openrouter, fetch, now: () => TODAY });
   return { run: new InngestTestEngine({ function: fn, events: [event], ...(saved ? { transformCtx: savingSteps(saved) } : {}) }), fetch };
 }
 

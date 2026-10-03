@@ -21,9 +21,6 @@ import { messageOf } from '../outbox-check/github-schema.ts';
 /** The header galaxy reads the signature from: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
-/** Galaxy's production host, when `GALAXY_URL` is not set. */
-const DEFAULT_GALAXY_URL = 'https://www.omni-loop.xyz';
-
 /** The kit's default branch shapes and link lines. */
 const DEFAULT_SHAPES = (() => {
   const { branches, prLinks } = parseConfig('kit: 1');
@@ -115,10 +112,9 @@ export function signStageEvent(secret: string, body: string): string {
   return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
 }
 
-/** Galaxy's event route, on `GALAXY_URL` when set. */
-export function stageEventUrl(env: Record<string, string | undefined> = process.env): string {
-  const host = (env.GALAXY_URL || DEFAULT_GALAXY_URL).replace(/\/+$/, '');
-  return `${host}/api/stages/event`;
+/** Galaxy's event route, on its host (`galaxyUrl` of the app's environment, `GALAXY_URL` or its default). */
+export function stageEventUrl(galaxyUrl: string): string {
+  return `${galaxyUrl.replace(/\/+$/, '')}/api/stages/event`;
 }
 
 /**

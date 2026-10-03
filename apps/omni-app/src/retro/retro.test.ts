@@ -37,9 +37,10 @@ import {
   createRetroFailureHandler,
   gatherKnowledge,
   lessonsIn,
-  retro,
 } from './retro.ts';
 import type { Octokit } from './retro.types.ts';
+import { readEnv } from '../env.ts';
+import { appFunctions } from '../functions.ts';
 
 /** The stubbed GitHub and the scenario, as the tests read them: their state open to look at. */
 type Scenario = ReturnType<typeof widgetScenario>;
@@ -65,13 +66,10 @@ type Env = Record<string, string | undefined>;
 const judge = (options?: Parameters<typeof judgeOf>[0]): Judge => judgeOf(options);
 const testEngine = (options: InngestTestEngine.Options): Engine => new InngestTestEngine(options) as unknown as Engine;
 
-// The function the app serves reads GitHub through `installationOctokit`: here, the stubbed GitHub
-// of the scenario a test puts in `served`.
-const served = vi.hoisted((): { octokit: unknown } => ({ octokit: null }));
-vi.mock('../outbox-check/outbox-check.ts', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  installationOctokit: () => Promise.resolve(served.octokit),
-}));
+// The function the app serves, bound to an empty environment (no model key), reading GitHub through
+// the stubbed GitHub of the scenario a test puts in `served`.
+const served: { octokit: unknown } = { octokit: null };
+const { retro } = appFunctions(readEnv({}), { octokitFor: () => Promise.resolve(served.octokit as never) });
 
 /** The id of every step a run ran, in order. */
 const ranSteps = (ctx: Ctx): string[] => ctx.step.run.mock.calls.map(([id]) => id);
@@ -152,7 +150,7 @@ function engine(
   scenario: Scenario,
   { octokit = scenario.github.octokit, env = JUDGE_ENV, fetch = judge() }: { octokit?: Octokit; env?: Env; fetch?: typeof globalThis.fetch } = {},
 ): Engine {
-  const fn = createRetro({ client: inngest, octokitFor: () => octokit, env, fetch });
+  const fn = createRetro({ client: inngest, octokitFor: () => octokit, openrouter: readEnv(env).openrouter, fetch });
   return testEngine({ function: fn, events: [scenario.event] });
 }
 
@@ -210,7 +208,7 @@ function followUpEngine(
     days = fourteenDays(onWake),
   }: { env?: Env; fetch?: typeof globalThis.fetch; onWake?: () => void; days?: Days } = {},
 ): Engine {
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, fetch, followUp: true });
+  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(env).openrouter, fetch, followUp: true });
   return daysEngine(fn, scenario.event, days);
 }
 
@@ -496,7 +494,7 @@ describe('retro — every step read back as Inngest saved it (s19-01)', () => {
     saved: string[],
     { env = JUDGE_ENV, followUp = false, alter }: { env?: Env; followUp?: boolean; alter?: (id: string, value: unknown) => unknown } = {},
   ): Engine {
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, fetch: judge(), followUp });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(env).openrouter, fetch: judge(), followUp });
     // A wait, if the clock asks for one, ends on the tick of the fourteenth day.
     const transformCtx = followUp ? (ctx: Parameters<typeof mockCtx>[0]) => answering(fourteenDays().waits)(savingRun(ctx, saved, alter)) : savingSteps(saved, alter);
     return testEngine({ function: fn, events: [scenario.event], transformCtx });
@@ -808,7 +806,7 @@ describe('retro — fourteen days later', () => {
     expect(ranSteps(plain.ctx)).not.toContain(CLOCK_STEP);
 
     const scenario = widgetScenario();
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: {}, followUp: true, kinds: [] });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv({}).openrouter, followUp: true, kinds: [] });
     const { ctx, error } = await testEngine({ function: fn, events: [scenario.event] }).execute();
     expect(error).toBeUndefined();
     expect(ctx.step.waitForEvent).not.toHaveBeenCalled();
@@ -818,7 +816,6 @@ describe('retro — fourteen days later', () => {
   it('is part of the function the app serves', async () => {
     const scenario = afterMergeScenario();
     served.octokit = scenario.github.octokit;
-    vi.stubEnv('OPENROUTER_API_KEY', '');
     try {
       const { ctx, result, error } = await daysEngine(retro, scenario.event, fourteenDays()).execute();
       expect(error).toBeUndefined();
@@ -826,7 +823,6 @@ describe('retro — fourteen days later', () => {
       expect(ctx.step.sleepUntil).not.toHaveBeenCalled();
       expect(result).toMatchObject({ followUp: { findings: 2, issues: 0, verdict: 'not judged' } });
     } finally {
-      vi.unstubAllEnvs();
       served.octokit = null;
     }
   });
@@ -860,7 +856,7 @@ describe('retro — its daily schedule', () => {
   });
 
   it('is not part of a retro built without its day-14 run', () => {
-    const fn = createRetro({ client: inngest, octokitFor: () => null as never, env: {} });
+    const fn = createRetro({ client: inngest, octokitFor: () => null as never, openrouter: readEnv({}).openrouter });
     expect(triggersOf(fn)).toEqual([{ event: RETRO_EVENT }]);
   });
 

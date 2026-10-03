@@ -18,8 +18,12 @@ import {
   INBOX_FUNCTION_ID,
   createInboxCheck,
   createInboxFailureHandler,
-  inboxCheck,
 } from './inbox-check.ts';
+import { appFunctions } from '../functions.ts';
+import { readEnv } from '../env.ts';
+
+/** The functions the app serves, bound to an empty environment. */
+const { inboxCheck } = appFunctions(readEnv({}));
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
