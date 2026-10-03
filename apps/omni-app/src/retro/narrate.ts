@@ -74,7 +74,7 @@ const ReplyFindingSchema = z.object({
   keep: z.boolean().exactOptional(),
   why: z.string().exactOptional(),
 });
-export type ReplyFinding = z.infer<typeof ReplyFindingSchema>;
+type ReplyFinding = z.infer<typeof ReplyFindingSchema>;
 
 /**
  * The model's JSON, as `checkReply` passed it, and as the step "narrate" saved it: `checkReply`

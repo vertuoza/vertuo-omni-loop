@@ -20,16 +20,16 @@ import { z } from 'zod';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 /** public.claims.kind's check constraint (20261027090000_never_lines.sql). */
-export const ClaimKind = z.enum(['region', 'offering', 'size', 'trade', 'rival', 'never']);
+const ClaimKind = z.enum(['region', 'offering', 'size', 'trade', 'rival', 'never']);
 export type ClaimKind = z.infer<typeof ClaimKind>;
 /** public.claims.state's check constraint (20261019090000_business_store.sql). */
-export const ClaimState = z.enum(['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown']);
+const ClaimState = z.enum(['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown']);
 export type ClaimState = z.infer<typeof ClaimState>;
 /** public.claims.source's check constraint (20261019090000_business_store.sql). */
-export const ClaimSource = z.enum(['pick', 'suggestion', 'evidence', 'answer']);
+const ClaimSource = z.enum(['pick', 'suggestion', 'evidence', 'answer']);
 export type ClaimSource = z.infer<typeof ClaimSource>;
 /** public.claim_receipts.kind's check constraint (20261021090000_business_evidence.sql). */
-export const ReceiptKind = z.enum(['file', 'pr', 'link']);
+const ReceiptKind = z.enum(['file', 'pr', 'link']);
 
 export interface Claim {
   /** The claim's row id (a uuid). */

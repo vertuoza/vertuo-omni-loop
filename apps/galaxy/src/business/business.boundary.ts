@@ -16,7 +16,7 @@ import { SUGGEST_CLAIM_COLUMNS } from './suggest-store';
 import { ConfirmedClaim } from './recheck/recheck';
 import { DraftRow } from './draft/run';
 import {
-  AddedSource, DRAFT_CLAIM_COLUMNS, DRAFT_COLUMNS as RUN_DRAFT_COLUMNS, PastedPage, ProductId, REPOSITORY_COLUMNS,
+  AddedSource, DRAFT_CLAIM_COLUMNS, RUN_DRAFT_COLUMNS, PastedPage, ProductId, REPOSITORY_COLUMNS,
   TrackedRepository, WORKSPACE_COLUMNS, WorkspaceRow,
 } from './draft/store';
 

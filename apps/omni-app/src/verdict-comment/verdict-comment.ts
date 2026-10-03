@@ -45,7 +45,7 @@ type FailedMerge = { installationId: number; owner?: string | undefined; repo?: 
 export const FailureCommentSchema = z.object({ commentId: z.number(), reason: z.string(), created: z.boolean() });
 
 /** The step a failure handler comments in. */
-export const COMMENT_FAILURE_STEP = 'comment-failure';
+const COMMENT_FAILURE_STEP = 'comment-failure';
 
 /**
  * A failure handler's comment on the merged PR: `comment` runs with the installation's GitHub and the

@@ -149,7 +149,7 @@ export const ProseSchema = z.object({
 });
 
 /** A field `guard` dropped, and why. */
-export const DroppedFieldSchema = z.object({ field: text, reason: text });
+const DroppedFieldSchema = z.object({ field: text, reason: text });
 
 /** The step "guard": the prose kept, and every field dropped. */
 export const GuardedSchema = z.object({ prose: ProseSchema.nullable(), dropped: z.array(DroppedFieldSchema) });

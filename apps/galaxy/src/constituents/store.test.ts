@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { liveOf } from './model';
 import {
-  constituentRefusalOf, COULD_NOT_SAVE, databaseConstituents, demoConstituentsPort, GONE, INVALID_FIELD, NOT_OWNER,
+  constituentRefusalOf, databaseConstituents, demoConstituentsPort, GONE, INVALID_FIELD, NOT_OWNER,
 } from './store';
+import { COULD_NOT_SAVE } from '../business/store';
 
 // The constituents' writes (PRD 871 s1): the functions, called as the signed-in person (stubbed: no test
 // calls Supabase), their refusals as the panel says them, and the demo's same rules in memory.

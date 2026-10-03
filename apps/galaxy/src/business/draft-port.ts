@@ -96,12 +96,11 @@ export const StoredDraft = z.object({
   scanned: z.array(ScannedSource),
   reason: z.string().nullable(),
 });
-export type StoredDraft = z.infer<typeof StoredDraft>;
 
 export const DRAFT_COLUMNS = 'id, kind, state, counts, scanned, reason';
 
 /** A draft row as the page keeps it, or null (logged) when it is not one. */
-export function draftOf(row: unknown, where: string): DraftView | null {
+function draftOf(row: unknown, where: string): DraftView | null {
   return orNull(parseRow(StoredDraft, row, where));
 }
 

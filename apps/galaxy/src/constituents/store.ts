@@ -2,6 +2,7 @@ import {
   constituentOf, NEVER_MAX, SavedConstituentRow, STATEMENT_MAX,
   type Constituent, type ConstituentEvent, type ConstituentKind, type StoredConstituent,
 } from './model';
+import { COULD_NOT_SAVE } from '../business/store';
 import { parseRow } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { settled } from '../stages/settled';
@@ -27,7 +28,6 @@ export interface ConstituentPort {
 
 export const NOT_OWNER = 'Only an owner of the workspace can change its constituents.';
 export const GONE = 'That line is no longer here. Reload the page.';
-export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** What a 22023 says, by the field its `hint` names. */
 export const INVALID_FIELD: Readonly<Record<string, string>> = {

@@ -1,6 +1,7 @@
 import { validPersonaAvatar } from '@omni/design';
 import { NAME_MAX, personaOf, STANCES, StoredPersona, TEXT_MAX, type Persona, type PersonaFields } from './personas';
 import { parseRow } from '../data/parse-rows';
+import { COULD_NOT_SAVE } from './store';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas' calls (PRD 799 s3). In production, the functions of
@@ -19,12 +20,11 @@ export interface PersonaPort {
   restore(persona: string): Promise<SavedPersona>;
 }
 
-export const NOT_MEMBER = 'Only a member of the workspace can change its personas.';
-export const GONE = 'That persona is no longer here. Reload the page.';
-export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
+export const PERSONA_NOT_MEMBER = 'Only a member of the workspace can change its personas.';
+export const PERSONA_GONE = 'That persona is no longer here. Reload the page.';
 
 /** What a 22023 says, by the field its `hint` names. */
-export const INVALID_FIELD: Readonly<Record<string, string>> = {
+export const INVALID_PERSONA_FIELD: Readonly<Record<string, string>> = {
   name: `A name: 1 to ${NAME_MAX} characters, on one line.`,
   stance: 'Pick a stance: excited, neutral or skeptical.',
   trade: 'Pick a trade from the list.',
@@ -39,9 +39,9 @@ const INVALID = 'That can’t be saved. Check each field.';
 export function personaRefusalOf(error: unknown): string {
   const code = propertyOf(error, 'code');
   const hint = propertyOf(error, 'hint');
-  if (code === '42501') return NOT_MEMBER;
-  if (code === 'P0002') return GONE;
-  if (code === '22023') return INVALID_FIELD[String(hint)] ?? INVALID;
+  if (code === '42501') return PERSONA_NOT_MEMBER;
+  if (code === 'P0002') return PERSONA_GONE;
+  if (code === '22023') return INVALID_PERSONA_FIELD[String(hint)] ?? INVALID;
   return COULD_NOT_SAVE;
 }
 
@@ -95,7 +95,7 @@ export function demoPersonasPort(initial: readonly Persona[] = []): PersonaPort 
   let personas = [...initial];
   const deleted = new Map<string, Persona>();
   let next = Math.max(0, ...initial.map((p) => p.ordinal)) + 1;
-  const refused = (field: string): SavedPersona => ({ ok: false, message: INVALID_FIELD[field] ?? INVALID });
+  const refused = (field: string): SavedPersona => ({ ok: false, message: INVALID_PERSONA_FIELD[field] ?? INVALID });
   return {
     add(product, fields) {
       const bad = invalidField(fields);
@@ -109,21 +109,21 @@ export function demoPersonasPort(initial: readonly Persona[] = []): PersonaPort 
       const bad = invalidField(fields);
       if (bad) return Promise.resolve(refused(bad));
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return Promise.resolve({ ok: false, message: GONE });
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       const persona = { ...kept, ...trimmed(fields) };
       personas = personas.map((p) => (p.id === id ? persona : p));
       return Promise.resolve({ ok: true, persona });
     },
     remove(id) {
       const kept = personas.find((p) => p.id === id);
-      if (!kept) return Promise.resolve({ ok: false, message: GONE });
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       personas = personas.filter((p) => p.id !== id);
       deleted.set(id, kept);
       return Promise.resolve({ ok: true, persona: kept });
     },
     restore(id) {
       const kept = deleted.get(id);
-      if (!kept) return Promise.resolve({ ok: false, message: GONE });
+      if (!kept) return Promise.resolve({ ok: false, message: PERSONA_GONE });
       deleted.delete(id);
       personas = [...personas, kept];
       return Promise.resolve({ ok: true, persona: kept });

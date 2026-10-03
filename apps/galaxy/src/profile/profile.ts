@@ -11,7 +11,6 @@ import { supabaseReads } from '../dashboard/board/load';
 import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
 import { parsedPages } from '../data/all-pages';
-import { orThrow, parseRows } from '../data/parse-rows';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { fixFactsStore } from '../fixes/facts/store';
 import { DEMO_VIEWER as DEMO_DOSSIER_VIEWER, demoHistory } from '../dossier/page/demo';
@@ -20,7 +19,7 @@ import { readHistory } from '../dossier/page/source';
 import type { DossierListRow } from '../dossier/store';
 import { stageStore } from '../stages/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
-import { PR_COLUMNS, REVIEW_COLUMNS, StoredPullRequest, StoredReview, TrackedRepository } from './stored';
+import { PR_COLUMNS, readTracked, REVIEW_COLUMNS, StoredPullRequest, StoredReview } from './stored';
 
 // A person's profile (PRD 698 s3), as the signed-in person, in the workspace they joined first (the
 // one /app/fleet reads, memberWorkspace): the board's reads, and the tracked repositories' pull
@@ -40,11 +39,7 @@ export type ProfileBoard = { kind: 'no-workspace' } | ProfileValue;
 function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>): ProfileReads {
   return {
     ...supabaseReads(db, workspace, galaxy),
-    async tracked() {
-      const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
-      if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return orThrow(parseRows(TrackedRepository, data, 'profile: repositories')).map((r) => r.full_name);
-    },
+    tracked: () => readTracked(db, workspace, 'profile: repositories'),
     async pullRequests(login, from, to, repos) {
       const [a, b] = [`"${from.toISOString()}"`, `"${to.toISOString()}"`];
       const rows = await parsedPages('their pull requests', StoredPullRequest, 'profile: pull_requests', (start, end) => db

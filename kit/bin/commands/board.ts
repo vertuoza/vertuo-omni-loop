@@ -252,19 +252,24 @@ export const board: Command = {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
 
-    if (result.frontier.wave === null) {
-      println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
-    } else {
-      const takeable = result.frontier.takeable.join(', ') || '(none — every candidate collides with another)';
-      println(stdout, `omni board — runnable frontier: wave ${result.frontier.wave} — takeable: ${takeable}`);
-      println(stdout, `omni board — of which runnable (unclaimed): ${result.frontier.runnable.join(', ') || '(none)'}`);
-      if (result.frontier.excluded.length > 0) {
-        println(
-          stdout,
-          `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${result.frontier.excluded.join(', ')}`,
-        );
-      }
-    }
+    printFrontier(stdout, result.frontier);
     return 0;
   }),
 };
+
+/** The runnable frontier's lines: its wave, what is takeable and runnable, and what a collision deferred. */
+function printFrontier(stdout: CommandIo['stdout'], frontier: ReturnType<typeof boardFor>['frontier']): void {
+  if (frontier.wave === null) {
+    println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
+    return;
+  }
+  const takeable = frontier.takeable.join(', ') || '(none — every candidate collides with another)';
+  println(stdout, `omni board — runnable frontier: wave ${frontier.wave} — takeable: ${takeable}`);
+  println(stdout, `omni board — of which runnable (unclaimed): ${frontier.runnable.join(', ') || '(none)'}`);
+  if (frontier.excluded.length > 0) {
+    println(
+      stdout,
+      `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(', ')}`,
+    );
+  }
+}

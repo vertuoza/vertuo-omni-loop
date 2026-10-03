@@ -40,10 +40,8 @@ const VoicePersonaSchema = z.looseObject({
   reaction: z.string(),
   citations: z.array(z.string()),
 });
-export type VoicePersona = z.infer<typeof VoicePersonaSchema>;
 /** The objection a round raised, and how it was settled. */
 const VoiceObjectionSchema = z.looseObject({ persona: z.string(), text: z.string(), citations: z.array(z.string()), settled: z.enum(SETTLED) });
-export type VoiceObjection = z.infer<typeof VoiceObjectionSchema>;
 /** One round of a voice.json. */
 const VoiceRoundSchema = z.object({
   stage: z.string(),
@@ -52,7 +50,6 @@ const VoiceRoundSchema = z.object({
   objection: VoiceObjectionSchema.nullish(),
   fit: z.string().nullish(),
 });
-export type VoiceRound = z.infer<typeof VoiceRoundSchema>;
 /**
  * A voice.json, read: the shape the checks below prove field by field, each with its own refusal, so
  * parsing what passed them always succeeds.

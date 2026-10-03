@@ -30,9 +30,6 @@ import type { CachedSlice } from './schema.ts';
 /** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
 export type Board = { at: number; slices: CachedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
 
-/** A board entry as it is written, `at` an ISO time. */
-export type BoardEntry = { at: string; slices: CachedSlice[] } | { at: string; error: string };
-
 /** A slice as a refresh writes it: one of a plan with no `wave` column writes `null`, which reads back as no slices. */
 type WrittenSlice = { id: string; wave: number | null; state: string };
 

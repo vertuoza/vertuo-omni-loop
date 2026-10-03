@@ -296,7 +296,32 @@ function planFor<I extends RepliedItem>({ comments: all, items, adopted, markers
   const byNumber = new Map(questions.map((question) => [question.number, question]));
   const open = questions.filter((question) => question.adoptedEntry === null);
 
-  // Per question: the latest numbered answer, and the latest approve-all that covers it.
+  const { numbered, approved } = rawAnswers(all, markers, byNumber, open);
+
+  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
+  const settle: { number: number; item: I | OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
+  const held: { number: number; item: I | OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
+  for (const { number, item, adoptedEntry } of questions) {
+    const raw = numbered.get(number) ?? approved.get(number);
+    if (!raw) continue;
+    const { answer, judgement } = readAnswer(raw, item);
+
+    if (judgement.verdict === null) {
+      const lastRound = reaskedAt.get(number);
+      const due = lastRound === undefined || time(answer.approvedAt) > lastRound;
+      held.push({ number, item, answer, due });
+      continue;
+    }
+    // Agreeing with an adopted item changes nothing: it is already settled and kept.
+    if (adoptedEntry && judgement.verdict !== 'drifted') continue;
+    settle.push({ number, item, answer, judgement, adoptedEntry });
+  }
+
+  return { settle, held, round: roundOf(held, highestRound) };
+}
+
+/** Per question: the latest numbered answer, and the latest approve-all that covers it. */
+function rawAnswers(all: ReplyComment[], markers: Markers, byNumber: ReadonlyMap<number, unknown>, open: readonly { number: number; since: string }[]) {
   const numbered = new Map<number, RawAnswer>();
   const approved = new Map<number, RawAnswer>();
   for (const comment of chronological(all.filter((comment) => isCountedReply(comment, markers)))) {
@@ -318,59 +343,46 @@ function planFor<I extends RepliedItem>({ comments: all, items, adopted, markers
       }
     }
   }
+  return { numbered, approved };
+}
 
-  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle: { number: number; item: I | OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
-  const held: { number: number; item: I | OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
-  for (const { number, item, adoptedEntry } of questions) {
-    const raw = numbered.get(number) ?? approved.get(number);
-    if (!raw) continue;
-    const reading: Reading = raw.approveAll
-      ? { statedVerdict: 'agreed', recorded: raw.text }
-      : interpretAnswer({ text: raw.text, options: item.sections.options });
-    const answer: ReadAnswer = {
-      ...raw,
-      recorded: reading.recorded,
-      ...(reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}),
-    };
-    const judgement: Judgement = reading.undetermined
-      ? {
-          verdict: null,
-          basis: 'undetermined',
-          reason: 'the reply names an option the question does not offer',
-        }
-      : judgeAnswer({
-          choice: item.sections.whatIDidMeanwhile,
-          answer: answer.recorded,
-          statedVerdict: reading.statedVerdict ?? null,
-        });
+/** What a raw answer to `item` says, and the judgement on it: approve-all agrees with what was done. */
+function readAnswer(raw: RawAnswer, item: RepliedItem | OutboxItem): { answer: ReadAnswer; judgement: Judgement } {
+  const reading: Reading = raw.approveAll
+    ? { statedVerdict: 'agreed', recorded: raw.text }
+    : interpretAnswer({ text: raw.text, options: item.sections.options });
+  const answer: ReadAnswer = {
+    ...raw,
+    recorded: reading.recorded,
+    ...(reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}),
+  };
+  const judgement: Judgement = reading.undetermined
+    ? {
+        verdict: null,
+        basis: 'undetermined',
+        reason: 'the reply names an option the question does not offer',
+      }
+    : judgeAnswer({
+        choice: item.sections.whatIDidMeanwhile,
+        answer: answer.recorded,
+        statedVerdict: reading.statedVerdict ?? null,
+      });
+  return { answer, judgement };
+}
 
-    if (judgement.verdict === null) {
-      const lastRound = reaskedAt.get(number);
-      const due = lastRound === undefined || time(answer.approvedAt) > lastRound;
-      held.push({ number, item, answer, due });
-      continue;
-    }
-    // Agreeing with an adopted item changes nothing: it is already settled and kept.
-    if (adoptedEntry && judgement.verdict !== 'drifted') continue;
-    settle.push({ number, item, answer, judgement, adoptedEntry });
-  }
-
+/** The next round: every held question that is due, re-asked; null when none is. */
+function roundOf(held: readonly { number: number; item: RepliedItem | OutboxItem; answer: ReadAnswer; due: boolean }[], highestRound: number): { number: number; questions: RoundQuestion[] } | null {
   const dueQuestions = held.filter((question) => question.due);
-  const round: { number: number; questions: RoundQuestion[] } | null =
-    dueQuestions.length === 0
-      ? null
-      : {
-          number: Math.max(highestRound, 1) + 1,
-          questions: dueQuestions.map(({ number, item, answer }) => ({
-            number,
-            rank: item.rank,
-            questionPlain: item.sections.questionPlain ?? item.sections.whatIHadToDecide ?? '',
-            answerText: answer.text,
-          })),
-        };
-
-  return { settle, held, round };
+  if (dueQuestions.length === 0) return null;
+  return {
+    number: Math.max(highestRound, 1) + 1,
+    questions: dueQuestions.map(({ number, item, answer }) => ({
+      number,
+      rank: item.rank,
+      questionPlain: item.sections.questionPlain ?? item.sections.whatIHadToDecide ?? '',
+      answerText: answer.text,
+    })),
+  };
 }
 
 /**

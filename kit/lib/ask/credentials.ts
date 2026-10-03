@@ -9,7 +9,7 @@ import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { homeTokens } from './client-tokens.ts';
-import type { Fetch, TokenStore } from './client.ts';
+import { askClient, type Fetch, type TokenStore } from './client.ts';
 import { jsonObject, textOrNull, TokenReplySchema } from './schema.ts';
 import type { Tokens } from './schema.ts';
 
@@ -30,6 +30,21 @@ export class SignInError extends Error {
 
 /** The key a sign-in is kept under: the host of `ask.url`, with its port. */
 export const credentialsHost = (askUrl: string): string => new URL(askUrl).host;
+
+/** The ask client of `askUrl`, with the person's sign-in for its host (`tokens`, else the one in
+ * `home`), or null when there is none. */
+export function signedInClient({ askUrl, tokens, home, fetch, callMs }: {
+  askUrl: string;
+  tokens: TokenStore | undefined;
+  home: string | undefined;
+  fetch: Fetch;
+  callMs: number | undefined;
+}): ReturnType<typeof askClient> | null {
+  const host = credentialsHost(askUrl);
+  const store = tokens ?? homeTokens(home ? { home } : undefined);
+  if (!store.read(host)) return null;
+  return askClient({ baseUrl: askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
+}
 
 /** Where a call of the contract goes: a path under `ask.url`, which may itself carry a path. */
 export const askEndpoint = (askUrl: string, path: string): string => `${askUrl.replace(/\/+$/, '')}${path}`;

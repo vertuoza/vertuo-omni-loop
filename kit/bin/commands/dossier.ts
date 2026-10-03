@@ -27,13 +27,12 @@
 //
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
 // `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
-import { askClient, AskCallError } from '../../lib/ask/client.ts';
+import { AskCallError, type askClient } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { field } from '../../lib/ask/schema.ts';
 import type { Context } from '../../lib/context.ts';
 import type { FixKind, TooLarge } from '../../lib/dossier/folder.ts';
-import { homeTokens } from '../../lib/ask/client-tokens.ts';
-import { credentialsHost } from '../../lib/ask/credentials.ts';
+import { signedInClient } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
@@ -266,13 +265,11 @@ export const dossier = {
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError(`omni dossier: no repository slug — set repo.slug in the config.`);
 
-    const host = credentialsHost(toggle.askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : undefined);
-    if (!store.read(host)) {
+    const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+    if (!client) {
       println(stderr, NO_SIGN_IN);
       return 1;
     }
-    const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
     const options: VerbIo = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
     // `prd` is a number for `push` and `link`, the two verbs that read it, and null for `open`.
     if (prd === null) return open(title, options);

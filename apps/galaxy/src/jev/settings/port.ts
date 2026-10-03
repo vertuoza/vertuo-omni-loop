@@ -33,15 +33,25 @@ export const KeyAnswer = z.union([
   z.strictObject({ error: z.string() }),
 ]);
 
+/** The key route's answer, parsed, or null when it is not one. A body that is no JSON (`null`: a proxy's
+ * error page) is a failure the route never wrote: nothing to log. */
+function keyAnswerOf(json: unknown, method: string): z.infer<typeof KeyAnswer> | null {
+  if (json === null) return null;
+  const parsed = parseRow(KeyAnswer, json, `jev/settings: ${method} ${ROUTE}`);
+  return parsed.ok ? parsed.value : null;
+}
+
+/** What the route's answer says: the key's status when it said yes, else its error in plain words. */
+function keySaved(ok: boolean, answer: z.infer<typeof KeyAnswer> | null): KeySaved {
+  if (ok && answer && 'key' in answer) return { ok: true, key: answer.key };
+  return { ok: false, message: answer && 'error' in answer ? answer.error : COULD_NOT_SAVE };
+}
+
 async function sent(fetch: typeof globalThis.fetch, method: 'POST' | 'DELETE', body: Record<string, string>): Promise<KeySaved> {
   try {
     const res = await fetch(ROUTE, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const json: unknown = await res.json().catch(() => null);
-    // A body that is no JSON (a proxy's error page) is a failure the route never wrote: nothing to log.
-    const parsed = json === null ? null : parseRow(KeyAnswer, json, `jev/settings: ${method} ${ROUTE}`);
-    const answer = parsed?.ok ? parsed.value : null;
-    if (res.ok && answer && 'key' in answer) return { ok: true, key: answer.key };
-    return { ok: false, message: answer && 'error' in answer ? answer.error : COULD_NOT_SAVE };
+    return keySaved(res.ok, keyAnswerOf(json, method));
   } catch {
     return { ok: false, message: COULD_NOT_SAVE };
   }

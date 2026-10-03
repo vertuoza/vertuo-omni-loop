@@ -15,7 +15,7 @@ import { parseRow, parseRows, type Parsed } from '../../data/parse-rows';
 
 type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
 
-export const DRAFT_COLUMNS = 'id, kind, state, started_at, finished_at, counts, scanned, reason';
+export const RUN_DRAFT_COLUMNS = 'id, kind, state, started_at, finished_at, counts, scanned, reason';
 export const DRAFT_CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id';
 const OUTCOMES: readonly MergeOutcome[] = ['added', 'seen', 'rejected', 'replacing'];
 
@@ -64,7 +64,7 @@ function rowOf<T>(what: string, fn: string, schema: z.ZodType<T>, answer: Answer
 export function draftStore(db: Db): DraftStore & SourcesStore {
   return {
     async running(workspace) {
-      const answer = await db.from('business_drafts').select(DRAFT_COLUMNS).eq('workspace_id', workspace).eq('state', 'running').maybeSingle();
+      const answer = await db.from('business_drafts').select(RUN_DRAFT_COLUMNS).eq('workspace_id', workspace).eq('state', 'running').maybeSingle();
       const data = answered('read the running draft', answer);
       return data === null ? null : parsed('read the running draft', parseRow(DraftRow, data, 'business/draft/store: business_drafts'));
     },

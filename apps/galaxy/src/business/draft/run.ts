@@ -21,7 +21,7 @@ import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 // as kept, whatever the extractor answered, since claim_propose_evidence() refuses the kind.
 
 /** What a draft row says it read, by key (`business_drafts.counts`). */
-export const DraftCounts = z.object({
+const DraftCounts = z.object({
   readmes: z.number(),
   docs: z.number(),
   prds: z.number(),
@@ -38,7 +38,7 @@ export const DraftCounts = z.object({
 export type DraftCounts = z.infer<typeof DraftCounts>;
 
 /** One source as the page lists it while the draft runs: `✓ vertuo-app · README.md`, `– vertuoza.com/pricing · skipped`. */
-export const Scanned = z.object({
+const Scanned = z.object({
   source: z.string(),
   state: z.enum(['read', 'skipped']),
   /** Why it was skipped, in plain words. */
@@ -46,8 +46,7 @@ export const Scanned = z.object({
 });
 export type Scanned = z.infer<typeof Scanned>;
 
-export const DraftState = z.enum(['running', 'done', 'failed']);
-export type DraftState = z.infer<typeof DraftState>;
+const DraftState = z.enum(['running', 'done', 'failed']);
 
 /** A public.business_drafts row, as PostgREST answers it: `counts` and `scanned` are the JSON columns
  * this run writes (PRD 1030: parsed, not trusted). */

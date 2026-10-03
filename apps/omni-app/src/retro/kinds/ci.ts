@@ -14,9 +14,10 @@
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
+import { runJobs } from './jobs.ts';
 import type { Counts, Reporter } from './ci-logs.ts';
 import type { Evidence, GatherScope, Kind, RetroPrd, RetroPull } from './index.ts';
-import { JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import { WorkflowRunsPageSchema } from './schema.ts';
 import type { Job, WorkflowRun } from './schema.ts';
 import { CiRecordsSchema, type JobRecordSchema } from './records.ts';
 import type { z } from 'zod';
@@ -61,7 +62,6 @@ type Facts = {
 type Read<T> = { value: T; status: null } | { value: null; status: number };
 
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
-const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
 const LOGS = 'GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs';
 
 /** How many runs' jobs, or logs, are read at once. */
@@ -103,13 +103,7 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     }
 
     const jobsOfRuns = await inParallel(runs, async ({ run, slice }) => {
-      const read = await readOrRefused(() =>
-        paginate((page: number) =>
-          octokit
-            .request(JOBS, { owner, repo, run_id: run.id, filter: 'all', per_page: PER_PAGE, page })
-            .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
-        ),
-      );
+      const read = await readOrRefused(() => runJobs(octokit, { owner, repo, runId: run.id, filter: 'all' }));
       if (read.status) unread.push({ slice, run: run.id, status: read.status });
       return (read.value ?? []).map((job: Job) => jobRecord(job, run, slice));
     });

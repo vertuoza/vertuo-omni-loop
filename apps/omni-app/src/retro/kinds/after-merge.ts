@@ -21,9 +21,10 @@
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
+import { runJobs } from './jobs.ts';
 import type { Block } from './churn-lines.ts';
 import type { Evidence, Kind, KindContext, KindScope, Octokit } from './index.ts';
-import { ChangedFileSchema, ClosedPullSchema, IssueSchema, JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import { ChangedFileSchema, ClosedPullSchema, IssueSchema, WorkflowRunsPageSchema } from './schema.ts';
 import type { ChangedFile, ClosedPull, Issue, Job, WorkflowRun } from './schema.ts';
 import { AfterMergeRecordsSchema, ChurnAtMergeSchema } from './records.ts';
 import type { z } from 'zod';
@@ -66,7 +67,6 @@ const ISSUES = 'GET /repos/{owner}/{repo}/issues';
 const PULLS = 'GET /repos/{owner}/{repo}/pulls';
 const FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
-const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHORT = 7;
@@ -344,13 +344,7 @@ async function mergeJobs(
   if (runs.status !== null) return { commit: mergeSha, status: runs.status, jobs: [] };
   const jobs: MergeJob[] = [];
   for (const run of runs.value) {
-    const read = await readOrRefused((): Promise<Job[]> =>
-      paginate((page: number) =>
-        octokit
-          .request(JOBS, { owner, repo, run_id: run.id, filter: 'latest', per_page: PER_PAGE, page })
-          .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
-      ),
-    );
+    const read = await readOrRefused((): Promise<Job[]> => runJobs(octokit, { owner, repo, runId: run.id, filter: 'latest' }));
     if (read.status) unread.push({ read: 'jobs', run: run.id, status: read.status });
     for (const job of read.value ?? []) {
       jobs.push({ name: job.name, workflow: run.name ?? null, conclusion: job.conclusion ?? null, url: job.html_url ?? null });

@@ -13,7 +13,7 @@ import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } f
 // people directory, which gives that person's face (PRD 652; a failed read falls back to initials).
 
 /** What the Questions part reads of a waiting round: its questions, read by readQuestions. */
-export const QUESTION_COLUMNS = 'id, questions';
+const QUESTION_COLUMNS = 'id, questions';
 export const WaitingRound = z.object({ id: z.string(), questions: z.unknown() });
 
 /** A reader of the Questions part for `me`, keeping what it read before. Throws when a read fails. */

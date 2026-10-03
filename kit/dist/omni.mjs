@@ -32232,6 +32232,12 @@ var SignInError = class extends Error {
   }
 };
 var credentialsHost = (askUrl2) => new URL(askUrl2).host;
+function signedInClient({ askUrl: askUrl2, tokens, home, fetch, callMs }) {
+  const host = credentialsHost(askUrl2);
+  const store = tokens ?? homeTokens(home ? { home } : void 0);
+  if (!store.read(host)) return null;
+  return askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
+}
 var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
 var isText = (value) => textOrNull(value) !== null;
 function tokenEntry(reply) {
@@ -33083,22 +33089,25 @@ var board = {
     for (const { repo, slug, reason: reason2 } of unreadable2) {
       println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
     }
-    if (result.frontier.wave === null) {
-      println(stdout, "omni board \u2014 runnable frontier: none \u2014 nothing is takeable right now.");
-    } else {
-      const takeable = result.frontier.takeable.join(", ") || "(none \u2014 every candidate collides with another)";
-      println(stdout, `omni board \u2014 runnable frontier: wave ${result.frontier.wave} \u2014 takeable: ${takeable}`);
-      println(stdout, `omni board \u2014 of which runnable (unclaimed): ${result.frontier.runnable.join(", ") || "(none)"}`);
-      if (result.frontier.excluded.length > 0) {
-        println(
-          stdout,
-          `omni board \u2014 deferred by a same-wave territory collision (kept the earlier slice in plan order): ${result.frontier.excluded.join(", ")}`
-        );
-      }
-    }
+    printFrontier(stdout, result.frontier);
     return 0;
   })
 };
+function printFrontier(stdout, frontier) {
+  if (frontier.wave === null) {
+    println(stdout, "omni board \u2014 runnable frontier: none \u2014 nothing is takeable right now.");
+    return;
+  }
+  const takeable = frontier.takeable.join(", ") || "(none \u2014 every candidate collides with another)";
+  println(stdout, `omni board \u2014 runnable frontier: wave ${frontier.wave} \u2014 takeable: ${takeable}`);
+  println(stdout, `omni board \u2014 of which runnable (unclaimed): ${frontier.runnable.join(", ") || "(none)"}`);
+  if (frontier.excluded.length > 0) {
+    println(
+      stdout,
+      `omni board \u2014 deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(", ")}`
+    );
+  }
+}
 
 // kit/bin/commands/care.ts
 init_define_OMNI_BUNDLE();
@@ -36599,13 +36608,11 @@ var dossier = {
     }
     const repo = ctx.config.repo.slug;
     if (!repo) throw usageError(`omni dossier: no repository slug \u2014 set repo.slug in the config.`);
-    const host = credentialsHost(toggle.askUrl);
-    const store = tokens ?? homeTokens(home ? { home } : void 0);
-    if (!store.read(host)) {
+    const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+    if (!client) {
       println(stderr, NO_SIGN_IN);
       return 1;
     }
-    const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
     const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
     if (prd2 === null) return open2(title, options);
     if (verb === "link") return link(prd2, kind, options);
@@ -40086,7 +40093,7 @@ function nextItemId(prd2, slice, slug, { ctx, outDir = null }) {
 function jsonOutcome({ outcome, rank = null, id = null, file: file2 = null, adopted = false, reason: reason2 = null }) {
   return JSON.stringify({ outcome, rank, id, file: file2, adopted, reason: reason2 });
 }
-function runNew(args, { ctx, stdout, stderr }) {
+function newRequest(args, ctx) {
   const { positional, flags } = parseArgs("item new", args, {
     values: ["prd", "slice", "file", "out"],
     booleans: ["adopt", "json"]
@@ -40098,19 +40105,19 @@ function runNew(args, { ctx, stdout, stderr }) {
     throw usageError("omni item new: --out never adopts \u2014 pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.");
   }
   const prd2 = positiveInt("item new", "--prd", flags.prd);
-  const slice = flags.slice;
-  const asJson = Boolean(flags.json);
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd2} has no inbox or shipped folder.`);
-  const outDir = flags.out === void 0 ? null : inRoot(ctx, flags.out);
-  const destination = outDir === null ? { abs: join53(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out ?? "" };
-  const input2 = readItemInput(ctx, flags.file);
-  const laws = lawsFor(ctx);
-  const bearsOn = input2.bearsOn ?? "none";
-  let decision;
+  return { prd: prd2, slice: flags.slice, asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, ...destinationOf(ctx, outboxDir, flags.out), file: flags.file };
+}
+function destinationOf(ctx, outboxDir, out) {
+  if (out === void 0) return { outDir: null, destination: { abs: join53(ctx.root, outboxDir), shown: outboxDir } };
+  const outDir = inRoot(ctx, out);
+  return { outDir, destination: { abs: outDir, shown: out } };
+}
+function decisionOn(input2, laws) {
   try {
-    decision = decideRecording({
-      bearsOn,
+    return decideRecording({
+      bearsOn: input2.bearsOn ?? "none",
       breaksNamedLaw: input2.breaksNamedLaw ?? false,
       needsHumanAction: input2.needsHumanAction ?? false,
       hardToRevert: input2.hardToRevert ?? false,
@@ -40120,30 +40127,26 @@ function runNew(args, { ctx, stdout, stderr }) {
   } catch (error62) {
     throw usageError(`omni item new: ${errorMessage(error62)}`);
   }
-  if (!decision.writesItem) {
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: decision.outcome, reason: decision.reason }));
-    } else {
-      println(stderr, `omni item new \u2014 nothing was written (${decision.outcome}): ${decision.reason}`);
-    }
-    return 1;
-  }
-  if (decision.rank === "human-action" && !input2.personSteps) {
+}
+function requireSections(input2, decision) {
+  const humanAction = decision.rank === "human-action";
+  if (humanAction && !input2.personSteps) {
     throw usageError('omni item new: "personSteps" is required \u2014 the decision settled at rank "human-action", which carries no options.');
   }
-  if (decision.rank !== "human-action" && !input2.options) {
+  if (!humanAction && !input2.options) {
     throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
   }
-  const id = nextItemId(prd2, slice, input2.slug, { ctx, outDir });
-  let text7;
+}
+function renderedItem(input2, decision, { id, prd: prd2, slice, laws }) {
+  const humanAction = decision.rank === "human-action";
   try {
-    text7 = renderOutboxItem({
+    return renderOutboxItem({
       id,
       prd: prd2,
       slice,
       wave: input2.wave,
       raised: input2.raised ?? todayUtc(),
-      bearsOn,
+      bearsOn: input2.bearsOn ?? "none",
       rank: defined(decision.rank, "the rank of a decision that writes an item"),
       questionPlain: input2.questionPlain,
       decisionPlain: input2.decisionPlain,
@@ -40153,69 +40156,82 @@ function runNew(args, { ctx, stdout, stderr }) {
       meanwhile: input2.meanwhile,
       cost: input2.cost,
       gaps: input2.gaps,
-      options: decision.rank === "human-action" ? null : input2.options,
-      personSteps: decision.rank === "human-action" ? input2.personSteps : null,
+      options: humanAction ? null : input2.options,
+      personSteps: humanAction ? input2.personSteps : null,
       laws
     });
   } catch (error62) {
     throw usageError(`omni item new: ${errorMessage(error62)}`);
   }
-  const renderedFile = `${outboxDir}/${id}.md`;
-  const violations = checkItemText(renderedFile, text7, { ctx, laws });
-  if (violations.length > 0) {
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: null, reason: violations.join("; ") }));
-    } else {
-      println(stderr, 'omni item new: the rendered item fails "check outbox" \u2014 nothing was written:');
-      for (const violation2 of violations) println(stderr, `  - ${violation2}`);
-    }
-    return 2;
+}
+function nothingWritten({ asJson, stdout, stderr }, heading, lines) {
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: null, reason: lines.join("; ") }));
+    return;
   }
-  if (decision.outcome !== "record") {
-    const file3 = writeItemFile(destination, id, text7);
+  println(stderr, heading);
+  for (const line of lines) println(stderr, `  - ${line}`);
+}
+function adoptNew(text7, id, decision, { ctx, asJson, stdout, stderr }) {
+  const result = adoptItem({ ctx, itemText: text7 });
+  if (!result.ok) {
+    nothingWritten({ asJson, stdout, stderr }, "omni item new \u2014 nothing was written:", result.errors);
+    return 1;
+  }
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, adopted: true }));
+  } else {
+    println(
+      stdout,
+      `omni item new \u2014 ${id} adopted straight to ${result.settledFile}; no open item file was written.`
+    );
+  }
+  return 0;
+}
+function writeNew(text7, id, decision, { destination, asJson, stdout, stderr }) {
+  const file2 = writeItemFile(destination, id, text7);
+  const stopped3 = decision.outcome !== "record";
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file2, ...stopped3 ? { reason: decision.reason } : {} }));
+  } else {
+    println(stdout, file2);
+    if (stopped3) println(stderr, `omni item new \u2014 the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+  }
+  return stopped3 ? 1 : 0;
+}
+function runNew(args, { ctx, stdout, stderr }) {
+  const request = newRequest(args, ctx);
+  const { prd: prd2, slice, asJson } = request;
+  const input2 = readItemInput(ctx, request.file);
+  const laws = lawsFor(ctx);
+  const decision = decisionOn(input2, laws);
+  if (!decision.writesItem) {
     if (asJson) {
-      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file3, reason: decision.reason }));
+      println(stdout, jsonOutcome({ outcome: decision.outcome, reason: decision.reason }));
     } else {
-      println(stdout, file3);
-      println(stderr, `omni item new \u2014 the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+      println(stderr, `omni item new \u2014 nothing was written (${decision.outcome}): ${decision.reason}`);
     }
     return 1;
   }
-  if (decision.rank === "medium" && flags.adopt) {
-    const result = adoptItem({ ctx, itemText: text7 });
-    if (!result.ok) {
-      if (asJson) {
-        println(stdout, jsonOutcome({ outcome: null, reason: result.errors.join("; ") }));
-      } else {
-        println(stderr, "omni item new \u2014 nothing was written:");
-        for (const error62 of result.errors) println(stderr, `  - ${error62}`);
-      }
-      return 1;
-    }
-    if (asJson) {
-      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, adopted: true }));
-    } else {
-      println(
-        stdout,
-        `omni item new \u2014 ${id} adopted straight to ${result.settledFile}; no open item file was written.`
-      );
-    }
-    return 0;
+  requireSections(input2, decision);
+  const id = nextItemId(prd2, slice, input2.slug, { ctx, outDir: request.outDir });
+  const text7 = renderedItem(input2, decision, { id, prd: prd2, slice, laws });
+  const violations = checkItemText(`${request.outboxDir}/${id}.md`, text7, { ctx, laws });
+  if (violations.length > 0) {
+    nothingWritten({ asJson, stdout, stderr }, 'omni item new: the rendered item fails "check outbox" \u2014 nothing was written:', violations);
+    return 2;
   }
-  const file2 = writeItemFile(destination, id, text7);
-  if (asJson) {
-    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file2 }));
-  } else {
-    println(stdout, file2);
+  if (decision.outcome === "record" && decision.rank === "medium" && request.adopt) {
+    return adoptNew(text7, id, decision, { ctx, asJson, stdout, stderr });
   }
-  return 0;
+  return writeNew(text7, id, decision, { destination: request.destination, asJson, stdout, stderr });
 }
 function writeItemFile(destination, id, text7) {
   mkdirSync14(destination.abs, { recursive: true });
   writeFileSync18(join53(destination.abs, `${id}.md`), text7);
   return join53(destination.shown, `${id}.md`);
 }
-function runRelay(args, { ctx, stdout, stderr }) {
+function relayRequest(args, ctx) {
   const { positional, flags } = parseArgs("item relay", args, { values: ["prd"] });
   const [named3] = positional;
   if (positional.length !== 1 || named3 === void 0 || flags.prd === void 0) throw usageError(RELAY_USAGE);
@@ -40225,6 +40241,10 @@ function runRelay(args, { ctx, stdout, stderr }) {
   if (!existsSync43(dir) || !statSync8(dir).isDirectory()) {
     throw usageError(`omni item relay: ${named3} is not a folder.`);
   }
+  return { prd: prd2, named: named3, dir };
+}
+function runRelay(args, { ctx, stdout, stderr }) {
+  const { prd: prd2, named: named3, dir } = relayRequest(args, ctx);
   const { moved: moved2, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd: prd2, dir });
   if (moved2.length === 0 && refused.length === 0) {
     println(stdout, `omni item relay \u2014 nothing to relay in ${named3}.`);
@@ -41267,13 +41287,11 @@ function localRun(cwd, dir) {
   return { run };
 }
 async function send({ toggle, repo, prd: prd2, run }, { stdout, stderr, tokens, home, fetch, callMs }) {
-  const host = credentialsHost(toggle.askUrl);
-  const store = tokens ?? homeTokens(home ? { home } : void 0);
-  if (!store.read(host)) {
+  const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+  if (!client) {
     println(stderr, NO_SIGN_IN2);
     return 1;
   }
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
   let pushed;
   try {
     pushed = await pushProof({ client, repo, prd: prd2, run });
@@ -41470,6 +41488,26 @@ function planFor({ comments: all, items, adopted, markers }) {
   const questions = answerableQuestions2(numbering, items, adopted);
   const byNumber = new Map(questions.map((question) => [question.number, question]));
   const open3 = questions.filter((question) => question.adoptedEntry === null);
+  const { numbered, approved } = rawAnswers(all, markers, byNumber, open3);
+  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
+  const settle3 = [];
+  const held = [];
+  for (const { number: number4, item: item2, adoptedEntry } of questions) {
+    const raw = numbered.get(number4) ?? approved.get(number4);
+    if (!raw) continue;
+    const { answer, judgement } = readAnswer(raw, item2);
+    if (judgement.verdict === null) {
+      const lastRound = reaskedAt.get(number4);
+      const due = lastRound === void 0 || time4(answer.approvedAt) > lastRound;
+      held.push({ number: number4, item: item2, answer, due });
+      continue;
+    }
+    if (adoptedEntry && judgement.verdict !== "drifted") continue;
+    settle3.push({ number: number4, item: item2, answer, judgement, adoptedEntry });
+  }
+  return { settle: settle3, held, round: roundOf(held, highestRound) };
+}
+function rawAnswers(all, markers, byNumber, open3) {
   const numbered = /* @__PURE__ */ new Map();
   const approved = /* @__PURE__ */ new Map();
   for (const comment2 of chronological(all.filter((comment3) => isCountedReply(comment3, markers)))) {
@@ -41491,38 +41529,30 @@ function planFor({ comments: all, items, adopted, markers }) {
       }
     }
   }
-  const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle3 = [];
-  const held = [];
-  for (const { number: number4, item: item2, adoptedEntry } of questions) {
-    const raw = numbered.get(number4) ?? approved.get(number4);
-    if (!raw) continue;
-    const reading = raw.approveAll ? { statedVerdict: "agreed", recorded: raw.text } : interpretAnswer({ text: raw.text, options: item2.sections.options });
-    const answer = {
-      ...raw,
-      recorded: reading.recorded,
-      ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}
-    };
-    const judgement = reading.undetermined ? {
-      verdict: null,
-      basis: "undetermined",
-      reason: "the reply names an option the question does not offer"
-    } : judgeAnswer({
-      choice: item2.sections.whatIDidMeanwhile,
-      answer: answer.recorded,
-      statedVerdict: reading.statedVerdict ?? null
-    });
-    if (judgement.verdict === null) {
-      const lastRound = reaskedAt.get(number4);
-      const due = lastRound === void 0 || time4(answer.approvedAt) > lastRound;
-      held.push({ number: number4, item: item2, answer, due });
-      continue;
-    }
-    if (adoptedEntry && judgement.verdict !== "drifted") continue;
-    settle3.push({ number: number4, item: item2, answer, judgement, adoptedEntry });
-  }
+  return { numbered, approved };
+}
+function readAnswer(raw, item2) {
+  const reading = raw.approveAll ? { statedVerdict: "agreed", recorded: raw.text } : interpretAnswer({ text: raw.text, options: item2.sections.options });
+  const answer = {
+    ...raw,
+    recorded: reading.recorded,
+    ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}
+  };
+  const judgement = reading.undetermined ? {
+    verdict: null,
+    basis: "undetermined",
+    reason: "the reply names an option the question does not offer"
+  } : judgeAnswer({
+    choice: item2.sections.whatIDidMeanwhile,
+    answer: answer.recorded,
+    statedVerdict: reading.statedVerdict ?? null
+  });
+  return { answer, judgement };
+}
+function roundOf(held, highestRound) {
   const dueQuestions = held.filter((question) => question.due);
-  const round = dueQuestions.length === 0 ? null : {
+  if (dueQuestions.length === 0) return null;
+  return {
     number: Math.max(highestRound, 1) + 1,
     questions: dueQuestions.map(({ number: number4, item: item2, answer }) => ({
       number: number4,
@@ -41531,7 +41561,6 @@ function planFor({ comments: all, items, adopted, markers }) {
       answerText: answer.text
     }))
   };
-  return { settle: settle3, held, round };
 }
 function formatRoundComment({
   round,

@@ -22,7 +22,7 @@ type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null; count?: number | null };
 
 export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
-export const FAKE_TABLES = ['workspaces', 'workspace_members', 'sectors', 'teams', 'players', 'ledger_events', 'player_xp', 'arcade_scores', 'contributions'] as const;
+const FAKE_TABLES = ['workspaces', 'workspace_members', 'sectors', 'teams', 'players', 'ledger_events', 'player_xp', 'arcade_scores', 'contributions'] as const;
 export type FakeTable = (typeof FAKE_TABLES)[number];
 /** Whether the galaxy fake holds `table`: a fake beside it hands it every other table it is asked for. */
 export const isFakeTable = (table: string): table is FakeTable => isOneOf(FAKE_TABLES, table);
