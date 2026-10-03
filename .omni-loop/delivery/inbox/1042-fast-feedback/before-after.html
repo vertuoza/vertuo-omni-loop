@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1042 · Feedback in seconds</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc; --bad: #b42318; --good: #157f3d; --code: #f0f0eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --ink: #ecece8; --muted: #a3a39c; --line: #33332f; --bad: #f97066; --good: #4ade80; --code: #262623; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  h3:first-of-type { margin-top: 0; }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+  .bad { color: var(--bad); } .good { color: var(--good); } .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .same { margin-top: 20px; }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PRD 1042 · A feedback loop in seconds</h1>
+  <p class="lede">Nothing on screen changes. What changes is how long an agent waits to know whether its change is right.</p>
+  <div class="grid">
+    <section>
+      <h2>Today</h2>
+      <h3>An agent checks a three-file change</h3>
+<pre>$ pnpm typecheck        6 s
+$ pnpm lint            43 s   <span class="muted">1,709 files, up to ~5.6 GB</span>
+$ pnpm test            62 s   <span class="muted">674 files</span>
+<span class="bad">≈ 2 minutes, after every change</span>
+$ git commit           <span class="muted">fallow audits the main checkout,
+                       not this worktree</span></pre>
+      <h3>A wave</h3>
+<pre><span class="bad">at most 4 agents at once on 32 GB</span></pre>
+      <h3>CI on a push (after settle's 180 s)</h3>
+<table>
+  <tr><th>Check</th><th class="n">Time</th></tr>
+  <tr><td>typecheck</td><td class="n">53 s</td></tr>
+  <tr><td>lint</td><td class="n">181 s</td></tr>
+  <tr><td>test</td><td class="n">174 s</td></tr>
+</table>
+    </section>
+    <section>
+      <h2>After</h2>
+      <h3>The same change</h3>
+<pre>$ pnpm check:changed
+  typecheck  (whole, tsgo)          <span class="good">~2 s</span>
+  lint       3 changed files        <span class="good">~3 s</span>
+  tests      related to them        <span class="good">~3–10 s</span>
+  fallow     against origin/main    <span class="good">~2 s</span>
+<span class="good">≈ 20 s, and the worktree's own code is audited</span></pre>
+      <h3>Before marking a sub-PR ready</h3>
+<pre>$ pnpm test &amp;&amp; pnpm lint   <span class="muted">the full gate, once, unchanged</span></pre>
+      <h3>CI on a push (settle unchanged)</h3>
+<table>
+  <tr><th>Check</th><th class="n">Target</th></tr>
+  <tr><td>typecheck (tsgo)</td><td class="n">&lt; 30 s</td></tr>
+  <tr><td>lint (2 shards → one <code>lint</code> check)</td><td class="n">&lt; 90 s</td></tr>
+  <tr><td>test (3 shards → one <code>test</code> check)</td><td class="n">&lt; 90 s</td></tr>
+</table>
+    </section>
+  </div>
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>The full suite is still the gate: <code>commands.preflight</code> before ready, and every check in CI.</li>
+      <li>The settle gate's 180 s wait (PRD 598), and the check names GitHub reads: <code>test</code>, <code>lint</code>, <code>typecheck</code>, <code>fallow</code>.</li>
+      <li>Every page, command and output of the loop.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
