@@ -1,9 +1,11 @@
 // The ratchet's guard (PRD 725, s29): what would bring the old state back fails here. A file that
 // opens with `@ts-nocheck`, a JavaScript source file, and an `any` or an `as` in source on a line
 // with no `// ts-allow: <reason>` comment (or one with no reason), in every folder. And the ratchet
-// (PRD 942): each area's count of `ts-allow` lines in source equals its ceiling in
-// scripts/typescript-ceilings.json, failing above it and below it. The rules are proven on
-// fixtures first, then the guard runs on every file git tracks, dot folders included.
+// (PRD 942): each area's count of `ts-allow` lines in source is at most its ceiling in
+// scripts/typescript-ceilings.json. It failed below its ceiling too until PRD 1030, whose slices clear
+// every area to 0 side by side: going down now passes, so no slice rewrites the ceilings file, and
+// the PRD's last slice deletes the file and this rule. The rules are proven on fixtures first, then
+// the guard runs on every file git tracks, dot folders included.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -153,10 +155,8 @@ describe('the ceilings, on fixtures', () => {
     ]);
   });
 
-  it('fails an area below its ceiling, naming the ceiling to write', () => {
-    expect(ceilingProblems(files, ceilings({ 'apps/galaxy': 140 }))).toEqual([
-      'apps/galaxy: 1 casts, ceiling 140 — lower the ceiling to 1 in scripts/typescript-ceilings.json',
-    ]);
+  it('passes an area below its ceiling: the casts PRD 1030 clears leave the ceilings file alone', () => {
+    expect(ceilingProblems(files, ceilings({ 'apps/galaxy': 140, kit: 3 }))).toEqual([]);
   });
 
   it('fails an area missing from the ceilings file, naming it', () => {
@@ -191,7 +191,7 @@ describe('the guard, on the whole repository', () => {
     expect(findViolations(files).map((v) => `${v.path}:${v.line} ${v.rule}: ${v.text.trim()}`)).toEqual([]);
   });
 
-  it('holds every area at its ceiling', () => {
+  it('holds every area at or below its ceiling', () => {
     expect(ceilingProblems(tracked(), readFileSync(join(repoRoot, CEILINGS_FILE), 'utf8'))).toEqual([]);
   });
 });
@@ -313,7 +313,7 @@ function readCeilings(text: string): Read<Partial<Record<Area, number>>> {
   return { value: ceilings };
 }
 
-/** Every area whose count differs from its ceiling, each with what to do. */
+/** Every area whose count is above its ceiling, or has none, each with what to do. Below passes (PRD 1030). */
 function ceilingProblems(files: readonly File[], ceilingsText: string): string[] {
   const read = readCeilings(ceilingsText);
   if ('problem' in read) return [read.problem];
@@ -325,7 +325,6 @@ function ceilingProblems(files: readonly File[], ceilingsText: string): string[]
     if (n > ceiling) {
       return [`${area}: ${n} casts, ceiling ${ceiling} — remove one, or raise the ceiling in ${CEILINGS_FILE} and say why in the pull request`];
     }
-    if (n < ceiling) return [`${area}: ${n} casts, ceiling ${ceiling} — lower the ceiling to ${n} in ${CEILINGS_FILE}`];
     return [];
   });
 }
