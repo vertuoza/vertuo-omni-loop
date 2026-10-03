@@ -85,12 +85,12 @@ describe('the schemas — for use inside other schemas', () => {
 });
 
 describe('the brands — one kind never passes for another', () => {
-  const takesIssue = (_issue: IssueNumber) => undefined;
-  const takesPrd = (_prd: PrdNumber) => undefined;
-  const takesPr = (_pr: PrNumber) => undefined;
-  const takesComment = (_comment: CommentId) => undefined;
-  const takesSlice = (_slice: SliceId) => undefined;
-  const takesItem = (_item: OutboxItemId) => undefined;
+  const takesIssue = (issue: IssueNumber) => issue;
+  const takesPrd = (prd: PrdNumber) => prd;
+  const takesPr = (pr: PrNumber) => pr;
+  const takesComment = (comment: CommentId) => comment;
+  const takesSlice = (slice: SliceId) => slice;
+  const takesItem = (item: OutboxItemId) => item;
 
   it('each parser gives its own brand', () => {
     expectTypeOf(parseIssue(1)).toEqualTypeOf<IssueNumber>();
