@@ -390,3 +390,235 @@ One line per reader: swapping the safe parse for the throwing one.
 ```
 
 <!-- /omni-outbox-settled: s3-03-an-impossible-prd-number-reads-as-none -->
+
+<!-- omni-outbox-settled: s4-01-the-game-borrows-the-kit-id-checks -->
+
+## s4-01-the-game-borrows-the-kit-id-checks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-the-game-borrows-the-kit-id-checks
+prd: 1049
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 3
+---
+
+## The question, in plain words
+
+The game was written never to borrow code from the delivery tool, so that either can be removed alone. Should it now borrow the tool's new identifier checks, or keep its own copy?
+
+## The decision, in plain words
+
+The game borrows the tool's identifier checks and nothing else of it. Removing the game still leaves the delivery tool untouched, but the game now needs those checks to run.
+
+## The intro, for fun
+
+The game swore it would never borrow a thing from the toolbox next door.
+
+## The punchline, for fun
+
+It now borrows one ruler, and has written that down on the fridge.
+
+## The options, in plain words
+
+A. A. The game imports the kit's ID brands, and only them (built).
+B. B. The game keeps a mirrored copy of the brands, as it mirrors the folder name rule.
+C. C. The brands move to a shared package both the kit and the game import.
+
+## What I had to decide
+
+Whether the game imports the kit's identifier brands (one small module that depends on zod only), against its own rule that it never imports the kit, or keeps a mirrored copy of them.
+
+## What I did meanwhile
+
+game/ imports kit/lib/ids.ts, as the plan and the spec ask of every package; the two headers that stated the rule (game/sources/parsers.ts, game/dossiers/folders.ts) now say it holds but for the ID brands. Deleting game/ still leaves the delivery layer untouched.
+
+## What it costs to change later
+
+A copy of the brands inside game/ instead: one small file and changed imports in about ten game files, no stored data and no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says ids.ts is importable by every package as narrow.ts is, and the plan gives game/ to s4; it does not say whether the game's own rule (never import the kit, so game/ can be deleted alone) gives way. The rule's direction (deleting game/ touches nothing else) still holds.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-the-game-borrows-the-kit-id-checks -->
+
+<!-- omni-outbox-settled: s4-02-the-game-skips-what-is-no-prd-number -->
+
+## s4-02-the-game-skips-what-is-no-prd-number — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-the-game-skips-what-is-no-prd-number
+prd: 1049
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 3
+---
+
+## The question, in plain words
+
+When the game reads a number that no real PRD can have, such as PRD zero in a spec's list of blockers or in a pull request's link line, should it stop or carry on without it?
+
+## The decision, in plain words
+
+The game carries on without it, as the arcade already does: a blocker or a link that names no real PRD is left out. What GitHub itself answers is still checked strictly.
+
+## The intro, for fun
+
+Somewhere a spec claims to wait for PRD zero.
+
+## The punchline, for fun
+
+The game stopped waiting for it.
+
+## The options, in plain words
+
+A. A. Lenient readers leave out a number that is no PRD number; GitHub's answers parse strictly (built).
+B. B. Every reader fails on such a number, so one bad spec line stops the poll.
+
+## What I had to decide
+
+Whether the game's lenient readers (a spec's `blocked-by` list, a merged pull request's `Refs #n` or `Closes #n` link, a delivery folder's number) drop a value that is no PRD number, or fail.
+
+## What I did meanwhile
+
+They drop it, as item s3-03 settled for the arcade: `blocked-by: [0, #985]` reads as [985] (it used to keep 0 and negatives), and `Closes #0` marks no PRD stage (it used to credit PRD 0). The lists GitHub answers (issues, pull requests, bugs) are parsed strictly; GitHub never sends a zero.
+
+## What it costs to change later
+
+One line per reader: the safe parse swapped for the throwing one.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a value a schema now refuses fails loudly where it reads; the game's readers have always skipped what they cannot read (the game's spec, section 8), so they skip here too, following s3-03.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-the-game-skips-what-is-no-prd-number -->
+
+<!-- omni-outbox-settled: s4-03-a-ledger-event-keeps-a-plain-planet -->
+
+## s4-03-a-ledger-event-keeps-a-plain-planet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-a-ledger-event-keeps-a-plain-planet
+prd: 1049
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 3
+---
+
+## The question, in plain words
+
+Every event in the game's permanent history names its planet by its PRD number, under the name planet. Should that number carry the new PRD type too?
+
+## The decision, in plain words
+
+Not yet: an event's planet stays a plain number, since the arcade builds events itself. The galaxy turns it into a PRD number where it makes a planet of it.
+
+## The intro, for fun
+
+Every planet in the history book is filed under a plain number.
+
+## The punchline, for fun
+
+The librarian checks its badge only at the door of the galaxy.
+
+## The options, in plain words
+
+A. A. Leave planet plain; the galaxy parses it where a planet is made (built).
+B. B. Brand the event's planet now, and have s5 or s6 update the arcade's event builder.
+
+## What I had to decide
+
+Whether a ledger event's `planet`, a credit's `planet` and a contributions row's `number` (a PRD or a pull request) take a brand, though s6's guard does not police those names.
+
+## What I did meanwhile
+
+They stay plain numbers. packages/galaxy parses the event's planet into a PrdNumber where it derives a planet (buildGalaxy), so the galaxy view's Planet.prd is branded; the arcade's ledger reader (apps/galaxy load-galaxy.ts) builds events with a plain planet and is outside this slice.
+
+## What it costs to change later
+
+Branding them later is a type change in game/events.ts and packages/galaxy/src/types.ts plus the arcade's event builder; the stored ledger is unchanged, since the schema already refuses anything but a positive whole number.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan brands ID-named fields and GitHub's `number`; it does not say whether a field holding an ID under another name (`planet`) is in scope.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-a-ledger-event-keeps-a-plain-planet -->
