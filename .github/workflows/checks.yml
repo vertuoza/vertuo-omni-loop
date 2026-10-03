@@ -69,7 +69,7 @@ jobs:
     steps:
       - run: '[ "${{ needs.test-shard.result }}" = "success" ] || { echo "a test shard did not pass: ${{ needs.test-shard.result }}"; exit 1; }'
 
-  # `tsc` over the root project and the arcade (PRD 725); the arcade's docs index is generated first,
+  # `pnpm typecheck`: `tsgo` over the root project and the arcade (PRD 725, PRD 1042; `pnpm typecheck:tsc` is the `tsc` fallback); the arcade's docs index is generated first,
   # since only its build made it before.
   typecheck:
     needs: settle
