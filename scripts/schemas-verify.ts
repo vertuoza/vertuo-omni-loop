@@ -26,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs as parseFlags } from 'node:util';
 import { runnerImport, type Plugin } from 'vite';
 import { z } from 'zod';
+import { EnvError, processEnv, readEnv, requireGroup, SUPABASE, type EnvSource } from '../kit/lib/env/read.ts';
 import { readOnlyClient } from '../apps/galaxy/src/data/parse-rows-client.ts';
 import { parseRow, parseRows, type Boundary, type Parsed } from '../apps/galaxy/src/data/parse-rows.ts';
 
@@ -86,16 +87,18 @@ export function localTarget(statusJson: string): Parsed<Target> {
   return ok({ url: read.data.API_URL, key: read.data.SERVICE_ROLE_KEY });
 }
 
-/** Production's URL and service role key, from the environment. */
-export function productionTarget(env: Readonly<Record<string, string | undefined>>): Parsed<Target> {
-  const url = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return failed('--production needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, in the environment or apps/galaxy/.env.local');
-  return ok({ url, key });
+/** Production's URL and service role key, from the environment, or what is unset or wrong there. */
+export function productionTarget(env: EnvSource): Parsed<Target> {
+  try {
+    return ok(requireGroup(readEnv(env).supabase, SUPABASE, '--production reads them, from the environment or apps/galaxy/.env.local'));
+  } catch (error) {
+    if (!(error instanceof EnvError)) throw error;
+    return failed(error.message);
+  }
 }
 
 function connect(args: Args): Parsed<Target> {
-  if (args.target === 'production') return productionTarget(process.env);
+  if (args.target === 'production') return productionTarget(processEnv());
   const status = spawnSync('supabase', ['status', '-o', 'json', ...(args.workdir ? ['--workdir', args.workdir] : [])], { cwd: ROOT, encoding: 'utf8' });
   if (status.error) return failed(`supabase status: ${status.error.message}`);
   return localTarget(status.stdout);

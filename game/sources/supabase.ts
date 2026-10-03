@@ -7,6 +7,7 @@
 // read is filtered by `workspace_id=eq.<id>`, each appended row carries it. The workspace is a
 // storage column, never an event field.
 import { z } from 'zod';
+import { requireGroup, SUPABASE, type SupabaseEnv } from '../../kit/lib/env/read.ts';
 import type { Database, Json } from '../../supabase/database.types.ts';
 import { makeEvent, type GameEvent } from '../events.ts';
 import { configFrom, type GameConfig } from '../config.ts';
@@ -108,26 +109,18 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }: { url: stri
   };
 }
 
-/** The REST client from the environment: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY. */
-// The variables the game reads Supabase's address and key from.
-const SupabaseEnv = z.looseObject({
-  SUPABASE_URL: z.string().optional(),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-});
-
-/** Supabase's address (SUPABASE_URL, else NEXT_PUBLIC_SUPABASE_URL) and the service role's key, as the environment gives them. */
-export function supabaseEnv(env: Readonly<Record<string, string | undefined>> = process.env): { url: string | undefined; key: string | undefined } {
-  const read = SupabaseEnv.parse(env);
-  return { url: read.SUPABASE_URL ?? read.NEXT_PUBLIC_SUPABASE_URL, key: read.SUPABASE_SERVICE_ROLE_KEY };
+/**
+ * The Supabase pair the game cannot run without, as the env module read it (SUPABASE_URL, else
+ * NEXT_PUBLIC_SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY): the pair itself, or an `EnvError` naming
+ * both variables when it is unset.
+ */
+export function supabasePair(pair: SupabaseEnv | null): SupabaseEnv {
+  return requireGroup(pair, SUPABASE, 'the game reads and writes the galaxy database (locally, `npx supabase status` prints both)');
 }
 
-export function supabaseFromEnv(env: Readonly<Record<string, string | undefined>> = process.env, fetchImpl?: FetchLike): SupabaseRest {
-  const { url, key } = supabaseEnv(env);
-  if (!url || !key) {
-    throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (the game reads and writes the galaxy database). '
-      + 'Locally, `npx supabase status` prints both.');
-  }
+/** The REST client of the game's database, from the Supabase pair the env module read. */
+export function supabaseFrom(pair: SupabaseEnv | null, fetchImpl?: FetchLike): SupabaseRest {
+  const { url, key } = supabasePair(pair);
   return supabaseRest({ url, key, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
 }
 

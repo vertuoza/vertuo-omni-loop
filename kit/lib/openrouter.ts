@@ -79,11 +79,16 @@ type SafeParsed =
 /** The failures a call returns in `error`. */
 export type ModelFailure = typeof NO_KEY | typeof UNAVAILABLE | typeof REFUSED;
 
+/** OpenRouter's key, and the model when one is named. */
+export type OpenRouterSettings = { key: string; model?: string | undefined };
+
 export type AskInput = {
   system: string;
   user: string;
   check: ReplyCheck;
   schema?: { name: string; schema: object } | undefined;
+  /** OpenRouter's key and model, as an env module reads them; when given, `env` is not read. */
+  openrouter?: OpenRouterSettings | null | undefined;
   env?: Record<string, string | undefined> | undefined;
   fetch?: typeof fetch | undefined;
   sleep?: ((ms: number) => Promise<void>) | undefined;
@@ -101,11 +106,18 @@ type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 type Status = number | string;
 type Outcome = { ok: true; content: string } | { ok: false; status: Status; retry?: boolean };
 
+/** OpenRouter's settings from a plain environment object, for a caller that passes one. */
+function settingsOf(env: Record<string, string | undefined>): OpenRouterSettings | null {
+  const key = env[KEY_VAR];
+  return key ? { key, model: env[MODEL_VAR] } : null;
+}
+
 export async function askModel({
   system,
   user,
   check,
   schema,
+  openrouter,
   env = {},
   fetch,
   sleep = wait,
@@ -113,9 +125,10 @@ export async function askModel({
   title = 'omni loop',
   stream = false,
 }: AskInput): Promise<AskResult> {
-  const key = env[KEY_VAR];
+  const settings = openrouter === undefined ? settingsOf(env) : openrouter;
+  const key = settings?.key;
   if (!key) return failure(NO_KEY, null, `${KEY_VAR} is not set`);
-  const model = env[MODEL_VAR] || DEFAULT_MODEL;
+  const model = settings.model || DEFAULT_MODEL;
   if (typeof fetch !== 'function') return failure(UNAVAILABLE, model, 'model unavailable (no fetch given)');
 
   const messages: Message[] = [

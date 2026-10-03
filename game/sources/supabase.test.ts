@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { supabaseRest, supabaseFromEnv, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace } from './supabase.ts';
+import { supabaseRest, supabaseFrom, loadWorkspace, loadConfig, supabaseLedger, exportWorkspace } from './supabase.ts';
 import { fakeSupabase, type Init, type Reply } from '../test/fake-supabase.ts';
 import { nth, present } from '../test/present.ts';
 
@@ -54,10 +54,10 @@ describe('supabaseRest', () => {
   });
 });
 
-describe('supabaseFromEnv', () => {
-  it('says which variables to set when they are missing', () => {
-    expect(() => supabaseFromEnv({})).toThrow(/SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/);
-    expect(() => supabaseFromEnv({ NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'k' })).not.toThrow();
+describe('supabaseFrom', () => {
+  it('says which variables to set when the pair is unset', () => {
+    expect(() => supabaseFrom(null)).toThrow(/SUPABASE_URL \(or NEXT_PUBLIC_SUPABASE_URL\) and SUPABASE_SERVICE_ROLE_KEY are not set/);
+    expect(() => supabaseFrom({ url: 'http://127.0.0.1:54321', key: 'k' })).not.toThrow();
   });
 });
 
