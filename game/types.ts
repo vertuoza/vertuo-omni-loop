@@ -2,11 +2,12 @@
 // the planet planet-state.ts derives from it, and the season economy.ts folds. Nothing here is read
 // from outside as it stands: what is read from GitHub or Supabase passes a schema first, in the module
 // that reads it.
+import type { IssueNumber, PrdNumber, PrNumber } from '../kit/lib/ids.ts';
 
 /** A region's feature PR, or a planet's, aggregated over its regions. */
 export type FeaturePr = {
   repo: string;
-  number: number;
+  number: PrNumber;
   createdAt: string | null;
   readyAt: string | null;
   mergedAt: string | null;
@@ -14,14 +15,14 @@ export type FeaturePr = {
 };
 
 /** One repository a PRD lands in. */
-export type Region = { repo: string; blockedBy: number[]; surveyedAt: string | null; featurePr: FeaturePr | null };
+export type Region = { repo: string; blockedBy: PrdNumber[]; surveyedAt: string | null; featurePr: FeaturePr | null };
 
 /** When `omni:needs-fix` was put on a sub-PR and taken off it. */
 export type NeedsFix = { labeledAt: string | null; unlabeledAt: string | null };
 
 /** The sub-PR that stands for a zone. */
 export type ZonePr = {
-  number: number;
+  number: PrNumber;
   author: string | null;
   createdAt: string;
   labels: string[];
@@ -48,7 +49,7 @@ export type OutboxEntry = { id: string; repo: string; rank: string; raisedAt: st
 /** A bug naming a PRD. */
 export type Bug = {
   repo: string;
-  number: number;
+  number: IssueNumber;
   createdAt: string;
   closedAt: string | null;
   closedBy?: string | null;
@@ -57,7 +58,7 @@ export type Bug = {
 
 /** A PRD issue as the snapshot reads it. */
 export type SnapshotPlanet = {
-  prd: number;
+  prd: PrdNumber;
   home?: string | null;
   title: string;
   captain: string | null;
@@ -107,7 +108,7 @@ export type DerivedPlanetState =
 
 /** A planet's derived state. */
 export type DerivedPlanet = {
-  prd: number;
+  prd: PrdNumber;
   home: string | null;
   key: string;
   title: string;

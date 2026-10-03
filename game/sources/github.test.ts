@@ -11,6 +11,7 @@ import { projectEvents } from '../projector.ts';
 import { score } from '../economy.ts';
 import { nth, present } from '../test/present.ts';
 import { assertDefined } from '../../kit/test/assert.ts';
+import { parsePrd } from '../../kit/lib/ids.ts';
 
 // The roster comes from Supabase with the config: pm and alice fly with beaver. The game reads the
 // workspace's tracked repositories (PRD 728): here, vertuoza/core-repo.
@@ -359,7 +360,7 @@ describe('buildSnapshot', () => {
       [`pr list -R ${R} --search "Closes #2332" in:body`, []],
       [`pr list -R ${R} --search "Closes #2300" in:body`, []],
     ]);
-    const s = await buildSnapshot({ config, exec, now: NOW, prds: [2332] });
+    const s = await buildSnapshot({ config, exec, now: NOW, prds: [parsePrd(2332)] });
     expect(s.planets.map((p) => p.prd)).toEqual([2332, 2300]);
   });
 
