@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { dossierStore } from './store.ts';
 import { fakeDossiers } from './fake-supabase.ts';
 import { nth, present } from '../test/present.ts';
+import { parseIssue, parsePrd } from '../../kit/lib/ids.ts';
 
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
@@ -47,36 +48,36 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
     const read = present(fake.calls.find((c) => c.path === 'dossiers'), 'the read');
     expect(present(read.headers, 'headers').Authorization).toBe('Bearer service');
     expect(read.url.searchParams.get('select')).not.toContain('content'); // versions are read without their content
-    expect(present((await store.dossiersOf(VERTUOZA, HOME, 217)).get(217), 'dossier 217').title).toBe('Another');
+    expect(present((await store.dossiersOf(VERTUOZA, HOME, parsePrd(217))).get(217), 'dossier 217').title).toBe('Another');
   });
 
   it('refuses to read or write without a workspace, before any call', async () => {
     const { fake, store } = world();
     await expect(store.dossiersOf('', HOME)).rejects.toThrow(/workspace/);
-    await expect(store.open({ workspaceId: undefined as never, homeRepo: HOME, prd: 1, title: 't', at: '2026-09-27T09:00:00Z' })).rejects.toThrow(/workspace/);
+    await expect(store.open({ workspaceId: undefined as never, homeRepo: HOME, prd: parsePrd(1), title: 't', at: '2026-09-27T09:00:00Z' })).rejects.toThrow(/workspace/);
     expect(fake.calls).toEqual([]);
   });
 
   it('opens a numbered dossier with the granted columns only, and answers null when its key is already taken', async () => {
     const { fake, store } = world();
-    const opened = present(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: 3, title: 'Ask mode', at: '2026-09-27T09:00:00Z' }), 'the opened dossier');
+    const opened = present(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: parsePrd(3), title: 'Ask mode', at: '2026-09-27T09:00:00Z' }), 'the opened dossier');
     expect(opened).toEqual({ id: AN_ID, prd: 3, title: 'Ask mode', latest: {} });
     expect(fake.tables.dossiers).toEqual([expect.objectContaining({ id: opened.id, workspace_id: VERTUOZA, home_repo: HOME, prd: 3, numbered_at: '2026-09-27T09:00:00Z', opened_by: null })]);
-    expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: 3, title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
+    expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, prd: parsePrd(3), title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
     expect(fake.tables.dossiers).toHaveLength(1);
   });
 
   it('keys a dossier by its kind too (PRD 627): a visual fix and a PRD share a number, each read by its own kind', async () => {
     const { fake, store } = world({ dossiers: [dossier('d-216')] });
-    const opened = present(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: 216, title: 'Docs in a new tab', at: '2026-09-27T09:00:00Z' }), 'the opened dossier');
+    const opened = present(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: parseIssue(216), title: 'Docs in a new tab', at: '2026-09-27T09:00:00Z' }), 'the opened dossier');
     expect(opened).toEqual({ id: AN_ID, prd: 216, title: 'Docs in a new tab', latest: {}, rounds: [] });
-    expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: 216, title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
+    expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: parseIssue(216), title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
     const insert = present(fake.calls.find((c) => c.method === 'POST' && c.path === 'dossiers'), 'the insert');
     expect(insert.url.searchParams.get('on_conflict')).toBe('workspace_id,home_repo,kind,prd');
     expect(present(fake.tables.dossiers, 'dossiers').map((d) => [d.kind, d.prd])).toEqual([['prd', 216], ['visual', 216]]);
     expect([...(await store.dossiersOf(VERTUOZA, HOME)).values()].map((d) => d.id)).toEqual(['d-216']);
     expect([...(await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).values()].map((d) => d.id)).toEqual([opened.id]);
-    expect((await store.dossiersOf(VERTUOZA, HOME, 216, { kind: 'bug' })).size).toBe(0);
+    expect((await store.dossiersOf(VERTUOZA, HOME, parseIssue(216), { kind: 'bug' })).size).toBe(0);
   });
 
   it('reads every round of a visual fix, not only the latest, and adds rounds through the version rule', async () => {

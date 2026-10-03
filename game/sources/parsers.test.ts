@@ -14,6 +14,15 @@ describe('parsers', () => {
     expect(parseSpec('').blockedBy).toEqual([]);
   });
 
+  it('leaves out a blocker that is no PRD number (PRD 1049)', () => {
+    expect(parseSpec('---\nblocked-by: [0, #985, -3, 12a, 1.5]\n---\n').blockedBy).toEqual([985]);
+  });
+
+  it('reads no row whose id is not a slice id (PRD 1049)', () => {
+    const text = '| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | A | `a/` | — | 1 |\n| S2 | B | `b/` | — | 1 |\n| s | C | `c/` | — | 1 |\n';
+    expect(parsePlanSlices(text).map((s) => s.id)).toEqual(['s1']);
+  });
+
   it('reads a repository\'s delivery folder from its config, the kit\'s default otherwise', () => {
     expect(deliveryOf('paths:\n  delivery: ./docs/delivery/\n')).toBe('docs/delivery');
     expect(deliveryOf('dossier:\n  enabled: true\n')).toBe('.omni-loop/delivery');

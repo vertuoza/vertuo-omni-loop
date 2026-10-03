@@ -1,7 +1,9 @@
 // The galaxy view's shapes (PRD 725, s23): what buildGalaxy folds ledger events into and the arcade
 // draws. One source for the package's types: index.ts re-exports them for the arcade, and the
 // sources type themselves with them. Self-contained on purpose, so the arcade's type check never
-// reaches into the game's sources through it.
+// reaches into the game's sources through it. Its ID brands come from the kit's own module (PRD 1049).
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 export type PlanetState =
   | 'charted' | 'locked' | 'terraforming' | 'distress' | 'awaiting-command'
   | 'terraformed' | 'aftershock' | 'lost' | 'decommissioned';
@@ -30,7 +32,7 @@ export interface Wound {
 }
 export interface LogLine { at: string; type: string; planet: number; text: string; contributor: string | null; team: string | null }
 export interface Planet {
-  prd: number;
+  prd: PrdNumber;
   /** The repository of the PRD's issue, `owner/name`, or null for an event written before PRD 728. */
   home: string | null;
   /** How the view names the planet: `<home>#<prd>`, or the number alone without a home. */

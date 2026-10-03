@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { CONFIG_FILE, type TreeEntry } from './folders.ts';
 import type { Exec } from '../sources/github.ts';
+import type { IssueNumber } from '../../kit/lib/ids.ts';
 
 const RAW = ['-H', 'Accept: application/vnd.github.raw'];
 
@@ -63,7 +64,7 @@ export async function readBlob(exec: Exec, slug: string, sha: string): Promise<s
 }
 
 /** Issue `n`'s title (a fix's dossier is titled after it), or null when there is no such issue. */
-export async function readIssueTitle(exec: Exec, slug: string, n: number): Promise<string | null> {
+export async function readIssueTitle(exec: Exec, slug: string, n: IssueNumber): Promise<string | null> {
   try {
     return (await exec(['api', `repos/${slug}/issues/${n}`, '--jq', '.title'])).trim() || null;
   } catch (err) {

@@ -2,8 +2,9 @@
 // own config, one tree listing read as PRD folders, a spec's title, and the hash git gives a file.
 // Reads no file and calls nothing: game/dossiers/github.ts fetches, game/dossiers/sync.ts decides.
 //
-// The game never imports the kit (README: delete game/ and the delivery layer is untouched), so the
-// rules the kit already holds are mirrored here, and must stay the same as the kit's:
+// The game never imports the kit (README: delete game/ and the delivery layer is untouched), but for
+// its ID brands (kit/lib/ids.ts, PRD 1049), so the rules the kit already holds are mirrored here, and
+// must stay the same as the kit's:
 //   - the switch: `dossier.enabled` is true and `ask.url` is set (kit/lib/config.ts › dossierSwitch);
 //   - a PRD folder: `<delivery>/{inbox,shipped}/<nnnn>-<topic>/`, the inbox before shipped and the
 //     first name before the next (kit/lib/layout.ts);
@@ -16,17 +17,18 @@
 import { createHash } from 'node:crypto';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { PrdNumberSchema, type IssueNumber, type PrdNumber } from '../../kit/lib/ids.ts';
 
 /** One entry of a recursive tree listing. */
 export type TreeEntry = { path: string; type: string; sha: string; size?: number | undefined; mode?: string };
 /** A PRD folder's file, as its dossier takes it. */
 export type TreeFile = { kind: 'spec' | 'plan' | 'before-after'; path: string; sha: string; size: number };
 /** A PRD folder on the default branch. */
-export type PrdFolder = { prd: number; topic: string; dir: string; files: TreeFile[] };
+export type PrdFolder = { prd: PrdNumber; topic: string; dir: string; files: TreeFile[] };
 /** A fix's file, as its dossier takes it. */
 export type FixFile = { kind: 'before-after' | 'variations' | 'bug-record'; round?: number; path: string; sha: string; size: number };
 /** A fix's folder on the default branch; `prd` holds the fix's issue number, as the dossier does. */
-export type FixFolder = { kind: 'visual' | 'bug'; prd: number; topic: string; dir: string; files: FixFile[] };
+export type FixFolder = { kind: 'visual' | 'bug'; prd: IssueNumber; topic: string; dir: string; files: FixFile[] };
 /** A folder or a file the listing gave that is not read, and why. */
 export type Skipped = { path: string; reason: string };
 
@@ -84,10 +86,10 @@ function entryOf<K, V>(map: Map<K, V>, key: K, make: () => V): V {
 }
 
 // A folder's number and topic, from its name: null when it does not read as `<nnnn>-<topic>`.
-function numbered(name: string): { prd: number; topic: string } | null {
+function numbered(name: string): { prd: PrdNumber; topic: string } | null {
   const match = FOLDER.exec(name);
-  const prd = match ? Number(match[1]) : 0;
-  return match && prd ? { prd, topic: match[2] ?? '' } : null;
+  const prd = match ? PrdNumberSchema.safeParse(Number(match[1])) : null;
+  return match && prd?.success ? { prd: prd.data, topic: match[2] ?? '' } : null;
 }
 
 // The listing's blobs three parts below `prefix`: `<root>/<name>/<file>`.
@@ -102,9 +104,9 @@ function* blobsUnder(entries: readonly TreeEntry[], prefix: string): Generator<{
 
 // The folders by the key their number gives them; a folder whose name does not read as `<nnnn>-<topic>` skipped.
 function byNumber<F extends { name: string; dir: string }, K>(
-  folders: Iterable<F>, keyOf: (folder: F, prd: number) => K, skipped: Skipped[],
-): Map<K, Array<F & { prd: number; topic: string }>> {
-  const candidates = new Map<K, Array<F & { prd: number; topic: string }>>();
+  folders: Iterable<F>, keyOf: (folder: F, prd: PrdNumber) => K, skipped: Skipped[],
+): Map<K, Array<F & { prd: PrdNumber; topic: string }>> {
+  const candidates = new Map<K, Array<F & { prd: PrdNumber; topic: string }>>();
   for (const folder of folders) {
     const at = numbered(folder.name);
     if (at) entryOf(candidates, keyOf(folder, at.prd), () => []).push({ ...folder, ...at });

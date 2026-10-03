@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EVENT_TYPES, WOUND_KINDS, eventId, makeEvent, planetKey, planetKeyOf } from './events.ts';
+import { parsePrd } from '../kit/lib/ids.ts';
 
 describe('events', () => {
   it('builds a deterministic id', () => {
@@ -31,8 +32,8 @@ describe('the home of a PRD (PRD 728)', () => {
     const e = makeEvent({ id: 'planet:acme/plan#88:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 88, home: 'acme/plan' });
     expect(e.home).toBe('acme/plan');
     expect(planetKeyOf(e)).toBe('acme/plan#88');
-    expect(planetKey('acme/other', 88)).not.toBe(planetKeyOf(e));
-    expect(planetKey(undefined, 88)).toBe('88');
+    expect(planetKey('acme/other', parsePrd(88))).not.toBe(planetKeyOf(e));
+    expect(planetKey(undefined, parsePrd(88))).toBe('88');
   });
 
   it('refuses a home that is not owner/name in lower case', () => {

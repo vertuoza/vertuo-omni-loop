@@ -9,7 +9,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runContributions, windowStart, WINDOW_DAYS } from './contributions.ts';
+import { runContributions, stageOf, windowStart, WINDOW_DAYS } from './contributions.ts';
 import { supabaseRest } from '../sources/supabase.ts';
 import { fakeSupabase, serveFake, type Call, type Init, type Reply, type Row, type Served } from '../test/fake-supabase.ts';
 import type { Exec } from '../sources/github.ts';
@@ -292,6 +292,11 @@ describe('runContributions', () => {
 });
 
 describe('PRD stages', () => {
+  it('reads no stage from a link that names no PRD number (PRD 1049)', () => {
+    expect(stageOf({ labels: [{ name: 'omni:feature' }], body: 'Closes #0' })).toBeNull();
+    expect(stageOf({ labels: [{ name: 'omni:feature' }], body: 'Closes #328' })).toEqual({ kind: 'prd-shipped', prd: 328 });
+  });
+
   // vertuo-core's PRD 328 was opened in the window; PRD 12 before it, so only `gh issue view` knows its author.
   const stages = (): GhWorld => ({
     'vertuoza/vertuo-core': {

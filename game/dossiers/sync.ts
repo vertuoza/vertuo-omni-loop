@@ -22,6 +22,7 @@ import { ARTIFACT_MAX_BYTES, CONFIG_FILE, deliveryFolders, dossierSwitch, fixFol
 import { ghWhy, readBlob, readConfig, readHead, readIssueTitle, readTree } from './github.ts';
 import type { Exec } from '../sources/github.ts';
 import type { Dossier, DossierStore, DossierVersion } from './store.ts';
+import type { IssueNumber, PrdNumber } from '../../kit/lib/ids.ts';
 
 type Log = Pick<Console, 'log' | 'warn'>;
 type Head = { branch: string; commit: string; tree: string };
@@ -32,16 +33,16 @@ type FixKind = FixFolder['kind'];
 /** What one run of a repository's fixes did. */
 export type FixesReport = {
   folders: number;
-  created: Array<{ kind: FixKind; prd: number }>;
-  added: Array<{ fix: FixKind; prd: number; kind: string; version: number }>;
+  created: Array<{ kind: FixKind; prd: IssueNumber }>;
+  added: Array<{ fix: FixKind; prd: IssueNumber; kind: string; version: number }>;
 };
 /** What one run did to a repository it read. */
 export type RepositoryReport = {
   slug: string;
   commit: string;
   folders: number;
-  created: number[];
-  added: Array<{ prd: number; kind: string; version: number }>;
+  created: PrdNumber[];
+  added: Array<{ prd: PrdNumber; kind: string; version: number }>;
   fetched: number;
   fixes?: FixesReport;
   skipped?: undefined;
@@ -82,7 +83,7 @@ async function changed(store: DossierStore, dossier: Dossier | null | undefined,
  */
 async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, folder, kind, dossier, now, log, report, name, retitle, created, added }: {
   exec: Exec; store: DossierStore; slug: string; homeRepo: string; workspaceId: string; head: Head;
-  folder: { prd: number; files: readonly File[] }; kind: string; dossier: Dossier | null | undefined; now: Date; log: Log;
+  folder: { prd: PrdNumber | IssueNumber; files: readonly File[] }; kind: string; dossier: Dossier | null | undefined; now: Date; log: Log;
   report: { fetched: number }; name: (byKind: ByKind) => string | Promise<string>; retitle: (byKind: ByKind) => string | null;
   created: () => void; added: (kind: string, version: number) => void;
 }): Promise<void> {

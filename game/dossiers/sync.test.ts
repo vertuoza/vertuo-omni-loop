@@ -6,6 +6,7 @@ import { fakeGitHub, type FakeRepo, type World } from './fake-github.ts';
 import { gitBlobSha } from './folders.ts';
 import { nth, present } from '../test/present.ts';
 import { assertDefined } from '../../kit/test/assert.ts';
+import type { IssueNumber, PrdNumber } from '../../kit/lib/ids.ts';
 
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
@@ -235,7 +236,7 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
   it('takes the dossier the kit opened between the listing and the insert, rather than a second one', async () => {
     const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
     const { run, store, fake } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() }, { dossiers: [kitDossier] as unknown as DossierRow[] });
-    const stale = { ...store, dossiersOf: (w: string, r: string, prd: number | null = null) => (prd === null ? Promise.resolve(new Map<number, Dossier>()) : store.dossiersOf(w, r, prd)) };
+    const stale = { ...store, dossiersOf: (w: string, r: string, prd: PrdNumber | IssueNumber | null = null) => (prd === null ? Promise.resolve(new Map<number, Dossier>()) : store.dossiersOf(w, r, prd)) };
     const [report] = await run(['vertuo-omni-loop'], { using: stale });
     assertDefined(report, 'the report');
     expect(report.created).toEqual([3]);
