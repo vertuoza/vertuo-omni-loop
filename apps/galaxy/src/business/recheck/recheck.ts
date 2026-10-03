@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { reply as json } from '../../business-api/reply';
 import type { DraftRow } from '../draft/run';
+import { z } from 'zod';
+import { orThrow, parseRows } from '../../data/parse-rows';
 import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // POST /api/business/recheck (PRD 774, s4): the weekly recheck. .github/workflows/business-recheck.yml
@@ -72,12 +74,15 @@ export async function recheckRoute(request: Request, deps: RecheckDeps): Promise
 }
 
 type Answer = { data: unknown; error: { message: string } | null };
+
+/** A confirmed claim, as the recheck reads it: its workspace only. */
+export const ConfirmedClaim = z.object({ workspace_id: z.string() });
 export type ClaimsDb = { from(table: 'claims'): { select(columns: 'workspace_id'): { eq(column: 'state', value: 'confirmed'): PromiseLike<Answer> } } };
 
 /** The workspaces holding a confirmed claim, each once, sorted: read as the service role. */
 export async function rechecked(db: ClaimsDb): Promise<string[]> {
   const { data, error } = await db.from('claims').select('workspace_id').eq('state', 'confirmed');
   if (error) throw new Error(`Supabase refused to read the claims: ${error.message}`);
-  const ids = ((data ?? []) as Array<{ workspace_id: unknown }>).map((r) => String(r.workspace_id)); // ts-allow: the select names workspace_id; a select answers rows, read here as unknown
+  const ids = orThrow(parseRows(ConfirmedClaim, data, 'business/recheck: claims')).map((r) => r.workspace_id);
   return [...new Set(ids)].sort();
 }
