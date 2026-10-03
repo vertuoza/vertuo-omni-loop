@@ -10,8 +10,8 @@ import { demoActivity, demoAnswered, demoPrds, demoRoster, DEMO_VIEWER } from '.
 import { supabaseReads } from '../dashboard/board/load';
 import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
-import { allPages, type Page } from '../data/all-pages';
-import { listOf } from '../data/unparsed';
+import { parsedPages } from '../data/all-pages';
+import { orThrow, parseRows } from '../data/parse-rows';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { fixFactsStore } from '../fixes/facts/store';
 import { DEMO_VIEWER as DEMO_DOSSIER_VIEWER, demoHistory } from '../dossier/page/demo';
@@ -20,6 +20,7 @@ import { readHistory } from '../dossier/page/source';
 import type { DossierListRow } from '../dossier/store';
 import { stageStore } from '../stages/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
+import { PR_COLUMNS, REVIEW_COLUMNS, StoredPullRequest, StoredReview, TrackedRepository } from './stored';
 
 // A person's profile (PRD 698 s3), as the signed-in person, in the workspace they joined first (the
 // one /app/fleet reads, memberWorkspace): the board's reads, and the tracked repositories' pull
@@ -33,13 +34,6 @@ import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './
 
 export type ProfileBoard = { kind: 'no-workspace' } | ProfileValue;
 
-type StoredPullRequest = {
-  repo: string; number: number; author: string | null; author_is_bot: boolean; opened_at: string; merged_at: string | null;
-  closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
-};
-type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
-
-const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';
 
 /** The profile's reads of one workspace, as the signed-in person. `login` is a checked GitHub login
  * (profileLogin), so it holds no pattern character for `ilike`. */
@@ -49,11 +43,11 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
     async tracked() {
       const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
       if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return (listOf(data) as { full_name: string }[]).map((r) => r.full_name); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+      return orThrow(parseRows(TrackedRepository, data, 'profile: repositories')).map((r) => r.full_name);
     },
     async pullRequests(login, from, to, repos) {
       const [a, b] = [`"${from.toISOString()}"`, `"${to.toISOString()}"`];
-      const rows = await allPages('their pull requests', (start, end) => db
+      const rows = await parsedPages('their pull requests', StoredPullRequest, 'profile: pull_requests', (start, end) => db
         .from('pull_requests')
         .select(PR_COLUMNS)
         .eq('workspace_id', workspace)
@@ -62,16 +56,16 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
         .or(`and(opened_at.gte.${a},opened_at.lt.${b}),and(merged_at.gte.${a},merged_at.lt.${b})`)
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end) as Page<StoredPullRequest>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+        .range(start, end));
       return rows.map((r): PullRequestRow => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
       }));
     },
     async reviews(login, from, to, repos) {
-      const rows = await allPages('their reviews', (start, end) => db
+      const rows = await parsedPages('their reviews', StoredReview, 'profile: pull_request_reviews', (start, end) => db
         .from('pull_request_reviews')
-        .select('repo, number, reviewer, first_at')
+        .select(REVIEW_COLUMNS)
         .eq('workspace_id', workspace)
         .in('repo', repos)
         .ilike('reviewer', login)
@@ -79,7 +73,7 @@ function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () 
         .lt('first_at', to.toISOString())
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end) as Page<StoredReview>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+        .range(start, end));
       return rows.map((r): ReviewRow => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
     async dossiers() {

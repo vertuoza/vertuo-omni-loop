@@ -4,7 +4,9 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { PLAYER_COLUMNS } from './players';
+import { LEDGER_COLUMNS, LedgerRow } from './ledger-row';
+import { orThrow, parseRow, parseRows } from './parse-rows';
+import { PLAYER_COLUMNS, StoredPlayer } from './players';
 import { liveSeason, seasonKey, type Newest, type SeasonDeps } from './season-cache';
 import { listOf } from './unparsed';
 
@@ -73,7 +75,6 @@ async function readNewest(db: SupabaseClient<Database>, workspace: string): Prom
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
-type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; home: string | null; region: string | null; contributor: string | null; team: string | null; data: LedgerEvent['data'] | null };
 
 /**
  * A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out.
@@ -94,14 +95,14 @@ function eventOf(row: LedgerRow): LedgerEvent {
 async function ledgerPage(db: SupabaseClient<Database>, workspace: string, from: number): Promise<LedgerRow[]> {
   const { data, error } = await db
     .from('ledger_events')
-    .select('id, at, type, planet, home, region, contributor, team, data')
+    .select(LEDGER_COLUMNS)
     .eq('workspace_id', workspace)
     .not('home', 'is', null)
     .order('at', { ascending: true })
     .order('id', { ascending: true })
     .range(from, from + PAGE - 1);
   if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-  return listOf(data) as LedgerRow[]; // ts-allow: the type and data columns hold the events the ledger projection wrote
+  return orThrow(parseRows(LedgerRow, data, 'data/load-galaxy: ledger_events'));
 }
 
 /** Every event of the workspace's ledger, oldest first, a page at a time. */
@@ -133,12 +134,12 @@ async function readProjects(db: SupabaseClient<Database>, workspace: string): Pr
 export async function loadCrew(db: SupabaseClient<Database>, workspace: string): Promise<Player[]> {
   const { data, error } = await db.from('players').select(PLAYER_COLUMNS).eq('workspace_id', workspace).order('display_name');
   if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
-  return listOf(data) as unknown as Player[]; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
+  return orThrow(parseRows(StoredPlayer, data, 'data/load-galaxy: players'));
 }
 
 /** The signed-in person's own player row in the workspace, or null before they pick a fleet. */
 export async function loadMe(db: SupabaseClient<Database>, workspace: string, userId: string): Promise<Player | null> {
   const { data, error } = await db.from('players').select(PLAYER_COLUMNS).eq('workspace_id', workspace).eq('user_id', userId).maybeSingle();
   if (error) throw new Error(`Supabase: could not read your player (${error.message})`);
-  return (data as unknown as Player | null) ?? null; // ts-allow: hero is a JSON column; the arcade reads it as the hero it stored
+  return data === null ? null : orThrow(parseRow(StoredPlayer, data, 'data/load-galaxy: players'));
 }

@@ -1,4 +1,5 @@
-import { claimOf, maxValue, type Claim, type ClaimKind, type Product, type StoredClaim } from './model';
+import { claimOf, maxValue, Product, StoredClaim, type Claim, type ClaimKind } from './model';
+import { orEmpty, parseRow, parseRows } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
@@ -58,7 +59,8 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return refused(error);
-      return { ok: true, claim: claimOf(data as StoredClaim) }; // ts-allow: claim_pick and claim_set_state answer the public.claims row they wrote
+      const row = parseRow(StoredClaim, data, `business/store: ${fn}`);
+      return row.ok ? { ok: true, claim: claimOf(row.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return refused(err);
     }
@@ -71,9 +73,9 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
     async addProduct(name) {
       try {
         const { data, error } = await db.rpc('product_add', { p_workspace: workspace, p_name: name });
-        const id = propertyOf(data, 'id');
-        if (error || typeof id !== 'string') return { ok: false, message: refusalOf(error) };
-        return { ok: true, product: { id, name: String(propertyOf(data, 'name')) } };
+        if (error || !data) return { ok: false, message: refusalOf(error) };
+        const row = parseRow(Product, data, 'business/store: product_add');
+        return row.ok ? { ok: true, product: row.value } : { ok: false, message: COULD_NOT_SAVE };
       } catch (err) {
         return { ok: false, message: refusalOf(err) };
       }
@@ -88,7 +90,7 @@ export function databaseBusiness(db: Rpc, workspace: string, product: string, fe
         });
         if (!response.ok) return [];
         const claims = propertyOf(await response.json(), 'claims');
-        const rows = Array.isArray(claims) ? (claims as StoredClaim[]) : []; // ts-allow: the suggest route answers public.claims rows (suggest-api.ts)
+        const rows = orEmpty(parseRows(StoredClaim, claims, `business/store: ${SUGGEST_ROUTE}`));
         return rows.map((row) => claimOf(row)).filter(isGuess);
       } catch {
         return [];

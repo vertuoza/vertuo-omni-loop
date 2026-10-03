@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { brokenRows } from '../data/broken-rows.fake';
+import { SavedRepository } from './model';
 import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_MEMBER, NOT_OWNER, refusalOf } from './store';
 
 const containing = (text: string): unknown => expect.stringContaining(text);
@@ -19,7 +21,10 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
   };
 }
 
-const STORED = { full_name: 'vertuoza/vertuo-apps', tracked: true, collected_at: null, collect_error: null };
+const STORED = {
+  workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
+  collected_at: null, collected_until: null, collect_error: null, product_id: null,
+};
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
@@ -74,5 +79,18 @@ describe('the demo', () => {
 
   it('refuses to switch a repository it does not list', async () => {
     expect(await demoRepositoriesPort([]).setTracked('acme/nothing', false)).toMatchObject({ ok: false });
+  });
+});
+
+describe('the saved row\'s schema (PRD 1030)', () => {
+  it('parses the row the functions answer, and refuses a column missing, of the wrong type or null where none is allowed', () => {
+    expect(SavedRepository.parse(STORED)).toEqual(STORED);
+    for (const [how, row] of brokenRows(STORED, { missing: 'tracked', wrongType: ['tracked', 'yes'], notNull: 'full_name' })) {
+      expect(SavedRepository.safeParse(row).success, how).toBe(false);
+    }
+  });
+
+  it('answers a saved row that does not parse as a save that failed', async () => {
+    expect(await databaseRepositories(db({ data: { ...STORED, tracked: 'yes' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 });

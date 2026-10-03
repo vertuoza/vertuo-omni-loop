@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { item } from '../ask/test-item';
 import { fakeStageStore } from './store.fake';
-import { countStages, currentOf, noCounts, stageStore, type StageRecord } from './store';
+import { brokenRows } from '../data/broken-rows.fake';
+import { countStages, currentOf, noCounts, stageStore, StoredStageRow, type StageRecord } from './store';
 
 const W = 'w-acme';
 const OTHER = 'w-other';
@@ -168,5 +169,20 @@ describe('the store, on Supabase', () => {
     const { db } = recording([], { message: 'permission denied for table prd_stages', code: '42501' });
     await expect(stageStore(db).recordStages([rec(7, 'prd')])).rejects.toThrow('Supabase refused to record 1 stage: permission denied for table prd_stages (42501)');
     await expect(stageStore(db).stagesOf({ workspace_id: W, repository: REPO, prd: 7 })).rejects.toThrow('Supabase refused to read the stages of PRD 7');
+  });
+});
+
+describe('the stage row\'s schema (PRD 1030)', () => {
+  const row = { stage: 'inbox', reached_at: at(2), synced_at: at(5) };
+
+  it('parses a stage as stagesOf() reads it, and refuses a column missing, of the wrong type or null', () => {
+    expect(StoredStageRow.parse(row)).toEqual(row);
+    for (const [how, broken] of brokenRows(row, { missing: 'synced_at', wrongType: ['reached_at', 2], notNull: 'stage' })) {
+      expect(StoredStageRow.safeParse(broken).success, how).toBe(false);
+    }
+  });
+
+  it('counts no PRD at any stored stage', () => {
+    expect(noCounts()).toEqual({ prd: 0, inbox: 0, building: 0, outbox: 0, shipped: 0, retro: 0 });
   });
 });

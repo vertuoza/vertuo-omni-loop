@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { requestOrigin } from '../../../../src/ask/page/sign-in';
-import type { SignedIn } from '../../../../src/data/sign-in';
+import { sessionOf } from '../../../../src/data/session';
 import { signInDeps } from '../../../../src/data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
 import { finishSetup, readSetup, setupReturn } from '../../../../src/signup/installed';
@@ -26,8 +25,8 @@ export async function GET(request: NextRequest) {
 
   const db = await supabaseServer();
   const { data, error } = await db.auth.exchangeCodeForSession(code);
-  // The answer as it came: nothing parsed it, so one with no body reads as no session.
-  const session = (propertyOf(data, 'session') as SignedIn | null | undefined) ?? null; // ts-allow: a session Supabase issued carries what SignedIn names
+  // The answer parsed: one with no body, or a session that does not parse, reads as no session.
+  const session = sessionOf(data, 'sign-up: exchangeCodeForSession');
   if (error || !session) {
     console.error(`sign-up: the sign-in could not be finished (${error?.message ?? 'no session'})`);
     return NextResponse.redirect(setupReturn({ kind: 'error', reason: 'github' }, origin));

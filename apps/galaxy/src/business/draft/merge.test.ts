@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ClaimKind, StoredClaim } from '../model';
+import type { ClaimKind, ClaimState, StoredClaim } from '../model';
 import { mergeOf, snapSize } from './merge';
 import { sure } from '../../arcade/sure';
 
 // Decision 9 of PRD 774 as a table: what a verified candidate becomes against what the business holds,
 // and a size snapped to the slider's stops before it is compared.
 
-const row = (seq: number, kind: ClaimKind, value: string, state: string, product: string | null = kind === 'region' ? null : 'p-1'): StoredClaim =>
+const row = (seq: number, kind: ClaimKind, value: string, state: ClaimState, product: string | null = kind === 'region' ? null : 'p-1'): StoredClaim =>
   ({ id: `c-${seq}`, seq, kind, value, source: 'pick', state, product_id: product });
 
 describe('mergeOf, decision 9', () => {

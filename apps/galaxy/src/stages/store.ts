@@ -7,6 +7,8 @@
 // (synced_at), and the database keeps its first date. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
+import { z } from 'zod';
+import { orThrow, parseRows } from '../data/parse-rows';
 import { numberOf, textOf } from '../data/unparsed';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
 
@@ -46,7 +48,7 @@ export type StageStore = {
 export const prdKey = ({ repository, prd }: PrdRef) => `${repository.toLowerCase()}#${prd}`;
 
 /** No PRD at any stage. */
-export const noCounts = (): StageCounts => Object.fromEntries(STORED_STAGES.map((s) => [s, 0])) as StageCounts; // ts-allow: fromEntries over STORED_STAGES keeps every stage
+export const noCounts = (): StageCounts => ({ prd: 0, inbox: 0, building: 0, outbox: 0, shipped: 0, retro: 0 });
 
 /** Counts the current stages given. */
 export function countStages(current: Iterable<StoredStage>): StageCounts {
@@ -86,9 +88,15 @@ export function settle(what: string, error: Refusal): void {
 
 const lower = (repository: string) => repository.toLowerCase();
 
+/** The columns of a PRD's stage, as stagesOf() reads them. */
+export const STAGE_COLUMNS = 'stage, reached_at, synced_at';
+
+/** A stage's row as STAGE_COLUMNS reads it. A stage this build does not know is left out, not refused. */
+export const StoredStageRow = z.strictObject({ stage: z.string(), reached_at: z.string(), synced_at: z.string() });
+
 function stageRows(data: unknown): StageRow[] {
-  return ((data ?? []) as Record<string, unknown>[]) // ts-allow: rows read as unknown; each field is checked below
-    .flatMap(({ stage, reached_at, synced_at }): StageRow[] => (isStoredStage(stage) ? [{ stage, reached_at: String(reached_at), synced_at: String(synced_at) }] : []))
+  return orThrow(parseRows(StoredStageRow, data, 'stages/store: prd_stages'))
+    .flatMap(({ stage, reached_at, synced_at }): StageRow[] => (isStoredStage(stage) ? [{ stage, reached_at, synced_at }] : []))
     .sort(byTrack);
 }
 
@@ -110,7 +118,7 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
     },
 
     async stagesOf({ workspace_id, repository, prd }) {
-      const { data, error } = await db.from(STAGES_TABLE).select('stage, reached_at, synced_at')
+      const { data, error } = await db.from(STAGES_TABLE).select(STAGE_COLUMNS)
         .eq('workspace_id', workspace_id).eq('repository', lower(repository)).eq('prd', prd);
       settle(`read the stages of PRD ${prd}`, error);
       return stageRows(data);

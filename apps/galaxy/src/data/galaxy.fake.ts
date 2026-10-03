@@ -22,7 +22,10 @@ type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null; count?: number | null };
 
 export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
-export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp' | 'arcade_scores' | 'contributions';
+export const FAKE_TABLES = ['workspaces', 'workspace_members', 'sectors', 'teams', 'players', 'ledger_events', 'player_xp', 'arcade_scores', 'contributions'] as const;
+export type FakeTable = (typeof FAKE_TABLES)[number];
+/** Whether the galaxy fake holds `table`: a fake beside it hands it every other table it is asked for. */
+export const isFakeTable = (table: string): table is FakeTable => isOneOf(FAKE_TABLES, table);
 export type FakeTables = Record<FakeTable, Row[]>;
 
 /** A filter other than `eq`, as PostgREST's builder names it. */
@@ -49,6 +52,16 @@ const copyRow = (row: Row): Row => {
 /** The seed's tables, each row copied as JSON carries it: a table left out stays empty. */
 const copySeed = (seed: Partial<FakeTables>): Partial<FakeTables> =>
   Object.fromEntries(Object.entries(seed).map(([table, rows]) => [table, listOf(rows).map(copyRow)]));
+
+/** A list's strings: a stored text[] column, or none. */
+const textsOf = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+/** A workspace row with the columns the join rule reads, as it stores them. */
+const joinableOf = (row: Row): Row & JoinableWorkspace & { id: unknown } => ({
+  ...row,
+  id: row.id,
+  github_org: typeof row.github_org === 'string' ? row.github_org : null,
+  github_installation_id: typeof row.github_installation_id === 'number' ? row.github_installation_id : null,
+});
 
 /** A refused call, with its Postgres (or PostgREST) code. */
 const refusal = (code: string, message: string): Result => ({ data: null, error: { code, message } });
@@ -83,7 +96,7 @@ const TESTS: Record<FakeFilterOp, (cell: unknown, value: unknown) => boolean> = 
   gte: (cell, value) => known(cell) && compare(cell, value) >= 0,
   lt: (cell, value) => known(cell) && compare(cell, value) < 0,
   lte: (cell, value) => known(cell) && compare(cell, value) <= 0,
-  in: (cell, value) => (value as unknown[]).includes(cell), // ts-allow: a test fake: in() is given a list
+  in: (cell, value) => Array.isArray(value) && value.includes(cell),
   like: (cell, value) => typeof cell === 'string' && likeOf(String(value)).test(cell),
   ilike: (cell, value) => typeof cell === 'string' && likeOf(String(value), 'i').test(cell),
   is: (cell, value) => (cell ?? null) === value,
@@ -234,8 +247,8 @@ function galaxyDb(seed: Partial<FakeTables>) {
         .filter((row) => this.filters.every((filter) => passes(row, filter)));
       const sorted = [...rows].sort((a, b) => {
         for (const { column, ascending } of this.orders) {
-          const numbers = typeof a[column] === 'number' && typeof b[column] === 'number';
-          const x = numbers ? (a[column] as number) : textOf(a[column] ?? ''), y = numbers ? (b[column] as number) : textOf(b[column] ?? ''); // ts-allow: a test fake orders a numeric column as numbers
+          const p = a[column], q = b[column];
+          const [x, y] = typeof p === 'number' && typeof q === 'number' ? [p, q] : [textOf(p ?? ''), textOf(q ?? '')];
           if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
         }
         return 0;
@@ -291,7 +304,7 @@ function galaxyDb(seed: Partial<FakeTables>) {
     const { p_user_id: userId, p_logins: logins } = args ?? {};
     if (typeof userId !== 'string') return refusal('22023', 'Joining needs a person.');
     const at = stamp();
-    const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]); // ts-allow: a test fake's rows hold the columns the rule reads
+    const joins = workspacesToJoin(textsOf(logins), tables.workspaces.map(joinableOf));
     for (const w of joins) {
       if (!tables.workspace_members.some((m) => m.workspace_id === w.id && m.user_id === userId)) {
         tables.workspace_members.push({ workspace_id: w.id, user_id: userId, role: 'member', joined_at: at });
@@ -303,7 +316,7 @@ function galaxyDb(seed: Partial<FakeTables>) {
   /** Whether `login` of `workspace` has `game` in their player_xp row's unlocked. */
   const unlockedFor = (workspace: unknown, login: string, game: unknown) => {
     const xp = tables.player_xp.find((x) => x.workspace_id === workspace && x.github_login === login);
-    return Boolean(xp && (xp.unlocked as string[]).includes(String(game))); // ts-allow: a test fake's xp rows hold their unlocked list
+    return Boolean(xp && textsOf(xp.unlocked).includes(String(game)));
   };
 
   /** submit_score(): a player of the workspace, with the game in their player_xp row's unlocked, a
@@ -318,7 +331,7 @@ function galaxyDb(seed: Partial<FakeTables>) {
     }
     const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
     if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
-    else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() }); // ts-allow: a test fake's score rows hold their best
+    else if (typeof row.best !== 'number' || score > row.best) Object.assign(row, { best: score, at: stamp() });
     return { data: row ? row.best : score, error: null };
   }
 
