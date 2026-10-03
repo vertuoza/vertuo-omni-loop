@@ -160,3 +160,238 @@ Answering B is one condition in readGroup (count only required members when deci
 ```
 
 <!-- /omni-outbox-settled: s1-02-optional-setting-alone-is-half-set -->
+
+<!-- omni-outbox-settled: s2-01-production-is-vercel-production -->
+
+## s2-01-production-is-vercel-production — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-production-is-vercel-production
+prd: 1059
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 2
+---
+
+## The question, in plain words
+
+The GitHub App must refuse to start in production when its webhook secret or its own identity is missing. How does it know it is running in production, and not on a preview of a pull request?
+
+## The decision, in plain words
+
+Only the live deployment counts as production. Previews of a pull request and local runs start without those secrets, as they do today, because the setup guide never says previews are given them.
+
+## The intro, for fun
+
+Every preview dresses like production; only one of them pays the rent.
+
+## The punchline, for fun
+
+So only the real one is asked for its keys at the door.
+
+## The options, in plain words
+
+A. A. Production is the hosting platform naming its live deployment: previews and local runs require none of the production secrets.
+B. B. Production is the build mode saying production: every Vercel deployment, previews included, requires them.
+C. C. As A, plus previews require them too, once the preview environment is confirmed to hold them.
+
+## What I had to decide
+
+Whether the app reads production from the hosting platform's own environment name (production only) or from the Node build mode, which is also set to production on every preview.
+
+## What I did meanwhile
+
+apps/omni-app/src/env.ts sets production to VERCEL_ENV === 'production'. A preview (VERCEL_ENV=preview), a development server and a test require neither GITHUB_WEBHOOK_SECRET nor GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY; the production deployment fails at start, naming them, when one is missing. A half-set or malformed group still fails everywhere.
+
+## What it costs to change later
+
+Answering B or C is one line in readEnv (the production flag) and its test: under an hour, no migration. B would make every preview deployment of the app fail at start unless its preview environment is given the three secrets.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'in the GitHub App in production' without saying which signal names production.
+- (author) apps/omni-app/README.md lists the variables for the Vercel project and never says whether the preview environment holds them; whether previews of this project have them set today could not be checked from here.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-production-is-vercel-production -->
+
+<!-- omni-outbox-settled: s3-01-short-master-key-stays-off -->
+
+## s3-01-short-master-key-stays-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-short-master-key-stays-off
+prd: 1059
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 2
+---
+
+## The question, in plain words
+
+When the key that locks each workspace's Jev key is set but has the wrong length, should the arcade refuse to start, or keep running with Jev switched off?
+
+## The decision, in plain words
+
+The arcade keeps running and Jev is off, as before: the settings page says Jev is not available here. Only a setting filled in halfway or one that is not even readable stops the start.
+
+## The intro, for fun
+
+A key one tooth short still fits in the pocket.
+
+## The punchline, for fun
+
+It just will not open anything, and the settings page says so.
+
+## The options, in plain words
+
+A. A key of the wrong length keeps Jev off, as today; only a half-set group or an unreadable value stops the start.
+B. A key that is not 32 bytes of base64 is a malformed value: the arcade refuses to start, naming the master key setting.
+
+## What I had to decide
+
+Whether a SECRETS_MASTER_KEY that is set but is not 32 bytes of base64 is a malformed value the startup parse refuses, or stays what the feature reads as off.
+
+## What I did meanwhile
+
+apps/galaxy/src/env.ts reads SECRETS_MASTER_KEY as a plain set-or-unset secret; masterKey in src/jev/secret-box.ts still turns a value of the wrong length or alphabet into null, so Settings › Jev says Jev is not available, as .env.example documents.
+
+## What it costs to change later
+
+Answering B is a refine on the group's schema in src/env.ts (32 bytes once decoded from base64) and two test lines: under an hour, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a malformed value fails at startup, and also that a feature's behaviour when its configuration is set stays as it is; a key of the wrong length sits between the two.
+- (author) .env.example and Settings › Jev both document the wrong-length key as Jev not being available.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-short-master-key-stays-off -->
+
+<!-- omni-outbox-settled: s3-02-service-address-belongs-to-the-service-key -->
+
+## s3-02-service-address-belongs-to-the-service-key — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-service-address-belongs-to-the-service-key
+prd: 1059
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 2
+---
+
+## The question, in plain words
+
+The arcade's own database address for its back-office access is only useful with the back-office key. If someone sets the address without the key, should the arcade refuse to start, or ignore the address?
+
+## The decision, in plain words
+
+The address and the key are one group: the address alone is a half-filled setting, and the arcade refuses to start, naming the missing key. With neither, the back-office access is off, as before.
+
+## The intro, for fun
+
+An address with no key to the door is a postcard, not a visit.
+
+## The punchline, for fun
+
+Better to be told at the gate than to knock all night.
+
+## The options, in plain words
+
+A. The address alone is half set: the arcade refuses to start and names the missing key.
+B. The address is optional on its own: set without the key, it is ignored and nothing stops.
+
+## What I had to decide
+
+Whether SUPABASE_URL belongs to the service role's group (set alone, it is half set) or stands as an optional value of its own.
+
+## What I did meanwhile
+
+apps/galaxy/src/env.ts groups SUPABASE_SERVICE_ROLE_KEY with an optional SUPABASE_URL: the key alone is fine (the season cache falls back on the public address), the address alone is refused at startup. pnpm releases:sync still needs both.
+
+## What it costs to change later
+
+Answering B moves SUPABASE_URL into a group of its own in src/env.ts and changes one test: under an hour.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the Supabase pair as a half-set example but does not say whether the service role's own address counts as part of it.
+- (author) Whether any deployment sets SUPABASE_URL without the service key today is not known from the repository: the settings are checked before merging, as the spec's risks ask.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-service-address-belongs-to-the-service-key -->
