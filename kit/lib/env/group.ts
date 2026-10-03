@@ -69,6 +69,14 @@ export function groupVariables<S extends z.ZodObject>(group: EnvGroup<S>): strin
   return Object.values<EnvNames>(group.variables).map(nameOf);
 }
 
+/**
+ * Every variable `groups` read, each once, fallbacks included, in the order written: a module's
+ * `VARIABLES`, which its docs list (the docs check, `scripts/env-docs.test.ts`).
+ */
+export function variablesOf(groups: readonly { variables: Readonly<Record<string, EnvNames>> }[]): string[] {
+  return [...new Set(groups.flatMap((group) => Object.values(group.variables).flatMap(listOf)))];
+}
+
 /** The variables of a group's required members, as an error names them. */
 function requiredVariables<S extends z.ZodObject>(group: EnvGroup<S>): string[] {
   return members(group).filter((member) => member.required).map((member) => member.name);

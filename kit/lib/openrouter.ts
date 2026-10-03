@@ -16,7 +16,7 @@
  *   `call.budgetMs`.
  *
  * It never throws. The contract:
- *   in:  { system, user, check, schema?, env, fetch, sleep?, call?, title?, stream? }
+ *   in:  { system, user, check, schema?, openrouter, fetch, sleep?, call?, title?, stream? }
  *   out: { ok, error, model, reply, reason }
  *        `ok` true: `reply` is what the check kept. Otherwise `error` is `NO_KEY` (no request was
  *        made, `model` null), `UNAVAILABLE` or `REFUSED`, and `reason` says why in words.
@@ -87,9 +87,8 @@ export type AskInput = {
   user: string;
   check: ReplyCheck;
   schema?: { name: string; schema: object } | undefined;
-  /** OpenRouter's key and model, as an env module reads them; when given, `env` is not read. */
-  openrouter?: OpenRouterSettings | null | undefined;
-  env?: Record<string, string | undefined> | undefined;
+  /** OpenRouter's key and model, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
   fetch?: typeof fetch | undefined;
   sleep?: ((ms: number) => Promise<void>) | undefined;
   call?: ModelCall | undefined;
@@ -106,29 +105,21 @@ type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 type Status = number | string;
 type Outcome = { ok: true; content: string } | { ok: false; status: Status; retry?: boolean };
 
-/** OpenRouter's settings from a plain environment object, for a caller that passes one. */
-function settingsOf(env: Record<string, string | undefined>): OpenRouterSettings | null {
-  const key = env[KEY_VAR];
-  return key ? { key, model: env[MODEL_VAR] } : null;
-}
-
 export async function askModel({
   system,
   user,
   check,
   schema,
   openrouter,
-  env = {},
   fetch,
   sleep = wait,
   call = MODEL_CALL,
   title = 'omni loop',
   stream = false,
 }: AskInput): Promise<AskResult> {
-  const settings = openrouter === undefined ? settingsOf(env) : openrouter;
-  const key = settings?.key;
+  const key = openrouter?.key;
   if (!key) return failure(NO_KEY, null, `${KEY_VAR} is not set`);
-  const model = settings.model || DEFAULT_MODEL;
+  const model = openrouter.model || DEFAULT_MODEL;
   if (typeof fetch !== 'function') return failure(UNAVAILABLE, model, 'model unavailable (no fetch given)');
 
   const messages: Message[] = [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { EnvError, envGroup, envReader, groupVariables, requireGroup, type EnvSource } from './group.ts';
+import { EnvError, envGroup, envReader, groupVariables, requireGroup, variablesOf, type EnvSource } from './group.ts';
 
 const PAIR = envGroup({
   label: 'the store',
@@ -76,6 +76,10 @@ describe('a group', () => {
 
   it('names its variables', () => {
     expect(groupVariables(PAIR)).toEqual(['STORE_URL (or PUBLIC_STORE_URL)', 'STORE_KEY', 'STORE_MODEL']);
+  });
+
+  it('lists every variable of several groups once, fallbacks included, for the docs', () => {
+    expect(variablesOf([PAIR, APP, PAIR])).toEqual(['STORE_URL', 'PUBLIC_STORE_URL', 'STORE_KEY', 'STORE_MODEL', 'APP_ID', 'APP_SECRET']);
   });
 });
 

@@ -15,7 +15,7 @@
  * `api/inngest.ts`); passing them would duplicate the SDK's own reading and its rules for each.
  */
 import { z } from 'zod';
-import { envGroup, envReader, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 import { KEY_VAR, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 
 export { EnvError, requireGroup, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
@@ -71,6 +71,15 @@ const GALAXY = envGroup({
   schema: z.object({ url: z.url().optional() }),
   variables: { url: 'GALAXY_URL' },
 });
+
+/** The variables a person sets for the app and `readEnv` reads: the README's list names these (`scripts/env-docs.test.ts`). */
+export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, GALAXY]);
+
+/** The variables the Inngest SDK reads itself (above): set by a person, so the README's list names them too. */
+export const SDK_VARIABLES: readonly string[] = ['INNGEST_EVENT_KEY', 'INNGEST_SIGNING_KEY', 'INNGEST_DEV'];
+
+/** The variables Vercel sets, read here but never set by a person, so no docs list names them. */
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([VERCEL]);
 
 /** Every group of the GitHub App, read from `source`; throws one `EnvError` naming every problem. */
 export function readEnv(source: EnvSource) {

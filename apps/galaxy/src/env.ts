@@ -14,7 +14,7 @@
  * Plain Node loads this module (`scripts/releases-sync.ts`): it names its imports with their extension.
  */
 import { z } from 'zod';
-import { envGroup, envReader, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 import { arcadeMode } from './data/mode.ts';
 
 /** A value that is set: trimmed, never blank. */
@@ -96,6 +96,21 @@ const GALAXY = envGroup({
   schema: z.object({ url: z.url() }),
   variables: { url: 'GALAXY_URL' },
 });
+
+/**
+ * The variables a person sets for the arcade, server and browser: `.env.example` and the README's list
+ * name exactly these (`scripts/env-docs.test.ts`).
+ */
+export const VARIABLES: readonly string[] = variablesOf([
+  SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
+  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, BUSINESS_RECHECK, DEMO, GALAXY,
+]);
+
+/**
+ * The variables Node and Next set, read here (`readEnv`, {@link nextRuntime}) but never set by a
+ * person, so no docs list names them.
+ */
+export const PLATFORM_VARIABLES: readonly string[] = ['NODE_ENV', 'NEXT_PHASE', 'NEXT_RUNTIME'];
 
 /** The phase Next sets while `next build` prerenders (next/constants' PHASE_PRODUCTION_BUILD). */
 const PRODUCTION_BUILD = 'phase-production-build';
