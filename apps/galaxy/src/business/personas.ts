@@ -1,4 +1,5 @@
-import { PERSONA_TRADES, personaVariations, randomAvatar, type PersonaAvatar } from '@omni/design';
+import { z } from 'zod';
+import { PERSONA_TRADES, personaVariations, randomAvatar, validPersonaAvatar, type PersonaAvatar } from '@omni/design';
 import { hasProducts, type Product } from './model';
 import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
@@ -37,18 +38,20 @@ export interface Persona extends PersonaFields {
   ordinal: number;
 }
 
-/** A public.personas row, as PostgREST answers it. */
-export interface StoredPersona {
-  id: string;
-  product_id: string;
-  ordinal: number | string;
-  name: string;
-  stance: string;
-  trade: string;
-  avatar: PersonaAvatar;
-  who: string | null;
-  usage: string | null;
-}
+/** A public.personas row, as PostgREST answers it: the columns of PERSONA_COLUMNS, or the whole row a
+ * persona function answers. Its avatar is one the database's valid_persona_avatar() let in (PRD 1030). */
+export const StoredPersona = z.object({
+  id: z.string(),
+  product_id: z.string(),
+  ordinal: z.union([z.number(), z.string()]),
+  name: z.string(),
+  stance: z.string(),
+  trade: z.string(),
+  avatar: z.custom<PersonaAvatar>(validPersonaAvatar, 'an avatar the presets can draw'),
+  who: z.string().nullable(),
+  usage: z.string().nullable(),
+});
+export type StoredPersona = z.infer<typeof StoredPersona>;
 
 export const PERSONA_COLUMNS = 'id, product_id, ordinal, name, stance, trade, avatar, who, usage';
 
@@ -155,7 +158,9 @@ export const pickerOf = (drawer: PersonaDrawer): PersonaAvatar[] => personaVaria
 const withPersona = (personas: readonly Persona[], persona: Persona) =>
   [...personas.filter((p) => p.id !== persona.id), persona].sort(byOrdinal);
 
-type Handlers = { [T in PersonasAction['type']]: (state: PersonasState, action: Extract<PersonasAction, { type: T }>) => PersonasState };
+/** Each action, by its type. */
+type ActionOf = { [T in PersonasAction['type']]: Extract<PersonasAction, { type: T }> };
+type Handlers = { [T in keyof ActionOf]: (state: PersonasState, action: ActionOf[T]) => PersonasState };
 
 const HANDLERS: Handlers = {
   'new': (state, { product, seed }) => ({
@@ -181,9 +186,14 @@ const HANDLERS: Handlers = {
   'tick': (state, { at }) => (state.undo && at >= state.undo.until ? { ...state, undo: null } : state),
 };
 
-export function personasReducer(state: PersonasState, action: PersonasAction): PersonasState {
-  const handle = HANDLERS[action.type] as (state: PersonasState, action: PersonasAction) => PersonasState; // ts-allow: HANDLERS keys each handler by the action type it takes, which TypeScript cannot correlate
+/** The handler of `type`, given the action of that type: the mapped type correlates the two. */
+function handleWith<T extends keyof ActionOf>(state: PersonasState, type: T, action: ActionOf[T]): PersonasState {
+  const handle: Handlers[T] = HANDLERS[type];
   return handle(state, action);
+}
+
+export function personasReducer(state: PersonasState, action: PersonasAction): PersonasState {
+  return handleWith(state, action.type, action);
 }
 
 /** True while Undo may still bring the deleted persona back. */

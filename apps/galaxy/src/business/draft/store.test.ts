@@ -43,7 +43,7 @@ describe('draftStore', () => {
   });
 
   it('starts, progresses and finishes a draft through the migration\'s functions', async () => {
-    const { db, rpcs } = fakeDb({ business_draft_start: { data: { id: 'd-1', state: 'running' } } });
+    const { db, rpcs } = fakeDb({ business_draft_start: { data: { id: 'd-1', kind: 'draft', state: 'running', started_at: '2026-09-30T10:00:00Z', finished_at: null, counts: {}, scanned: [], reason: null } } });
     const store = draftStore(db);
     expect((await store.start('ws-1', 'draft')).id).toBe('d-1');
     await store.progress('ws-1', 'd-1', { readmes: 1 } as never, [{ source: 'app · README.md', state: 'read' }]);

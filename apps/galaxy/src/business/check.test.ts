@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { claimOf, type Claim } from './model';
+import { claimOf, type Claim, type StoredClaim } from './model';
 import { foundRows, thatsUs } from './reveal';
 import {
   additionText, checkRows, FADE_MS, isFaded, lastSeenOf, seenSince, settled, stillTrue,
@@ -110,7 +110,7 @@ describe('fading', () => {
   });
 
   it('reads last_seen from the stored row', () => {
-    const row = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
+    const row: StoredClaim = { id: 'c-1', seq: 1, kind: 'rival', value: 'X', source: 'evidence', state: 'confirmed', last_seen: '2026-08-12T15:00:00Z' };
     expect(claimOf(row).lastSeen).toBe('2026-08-12T15:00:00Z');
     expect(claimOf({ ...row, last_seen: null })).not.toHaveProperty('lastSeen');
   });

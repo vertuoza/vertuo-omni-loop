@@ -1,5 +1,6 @@
 import { validPersonaAvatar } from '@omni/design';
-import { NAME_MAX, personaOf, STANCES, TEXT_MAX, type Persona, type PersonaFields, type StoredPersona } from './personas';
+import { NAME_MAX, personaOf, STANCES, StoredPersona, TEXT_MAX, type Persona, type PersonaFields } from './personas';
+import { parseRow } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
 // Settings → Business → Personas' calls (PRD 799 s3). In production, the functions of
@@ -55,7 +56,8 @@ export function databasePersonas(db: Rpc, workspace: string): PersonaPort {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: personaRefusalOf(error) };
-      return { ok: true, persona: personaOf(data as StoredPersona) }; // ts-allow: each persona function answers the public.personas row it wrote
+      const row = parseRow(StoredPersona, data, `business/personas-store: ${fn}`);
+      return row.ok ? { ok: true, persona: personaOf(row.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: personaRefusalOf(err) };
     }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { planPick, type Claim } from './model';
 import { callsOf, confirmCalls, COULD_NOT_SAVE, databaseBusiness, demoBusinessPort, INVALID, NOT_MEMBER, refusalOf, run, type Step } from './store';
 import { sure } from '../arcade/sure';
@@ -30,6 +30,14 @@ describe('the database calls', () => {
     const d = db([{ data: row() }]);
     expect(await databaseBusiness(d, 'ws-1', 'p-1').pick('offering', 'ERP')).toEqual({ ok: true, claim: CLAIM });
     expect(d.calls).toEqual([['claim_pick', { p_workspace: 'ws-1', p_product: 'p-1', p_kind: 'offering', p_value: 'ERP', p_source: 'pick' }]]);
+  });
+
+  it('answers could-not-save when the saved row does not parse (PRD 1030)', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await databaseBusiness(db([{ data: row({ state: 'maybe' }) }]), 'ws-1', 'p-1').pick('offering', 'ERP')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    expect(await databaseBusiness(db([{ data: { id: 'p-2' } }]), 'ws-1', 'p-1').addProduct('Omni Loop')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('business/store: claim_pick: the answer does not parse: state'));
+    logged.mockRestore();
   });
 
   it('picks a region on the business, with no product', async () => {

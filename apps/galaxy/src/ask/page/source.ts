@@ -10,7 +10,6 @@
 // round of the caller's workspaces.
 // An answer's screenshots (PRD 620) go to the bucket first, as the same person: see attachments.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../../supabase/database.types';
 import { loadPeople, type People } from '../../people/load';
 import type { Category } from '../classify';
 import {
@@ -173,7 +172,7 @@ export async function shareRound(db: Db & SortDb, roundId: string, member: strin
 export async function readMembers(db: Db & SortDb, workspaceId: string | null | undefined): Promise<Member[]> {
   if (!workspaceId) return [];
   try {
-    const [members, people] = await Promise.all([askShares(db).members(workspaceId), loadPeople(db as SupabaseClient<Database>, workspaceId)]); // ts-allow: loadPeople reads only `from` and `rpc`
+    const [members, people] = await Promise.all([askShares(db).members(workspaceId), loadPeople(db, workspaceId)]);
     return withFaces(members, people);
   } catch (error) {
     console.error(error);

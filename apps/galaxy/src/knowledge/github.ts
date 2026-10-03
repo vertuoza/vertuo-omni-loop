@@ -155,7 +155,7 @@ export function knowledgeReader(
 
   /** The texts of `repo`'s knowledge folder at `root`, by path from the repository's root. */
   async function texts(id: number, repo: string, root: string): Promise<Record<string, string>> {
-    const [owner, name] = repo.split('/') as [string, string]; // ts-allow: a repository is named owner/name
+    const [owner = '', name = ''] = repo.split('/');
     const data = Knowledge.parse(await graphql(await tokenFor(id), KNOWLEDGE_QUERY, {
       owner,
       name,
@@ -208,7 +208,10 @@ export function knowledgeReader(
           log(`knowledge map: ${repo} is not a repository of installation ${id} that carries ${CONFIG_PATH}`);
         } else {
           const [name, root] = listed;
-          value = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name }) as KnowledgeGraph; // ts-allow: the kit's one parser reads the texts; the map reads its graph's narrower view
+          const graph = graphOfTexts({ texts: await texts(id, name, root), knowledgeRoot: root, repo: name });
+          // The map reads version 1 of the kit's graph: another version is left out, not misread.
+          if (graph.version === 1) value = { ...graph, version: 1 };
+          else log(`knowledge map: ${repo} is left out, its graph is version ${graph.version}, not 1`);
         }
       } catch (error) {
         log(`knowledge map: ${repo} could not be read from GitHub — ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
