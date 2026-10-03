@@ -78,7 +78,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     // A region's own feature PR is left to the planet's (game/planet-state.ts falls back to it).
     regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy, featurePr: null })),
     featurePr: feature && {
-      repo: firstRepo(prd, regions), number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null), // ts-allow: a demo planet with a feature PR names its regions
+      repo: firstRepo(prd, regions), number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null),
       mergedAt: ago(feature.merged ?? null), lastActivityAt: ago(feature.activity ?? feature.created),
     },
     zones, outbox, bugs,
