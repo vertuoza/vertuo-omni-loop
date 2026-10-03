@@ -129,7 +129,7 @@ async function upload(bucket: Bucket, roundId: string, tray: Tray, onProgress: (
     if (!path || !(await put(bucket, path, shot))) throw failed(at + 1, staged.length, onProgress);
     tray.uploaded.set(shot.id, path);
   }
-  return Object.fromEntries(Object.entries(tray.shots).map(([question, shots]) => [question, shots.map((s) => tray.uploaded.get(s.id) as string)])); // ts-allow: the loop above set every staged shot's path in tray.uploaded, or threw
+  return Object.fromEntries(Object.entries(tray.shots).map(([question, shots]) => [question, shots.flatMap((s) => tray.uploaded.get(s.id) ?? [])])); // the loop above set every staged shot's path, or threw
 }
 
 function failed(at: number, total: number, onProgress: (progress: Progress) => void): UploadFailed {

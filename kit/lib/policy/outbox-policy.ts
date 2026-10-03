@@ -33,6 +33,7 @@ import { ACCOUNTS_DIR } from '../outbox/account.ts';
 import type { AccountEntry, AccountLine } from '../outbox/account.ts';
 import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.ts';
 import { isList, plainText } from '../outbox/plain-text.ts';
+import { isOneOf } from '../narrow.ts';
 import type { Laws } from '../laws.ts';
 import type { Layout, PrdNumber } from '../layout.ts';
 import type { Rank } from '../types.ts';
@@ -468,7 +469,9 @@ export function renderOutboxItem({
   laws,
 }: OutboxItemFields): string {
   const couldNotKnow = unknowable(gaps);
-  const settledRank: string = floorRank(bearsOn, rank as Rank, laws); // ts-allow: an unknown rank is refused just below, after the floor, as it always was
+  // An unknown rank is refused just below, after the floor, as it always was: one an item's
+  // `bears-on` floors at `high` settles there.
+  const settledRank: string = isOneOf(RANK_VALUES, rank) ? floorRank(bearsOn, rank, laws) : laws.floorsHigh(bearsOn) ? 'high' : rank;
   if (!RANK_VALUES.some((value: string) => value === settledRank)) {
     throw new Error(`rank must be one of: ${RANK_VALUES.join(', ')} — got "${rank}"`);
   }

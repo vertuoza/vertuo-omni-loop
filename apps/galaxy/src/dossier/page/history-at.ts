@@ -5,9 +5,9 @@
 // exactly like one that never was: not found. Signed out, the page's GitHub sign-in comes back to the
 // same short address through its own callback (atSignInReturn). Ported from the first build's s4
 // (tag archive/outbox-answers-v1), which found the dossier through a query this page no longer has.
-import type { Exchange } from '../../ask/page/sign-in';
+import type { Exchange, Join } from '../../ask/page/sign-in';
 import type { DossierListRow } from '../store';
-import { historySignInReturn, type Join } from './sign-in';
+import { historySignInReturn } from './sign-in';
 import { dossierPath } from './view';
 
 /** A PRD of a repository, as the short address names it. */

@@ -30,8 +30,11 @@ import type { CachedSlice } from './schema.ts';
 /** A PRD's cached board, `at` in milliseconds: its slices after a refresh that worked, else its error. */
 export type Board = { at: number; slices: CachedSlice[]; error?: undefined } | { at: number; error: string; slices?: undefined };
 
-/** A board entry as it is written, `at` an ISO time. */
-export type BoardEntry = { at: string; slices: CachedSlice[] } | { at: string; error: string };
+/** A slice as a refresh writes it: one of a plan with no `wave` column writes `null`, which reads back as no slices. */
+type WrittenSlice = { id: string; wave: number | null; state: string };
+
+/** An entry as a refresh writes it. */
+type WrittenEntry = { at: string; slices: WrittenSlice[] } | { at: string; error: string };
 
 /** What starts the refresh: shaped like `spawn` from `node:child_process`; its child may be anything. */
 export type Spawn = (command: string, args: readonly string[], options: SpawnOptions) => {
@@ -169,7 +172,7 @@ function ensureBoardDir(root: string): void {
 }
 
 /** Writes PRD `prd`'s board entry: to a temporary name, then renamed into place. */
-export function writeBoard(root: string, prd: number, entry: BoardEntry): void {
+export function writeBoard(root: string, prd: number, entry: WrittenEntry): void {
   ensureBoardDir(root);
   const path = boardFile(root, prd);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
@@ -225,12 +228,12 @@ const oneLine = (error: unknown): string => (String(prop(error, 'message') ?? er
  * nothing written, while another refresh holds it), writes what `build()` returns as the board's
  * slices, or what it throws as the error entry, then removes the lock (`'written'`).
  */
-export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly CachedSlice[] }): 'written' | 'held' {
+export function refreshBoard({ root, prd, now, build }: { root: string; prd: number; now: number; build: () => readonly WrittenSlice[] }): 'written' | 'held' {
   const owner = takeLock(root, prd, now);
   if (owner === null) return 'held';
   try {
     const at = new Date(now).toISOString();
-    let entry: BoardEntry;
+    let entry: WrittenEntry;
     try {
       entry = { at, slices: build().map(({ id, wave, state }) => ({ id, wave, state })) };
     } catch (error) {

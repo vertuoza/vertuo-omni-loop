@@ -15,18 +15,20 @@
 //
 // When the retro is not worth a pull request, or was not judged, nothing of that is written:
 // `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
+import { z } from 'zod';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 import { RetroDocSchema } from './github.schema.ts';
+import { RunRecordSchema } from './retro.schema.ts';
 import { KINDS, type Kind } from './kinds/index.ts';
 import { JUDGE_VERSION } from './narrate.ts';
 import type { Evidence, IssueLink, IssueLinks, Prose, ProseField, ProseFinding, RetroDoc, RulesSheet, Run, RunRecord, SheetFinding } from './retro.types.ts';
 
 export type { RetroDoc, RunRecord };
 
-/** The timeline kind's facts, as far as the verdict comment reads them (`kinds/timeline.ts`). */
 /**
- * A run as a retro.json keeps it, as far as the checks below read it: an earlier run wrote it, maybe
- * an earlier version of the retro, and it is read back unparsed, so any of these may be missing.
+ * A run, as far as the checks below read it: its kinds' facts, by kind, which each reader parses with
+ * the schema of the facts it reads.
  */
 type KeptRun = { featurePr?: { number?: number } | null; kinds?: Record<string, unknown> | null };
 /** A finding of a kept run, as far as the checks below read it. */
@@ -35,16 +37,20 @@ type KeptFinding = { evidence?: readonly Evidence[] | null };
 /** The facts kind `id` left in a kept run, if it left any. */
 const keptFacts = (run: KeptRun, id: string): unknown => run.kinds?.[id];
 
-type TimelineFacts = {
-  featurePr?: { minutes?: number | null } | null;
-  sliceCount?: number;
-  waves: { merged: number; planned: number | null };
-};
+/** The timeline kind's facts, as far as the verdict comment reads them (`kinds/timeline.ts`). */
+const TimelineFactsSchema = z
+  .object({
+    featurePr: z.object({ minutes: z.number().nullish() }).nullish(),
+    sliceCount: z.number().exactOptional(),
+    waves: z.object({ merged: z.number(), planned: z.number().nullable() }),
+  })
+  .nullable();
 
 /**
  * `retro.json`'s content with `record` in it: a replay replaces the record of the same feature PR and
  * run, anything else is added. A file that is not the retro's JSON is started again. `existing` is
- * the file's text on the retro branch, or `null`.
+ * the file's text on the retro branch, or `null`. Each run the file keeps is parsed as a run record:
+ * one of another shape, as written before a deploy that changed it, fails, naming the field.
  */
 export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc {
   let doc: unknown = null;
@@ -53,11 +59,8 @@ export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc 
   } catch {
     doc = null;
   }
-  const runs = RetroDocSchema.parse(doc).runs as RunRecord[]; // ts-allow: the runs a retro.json keeps are the records the runs before wrote, kept as they were
-  const same = (run: RunRecord) => {
-    const kept: KeptRun = run;
-    return kept.featurePr?.number === record.featurePr.number && run.run === record.run;
-  };
+  const runs = parseOrThrow(z.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, 'The retro.json on the retro branch keeps a run of an unexpected shape');
+  const same = (run: RunRecord) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => (i === index ? record : run));
   return { prd: record.prd.number, runs: next };
@@ -255,7 +258,8 @@ export function verdictComment({
 }): string {
   const first = at(runs, 0, 'the first run the retro comments on');
   const findings = uniqueFindings(runs);
-  const timeline = (runs.map((run) => keptFacts(run, 'timeline')).find((facts) => facts) ?? null) as TimelineFacts | null; // ts-allow: the timeline kind's facts, as it writes them
+  const kept = runs.map((run) => keptFacts(run, 'timeline')).find((facts) => facts) ?? null;
+  const timeline = parseOrThrow(TimelineFactsSchema, kept, "The timeline kind's facts are of an unexpected shape");
   const minutes = timeline?.featurePr?.minutes ?? minutesBetween(first.featurePr.openedAt, first.featurePr.mergedAt);
   const lines = [
     `Retro: ${judged ? 'no new lesson' : 'not judged'} — ${oneLine(reason)}`,

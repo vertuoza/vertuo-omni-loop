@@ -1,4 +1,4 @@
-import type { Exchange } from '../ask/page/sign-in';
+import { signInBackTo, type Exchange } from '../ask/page/sign-in';
 
 // Signing in from the knowledge map (PRD 149): the galaxy's Google sign-in, coming back through the
 // page's own callback, which turns the code into the session cookie and returns to /knowledge on the
@@ -29,16 +29,5 @@ export const knowledgeCallbackPath = (wanted: Wanted) => withQuery(CALLBACK, kep
 export async function knowledgeSignInReturn(url: URL, origin: string, exchange: Exchange | null): Promise<string> {
   const params = url.searchParams;
   const back = new URL(withQuery('/knowledge', kept({ repo: params.get('repo'), domain: params.get('domain'), entry: params.get('entry') })), origin);
-  const refused = params.get('error_description') ?? params.get('error');
-  const code = params.get('code');
-  if (refused) {
-    back.searchParams.set('signin_error', refused);
-  } else if (code && exchange) {
-    const { error } = await exchange(code);
-    if (error) {
-      console.error(`knowledge sign-in: ${error.message}`);
-      back.searchParams.set('signin_error', 'That sign-in could not be finished. Start again from this browser.');
-    }
-  }
-  return back.toString();
+  return signInBackTo(url, back, exchange, 'knowledge');
 }

@@ -28,11 +28,10 @@ import { isAbsolute, resolve } from 'node:path';
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
-import { credentialsHost } from '../../lib/ask/credentials.ts';
+import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { ProofReplyError, pushProof } from '../../lib/proof/push.ts';
-import type { ProofClient } from '../../lib/proof/push.ts';
 import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.ts';
 import type { ProofRun } from '../../lib/proof/run.ts';
 import { SessionRefused, storageState } from '../../lib/proof/session.ts';
@@ -89,17 +88,14 @@ async function send(
   { toggle, repo, prd, run }: { toggle: { askUrl: string }; repo: string; prd: number; run: ProofRun },
   { stdout, stderr, tokens, home, fetch, callMs }: CallIo,
 ): Promise<number> {
-  const host = credentialsHost(toggle.askUrl);
-  const store = tokens ?? homeTokens(home ? { home } : undefined);
-  if (!store.read(host)) {
+  const client = signedInClient({ askUrl: toggle.askUrl, tokens, home, fetch, callMs });
+  if (!client) {
     println(stderr, NO_SIGN_IN);
     return 1;
   }
-  const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
   let pushed;
   try {
-    // The ask client uploads any BodyInit; push reads its files as Uint8Array, which fetch sends as is.
-    pushed = await pushProof({ client: client as ProofClient, repo, prd, run }); // ts-allow: askClient's upload takes the Uint8Array push hands it
+    pushed = await pushProof({ client, repo, prd, run });
   } catch (error) {
     println(stderr, skipLine(error));
     return 1;

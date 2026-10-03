@@ -8,7 +8,7 @@ import { listPullsInto } from '../github.ts';
 import { qualify } from '../qualify.ts';
 import { delivery } from './delivery.ts';
 import type { Finding, RetroPull } from './index.ts';
-import { handles, replay } from './test-handles.ts';
+import { handles, replay } from './test/handles.ts';
 import {
   COMMENTS,
   DELIVERY_PULLS,

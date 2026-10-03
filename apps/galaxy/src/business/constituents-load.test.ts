@@ -70,6 +70,12 @@ describe('the Constituents panel\'s read', () => {
     expect(read).toEqual({ constituents: null, events: [], owner: true, people: {} });
   });
 
+  it('reads a role or members that do not parse as a member\'s and no people (PRD 1030)', async () => {
+    const read = await loadConstituentsPanel(db({ owner: { data: 'yes' }, roster: { data: [{ user_id: 7 }] } }) as never, 'ws-1', ['p-1']);
+    expect(read.owner).toBe(false);
+    expect(read.people).toEqual({});
+  });
+
   it('leaves the people empty when the members cannot be read', async () => {
     expect((await loadConstituentsPanel(db({ roster: { error: { message: 'down' } } }) as never, 'ws-1', ['p-1'])).people).toEqual({});
   });

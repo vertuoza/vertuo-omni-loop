@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -55,6 +56,7 @@ async function widgetSheet({
   const extraKind: Kind = {
     id: 'ci',
     section: 'Checks',
+    records: z.unknown(),
     runs: ['merge'],
     gather: () => Promise.resolve(null),
     detect: () => ({ facts: null, findings: extra }),

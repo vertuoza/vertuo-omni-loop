@@ -7,6 +7,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { Brand } from '../arcade/brand';
+import { z } from 'zod';
+import { orThrow, parseRows } from './parse-rows';
 import { listOf, numberOf } from './unparsed';
 
 export interface Workspace {
@@ -17,7 +19,15 @@ export interface Workspace {
   theme: Record<string, string>;
 }
 
-type MembershipRow = { joined_at: string; workspace: { id: string; slug: string; name: string; theme: unknown } | null };
+/** The columns of a membership, with its workspace. */
+export const MEMBERSHIP_COLUMNS = 'joined_at, workspace:workspaces(id, slug, name, theme)';
+
+/** A membership as MEMBERSHIP_COLUMNS reads it. The theme is a JSON column, read through themeOf(). */
+export const MembershipRow = z.strictObject({
+  joined_at: z.string(),
+  workspace: z.strictObject({ id: z.string(), slug: z.string(), name: z.string(), theme: z.unknown() }).nullable(),
+});
+type MembershipRow = z.infer<typeof MembershipRow>;
 
 /** The stored theme's string entries: the database checks it (valid_theme()); the arcade checks
  * each colour again before applying it. */
@@ -30,10 +40,10 @@ const themeOf = (value: unknown): Record<string, string> =>
 async function firstWorkspace(db: SupabaseClient<Database>, userId: string): Promise<Workspace | null> {
   const { data, error } = await db
     .from('workspace_members')
-    .select('joined_at, workspace:workspaces(id, slug, name, theme)')
+    .select(MEMBERSHIP_COLUMNS)
     .eq('user_id', userId);
   if (error) throw new Error(`Supabase: could not read your workspaces (${error.message})`);
-  const first = (listOf(data) as unknown as MembershipRow[]) // ts-allow: theme is a JSON column, read through themeOf()
+  const first = orThrow(parseRows(MembershipRow, data, 'data/workspace: workspace_members'))
     .filter((m): m is MembershipRow & { workspace: NonNullable<MembershipRow['workspace']> } => m.workspace !== null)
     .sort((a, b) => Date.parse(a.joined_at) - Date.parse(b.joined_at) || a.workspace.slug.localeCompare(b.workspace.slug))[0];
   if (!first) return null;

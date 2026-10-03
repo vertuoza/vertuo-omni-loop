@@ -49,7 +49,7 @@ export function BellView({ list, documents = [], business = 0, unread, now, onOp
   useEffect(() => {
     if (!state.open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) send('outside'); // ts-allow: a pointer event's target is a DOM node
+      if (!(event.target instanceof Node) || !root.current?.contains(event.target)) send('outside');
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') send('escape');

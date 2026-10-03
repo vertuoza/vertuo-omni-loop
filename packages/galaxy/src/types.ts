@@ -1,5 +1,5 @@
 // The galaxy view's shapes (PRD 725, s23): what buildGalaxy folds ledger events into and the arcade
-// draws. One source for the package's types: index.d.ts re-exports them for the arcade, and the
+// draws. One source for the package's types: index.ts re-exports them for the arcade, and the
 // sources type themselves with them. Self-contained on purpose, so the arcade's type check never
 // reaches into the game's sources through it.
 export type PlanetState =

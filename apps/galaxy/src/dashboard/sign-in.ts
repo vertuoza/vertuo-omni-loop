@@ -1,5 +1,4 @@
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { Exchange } from '../ask/page/sign-in';
+import { signInBackTo, type Exchange, type Join } from '../ask/page/sign-in';
 import { APP_HOME } from '../switch/switch';
 
 // Signing in from /app, the dashboard (PRD 328): the galaxy's GitHub sign-in (PRD 359), coming back
@@ -11,29 +10,8 @@ import { APP_HOME } from '../switch/switch';
 /** Where GitHub sends the person back after signing in on the dashboard. */
 export const APP_CALLBACK = `${APP_HOME}/callback`;
 
-/** Joins the account's workspaces, once the sign-in is a session. */
-export type Join = () => Promise<unknown>;
-
 /** Where the callback sends the person: /app, with `signin_error` when the sign-in failed. `exchange`
  * and `join` are null when this deployment has no database. */
 export async function dashboardSignInReturn(url: URL, origin: string, exchange: Exchange | null, join: Join | null): Promise<string> {
-  const back = new URL(APP_HOME, origin);
-  const refused = url.searchParams.get('error_description') ?? url.searchParams.get('error');
-  const code = url.searchParams.get('code');
-  if (refused) {
-    back.searchParams.set('signin_error', refused);
-  } else if (code && exchange) {
-    const { error } = await exchange(code);
-    if (error) {
-      console.error(`dashboard sign-in: ${error.message}`);
-      back.searchParams.set('signin_error', 'That sign-in could not be finished. Start again from this browser.');
-    } else if (join) {
-      try {
-        await join();
-      } catch (failure) {
-        console.error(`dashboard sign-in: ${messageOf(failure)}`);
-      }
-    }
-  }
-  return back.toString();
+  return signInBackTo(url, new URL(APP_HOME, origin), exchange, 'dashboard', join);
 }

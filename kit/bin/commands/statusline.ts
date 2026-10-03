@@ -29,7 +29,7 @@ import { refreshBoard } from '../../lib/statusline/board-cache.ts';
 import { readFacts as readCheckoutFacts } from '../../lib/statusline/facts.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
-import type { ExecFileSyncOptions } from 'node:child_process';
+import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
 import { positiveInt } from '../args.ts';
 import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
@@ -93,6 +93,16 @@ function prdNumber(value: string | undefined): number | null {
   }
 }
 
+/** `exec` with every call given the refresh's timeout: the same exec, text in and text out. */
+function withTimeout(exec: Exec): Exec {
+  function timed(file: string, args: readonly string[], options: ExecFileSyncOptionsWithStringEncoding): string;
+  function timed(file: string, args: readonly string[], options: ExecFileSyncOptions): string | Buffer;
+  function timed(file: string, args: readonly string[], options: ExecFileSyncOptions): string | Buffer {
+    return exec(file, args, { ...options, timeout: CALL_TIMEOUT_MS });
+  }
+  return timed;
+}
+
 /** The refresh of PRD `value`'s board: never throws, never prints. */
 function refresh(value: string | undefined, { cwd, exec, env, now }: { cwd: string; exec: Exec; env: Env; now: () => number }): void {
   const prd = prdNumber(value);
@@ -100,7 +110,7 @@ function refresh(value: string | undefined, { cwd, exec, env, now }: { cwd: stri
   try {
     const root = mainCheckout(cwd, exec);
     if (!root) return;
-    const timed = ((file: string, args: readonly string[], options: ExecFileSyncOptions) => exec(file, args, { ...options, timeout: CALL_TIMEOUT_MS })) as Exec; // ts-allow: exec with a timeout added is the same exec
+    const timed = withTimeout(exec);
     const instant = now();
     const build = () => buildBoard(prd, { ctx: loadContext(cwd, { exec: timed }), exec: timed, env, now: instant }).result.slices;
     refreshBoard({ root, prd, now: instant, build });

@@ -7,9 +7,9 @@ import type { BusinessCountDeps } from './business-count';
 
 // The business count route's real deps: the signed-in person's own cookie session, and their workspace
 // read as Settings › Business reads it (the one joined first), so the count matches the page it links to.
-export function businessCountDeps(): BusinessCountDeps {
+export function businessCountDeps(): BusinessCountDeps<SupabaseClient<Database>> {
   return {
     db: () => supabaseServer(),
-    workspace: (db, user) => memberWorkspace(db as unknown as SupabaseClient<Database>, user), // ts-allow: memberWorkspace reads only `from`
+    workspace: (db, user) => memberWorkspace(db, user),
   };
 }

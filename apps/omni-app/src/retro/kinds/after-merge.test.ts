@@ -3,7 +3,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { failing } from '../../../test/github-replay.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { afterMerge, followUpAt } from './after-merge.ts';
-import { handles, replay } from './test-handles.ts';
+import { handles, replay } from './test/handles.ts';
 import {
   DAY_14,
   FEATURE,

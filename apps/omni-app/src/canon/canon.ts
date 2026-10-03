@@ -27,6 +27,7 @@
 // `constituents_for_repo_app`), `judge(request)` (./judge.ts, the signed call to galaxy's judge route)
 // and `ask(request)` (the kit's OpenRouter client, bound to its key and model). ./live.ts binds them.
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 import { NO_KEY } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 import { type Business, type Claim, type Constituent, type Constituents, FindingSchema, type Persona, ReplyPersonaSchema } from './schema.ts';
 
@@ -88,8 +89,15 @@ export type JudgeAnswer = {
 };
 export type Judge = (request: JudgeRequest) => Promise<JudgeAnswer>;
 
-/** The model's reply, once checked. */
-type Reply = { findings: Finding[]; persona: PersonaLine };
+/**
+ * The model's reply, once `checkReply` checked it and trimmed its words: the reply the kit's client
+ * answers is read through it, so the verdict is built from what it says it is.
+ */
+const CheckedReplySchema = z.object({
+  findings: z.array(z.object({ quote: z.string(), claims: z.array(z.string()), why: z.string() })),
+  persona: z.object({ name: z.string(), line: z.string() }),
+});
+type Reply = z.infer<typeof CheckedReplySchema>;
 
 /** What the check of a reply answers the kit's client: its errors, or the reply. */
 type Checked = { errors: string[]; reply: Reply | null };
@@ -358,7 +366,7 @@ export function createCanon({ readBusiness, readConstituents = () => Promise.res
     if (!answer.ok) {
       return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
     }
-    const verdict = kept({ spec, reply: answer.reply as Reply, claims, constituents, personas }); // ts-allow: an ok answer's reply is the one checkReply returned
+    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
     cache.set(key, verdict);
     for (const oldest of cache.keys()) {
       if (cache.size <= limit) break;

@@ -12,7 +12,7 @@ import type { Inngest } from 'inngest';
 import { inngest } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { collectAll, type CollectStep } from './collect.ts';
+import { collectAll } from './collect.ts';
 import type { GraphqlOctokit } from './github.ts';
 import { StoreEnvSchema } from './schema.ts';
 import { type PrStatsStore, supabaseStore } from './supabase-store.ts';
@@ -46,7 +46,7 @@ export function createPrStats({ client, octokitFor, env = process.env, storeFor 
       }
       const store = storeFor({ url, key });
       const now = await step.run('clock', () => clock());
-      return collectAll({ store, octokitFor, step: step as CollectStep, now }); // ts-allow: Inngest's step answers each output as JSON, and every output the collector steps is JSON already
+      return collectAll({ store, octokitFor, step, now });
     },
   );
 }

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { inngest, HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
+import { savingSteps } from '../../test/saved-steps.ts';
 import {
   FEATURE,
   FILES,
@@ -83,10 +84,18 @@ function engine(
     env = { OPENROUTER_API_KEY: KEY },
     fetch = fetchReplying(),
     octokit = github.octokit,
-  }: { event?: ReturnType<typeof harvestEvent>; env?: Record<string, string | undefined>; fetch?: ReturnType<typeof fakeFetch>; octokit?: Octokit } = {},
+    saved,
+  }: {
+    event?: ReturnType<typeof harvestEvent>;
+    env?: Record<string, string | undefined>;
+    fetch?: ReturnType<typeof fakeFetch>;
+    octokit?: Octokit;
+    /** Each step's value saved as JSON and read back, as Inngest does, the ids of the steps that were added here. */
+    saved?: string[];
+  } = {},
 ) {
   const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => octokit, env, fetch, now: () => TODAY });
-  return { run: new InngestTestEngine({ function: fn, events: [event] }), fetch };
+  return { run: new InngestTestEngine({ function: fn, events: [event], ...(saved ? { transformCtx: savingSteps(saved) } : {}) }), fetch };
 }
 
 /** A fixture pull request's number. */
@@ -348,6 +357,39 @@ describe('knowledge-harvest — replays and ids', () => {
     expect(result.published).toBeNull();
     expect(knowledgePulls(github)).toHaveLength(1);
     expect(commitsMade(github)).toHaveLength(1);
+  });
+});
+
+describe('knowledge-harvest — every step read back as Inngest saved it (PRD 1030)', () => {
+  const CLASSIFIED = ['s0-01-local-name', 's0-02-cited', 's0-03-refused', 's0-04-drift', 's1-01-high-one', 's1-02-set-secret'].map((id) => `classify:${id}`);
+
+  it('parses every step, once saved, and opens the same knowledge PR as before', async () => {
+    const plain = scenario();
+    await execute(engine(plain).run);
+    const github = scenario();
+    const saved: string[] = [];
+    const { error } = await execute(engine(github, { saved }).run);
+    expect(error).toBeUndefined();
+    expect(saved[0]).toBe('qualify');
+    expect(saved[1]).toBe('settle');
+    expect(saved.slice(2, -2).sort()).toEqual(CLASSIFIED);
+    expect(saved.slice(-2)).toEqual(['write', 'publish']);
+    expect(bodyOf(knowledgePull(github))).toBe(bodyOf(knowledgePull(plain)));
+    expect(github.filesAt(BRANCH, BRANCH_PATHS)).toEqual(plain.filesAt(BRANCH, BRANCH_PATHS));
+  });
+
+  it('parses the verdict step, once saved, when there is nothing to publish', async () => {
+    const github = scenario();
+    const saved: string[] = [];
+    const local = {
+      ...REPLIES,
+      's1-01-gadget-record': { kind: 'stays-here', statement: 'A local numbering choice.', reason: 'a local choice' },
+      's1-02-gadget-rule': { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' },
+    };
+    const { result, error } = await execute(engine(github, { event: harvestEvent(GADGETS_FEATURE.number), fetch: fetchReplying(local), saved }).run);
+    expect(error).toBeUndefined();
+    expect(saved.slice(-3)).toEqual(['write', 'publish', 'verdict']);
+    expect(result.verdict).toMatchObject({ created: true });
   });
 });
 

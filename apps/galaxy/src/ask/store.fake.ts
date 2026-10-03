@@ -30,6 +30,13 @@ type Result = { data: unknown; error: Failure | null };
 export type FakeAccount = { id: string; email: string; workspaces?: string[]; name?: string };
 
 export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
+
+/** What the Auth server's token check answers for a token's account, or for a token it does not know. */
+export function userOf(account: FakeAccount | undefined) {
+  return account
+    ? { data: { user: { id: account.id, email: account.email } }, error: null }
+    : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } };
+}
 export type FakeTables = { ask_sessions: Row[]; ask_rounds: Row[]; ask_shares: Row[] };
 
 /** A deep copy, as the database answers one: through JSON, so a key holding undefined is dropped. */
@@ -269,10 +276,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       auth: {
         getUser(jwt: string) {
           state.queries += 1;
-          const account = accounts[jwt];
-          return Promise.resolve(account
-            ? { data: { user: { id: account.id, email: account.email } }, error: null }
-            : { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'invalid JWT' } });
+          return Promise.resolve(userOf(accounts[jwt]));
         },
       },
       from: (table: keyof FakeTables) => new Query(table, me),

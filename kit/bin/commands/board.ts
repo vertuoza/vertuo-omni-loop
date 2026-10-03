@@ -128,13 +128,10 @@ function fetchHeadCommitDates(
 
 const STATE_WIDTH = 'claimed-stale'.length;
 
-/** A plan slice as the board reads it: `board.ts` types its wave as a number, the plan as a number or null. */
-type PlanSlice = Slice & { wave: number };
-
 /** A repository of a plan repository's slices that could not be read. */
 type Unreadable = { repo: string | null | undefined; slug: string | null; reason: string };
 
-function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
+function tableLine(row: BoardRow<Slice>, repoWidth: number): string {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
   const repoCol = row.repo === undefined ? '' : `${defined(row.repo, `the repository of ${row.id}`).padEnd(repoWidth)}  `;
   return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
@@ -156,11 +153,11 @@ function tableLine(row: BoardRow<PlanSlice>, repoWidth: number): string {
 export function buildBoard(
   prd: number,
   { ctx, exec, env, repo: repoFlag, now = Date.now() }: { ctx: Context; exec: Exec; env?: Env | undefined; repo?: string | undefined; now?: number },
-): { slices: PlanSlice[]; result: ReturnType<typeof boardFor<PlanSlice>>; unreadable: Unreadable[] } {
+): { slices: Slice[]; result: ReturnType<typeof boardFor<Slice>>; unreadable: Unreadable[] } {
   const { markdown } = readPlan(prd, { ctx });
-  let slices: PlanSlice[];
+  let slices: Slice[];
   try {
-    slices = parsePlanSlices(markdown) as PlanSlice[]; // ts-allow: a slice with no wave reaches boardFor as it always has
+    slices = parsePlanSlices(markdown);
   } catch (error) {
     throw usageError(`omni board: ${errorMessage(error)}`);
   }
@@ -255,19 +252,24 @@ export const board: Command = {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
 
-    if (result.frontier.wave === null) {
-      println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
-    } else {
-      const takeable = result.frontier.takeable.join(', ') || '(none — every candidate collides with another)';
-      println(stdout, `omni board — runnable frontier: wave ${result.frontier.wave} — takeable: ${takeable}`);
-      println(stdout, `omni board — of which runnable (unclaimed): ${result.frontier.runnable.join(', ') || '(none)'}`);
-      if (result.frontier.excluded.length > 0) {
-        println(
-          stdout,
-          `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${result.frontier.excluded.join(', ')}`,
-        );
-      }
-    }
+    printFrontier(stdout, result.frontier);
     return 0;
   }),
 };
+
+/** The runnable frontier's lines: its wave, what is takeable and runnable, and what a collision deferred. */
+function printFrontier(stdout: CommandIo['stdout'], frontier: ReturnType<typeof boardFor>['frontier']): void {
+  if (frontier.wave === null) {
+    println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
+    return;
+  }
+  const takeable = frontier.takeable.join(', ') || '(none — every candidate collides with another)';
+  println(stdout, `omni board — runnable frontier: wave ${frontier.wave} — takeable: ${takeable}`);
+  println(stdout, `omni board — of which runnable (unclaimed): ${frontier.runnable.join(', ') || '(none)'}`);
+  if (frontier.excluded.length > 0) {
+    println(
+      stdout,
+      `omni board — deferred by a same-wave territory collision (kept the earlier slice in plan order): ${frontier.excluded.join(', ')}`,
+    );
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StoredClaim } from './model';
+import type { ClaimKind, StoredClaim } from './model';
 import { suggestRivalsRoute, SuggestStoreError, type SuggestDeps, type SuggestStore } from './suggest-api';
 import type { SuggestInput } from './suggest';
 import { z } from 'zod';
@@ -12,7 +12,7 @@ const Rows = z.object({ claims: z.array(z.object({ value: z.string(), state: z.s
 // the model's names are stored as proposed rivals (claim_pick with source `suggestion`) and answered;
 // with no suggester, too few picks, or a model that fails, the answer is no claim, never an error.
 
-const row = (seq: number, kind: string, value: string, over: Partial<StoredClaim> = {}): StoredClaim =>
+const row = (seq: number, kind: ClaimKind, value: string, over: Partial<StoredClaim> = {}): StoredClaim =>
   ({ id: `c-${seq}`, seq, kind, value, source: 'pick', state: 'confirmed', product_id: kind === 'region' ? null : 'p-1', ...over });
 
 const PICKED: StoredClaim[] = [

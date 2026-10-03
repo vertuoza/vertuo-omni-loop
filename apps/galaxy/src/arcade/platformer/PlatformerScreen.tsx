@@ -32,10 +32,11 @@ export interface PlatformerOptions {
   onEvent: (e: PlatformerEvent) => void;
 }
 
-export interface ScreenDeps {
-  load: () => Promise<PhaserLike>;
+/** `M`: the module `load` answers, Phaser's own or a test's stand-in, which `scene` is made from. */
+export interface ScreenDeps<M extends PhaserLike = PhaserLike> {
+  load: () => Promise<M>;
   /** The scene the game plays, made from the module loaded. */
-  scene: (P: PhaserLike, o: PlatformerOptions) => unknown;
+  scene: (P: M, o: PlatformerOptions) => unknown;
   onStatus: (s: ScreenStatus) => void;
 }
 
@@ -51,7 +52,7 @@ export interface Platformer {
 }
 
 /** The real Phaser, fetched only when a platformer screen mounts. */
-const loadPhaser = () => import('phaser') as unknown as Promise<PhaserLike>; // ts-allow: Phaser's module, typed by the slice of it the screen uses
+const loadPhaser = (): Promise<PhaserModule> => import('phaser');
 
 /**
  * The world's scenes, one per stage in the order they are played, each told the next one's key:
@@ -65,7 +66,7 @@ export function worldScenes<T>(make: (so: SceneOptions) => T, o: Pick<Platformer
 }
 
 /** The real scenes: every stage, each drawn in its palette with the player's hero. */
-const realScene: ScreenDeps['scene'] = (P, o) => worldScenes((so) => makeScene(P as unknown as PhaserModule, so), o, (palette) => drawArt(o.hero, o.team, palette)); // ts-allow: the module the screen loaded is Phaser's, which the scene is made from
+const realScene: ScreenDeps<PhaserModule>['scene'] = (P, o) => worldScenes((so) => makeScene(P, so), o, (palette) => drawArt(o.hero, o.team, palette));
 
 /** What a press does on the failed screen: A imports again, B goes back (to the room, or the dock's picker). */
 export function failedPress(action: Action): 'retry' | 'back' | null {
@@ -73,7 +74,7 @@ export function failedPress(action: Action): 'retry' | 'back' | null {
 }
 
 /** Starts the game in `host`: what the screen runs on mount. */
-export function startPlatformer(host: HTMLElement, o: PlatformerOptions, deps: ScreenDeps): Platformer {
+export function startPlatformer<M extends PhaserLike>(host: HTMLElement, o: PlatformerOptions, deps: ScreenDeps<M>): Platformer {
   let status: ScreenStatus = 'loading';
   let game: GameLike | null = null;
   let paused = false;
@@ -146,7 +147,7 @@ export interface PlatformerScreenProps {
   onEvent?: (e: PlatformerEvent) => void;
   onStatus?: (s: ScreenStatus) => void;
   /** Where Phaser comes from; the real module unless a test says otherwise. */
-  load?: ScreenDeps['load'];
+  load?: ScreenDeps<PhaserModule>['load'];
 }
 
 export function PlatformerScreen({ grid, hero, team, held, paused, retry = 0, onEvent, onStatus, load = loadPhaser }: PlatformerScreenProps) {

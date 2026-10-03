@@ -129,42 +129,56 @@ export function guard({ reply, sheet }: { reply: unknown; sheet: GuardSheet }): 
  * `{ dropped }` for the first check it fails, the failure pushed onto `dropped`.
  */
 function judge(reply: Reply, findings: Reply, prose: Prose, evidence: Evidence, dropped: DroppedField[]): Verdict {
-  const failed = (field: string, reason: string): Dropped => {
+  const failed = ({ field, reason }: Omit<Failed, 'ok'>): Dropped => {
     dropped.push({ field, reason });
     return { dropped: reason };
   };
-  const verdict = reply.verdict;
-  if (!isObject(verdict)) return failed('verdict', DROPPED.noVerdict);
-  if (typeof verdict.worthIt !== 'boolean') return failed('verdict.worthIt', DROPPED.notYesOrNo);
-  const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
-  if (reasonRefused !== null || typeof verdict.reason !== 'string') return failed('verdict.reason', reasonRefused ?? DROPPED.notText);
-  const reason = verdict.reason;
+  const head = verdictOf(reply.verdict, evidence);
+  if (!head.ok) return failed(head);
 
-  const judged: Record<string, Pick<ProseFinding, 'keep' | 'why'>> = {};
+  const judged: Record<string, Marks> = {};
   let keptOne = false;
   for (const [id, kept] of Object.entries(prose.findings)) {
-    const words = findings[id] as Reply; // ts-allow: only an id `guard` kept is here; a null one throws, as it always has
-    const field = `findings.${id}`;
-    const marks: Pick<ProseFinding, 'keep' | 'why'> = {};
-    if (words.keep !== undefined) {
-      if (typeof words.keep !== 'boolean') return failed(`${field}.keep`, DROPPED.notYesOrNo);
-      marks.keep = words.keep;
-    }
-    if (words.why !== undefined) {
-      const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
-      if (whyRefused !== null || typeof words.why !== 'string') return failed(`${field}.why`, whyRefused ?? DROPPED.notText);
-      marks.why = words.why;
-    }
-    if (marks.keep) {
-      if (typeof kept.lesson !== 'string') return failed(`${field}.keep`, DROPPED.keptNoLesson);
-      keptOne = true;
-    }
-    judged[id] = marks;
+    // Only an id whose words are an object is in `prose.findings`.
+    const given = findings[id];
+    const read = marksOf(isObject(given) ? given : {}, kept, `findings.${id}`, evidence);
+    if (!read.ok) return failed(read);
+    if (read.marks.keep) keptOne = true;
+    judged[id] = read.marks;
   }
-  if (verdict.worthIt && !keptOne) return failed('verdict', DROPPED.nothingKept);
+  if (head.worthIt && !keptOne) return failed({ field: 'verdict', reason: DROPPED.nothingKept });
 
   for (const [id, marks] of Object.entries(judged)) Object.assign(prose.findings[id] ?? {}, marks);
-  return { worthIt: verdict.worthIt, reason };
+  return { worthIt: head.worthIt, reason: head.reason };
+}
+
+/** A field a check failed, and why. */
+type Failed = { ok: false; field: string; reason: string };
+type Marks = Pick<ProseFinding, 'keep' | 'why'>;
+
+/** The verdict's `worthIt` and `reason`, or the first of them that fails. */
+function verdictOf(verdict: unknown, evidence: Evidence): { ok: true; worthIt: boolean; reason: string } | Failed {
+  if (!isObject(verdict)) return { ok: false, field: 'verdict', reason: DROPPED.noVerdict };
+  if (typeof verdict.worthIt !== 'boolean') return { ok: false, field: 'verdict.worthIt', reason: DROPPED.notYesOrNo };
+  const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
+  if (reasonRefused !== null || typeof verdict.reason !== 'string') return { ok: false, field: 'verdict.reason', reason: reasonRefused ?? DROPPED.notText };
+  return { ok: true, worthIt: verdict.worthIt, reason: verdict.reason };
+}
+
+/** A finding's `keep` and `why`, as `words` give them, or the first that fails: a kept finding needs its lesson. */
+function marksOf(words: Reply, kept: ProseFinding, field: string, evidence: Evidence): { ok: true; marks: Marks } | Failed {
+  const marks: Marks = {};
+  if (words.keep !== undefined) {
+    if (typeof words.keep !== 'boolean') return { ok: false, field: `${field}.keep`, reason: DROPPED.notYesOrNo };
+    marks.keep = words.keep;
+  }
+  if (words.why !== undefined) {
+    const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
+    if (whyRefused !== null || typeof words.why !== 'string') return { ok: false, field: `${field}.why`, reason: whyRefused ?? DROPPED.notText };
+    marks.why = words.why;
+  }
+  if (marks.keep && typeof kept.lesson !== 'string') return { ok: false, field: `${field}.keep`, reason: DROPPED.keptNoLesson };
+  return { ok: true, marks };
 }
 
 /** The verdict's own words, its `reason` and each `why`, may hold digits. */

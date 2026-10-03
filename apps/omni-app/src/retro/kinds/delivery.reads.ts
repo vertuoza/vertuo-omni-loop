@@ -10,40 +10,17 @@ import { hasRedCircle, isBotLogin, stuckAttempts } from './delivery.facts.ts';
 import type { Octokit } from './index.ts';
 import { ChangedFileSchema, IssueCommentSchema, IssueEventSchema, ReviewSchema, ReviewThreadsAnswerSchema } from './schema.ts';
 import type { z } from 'zod';
+import type { PullReadsSchema, ReviewRecordSchema, StuckCommentSchema, ThreadRecordSchema } from './records.ts';
 
 /** A pull request a read names: its repository and its number. */
 export type PullRef = { owner: string; repo: string; number: number };
 
-export type StuckComment = { url: string | null; at: string | null; attempts: number; text: string | null | undefined };
-
-export type ReviewRecord = {
-  url: string | null;
-  author: string | null;
-  bot: boolean;
-  state: string | null;
-  red: boolean;
-  text: string | null | undefined;
-};
-
-export type ThreadRecord = {
-  url: string | null;
-  author: string | null;
-  bot: boolean;
-  path: string | null;
-  resolved: boolean;
-  outdated: boolean;
-  red: boolean;
-  text: string | null;
-};
+export type StuckComment = z.infer<typeof StuckCommentSchema>;
+export type ReviewRecord = z.infer<typeof ReviewRecordSchema>;
+export type ThreadRecord = z.infer<typeof ThreadRecordSchema>;
 
 /** What the kind read of one pull request; `null` where GitHub would not say, missing where it was not asked. */
-export type PullReads = {
-  files?: string[] | null;
-  stuck?: StuckComment[] | null;
-  needsFix?: string[] | null;
-  reviews?: ReviewRecord[] | null;
-  threads?: ThreadRecord[] | null;
-};
+export type PullReads = z.infer<typeof PullReadsSchema>;
 
 const UNREADABLE: ReadonlySet<unknown> = new Set([403, 404]);
 const UNREADABLE_GRAPHQL: ReadonlySet<string | null | undefined> = new Set(['FORBIDDEN', 'NOT_FOUND']);

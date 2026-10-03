@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { liveOf } from './model';
 import {
-  constituentRefusalOf, COULD_NOT_SAVE, databaseConstituents, demoConstituentsPort, GONE, INVALID_FIELD, NOT_OWNER,
+  constituentRefusalOf, databaseConstituents, demoConstituentsPort, GONE, INVALID_FIELD, NOT_OWNER,
 } from './store';
+import { COULD_NOT_SAVE } from '../business/store';
 
 // The constituents' writes (PRD 871 s1): the functions, called as the signed-in person (stubbed: no test
 // calls Supabase), their refusals as the panel says them, and the demo's same rules in memory.
 
 const ROW = {
-  id: 'c-1', product_id: 'p-1', kind: 'never', seq: 1, body: 'Calls real Vertuoza APIs', created_by: 'u-1',
+  id: 'c-1', workspace_id: 'w-1', product_id: 'p-1', kind: 'never', seq: 1, body: 'Calls real Vertuoza APIs', created_by: 'u-1',
   created_at: '2026-10-01T09:00:00Z', updated_at: '2026-10-01T09:00:00Z', removed_at: null, removed_by: null,
 };
 

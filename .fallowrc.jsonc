@@ -27,6 +27,17 @@
     // The database's types (PRD 725): `supabase gen types --local` writes them, and the clients
     // that open Supabase import what they need, so not every export is named by an import.
     "supabase/database.types.ts",
+    // `pnpm schemas:verify` runs it by path (PRD 1030).
+    "scripts/schemas-verify.ts",
+  ],
+  // `pnpm schemas:verify` loads every `*.boundary.ts` by path, and its fixtures when named (PRD 1030):
+  // no import statement names them.
+  "dynamicallyLoaded": ["**/*.boundary.ts", "scripts/schemas-verify.fixtures/*.ts"],
+  // Each of those files exports its reads as `boundaries`, the one name the script reads: the same
+  // export in many files by design, not an ambiguous re-export.
+  "ignoreExports": [
+    { "file": "**/*.boundary.ts", "exports": ["boundaries"] },
+    { "file": "scripts/schemas-verify.fixtures/*.ts", "exports": ["boundaries", "reads"] },
   ],
   // The generated database types repeat one shape per table and function by design: not copy-paste
   // anyone can extract (PRD 725).

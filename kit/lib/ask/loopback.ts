@@ -5,7 +5,6 @@
 // a planted link never signs anyone in. The first good callback ends it, and so does its wait.
 import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 /** The listener `startLoopback` gives: where the browser comes back to, and the code it brings. */
 export type Loopback = {
@@ -107,7 +106,12 @@ export async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }: { s
     });
   });
   // Listening on a host and port, the server's address is always an `AddressInfo`.
-  const { port, address } = server.address() as AddressInfo; // ts-allow: a TCP listener's address is never a pipe's string or null
+  const listening = server.address();
+  if (listening === null || typeof listening === 'string') {
+    server.close();
+    throw new LoopbackError('the sign-in listener has no TCP address.');
+  }
+  const { port, address } = listening;
   const minutes = Math.round(timeoutMs / 60_000);
   timer = setTimeout(
     () => {

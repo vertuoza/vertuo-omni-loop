@@ -21,20 +21,24 @@
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
+import { runJobs } from './jobs.ts';
 import type { Block } from './churn-lines.ts';
 import type { Evidence, Kind, KindContext, KindScope, Octokit } from './index.ts';
-import { ChangedFileSchema, ClosedPullSchema, IssueSchema, JobsPageSchema, WorkflowRunsPageSchema } from './schema.ts';
+import { ChangedFileSchema, ClosedPullSchema, IssueSchema, WorkflowRunsPageSchema } from './schema.ts';
 import type { ChangedFile, ClosedPull, Issue, Job, WorkflowRun } from './schema.ts';
+import { AfterMergeRecordsSchema, ChurnAtMergeSchema } from './records.ts';
+import type { z } from 'zod';
+import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 
-type Window = { from: string; to: string };
-type Bug = { number: number; url: string; createdAt: string; closedAt: string | null };
-type FixFile = { path: string; previous: string | null; blocks: Block[] | null };
-type Fix = { number: number; url: string; mergedAt: string; closes: number[]; files: FixFile[] | null };
-type MergeJob = { name: string; workflow: string | null; conclusion: string | null; url: string | null };
-type MergeChecks = { commit: string; status: number | null; jobs: MergeJob[] };
-type ChurnRange = { path: string; from: number; to: number };
-type Unread = { read: 'bugs' | 'fixes' | 'files' | 'jobs'; pr?: number; run?: number; status: number };
-type Records = { window: Window; bugs: Bug[]; fixes: Fix[]; checks: MergeChecks; ranges: ChurnRange[]; unread: Unread[] };
+type Records = z.infer<typeof AfterMergeRecordsSchema>;
+type Bug = Records['bugs'][number];
+type Fix = Records['fixes'][number];
+type FixFile = NonNullable<Fix['files']>[number];
+type MergeJob = Records['checks']['jobs'][number];
+type MergeChecks = Records['checks'];
+type ChurnRange = Records['ranges'][number];
+type Unread = Records['unread'][number];
+type Window = Records['window'];
 type Repo = { owner: string | undefined; repo: string | undefined };
 
 type Link = { fix: number; path: string; from: number; to: number; finding: string; byFile: boolean };
@@ -63,7 +67,6 @@ const ISSUES = 'GET /repos/{owner}/{repo}/issues';
 const PULLS = 'GET /repos/{owner}/{repo}/pulls';
 const FILES = 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files';
 const RUNS = 'GET /repos/{owner}/{repo}/actions/runs';
-const JOBS = 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHORT = 7;
@@ -74,9 +77,6 @@ const RED: ReadonlySet<string | null> = new Set(['failure', 'timed_out', 'startu
 /** GitHub's closing words, then the issue: `#40`, `owner/repo#40` or its URL. */
 const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|([\w.-]+\/[\w.-]+)#(\d+)|#(\d+))(?!\d)/gi;
 
-/** What the day-14 run reads back of the merge run's churn facts: the ranges it found. */
-type ChurnAtMerge = { ranges?: { path: string; from: number; to: number }[] };
-
 /** When the day-14 run wakes, and its window closes: the merge plus `THRESHOLDS.afterMergeDays` days. */
 export function followUpAt(mergedAt: string | null): string {
   return new Date(Date.parse(mergedAt ?? '') + THRESHOLDS.afterMergeDays * DAY_MS).toISOString();
@@ -84,11 +84,12 @@ export function followUpAt(mergedAt: string | null): string {
 
 export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
   id: 'after-merge',
+  records: AfterMergeRecordsSchema.nullable(),
   section: 'After merge',
   runs: Object.freeze(['day-14'] as const),
 
   async gather(octokit: Octokit, { owner, repo, mergeSha, mergedAt, pr, prd, config, atMerge }: Partial<KindScope> = {}) {
-    if (!mergedAt || !prd?.number || !config) return null;
+    if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread: Unread[] = [];
     const names = namesPrd(prd.number, `${owner}/${repo}`);
@@ -123,8 +124,8 @@ export const afterMerge: Kind<Records | null, Facts> = Object.freeze({
       }
     }
 
-    const checks = await mergeJobs(octokit, { owner, repo, mergeSha: mergeSha as string, unread }); // ts-allow: a merged feature PR always has its merge commit
-    const churnAtMerge = atMerge?.kinds.churn as ChurnAtMerge | null | undefined; // ts-allow: the merge run's sheet keeps the churn kind's facts as it wrote them
+    const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread });
+    const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
     const ranges = (churnAtMerge?.ranges ?? []).map(({ path, from, to }) => ({ path, from, to }));
     return { window, bugs, fixes, checks, ranges, unread };
   },
@@ -343,13 +344,7 @@ async function mergeJobs(
   if (runs.status !== null) return { commit: mergeSha, status: runs.status, jobs: [] };
   const jobs: MergeJob[] = [];
   for (const run of runs.value) {
-    const read = await readOrRefused((): Promise<Job[]> =>
-      paginate((page: number) =>
-        octokit
-          .request(JOBS, { owner, repo, run_id: run.id, filter: 'latest', per_page: PER_PAGE, page })
-          .then(({ data }) => JobsPageSchema.parse(data).jobs ?? []),
-      ),
-    );
+    const read = await readOrRefused((): Promise<Job[]> => runJobs(octokit, { owner, repo, runId: run.id, filter: 'latest' }));
     if (read.status) unread.push({ read: 'jobs', run: run.id, status: read.status });
     for (const job of read.value ?? []) {
       jobs.push({ name: job.name, workflow: run.name ?? null, conclusion: job.conclusion ?? null, url: job.html_url ?? null });

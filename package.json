@@ -30,7 +30,8 @@
     "galaxy:build": "pnpm --filter @omni/galaxy-app build",
     "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
     "galaxy:seed": "pnpm --filter @omni/galaxy-app seed",
-    "galaxy:shots": "pnpm --filter @omni/galaxy-app shots"
+    "galaxy:shots": "pnpm --filter @omni/galaxy-app shots",
+    "schemas:verify": "node --env-file-if-exists=apps/galaxy/.env.local scripts/schemas-verify.ts"
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",

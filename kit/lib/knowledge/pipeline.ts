@@ -237,18 +237,21 @@ export async function classifyCandidate({
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
+  const check = classificationSchema(summary);
   const answer = await askModel({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary }),
-    check: classificationSchema(summary),
+    check,
     schema: { name: 'classification', schema: classificationJsonSchema(summary) },
     env,
     fetch,
     title: 'omni harvest',
   });
   if (answer.ok) {
-    const reply = answer.reply as ClassificationReply; // ts-allow: askModel returns only a reply `check` (classificationSchema) accepted
-    return { id: candidate.id, reply, reason: null, error: null };
+    // askModel returns only a reply `check` accepted, so parsing it again keeps it as it is.
+    const kept = check.safeParse(answer.reply);
+    if (kept.success) return { id: candidate.id, reply: kept.data, reason: null, error: null };
+    return { id: candidate.id, reply: null, reason: `the model's reply could not be read: ${kept.error.message}`, error: null };
   }
   const reason = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason, error: answer.error === NO_KEY ? NO_KEY : answer.error };

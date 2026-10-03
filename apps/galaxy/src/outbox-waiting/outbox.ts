@@ -6,7 +6,8 @@
 // `unread` counts the dossiers whose workspace's outboxes could not be read. It reads as the person
 // (their cookie session), never with a service key (ADR-0032).
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { listOf } from '../data/unparsed';
+import { z } from 'zod';
+import { parseRows } from '../data/parse-rows';
 import type { OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
 import { prdKey } from '../stages/store';
 
@@ -28,6 +29,10 @@ export type WaitingOutbox = { items: WaitingOutboxItem[]; unread: number };
 
 /** What the route needs of a dossier. */
 export type WaitingDossier = { id: string; workspace_id: string; home_repo: string; prd: number; title: string };
+
+/** The dossiers' columns the route reads, as the database answers them. */
+export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, title';
+export const WaitingDossierRow = z.object({ id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: z.number().int().nullable(), title: z.string() });
 
 /** What the route needs of the Supabase client: who is signed in, and the dossiers table. */
 export type WaitingDb = {
@@ -75,14 +80,16 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
   const who = await signedIn(deps);
   if (!who) return json(401, { error: 'Sign in to see what waits for you.' });
 
-  const { data, error } = await who.db.from('dossiers').select('id, workspace_id, home_repo, prd, title')
+  const { data, error } = await who.db.from('dossiers').select(DOSSIER_COLUMNS)
     .eq('opened_by', who.user).not('prd', 'is', null)
     .order('created_at', { ascending: false }).limit(MAX_DOSSIERS);
   if (error) {
     console.error(`Waiting outbox: the dossiers could not be read: ${error.message}`);
     return json(500, { error: 'The dossiers could not be read.' });
   }
-  const dossiers = (listOf(data) as WaitingDossier[]).filter((d) => typeof d.prd === 'number'); // ts-allow: the select names this shape columns; the prd is checked on this line
+  const rows = parseRows(WaitingDossierRow, data, 'outbox-waiting: dossiers');
+  if (!rows.ok) return json(500, { error: 'The dossiers could not be read.' });
+  const dossiers = rows.value.flatMap(({ prd, ...dossier }): WaitingDossier[] => (prd === null ? [] : [{ ...dossier, prd }]));
 
   const store = deps.outbox(who.db);
   if (!store) return json(200, { items: [], unread: dossiers.length } satisfies WaitingOutbox);

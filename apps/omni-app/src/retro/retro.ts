@@ -47,7 +47,9 @@
 // serves, with its day-14 run.
 //
 // The event's data is parsed by `RetroEventSchema` before use, and every GitHub answer this file reads
-// by its schema in `github.schema.ts`.
+// by its schema in `github.schema.ts`. Every value a step returns is read back through its schema in
+// `retro.schema.ts` (`savedStep`): Inngest saves it as JSON, and the day-14 run reads the merge run's
+// values back fourteen days later, maybe after a deploy that changed what the step returns.
 import { internalEvents } from 'inngest';
 import type { Inngest } from 'inngest';
 import { z } from 'zod';
@@ -62,9 +64,22 @@ import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { parseSaved, savedStep, type StepRun } from '../saved-step.ts';
+import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
 import { BlobSchema, CreatedCommentSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
+import {
+  ClockSchema,
+  CommentedSchema,
+  FactSheetSchema,
+  GuardedSchema,
+  IssueLinksSchema,
+  KnownSchema,
+  NarratedSchema,
+  PublishedSchema,
+  PullsIntoSchema,
+  QualifiedSchema,
+} from './retro.schema.ts';
 import { guard } from './guard.ts';
 import { publishIssues } from './issues.ts';
 import { followUpAt } from './kinds/after-merge.ts';
@@ -158,12 +173,17 @@ const FailedEventSchema = z
   })
   .catch({});
 
-/** The step tools the retro uses. Every value it hands `run` is plain JSON, so it comes back as given. */
-type RetroStep = {
-  run<T>(id: string, fn: () => T | Promise<T>): Promise<T>;
+/**
+ * The step tools the retro uses. Every value `run` returns is read back through its schema
+ * (`savedStep`), and the event a wait returns through `TickSchema`.
+ */
+type RetroStep = StepRun & {
   sendEvent(id: string, payload: { name: string; data: Record<string, never> }): Promise<unknown>;
-  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<{ ts?: number } | null>;
+  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<unknown>;
 };
+
+/** What a wait reads of the tick that ended it, if one did: its time. */
+const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
 
 type Env = Record<string, string | undefined>;
 
@@ -180,8 +200,8 @@ export type RetroDeps = {
 /** What the judge said, as the retro acts on it. */
 export type VerdictOutcome = { worthIt: boolean; judged: boolean; reason: string };
 
-type Published = Awaited<ReturnType<typeof publishRetro>>;
-type Commented = Awaited<ReturnType<typeof upsertComment>>;
+type Published = z.infer<typeof PublishedSchema>;
+type Commented = z.infer<typeof CommentedSchema>;
 
 /** One run of the retro, as the run after it reads it. */
 type RunResult = {
@@ -204,8 +224,7 @@ export function createRetro({ client, octokitFor, env = process.env, fetch, kind
       retries: 3,
       onFailure: createRetroFailureHandler({ octokitFor }),
     },
-    async ({ event, step: tools }) => {
-      const step = tools as RetroStep; // ts-allow: Inngest types step.run's result as its JSON form; every value the retro hands it is plain JSON already
+    async ({ event, step }) => {
       if (event.name === SCHEDULED) {
         await step.sendEvent(DAY_STEP, { name: DAY_EVENT, data: {} });
         return { sent: DAY_EVENT };
@@ -214,11 +233,11 @@ export function createRetro({ client, octokitFor, env = process.env, fetch, kind
       const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = parseEvent(event.data);
       const github = async () => octokitFor(installationId);
 
-      const qualified = await step.run('qualify', async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
+      const qualified = await savedStep(step, 'qualify', QualifiedSchema, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
       if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
 
-      const pulls = await step.run('gather-pulls', async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
+      const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
       const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
       const context = { step, github, env, fetch, owner, repo, pr, prd, config, pulls };
@@ -258,10 +277,11 @@ function parseEvent(data: unknown): z.infer<typeof RetroEventSchema> {
  */
 async function waitForDay(step: RetroStep, due: string): Promise<void> {
   const until = Date.parse(due);
-  let now = await step.run(CLOCK_STEP, () => Date.now());
+  let now = await savedStep(step, CLOCK_STEP, ClockSchema, () => Date.now());
   for (let turn = 1; now < until; turn += 1) {
-    const tick = await step.waitForEvent(`${FOLLOW_UP_STEP}-${turn}`, { event: DAY_EVENT, timeout: DAY_WAIT });
-    now = tick?.ts ?? (await step.run(`${CLOCK_STEP}-${turn}`, () => Date.now()));
+    const wait = `${FOLLOW_UP_STEP}-${turn}`;
+    const tick = parseSaved(TickSchema, await step.waitForEvent(wait, { event: DAY_EVENT, timeout: DAY_WAIT }), wait);
+    now = tick?.ts ?? (await savedStep(step, `${CLOCK_STEP}-${turn}`, ClockSchema, () => Date.now()));
   }
 }
 
@@ -305,10 +325,12 @@ type Judged = { whole: FactSheet; prose: Prose | null; known: Known; verdict: Ve
 async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, scope, earlier }: RunInput, id: StepId, folder: string): Promise<FactSheet> {
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
-    records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
+    records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
   const before = earlier?.sheet.findings ?? [];
-  return step.run(id('facts'), () => inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder));
+  return savedStep(step, id('facts'), FactSheetSchema, () =>
+    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
+  );
 }
 
 /** The model's words on the run, guarded, and the verdict they give. */
@@ -318,17 +340,17 @@ async function judgeSheet({ step, github, env, fetch, owner, repo, prd, config, 
   const whole = earlier ? { ...sheet, findings: [...earlier.sheet.findings, ...sheet.findings] } : sheet;
   const known =
     earlier?.known ??
-    (await step.run(id('gather-knowledge'), async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
-  const narrated = await step.run(id('narrate'), () =>
+    (await savedStep(step, id('gather-knowledge'), KnownSchema, async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
+  const narrated = await savedStep(step, id('narrate'), NarratedSchema, () =>
     narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, knowledge: known.knowledge, lessons: known.lessons, env, fetch }),
   );
-  const guarded = await step.run(id('guard'), () => guard({ reply: narrated.reply ?? null, sheet: whole }));
+  const guarded = await savedStep(step, id('guard'), GuardedSchema, () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
   return { whole, prose, known, verdict: verdictOf(prose, narrated.reason), base: recordOf(sheet, prose, narrated, guarded) };
 }
 
 /** The run's record before its issues: the sheet, the narration's outcome, the verdict and the lessons kept. */
-function recordOf(sheet: FactSheet, prose: Prose | null, narrated: Awaited<ReturnType<typeof narrate>>, guarded: ReturnType<typeof guard>): RunRecord {
+function recordOf(sheet: FactSheet, prose: Prose | null, narrated: z.infer<typeof NarratedSchema>, guarded: z.infer<typeof GuardedSchema>): RunRecord {
   const narration = {
     model: narrated.model ?? null,
     reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
@@ -340,7 +362,7 @@ function recordOf(sheet: FactSheet, prose: Prose | null, narrated: Awaited<Retur
 /** A run not worth a pull request: one comment on the feature PR, saying why. */
 async function commentRun({ step, github, owner, repo, pr, config, earlier }: RunInput, id: StepId, sheet: FactSheet, { prose, known, verdict, base }: Judged): Promise<RunResult> {
   const runs = [...(earlier ? [earlier.record] : []), base];
-  const comment = await step.run(id('verdict'), async () =>
+  const comment = await savedStep(step, id('verdict'), CommentedSchema, async () =>
     upsertComment(await github(), {
       owner,
       repo,
@@ -363,12 +385,12 @@ async function publishRun(
   // The merge run's kept findings get their issues at day 14 when the merge run opened none.
   const retroPath = `${folder}/retro.md`;
   const issueSheet = earlier && !earlier.published ? whole : sheet;
-  const issues = await step.run(id('publish-issues'), async () =>
+  const issues = await savedStep(step, id('publish-issues'), IssueLinksSchema, async () =>
     publishIssues(await github(), { owner, repo, config, sheet: issueSheet, prose, retroPath }),
   );
 
   const record = { ...base, issues };
-  const published = await step.run(id('publish'), async () =>
+  const published = await savedStep(step, id('publish'), PublishedSchema, async () =>
     publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
   return { sheet, prose, known, record, published, comment: null, verdict };
@@ -499,7 +521,7 @@ function outcome({ sheet, record, published, comment, verdict }: RunResult) {
 type FailureInput = {
   event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
   error?: { message?: string } | null;
-  step?: { run?: <T>(id: string, fn: () => Promise<T>) => Promise<T> } | null;
+  step?: Partial<StepRun> | null;
 };
 
 /**
@@ -514,7 +536,7 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const body = `${FAILURE_MARKER}\nThe retro could not run: ${reason}\n`;
 
-    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, async (octokit, where) => {
+    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
       const comments = await listComments(octokit, { ...where, prNumber });
       const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
       if (existing) {

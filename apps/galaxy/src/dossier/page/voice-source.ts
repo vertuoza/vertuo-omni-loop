@@ -1,5 +1,7 @@
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { validPersonaAvatar } from '@omni/design';
+import { z } from 'zod';
+import { orEmpty, parseRows } from '../../data/parse-rows';
 import type { Db } from './source';
 import { readVoice, voiceView, type VoiceCast, type VoiceView } from './voice';
 
@@ -8,25 +10,20 @@ import { readVoice, voiceView, type VoiceCast, type VoiceView } from './voice';
 // for the portraits. voice.json names a persona, never its row, so a portrait is the workspace's persona
 // of that name; one the cast does not hold, or a cast that cannot be read, draws the name's initial.
 
-type PersonasDb = {
-  from(table: 'personas'): {
-    select(columns: string): { eq(column: string, value: string): { order(column: string): PromiseLike<{ data: unknown; error: unknown }> } };
-  };
-};
+/** What the portraits read of a persona; an avatar the design does not draw leaves that persona out. */
+export const PERSONA_COLUMNS = 'name, trade, avatar';
+export const VoicePersona = z.object({ name: z.string(), trade: z.string(), avatar: z.unknown() });
 
 /** The workspace's personas, in its order, as far as their portraits need; none when they cannot be read. */
 export async function readVoiceCast(db: Pick<Db, 'from'>, workspace: string): Promise<VoiceCast[]> {
   try {
-    const { data, error } = await (db as unknown as PersonasDb).from('personas').select('name, trade, avatar').eq('workspace_id', workspace).order('ordinal'); // ts-allow: the personas table is read through the narrow port it declares
+    const { data, error } = await db.from('personas').select(PERSONA_COLUMNS).eq('workspace_id', workspace).order('ordinal');
     if (error) {
       const message = propertyOf(error, 'message');
       throw new Error(`read the personas: ${typeof message === 'string' ? message : 'failed'}`);
     }
-    const rows: readonly unknown[] = Array.isArray(data) ? data : [];
-    return rows.flatMap((row) => {
-      const name = propertyOf(row, 'name'), trade = propertyOf(row, 'trade'), avatar = propertyOf(row, 'avatar');
-      return typeof name === 'string' && typeof trade === 'string' && validPersonaAvatar(avatar) ? [{ name, trade, avatar }] : [];
-    });
+    return orEmpty(parseRows(VoicePersona, data, 'dossier/voice-source: personas'))
+      .flatMap(({ name, trade, avatar }) => (validPersonaAvatar(avatar) ? [{ name, trade, avatar }] : []));
   } catch (error) {
     console.error(error);
     return [];

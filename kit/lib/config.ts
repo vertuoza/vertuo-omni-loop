@@ -25,7 +25,7 @@ const regexSource = z.string().refine((source) => {
 }, 'not a valid regular expression');
 // A section every key of which has a default: absent, it parses as `{}` would, defaults filled in.
 const section = <Shape extends z.ZodRawShape>(shape: Shape) =>
-  z.object(shape).strict().prefault({} as z.input<z.ZodObject<Shape, z.core.$strict>>); // ts-allow: every key of a section has a default, so {} is its input
+  z.preprocess((value) => (value === undefined ? {} : value), z.object(shape).strict());
 // A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
 const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
 // Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.

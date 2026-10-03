@@ -1,11 +1,10 @@
 // A stubbed GitHub and database for the sign-up tests (PRD 359): the App's view of installations,
 // each visitor's GitHub account, and the rows create_workspace_from_installation() and
 // signup_requests keep, applying the same rules as supabase/migrations/20261001090000_github_sign_up.sql.
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { vi } from 'vitest';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { GithubAccount } from '../data/github-orgs';
-import type { SignedIn, SignInDeps } from '../data/sign-in';
+import type { LinkPort, SignedIn, SignInDeps } from '../data/sign-in';
 import type { Installation, SignupDeps, WorkspaceMade } from './installation';
 
 export const TOKEN = 'gho_the-sign-in-token';
@@ -100,7 +99,7 @@ export function signupWorld(opts: {
   const deps: SignInDeps & { signup: SignupDeps } = { readGithub, joinByGithub, signup };
   /** The session of one visitor: `userId` signed in as the GitHub account `accounts[userId]`. */
   const session = (userId: string, token: string | null = `${TOKEN}:${userId}`): SignedIn => ({ user: { id: userId }, provider_token: token });
-  const rpc = { rpc: linkGithub } as unknown as Pick<SupabaseClient, 'rpc'>; // ts-allow: a test fake, the one function sign-up calls standing in for rpc's generic signature, which no narrower shape satisfies
+  const rpc: LinkPort = { rpc: linkGithub };
 
   return { deps, signup, session, db: rpc, linkGithub, joinByGithub, readGithub, workspaces, members, requests, installations, state };
 }

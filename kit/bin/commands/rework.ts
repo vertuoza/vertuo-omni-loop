@@ -75,7 +75,7 @@ function runPlan(args: string[], { ctx, stdout }: CommandIo): number {
     settledText,
     planMarkdown,
     prd,
-    featureBranch: featureBranch as string, // ts-allow: planRework reads a null feature branch (no topic) as unknown, though its type says string
+    featureBranch,
     markers: ctx.markers,
     branches: ctx.config.branches,
     // In a plan repository (PRD 563) each rework names the repository its item was raised in.

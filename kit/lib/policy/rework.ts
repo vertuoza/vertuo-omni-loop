@@ -89,7 +89,8 @@ export type Rework = {
 /** What {@link planRework} returns: the reworks to run, and the report that names them. */
 export type ReworkPlan = {
   prd: number;
-  featureBranch: string;
+  /** `null` when the PRD's folder names no topic: every rework then reads its branch as unknown. */
+  featureBranch: string | null;
   settledCount: number;
   reworks: Rework[];
   opensPullRequest: boolean;
@@ -284,7 +285,7 @@ export function planRework({
   settledText?: string;
   planMarkdown?: string | null;
   prd: number;
-  featureBranch: string;
+  featureBranch: string | null;
   markers: ReworkMarkers;
   branches?: ReworkBranches;
   planRepository?: boolean;

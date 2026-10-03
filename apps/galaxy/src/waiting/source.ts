@@ -1,8 +1,8 @@
+import { z } from 'zod';
 import { readQuestions } from '../ask/answer-model';
 import type { Member } from '../ask/page/question';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../supabase/database.types.ts';
 import { readForMe, readMembers, tabsReader, type Db, type SortDb } from '../ask/page/source';
+import { orThrow, parseRows } from '../data/parse-rows';
 import { loadPeople, type People } from '../people/load';
 import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
 
@@ -11,6 +11,10 @@ import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } f
 // every 5 s after. A round's questions never change, so each waiting round's first question is fetched
 // once; a workspace's members, who name the person who shared a round, once per reader, and so its
 // people directory, which gives that person's face (PRD 652; a failed read falls back to initials).
+
+/** What the Questions part reads of a waiting round: its questions, read by readQuestions. */
+const QUESTION_COLUMNS = 'id, questions';
+export const WaitingRound = z.object({ id: z.string(), questions: z.unknown() });
 
 /** A reader of the Questions part for `me`, keeping what it read before. Throws when a read fails. */
 export function questionsReader(db: Db & SortDb, me: string): (now: number) => Promise<WaitingQuestion[]> {
@@ -22,9 +26,9 @@ export function questionsReader(db: Db & SortDb, me: string): (now: number) => P
     const [rows, shared] = await Promise.all([tabs(now), readForMe(db, me)]);
     const waiting = rows.flatMap((r) => (r.newest?.status === 'open' && !texts.has(r.newest.id) ? [r.newest.id] : []));
     if (waiting.length) {
-      const { data, error } = await db.from('ask_rounds').select('id, questions').in('id', waiting);
+      const { data, error } = await db.from('ask_rounds').select(QUESTION_COLUMNS).in('id', waiting);
       if (error) throw new Error(`read the questions: ${error.message}`);
-      for (const round of (data as { id: string; questions: unknown }[] | null) ?? []) { // ts-allow: the select names exactly these columns; questions are read below
+      for (const round of orThrow(parseRows(WaitingRound, data, 'waiting/source: ask_rounds'))) {
         const first = readQuestions(round.questions)[0]?.question;
         if (first) texts.set(round.id, first);
       }
@@ -32,7 +36,7 @@ export function questionsReader(db: Db & SortDb, me: string): (now: number) => P
     const places = [...new Set(shared.map((r) => r.session.workspace_id).filter((w): w is string => Boolean(w)))];
     await Promise.all(places.filter((w) => !members.has(w)).map(async (w) => {
       // loadPeople reads only `rpc` and `from`, which this client has.
-      const [m, p] = await Promise.all([readMembers(db, w), loadPeople(db as SupabaseClient<Database>, w)]); // ts-allow: loadPeople reads only `from` and `rpc`
+      const [m, p] = await Promise.all([readMembers(db, w), loadPeople(db, w)]);
       members.set(w, m);
       people.set(w, p);
     }));

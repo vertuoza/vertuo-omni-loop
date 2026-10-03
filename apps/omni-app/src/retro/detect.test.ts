@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import { detect } from './detect.ts';
 import { KINDS, kindsFor, type Kind } from './kinds/index.ts';
@@ -12,6 +13,7 @@ const finding = (id: string, kind: string): Finding => ({ id, kind, title: id, h
 const fakeKind = (id: string, findings: Finding[], facts: object = { id }): Kind => ({
   id,
   section: id,
+  records: z.unknown(),
   runs: ['merge'],
   gather: () => Promise.resolve(null),
   detect: (records: unknown, context: DetectContext) => ({ facts: { ...facts, records, prNumber: context.pr.number }, findings }),

@@ -256,10 +256,15 @@ describe('supabaseReads', () => {
       return q;
     };
     // dossier_list(p_workspace) lists that workspace's dossiers alone: the database scopes, not the board.
+    // Each row with every column dossier_list() answers, as the read parses it.
+    const listed = (row: { id: string; workspace_id: string; home_repo: string; prd: number | null; opened_by: string; answered: number }) => ({
+      kind: 'prd', title: row.id, created_at: '2026-09-01T00:00:00Z', numbered_at: null, repos: [row.home_repo], latest: {}, asked: row.answered,
+      last_activity: '2026-09-01T00:00:00Z', ...row,
+    });
     const dossiers = [
-      { id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 },
-      { id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 },
-      { id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 },
+      listed({ id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 }),
+      listed({ id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 }),
+      listed({ id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 }),
     ];
     const rpc = vi.fn((_fn: string, args: { p_workspace?: string }) => Promise.resolve({
       data: dossiers.filter((d) => d.workspace_id === args.p_workspace),

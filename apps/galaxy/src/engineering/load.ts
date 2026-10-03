@@ -7,6 +7,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { allPages } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loadPeople, peopleOf, type People } from '../people/load';
+import { readTracked } from '../profile/stored';
 import { loginsShown, withPeople } from './faced';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
@@ -125,13 +126,7 @@ const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, c
 
 export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace: string): EngineeringReads {
   return {
-    async tracked() {
-      // `data` is widened to null: the rows are read here unparsed.
-      const { data, error }: { data: Array<{ full_name: string }> | null; error: { message: string } | null } =
-        await db.from('repositories').select('full_name').eq('workspace_id', workspace).eq('tracked', true);
-      if (error) throw new Error(`Supabase: could not read the tracked repositories (${error.message})`);
-      return (data ?? []).map((r) => r.full_name);
-    },
+    tracked: () => readTracked(db, workspace, 'engineering: repositories'),
     async pullRequests(from, repos) {
       const at = `"${from.toISOString()}"`;
       const rows = await allPages<StoredPullRequest>('the pull requests', (start, end) => db

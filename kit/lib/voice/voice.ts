@@ -13,6 +13,7 @@
 //       "fit": null | "fits persona:Marc ✓ · size#2 ✓" } ] }
 //
 // Reads text, calls nothing. Every refusal names the round (its stage, else its place) and the field.
+import { z } from 'zod';
 import { plainText } from '../outbox/plain-text.ts';
 
 export const VOICE_FILE = 'voice.json';
@@ -32,25 +33,29 @@ const TOP_FIELDS = ['rounds'];
 const ROUND_FIELDS = ['stage', 'date', 'personas', 'objection', 'fit'];
 
 /** One persona's say in a round. */
-export type VoicePersona = {
-  name: string;
-  stance: (typeof STANCES)[number];
-  score: number;
-  reaction: string;
-  citations: string[];
-};
+const VoicePersonaSchema = z.looseObject({
+  name: z.string(),
+  stance: z.enum(STANCES),
+  score: z.number(),
+  reaction: z.string(),
+  citations: z.array(z.string()),
+});
 /** The objection a round raised, and how it was settled. */
-export type VoiceObjection = { persona: string; text: string; citations: string[]; settled: (typeof SETTLED)[number] };
+const VoiceObjectionSchema = z.looseObject({ persona: z.string(), text: z.string(), citations: z.array(z.string()), settled: z.enum(SETTLED) });
 /** One round of a voice.json. */
-export type VoiceRound = {
-  stage: string;
-  date: string;
-  personas: VoicePersona[];
-  objection?: VoiceObjection | null;
-  fit?: string | null;
-};
-/** A voice.json, read. */
-export type Voice = { rounds: VoiceRound[] };
+const VoiceRoundSchema = z.object({
+  stage: z.string(),
+  date: z.string(),
+  personas: z.array(VoicePersonaSchema),
+  objection: VoiceObjectionSchema.nullish(),
+  fit: z.string().nullish(),
+});
+/**
+ * A voice.json, read: the shape the checks below prove field by field, each with its own refusal, so
+ * parsing what passed them always succeeds.
+ */
+const VoiceSchema = z.object({ rounds: z.array(VoiceRoundSchema) });
+export type Voice = z.infer<typeof VoiceSchema>;
 
 export type VoiceParse = { ok: true; voice: Voice; errors: [] } | { ok: false; voice: null; errors: string[] };
 
@@ -166,5 +171,7 @@ export function parseVoice(text: string): VoiceParse {
   });
 
   if (errors.length) return { ok: false, voice: null, errors };
-  return { ok: true, voice: voice as Voice, errors: [] }; // ts-allow: every field of every round was checked above
+  const read = VoiceSchema.safeParse(voice);
+  if (!read.success) return { ok: false, voice: null, errors: read.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`) };
+  return { ok: true, voice: read.data, errors: [] };
 }
