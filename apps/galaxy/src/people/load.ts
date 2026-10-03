@@ -69,7 +69,7 @@ async function settled<T>(what: string, row: z.ZodType<T>, read: () => PromiseLi
 }
 
 /** The directory of one workspace: its roster and its fleets, read in parallel, each on its own. */
-export async function loadPeople(db: SupabaseClient<Database>, workspace: string): Promise<People> {
+export async function loadPeople(db: Pick<SupabaseClient<Database>, 'from' | 'rpc'>, workspace: string): Promise<People> {
   const [roster, fleets] = await Promise.all([
     settled('the workspace\'s members', RosterRowSchema, () => db.rpc('workspace_roster', { workspace })),
     settled('the fleets', FleetLookRowSchema, () => db.from('teams').select('name, label, color, mascot').eq('workspace_id', workspace)),

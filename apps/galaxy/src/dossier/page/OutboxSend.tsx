@@ -7,6 +7,7 @@ import { droppedWords, KEPT, readSending, returned, sendingKey } from '../../out
 import type { Face } from '../../people/face';
 import { LoginChip } from './LoginChip';
 import { answers, type Pickable, type Picks } from './outbox-picks';
+import { readAnswerOf, startAnswerOf } from './outbox-send-answers';
 
 // Ported from the send half of archive/outbox-answers-v1:apps/galaxy/src/outbox/OutboxAnswers.tsx
 // (PRD 251, s11).
@@ -95,7 +96,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
     void (async () => {
       try {
         const response = await fetch(`/api/outbox/send?id=${encodeURIComponent(back.send)}`, { cache: 'no-store' });
-        const sent = (await response.json().catch(() => null)) as SentView | { error?: string } | null; // ts-allow: the outbox API answers one of these shapes, or nothing on a failed read
+        const sent = readAnswerOf(await response.json().catch(() => null));
         if (left.signal.aborted) return;
         if (!response.ok || !sent || !('state' in sent)) {
           setState({ state: 'refused', error: `${(sent && 'error' in sent && sent.error) || 'What became of your answers could not be read.'} ${KEPT}` });
@@ -141,7 +142,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ dossier: dossierId, picks: given }),
       });
-      const body = (await response.json().catch(() => ({}))) as { send?: string; authorize?: string; dropped?: number[]; error?: string }; // ts-allow: the outbox API answers this shape, or nothing on a failed read
+      const body = startAnswerOf(await response.json().catch(() => null));
       const dropped = body.dropped ?? [];
       if (dropped.length > 0) onDrop(dropped);
       if (!response.ok || !body.authorize || !body.send) {
