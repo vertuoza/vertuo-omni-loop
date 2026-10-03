@@ -9,7 +9,7 @@
  * is passed on is below, with its reason.
  */
 import { z } from 'zod';
-import { envGroup, envReader, type EnvSource } from './group.ts';
+import { envGroup, envReader, variablesOf, type EnvSource } from './group.ts';
 
 export { EnvError, requireGroup, type EnvSource } from './group.ts';
 
@@ -71,6 +71,21 @@ const PACKAGE_MANAGER = envGroup({
   schema: z.object({ execPath: z.string() }),
   variables: { execPath: 'npm_execpath' },
 });
+
+/**
+ * The variables a person sets for the kit, the game and the scripts: the root README's list names
+ * exactly these (`scripts/env-docs.test.ts`).
+ */
+export const VARIABLES: readonly string[] = variablesOf([OPENROUTER, PROOF, WORKSPACE, SUPABASE]);
+
+/** The game's own, a part of {@link VARIABLES}: `game/README.md`'s list names exactly these. */
+export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABASE]);
+
+/**
+ * The variables the platform sets, read here but never set by a person, so no docs list names them:
+ * Claude Code's session, the terminal, the GitHub Actions runner and the package manager.
+ */
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER]);
 
 const DEFAULT_COLUMNS = 80;
 

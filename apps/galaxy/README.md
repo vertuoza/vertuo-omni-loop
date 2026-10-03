@@ -1122,6 +1122,19 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    (`openssl rand -base64 32`), which encrypts each workspace's TypeSafe key. Without it,
    Settings › Jev says Jev is not available on this deployment and every decision is made as before
    ([Settings › Jev](#settings--jev-prd-812)).
+
+   Every variable the arcade reads, each optional and read once at startup (`src/env.ts`,
+   `src/env.client.ts`, ADR-0057); [`.env.example`](.env.example) says what each one does:
+   <!-- omni:env-variables -->
+   - the public pair: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - the service role: `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_URL` when it reads another address
+   - the GitHub App: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`,
+     `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
+   - OpenRouter: `OPENROUTER_API_KEY`
+   - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
+     `CONSTITUENT_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+   - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.

@@ -228,14 +228,12 @@ export async function classifyCandidate({
   candidate,
   summary,
   openrouter,
-  env,
   fetch,
 }: {
   candidate: PromptCandidate;
   summary: KnowledgeSummary;
-  /** OpenRouter's settings, as an env module reads them; when given, `env` is not read. */
-  openrouter?: OpenRouterSettings | null | undefined;
-  env?: Record<string, string | undefined> | undefined;
+  /** OpenRouter's settings, as the runtime's env module reads them; `null` when it is off. */
+  openrouter: OpenRouterSettings | null;
   fetch?: typeof globalThis.fetch | undefined;
 }): Promise<Classification> {
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
@@ -248,7 +246,6 @@ export async function classifyCandidate({
     check,
     schema: { name: 'classification', schema: classificationJsonSchema(summary) },
     openrouter,
-    env,
     fetch,
     title: 'omni harvest',
   });
