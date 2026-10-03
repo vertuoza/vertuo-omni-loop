@@ -53,6 +53,7 @@
  * colliding pair costs the wave a single slice, not two.
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
+import type { Config } from './types.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
@@ -115,9 +116,9 @@ export type Frontier = {
   collisions: ReturnType<typeof sameWaveCollisions>;
 };
 
-/** The config sections the board reads. */
+/** The config sections the board reads: the branch templates as the config declares them. */
 export type BoardConfig = {
-  branches: { feature: string; slice: string };
+  branches: Pick<Config['branches'], 'feature' | 'slice'>;
   board: { matchBy: string };
   labels: { sub: string; needsFix: string };
 };

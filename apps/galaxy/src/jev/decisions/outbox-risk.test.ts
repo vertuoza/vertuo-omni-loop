@@ -13,6 +13,10 @@ const STATE = {
   paths: ['apps/galaxy/src/ask/store.ts', 'supabase/migrations/'],
 };
 
+/** The state as the decision reads it: the file's `slice` key, read as the label it holds. */
+const { slice, ...rest } = STATE;
+const INPUT = { ...rest, sliceLabel: slice };
+
 describe('outbox-risk', () => {
   it('asks a Noul whether the decision is hard to revert', () => {
     const q = outboxRisk.question;
@@ -41,7 +45,7 @@ describe('outbox-risk', () => {
   });
 
   it('gives Jev the decision, its options, the slice and the paths it touches', () => {
-    const state = outboxRisk.state(STATE);
+    const state = outboxRisk.state(INPUT);
     expect(typeof state).toBe('string');
     expect(state).toContain('Decision: Keep the sessions in Postgres rather than Redis.');
     expect(state).toContain('- A: Postgres, row-level security per owner');
@@ -51,8 +55,8 @@ describe('outbox-risk', () => {
 
   it('reads a state from a terminal, and refuses a malformed one', () => {
     const terminal = sure(outboxRisk.terminal, 'outboxRisk.terminal');
-    expect(terminal.input(STATE)).toEqual(STATE);
-    expect(terminal.input({ decision: 'Only the decision.' })).toEqual({ decision: 'Only the decision.', options: [], slice: null, paths: [] });
+    expect(terminal.input(STATE)).toEqual(INPUT);
+    expect(terminal.input({ decision: 'Only the decision.' })).toEqual({ decision: 'Only the decision.', options: [], sliceLabel: null, paths: [] });
     expect(terminal.input({ ...STATE, decision: '' })).toBeNull();
     expect(terminal.input({ ...STATE, paths: 'one/path' })).toBeNull();
     expect(terminal.input({ ...STATE, options: [1, 2] })).toBeNull();

@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { loadConfig } from '../config.ts';
 import type { ExecText } from '../context.ts';
 import type { PrdNumber } from '../ids.ts';
+import type { Config } from '../types.ts';
 import { parseFolderName } from '../layout.ts';
 import { field, textOrNull } from './schema.ts';
 
@@ -108,7 +109,7 @@ function branchPattern(template: string): RegExp {
  * The PRD number a branch of the loop works on: the topic a slice or feature branch carries, looked
  * up among the inbox's `<nnnn>-<topic>` folders. `null` for any other branch.
  */
-export function prdOfBranch(branch: unknown, { branches, folders }: { branches: { feature: string; slice: string }; folders: readonly string[] }): PrdNumber | null {
+export function prdOfBranch(branch: unknown, { branches, folders }: { branches: Pick<Config['branches'], 'feature' | 'slice'>; folders: readonly string[] }): PrdNumber | null {
   if (typeof branch !== 'string' || !branch) return null;
   for (const template of [branches.slice, branches.feature]) {
     const topic = attempt(() => branchPattern(template).exec(branch)?.[1]);

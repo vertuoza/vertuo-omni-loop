@@ -20,6 +20,11 @@ export class ConfigError extends Error {
 
 const text = z.string().min(1);
 const nullableText = text.nullable();
+// A branch name template (`feat/{topic}--{slice}`) and a label's name (`omni:prd`): text, named by
+// what it holds. Their keys (`branches.slice`, `labels.prd`) are the ones users' config files carry,
+// so they keep those names; the values are no IDs, and are never branded (ADR-0056).
+const branchTemplate = z.string().min(1);
+const labelName = z.string().min(1);
 const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
@@ -96,20 +101,20 @@ export const ConfigSchema = z
     }),
     github: section({ user: nullableText.default(null) }),
     branches: section({
-      feature: text.default('feat/{topic}'),
-      fix: text.default('fix/{topic}'),
-      phase0: text.default('docs/phase-0-{topic}'),
-      slice: text.default('feat/{topic}--{slice}'),
-      rework: text.default('fix-{item}'),
-      retro: text.default('docs/retro-{topic}'),
-      knowledge: text.default('docs/knowledge-{topic}'),
-      invade: text.default('docs/omni-invade'),
+      feature: branchTemplate.default('feat/{topic}'),
+      fix: branchTemplate.default('fix/{topic}'),
+      phase0: branchTemplate.default('docs/phase-0-{topic}'),
+      slice: branchTemplate.default('feat/{topic}--{slice}'),
+      rework: branchTemplate.default('fix-{item}'),
+      retro: branchTemplate.default('docs/retro-{topic}'),
+      knowledge: branchTemplate.default('docs/knowledge-{topic}'),
+      invade: branchTemplate.default('docs/omni-invade'),
       // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
-      update: text.default('chore/omni-update-{version}'),
+      update: branchTemplate.default('chore/omni-update-{version}'),
       // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
-      megaInvade: text.default('docs/omni-mega-invade'),
+      megaInvade: branchTemplate.default('docs/omni-mega-invade'),
       // PRD 686: the branch `/omni:think-big` records a concept on; `{topic}` is `<n>-<slug>`.
-      concept: text.default('docs/concept-{topic}'),
+      concept: branchTemplate.default('docs/concept-{topic}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -121,25 +126,25 @@ export const ConfigSchema = z
       context: z.array(text).default(['CLAUDE.md']),
     }),
     labels: section({
-      prd: text.default('omni:prd'),
-      phase0: text.default('omni:phase-0'),
-      feature: text.default('omni:feature'),
-      sub: text.default('omni:sub'),
-      inProgress: text.default('omni:in-progress'),
-      needsFix: text.default('omni:needs-fix'),
-      outboxGo: text.default('omni:outbox-go'),
-      retro: text.default('omni:retro'),
-      knowledge: text.default('omni:knowledge'),
-      visual: text.default('omni:visual'),
+      prd: labelName.default('omni:prd'),
+      phase0: labelName.default('omni:phase-0'),
+      feature: labelName.default('omni:feature'),
+      sub: labelName.default('omni:sub'),
+      inProgress: labelName.default('omni:in-progress'),
+      needsFix: labelName.default('omni:needs-fix'),
+      outboxGo: labelName.default('omni:outbox-go'),
+      retro: labelName.default('omni:retro'),
+      knowledge: labelName.default('omni:knowledge'),
+      visual: labelName.default('omni:visual'),
       // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
-      bug: text.default('omni:bug'),
-      regression: text.default('omni:regression'),
-      riskCritical: text.default('omni:risk-critical'),
-      riskHigh: text.default('omni:risk-high'),
-      riskMedium: text.default('omni:risk-medium'),
-      riskLow: text.default('omni:risk-low'),
+      bug: labelName.default('omni:bug'),
+      regression: labelName.default('omni:regression'),
+      riskCritical: labelName.default('omni:risk-critical'),
+      riskHigh: labelName.default('omni:risk-high'),
+      riskMedium: labelName.default('omni:risk-medium'),
+      riskLow: labelName.default('omni:risk-low'),
       // PRD 686: a concept `/omni:think-big` records — its issue and its pull request.
-      concept: text.default('omni:concept'),
+      concept: labelName.default('omni:concept'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({

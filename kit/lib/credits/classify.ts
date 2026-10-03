@@ -30,6 +30,7 @@
 import { botLogin, carriesTrailer, isSignedBody } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
 import { plainText } from '../outbox/plain-text.ts';
+import type { Config } from '../types.ts';
 
 /** One pull request or issue the reader kept: `state` is `gh`'s, lower-cased. */
 export type CreditPullRequest = {
@@ -46,8 +47,8 @@ export type CreditPullRequest = {
 /** One default-branch commit the reader kept. */
 export type CreditCommit = { repo: string; sha: string; message: string; date: string | null };
 
-/** The loop labels whose pull requests and issues are his. */
-export type CreditLabels = { prd: string; phase0: string; feature: string; sub: string };
+/** The loop labels whose pull requests and issues are his: their names, as the config declares them. */
+export type CreditLabels = Pick<Config['labels'], 'prd' | 'phase0' | 'feature' | 'sub'>;
 
 type Kind = (typeof KINDS)[number];
 export type Signature = (typeof SIGNATURES)[number] | typeof BY_THE_APP;

@@ -12,6 +12,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
 import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 
@@ -20,7 +21,7 @@ export type SyncConfig = {
   defaultBranch: string;
   delivery: string;
   prdLabel: string;
-  branches: { phase0: string; slice: string; feature: string; retro: string };
+  branches: Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
 };
 
 /** A pull request as the sync reads it. `ready_at` is when it was last marked ready for review; null
