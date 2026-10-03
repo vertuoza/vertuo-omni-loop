@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { StoredClaim } from './model';
 import { SuggestStoreError } from './suggest-api';
 import { suggestStore } from './suggest-store';
@@ -63,6 +63,15 @@ describe('the rival suggestions store', () => {
     const error = await failure(fakeDb({ pick: { data: null, error: { code: '22023', message: 'bad name' } } }).store.propose('ws-1', 'p-1', '!'));
     expect(error.code).toBe('22023');
     expect(error.message).toBe('Could not store a suggestion: bad name');
+  });
+
+  it('fails without a code when a claim does not parse (PRD 1030)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const read = await failure(fakeDb({ read: { data: [{ ...RIVAL, kind: 'guess' }], error: null } }).store.claims('ws-1', 'p-1'));
+    expect(read.code).toBeUndefined();
+    expect(read.message).toContain('Could not read the claims: business/suggest-store: claims: the answer does not parse: [0].kind');
+    const picked = await failure(fakeDb({ pick: { data: { id: 'c-9' }, error: null } }).store.propose('ws-1', 'p-1', 'Alpha'));
+    expect(picked.message).toContain('Could not store a suggestion: business/suggest-store: claim_pick');
   });
 
   it('fails without a code when claim_pick() answers no row', async () => {

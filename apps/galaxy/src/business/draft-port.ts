@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { CLAIM_COLUMNS, claimOf, RECEIPT_COLUMNS, StoredClaim, StoredReceipt, type Claim } from './model';
 import type { DraftView, WebPage } from './reveal';
@@ -37,13 +38,49 @@ export interface DraftPort {
 
 type Answer = { data: unknown; error: unknown };
 interface Query extends PromiseLike<Answer> {
-  eq(column: string, value: unknown): Query;
+  eq(column: string, value: string): Query;
   order(column: string, options?: { ascending: boolean }): Query;
   limit(n: number): Query;
 }
 export interface DraftDb {
   from(table: string): { select(columns: string): Query };
   rpc(fn: string, args: Record<string, unknown>): PromiseLike<Answer>;
+}
+
+/** One link of a select's chain, kept until the query is awaited. */
+type Step =
+  | { kind: 'eq'; column: string; value: string }
+  | { kind: 'order'; column: string; options?: { ascending: boolean } | undefined }
+  | { kind: 'limit'; n: number };
+
+/** A Query that records its chain and hands it to `run` when it is awaited. */
+function recorded(run: (steps: readonly Step[]) => PromiseLike<Answer>, steps: readonly Step[] = []): Query {
+  const next = (step: Step) => recorded(run, [...steps, step]);
+  return {
+    eq: (column, value) => next({ kind: 'eq', column, value }),
+    order: (column, options) => next({ kind: 'order', column, options }),
+    limit: (n) => next({ kind: 'limit', n }),
+    then: (ok, ko) => run(steps).then(ok, ko),
+  };
+}
+
+/** A Supabase client seen through DraftDb: each select's chain is replayed on the client's own query
+ * builder when awaited, so the deep builder types are never compared with the port's. */
+export function draftDbOver(client: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDb {
+  return {
+    from: (table) => ({
+      select: (columns) => recorded((steps) => {
+        let query = client.from(table).select(columns);
+        for (const step of steps) {
+          if (step.kind === 'eq') query = query.eq(step.column, step.value);
+          else if (step.kind === 'order') query = query.order(step.column, step.options);
+          else query = query.limit(step.n);
+        }
+        return query;
+      }),
+    }),
+    rpc: (fn, args) => client.rpc(fn, args),
+  };
 }
 
 /** One source a draft scanned, as its run writes it in `business_drafts.scanned` (./draft/run.ts). */

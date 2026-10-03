@@ -9,7 +9,7 @@ import { businessReducer, initialBusinessState } from './state';
 import { BusinessView, type BusinessHandlers } from './BusinessView';
 import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type BusinessPort, type Saved } from './store';
 import { suggestKey } from './suggest';
-import { databaseDraft, demoDraftPort, type DraftDb, type DraftPort } from './draft-port';
+import { databaseDraft, demoDraftPort, draftDbOver, type DraftPort } from './draft-port';
 import { thatsUs, type DraftView, type WebPage } from './reveal';
 import { canUndo, initialPersonasState, personasReducer, type Persona, type PersonasState } from './personas';
 import { databasePersonas, demoPersonasPort, type PersonaPort } from './personas-store';
@@ -47,12 +47,6 @@ import type { ConstituentsPanelData } from './constituents-load';
 export type BusinessSource =
   | { kind: 'demo' }
   | { kind: 'database'; url: string; key: string; workspace: string; product: string };
-
-/** The browser client, seen only through the narrow port the draft store calls. */
-function draftDbOf(url: string, key: string): DraftDb {
-  const client: unknown = createBrowserClient<Database>(url, key);
-  return client as DraftDb; // ts-allow: the store takes only the narrow port it calls; the typed client is too deep for TypeScript to compare with it
-}
 
 export interface BusinessPageProps {
   source: BusinessSource;
@@ -206,7 +200,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   const drafts = useRef<DraftPort | null>(null);
   const getDrafts = () => (drafts.current ??= source.kind === 'demo'
     ? demoDraftPort(() => held.current.claims)
-    : databaseDraft(draftDbOf(source.url, source.key), source.workspace));
+    : databaseDraft(draftDbOver(createBrowserClient(source.url, source.key)), source.workspace));
   /** In the demo, the claims store starts again from the page after a draft or That's us. */
   const renew = () => {
     if (source.kind === 'demo') port.current = null;

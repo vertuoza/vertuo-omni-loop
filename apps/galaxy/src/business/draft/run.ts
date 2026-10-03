@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { ClaimKind, StoredClaim } from '../model';
 import type { Extractor } from './extract';
 import { mergeOf, productFor, snapSize, type MergeOutcome } from './merge';
@@ -20,42 +21,47 @@ import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 // as kept, whatever the extractor answered, since claim_propose_evidence() refuses the kind.
 
 /** What a draft row says it read, by key (`business_drafts.counts`). */
-export interface DraftCounts {
-  readmes: number;
-  docs: number;
-  prds: number;
-  pages: number;
-  skipped: number;
+export const DraftCounts = z.object({
+  readmes: z.number(),
+  docs: z.number(),
+  prds: z.number(),
+  pages: z.number(),
+  skipped: z.number(),
   /** Candidates the model answered, and those whose quote was found. */
-  found: number;
-  kept: number;
-  added: number;
-  seen: number;
-  replacing: number;
-  rejected: number;
-}
+  found: z.number(),
+  kept: z.number(),
+  added: z.number(),
+  seen: z.number(),
+  replacing: z.number(),
+  rejected: z.number(),
+});
+export type DraftCounts = z.infer<typeof DraftCounts>;
 
 /** One source as the page lists it while the draft runs: `✓ vertuo-app · README.md`, `– vertuoza.com/pricing · skipped`. */
-export interface Scanned {
-  source: string;
-  state: 'read' | 'skipped';
+export const Scanned = z.object({
+  source: z.string(),
+  state: z.enum(['read', 'skipped']),
   /** Why it was skipped, in plain words. */
-  why?: string;
-}
+  why: z.string().optional(),
+});
+export type Scanned = z.infer<typeof Scanned>;
 
-export type DraftState = 'running' | 'done' | 'failed';
+export const DraftState = z.enum(['running', 'done', 'failed']);
+export type DraftState = z.infer<typeof DraftState>;
 
-/** A public.business_drafts row, as PostgREST answers it. */
-export interface DraftRow {
-  id: string;
-  kind: 'draft' | 'recheck';
-  state: DraftState;
-  started_at: string;
-  finished_at: string | null;
-  counts: Partial<DraftCounts>;
-  scanned: Scanned[];
-  reason: string | null;
-}
+/** A public.business_drafts row, as PostgREST answers it: `counts` and `scanned` are the JSON columns
+ * this run writes (PRD 1030: parsed, not trusted). */
+export const DraftRow = z.object({
+  id: z.string(),
+  kind: z.enum(['draft', 'recheck']),
+  state: DraftState,
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+  counts: DraftCounts.partial(),
+  scanned: z.array(Scanned),
+  reason: z.string().nullable(),
+});
+export type DraftRow = z.infer<typeof DraftRow>;
 
 export type Receipt = { kind: 'file' | 'pr' | 'link'; where: string; quote: string };
 

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Claim } from './model';
-import { databaseDraft, demoDraftPort, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
+import { databaseDraft, demoDraftPort, draftDbOver, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
 import { COULD_NOT_SAVE, NOT_MEMBER } from './store';
 import { sure } from '../arcade/sure';
 import { sentOf } from './json.fake';
@@ -84,6 +84,46 @@ describe('reading the draft again', () => {
     expect(claims?.map((c) => [c.value, c.receipts?.[0]?.quote])).toEqual([['France', 'Sold in France']]);
     expect(d.reads.map((r) => [r.table, r.filters[0]])).toEqual([['claims', ['eq', 'workspace_id', 'ws-1']], ['claim_receipts', ['eq', 'workspace_id', 'ws-1']]]);
     expect(await databaseDraft(db({ claims: { error: { message: 'down' } } }), 'ws-1').claims()).toBeNull();
+  });
+});
+
+describe('reading what does not parse (PRD 1030)', () => {
+  it('reads a draft row that is not one as none, and claims that are not claims as unreadable', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await databaseDraft(db({ business_drafts: { data: [{ ...DRAFT, scanned: [{ source: 'x', state: 'lost' }] }] } }), 'ws-1').latest()).toBeNull();
+    const claims = { data: [{ id: 'c-1', seq: '1', kind: 'region', value: 'France', source: 'evidence', state: 'proposed' }] };
+    expect(await databaseDraft(db({ claims }), 'ws-1').claims()).toBeNull();
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('business/draft-port: claims: the answer does not parse: [0].seq invalid_type'));
+    logged.mockRestore();
+  });
+
+  it('answers could-not-save when the draft route answers no draft row', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { fetch } = fetcher(200, { draft: { id: 'd-1' } });
+    expect(await databaseDraft(db({}), 'ws-1', fetch).start()).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    logged.mockRestore();
+  });
+});
+
+describe('the browser client as the draft\'s port', () => {
+  it('replays each select\'s chain on the client\'s own builder when it is awaited', async () => {
+    const steps: unknown[] = [];
+    const builder = {
+      eq: (c: string, v: unknown) => (steps.push(['eq', c, v]), builder),
+      order: (c: string, o?: unknown) => (steps.push(['order', c, o]), builder),
+      limit: (n: number) => (steps.push(['limit', n]), builder),
+      then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: [DRAFT], error: null }).then(ok),
+    };
+    const client = {
+      from: (table: string) => ({ select: (columns: string) => (steps.push(['from', table, columns]), builder) }),
+      rpc: (fn: string, args: unknown) => Promise.resolve({ data: { fn, args }, error: null }),
+    };
+    const port = draftDbOver(client as never);
+    const query = port.from('business_drafts').select('id').eq('workspace_id', 'ws-1').order('started_at', { ascending: false }).limit(1);
+    expect(steps).toEqual([]);
+    expect(await query).toEqual({ data: [DRAFT], error: null });
+    expect(steps).toEqual([['from', 'business_drafts', 'id'], ['eq', 'workspace_id', 'ws-1'], ['order', 'started_at', { ascending: false }], ['limit', 1]]);
+    expect(await port.rpc('claim_still_true', { p_claim: 'c-1' })).toEqual({ data: { fn: 'claim_still_true', args: { p_claim: 'c-1' } }, error: null });
   });
 });
 

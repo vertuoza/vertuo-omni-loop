@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { PersonaFields } from './personas';
 import {
   COULD_NOT_SAVE, databasePersonas, demoPersonasPort, GONE, INVALID_FIELD, NOT_MEMBER, personaRefusalOf,
@@ -58,6 +58,11 @@ describe('the persona functions', () => {
     const said = [];
     for (let i = 0; i < 7; i++) said.push(await port.add('p-1', FIELDS));
     expect(said).toEqual([NOT_MEMBER, GONE, INVALID_FIELD.name, INVALID_FIELD.avatar, COULD_NOT_SAVE, COULD_NOT_SAVE, COULD_NOT_SAVE].map((message) => ({ ok: false, message })));
+  });
+
+  it('answers could-not-save when the saved row does not parse (PRD 1030)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await databasePersonas(db([{ data: { ...ROW, avatar: { v: 2 } } }]), 'ws-1').add('p-1', FIELDS)).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 
   it('names each field a 22023 can hint at', () => {
