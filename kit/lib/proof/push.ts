@@ -16,7 +16,7 @@ type UploadRequest = { name: string; bytes: number; type: string };
 /** The Omni page's three proof calls (`kit/lib/ask/client.ts`). Their replies are read as unknown. */
 export type ProofClient = {
   requestProofUploads: (request: { repo: string; prd: number; files: UploadRequest[] }) => Promise<unknown>;
-  upload: (url: string, bytes: Uint8Array, type: string) => Promise<unknown>;
+  upload: (url: string, bytes: Uint8Array<ArrayBuffer>, type: string) => Promise<unknown>;
   registerProof: (request: { repo: string; prd: number; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
 };
 
@@ -64,7 +64,7 @@ export async function pushProof({
   repo: string;
   prd: number;
   run: ProofRun;
-  read?: (path: string) => Uint8Array;
+  read?: (path: string) => Uint8Array<ArrayBuffer>;
   newRunId?: () => string;
 }): Promise<{ tab: string; gif?: string }> {
   let runId: string;

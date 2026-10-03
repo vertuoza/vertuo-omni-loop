@@ -39,6 +39,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs — changes in kit/porting/outbox--replies.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import {
   adoptedEntriesForPrd,
   findPrMarkerComment,
@@ -50,18 +51,36 @@ import type { Context } from '../context.ts';
 import type { OutboxItem, OutboxOption } from '../types.ts';
 import { answerErrors, AnswerSchema, judgeAnswer, parseItem, renderSettledEntry, settleItem } from './settle.ts';
 import type { Judgement, Markers, SettledItemFacts, SettledVerdict, Verdict } from './settle.ts';
-import { SETTLED_FILE } from './outbox.ts';
+import { RANK_VALUES, SETTLED_FILE } from './outbox.ts';
+import { defined } from '../narrow.ts';
 import { plainText } from './plain-text.ts';
 
 /** A pull request comment, as GitHub lists it: only the fields the reader looks at. */
-type ReplyComment = {
-  id: number;
-  body?: string | null;
-  created_at?: string;
-  user?: { login?: string } | null;
-  author_association?: string;
-  html_url?: string;
-};
+const ReplyCommentSchema = z.object({
+  id: z.number(),
+  body: z.string().nullish(),
+  created_at: z.string().optional(),
+  user: z.object({ login: z.string().optional() }).nullish(),
+  author_association: z.string().optional(),
+  html_url: z.string().optional(),
+});
+type ReplyComment = z.infer<typeof ReplyCommentSchema>;
+
+/**
+ * An item, as far as the reader reads it: its id, its rank and the sections a reply is read against.
+ * Every other field the caller's item carries is kept, so what comes back is the item that went in.
+ */
+const RepliedItemSchema = z.looseObject({
+  id: z.string(),
+  rank: z.enum(RANK_VALUES),
+  sections: z.looseObject({
+    options: z.array(z.object({ letter: z.string(), text: z.string() })).optional(),
+    questionPlain: z.string().optional(),
+    whatIHadToDecide: z.string().optional(),
+    whatIDidMeanwhile: z.string().optional(),
+  }),
+});
+type RepliedItem = z.infer<typeof RepliedItemSchema>;
 
 /** An adopted settled entry, as far as the reader needs it: its id and its item's text. */
 type AdoptedEntry = { id: string; itemText: string };
@@ -75,7 +94,7 @@ type Reading =
   | { undetermined: true; recorded: string; statedVerdict?: undefined };
 
 /** A question a reply may answer: its numbering entry, its item, and its adopted entry when it has one. */
-type Question = { number: number; id: string; since: string; item: OutboxItem; adoptedEntry: AdoptedEntry | null };
+type Question<I extends RepliedItem> = { number: number; id: string; since: string; item: I | OutboxItem; adoptedEntry: AdoptedEntry | null };
 
 /** A reply's answer to one question, before and after it is read. */
 type RawAnswer = { approvedBy: string; approvedAt: string | undefined; url: string | undefined; text: string; approveAll?: boolean };
@@ -215,18 +234,18 @@ function lastReaskedAt(comments: readonly ReplyComment[], markers: Markers): { a
  * adopted item it names, whose item is read back off its settled entry. An adopted entry whose
  * embedded item no longer parses is left out rather than guessed at.
  */
-function answerableQuestions(
+function answerableQuestions<I extends RepliedItem>(
   numbering: readonly { number: number; id: string; since: string }[],
-  items: readonly OutboxItem[],
+  items: readonly I[],
   adopted: readonly AdoptedEntry[],
-): Question[] {
+): Question<I>[] {
   const itemsById = new Map(items.map((item) => [item.id, item]));
   const adoptedById = new Map<string, { entry: AdoptedEntry; item: OutboxItem }>();
   for (const entry of adopted) {
     const parsed = parseItem(entry.itemText, null);
     if (parsed.ok) adoptedById.set(entry.id, { entry, item: parsed.item });
   }
-  const questions: Question[] = [];
+  const questions: Question<I>[] = [];
   for (const entry of numbering) {
     const open = itemsById.get(entry.id);
     const kept = adoptedById.get(entry.id);
@@ -259,16 +278,18 @@ function answerableQuestions(
  *   round: { number: number, questions: Array<object> } | null,
  * }}
  */
-export function planReplies(args: { comments: object[]; items: object[]; adopted?: object[]; markers: object }) {
-  // The arcade passes its own loosely typed rows, so the parameters stay as wide as they were; the
-  // shapes below are what the reader reads off them.
-  const { comments, items, adopted = [], markers } = args as { // ts-allow: the arcade's callers pass object rows of these shapes
-    comments: ReplyComment[];
-    items: OutboxItem[];
-    adopted?: AdoptedEntry[];
-    markers: Markers;
-  };
-  const all: ReplyComment[] = Array.isArray(comments) ? comments : [];
+export function planReplies({ comments, items, adopted = [], markers }: { comments: readonly unknown[]; items: readonly unknown[]; adopted?: readonly AdoptedEntry[]; markers: Markers }) {
+  // The arcade passes its own loosely typed rows: the reader parses what it reads off them.
+  return planFor({ comments: replyComments(comments), items: z.array(RepliedItemSchema).parse(items), adopted, markers });
+}
+
+/** The comments a reader reads, parsed: none when what came is not a list, as it always was. */
+function replyComments(comments: unknown): ReplyComment[] {
+  return Array.isArray(comments) ? z.array(ReplyCommentSchema).parse(comments) : [];
+}
+
+/** {@link planReplies}, on comments and items already parsed: each item comes back as it went in. */
+function planFor<I extends RepliedItem>({ comments: all, items, adopted, markers }: { comments: ReplyComment[]; items: readonly I[]; adopted: readonly AdoptedEntry[]; markers: Markers }) {
   const prComment: ReplyComment | null = findPrMarkerComment(all, markers);
   const numbering: { number: number; id: string; since: string }[] = prComment ? parseNumbersMarker(prComment.body, markers) : [];
   const questions = answerableQuestions(numbering, items, adopted);
@@ -299,8 +320,8 @@ export function planReplies(args: { comments: object[]; items: object[]; adopted
   }
 
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle: { number: number; item: OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
-  const held: { number: number; item: OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
+  const settle: { number: number; item: I | OutboxItem; answer: ReadAnswer; judgement: Judgement; adoptedEntry: AdoptedEntry | null }[] = [];
+  const held: { number: number; item: I | OutboxItem; answer: ReadAnswer; due: boolean }[] = [];
   for (const { number, item, adoptedEntry } of questions) {
     const raw = numbered.get(number) ?? approved.get(number);
     if (!raw) continue;
@@ -451,7 +472,7 @@ export function readReplies(
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
-  const plan = planReplies({ comments, items, adopted, markers: ctx.markers });
+  const plan = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
 
   const settled: {
     number: number;
@@ -479,7 +500,7 @@ export function readReplies(
       | { ok: true; verdict?: SettledVerdict; settledFile: string; removedFile?: string }
       | { ok: false; errors: string[] } = adoptedEntry
       ? appendObjection({ ctx, prd, adoptedEntry, item, answer: given, judgement })
-      : settleItem({ ctx, file: item.file as string, answer: given }); // ts-allow: an open item is always read from its file
+      : settleItem({ ctx, file: defined(item.file, 'the file of an open item'), answer: given });
     if (result.ok) {
       settled.push({
         number,

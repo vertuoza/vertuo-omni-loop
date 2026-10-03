@@ -211,8 +211,7 @@ export function creditCommits(commits: CreditCommit[]): CreditedCommit[] {
     .sort((a, b) => (time(a.date) || 0) - (time(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));
 }
 
-const zeros = <K extends string>(keys: readonly K[]): Record<K, number> =>
-  Object.fromEntries(keys.map((key) => [key, 0])) as Record<K, number>; // ts-allow: fromEntries types its keys as string; they are exactly `keys`
+const zeros = (keys: readonly string[]): Record<string, number> => Object.fromEntries(keys.map((key) => [key, 0]));
 
 /** Counts one more `key` in `counts`; every key `summarize` counts is one it started at zero. */
 function bump(counts: Record<string, number>, key: string): void {

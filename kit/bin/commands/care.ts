@@ -9,8 +9,7 @@
 // resolves the thread (an asked thread stays open for the PM), then prints what it did as JSON.
 import { decideRound } from '../../lib/care/decide.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
-import { CARE_QUERY, careState } from '../../lib/care/state.ts';
-import type { CareResponse } from '../../lib/care/state.ts';
+import { CARE_QUERY, CareResponseSchema, careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
@@ -102,7 +101,7 @@ function runState(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo)
   }
   const [owner, name] = repo.split('/');
   const response = graphql({ query: CARE_QUERY, variables: { owner, name, number } }, { exec, env: ghEnv });
-  const state = careState(response as CareResponse, { // ts-allow: careState reads the answer field by field (PRD 725 outbox item s16-01-hand-checks-stand-in-for-schemas)
+  const state = careState(CareResponseSchema.parse(response), {
     statusMarker: `<!-- ${ctx.config.markers.prefix}-status -->`,
     needsFixLabel: ctx.config.labels.needsFix,
     gateContexts: [ctx.config.ci.outboxContext, ctx.config.ci.inboxContext].filter(Boolean),

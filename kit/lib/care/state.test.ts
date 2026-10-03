@@ -1,6 +1,6 @@
 // PRD 790, slice s1: a feature PR's GraphQL read, parsed into its care state.
 import { describe, expect, it } from 'vitest';
-import { careState } from './state.ts';
+import { CareResponseSchema, careState } from './state.ts';
 import type { CareResponse } from './state.ts';
 import { assertDefined } from '../../test/assert.ts';
 
@@ -177,5 +177,23 @@ describe('careState — the status comment', () => {
     const comments = { nodes: [{ databaseId: 7, body: `${STATUS}\n- state: done` }] };
     expect(careState(response({ comments }), OPTIONS).status).toEqual({ commentId: 7, watchingSince: null, lastRound: null });
     expect(careState(response(), OPTIONS).status).toBeNull();
+  });
+});
+
+describe('CareResponseSchema — the answer GitHub gives CARE_QUERY', () => {
+  const withPr = (pr: Record<string, unknown>) => ({ data: { repository: { pullRequest: pr } } });
+  const pr = (): Record<string, unknown> => ({ ...response()?.data?.repository?.pullRequest });
+
+  it('parses the recorded answer, and an answer with no pull request', () => {
+    expect(CareResponseSchema.parse(response())).toEqual(response());
+    expect(CareResponseSchema.parse(withPr({ ...pr(), comments: null }))).toEqual(withPr({ ...pr(), comments: null }));
+    expect(CareResponseSchema.parse({ data: { repository: { pullRequest: null } } })).toEqual({ data: { repository: { pullRequest: null } } });
+  });
+
+  it('refuses a pull request with no number, a number given as text, and a null head branch', () => {
+    const { number: _number, ...noNumber } = pr();
+    expect(CareResponseSchema.safeParse(withPr(noNumber)).success).toBe(false);
+    expect(CareResponseSchema.safeParse(withPr({ ...pr(), number: '9' })).success).toBe(false);
+    expect(CareResponseSchema.safeParse(withPr({ ...pr(), headRefName: null })).success).toBe(false);
   });
 });

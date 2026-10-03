@@ -45,4 +45,11 @@ describe('storageState', () => {
     expect(() => storageState(jwt({ iss: 'https://example.com', exp: EXP }), { host: 'omni.example', now: NOW })).toThrow(SessionRefused);
     expect(() => storageState(jwt({ iss: `https://${REF}.supabase.co/auth/v1`, exp: NOW / 1000 - 1 }), { host: 'omni.example', now: NOW })).toThrow(SessionRefused);
   });
+
+  it('parses the token\'s claims: one with no expiry, an expiry given as text or a null email is not a Supabase session', () => {
+    const iss = `https://${REF}.supabase.co/auth/v1`;
+    for (const claims of [{ iss }, { iss, exp: String(EXP) }, { iss, exp: EXP, email: null }]) {
+      expect(() => storageState(jwt(claims), { host: 'omni.example', now: NOW })).toThrow('the sign-in is not a Supabase session');
+    }
+  });
 });

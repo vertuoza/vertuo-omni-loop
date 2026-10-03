@@ -32,7 +32,6 @@ import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { ProofReplyError, pushProof } from '../../lib/proof/push.ts';
-import type { ProofClient } from '../../lib/proof/push.ts';
 import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.ts';
 import type { ProofRun } from '../../lib/proof/run.ts';
 import { SessionRefused, storageState } from '../../lib/proof/session.ts';
@@ -98,8 +97,7 @@ async function send(
   const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
   let pushed;
   try {
-    // The ask client uploads any BodyInit; push reads its files as Uint8Array, which fetch sends as is.
-    pushed = await pushProof({ client: client as ProofClient, repo, prd, run }); // ts-allow: askClient's upload takes the Uint8Array push hands it
+    pushed = await pushProof({ client, repo, prd, run });
   } catch (error) {
     println(stderr, skipLine(error));
     return 1;
