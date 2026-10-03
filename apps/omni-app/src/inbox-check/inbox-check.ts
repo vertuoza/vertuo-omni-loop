@@ -14,7 +14,8 @@
 //
 // It listens to the outbox check's event, so every pull request action that re-evaluates the outbox
 // check re-evaluates this one, and to its own event, which the webhook sends for a re-run of an inbox
-// check run. Debounced per repository and pull request, 3 retries, like the outbox check.
+// check run. Debounced per repository and pull request, 3 retries, like the outbox check. The app
+// serves it with the live canon gate, bound to the app's environment (../functions.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

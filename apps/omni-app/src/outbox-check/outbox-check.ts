@@ -19,14 +19,12 @@
 //
 // `createOutboxCheck` takes the Inngest client and `octokitFor(installationId)`, so a test runs the
 // real function against a stubbed GitHub; the app serves it wired to its client and to installation
-// tokens signed with the GitHub App's private key (`installationOctokitFor`, ../functions.ts).
+// tokens signed with the GitHub App's private key (`installationOctokitFor`, ../octokit-for.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { App } from '@octokit/app';
 import { NonRetriableError, type Inngest } from 'inngest';
 import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { GITHUB_APP, requireGroup, type GithubAppEnv } from '../env.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -219,19 +217,5 @@ export function onFailedRun(octokitFor: OctokitFor<GitHubClient>, work: (failed:
     const reason = messageField(error) ?? failed.error?.message ?? 'unknown error';
     const complete = async () => work({ octokit: await octokitFor(request.installationId), request, reason });
     return step?.run ? step.run('complete-as-failure', complete) : complete();
-  };
-}
-
-/**
- * An installation's Octokit, signed with the GitHub App's id and private key (`GITHUB_APP_ID`,
- * `GITHUB_APP_PRIVATE_KEY`, ../env.ts). Required in production; elsewhere, unset, the first call
- * throws the `EnvError` naming both, as the first GitHub read of a run.
- */
-export function installationOctokitFor(githubApp: GithubAppEnv | null) {
-  let app: App | undefined;
-  return (installationId: number) => {
-    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, 'the app reads GitHub as an installation');
-    app ??= new App({ appId: id, privateKey });
-    return app.getInstallationOctokit(installationId);
   };
 }

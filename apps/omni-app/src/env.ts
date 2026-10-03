@@ -16,6 +16,7 @@
  */
 import { z } from 'zod';
 import { envGroup, envReader, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { KEY_VAR, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
 
 export { EnvError, requireGroup, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 
@@ -29,13 +30,12 @@ const VERCEL = envGroup({
   variables: { name: 'VERCEL_ENV' },
 });
 
+/** A group of one shared secret, read from `variable`. */
+const secretGroup = (label: string, variable: string, required?: 'production') =>
+  envGroup({ label, schema: z.object({ secret: z.string() }), variables: { secret: variable }, ...(required ? { required } : {}) });
+
 /** The secret GitHub signs every delivery with; unset, every delivery is refused. */
-const WEBHOOK = envGroup({
-  label: 'the webhook secret',
-  schema: z.object({ secret: z.string() }),
-  variables: { secret: 'GITHUB_WEBHOOK_SECRET' },
-  required: 'production',
-});
+const WEBHOOK = secretGroup('the webhook secret', 'GITHUB_WEBHOOK_SECRET', 'production');
 
 /** The GitHub App's id and private key, which sign every installation token. */
 export const GITHUB_APP = envGroup({
@@ -56,26 +56,14 @@ const SUPABASE = envGroup({
   variables: { url: 'SUPABASE_URL', key: 'SUPABASE_SERVICE_ROLE_KEY' },
 });
 
-/** OpenRouter, which the retro, the harvest and the canon gate ask; the model has a default. */
-const OPENROUTER = envGroup({
-  label: 'OpenRouter',
-  schema: z.object({ key: z.string(), model: z.string().optional() }),
-  variables: { key: 'OPENROUTER_API_KEY', model: 'OPENROUTER_MODEL' },
-});
+/** OpenRouter, which the retro, the harvest and the canon gate ask, by the kit's variables; the model has a default. */
+const OPENROUTER = envGroup({ label: 'OpenRouter', schema: z.object({ key: z.string(), model: z.string().optional() }), variables: { key: KEY_VAR, model: MODEL_VAR } });
 
 /** The secret stage events are signed with on their way to galaxy (PRD 587). */
-const STAGE_EVENTS = envGroup({
-  label: 'the stage events',
-  schema: z.object({ secret: z.string() }),
-  variables: { secret: 'STAGE_EVENT_SECRET' },
-});
+const STAGE_EVENTS = secretGroup('the stage events', 'STAGE_EVENT_SECRET');
 
 /** The secret the canon gate signs its call to galaxy's constituent judge with (PRD 871). */
-const CONSTITUENT_JUDGE = envGroup({
-  label: 'the constituent judge',
-  schema: z.object({ secret: z.string() }),
-  variables: { secret: 'CONSTITUENT_JUDGE_SECRET' },
-});
+const CONSTITUENT_JUDGE = secretGroup('the constituent judge', 'CONSTITUENT_JUDGE_SECRET');
 
 /** Galaxy's host, for the stage events and the judge. */
 const GALAXY = envGroup({

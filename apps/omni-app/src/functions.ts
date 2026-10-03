@@ -9,7 +9,8 @@ import { createCanonAction } from './inbox-check/canon-action.ts';
 import { createInboxCheck } from './inbox-check/inbox-check.ts';
 import { inngest } from './inngest-client.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
-import { createOutboxCheck, installationOctokitFor } from './outbox-check/outbox-check.ts';
+import { installationOctokitFor } from './octokit-for.ts';
+import { createOutboxCheck } from './outbox-check/outbox-check.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
 

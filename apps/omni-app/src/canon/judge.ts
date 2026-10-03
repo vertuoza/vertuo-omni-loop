@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { STAGE_SIGNATURE_HEADER, signStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { type Judge, type JudgeAnswer, JUDGE_NOT_CONFIGURED, stringOf, thrownMessage } from './canon.ts';
 
-export const JUDGE_SECRET_VAR = 'CONSTITUENT_JUDGE_SECRET';
+const JUDGE_SECRET_VAR = 'CONSTITUENT_JUDGE_SECRET';
 /** Jev reads a spec of 40,000 characters at most; galaxy's route allows itself a minute. */
 const JUDGE_TIMEOUT_MS = 55_000;
 

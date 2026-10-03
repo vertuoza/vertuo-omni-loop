@@ -16,7 +16,7 @@ export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl
 export function githubRoute(env: GithubRouteEnv, { send = (events: AppEvent[]) => inngest.send(events) }: { send?: (events: AppEvent[]) => Promise<unknown> } = {}) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   return {
-    async POST(request: Request): Promise<Response> {
+    POST: async (request: Request): Promise<Response> => {
       const { status, body } = await receiveWebhook({
         body: await request.text(),
         headers: request.headers,
@@ -26,8 +26,6 @@ export function githubRoute(env: GithubRouteEnv, { send = (events: AppEvent[]) =
       });
       return new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     },
-    GET(): Response {
-      return new Response('method not allowed', { status: 405, headers: { allow: 'POST' } });
-    },
+    GET: (): Response => new Response('method not allowed', { status: 405, headers: { allow: 'POST' } }),
   };
 }
