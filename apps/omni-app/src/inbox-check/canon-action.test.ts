@@ -13,7 +13,12 @@ import { type AppEvent, inngest, INBOX_EXTERNAL_ID } from '../inngest-client.ts'
 import { fakeGitHub } from '../outbox-check/fake-github.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, canonMarker, commentMarker } from './canon-actions.ts';
-import { CANON_ACTION_FUNCTION_ID, canonAction, createCanonAction } from './canon-action.ts';
+import { CANON_ACTION_FUNCTION_ID, createCanonAction } from './canon-action.ts';
+import { appFunctions } from '../functions.ts';
+import { readEnv } from '../env.ts';
+
+/** The functions the app serves, bound to an empty environment. */
+const { canonAction } = appFunctions(readEnv({}));
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const GALAXY = 'https://galaxy.example';

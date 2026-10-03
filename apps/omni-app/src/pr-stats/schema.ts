@@ -97,12 +97,6 @@ export const FailureSchema = z.looseObject({
   status: z.unknown().optional(),
 });
 
-/** The environment the collector reads: the database's address and the service role's key. */
-export const StoreEnvSchema = z.looseObject({
-  SUPABASE_URL: z.string().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-});
-
 export type PullDetail = z.infer<typeof PullDetailSchema>;
 export type Actor = z.infer<typeof ActorSchema>;
 

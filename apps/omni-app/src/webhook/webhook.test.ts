@@ -3,7 +3,6 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { type AppEvent, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
-import { inboxCheck } from '../inbox-check/inbox-check.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   CANON_ACTIONS,
@@ -18,6 +17,11 @@ import {
   toRetroRequests,
 } from './webhook.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
+import { appFunctions } from '../functions.ts';
+import { readEnv } from '../env.ts';
+
+/** The functions the app serves, bound to an empty environment. */
+const { inboxCheck } = appFunctions(readEnv({}));
 
 const SECRET = 'shh-test-secret';
 
@@ -62,7 +66,7 @@ function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'
   const headers: Record<string, string> = { 'x-github-event': event, 'x-github-delivery': 'd-1' };
   if (signature !== null) headers['x-hub-signature-256'] = signature ?? sign(body);
   const sent = send ?? sending();
-  return receiveWebhook({ body, headers, secret, send: sent }).then((response) => ({ response, send: sent }));
+  return receiveWebhook({ body, headers, secret, send: sent, forward: forwarding() }).then((response) => ({ response, send: sent }));
 }
 
 describe('webhook — the signature', () => {
@@ -217,6 +221,7 @@ describe('webhook — the event and action filter', () => {
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
       send,
+      forward: forwarding(),
     });
     expect(response.status).toBe(400);
     expect(send).not.toHaveBeenCalled();
@@ -348,7 +353,7 @@ describe('webhook — the stage events (PRD 587)', () => {
 
   const receive = (
     payload: unknown,
-    { forward, send = sending(), signature }: { forward?: ReturnType<typeof forwarding>; send?: ReturnType<typeof sending>; signature?: string } = {},
+    { forward = forwarding(), send = sending(), signature }: { forward?: ReturnType<typeof forwarding>; send?: ReturnType<typeof sending>; signature?: string } = {},
   ) => {
     const body = JSON.stringify(payload);
     return receiveWebhook({

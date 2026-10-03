@@ -30,9 +30,9 @@ const VerdictSchema = z.looseObject({
 /** A refusal's reply, read for its `error` line, whatever it is. */
 const RefusalSchema = z.looseObject({ error: z.unknown().optional() });
 
-/** Galaxy's judge route, on `GALAXY_URL` when set, as the stage events. */
-export function judgeUrl(env: Record<string, string | undefined> = process.env): string {
-  return `${new URL(stageEventUrl(env)).origin}/api/constituents/judge`;
+/** Galaxy's judge route, on galaxy's host (`GALAXY_URL` or its default), as the stage events. */
+export function judgeUrl(galaxyUrl: string): string {
+  return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
 }
 
 const failed = (error: string, reason: string): JudgeAnswer => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason });

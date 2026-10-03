@@ -19,6 +19,7 @@ import { createRetro } from './retro.ts';
 import { ISSUES_PER_RUN, refusedWordsIn } from './rules.ts';
 import type { Config, FactSheet, FeaturePull, Finding, PrdFacts, Prose } from './retro.types.ts';
 import type { Kind } from './kinds/index.ts';
+import { readEnv } from '../env.ts';
 
 /** The stubbed GitHub and the scenario, as the tests read them: their state open to look at. */
 type Stub = ReturnType<typeof replayGitHub>;
@@ -399,7 +400,7 @@ describe('the retro function — its issues', () => {
   /** The widget scenario, its timeline plus the seven findings above: eight findings, the slow slice once. */
   function engine(scenario: Scenario) {
     const kinds = [timeline as unknown as Kind, found(FOUND)];
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge(), kinds });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge(), kinds });
     return new InngestTestEngine({ function: fn, events: [scenario.event] });
   }
   const markdown = (github: Stub) => github.filesAt(BRANCH, [RETRO_PATH])[RETRO_PATH];

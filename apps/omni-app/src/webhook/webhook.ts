@@ -17,9 +17,8 @@
 // no check.
 //
 // Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
-// one stage event (src/stage-forward/). Unless one is given, `forward` POSTs it to galaxy, signed with
-// `STAGE_EVENT_SECRET` (`GALAXY_URL` names galaxy when set). It never changes the reply: a failure is
-// logged.
+// one stage event (src/stage-forward/). The app's `forward` (./github-route.ts) POSTs it to galaxy,
+// signed with `STAGE_EVENT_SECRET`. It never changes the reply: a failure is logged.
 //
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
@@ -40,7 +39,7 @@ import {
 } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
-import { forwardStageEvent, stageEventUrl, toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
+import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
 
 /** Events to the actions handled on each. */
 type ActionTable = Readonly<Record<string, readonly string[]>>;
@@ -115,13 +114,13 @@ export async function receiveWebhook({
   headers,
   secret,
   send,
-  forward = forwardToGalaxy,
+  forward,
 }: {
   body: string;
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
-  forward?: ((stageEvent: StageEvent) => Promise<unknown>) | undefined;
+  forward: (stageEvent: StageEvent) => Promise<unknown>;
 }): Promise<WebhookResponse> {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
@@ -276,11 +275,6 @@ function handles(table: ActionTable, event: string, action: unknown): boolean {
 /** A pull request named by an integer number and a head SHA. */
 function isNamed(pull: { number: PrNumber | null | undefined; sha: string | null | undefined }): pull is { number: PrNumber; sha: string } {
   return pull.number !== null && pull.number !== undefined && Boolean(pull.sha);
-}
-
-/** The live forward: galaxy's event route, the secret read at the call. */
-function forwardToGalaxy(stageEvent: StageEvent): Promise<void> {
-  return forwardStageEvent(stageEvent, { url: stageEventUrl(), secret: process.env.STAGE_EVENT_SECRET });
 }
 
 /** The installation and repository every event carries, or `null` when the delivery lacks one. */

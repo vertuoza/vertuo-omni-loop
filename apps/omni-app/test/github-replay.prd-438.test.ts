@@ -8,6 +8,7 @@ import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
 import { VERDICT_MARKER, createRetro } from '../src/retro/retro.ts';
 import { Recording, replayGitHub } from './github-replay.ts';
 import { JUDGE_ENV, judge } from './retro-scenario.ts';
+import { readEnv } from '../src/env.ts';
 
 // PRD 438, recorded (PRD 487, "Test seams"): feature PR #440 and its sub-PRs as GitHub returned them,
 // replayed offline through the real retro function with a model reply that keeps nothing. Its retro
@@ -20,7 +21,7 @@ const BRANCH = 'docs/retro-app-sidebar';
 
 async function replay(fetch = judge({ worthIt: false, reason: 'Every finding repeats a pattern the knowledge already names.' })) {
   const github = replayGitHub({ recording: recording.requests });
-  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, env: JUDGE_ENV, fetch });
+  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch });
   const event = {
     name: RETRO_EVENT,
     data: {
@@ -87,7 +88,7 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
     const github = replayGitHub({ recording: recording.requests });
     const run = () =>
       new InngestTestEngine({
-        function: createRetro({ client: inngest, octokitFor: () => github.octokit, env: JUDGE_ENV, fetch: judge({ worthIt: false }) }),
+        function: createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge({ worthIt: false }) }),
         events: [
           {
             name: RETRO_EVENT,

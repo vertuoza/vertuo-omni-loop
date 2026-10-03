@@ -275,6 +275,13 @@ None of these is taken by the code; a person does each once.
      judge with (PRD 871), the same value as in galaxy's project. Unset, a product with constituents
      gets a neutral canon gate, "judge not configured".
 
+   The app reads these once, when a function starts (`src/env.ts`, PRD 1059). A pair half set (one
+   of `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, or `OPENROUTER_MODEL` without
+   `OPENROUTER_API_KEY`), a malformed value (a URL that is not a URL, an app id that is not a
+   number), or in production (`VERCEL_ENV=production`) a missing `GITHUB_WEBHOOK_SECRET`,
+   `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` fails the start with one error naming every variable
+   concerned, never a value. A preview requires none of them.
+
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at

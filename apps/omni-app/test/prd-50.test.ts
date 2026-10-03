@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
 import { createRetro } from '../src/retro/retro.ts';
 import { Recording, replayGitHub } from './github-replay.ts';
+import { readEnv } from '../src/env.ts';
 
 // PRD 50, recorded (PRD 72, "Test seams"): feature PR #51 and its sub-PRs as GitHub returned them,
 // replayed offline through the real retro function. The recording is read here and by later slices;
@@ -21,7 +22,7 @@ const BRANCH = 'docs/retro-question-intros';
 /** The retro of #51 against the recording, not yet run. */
 function engine() {
   const github = replayGitHub({ recording: recording.requests });
-  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, env: {} });
+  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv({}).openrouter });
   const event = {
     name: RETRO_EVENT,
     data: {

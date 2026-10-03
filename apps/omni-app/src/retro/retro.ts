@@ -43,8 +43,8 @@
 //
 // `createRetro` takes the Inngest client and `octokitFor(installationId)`, so a test runs the real
 // function against a stubbed GitHub; `followUp` adds the day-14 run and the daily schedule that wakes
-// it, and a test passes its fourteen days through the clock and the waits. `retro` is the one the app
-// serves, with its day-14 run.
+// it, and a test passes its fourteen days through the clock and the waits. The app serves it with its
+// day-14 run (../functions.ts).
 //
 // The event's data is parsed by `RetroEventSchema` before use, and every GitHub answer this file reads
 // by its schema in `github.schema.ts`. Every value a step returns is read back through its schema in
@@ -57,8 +57,7 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
 import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { inngest, RETRO_EVENT } from '../inngest-client.ts';
-import { installationOctokit } from '../outbox-check/outbox-check.ts';
+import { RETRO_EVENT } from '../inngest-client.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
@@ -89,6 +88,7 @@ import { narrate } from './narrate.ts';
 import { publishRetro } from './publish.ts';
 import { qualify } from './qualify.ts';
 import { verdictComment } from './render.ts';
+import type { OpenRouterEnv } from '../env.ts';
 import type {
   Config,
   FactSheet,
@@ -186,12 +186,11 @@ type RetroStep = StepRun & {
 /** What a wait reads of the tick that ended it, if one did: its time. */
 const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
 
-type Env = Record<string, string | undefined>;
-
 export type RetroDeps = {
   client: Inngest.Any;
   octokitFor: OctokitFor<Octokit>;
-  env?: Env;
+  /** OpenRouter, from the app's environment (../env.ts); `null`: every retro goes out facts only. */
+  openrouter: OpenRouterEnv | null;
   /** The model call's fetch; the global one when not given. */
   fetch?: typeof fetch;
   kinds?: readonly Kind[];
@@ -215,7 +214,7 @@ type RunResult = {
   verdict: VerdictOutcome;
 };
 
-export function createRetro({ client, octokitFor, env = process.env, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -241,7 +240,7 @@ export function createRetro({ client, octokitFor, env = process.env, fetch, kind
       const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
       const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
-      const context = { step, github, env, fetch, owner, repo, pr, prd, config, pulls };
+      const context = { step, github, openrouter, fetch, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
@@ -289,7 +288,7 @@ async function waitForDay(step: RetroStep, due: string): Promise<void> {
 type RunInput = {
   step: RetroStep;
   github: () => Promise<Octokit>;
-  env: Env;
+  openrouter: OpenRouterEnv | null;
   fetch: typeof fetch | undefined;
   owner: string;
   repo: string;
@@ -335,7 +334,7 @@ async function factSheet({ step, github, pr, prd, config, pulls, run, kinds, sco
 }
 
 /** The model's words on the run, guarded, and the verdict they give. */
-async function judgeSheet({ step, github, env, fetch, owner, repo, prd, config, scope, earlier }: RunInput, id: StepId, sheet: FactSheet): Promise<Judged> {
+async function judgeSheet({ step, github, openrouter, fetch, owner, repo, prd, config, scope, earlier }: RunInput, id: StepId, sheet: FactSheet): Promise<Judged> {
   // The model writes the words of the whole retro, so at day 14 it is given both runs' findings,
   // and the knowledge the merge run gathered.
   const whole = earlier ? { ...sheet, findings: [...earlier.sheet.findings, ...sheet.findings] } : sheet;
@@ -343,7 +342,7 @@ async function judgeSheet({ step, github, env, fetch, owner, repo, prd, config, 
     earlier?.known ??
     (await savedStep(step, id('gather-knowledge'), KnownSchema, async () => gatherKnowledge(await github(), { owner, repo, sha: scope.mergeSha, config })));
   const narrated = await savedStep(step, id('narrate'), NarratedSchema, () =>
-    narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, knowledge: known.knowledge, lessons: known.lessons, env, fetch }),
+    narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, knowledge: known.knowledge, lessons: known.lessons, openrouter, fetch }),
   );
   const guarded = await savedStep(step, id('guard'), GuardedSchema, () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
@@ -560,5 +559,3 @@ export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitF
     });
   };
 }
-
-export const retro = createRetro({ client: inngest, octokitFor: installationOctokit, followUp: true });
