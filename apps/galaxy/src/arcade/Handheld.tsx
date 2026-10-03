@@ -14,7 +14,7 @@ export interface BodyProps {
   onAction: (action: Action) => void;
   onSound: () => void;
   /** Asks to leave for the app (OPEN THE APP?), from the GAME ▮▯ APP switch. None, no switch: the artifact has no app. */
-  onApp?: () => void;
+  onApp?: (() => void) | undefined;
   /** OPEN THE APP? is up: the switch's knob shows APP. */
   leaving?: boolean;
 }

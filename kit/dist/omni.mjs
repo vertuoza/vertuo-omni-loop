@@ -31572,7 +31572,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
       return await fetch(`${root}${path}`, {
         method,
         headers,
-        body: body === void 0 ? void 0 : JSON.stringify(body),
+        ...body === void 0 ? {} : { body: JSON.stringify(body) },
         signal: AbortSignal.timeout(timeoutMs)
       });
     } catch (error62) {

@@ -23,7 +23,7 @@ const FILES = {
   [`${K}/cross-domain/product--quote.md`]: '# Between\n\n## X-PRODUCT-QUOTE-1\n\nA quote needs a review.\n\nKind: rule\nServes: P-QUOTE-1\n',
 };
 
-type Repo = { name: string; archived?: boolean; config?: string; files?: Record<string, string>; truncated?: string };
+type Repo = { name: string; archived?: boolean; config?: string | undefined; files?: Record<string, string>; truncated?: string };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 /** The folder under `dir` as the `files` fragment reads it, or null when nothing sits there. */

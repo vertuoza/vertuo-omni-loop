@@ -12,7 +12,7 @@ type FormTextOptions = {
   frontMatter?: Record<string, unknown>;
   title?: string;
   opener?: string | null;
-  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string }[];
+  slots?: { id: string; heading?: string; required?: boolean; by?: string | null; verified?: string | null; marker?: string | null; body?: string | undefined }[];
 };
 const formText = fixtureFormText as (options?: FormTextOptions) => string;
 

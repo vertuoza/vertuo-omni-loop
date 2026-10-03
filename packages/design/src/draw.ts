@@ -41,7 +41,7 @@ function makeCanvas(w: number, h: number): { canvas: Canvas; ctx: Ctx } {
 const forged = new Map<string, Pixels>();
 
 /** How a sprite frame is recoloured: a ramp swap per material, a flat colour per stripe. */
-export interface SpriteLook { frame?: number; tint?: Tint | null; flat?: Flat | null }
+export interface SpriteLook { frame?: number | undefined; tint?: Tint | null | undefined; flat?: Flat | null | undefined }
 
 // The forged pixel grid of one frame of a sprite (pure; also used by the tests). `flat` recolours
 // flat colours, such as the stripes `1` to `4` (see forge.mjs).
@@ -60,7 +60,7 @@ export function spritePixels(name: string, { frame = 0, tint = null, flat = null
 // A sprite frame as an image, rendered once per (name, frame, tint, flat, flip, silhouette).
 export function spriteImage(
   name: string,
-  { tint = null, flat = null, flip = false, frame = 0, silhouette = null }: SpriteLook & { flip?: boolean; silhouette?: string | null } = {},
+  { tint = null, flat = null, flip = false, frame = 0, silhouette = null }: SpriteLook & { flip?: boolean | undefined; silhouette?: string | null | undefined } = {},
 ): Canvas {
   const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}|${flip}|${silhouette ?? ''}`;
   const hit = cache.get(key);
@@ -86,7 +86,7 @@ export function drawSprite(
   name: string,
   x: number,
   y: number,
-  { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null }: { scale?: number; tint?: Tint; flat?: Flat | null; flip?: boolean; alpha?: number; frame?: number; glow?: string | null } = {},
+  { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null }: { scale?: number | undefined; tint?: Tint | undefined; flat?: Flat | null | undefined; flip?: boolean | undefined; alpha?: number | undefined; frame?: number | undefined; glow?: string | null | undefined } = {},
 ): void {
   const prev = ctx.globalAlpha;
   x = Math.round(x); y = Math.round(y);

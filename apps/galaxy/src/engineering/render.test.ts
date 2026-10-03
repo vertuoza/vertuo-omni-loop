@@ -162,7 +162,7 @@ describe('the top-people lists (PRD 645 s1)', () => {
   const faced = (opened: [string, number][], faces: Record<string, Face> = {}): EngineeringView => {
     const view = board();
     if (view.kind !== 'board' || view.board === UNREADABLE || view.board.kind !== 'board') throw new Error('no board');
-    const withFace = (list: [string, number][]) => people(list).map((p) => (faces[p.login] ? { ...p, face: faces[p.login] } : p));
+    const withFace = (list: [string, number][]) => people(list).map((p) => { const face = faces[p.login]; return face ? { ...p, face } : p; });
     return { ...view, board: { ...view.board, people: { opened: withFace(opened), merged: withFace([['bob', 2]]), reviews: withFace([['dora', 1]]) } } };
   };
   const rowsOf = (html: string, id: string) => sure(sure(html.split(`id="${id}"`)[1], `the section ${id}`).split('</section>')[0], `the section ${id}'s body`).match(/<li[^>]*>.*?<\/li>/g) ?? [];

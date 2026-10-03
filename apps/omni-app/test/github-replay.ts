@@ -18,7 +18,7 @@ import { z } from 'zod';
 type Params = Record<string, unknown>;
 
 /** One recorded read: the route, its parameters, and GitHub's answer (or its failing status). */
-export type Recorded = { route: string; params: Params; data?: unknown; status?: number };
+export type Recorded = { route: string; params: Params; data?: unknown; status?: number | undefined };
 
 /**
  * A recording under `fixtures/`, read from its JSON: the merge it ends at and the reads it holds.

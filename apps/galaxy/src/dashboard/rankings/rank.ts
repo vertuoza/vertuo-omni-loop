@@ -54,7 +54,7 @@ export function rankWindow(heroes: readonly Pick<Hero, 'name' | 'points' | 'rank
  * carried when the season gives them, as the galaxy's fleets always do. */
 export interface FleetRank {
   rank: number; name: string; label: string; points: number; yours: boolean;
-  color?: string | null; mascot?: string | null;
+  color?: string | null | undefined; mascot?: string | null | undefined;
 }
 
 /** A fleet as rankFleets reads it: its colour and mascot when known. */

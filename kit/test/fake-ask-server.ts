@@ -189,7 +189,7 @@ export async function startFakeAskServer({
 }: {
   port?: number;
   holdMs?: number;
-  accessToken?: string;
+  accessToken?: string | undefined;
   refreshToken?: string;
   codes?: string[];
   email?: string;
@@ -198,9 +198,9 @@ export async function startFakeAskServer({
   dossierBodyBytes?: number;
   artifactBytes?: number;
   place?: ((repo: string) => unknown) | null;
-  business?: ((repo: string) => Reply) | null;
-  cite?: ((body: Json) => Reply) | null;
-  claim?: ((body: Json) => Reply) | null;
+  business?: ((repo: string) => Reply) | null | undefined;
+  cite?: ((body: Json) => Reply) | null | undefined;
+  claim?: ((body: Json) => Reply) | null | undefined;
   tokenExtras?: Record<string, unknown>;
   heartbeat?: (body: Json) => { status?: number; delayMs?: number } | null | undefined;
 } = {}) {

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { CANON_MODEL, businessReader, canonFromEnv, constituentsReader } from './live.ts';
 
-type Recorded = { url: URL; method: string; body: { model?: string } | null; headers: Headers };
+type Recorded = { url: URL; method: string; body: { model?: string | undefined } | null; headers: Headers };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 

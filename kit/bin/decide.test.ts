@@ -37,7 +37,7 @@ type Stubbed = { status?: number; body?: unknown };
 const anyText: unknown = expect.any(String);
 
 function stubFetch(answer: (url: string, init: FetchInit) => Stubbed | Promise<Stubbed>) {
-  const calls: { url: string; method?: string; authorization?: string; body: unknown }[] = [];
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined; body: unknown }[] = [];
   const fetch = async (url: string, init: FetchInit) => {
     calls.push({ url, method: init.method, authorization: init.headers.authorization, body: init.body ? (JSON.parse(init.body) as unknown) : undefined });
     const { status = 200, body } = await answer(url, init);

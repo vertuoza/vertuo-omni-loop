@@ -11,7 +11,7 @@ type StructuredData = AdvancedIndex['structuredData'];
 /** A guide page, the fields its index reads (what fumadocs-mdx compiled from docs/guide/). */
 export interface GuideSearchPage {
   url: string;
-  data: { title?: string; description?: string; structuredData: StructuredData };
+  data: { title?: string | undefined; description?: string | undefined; structuredData: StructuredData };
 }
 
 /** The guide's pages, each indexed as fumadocs' createFromSource indexes it. */
@@ -20,7 +20,7 @@ export function guideSearchIndexes(pages: readonly GuideSearchPage[]): AdvancedI
     id: page.url,
     url: page.url,
     title: page.data.title ?? page.url,
-    description: page.data.description,
+    ...(page.data.description === undefined ? {} : { description: page.data.description }),
     structuredData: page.data.structuredData,
   }));
 }

@@ -21,7 +21,7 @@ function readAll(file: string): JsonObject {
   }
 }
 
-export function homeTokens({ home = homedir() }: { home?: string } = {}): TokenStore {
+export function homeTokens({ home = homedir() }: { home?: string | undefined } = {}): TokenStore {
   const file = join(home, ...FILE);
   return {
     read(host: string): Tokens | null {

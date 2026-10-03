@@ -15,7 +15,7 @@ import type { AnswerDoor, OutboxReplies, PendingAnswer } from './summary';
 
 /** A comment of the feature PR, as GitHub lists it. */
 export type PrComment = {
-  id: number; html_url: string; body: string | null; created_at?: string; user?: { login: string } | null; author_association?: string;
+  id: number; html_url: string; body: string | null; created_at?: string | undefined; user?: { login: string } | null | undefined; author_association?: string | undefined;
 };
 
 /** The kit's markers, as `makeMarkers` builds them. */
@@ -25,7 +25,7 @@ type Markers = Parameters<typeof findPrMarkerComment>[1];
 export type KitItem = { id: string; rank: string; sections: Record<string, unknown> };
 export type KitAdopted = { id: string; itemText: string };
 
-type Planned = { number: number; item: { id: string }; answer: { text: string; approvedBy: string; approvedAt?: string; url?: string } };
+type Planned = { number: number; item: { id: string }; answer: { text: string; approvedBy: string; approvedAt?: string | undefined; url?: string | undefined } };
 
 /** The reply's door line, as the kit's reply writer ends every reply it writes. */
 const DOOR_LINE = /^_answered (in the terminal|on the Omni page)\b/m;

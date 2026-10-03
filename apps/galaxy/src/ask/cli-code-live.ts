@@ -1,5 +1,5 @@
 import 'server-only';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
@@ -20,7 +20,7 @@ import type { Database } from '../../../../supabase/database.types';
 
 type Env = { url: string; key: string };
 type Cookie = { name: string; value: string };
-type CookieToSet = Cookie & { options?: Record<string, unknown> };
+type CookieToSet = Cookie & { options: CookieOptions };
 
 const CODE_VERIFIER = /-code-verifier$/;
 

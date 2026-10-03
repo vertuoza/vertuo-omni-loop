@@ -124,7 +124,7 @@ describe('the drawer', () => {
 
   it('outlines the chosen variation, and only it', () => {
     const drawer = [{ type: 'new', product: 'p-1', seed: 'a' }] as PersonasAction[];
-    const third = pickerOf(sure(drawer.reduce(personasReducer, initialPersonasState(CAST)).drawer, 'drawer.reduce(personasReducer, initialPersonasState(CAST)).drawer'))[2];
+    const third = sure(pickerOf(sure(drawer.reduce(personasReducer, initialPersonasState(CAST)).drawer, 'drawer.reduce(personasReducer, initialPersonasState(CAST)).drawer'))[2], 'the third variation');
     const html = render(CAST, { actions: [...drawer, { type: 'change', fields: { avatar: third } }] });
     expect(variations(html).length).toBe(24);
     const pressed = [...html.matchAll(/class="business-persona-variation" aria-pressed="(true|false)"/g)].map((m) => m[1] === 'true');

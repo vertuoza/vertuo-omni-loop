@@ -22,7 +22,7 @@ const PlayerSchema = z.looseObject({
 }) satisfies z.ZodType<Player>;
 
 /** A guest may have linked GitHub before they have a player row: the login is kept apart. */
-interface Saved { signedIn: boolean; github?: string | null; me: Player | null; best?: Record<string, number> }
+interface Saved { signedIn: boolean; github?: string | null | undefined; me: Player | null; best?: Record<string, number> | undefined }
 
 /** What this browser kept, every field it was written with kept too. */
 const SavedSchema = z.looseObject({

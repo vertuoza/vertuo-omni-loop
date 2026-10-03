@@ -50,7 +50,7 @@ function world({ database = true } = {}) {
     new Request(`https://omni.example${path}`, {
       method: 'POST',
       headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', ...headers },
-      body: raw ?? (body === undefined ? undefined : JSON.stringify(body)),
+      body: raw ?? (body === undefined ? null : JSON.stringify(body)),
     });
   const read = async (response: Response) => ({ status: response.status, body: Answer.parse(await response.json()) });
   const open = async (body: unknown, call: Call = {}) => read(await openDossier(request('/api/dossiers', { body, ...call }), deps));

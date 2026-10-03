@@ -68,7 +68,7 @@ const loginOf = (author: Author): string | null => {
 };
 
 /** The PRD stage a merged pull request marks, as `{ kind, prd }`, or null: its label and its link both. */
-export function stageOf(pr: { labels?: Array<{ name: string }> | null; body?: string | null }): { kind: string; prd: number } | null {
+export function stageOf(pr: { labels?: Array<{ name: string }> | null | undefined; body?: string | null | undefined }): { kind: string; prd: number } | null {
   const labels = new Set((pr.labels ?? []).map((l) => l.name));
   for (const { kind, label, link } of STAGES) {
     const prd = labels.has(label) ? link.exec(pr.body ?? '')?.[1] : undefined;
@@ -140,7 +140,7 @@ const order = (a: Contribution, b: Contribution): number => a.kind.localeCompare
  * in one request. Returns { rows: what was written, read: [{ repo, merged, opened }], skipped: [{ repo, why }] }.
  */
 export async function runContributions(
-  { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string; org: string | null | undefined; now?: Date; log?: Log },
+  { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string | undefined; org: string | null | undefined; now?: Date; log?: Log },
 ): Promise<{
   rows: InsertRow<'contributions'>[];
   read: Array<{ repo: string; merged: number; opened: number; started: number; shipped: number }>;

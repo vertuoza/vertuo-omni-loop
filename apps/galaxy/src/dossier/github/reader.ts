@@ -150,7 +150,7 @@ function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
 }
 
 /** A settled entry as the kit's ledger reader gives it (the latest per id). */
-type LedgerEntry = { id: string; verdict?: string; answerText: string; itemText: string; fields: Record<string, string | undefined> };
+type LedgerEntry = { id: string; verdict?: string | undefined; answerText: string; itemText: string; fields: Record<string, string | undefined> };
 
 /** The settled entries, in the order settled.md holds them (the latest per id). */
 function settledItems(entries: LedgerEntry[]): SettledItem[] {

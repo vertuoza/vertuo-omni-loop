@@ -159,10 +159,10 @@ function server(hash: string | null, deps: McpDeps): McpServer {
   return mcp;
 }
 
-/** One MCP request: a fresh stateless server for the link the request carries. */
+/** One MCP request: a fresh stateless server (no session id generator) for the link the request carries. */
 export async function handleMcp(request: Request, deps: McpDeps): Promise<Response> {
   const hash = await hashOf(request.headers.get('authorization'));
-  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+  const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
   const mcp = server(hash, deps);
   await mcp.connect(transport);
   try {

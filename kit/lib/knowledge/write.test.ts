@@ -28,7 +28,7 @@ const markers = makeMarkers('omni-outbox');
 const K = '.omni-loop/knowledge';
 const LEDGER = '.omni-loop/delivery/shipped/0028-outbox-check/outbox/settled.md';
 
-function itemText({ id, rank = 'medium', raised = '2026-09-25' }: { id: string; rank?: string; raised?: string }): string {
+function itemText({ id, rank = 'medium', raised = '2026-09-25' }: { id: string; rank?: string | undefined; raised?: string | undefined }): string {
   return [
     '---',
     `id: ${id}`,

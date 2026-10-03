@@ -231,8 +231,8 @@ export async function classifyCandidate({
 }: {
   candidate: PromptCandidate;
   summary: KnowledgeSummary;
-  env?: Record<string, string | undefined>;
-  fetch?: typeof globalThis.fetch;
+  env?: Record<string, string | undefined> | undefined;
+  fetch?: typeof globalThis.fetch | undefined;
 }): Promise<Classification> {
   if (allowedKinds(summary.places).every((kind) => kind === 'covered' || kind === 'stays-here')) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };

@@ -195,7 +195,7 @@ async function read(run: Run, label: string, work: () => Promise<boolean>) {
     why = plainError(error);
   }
   if (!ok) run.counts.skipped += 1;
-  run.scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', why });
+  run.scanned.push(ok ? { source: label, state: 'read' } : { source: label, state: 'skipped', ...(why === undefined ? {} : { why }) });
   await run.deps.store.progress(run.workspace, run.draft, run.counts, run.scanned);
 }
 

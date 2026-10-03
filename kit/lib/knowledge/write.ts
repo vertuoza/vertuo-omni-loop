@@ -331,7 +331,7 @@ export function writeKnowledge({
   ctx: WriteCtx;
   classified: readonly Classified[];
   merge: Merge;
-  taken?: Taken;
+  taken?: Taken | undefined;
   date: string;
 }): WriteResult {
   const files = makeFiles(ctx);

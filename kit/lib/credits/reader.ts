@@ -122,7 +122,7 @@ export type ReadCreditsInput = {
   labels: CreditLabels;
   signature: TrailerSignature | null;
   exec?: CreditsExec;
-  env?: NodeJS.ProcessEnv;
+  env?: NodeJS.ProcessEnv | undefined;
 };
 
 export type CreditsRead = { prs: CreditPullRequest[]; issues: CreditPullRequest[]; commits: CreditCommit[]; warnings: string[] };

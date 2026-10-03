@@ -43,7 +43,7 @@ export interface RepositoriesViewProps {
   /** The time the collection lines are read at (the server's, so both renders agree). */
   now: number;
   /** The business's products, first first (PRD 748 s4): each row has a select from the second on. */
-  products?: Product[];
+  products?: Product[] | undefined;
   on?: RepositoriesHandlers;
 }
 

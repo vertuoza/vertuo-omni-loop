@@ -294,7 +294,10 @@ export function checkReply(value: unknown): { errors: string[]; reply: ModelRepl
   if (!Array.isArray(value.lessons)) errors.push('lessons must be a list');
   else {
     value.lessons.forEach((lesson: unknown, index: number) => {
-      if (!isObject(lesson)) return errors.push(`lessons[${index}] must be an object`);
+      if (!isObject(lesson)) {
+        errors.push(`lessons[${index}] must be an object`);
+        return;
+      }
       if (typeof lesson.text !== 'string') errors.push(`lessons[${index}].text must be a string`);
       if (!Array.isArray(lesson.findings) || lesson.findings.some((id: unknown) => typeof id !== 'string')) {
         errors.push(`lessons[${index}].findings must be a list of finding ids`);
@@ -320,7 +323,7 @@ export type NarrateInput = {
   knowledge?: KnowledgeInput;
   lessons?: readonly unknown[] | null;
   env?: Record<string, string | undefined>;
-  fetch?: typeof fetch;
+  fetch?: typeof fetch | undefined;
   sleep?: (ms: number) => Promise<void>;
   call?: typeof MODEL_CALL;
 };

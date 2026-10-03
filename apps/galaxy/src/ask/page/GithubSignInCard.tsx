@@ -7,7 +7,7 @@ import { startGithubSignIn } from '../../data/sign-in-github';
 // The ask pages, /app and the knowledge map each give it their own title and text.
 
 /** What a page hands its sign-in card: the project to sign in to, where to come back, a failure to show. */
-export type SignInProps = { supabase: { url: string; key: string }; returnPath: string; error?: string | null };
+export type SignInProps = { supabase: { url: string; key: string }; returnPath: string; error?: string | null | undefined };
 
 /** The GitHub sign-in a card starts: busy while GitHub opens, and the line of a sign-in that failed. */
 export function useGithubSignIn({ supabase, returnPath, error }: SignInProps) {

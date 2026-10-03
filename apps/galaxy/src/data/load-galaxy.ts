@@ -26,7 +26,7 @@ export function demoFleets(): FleetRow[] {
   return fleetsFrom(Object.entries(DEMO_PROJECTS.teams).map(([name, t]) => ({ name, ...t })));
 }
 
-type TeamRow = { name: string; home: string | null; label?: string; color?: string; motto?: string; mascot?: string | null; sort?: number; retired_at?: string | null; retired?: boolean };
+type TeamRow = { name: string; home: string | null; label?: string | undefined; color?: string | undefined; motto?: string | undefined; mascot?: string | null | undefined; sort?: number | undefined; retired_at?: string | null | undefined; retired?: boolean | undefined };
 const fleetsFrom = (rows: TeamRow[]): FleetRow[] => rows
   .map((r) => ({ name: r.name, ...lookOf(r.name, { ...r, retired: r.retired ?? Boolean(r.retired_at) }) }))
   .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));

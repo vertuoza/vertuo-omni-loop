@@ -185,7 +185,7 @@ export type StageViewInput = {
   /** The PRD's stored stages; none yet reads Syncing…. */
   rows: readonly StageRow[];
   /** The GitHub summary, for the button, the links and the badge only; null or left out when not read. */
-  github?: GithubSummary | null;
+  github?: GithubSummary | null | undefined;
   slices?: number | null;
 };
 

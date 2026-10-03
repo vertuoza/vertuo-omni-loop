@@ -31,7 +31,7 @@ function fakeGithub(repo: {
   issue?: unknown;
   pulls?: ReturnType<typeof pull>[];
   installed?: boolean;
-  fail?: RegExp;
+  fail?: RegExp | undefined;
   /** Files by `<ref>:<path>`; a directory lists the files and folders right under it. */
   files?: Record<string, string>;
   /** The comments of each issue or pull request, by number. */

@@ -19,7 +19,7 @@ export type SlotFixture = {
   by?: string | null;
   verified?: string | null;
   marker?: string | null;
-  body?: string;
+  body?: string | undefined;
 };
 
 export function deepMerge(base: unknown, over: unknown): unknown {

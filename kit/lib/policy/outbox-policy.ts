@@ -107,14 +107,14 @@ export type OutboxItemFields = {
   rank: string;
   questionPlain: string;
   decisionPlain: string;
-  introFun?: string | null;
-  punchlineFun?: string | null;
+  introFun?: string | null | undefined;
+  punchlineFun?: string | null | undefined;
   decide: string;
   meanwhile: string;
   cost: string;
   gaps: readonly string[];
-  options?: readonly (string | null | undefined)[] | null;
-  personSteps?: string | null;
+  options?: readonly (string | null | undefined)[] | null | undefined;
+  personSteps?: string | null | undefined;
   laws: FloorLaws;
 };
 

@@ -46,7 +46,7 @@ const json = (status: number, body = {}) => new Response(JSON.stringify(body), {
 
 /** A fetch that follows the contract, or answers `over(url, init)` when that gives a Response. */
 function fakeApp(over: (url: string, init: FetchInit) => Response | null = () => null) {
-  const calls: { url: string; method?: string; authorization?: string; type?: string; body?: unknown }[] = [];
+  const calls: { url: string; method?: string | undefined; authorization?: string | undefined; type?: string | undefined; body?: unknown }[] = [];
   const answer = (href: string, init: FetchInit) => {
     calls.push({ url: href, method: init.method, authorization: init.headers.authorization, type: init.headers['content-type'], body: init.body });
     const replaced = over(href, init);
