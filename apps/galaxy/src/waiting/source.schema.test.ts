@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { boundaries } from './source.boundary';
 import { WaitingRound } from './source';
 
-// The waiting rounds' questions the Questions part reads, parsed where they come in (PRD 1030).
+// The waiting rounds' questions the Questions part reads, parsed where they come in (PRD 1030). No
+// boundary registers this read: `pnpm schemas:verify` reads with the service role, which is granted
+// nothing on ask_rounds (only a signed-in person reads a round).
 
 const row = { id: 'r1', questions: [{ question: 'Which colour?', options: [{ label: 'Blue' }] }] };
 
@@ -15,9 +16,5 @@ describe('a waiting round, as the database answers it', () => {
     expect(WaitingRound.safeParse({ questions: row.questions }).success).toBe(false);
     expect(WaitingRound.safeParse({ ...row, id: 1 }).success).toBe(false);
     expect(WaitingRound.safeParse({ ...row, id: null }).success).toBe(false);
-  });
-
-  it('is registered for schemas:verify with the schema the reader parses with', () => {
-    expect(boundaries.map((b) => [b.name, b.schema, b.shape])).toEqual([['waiting/source: ask_rounds', WaitingRound, 'rows']]);
   });
 });
