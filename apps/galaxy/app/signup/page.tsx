@@ -1,5 +1,6 @@
 import { installUrl } from '../../src/signup/github-app';
 import { readView, SignupScreen } from '../../src/signup/SignupScreen';
+import { serverEnv } from '../../src/env';
 
 // /signup (PRD 359): where a visitor with no workspace installs Omni Loop on their GitHub org (or
 // their own account), and where /signup/installed sends them when they must wait for their org's
@@ -13,5 +14,5 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 export default async function SignupPage({ searchParams }: Props) {
   const query = await searchParams;
   const view = readView({ waiting: one(query.waiting), error: one(query.error) });
-  return <SignupScreen view={view} installUrl={installUrl(process.env.GITHUB_APP_SLUG)} />;
+  return <SignupScreen view={view} installUrl={installUrl(serverEnv().githubAppSlug)} />;
 }

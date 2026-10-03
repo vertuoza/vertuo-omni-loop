@@ -7,6 +7,7 @@
 
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { OpenRouterEnv } from '../env';
 
 /** The six values, in the spec's order. Stored as they are; the page shows CATEGORY_LABELS. */
 export const CATEGORIES = ['business', 'product', 'ux-ui', 'architecture', 'harness', 'other'] as const;
@@ -115,7 +116,6 @@ export function openRouterClassifier({ apiKey, fetch = globalThis.fetch, model =
 }
 
 /** The classifier when OPENROUTER_API_KEY is set, and null otherwise: rounds then stay unsorted. */
-export function classifierFromEnv(env: Record<string, string | undefined>): Classifier | null {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  return apiKey ? openRouterClassifier({ apiKey }) : null;
+export function classifierFromEnv(openrouter: OpenRouterEnv | null): Classifier | null {
+  return openrouter ? openRouterClassifier({ apiKey: openrouter.key }) : null;
 }

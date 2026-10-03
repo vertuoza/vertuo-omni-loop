@@ -1,4 +1,5 @@
 import 'server-only';
+import { serverEnv, type GithubAppEnv } from '../../env';
 import { appCredentials } from '../../signup/github-app';
 import { githubReader, type FixReader, type GithubReader } from './reader';
 
@@ -8,10 +9,10 @@ import { githubReader, type FixReader, type GithubReader } from './reader';
 
 let reader: (GithubReader & FixReader) | null | undefined;
 
-export function dossierGithub(env: Record<string, string | undefined> = process.env): (GithubReader & FixReader) | null {
+export function dossierGithub(app: GithubAppEnv | null = serverEnv().githubApp): (GithubReader & FixReader) | null {
   if (reader !== undefined) return reader;
   try {
-    reader = githubReader(appCredentials(env));
+    reader = githubReader(appCredentials(app));
   } catch (error) {
     console.error(`PRD page: ${error instanceof Error ? error.message : String(error)}`);
     reader = null;

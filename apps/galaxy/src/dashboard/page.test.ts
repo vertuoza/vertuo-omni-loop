@@ -15,7 +15,10 @@ const loadDashboard = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unk
 const getClaims = vi.hoisted(() => vi.fn(() => Promise.resolve({ data: given.user ? { claims: { sub: given.user.id, email: given.user.email } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: () => Promise.resolve({ auth: { getClaims } }),

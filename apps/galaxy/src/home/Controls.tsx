@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { play } from '../arcade/sound';
 import { startGithubSignIn } from '../data/sign-in-github';
+import { clientEnv } from '../env.client';
 import { konami } from './konami';
 import { answerSignUp, CHANGE_ATTR, changeChoice, HINT_SLOT_ATTR, hintLine, readChoice, saveChoice, type SignUpClickPorts } from './selector/choice';
 import { Selector } from './selector/Selector';
@@ -42,9 +43,7 @@ const CONTROL = 'a[href], button, input, textarea, select, summary, [contentedit
 
 /** The galaxy's Supabase, inlined into the browser bundle when the page is built; null on the demo. */
 function supabase(): { url: string; key: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return url && key ? { url, key } : null;
+  return clientEnv().supabase;
 }
 
 /** The same Supabase for the page's life, so the signed-in read runs once. */

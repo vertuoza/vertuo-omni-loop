@@ -1,5 +1,5 @@
 import { Notice } from '../ask/page/Notice';
-import { arcadeMode } from '../data/mode';
+import { serverEnv } from '../env';
 import { DEMO_VIEWER, demoHistory } from '../dossier/page/demo';
 import { DossierSignIn } from '../dossier/page/DossierSignIn';
 import { readHistory, type Db } from '../dossier/page/source';
@@ -57,7 +57,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
     <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people, whom)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const login = whoLogin(filters.who);
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
 
   if (mode === 'demo') return listing(demoHistory(Date.now()), { id: DEMO_VIEWER, login: null });
   const session = await dossierSession(mode);

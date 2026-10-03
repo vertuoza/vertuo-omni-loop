@@ -11,6 +11,7 @@ import { checkUrl, fetchPage } from './page';
 import { runDraft, type DraftDeps } from './run';
 import { draftStore, WORKSPACE_COLUMNS, WorkspaceRow } from './store';
 import { orNull, parseRow } from '../../data/parse-rows';
+import { serverEnv } from '../../env';
 
 // The draft routes' real dependencies (./api.ts, PRD 774 s2). The store is the signed-in person's own
 // Supabase session, so row-level security and the migration's functions decide who may read and write.
@@ -63,7 +64,7 @@ export function runDeps(db: Pick<SupabaseClient, 'from' | 'rpc'>): DraftDeps {
       file: (installation, repository, path) => repos().file(installation, repository, path),
     },
     page: (url) => fetchPage(url),
-    extract: extractorFromEnv(process.env),
+    extract: extractorFromEnv(serverEnv().openrouter),
     log: (line) => { console.error(line); },
   };
 }

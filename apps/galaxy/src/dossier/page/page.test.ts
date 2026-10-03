@@ -44,7 +44,10 @@ vi.mock('../../stages/store', async (original) => ({
   ...(await original<typeof import('../../stages/store')>()),
   stageStore: () => given.stages,
 }));
-vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../../env', async (actual) => {
+  const env = await actual<typeof import('../../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 // Who plays in the dock (PRD 757, s4): the fake database keeps no player rows, so the read is given.
 vi.mock('./dock-player', () => ({
   readDockPlayer: (_db: unknown, user: { id: string }, workspace: string) =>

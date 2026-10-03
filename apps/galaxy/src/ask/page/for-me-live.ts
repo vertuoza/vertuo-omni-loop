@@ -1,6 +1,6 @@
 import 'server-only';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { arcadeMode } from '../../data/mode';
+import { serverEnv } from '../../env';
 import { DEMO_MEMBERS } from './demo';
 import { forMeList, type ForMeEntry } from './question';
 import { readAsSignedIn, sessionsMembers, type NotRead } from './signed-in-live';
@@ -12,7 +12,7 @@ import { readForMe } from './source';
 export type ForMeRead = { kind: 'entries'; entries: ForMeEntry[] } | NotRead;
 
 export async function readForMeLive(now: number): Promise<ForMeRead> {
-  const mode = arcadeMode(process.env);
+  const mode = serverEnv().mode;
   if (mode === 'demo') {
     const teammate = at(DEMO_MEMBERS, 1, 'the demo teammate');
     return {

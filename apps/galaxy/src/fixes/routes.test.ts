@@ -80,7 +80,10 @@ vi.mock('../people/load', async (original) => {
   const real = await original<typeof import('../people/load')>();
   return { ...real, loadPeople: vi.fn(async (db: never, workspace: string) => (given.roster ? real.peopleOf(given.roster, []) : real.loadPeople(db, workspace))) };
 });
-vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
+vi.mock('../env', async (actual) => {
+  const env = await actual<typeof import('../env')>();
+  return { ...env, serverEnv: () => ({ ...env.readEnv({}), mode: given.mode }) };
+});
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: async () => {

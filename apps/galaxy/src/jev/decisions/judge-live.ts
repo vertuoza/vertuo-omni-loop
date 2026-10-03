@@ -1,15 +1,16 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
+import { serverEnv, type ArcadeEnv } from '../../env';
 import { jevDecideDeps } from '../resolve-live';
-import { JUDGE_SECRET_VAR, placedWorkspace, type JudgeRouteDeps, type TrackingRow } from './judge-route';
+import { placedWorkspace, type JudgeRouteDeps, type TrackingRow } from './judge-route';
 
 // The constituent judge's real dependencies (./judge-route.ts, PRD 871 s4): CONSTITUENT_JUDGE_SECRET
 // (server only, shared with omni-app), the service role reading which workspaces track the repository,
 // and the resolver (../resolve-live.ts). Each is read per call. Without the service role the judge
 // answers today's verdict.
-export function judgeDeps(env: Record<string, string | undefined> = process.env): JudgeRouteDeps {
+export function judgeDeps(env: Pick<ArcadeEnv, 'constituentJudgeSecret' | 'supabase' | 'serviceRole' | 'secretsMasterKey'> = serverEnv()): JudgeRouteDeps {
   return {
-    secret: env[JUDGE_SECRET_VAR] || undefined,
+    secret: env.constituentJudgeSecret ?? undefined,
     workspaceOf: trackingWorkspace,
     jev: jevDecideDeps(env),
   };
