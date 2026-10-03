@@ -9,24 +9,28 @@ import { asSaved } from '../src/saved-step.ts';
 type Ctx = Parameters<typeof mockCtx>[0];
 type Run = (id: string, fn: () => unknown, ...rest: unknown[]) => Promise<unknown>;
 
+type Alter = (id: string, value: unknown) => unknown;
+
 /**
- * A `transformCtx` for `InngestTestEngine`: the step tools mocked as `mockCtx` mocks them, each
- * `step.run` value saved as JSON and read back, its id added to `saved`. `then` transforms the context
- * after, as a test's own `transformCtx` would.
+ * The context with each `step.run` value saved as JSON and read back, its id added to `saved`.
+ * `alter` changes a saved value before the function reads it, as a deploy between two replays would.
  */
-export function savingSteps(saved: string[], then: (ctx: ReturnType<typeof mockCtx>) => ReturnType<typeof mockCtx> = (ctx) => ctx) {
-  return (ctx: Ctx): ReturnType<typeof mockCtx> => {
-    const run = ctx.step.run as unknown as Run;
-    const saving: Run = (id, fn, ...rest) =>
-      run(
-        id,
-        async () => {
-          const value = asSaved(await fn());
-          saved.push(id);
-          return value;
-        },
-        ...rest,
-      );
-    return then(mockCtx({ ...ctx, step: { ...ctx.step, run: saving as unknown as Ctx['step']['run'] } }));
-  };
+export function savingRun(ctx: Ctx, saved: string[], alter: Alter = (_id, value) => value): Ctx {
+  const run = ctx.step.run as unknown as Run;
+  const saving: Run = (id, fn, ...rest) =>
+    run(
+      id,
+      async () => {
+        const value = alter(id, asSaved(await fn()));
+        saved.push(id);
+        return value;
+      },
+      ...rest,
+    );
+  return { ...ctx, step: { ...ctx.step, run: saving as unknown as Ctx['step']['run'] } };
+}
+
+/** A `transformCtx` for `InngestTestEngine`: `savingRun`, then the step tools mocked as `mockCtx` mocks them. */
+export function savingSteps(saved: string[], alter?: Alter) {
+  return (ctx: Ctx): ReturnType<typeof mockCtx> => mockCtx(savingRun(ctx, saved, alter));
 }

@@ -6,7 +6,7 @@ import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { listPullsInto } from '../github.ts';
 import { timeline, wavesAsMerged } from './timeline.ts';
 import type { RetroPull } from './index.ts';
-import { handles, replay } from './test-handles.ts';
+import { handles, replay } from './test/handles.ts';
 
 const { gather, detect, section } = handles(timeline);
 

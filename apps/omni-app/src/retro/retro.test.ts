@@ -4,6 +4,7 @@ import { type Mock, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
+import { savingRun, savingSteps } from '../../test/saved-steps.ts';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import {
@@ -483,6 +484,63 @@ describe('retro — a replay', () => {
       expect(request.force).toBe(false);
     }
     expect(pullsFrom(scenario.github, BRANCH)).toHaveLength(1);
+  });
+});
+
+describe('retro — every step read back as Inngest saved it (s19-01)', () => {
+  const MERGE_STEPS = ['qualify', 'gather-pulls', 'gather-timeline', 'gather-delivery', 'gather-ci', 'gather-churn', 'facts', 'gather-knowledge', 'narrate', 'guard'];
+
+  /** The retro against `scenario`, each step's value saved as JSON and read back, the ids of the steps that were added to `saved`. */
+  function savingEngine(
+    scenario: Scenario,
+    saved: string[],
+    { env = JUDGE_ENV, followUp = false, alter }: { env?: Env; followUp?: boolean; alter?: (id: string, value: unknown) => unknown } = {},
+  ): Engine {
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, fetch: judge(), followUp });
+    // A wait, if the clock asks for one, ends on the tick of the fourteenth day.
+    const transformCtx = followUp ? (ctx: Parameters<typeof mockCtx>[0]) => answering(fourteenDays().waits)(savingRun(ctx, saved, alter)) : savingSteps(saved, alter);
+    return testEngine({ function: fn, events: [scenario.event], transformCtx });
+  }
+
+  it('parses every step of a run worth a pull request, once saved, and writes the same retro as before', async () => {
+    const plain = widgetScenario();
+    await engine(plain).execute();
+    const scenario = widgetScenario();
+    const saved: string[] = [];
+    const { result, error } = await savingEngine(scenario, saved).execute();
+    expect(error).toBeUndefined();
+    expect(saved).toEqual([...MERGE_STEPS, 'publish-issues', 'publish']);
+    expect(result).toMatchObject({ prd: 7, findings: 1, issues: 1, branch: BRANCH, committed: true });
+    expect(fileAt(scenario.github, BRANCH, MD)).toBe(fileAt(plain.github, BRANCH, MD));
+    expect(fileAt(scenario.github, BRANCH, JSON_PATH)).toBe(fileAt(plain.github, BRANCH, JSON_PATH));
+  });
+
+  it('parses every step of a run not judged, once saved, and leaves the same comment', async () => {
+    const plain = widgetScenario();
+    await engine(plain, { env: {} }).execute();
+    const scenario = widgetScenario();
+    const saved: string[] = [];
+    const { error } = await savingEngine(scenario, saved, { env: {} }).execute();
+    expect(error).toBeUndefined();
+    expect(saved).toEqual([...MERGE_STEPS, 'verdict']);
+    expect(verdictComments(scenario.github).map((comment) => comment.body)).toEqual(verdictComments(plain.github).map((comment) => comment.body));
+  });
+
+  it('parses every step of the day-14 run, the clock and the merge run’s facts included, once saved', async () => {
+    const scenario = afterMergeScenario({ churn: true });
+    const saved: string[] = [];
+    // The clock is read, not stubbed: its value too is saved and read back.
+    const { result, error } = await savingEngine(scenario, saved, { followUp: true }).execute();
+    expect(error).toBeUndefined();
+    expect(saved).toEqual([...MERGE_STEPS, 'publish-issues', 'publish', CLOCK_STEP, ...DAY_14_STEPS]);
+    expect(result).toMatchObject({ followUp: { findings: 2, issues: 2, branch: BRANCH, committed: true } });
+    expect(retroJsonAt(scenario.github, BRANCH).runs.map((run) => run.run)).toEqual(['merge', 'day-14']);
+  });
+
+  it('fails the run on a saved value of another shape, naming the step and the field', async () => {
+    const withoutRules = (id: string, value: unknown) => (id === 'facts' ? { ...z.looseObject({}).parse(value), rules: undefined } : value);
+    const { error } = await savingEngine(widgetScenario(), [], { alter: withoutRules }).execute();
+    expect(String(z.looseObject({ message: z.string() }).parse(error).message)).toMatch(/^The step "facts" came back in an unexpected shape: rules: /);
   });
 });
 

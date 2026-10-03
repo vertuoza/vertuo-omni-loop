@@ -10,7 +10,7 @@ import { listPullsInto } from '../github.ts';
 import { LIMITS } from '../rules.ts';
 import { ci } from './ci.ts';
 import type { Finding, RetroPull } from './index.ts';
-import { handles, replay, retroFunction, scenario } from './test-handles.ts';
+import { handles, replay, retroFunction, scenario } from './test/handles.ts';
 import { cleanLog, tailOf } from './ci-logs.ts';
 
 const { gather, detect, section } = handles(ci);
