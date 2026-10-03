@@ -17,6 +17,7 @@
 //
 // The branch, the commit and the PR are written through the app's shared writer (`../git-write/`).
 import { addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from '../git-write/git-write.ts';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { mergeRuns, render } from './render.ts';
 import { readContent } from './github.ts';
@@ -44,7 +45,7 @@ export type Published = {
   branch: string;
   committed: boolean;
   commit: string;
-  pr: { number: number; url: string; created: boolean } | null;
+  pr: { number: PrNumber; url: string; created: boolean } | null;
 };
 
 export async function publishRetro(octokit: Octokit, { owner, repo, config, prd, pr, record, prose, earlier = [] }: PublishInput): Promise<Published> {

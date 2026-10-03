@@ -25,6 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App } from '@octokit/app';
 import { NonRetriableError, type Inngest } from 'inngest';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, inngest, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -135,7 +136,7 @@ export async function notRetriedPastBound<T>(evaluation: () => Promise<T>): Prom
  */
 async function evaluateAt(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha }: { owner: string; repo: string; prNumber: number; headSha: string },
+  { owner, repo, prNumber, headSha }: { owner: string; repo: string; prNumber: PrNumber; headSha: string },
 ): Promise<Verdict> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-base-'));

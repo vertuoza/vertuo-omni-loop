@@ -5,6 +5,7 @@
 // A read the installation is not allowed to make, or that finds nothing (403, 404, or GraphQL
 // refusing the same way), gives `null`: unknown, which the detector says, never an empty list it
 // would count as "none". Any other failure fails the step, so Inngest retries it.
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { MAX_PAGES, PER_PAGE, paginate } from '../github.ts';
 import { hasRedCircle, isBotLogin, stuckAttempts } from './delivery.facts.ts';
 import type { Octokit } from './index.ts';
@@ -13,7 +14,7 @@ import type { z } from 'zod';
 import type { PullReadsSchema, ReviewRecordSchema, StuckCommentSchema, ThreadRecordSchema } from './records.ts';
 
 /** A pull request a read names: its repository and its number. */
-export type PullRef = { owner: string; repo: string; number: number };
+export type PullRef = { owner: string; repo: string; number: PrNumber };
 
 export type StuckComment = z.infer<typeof StuckCommentSchema>;
 export type ReviewRecord = z.infer<typeof ReviewRecordSchema>;

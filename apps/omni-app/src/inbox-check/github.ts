@@ -2,6 +2,7 @@
 // (`readPull`, `readBaseConfig`) and `snapshot`: the inbox check run, started and failed closed with
 // the inbox's `external_id`; the compare's changed paths and commits; and the PRD issue. Every call
 // goes through `octokit.request(route, params)`, so a test stubs one function.
+import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { INBOX_EXTERNAL_ID } from '../inngest-client.ts';
 import { completeAsFailure } from '../outbox-check/github.ts';
 import {
@@ -19,7 +20,7 @@ const PER_PAGE = 100;
 const MAX_PAGES = 30;
 
 /** The PRD issue's facts; `null`: GitHub has no issue of that number. */
-export type IssueFacts = { number: number; state: string; labels: string[]; isPullRequest: boolean } | null;
+export type IssueFacts = { number: IssueNumber; state: string; labels: string[]; isPullRequest: boolean } | null;
 
 /** A changed path, its status as GitHub's compare names it. */
 export type ComparedChange = { path: string; status: string };
@@ -79,7 +80,7 @@ export async function compareFacts(
  * Issue `number`: its state, its labels, and whether it is a pull request (GitHub serves both on the
  * issues route). `null` when there is none.
  */
-export async function readIssue(octokit: GitHubClient, { owner, repo, number }: Repo & { number: number }): Promise<IssueFacts> {
+export async function readIssue(octokit: GitHubClient, { owner, repo, number }: Repo & { number: IssueNumber }): Promise<IssueFacts> {
   let answer: unknown;
   try {
     ({ data: answer } = await octokit.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {

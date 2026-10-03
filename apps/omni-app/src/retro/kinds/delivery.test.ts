@@ -1,3 +1,4 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
@@ -490,7 +491,7 @@ describe('delivery — the PRD 50 recording', () => {
 
   async function prd50() {
     const github = replay({ recording: recording.requests });
-    const input = { owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: 51, mergeSha: recording.mergeSha };
+    const input = { owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(51), mergeSha: recording.mergeSha };
     const qualified = await qualify(github.octokit, input);
     if (qualified.skip !== null) throw new Error(qualified.skip);
     const { pr, prd, config: at } = qualified;

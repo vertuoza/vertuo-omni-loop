@@ -1,3 +1,4 @@
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -48,6 +49,10 @@ describe('toStageEvent', () => {
   it('turns an opened retro PR into retro, with no PRD when its body names none', () => {
     expect(toStageEvent('pull_request', pull('opened', { head: 'docs/retro-real-stages', body: 'The retro.' })))
       .toEqual({ repository: 'acme/widgets', topic: 'real-stages', prd: null, stage: 'retro', at: '2026-09-29T08:00:00Z' });
+  });
+
+  it('reads no PRD from a link line naming no PRD number (PRD 1049)', () => {
+    expect(toStageEvent('pull_request', pull('closed', { head: 'docs/phase-0-x', merged: true, body: 'Refs #0' }))?.prd).toBeNull();
   });
 
   it('reads no PRD from a body without a link line, or from none', () => {
@@ -110,7 +115,7 @@ describe('stageEventUrl', () => {
 });
 
 describe('forwardStageEvent', () => {
-  const event: StageEvent = { repository: 'acme/widgets', topic: 'x', prd: 3, stage: 'inbox', at: '2026-09-29T10:00:00Z' };
+  const event: StageEvent = { repository: 'acme/widgets', topic: 'x', prd: parsePrd(3), stage: 'inbox', at: '2026-09-29T10:00:00Z' };
 
   it('POSTs the event signed with the secret', async () => {
     const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response('ok', { status: 200 })));

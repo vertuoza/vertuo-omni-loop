@@ -1,5 +1,6 @@
 // In-process, from a signed webhook to a completed check, against a stubbed GitHub: PRD 28's
 // acceptance criteria 1–6, which a person re-runs live once the app is registered and installed.
+import { parsePr, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +19,7 @@ const SECRET = 'e2e-secret';
 const REPOSITORY = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' } };
 
 /** A pull request as a delivery carries it. */
-type Pull = { number: number; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
+type Pull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
 /** A delivery to `/api/github`: its event and its payload. */
 type Delivery = { event: string; payload: Record<string, unknown> };
 type GitHub = ReturnType<typeof fakeGitHub>;
@@ -65,7 +66,7 @@ async function deliver(github: GitHub, { event, payload }: Delivery) {
 }
 
 const featurePull = (head = 'head1') => ({
-  number: 12,
+  number: parsePr(12),
   base: { ref: 'main', sha: 'base1' },
   head: { ref: 'feat/widget', sha: head },
   labels: [],
@@ -112,7 +113,7 @@ describe('end to end — a signed webhook to a completed check', () => {
   });
 
   it('4. a sub-PR (base is the feature branch) shows the check skipped: not active on this PR', async () => {
-    const pull = { number: 13, base: { ref: 'feat/widget', sha: 'base1' }, head: { ref: 'feat/widget--s1', sha: 'head1' } };
+    const pull = { number: parsePr(13), base: { ref: 'feat/widget', sha: 'base1' }, head: { ref: 'feat/widget--s1', sha: 'head1' } };
     const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
     await deliver(github, pullRequestDelivery(pull, 'opened'));
     expect(latest(github)).toMatchObject({

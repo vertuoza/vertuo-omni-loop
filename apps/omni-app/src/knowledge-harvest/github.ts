@@ -10,6 +10,7 @@ import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { readKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
 import { readDecisions } from 'vertuo-omni-plan/kit/lib/playbook/decisions.ts';
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
 import { topicOf } from '../retro/qualify.ts';
@@ -31,7 +32,7 @@ export type MergeFacts = { merged: boolean; by: string | null; at: string | null
 /** Who merged the pull request, when, at which commit, and where it lives. */
 export async function readMerge(
   octokit: RequestOctokit,
-  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: number },
+  { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber },
 ): Promise<MergeFacts> {
   const { data: answer } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', { owner, repo, pull_number: prNumber });
   const data = parsedOr(PullMergeSchema, answer, `GitHub answered #${prNumber} unexpectedly`);

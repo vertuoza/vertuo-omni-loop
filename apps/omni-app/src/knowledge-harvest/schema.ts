@@ -4,13 +4,14 @@
 import { z } from 'zod';
 import { ClassificationSchema } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/schema/config.ts';
+import { CommentIdSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** `omni-loop/knowledge.harvest.requested`: where a pull request merged. */
 export const HarvestEventSchema = z.looseObject({
   installationId: z.number(),
   owner: z.string(),
   repo: z.string(),
-  prNumber: z.number(),
+  prNumber: PrNumberSchema,
 });
 
 /** The same, as the failure handler reads it from the failed run's event: any field may be missing. */
@@ -51,7 +52,7 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
 // keeps what the harvest reads of the value after its step, and drops the rest.
 
 /** Who merged the feature PR, when, through which pull request: the provenance the harvest writes. */
-const MergeSchema = z.object({ by: z.string(), at: z.string(), pr: z.number(), url: z.string().exactOptional() });
+const MergeSchema = z.object({ by: z.string(), at: z.string(), pr: PrNumberSchema, url: z.string().exactOptional() });
 
 /** The step "qualify": a skip, or the merged feature PR's config, PRD and merge. */
 export const QualifiedSchema = z.union([
@@ -59,7 +60,7 @@ export const QualifiedSchema = z.union([
   z.object({
     skip: z.null(),
     config: ConfigSchema,
-    prd: z.object({ number: z.number(), topic: z.string(), title: z.string() }),
+    prd: z.object({ number: PrdNumberSchema, topic: z.string(), title: z.string() }),
     merge: MergeSchema,
   }),
 ]);
@@ -109,7 +110,7 @@ export const SettledSchema = z.object({
   tip: z.string(),
   prepared: z.object({
     ok: z.literal(true),
-    prd: z.number(),
+    prd: PrdNumberSchema,
     edits: EditsSchema,
     settled: z.array(z.object({ id: z.string(), from: z.enum(['open', 'drift']) })),
     shipped: z.array(MoveSchema),
@@ -160,9 +161,9 @@ export const PublishedSchema = z
     branch: z.string(),
     commit: z.string(),
     committed: z.boolean(),
-    pr: z.object({ number: z.number(), url: z.string(), created: z.boolean() }),
+    pr: z.object({ number: PrNumberSchema, url: z.string(), created: z.boolean() }),
   })
   .nullable();
 
 /** The step "verdict": the comment left on the merged PR. */
-export const CommentedSchema = z.object({ commentId: z.number(), created: z.boolean() });
+export const CommentedSchema = z.object({ commentId: CommentIdSchema, created: z.boolean() });

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CONFIG_FILE } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { parsePrd, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { listFolder, readFiles, readPull } from './github.ts';
 import type { Config, FeaturePull, Octokit, Pull, PrdFacts } from './retro.types.ts';
@@ -21,7 +22,7 @@ type Repo = { owner: string; repo: string };
 
 export async function qualify(
   octokit: Octokit,
-  { owner, repo, prNumber, mergeSha }: Repo & { prNumber: number; mergeSha: string },
+  { owner, repo, prNumber, mergeSha }: Repo & { prNumber: PrNumber; mergeSha: string },
 ): Promise<Qualified> {
   const read = await readPull(octokit, { owner, repo, prNumber });
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
@@ -93,12 +94,13 @@ async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: st
 async function prdFolder(
   octokit: Octokit,
   { owner, repo, sha, dirs, topic }: Repo & { sha: string; dirs: Record<PrdFacts['state'], string>; topic: string },
-): Promise<{ state: PrdFacts['state']; name: string; prd: number } | null> {
+): Promise<{ state: PrdFacts['state']; name: string; prd: PrdNumber } | null> {
   for (const state of ['shipped', 'inbox'] as const) {
     const entries = (await listFolder(octokit, { owner, repo, ref: sha, path: dirs[state] })) ?? [];
     for (const entry of entries) {
       const parsed = entry.type === 'tree' ? parseFolderName(entry.name) : null;
-      if (parsed?.topic === topic) return { state, name: entry.name, prd: parsed.prd };
+      // The kit's folder parser still gives a bare number (PRD 1049, s5 makes it a PrdNumber).
+      if (parsed?.topic === topic) return { state, name: entry.name, prd: parsePrd(parsed.prd) };
     }
   }
   return null;

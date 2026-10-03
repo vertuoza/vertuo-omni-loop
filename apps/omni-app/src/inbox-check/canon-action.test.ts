@@ -1,6 +1,7 @@
 // `canon-action` against the stubbed GitHub (PRD 839): a click of a canon button posts one comment on
 // the phase-0 PR, a second click of the same button edits it, and a click on any other PR posts
 // nothing. No test calls GitHub.
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +21,7 @@ const FACTS = { prd: 42, persona: 'Marc', claims: ['never#4'] };
 const OTHERS = [{ id: 1, body: 'LGTM' }];
 
 function github({ base = 'inbox-base', headRef = 'docs/phase-0-widget', comments = OTHERS } = {}) {
-  const pull = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
+  const pull = { number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
   return fakeGitHub({ commits: { base1: join(FIXTURES, base) }, pull, comments });
 }
 
@@ -98,7 +99,7 @@ describe('canon-action — ignored elsewhere', () => {
 describe('canon-action — from a signed webhook', () => {
   it('a click on a red inbox check run posts its comment', async () => {
     const gh = github();
-    const summary = `PRD 42\n\n${canonMarker({ prd: 42, canon: { state: 'red', findings: [{ claims: ['never#4'] }], persona: { name: 'Marc' } } })}`;
+    const summary = `PRD 42\n\n${canonMarker({ prd: parsePrd(42), canon: { state: 'red', findings: [{ claims: ['never#4'] }], persona: { name: 'Marc' } } })}`;
     const body = JSON.stringify({
       action: 'requested_action',
       installation: { id: 7 },

@@ -1,3 +1,4 @@
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +17,7 @@ const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@user
 const FOLDER = '.omni-loop/delivery/inbox/0042-widget';
 const COMPLETE_CHANGES = ['spec.md', 'plan.md', 'before-after.html'].map((file) => ({ path: `${FOLDER}/${file}`, status: 'A' }));
 const SIGNED = [{ sha: 'c1', message: `docs(phase-0): widget\n\n${TRAILER}` }];
-const OPEN_ISSUE = { number: 42, state: 'open', labels: ['omni:prd'], isPullRequest: false };
+const OPEN_ISSUE = { number: parseIssue(42), state: 'open', labels: ['omni:prd'], isPullRequest: false };
 
 const BUSINESS = Object.freeze({
   state: 'ok',

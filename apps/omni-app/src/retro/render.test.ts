@@ -1,3 +1,4 @@
+import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -96,7 +97,7 @@ describe('render — retro.md, facts only', () => {
   });
 
   it('writes no number that retro.json does not hold, and retro.json holds exactly the run’s sheet', async () => {
-    const issues: IssueLinks = { 'repeated-red:e2e': { number: 88, url: 'https://github.com/acme/widgets/issues/88', state: 'open' } };
+    const issues: IssueLinks = { 'repeated-red:e2e': { number: parseIssue(88), url: 'https://github.com/acme/widgets/issues/88', state: 'open' } };
     const sheet = await widgetSheet({ extra: [RED], issues });
     const out = render({ doc: mergeRuns(null, sheet), featurePr: 12 });
     expect(JSON.parse(out.json)).toEqual({ prd: 7, runs: [sheet] });
@@ -116,8 +117,8 @@ describe('render — retro.md, facts only', () => {
 describe('render — with prose and issue links', () => {
   it('matches its golden file: the model’s summary, titles, why it matters and lessons, the kept finding marked, and each issue linked', async () => {
     const issues: IssueLinks = {
-      'repeated-red:e2e': { number: 88, url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
-      'slow-slice:s3': { number: 89, url: 'https://github.com/acme/widgets/issues/89', state: 'closed' },
+      'repeated-red:e2e': { number: parseIssue(88), url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
+      'slow-slice:s3': { number: parseIssue(89), url: 'https://github.com/acme/widgets/issues/89', state: 'closed' },
     };
     const sheet = await widgetSheet({ narration: { model: 'anthropic/claude-opus-5.5', reason: null, dropped: [] }, extra: [RED], issues });
     const prose: Prose = {
@@ -194,7 +195,7 @@ describe('verdictComment — a retro not worth a pull request', () => {
 
 describe('render — each kind’s section', () => {
   it('places each kind’s findings under the section that kind names, after its own lines', async () => {
-    const sheet = await widgetSheet({ extra: [RED], issues: { 'repeated-red:e2e': { number: 88, url: 'u88', state: 'open' } } });
+    const sheet = await widgetSheet({ extra: [RED], issues: { 'repeated-red:e2e': { number: parseIssue(88), url: 'u88', state: 'open' } } });
     sheet.kinds.ci = { checks: 1 };
     const kinds = [
       { id: 'timeline', section: 'Timeline', runs: ['merge'], describe: () => ['- the timeline'] },
@@ -226,7 +227,7 @@ describe('mergeRuns — retro.json keeps every run', () => {
 
 describe('retroTitle', () => {
   it('is docs(retro): PRD <n> — <PRD title>', () => {
-    expect(retroTitle({ number: 7, title: 'Widgets that remember their colour' })).toBe(
+    expect(retroTitle({ number: parsePrd(7), title: 'Widgets that remember their colour' })).toBe(
       'docs(retro): PRD 7 — Widgets that remember their colour',
     );
   });

@@ -2,6 +2,7 @@
 // through a 90-day backfill), and the outbox check, which shares that budget, failed with 403 for most
 // of each hour. The collector must read pull requests without REST calls per pull request, and never
 // drive a budget of the installation below half.
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { type CollectStep, collectAll } from './collect.ts';
 import { fakeGitHub, fakeStore, pull } from './fake.ts';
@@ -18,7 +19,7 @@ const step: CollectStep = {
 const daysAgo = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
 
 /** `count` pull requests of the last 60 days, each updated at an instant of its own. */
-const recentPulls = (count: number) => Array.from({ length: count }, (_, index) => pull(index + 1, { updated_at: daysAgo(60 - index * 0.1) }));
+const recentPulls = (count: number) => Array.from({ length: count }, (_, index) => pull(parsePr(index + 1), { updated_at: daysAgo(60 - index * 0.1) }));
 
 function run(github: ReturnType<typeof fakeGitHub>, store: ReturnType<typeof fakeStore>) {
   return collectAll({ store, octokitFor: () => Promise.resolve(github.octokit), step, now: NOW });

@@ -1,6 +1,7 @@
 // `inbox-check` end to end against the stubbed GitHub (PRD 675): the outbox check's fake, widened
 // with the two routes only the inbox check reads (the compare's commits and the PRD issue) and the
 // check run's `external_id`. No test calls GitHub.
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +42,7 @@ const ActionsSchema = z.array(z.looseObject({ label: z.string(), identifier: z.s
 
 /** The outbox check's fake GitHub, plus the compare's commits, the issues route and `external_id`. */
 function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRef = 'docs/phase-0-widget', files = COMPLETE_FILES, commits = SIGNED, issue = OPEN_ISSUE } = {}) {
-  const pull = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
+  const pull = { number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
   const github = fakeGitHub({ commits: { base1: fixture(base), head1: fixture(head) }, pull });
   const inner = github.octokit;
   const extra: Partial<Record<string, Extra>> = {

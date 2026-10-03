@@ -2,6 +2,7 @@
 // (the evaluate fixtures), one pull request, its comments and its check runs. It answers exactly the
 // routes the app's units use through `octokit.request(route, params)` and records every request.
 // Test support only; nothing in the app imports it.
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -17,7 +18,7 @@ type Recorded = { route: string } & Params;
 type Answer = { data: unknown };
 
 /** The pull request this double serves. */
-type FakePull = { number: number; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
+type FakePull = { number: PrNumber; base: { ref: string; sha: string }; head: { ref: string; sha: string }; labels?: string[] };
 
 /**
  * A check run this double created: each field as the unit sent it. The inbox check's tests add the

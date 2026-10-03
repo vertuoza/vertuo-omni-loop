@@ -6,18 +6,19 @@
 // checkboxes, then what the merge settled and shipped and how the checks came out.
 import type { HarvestEdits, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import type { Placed } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** What the knowledge PR names of its PRD. */
-export type HarvestPrd = { number: number; title: string };
+export type HarvestPrd = { number: PrdNumber; title: string };
 
 /** What the knowledge PR names of the merge it harvests. */
-export type HarvestMerge = { by: string | null; at: string | null; pr: number };
+export type HarvestMerge = { by: string | null; at: string | null; pr: PrNumber };
 
 /** One file the shared git writer commits. */
 export type CommitFile = { path: string; content: string };
 
 /** The line every harvest commit carries, which a replay reads to know it already committed. */
-export function commitMarker(prNumber: number): string {
+export function commitMarker(prNumber: PrNumber): string {
   return `The knowledge harvest of #${prNumber}.`;
 }
 

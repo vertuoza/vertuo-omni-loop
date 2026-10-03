@@ -1,6 +1,7 @@
 // What GitHub's GraphQL API answers the collector's queries (PRD 612, bug 638, PRD 714), as the
 // collector reads them (PRD 725, s20). Each schema names only the fields the collector uses and lets
 // every other field through; a field the collector reads past a missing value is nullish here.
+import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { z } from 'zod';
 import { firstIssue } from 'vertuo-omni-plan/kit/lib/plan-repo/gh-schema.ts';
 
@@ -19,7 +20,7 @@ export const PullsUpdatedSchema = z.looseObject({
   repository: z.looseObject({
     pullRequests: z.looseObject({
       pageInfo: z.looseObject({ hasNextPage: z.boolean(), endCursor: z.string().nullish() }),
-      nodes: z.array(z.looseObject({ number: z.number(), updatedAt: z.string() })),
+      nodes: z.array(z.looseObject({ number: PrNumberSchema, updatedAt: z.string() })),
     }),
   }),
 });
@@ -29,7 +30,7 @@ const ActorSchema = z.looseObject({ login: z.string().nullish(), __typename: z.s
 
 /** One pull request of `query PullDetails`, its `PULL_FIELDS`. */
 export const PullDetailSchema = z.looseObject({
-  number: z.number(),
+  number: PrNumberSchema,
   author: ActorSchema,
   createdAt: z.string(),
   mergedAt: z.string().nullish(),
