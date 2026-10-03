@@ -19,7 +19,10 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
   };
 }
 
-const STORED = { full_name: 'vertuoza/vertuo-apps', tracked: true, collected_at: null, collect_error: null };
+const STORED = {
+  workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
+  collected_at: null, collected_until: null, collect_error: null, product_id: null,
+};
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
