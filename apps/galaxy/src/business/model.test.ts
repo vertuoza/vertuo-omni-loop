@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   citationLine, claimOf, displayId, hasProducts, OFFERINGS, planConfirm, planPick, planTap, REGIONS,
-  sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product,
+  sentence, sentenceText, sizeOf, sizeStops, TRADES, valueLabel, viewClaims, type Claim, type Product, type StoredClaim, type StoredReceipt,
 } from './model';
 import { businessReducer, initialBusinessState } from './state';
 
@@ -17,7 +17,7 @@ const claim = (kind: Claim['kind'], value: string, over: Partial<Claim> = {}): C
 
 describe('a stored claim', () => {
   it('reads its row and counts its citations, the last one naming who cited it and for what', () => {
-    const row = { id: 'c-9', seq: 4, kind: 'rival', value: 'Acme Build', source: 'suggestion', state: 'confirmed', product_id: 'p-1' };
+    const row: StoredClaim = { id: 'c-9', seq: 4, kind: 'rival', value: 'Acme Build', source: 'suggestion', state: 'confirmed', product_id: 'p-1' };
     const citations = [
       { claim_id: 'c-9', cited_by: 'think-big', ref: 'concept #9', cited_at: '2026-10-02T10:00:00Z' },
       { claim_id: 'c-9', cited_by: 'brainstorm', ref: null, cited_at: '2026-10-01T10:00:00Z' },
@@ -190,8 +190,8 @@ describe('products (PRD 748 s4)', () => {
 
 describe('a drafted claim (PRD 774 s3)', () => {
   it('carries its receipts, newest first, and the claim it would replace', () => {
-    const row = { id: 'c-7', seq: 7, kind: 'region', value: 'France', source: 'evidence', state: 'proposed', product_id: null, replaces: null };
-    const receipts = [
+    const row: StoredClaim = { id: 'c-7', seq: 7, kind: 'region', value: 'France', source: 'evidence', state: 'proposed', product_id: null, replaces: null };
+    const receipts: StoredReceipt[] = [
       { claim_id: 'c-7', kind: 'file', location: 'acme/app/README.md', quote: 'Sold in France', seen_at: '2026-09-01T10:00:00Z' },
       { claim_id: 'c-7', kind: 'link', location: 'https://example.com/pricing', quote: 'French invoices', seen_at: '2026-09-20T10:00:00Z' },
       { claim_id: 'c-1', kind: 'file', location: 'acme/app/README.md', quote: 'other', seen_at: '2026-09-21T10:00:00Z' },

@@ -11,11 +11,25 @@
 // A Never line (PRD 839, kind `never`) is a line the team never crosses, a product's, typed on the page
 // and confirmed at once, or proposed by the draft with its receipt. It is never part of the sentence and
 // holds several at once; its value is the line itself, 1 to 200 characters (every other kind 1 to 80).
+//
+// A row read from public.claims, public.claim_receipts or public.claim_citations, or answered by a
+// claim function, is parsed with its schema below (PRD 1030): each kind, state and source is one of
+// the values the column's check constraint allows, so a value outside them fails the read instead of
+// flowing on as a claim.
+import { z } from 'zod';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 
-export type ClaimKind = 'region' | 'offering' | 'size' | 'trade' | 'rival' | 'never';
-export type ClaimState = 'proposed' | 'confirmed' | 'rejected' | 'contradicted' | 'unknown';
-export type ClaimSource = 'pick' | 'suggestion' | 'evidence' | 'answer';
+/** public.claims.kind's check constraint (20261027090000_never_lines.sql). */
+export const ClaimKind = z.enum(['region', 'offering', 'size', 'trade', 'rival', 'never']);
+export type ClaimKind = z.infer<typeof ClaimKind>;
+/** public.claims.state's check constraint (20261019090000_business_store.sql). */
+export const ClaimState = z.enum(['proposed', 'confirmed', 'rejected', 'contradicted', 'unknown']);
+export type ClaimState = z.infer<typeof ClaimState>;
+/** public.claims.source's check constraint (20261019090000_business_store.sql). */
+export const ClaimSource = z.enum(['pick', 'suggestion', 'evidence', 'answer']);
+export type ClaimSource = z.infer<typeof ClaimSource>;
+/** public.claim_receipts.kind's check constraint (20261021090000_business_evidence.sql). */
+export const ReceiptKind = z.enum(['file', 'pr', 'link']);
 
 export interface Claim {
   /** The claim's row id (a uuid). */
@@ -43,7 +57,7 @@ export interface Claim {
 
 /** One place a draft quoted a claim (PRD 774, decision 8). */
 export interface ClaimReceipt {
-  kind: 'file' | 'pr' | 'link';
+  kind: z.infer<typeof ReceiptKind>;
   /** A repository path (`owner/name/path`) or a URL. */
   where: string;
   /** Word for word, at most 300 characters. */
@@ -51,35 +65,46 @@ export interface ClaimReceipt {
   seenAt: string;
 }
 
-/** A public.claims row, as PostgREST answers it. */
-export interface StoredClaim {
-  id: string;
-  seq: number;
-  kind: string;
-  value: string;
-  source: string;
-  state: string;
-  product_id?: string | null;
-  replaces?: string | null;
-  last_seen?: string | null;
-}
+/** A public.claims row, as PostgREST answers it: the columns a select names (the last three only
+ * where it names them), or the whole row a claim function answers. */
+export const StoredClaim = z.object({
+  id: z.string(),
+  seq: z.number(),
+  kind: ClaimKind,
+  value: z.string(),
+  source: ClaimSource,
+  state: ClaimState,
+  product_id: z.string().nullable().optional(),
+  replaces: z.string().nullable().optional(),
+  last_seen: z.string().nullable().optional(),
+});
+export type StoredClaim = z.infer<typeof StoredClaim>;
+
+/** The columns of StoredClaim a select names. */
+export const CLAIM_COLUMNS = 'id, seq, kind, value, source, state, product_id, replaces, last_seen';
 
 /** A public.claim_receipts row, as PostgREST answers it (PRD 774). */
-export interface StoredReceipt {
-  claim_id: string;
-  kind: string;
-  location: string;
-  quote: string;
-  seen_at: string;
-}
+export const StoredReceipt = z.object({
+  claim_id: z.string(),
+  kind: ReceiptKind,
+  location: z.string(),
+  quote: z.string(),
+  seen_at: z.string(),
+});
+export type StoredReceipt = z.infer<typeof StoredReceipt>;
+
+export const RECEIPT_COLUMNS = 'claim_id, kind, location, quote, seen_at';
 
 /** A public.claim_citations row, as PostgREST answers it. */
-export interface StoredCitation {
-  claim_id: string;
-  cited_by: string;
-  ref: string | null;
-  cited_at: string;
-}
+export const StoredCitation = z.object({
+  claim_id: z.string(),
+  cited_by: z.string(),
+  ref: z.string().nullable(),
+  cited_at: z.string(),
+});
+export type StoredCitation = z.infer<typeof StoredCitation>;
+
+export const CITATION_COLUMNS = 'claim_id, cited_by, ref, cited_at';
 
 export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] = [], receipts: readonly StoredReceipt[] = []): Claim => {
   const mine = citations.filter((c) => c.claim_id === row.id).sort((a, b) => Date.parse(a.cited_at) - Date.parse(b.cited_at));
@@ -87,14 +112,14 @@ export const claimOf = (row: StoredClaim, citations: readonly StoredCitation[] =
   const quoted = receipts
     .filter((r) => r.claim_id === row.id)
     .sort((a, b) => Date.parse(b.seen_at) - Date.parse(a.seen_at))
-    .map((r): ClaimReceipt => ({ kind: r.kind as ClaimReceipt['kind'], where: r.location, quote: r.quote, seenAt: r.seen_at })); // ts-allow: the column's check constraint holds only file, pr and link
+    .map((r): ClaimReceipt => ({ kind: r.kind, where: r.location, quote: r.quote, seenAt: r.seen_at }));
   return {
     id: row.id,
     seq: row.seq,
-    kind: row.kind as ClaimKind, // ts-allow: the column's check constraint holds only ClaimKind's values
+    kind: row.kind,
     value: row.value,
-    source: row.source as ClaimSource, // ts-allow: the column's check constraint holds only ClaimSource's values
-    state: row.state as ClaimState, // ts-allow: the column's check constraint holds only ClaimState's values
+    source: row.source,
+    state: row.state,
     product: row.product_id ?? null,
     cited: mine.length,
     lastBy: last ? [last.cited_by, last.ref].filter(Boolean).join(' ') : null,
@@ -257,10 +282,8 @@ export function sizeOf(claims: readonly Claim[]): { stops: [number, number]; pic
 // ── Products (PRD 748 s4) ────────────────────────────────────────────────────────
 
 /** A public.products row: what the business sells. The first is made with the business. */
-export interface Product {
-  id: string;
-  name: string;
-}
+export const Product = z.object({ id: z.string(), name: z.string() });
+export type Product = z.infer<typeof Product>;
 
 /** Products show only from the second one on: while there is one, the page never mentions them. */
 export const hasProducts = (products: readonly Product[]) => products.length >= 2;
