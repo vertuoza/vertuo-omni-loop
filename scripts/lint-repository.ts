@@ -1,6 +1,8 @@
 // What `pnpm lint` does (PRD 976), run by scripts/lint.ts: eslint.config.ts over every TypeScript
 // file git tracks, each finding and the count per rule printed, and a failure on any finding at all.
 // Nothing is held at a ceiling. Given path prefixes, only the tracked files under them are linted.
+// `--shard <i>/<n>` (PRD 1042) lints every n-th of those files, from the i-th: CI runs the n shards
+// side by side, and together they lint every file exactly once.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -40,17 +42,54 @@ function perRule(findings: readonly Finding[]): string {
   return [...counts].sort((a, b) => b[1] - a[1]).map(([rule, n]) => `${String(n).padStart(6)}  ${rule}`).join('\n');
 }
 
+const shardUsage = 'pnpm lint: --shard <i>/<n> takes two whole numbers, 1 <= i <= n\n';
+
+/** A shard `i` of `n`, from `1/1` up: the files at positions i-1, i-1+n, i-1+2n… */
+type Shard = { index: number; count: number };
+
+/** Splits the arguments into path prefixes and an optional shard; `null` when the shard is malformed. */
+function parseArgs(args: readonly string[]): { prefixes: string[]; shard: Shard | undefined } | null {
+  const prefixes: string[] = [];
+  let shard: Shard | undefined;
+  for (let k = 0; k < args.length; k += 1) {
+    const arg = args[k] ?? '';
+    let value: string | undefined;
+    if (arg === '--shard') {
+      k += 1;
+      value = args[k];
+    } else if (arg.startsWith('--shard=')) {
+      value = arg.slice('--shard='.length);
+    } else {
+      prefixes.push(arg);
+      continue;
+    }
+    const match = /^(\d+)\/(\d+)$/.exec(value ?? '');
+    if (!match) return null;
+    const index = Number(match[1]);
+    const count = Number(match[2]);
+    if (index < 1 || index > count) return null;
+    shard = { index, count };
+  }
+  return { prefixes, shard };
+}
+
 /**
- * Lints every tracked file, or only those under `prefixes` when any are given. Exit code 0 only with
- * no finding at all; the report prints each finding, then the count per rule.
+ * Lints every tracked file, or only those under the path prefixes among `args` when any are given,
+ * and only the shard `--shard <i>/<n>` names when it is given. Exit code 0 only with no finding at
+ * all, 2 for a malformed shard; the report prints each finding, then the count per rule.
  */
 export async function lintRepository(
-  prefixes: readonly string[],
+  args: readonly string[],
   { tracked = trackedTypeScript, lint = eslintFiles }: { tracked?: () => string[]; lint?: Linter } = {},
 ): Promise<{ exitCode: number; report: string }> {
+  const parsed = parseArgs(args);
+  if (!parsed) return { exitCode: 2, report: shardUsage };
+  const { prefixes, shard } = parsed;
   const all = tracked();
-  const files = prefixes.length > 0 ? all.filter((path) => prefixes.some((prefix) => path.startsWith(prefix))) : all;
+  const scoped = prefixes.length > 0 ? all.filter((path) => prefixes.some((prefix) => path.startsWith(prefix))) : all;
+  const files = shard ? scoped.filter((_, position) => position % shard.count === shard.index - 1) : scoped;
   const { findings, text } = await lint(files);
-  const report = `${text}\n${perRule(findings)}\npnpm lint: ${findings.length} findings in ${files.length} files\n`;
+  const of = shard ? ` (shard ${String(shard.index)}/${String(shard.count)})` : '';
+  const report = `${text}\n${perRule(findings)}\npnpm lint: ${String(findings.length)} findings in ${String(files.length)} files${of}\n`;
   return { exitCode: findings.length === 0 ? 0 : 1, report };
 }

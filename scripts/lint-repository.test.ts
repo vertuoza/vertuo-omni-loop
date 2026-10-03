@@ -42,3 +42,55 @@ describe('pnpm lint, on fixtures', () => {
     expect(verdict.report).toContain('pnpm lint: 1 findings in 3 files');
   });
 });
+
+describe('pnpm lint --shard <i>/<n>, on fixtures', () => {
+  const many = Array.from({ length: 11 }, (_, k) => `kit/lib/file-${String(k)}.ts`);
+
+  /** The files each of the `n` shards hands the linter. */
+  async function shards(n: number, prefixes: readonly string[] = []): Promise<string[][]> {
+    const out: string[][] = [];
+    for (let i = 1; i <= n; i += 1) {
+      const { lint, handed } = fixture([]);
+      const verdict = await lintRepository([...prefixes, '--shard', `${String(i)}/${String(n)}`], { tracked: () => many, lint });
+      expect(verdict.exitCode).toBe(0);
+      expect(verdict.report).toContain(`(shard ${String(i)}/${String(n)})`);
+      out.push(...handed);
+    }
+    return out;
+  }
+
+  it.each([1, 2, 3, 4])('lints every file exactly once across %i shards', async (n) => {
+    const handed = await shards(n);
+    expect(handed).toHaveLength(n);
+    const union = handed.flat();
+    expect([...union].sort()).toEqual([...many].sort());
+    expect(new Set(union).size).toBe(union.length);
+  });
+
+  it('takes every n-th tracked file, keeping their order', async () => {
+    const [first, second] = await shards(2);
+    expect(first).toEqual(many.filter((_, k) => k % 2 === 0));
+    expect(second).toEqual(many.filter((_, k) => k % 2 === 1));
+  });
+
+  it('shards only the files under the prefixes, when given both', async () => {
+    const { lint, handed } = fixture([]);
+    await lintRepository(['kit/', '--shard=2/2'], { tracked: () => tracked, lint });
+    expect(handed).toEqual([['kit/lib/narrow.ts']]);
+  });
+
+  it.each(['0/2', '3/2', '1/0', 'two', '1/2/3', ''])('refuses the shard %j, linting nothing', async (shard) => {
+    const { lint, handed } = fixture([]);
+    const verdict = await lintRepository(['--shard', shard], { tracked: () => tracked, lint });
+    expect(verdict.exitCode).toBe(2);
+    expect(verdict.report).toContain('--shard <i>/<n>');
+    expect(handed).toEqual([]);
+  });
+
+  it('refuses --shard with no value', async () => {
+    const { lint, handed } = fixture([]);
+    const verdict = await lintRepository(['--shard'], { tracked: () => tracked, lint });
+    expect(verdict.exitCode).toBe(2);
+    expect(handed).toEqual([]);
+  });
+});

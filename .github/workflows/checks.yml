@@ -1,12 +1,13 @@
 # The checks of a ready pull request into main (PRD 598): `test` runs `pnpm test`, `typecheck` runs
 # `pnpm typecheck` (PRD 725), `lint` runs `pnpm lint` (PRD 976) and `fallow` runs `pnpm fallow:audit`, each against
-# its own gate, side by side. A draft runs nothing, and neither does
+# its own gate, side by side. `test` and `lint` each run as shards (PRD 1042), gathered into one check
+# of that name; scripts/checks-workflow.test.ts holds that shape. A draft runs nothing, and neither does
 # a sub-PR into a feature branch (its base is not main) nor a pull request that changes only docs.
 # Marking a feature PR ready is what grades it, then every push after.
 #
 # `settle` waits first (scripts/settle-head.sh carries the numbers): a newer push cancels this run
 # while it is still one idle runner (the concurrency group below), and a branch that moved anyway
-# makes the run stale, so `test`, `typecheck`, `lint` and `fallow` skip. A burst of pushes costs one full run.
+# makes the run stale, so `test`, `typecheck`, `lint` and `fallow` (and their shards) skip. A burst of pushes costs one full run.
 #
 # A phase-0 PR (head `docs/phase-0-<topic>`, `branches.phase0` in .omni-loop/config.yml) carries only a
 # PRD's docs: `settle` does not run for it, so neither do `test`, `typecheck`, `lint` and `fallow` (PRD 675). The omni-loop
@@ -37,11 +38,18 @@ jobs:
           SETTLE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash scripts/settle-head.sh
 
-  test:
+  # `pnpm test` in 3 shards side by side (PRD 1042): each runs a third of the files through vitest's own
+  # `--shard`, and none cancels another, so every failure shows.
+  test-shard:
+    name: test shard ${{ matrix.shard }}/3
     needs: settle
     if: needs.settle.outputs.stale == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -49,9 +57,19 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - run: pnpm vitest run --shard=${{ matrix.shard }}/3
 
-  # `tsc` over the root project and the arcade (PRD 725); the arcade's docs index is generated first,
+  # The one `test` check, gathered from its shards: green only when every shard passed. `always()` runs
+  # it after a failed shard, to fail itself; a stale settle still skips it, as it skips the shards.
+  test:
+    needs: [settle, test-shard]
+    if: always() && needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: '[ "${{ needs.test-shard.result }}" = "success" ] || { echo "a test shard did not pass: ${{ needs.test-shard.result }}"; exit 1; }'
+
+  # `pnpm typecheck`: `tsgo` over the root project and the arcade (PRD 725, PRD 1042; `pnpm typecheck:tsc` is the `tsc` fallback); the arcade's docs index is generated first,
   # since only its build made it before.
   typecheck:
     needs: settle
@@ -68,12 +86,17 @@ jobs:
       - run: pnpm typecheck
 
   # typescript-eslint's strictTypeChecked over every TypeScript file git tracks (PRD 976), failing on
-  # any finding at all.
-  lint:
+  # any finding at all, in 2 shards side by side (PRD 1042): `--shard <i>/<n>` lints every n-th file.
+  lint-shard:
+    name: lint shard ${{ matrix.shard }}/2
     needs: settle
     if: needs.settle.outputs.stale == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -81,7 +104,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - run: pnpm lint --shard ${{ matrix.shard }}/2
+
+  # The one `lint` check, gathered from its shards the same way as `test`.
+  lint:
+    needs: [settle, lint-shard]
+    if: always() && needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: '[ "${{ needs.lint-shard.result }}" = "success" ] || { echo "a lint shard did not pass: ${{ needs.lint-shard.result }}"; exit 1; }'
 
   fallow:
     needs: settle
