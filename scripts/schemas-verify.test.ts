@@ -2,6 +2,7 @@
 // run through the script's own loader against a stand-in for PostgREST, so no test calls Supabase. The
 // live runs (`--local` in the `supabase` workflow, `--production` once before a feature PR is ready)
 // are the script's, not the suite's.
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -116,6 +117,13 @@ describe('loadBoundaries', () => {
 
   it('refuses a file that exports no boundaries, naming it', async () => {
     expect(await loadBoundaries(`${FIXTURES}/no-boundaries.ts`)).toEqual({ ok: false, error: `${FIXTURES}/no-boundaries.ts: exports no boundaries: the answer does not parse: boundaries invalid_type (expected array)` });
+  });
+
+  it('loads a server-only module inside the repository under plain node, where the marker package would throw', () => {
+    // Vitest resolves `server-only` its own way, so the script's loader runs as `pnpm schemas:verify` runs it.
+    const script = "const m = await import('./scripts/schemas-verify.ts'); const l = await m.loadBoundaries('" + FIXTURES + "/server-only.ts'); console.log(l.ok ? l.value.map((b) => b.name).join() : l.error);";
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8' });
+    expect(out.trim()).toBe('fixtures/server-only: true');
   });
 
   it("loads a module marked server-only, as a store of the arcade's server is", async () => {

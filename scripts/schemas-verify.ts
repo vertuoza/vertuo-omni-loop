@@ -112,11 +112,19 @@ const LoadedBoundary = z.strictObject({
 const BoundaryModule = z.object({ boundaries: z.array(LoadedBoundary).min(1) });
 const Answer = z.object({ data: z.unknown(), error: z.object({ message: z.string() }).nullable() });
 
-/** `server-only` marks a store of the arcade's server; outside Next.js it has nothing to refuse. */
+/**
+ * `server-only` marks a store of the arcade's server; outside Next.js it has nothing to refuse. Vite's
+ * runner resolves a bare package import before any plugin's resolveId sees it, so the marker import is
+ * removed from each module's source instead.
+ */
+const SERVER_ONLY = /^\s*import\s+['"]server-only['"];?\s*$/gm;
 const serverOnly: Plugin = {
   name: 'schemas-verify:server-only',
-  resolveId: (id) => (id === 'server-only' ? '\0server-only' : null),
-  load: (id) => (id === '\0server-only' ? 'export {};' : null),
+  enforce: 'pre',
+  transform: (code) => {
+    const stripped = code.replace(SERVER_ONLY, '');
+    return stripped === code ? null : stripped;
+  },
 };
 
 /** A boundary file's reads, loaded through Vite's module runner (the transform the tests use). */
