@@ -311,7 +311,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       maybeSingle: () => Promise.resolve().then((): Result => {
         const result = run();
         if (result.error) return result;
-        const rows = result.data as Row[]; // ts-allow: a test fake: a select answers a list of rows
+        const rows: readonly unknown[] = Array.isArray(result.data) ? result.data : [];
         return rows.length > 1 ? refuse('PGRST116', 'More than one row came back.') : { data: rows[0] ?? null, error: null };
       }),
       then: <T>(resolve: (result: Result) => T, reject?: (error: unknown) => T) => Promise.resolve().then(run).then(resolve, reject),
@@ -407,9 +407,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         if (state.fail) return { data: null, error: state.fail };
         if (name === 'dossier_open') return open(me, args);
         if (name === 'dossier_push') return push(me, args);
-        if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null }; // ts-allow: a test fake: it reads the workspace argument as the RPC callers pass it
+        const workspace = typeof args.workspace === 'string' ? args.workspace : '';
+        if (name === 'ask_members') return { data: members(me, workspace), error: null };
         if (name === 'workspace_roster') {
-          return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, args.workspace as string), error: null }; // ts-allow: a test fake: it reads the workspace argument as the RPC callers pass it
+          return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, workspace), error: null };
         }
         if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
         if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };

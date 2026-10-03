@@ -1,7 +1,8 @@
 import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types.ts';
-import { allPages, type Page } from '../../data/all-pages';
+import { z } from 'zod';
+import { parsedPages } from '../../data/all-pages';
 import { workspaceDossiers } from '../../data/dossiers';
 import type { StageId } from '../../stages/stage';
 import { stageStore, type StageStore } from '../../stages/store';
@@ -191,6 +192,22 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
 
 // ── The reads, from Supabase ──────────────────────────────────────────────
 
+/** The columns of a contribution the board reads. */
+export const ACTIVITY_COLUMNS = 'kind, repo, number, login, at';
+
+/** A contribution as ACTIVITY_COLUMNS reads it. */
+export const StoredActivity: z.ZodType<Activity> = z.strictObject({
+  kind: z.string(), repo: z.string(), number: z.number(), login: z.string(), at: z.string(),
+});
+
+/** The columns of a prd-opened contribution, read for who opened each PRD. */
+export const OPENER_COLUMNS = 'repo, number, login';
+
+/** A prd-opened contribution as OPENER_COLUMNS reads it. */
+export const StoredOpener: z.ZodType<Pick<Activity, 'repo' | 'number' | 'login'>> = z.strictObject({
+  repo: z.string(), number: z.number(), login: z.string(),
+});
+
 type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null; hero?: unknown };
 
 /** A PRD's key in the stage store (`owner/name#7`) back to its repository and number. */
@@ -205,14 +222,14 @@ export function supabaseReads(
   db: Pick<SupabaseClient<Database>, 'rpc' | 'from'>, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
 ): BoardReads {
   function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
-    return allPages('who opened the PRDs', (from, to) => db
+    return parsedPages('who opened the PRDs', StoredOpener, 'dashboard/board: contributions (prd-opened)', (from, to) => db
       .from('contributions')
-      .select('repo, number, login')
+      .select(OPENER_COLUMNS)
       .eq('workspace_id', workspace)
       .eq('kind', 'prd-opened')
       .order('repo', { ascending: true })
       .order('number', { ascending: true })
-      .range(from, to) as Page<Pick<Activity, 'repo' | 'number' | 'login'>>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+      .range(from, to));
   }
   return {
     async roster() {
@@ -224,9 +241,9 @@ export function supabaseReads(
       }));
     },
     activity(from, to) {
-      return allPages('the contributions', (first, last) => db
+      return parsedPages('the contributions', StoredActivity, 'dashboard/board: contributions', (first, last) => db
         .from('contributions')
-        .select('kind, repo, number, login, at')
+        .select(ACTIVITY_COLUMNS)
         .eq('workspace_id', workspace)
         .gte('at', from.toISOString())
         .lt('at', to.toISOString())
@@ -234,7 +251,7 @@ export function supabaseReads(
         .order('kind', { ascending: true })
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(first, last) as Page<Activity>); // ts-allow: the client is untyped, so its rows are the columns selected above, read as they are stored
+        .range(first, last));
     },
     async answered(from, to) {
       // `data` is widened to null, and each count to text: PostgREST may send a bigint as a string, read here unparsed.

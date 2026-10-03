@@ -135,6 +135,20 @@ describe('the business page\'s read', () => {
     expect(await loadBusinessPage(db({ claims: { data: [] }, citations: { data: [] } }) as never, USER)).toMatchObject({ kind: 'business', claims: [] });
   });
 
+  it('reads the page as unreadable when its claims do not parse (PRD 1030), logging where and no value', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const claims = { data: [{ ...CLAIMS[0], kind: 'statement', value: 'a secret' }] };
+    expect(await loadBusinessPage(db({ claims }) as never, USER)).toEqual({ kind: 'unreadable' });
+    const lines = logged.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('business/load: claims') && l.includes('[0].kind'))).toBe(true);
+    expect(lines.some((l) => l.includes('a secret') || l.includes('statement'))).toBe(false);
+  });
+
+  it('reads the page with no persona when a persona does not parse (PRD 1030)', async () => {
+    const personas = { data: [{ id: 'pe-1', product_id: 'p-1', ordinal: 1, name: 'Marc', stance: 'skeptical', trade: 'plumber', avatar: { v: 2 }, who: '', usage: '' }] };
+    expect(await loadBusinessPage(db({ personas }) as never, USER)).toMatchObject({ kind: 'business', personas: [] });
+  });
+
   it('answers no-workspace for an account in none', async () => {
     read.workspace = () => Promise.resolve(null);
     expect(await loadBusinessPage(db() as never, USER)).toEqual({ kind: 'no-workspace' });

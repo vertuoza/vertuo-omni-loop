@@ -1,7 +1,8 @@
 import {
-  constituentOf, NEVER_MAX, STATEMENT_MAX,
+  constituentOf, NEVER_MAX, SavedConstituentRow, STATEMENT_MAX,
   type Constituent, type ConstituentEvent, type ConstituentKind, type StoredConstituent,
 } from './model';
+import { parseRow } from '../data/parse-rows';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { settled } from '../stages/settled';
 
@@ -53,7 +54,8 @@ export function databaseConstituents(db: Rpc, workspace: string): ConstituentPor
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
       if (error || !data) return { ok: false, message: constituentRefusalOf(error) };
-      return { ok: true, constituent: constituentOf(data as StoredConstituent) }; // ts-allow: the constituent functions answer the row they wrote
+      const saved = parseRow(SavedConstituentRow, data, `constituents/store: ${fn}`);
+      return saved.ok ? { ok: true, constituent: constituentOf(saved.value) } : { ok: false, message: COULD_NOT_SAVE };
     } catch (err) {
       return { ok: false, message: constituentRefusalOf(err) };
     }

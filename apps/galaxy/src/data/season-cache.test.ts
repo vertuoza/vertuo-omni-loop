@@ -30,8 +30,8 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
     from(table: string) {
       const q = {
         eqs: {} as Record<string, unknown>, nots: [] as [string, unknown][], orders: [] as { column: string; ascending: boolean }[],
-        counting: false, most: null as number | null, window: null as [number, number] | null,
-        select(_columns: string, options: { count?: string } = {}) { q.counting = Boolean(options.count); return q; },
+        counting: false, most: null as number | null, window: null as [number, number] | null, columns: [] as string[],
+        select(columns: string, options: { count?: string } = {}) { q.columns = columns.split(',').map((c) => c.trim()); q.counting = Boolean(options.count); return q; },
         eq(column: string, value: unknown) { q.eqs[column] = value; return q; },
         not(column: string, _op: 'is', value: unknown) { q.nots.push([column, value]); return q; },
         order(column: string, options: { ascending?: boolean } = {}) { q.orders.push({ column, ascending: options.ascending ?? true }); return q; },
@@ -50,7 +50,8 @@ function fakeDb(tables: Record<string, Row[]>, member = true) {
               return 0;
             });
           const windowed = q.window ? all.slice(q.window[0], q.window[1] + 1) : all;
-          const rows = q.most === null ? windowed : windowed.slice(0, q.most);
+          const rows = (q.most === null ? windowed : windowed.slice(0, q.most))
+            .map((row) => Object.fromEntries(q.columns.map((c) => [c, row[c]])));
           return Promise.resolve({ data: rows, error: null, ...(q.counting ? { count: all.length } : {}) }).then(done, failed);
         },
       };

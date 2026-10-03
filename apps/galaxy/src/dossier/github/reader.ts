@@ -22,6 +22,7 @@ import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { z } from 'zod';
+import { orThrow, parseRow } from '../../data/parse-rows';
 import { CARE_QUERY, parseCare, type CareState } from './care';
 import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
@@ -124,6 +125,12 @@ const DETAIL_FIELDS = [
   ['decide', 'whatIHadToDecide'], ['meanwhile', 'whatIDidMeanwhile'], ['cost', 'whatItCostsToChangeLater'], ['unknown', 'whatICouldNotKnow'],
 ] as const;
 
+/** An item's options, as the kit's parser writes them; anything else shows none. */
+const ItemOptions = z.array(z.object({ letter: z.string(), text: z.string() }));
+
+/** A GraphQL answer: its data, or the errors that say why it has none. */
+const GraphqlAnswer = z.object({ data: z.unknown().optional(), errors: z.array(z.object({ message: z.string().optional() })).optional() }).nullable();
+
 /** An item as the Outbox tab shows it. */
 function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
   const text_ = (key: string) => {
@@ -140,7 +147,7 @@ function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
     rank,
     question: text_('questionPlain') ?? text_('whatIHadToDecide') ?? id,
     decision: text_('decisionPlain') ?? text_('whatIDidMeanwhile'),
-    options: Array.isArray(sections.options) ? (sections.options as OutboxItem['options']) : [], // ts-allow: Array.isArray just proved it a list, the parser's options
+    options: ItemOptions.safeParse(sections.options).data ?? [],
     personSteps: text_('personSteps'),
     bearsOn,
     intro: text_('introFun'),
@@ -226,7 +233,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
           cache: 'no-store',
         });
         if (!res.ok) throw new Error(`GitHub answered ${res.status} to the care query`);
-        const body = (await res.json()) as { data?: unknown; errors?: { message?: string }[] } | null; // ts-allow: a GraphQL answer carries data or errors; each is checked below
+        const body = orThrow(parseRow(GraphqlAnswer, await res.json(), 'dossier/github: the care query'));
         if (!body?.data) throw new Error(`GitHub's care answer holds no data${body?.errors?.[0]?.message ? `: ${body.errors[0].message}` : ''}`);
         return parseCare(body.data, statusMarker);
       },

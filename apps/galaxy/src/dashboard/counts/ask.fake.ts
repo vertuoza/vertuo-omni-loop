@@ -1,5 +1,5 @@
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { FakeUser, fakeGalaxyDb } from '../../data/galaxy.fake';
+import { isFakeTable, type FakeUser, type fakeGalaxyDb } from '../../data/galaxy.fake';
 
 // A stubbed Supabase client for the counts' loader tests (PRD 328): the galaxy's fake database
 // (src/data/galaxy.fake.ts) answers the game's tables, and beside it the three ask tables live in
@@ -96,7 +96,11 @@ export function fakeCountsDb(world: ReturnType<typeof fakeGalaxyDb>, seed: Parti
     const game = world.client(user);
     return {
       ...game,
-      from: (table: string) => (isOneOf(ASK_TABLES, table) ? new Query(table, user) : game.from(table as never)), // ts-allow: a test fake hands every other table to the galaxy fake, which answers only its own
+      from: (table: string) => {
+        if (isOneOf(ASK_TABLES, table)) return new Query(table, user);
+        if (isFakeTable(table)) return game.from(table);
+        throw new Error(`fake: no table ${table}`);
+      },
     };
   }
 
