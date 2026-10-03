@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { readOnlyClient, readOnlyFetch } from './parse-rows-client';
 
 // A stand-in for the network: answers every request it is given with an empty list of rows.
-const network = () => vi.fn<typeof fetch>(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+const network = () => vi.fn<typeof fetch>(() => Promise.resolve(new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })));
+
+/** The address a request was sent to. */
+const hrefOf = (input: string | URL | Request | undefined): string => (input instanceof Request ? input.url : input instanceof URL ? input.href : input ?? '');
 
 describe('readOnlyFetch', () => {
   it('passes a GET or a HEAD through, and refuses any other method without sending it', async () => {
@@ -27,7 +30,7 @@ describe('readOnlyClient', () => {
     const { data, error } = await db.from('teams').select('name');
     expect({ data, error }).toEqual({ data: [], error: null });
     const [url, init] = base.mock.calls[0] ?? [];
-    expect(String(url)).toBe('http://db.test/rest/v1/teams?select=name');
+    expect(hrefOf(url)).toBe('http://db.test/rest/v1/teams?select=name');
     expect(new Headers(init?.headers).get('apikey')).toBe('service-role');
   });
 

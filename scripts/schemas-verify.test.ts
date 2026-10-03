@@ -10,6 +10,7 @@ import { readOnlyClient } from '../apps/galaxy/src/data/parse-rows-client.ts';
 import { isBoundaryFile, loadBoundaries, localTarget, parseArgs, productionTarget, verifyBoundary, verifyFiles } from './schemas-verify.ts';
 import { boundaries as fleets } from './schemas-verify.fixtures/fleets.ts';
 import { boundaries as drifted } from './schemas-verify.fixtures/fleets-drifted.ts';
+import { at } from '../kit/lib/narrow.ts';
 
 const FIXTURES = 'scripts/schemas-verify.fixtures';
 
@@ -23,15 +24,15 @@ const TABLES: Record<string, unknown[]> = {
 };
 
 /** A stand-in for PostgREST: a table's rows, cut to the columns and the limit the read names, or a 400 for a column it lacks. */
-const postgrest = vi.fn<typeof fetch>(async (input) => {
+const postgrest = vi.fn<typeof fetch>((input) => {
   const url = new URL(input instanceof Request ? input.url : String(input));
   const rows = TABLES[url.pathname.replace('/rest/v1/', '')] ?? [];
   const columns = (url.searchParams.get('select') ?? '').split(',').map((c) => c.trim());
   const unknown = columns.find((c) => rows.some((row) => typeof row === 'object' && row !== null && !(c in row)));
-  if (unknown) return Response.json({ message: `column teams.${unknown} does not exist` }, { status: 400 });
+  if (unknown) return Promise.resolve(Response.json({ message: `column teams.${unknown} does not exist` }, { status: 400 }));
   const limit = url.searchParams.get('limit');
   const cut = rows.slice(0, limit === null ? undefined : Number(limit)).map((row) => Object.fromEntries(columns.map((c) => [c, typeof row === 'object' && row !== null ? Reflect.get(row, c) : null])));
-  return Response.json(cut);
+  return Promise.resolve(Response.json(cut));
 });
 const db = readOnlyClient('http://db.test', 'service-role', postgrest);
 
@@ -76,30 +77,30 @@ describe('localTarget and productionTarget', () => {
 
 describe('verifyBoundary', () => {
   it('passes a read whose rows parse, counting them', async () => {
-    expect(await verifyBoundary(fleets[0]!, db)).toEqual({ status: 'ok', line: 'ok     fixtures/fleets: teams (2 rows)' });
+    expect(await verifyBoundary(at(fleets, 0, 'the fleets read'), db)).toEqual({ status: 'ok', line: 'ok     fixtures/fleets: teams (2 rows)' });
   });
 
   it('names a read the database leaves empty, which parsed nothing', async () => {
-    expect(await verifyBoundary(fleets[1]!, db)).toEqual({ status: 'empty', line: 'empty  fixtures/fleets: jev_calls: no row to parse' });
+    expect(await verifyBoundary(at(fleets, 1, 'the Jev calls read'), db)).toEqual({ status: 'empty', line: 'empty  fixtures/fleets: jev_calls: no row to parse' });
   });
 
   it('fails a read whose rows do not parse, naming the zod path', async () => {
-    const outcome = await verifyBoundary(drifted[0]!, db);
+    const outcome = await verifyBoundary(at(drifted, 0, 'the drifted fleets read'), db);
     expect(outcome).toEqual({ status: 'fail', line: 'FAIL   fixtures/fleets-drifted: teams: the answer does not parse: [0].sort invalid_type (expected string); [1].sort invalid_type (expected string)' });
   });
 
   it('fails a single-row read that does not parse', async () => {
-    const outcome = await verifyBoundary(drifted[1]!, db);
+    const outcome = await verifyBoundary(at(drifted, 1, 'the drifted oldest fleet read'), db);
     expect(outcome.status).toBe('fail');
     expect(outcome.line).toContain('fixtures/fleets-drifted: the oldest fleet: the answer does not parse: sort invalid_type');
   });
 
   it('fails a read the database refuses, and one that throws or writes', async () => {
-    const missing = await verifyBoundary({ ...fleets[0]!, read: (d) => d.from('teams').select('name, nickname') }, db);
+    const missing = await verifyBoundary({ ...at(fleets, 0, 'the fleets read'), read: (d) => d.from('teams').select('name, nickname') }, db);
     expect(missing).toEqual({ status: 'fail', line: 'FAIL   fixtures/fleets: teams: the read failed: column teams.nickname does not exist' });
-    const thrown = await verifyBoundary({ ...fleets[0]!, read: () => { throw new Error('no port'); } }, db);
+    const thrown = await verifyBoundary({ ...at(fleets, 0, 'the fleets read'), read: () => { throw new Error('no port'); } }, db);
     expect(thrown).toEqual({ status: 'fail', line: 'FAIL   fixtures/fleets: teams: the read threw: no port' });
-    const writes = await verifyBoundary({ ...fleets[0]!, read: (d) => d.from('teams').delete().eq('name', 'beaver') }, db);
+    const writes = await verifyBoundary({ ...at(fleets, 0, 'the fleets read'), read: (d) => d.from('teams').delete().eq('name', 'beaver') }, db);
     expect(writes.line).toContain('schemas:verify only reads: a DELETE was refused');
   });
 });

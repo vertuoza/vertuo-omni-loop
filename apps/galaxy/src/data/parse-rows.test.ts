@@ -28,7 +28,7 @@ describe('parseRows', () => {
   });
 
   it('fails a row with a missing column, a wrong type, a forbidden null or an unknown column, naming each path', () => {
-    const { age: _, ...noAge } = ada;
+    const noAge = { id: ada.id, email: ada.email };
     const rows = [noAge, { ...ada, age: '36' }, { ...ada, email: null }, { ...ada, extra: 1 }];
     const parsed = parseRows(Person, rows, WHERE);
     expect(parsed.ok).toBe(false);
@@ -89,7 +89,8 @@ describe("the failure forms: each module's own failed read", () => {
   });
 
   it('{ ok: false }: the parse itself is the result a module returns', () => {
-    expect(bad()).toMatchObject({ ok: false, error: expect.stringContaining(WHERE) });
+    const parsed = bad();
+    expect(parsed.ok ? '' : parsed.error).toContain(WHERE);
   });
 
   it('a throw: orThrow answers the value, or throws the error, for a step that retries', () => {

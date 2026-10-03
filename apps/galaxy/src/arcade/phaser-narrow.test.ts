@@ -3,11 +3,11 @@ import { phaserNarrow, type PhaserClasses } from './phaser-narrow';
 import type { PhaserModule } from './platformer/scene';
 
 // Stand-ins for the four Phaser classes: the checks read nothing but the class an object was made from.
-class Body {}
-class Sprite {}
-class Tile {}
-class TilemapLayer {}
-class Other {}
+class Body { readonly made = 'body'; }
+class Sprite { readonly made = 'sprite'; }
+class Tile { readonly made = 'tile'; }
+class TilemapLayer { readonly made = 'layer'; }
+class Other { readonly made = 'other'; }
 
 const P = { Physics: { Arcade: { Body, Sprite } }, Tilemaps: { Tile, TilemapLayer } } as unknown as PhaserClasses;
 const { bodyOf, spriteOf, tileOf, layerOf } = phaserNarrow(P);
