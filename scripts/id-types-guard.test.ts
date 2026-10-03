@@ -142,23 +142,26 @@ function fileViolations(file: File): Violation[] {
     out.push({ path: file.path, line, name, text: lines[line - 1] ?? '' });
   };
   const visit = (node: ts.Node): void => {
-    if (
-      ts.isParameter(node) ||
-      ts.isPropertySignature(node) ||
-      ts.isPropertyDeclaration(node) ||
-      ts.isVariableDeclaration(node)
-    ) {
-      const name = idName(node.name);
-      if (name !== undefined && node.type !== undefined && isBare(node.type)) flag(node, name);
-    }
-    if (ts.isPropertyAssignment(node)) {
-      const name = idName(node.name);
-      if (name !== undefined && isPlainZodChain(node.initializer)) flag(node, name);
-    }
+    const name = bareIdName(node);
+    if (name !== undefined) flag(node, name);
     ts.forEachChild(node, visit);
   };
   visit(source);
   return out;
+}
+
+/** A declaration that holds a value and may carry a type. */
+type Declared = ts.ParameterDeclaration | ts.PropertySignature | ts.PropertyDeclaration | ts.VariableDeclaration;
+
+function isDeclared(node: ts.Node): node is Declared {
+  return ts.isParameter(node) || ts.isPropertySignature(node) || ts.isPropertyDeclaration(node) || ts.isVariableDeclaration(node);
+}
+
+/** The ID name `node` declares bare: a bare type written on it, or a plain zod chain assigned to it. */
+function bareIdName(node: ts.Node): string | undefined {
+  if (isDeclared(node)) return node.type !== undefined && isBare(node.type) ? idName(node.name) : undefined;
+  if (ts.isPropertyAssignment(node)) return isPlainZodChain(node.initializer) ? idName(node.name) : undefined;
+  return undefined;
 }
 
 /** The declared name when it is one an ID goes by: an identifier or a quoted key. */
