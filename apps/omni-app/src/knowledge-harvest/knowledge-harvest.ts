@@ -32,20 +32,27 @@ import type { OctokitFor } from '../octokit-for.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { qualify } from '../retro/qualify.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
-import { commentOnFailure, upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
 import { filesIn, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
-import { CommitSchema, FailedHarvestEventSchema, HarvestEventSchema, parsedOr } from './schema.ts';
-
-/** The part of an Inngest step the harvest runs: one memoized, retried unit, its output as JSON. */
-type HarvestStep = { run: <T>(id: string, fn: () => T | Promise<T>) => Promise<T> };
+import {
+  ClassificationOutSchema,
+  CommentedSchema,
+  CommitSchema,
+  FailedHarvestEventSchema,
+  HarvestEventSchema,
+  parsedOr,
+  PublishedSchema,
+  QualifiedSchema,
+  SettledSchema,
+  WrittenSchema,
+} from './schema.ts';
+import { savedStep, type StepRun } from '../saved-step.ts';
+import type { z } from 'zod';
 
 /** What the "qualify" step decides: a skip, or the merged feature PR's config, PRD and merge. */
-type Qualified =
-  | { skip: string }
-  | { skip: null; config: Config; prd: { number: number; topic: string; title: string }; merge: { by: string; at: string; pr: number; url?: string } };
+type Qualified = z.infer<typeof QualifiedSchema>;
 
 export const HARVEST_FUNCTION_ID = 'knowledge-harvest';
 
@@ -84,27 +91,27 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
       retries: 3,
       onFailure: createHarvestFailureHandler({ octokitFor }),
     },
-    async ({ event, step: inngestStep }) => {
+    async ({ event, step }) => {
       const parsedEvent = HarvestEventSchema.safeParse(event.data);
       if (!parsedEvent.success) {
         const [issue] = parsedEvent.error.issues;
         throw new NonRetriableError(`The harvest event is malformed: ${issue?.path.join('.') || '(event)'}: ${issue?.message ?? parsedEvent.error.message}`);
       }
       const { installationId, owner, repo, prNumber } = parsedEvent.data;
-      const step = inngestStep as HarvestStep; // ts-allow: Inngest's step answers each output as JSON, and every output the harvest steps is JSON already
       const github = async () => octokitFor(installationId);
 
-      const qualified = await step.run('qualify', async (): Promise<Qualified> => {
+      const qualified = await savedStep(step, 'qualify', QualifiedSchema, async (): Promise<Qualified> => {
         const octokit = await github();
         const merge = await readMerge(octokit, { owner, repo, prNumber });
-        if (!merge.merged || !merge.sha) return { skip: `#${prNumber} was closed, not merged.` };
+        // A merged pull request always carries its merge time; one without is read as not merged.
+        if (!merge.merged || !merge.sha || !merge.at) return { skip: `#${prNumber} was closed, not merged.` };
         const found = await qualify(octokit, { owner, repo, prNumber, mergeSha: merge.sha });
         if (found.skip !== null) return { skip: found.skip };
         return {
           skip: null,
           config: found.config,
           prd: { number: found.prd.number, topic: found.prd.topic, title: found.prd.title },
-          merge: { by: merge.by ?? '', at: merge.at as string, pr: prNumber, ...(merge.url ? { url: merge.url } : {}) }, // ts-allow: a merged pull request always carries its merge time
+          merge: { by: merge.by ?? '', at: merge.at, pr: prNumber, ...(merge.url ? { url: merge.url } : {}) },
         };
       });
       if (qualified.skip !== null) return { skipped: qualified.skip };
@@ -113,7 +120,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
       const branch = config.branches.knowledge.replaceAll('{topic}', prd.topic);
       refuseDefault(branch, base);
 
-      const settled = await step.run('settle', async () => {
+      const settled = await savedStep(step, 'settle', SettledSchema, async () => {
         const octokit = await github();
         const tip = await tipOf(octokit, { owner, repo, branch: base });
         const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge }));
@@ -127,11 +134,11 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
       const classified: Classification[] = [];
       for (const candidate of prepared.candidates) {
         classified.push(
-          await step.run(`classify:${candidate.id}`, () => classifyCandidate({ candidate, summary: prepared.summary, env, fetch })),
+          await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, env, fetch })),
         );
       }
 
-      const written = await step.run('write', async () => {
+      const written = await savedStep(step, 'write', WrittenSchema, async () => {
         const octokit = await github();
         const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
         return withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx, root) => {
@@ -140,7 +147,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
         });
       });
 
-      const published = await step.run('publish', async () => {
+      const published = await savedStep(step, 'publish', PublishedSchema, async () => {
         if (noEdits(written.edits)) return null;
         const octokit = await github();
         const head = await branchHead(octokit, { owner, repo, branch, from: tip, defaultBranch: base });
@@ -186,7 +193,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
 
       const verdict = published
         ? null
-        : await step.run('verdict', async () =>
+        : await savedStep(step, 'verdict', CommentedSchema, async () =>
             upsertComment(await github(), {
               owner,
               repo,
@@ -218,7 +225,7 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
   return async ({ event, error, step }: {
     event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
     error?: { message?: string } | null;
-    step?: HarvestStep | null;
+    step?: StepRun | null;
   }) => {
     const failed = FailedHarvestEventSchema.safeParse(event.data.event.data ?? {});
     const { installationId, owner, repo, prNumber } = failed.success ? failed.data : {};
@@ -226,7 +233,7 @@ export function createHarvestFailureHandler({ octokitFor }: { octokitFor: Octoki
     const reason = firstLine(error?.message ?? event.data.error?.message);
     const text = `The knowledge harvest could not run: ${reason}`;
 
-    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, async (octokit, where) => {
+    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
       const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text });
       return { ...posted, reason };
     });

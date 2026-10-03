@@ -143,7 +143,9 @@ function judge(reply: Reply, findings: Reply, prose: Prose, evidence: Evidence, 
   const judged: Record<string, Pick<ProseFinding, 'keep' | 'why'>> = {};
   let keptOne = false;
   for (const [id, kept] of Object.entries(prose.findings)) {
-    const words = findings[id] as Reply; // ts-allow: only an id `guard` kept is here; a null one throws, as it always has
+    // Only an id whose words are an object is in `prose.findings`.
+    const given = findings[id];
+    const words: Reply = isObject(given) ? given : {};
     const field = `findings.${id}`;
     const marks: Pick<ProseFinding, 'keep' | 'why'> = {};
     if (words.keep !== undefined) {

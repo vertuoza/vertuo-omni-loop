@@ -12,11 +12,13 @@ import { ListSchema, parseGitHub } from '../github.schema.ts';
 import type { Kind, RetroPull } from './index.ts';
 import { IssueEventSchema } from './schema.ts';
 import { sliceOf } from './slice-of.ts';
+import type { z } from 'zod';
+import { TimelineRecordsSchema } from './records.ts';
 
 const MINUTE = 60 * 1000;
 const EVENTS = 'GET /repos/{owner}/{repo}/issues/{issue_number}/events';
 
-type Records = { readyAt: string | null };
+type Records = z.infer<typeof TimelineRecordsSchema>;
 
 type SliceTime = {
   slice: string;
@@ -41,6 +43,7 @@ type Facts = {
 
 export const timeline: Kind<Records, Facts> = Object.freeze({
   id: 'timeline',
+  records: TimelineRecordsSchema,
   section: 'Timeline',
   runs: Object.freeze(['merge'] as const),
 
