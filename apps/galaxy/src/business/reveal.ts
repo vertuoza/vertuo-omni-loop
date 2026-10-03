@@ -24,6 +24,7 @@ export interface DraftView {
 /** A web page pasted on the business (public.business_sources), as a select of `id, url` answers it. */
 export const WebPage = z.object({ id: z.string(), url: z.string() });
 export type WebPage = z.infer<typeof WebPage>;
+export const PAGE_COLUMNS = 'id, url';
 
 /** The most web pages a business keeps (decision 3). */
 export const MAX_PAGES = 3;

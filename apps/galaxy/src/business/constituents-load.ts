@@ -1,9 +1,10 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { loadConstituents, type ConstituentsDb } from '../constituents/load';
 import type { Constituent, ConstituentEvent } from '../constituents/model';
 import { peopleOf } from '../people/load';
+import { FLEET_COLUMNS, FleetLookRow, IsOwner, RosterRow } from './constituents-rows';
 import { parseRow, parseRows, type Parsed } from '../data/parse-rows';
 import type { Person } from '../people/types';
 
@@ -21,23 +22,6 @@ export type ConstituentsPanelData = {
   owner: boolean;
   people: Record<string, Person>;
 };
-
-/** A workspace_roster() row, as the people directory reads it (../people/load.ts). */
-export const RosterRow = z.object({
-  user_id: z.string(),
-  name: z.string().nullable(),
-  github_login: z.string().nullable(),
-  avatar_url: z.string().nullable(),
-  fleet: z.string().nullable(),
-  hero: z.unknown().optional(),
-});
-
-/** A fleet, as the people directory reads it from `teams`. */
-export const FleetLookRow = z.object({ name: z.string(), label: z.string(), color: z.string().nullable(), mascot: z.string().nullable() });
-export const FLEET_COLUMNS = 'name, label, color, mascot';
-
-/** What is_owner() answers. */
-export const IsOwner = z.boolean();
 
 type Read = () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 

@@ -285,6 +285,12 @@ export function sizeOf(claims: readonly Claim[]): { stops: [number, number]; pic
 export const Product = z.object({ id: z.string(), name: z.string() });
 export type Product = z.infer<typeof Product>;
 
+/** The columns of Product a select names. */
+export const PRODUCT_COLUMNS = 'id, name';
+
+/** What business_open() answers: the public.businesses row it opened, read for its id. */
+export const OpenedBusiness = z.object({ id: z.string() });
+
 /** Products show only from the second one on: while there is one, the page never mentions them. */
 export const hasProducts = (products: readonly Product[]) => products.length >= 2;
 

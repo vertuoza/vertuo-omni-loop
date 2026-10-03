@@ -3,9 +3,11 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
 import { z } from 'zod';
-import { CITATION_COLUMNS, CLAIM_COLUMNS, claimOf, Product, RECEIPT_COLUMNS, StoredCitation, StoredClaim, StoredReceipt, type Claim } from './model';
+import {
+  CITATION_COLUMNS, CLAIM_COLUMNS, claimOf, OpenedBusiness, Product, PRODUCT_COLUMNS, RECEIPT_COLUMNS, StoredCitation, StoredClaim, StoredReceipt, type Claim,
+} from './model';
 import { DRAFT_COLUMNS, StoredDraft } from './draft-port';
-import { WebPage, type DraftView } from './reveal';
+import { PAGE_COLUMNS, WebPage, type DraftView } from './reveal';
 import { PERSONA_COLUMNS, personaOf, StoredPersona, type Persona } from './personas';
 import { orEmpty, orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
@@ -42,13 +44,6 @@ export type BusinessLoad =
   };
 
 const why = (err: unknown) => (err instanceof Error ? err.message : String(propertyOf(err, 'message') ?? err));
-
-/** What business_open() answers: the public.businesses row it opened. */
-export const OpenedBusiness = z.object({ id: z.string() });
-
-/** The columns of a product the page reads. */
-export const PRODUCT_COLUMNS = 'id, name';
-export const PAGE_COLUMNS = 'id, url';
 
 async function openBusiness(db: SupabaseClient, workspace: string): Promise<string> {
   const answer: RpcAnswer = await db.rpc('business_open', { p_workspace: workspace });

@@ -7,12 +7,11 @@
 // business the first time), workspace_roster() (members only, never the service role) and
 // claim_propose_evidence() (it writes, and answers an outcome no table holds) are not registered.
 import type { Boundary } from '../data/parse-rows';
-import { CITATION_COLUMNS, CLAIM_COLUMNS, Product, RECEIPT_COLUMNS, StoredCitation, StoredClaim, StoredReceipt } from './model';
+import { CITATION_COLUMNS, CLAIM_COLUMNS, Product, PRODUCT_COLUMNS, RECEIPT_COLUMNS, StoredCitation, StoredClaim, StoredReceipt } from './model';
 import { DRAFT_COLUMNS, StoredDraft } from './draft-port';
-import { WebPage } from './reveal';
+import { PAGE_COLUMNS, WebPage } from './reveal';
 import { PERSONA_COLUMNS, StoredPersona } from './personas';
-import { PAGE_COLUMNS, PRODUCT_COLUMNS } from './load';
-import { FLEET_COLUMNS, FleetLookRow, IsOwner } from './constituents-load';
+import { FLEET_COLUMNS, FleetLookRow, IsOwner } from './constituents-rows';
 import { SUGGEST_CLAIM_COLUMNS } from './suggest-store';
 import { ConfirmedClaim } from './recheck/recheck';
 import { DraftRow } from './draft/run';
