@@ -71,7 +71,7 @@ export function groupVariables<S extends z.ZodObject>(group: EnvGroup<S>): strin
 
 /**
  * Every variable `groups` read, each once, fallbacks included, in the order written: a module's
- * `VARIABLES`, which its docs list (the docs check, `scripts/env-docs.test.ts`).
+ * `VARIABLES`, which its docs list (the docs check, `./docs.ts`).
  */
 export function variablesOf(groups: readonly { variables: Readonly<Record<string, EnvNames>> }[]): string[] {
   return [...new Set(groups.flatMap((group) => Object.values(group.variables).flatMap(listOf)))];

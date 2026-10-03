@@ -8,7 +8,8 @@ evidence:
   - kit/lib/ids.ts@90d94c1
   - scripts/id-types-guard.test.ts@daaaf9e
   - kit/lib/env/read.ts@db70924
-  - scripts/env-guard.test.ts@0e2b289
+  - scripts/env-guard.test.ts@5739a50
+  - kit/lib/env/docs.ts@1588953
 terraformed: 2026-09-25
 ---
 
@@ -36,9 +37,10 @@ helpers), complete or `null` when it is off, and the code takes the group it nee
 tests pass plain objects and never write `process.env`. A value the platform sets, or one an SDK
 reads itself, goes in the module's named list (`PLATFORM_VARIABLES`, `SDK_VARIABLES`).
 `scripts/env-guard.test.ts` fails on any `process.env` access elsewhere, with no allowlist and no
-comment escape, and `scripts/env-docs.test.ts` fails when `apps/galaxy/.env.example` or a README's
-marked list (the names between its `omni:env-variables` comments) and the module's `VARIABLES`
-differ, either way: add the variable to the list in the same change. ADR-0057 records the rule.
+comment escape, and the docs check (`kit/lib/env/docs.ts`, run by each runtime's `env-docs` test)
+fails when `apps/galaxy/.env.example` or a README's marked list (the names between its
+`omni:env-variables` comments) and the module's `VARIABLES` differ, either way: add the variable to
+the list in the same change. ADR-0057 records the rule.
 
 ## Formatting
 <!-- slot: formatting · optional · by: terraform -->

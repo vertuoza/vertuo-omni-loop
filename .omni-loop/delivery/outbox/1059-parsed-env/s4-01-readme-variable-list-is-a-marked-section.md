@@ -36,11 +36,11 @@ How a README's variable list is recognised by the docs check: a marked section, 
 
 ## What I did meanwhile
 
-scripts/env-docs.test.ts reads the backticked names between <!-- omni:env-variables --> and <!-- /omni:env-variables --> (exactly one section per README, else it fails) and compares them both ways with the runtime's VARIABLES: README.md with the kit's, game/README.md with the game's groups (workspace and Supabase), apps/omni-app/README.md with its groups plus SDK_VARIABLES (INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY, and INNGEST_DEV, now listed as local only), apps/galaxy/README.md with the arcade's. apps/galaxy/.env.example is read as every NAME= line. Platform values (PLATFORM_VARIABLES) are listed nowhere. README.md and game/README.md gained a short list; omni-app's setup list gained OPENROUTER_MODEL, STAGE_EVENT_SECRET, GALAXY_URL and INNGEST_DEV; galaxy's Vercel step gained the full list.
+The docs check (kit/lib/env/docs.ts, run by scripts/env-docs.test.ts and each app's src/env-docs.test.ts) reads the backticked names between <!-- omni:env-variables --> and <!-- /omni:env-variables --> (exactly one section per README, else it fails) and compares them both ways with the runtime's VARIABLES: README.md with the kit's, game/README.md with the game's groups (workspace and Supabase), apps/omni-app/README.md with its groups plus SDK_VARIABLES (INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY, and INNGEST_DEV, now listed as local only), apps/galaxy/README.md with the arcade's. apps/galaxy/.env.example is read as every NAME= line. Platform values (PLATFORM_VARIABLES) are listed nowhere. README.md and game/README.md gained a short list; omni-app's setup list gained OPENROUTER_MODEL, STAGE_EVENT_SECRET, GALAXY_URL and INNGEST_DEV; galaxy's Vercel step gained the full list.
 
 ## What it costs to change later
 
-Answering B or C is a change to readmeNames in scripts/env-docs.test.ts and the markers in four READMEs: under an hour, no migration.
+Answering B or C is a change to readmeNames in kit/lib/env/docs.ts and the markers in four READMEs: under an hour, no migration.
 
 ## What I could not know
 

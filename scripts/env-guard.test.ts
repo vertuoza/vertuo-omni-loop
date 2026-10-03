@@ -154,29 +154,37 @@ const PROCESS_MODULES = new Set(['process', 'node:process']);
  * index, spread or pass of the object goes through one of these.
  */
 function readsEnv(node: ts.Node): boolean {
-  if (ts.isPropertyAccessExpression(node)) return node.name.text === 'env' && isProcess(node.expression);
-  if (ts.isElementAccessExpression(node)) {
-    return ts.isStringLiteralLike(node.argumentExpression) && node.argumentExpression.text === 'env' && isProcess(node.expression);
-  }
-  if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)) {
-    return node.initializer !== undefined && isProcess(node.initializer) && node.name.elements.some(bindsEnv);
-  }
-  if (ts.isImportSpecifier(node)) {
-    const imported = (node.propertyName ?? node.name).text;
-    const from = node.parent.parent.parent.moduleSpecifier;
-    return imported === 'env' && ts.isStringLiteral(from) && PROCESS_MODULES.has(from.text);
-  }
-  return false;
+  return ENV_READS.some((reads) => reads(node));
+}
+
+/** Each way a node reaches the environment, one check per kind of node. */
+const ENV_READS: readonly ((node: ts.Node) => boolean)[] = [
+  // `process.env`
+  (node) => ts.isPropertyAccessExpression(node) && node.name.text === 'env' && isProcess(node.expression),
+  // `process['env']`
+  (node) => ts.isElementAccessExpression(node) && isEnvKey(node.argumentExpression) && isProcess(node.expression),
+  // `const { env } = process`
+  (node) =>
+    ts.isVariableDeclaration(node) &&
+    ts.isObjectBindingPattern(node.name) &&
+    node.initializer !== undefined &&
+    isProcess(node.initializer) &&
+    node.name.elements.some((element) => isEnvKey(element.propertyName ?? element.name)),
+  // `import { env } from 'node:process'`
+  (node) => ts.isImportSpecifier(node) && isEnvKey(node.propertyName ?? node.name) && isProcessModule(node.parent.parent.parent.moduleSpecifier),
+];
+
+/** A key that names `env`: an identifier or a string. */
+function isEnvKey(key: ts.Node): boolean {
+  return (ts.isIdentifier(key) || ts.isStringLiteralLike(key)) && key.text === 'env';
+}
+
+function isProcessModule(specifier: ts.Expression): boolean {
+  return ts.isStringLiteral(specifier) && PROCESS_MODULES.has(specifier.text);
 }
 
 /** `process`, or `globalThis.process`. */
 function isProcess(expression: ts.Expression): boolean {
   if (ts.isIdentifier(expression)) return expression.text === 'process';
   return ts.isPropertyAccessExpression(expression) && expression.name.text === 'process' && ts.isIdentifier(expression.expression) && expression.expression.text === 'globalThis';
-}
-
-/** A binding element that takes `env` out of the object. */
-function bindsEnv(element: ts.BindingElement): boolean {
-  const key = element.propertyName ?? element.name;
-  return (ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === 'env';
 }

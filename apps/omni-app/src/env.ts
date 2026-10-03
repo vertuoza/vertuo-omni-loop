@@ -72,7 +72,7 @@ const GALAXY = envGroup({
   variables: { url: 'GALAXY_URL' },
 });
 
-/** The variables a person sets for the app and `readEnv` reads: the README's list names these (`scripts/env-docs.test.ts`). */
+/** The variables a person sets for the app and `readEnv` reads: the README's list names these (`src/env-docs.test.ts`). */
 export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, GALAXY]);
 
 /** The variables the Inngest SDK reads itself (above): set by a person, so the README's list names them too. */

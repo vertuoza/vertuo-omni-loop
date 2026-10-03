@@ -99,7 +99,7 @@ const GALAXY = envGroup({
 
 /**
  * The variables a person sets for the arcade, server and browser: `.env.example` and the README's list
- * name exactly these (`scripts/env-docs.test.ts`).
+ * name exactly these (`src/env-docs.test.ts`).
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
