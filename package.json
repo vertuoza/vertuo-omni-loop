@@ -17,6 +17,7 @@
     "typecheck": "tsc -p . && pnpm --filter @omni/galaxy-app typecheck",
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "fallow:audit": "fallow audit",
+    "check:changed": "node scripts/check-changed.ts",
     "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.ts",
     "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.ts",
     "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.ts",
