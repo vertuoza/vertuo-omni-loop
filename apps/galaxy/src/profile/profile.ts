@@ -10,7 +10,6 @@ import { demoActivity, demoAnswered, demoPrds, demoRoster, DEMO_VIEWER } from '.
 import { supabaseReads } from '../dashboard/board/load';
 import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
-import { z } from 'zod';
 import { parsedPages } from '../data/all-pages';
 import { orThrow, parseRows } from '../data/parse-rows';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
@@ -21,6 +20,7 @@ import { readHistory } from '../dossier/page/source';
 import type { DossierListRow } from '../dossier/store';
 import { stageStore } from '../stages/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
+import { PR_COLUMNS, REVIEW_COLUMNS, StoredPullRequest, StoredReview, TrackedRepository } from './stored';
 
 // A person's profile (PRD 698 s3), as the signed-in person, in the workspace they joined first (the
 // one /app/fleet reads, memberWorkspace): the board's reads, and the tracked repositories' pull
@@ -34,24 +34,6 @@ import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './
 
 export type ProfileBoard = { kind: 'no-workspace' } | ProfileValue;
 
-/** The columns of a pull request the profile reads. */
-export const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';
-
-/** A pull request as PR_COLUMNS reads it. */
-export const StoredPullRequest = z.strictObject({
-  repo: z.string(), number: z.number(), author: z.string().nullable(), author_is_bot: z.boolean(), opened_at: z.string(),
-  merged_at: z.string().nullable(), closed_at: z.string().nullable(), merged_by: z.string().nullable(), commits: z.number(),
-  additions: z.number(), deletions: z.number(), omni_signed: z.boolean(),
-});
-
-/** The columns of a review the profile reads. */
-export const REVIEW_COLUMNS = 'repo, number, reviewer, first_at';
-
-/** A review as REVIEW_COLUMNS reads it. */
-export const StoredReview = z.strictObject({ repo: z.string(), number: z.number(), reviewer: z.string(), first_at: z.string() });
-
-/** A tracked repository, as the profile reads its name. */
-export const TrackedRepository = z.strictObject({ full_name: z.string() });
 
 /** The profile's reads of one workspace, as the signed-in person. `login` is a checked GitHub login
  * (profileLogin), so it holds no pattern character for `ilike`. */

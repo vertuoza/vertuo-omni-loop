@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cliSignInReturn } from '../../../src/ask/cli-code';
 import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
-import { afterSignIn, appLanding, joinBeforeIssue, sessionOf, settleSignIn } from '../../../src/data/sign-in';
+import { sessionOf } from '../../../src/data/session';
+import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 import { landingAfterSignIn } from '../../../src/data/workspace';

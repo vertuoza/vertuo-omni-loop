@@ -7,9 +7,9 @@ vi.mock('server-only', () => ({}));
 import { brokenRows, type Breaks } from './broken-rows.fake';
 import { DossierListEntry } from './dossiers';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA } from './galaxy.fake';
-import { LEDGER_COLUMNS, LedgerRow } from './load-galaxy';
+import { LEDGER_COLUMNS, LedgerRow } from './ledger-row';
 import { PLAYER_COLUMNS, StoredPlayer } from './players';
-import { sessionOf } from './sign-in';
+import { sessionOf } from './session';
 import { SCORE_COLUMNS, ScoreRow } from './scores';
 import { MEMBERSHIP_COLUMNS, MembershipRow } from './workspace';
 

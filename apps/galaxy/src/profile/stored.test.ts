@@ -1,9 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { brokenRows } from '../data/broken-rows.fake';
-
-vi.mock('server-only', () => ({}));
-
-const { StoredPullRequest, StoredReview, TrackedRepository } = await import('./profile');
+import { StoredPullRequest, StoredReview, TrackedRepository } from './stored';
 
 // The profile's schemas (PRD 1030): a pull request, a review and a tracked repository as the profile's
 // selects read them, each parsed, and refused with a column missing, of the wrong type, or null.

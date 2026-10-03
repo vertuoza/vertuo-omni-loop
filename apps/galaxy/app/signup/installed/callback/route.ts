@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requestOrigin } from '../../../../src/ask/page/sign-in';
-import { sessionOf } from '../../../../src/data/sign-in';
+import { sessionOf } from '../../../../src/data/session';
 import { signInDeps } from '../../../../src/data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
 import { finishSetup, readSetup, setupReturn } from '../../../../src/signup/installed';

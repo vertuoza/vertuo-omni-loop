@@ -17,11 +17,10 @@
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { z } from 'zod';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
 import { belongsTo, type SignupDeps } from '../signup/installation';
 import { joinLogins, type GithubAccount } from './github-orgs';
-import { orNull, parseRow } from './parse-rows';
+import type { SignedIn } from './session';
 
 /** The one call linking makes, link_github(), as the person: the real client and a test fake both satisfy it. */
 export interface LinkPort {
@@ -29,18 +28,8 @@ export interface LinkPort {
 }
 type Rpc = LinkPort;
 
-/** The new session, as far as joining needs it: whose it is, and GitHub's token when Supabase handed one.
- * Not strict: a session carries its tokens and its user's every field, and joining reads these two. */
-const SignedInSession = z.object({ user: z.object({ id: z.string() }), provider_token: z.string().nullish() });
-export type SignedIn = z.infer<typeof SignedInSession>;
-
-/** The session of exchangeCodeForSession()'s answer, parsed; null when it carried none, or one that
- * does not parse (logged by `where`, never its values). */
-export function sessionOf(data: unknown, where: string): SignedIn | null {
-  const session = propertyOf(data, 'session');
-  if (session === null || session === undefined) return null;
-  return orNull(parseRow(SignedInSession, session, where));
-}
+/** The new session, as far as joining needs it (src/data/session.ts). */
+export type { SignedIn } from './session';
 
 /** What joining reaches outside the person's own session: GitHub, and the service role's join; and,
  * to complete sign-up requests, the App's view of GitHub and the service role's sign-up writes. */

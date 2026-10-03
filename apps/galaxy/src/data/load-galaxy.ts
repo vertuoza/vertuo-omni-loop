@@ -4,7 +4,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { z } from 'zod';
+import { LEDGER_COLUMNS, LedgerRow } from './ledger-row';
 import { orThrow, parseRow, parseRows } from './parse-rows';
 import { PLAYER_COLUMNS, StoredPlayer } from './players';
 import { liveSeason, seasonKey, type Newest, type SeasonDeps } from './season-cache';
@@ -75,22 +75,6 @@ async function readNewest(db: SupabaseClient<Database>, workspace: string): Prom
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
-/** The columns a page of the ledger reads. */
-export const LEDGER_COLUMNS = 'id, at, type, planet, home, region, contributor, team, data';
-
-/** A stored ledger row as LEDGER_COLUMNS reads it: the event the ledger projection wrote. */
-export const LedgerRow = z.strictObject({
-  id: z.string(),
-  at: z.string(),
-  type: z.string(),
-  planet: z.number(),
-  home: z.string().nullable(),
-  region: z.string().nullable(),
-  contributor: z.string().nullable(),
-  team: z.string().nullable(),
-  data: z.record(z.string(), z.unknown()).nullable(),
-});
-type LedgerRow = z.infer<typeof LedgerRow>;
 
 /**
  * A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out.
