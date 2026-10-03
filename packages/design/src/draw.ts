@@ -10,6 +10,10 @@ import { at, defined } from '../../../kit/lib/narrow.ts';
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 /** A canvas the helpers render into: offscreen where the platform has it, else a page canvas. */
 export type Canvas = OffscreenCanvas | HTMLCanvasElement;
+/** What drawPlanet calls on the context it is given: only drawImage, to copy its finished canvas. */
+interface ImageSink { drawImage(image: Canvas, dx: number, dy: number): void }
+/** What drawStarfield calls on the context it is given: only fillStyle and fillRect. */
+interface FillSink { fillStyle: Ctx['fillStyle']; fillRect(x: number, y: number, w: number, h: number): void }
 type Rgb = [number, number, number];
 
 const cache = new Map<string, Canvas>();
@@ -380,7 +384,7 @@ const frames = new Map<string, Frame>(); // last frame per planet look, reused w
  * Draws a lit, rotating, dithered planet with clouds, a terminator and an atmosphere glow.
  * `progress` runs 0 to 1; `ring`, when set, is the four tones of a tilted ring around it.
  */
-export function drawPlanet(ctx: Ctx, o: {
+export function drawPlanet(ctx: ImageSink, o: {
   cx: number; cy: number; r: number; seed: number; rot?: number; progress?: number;
   mood?: PlanetMood; atmosphere?: string | null; ring?: readonly string[] | null;
 }): void {
@@ -578,7 +582,7 @@ export function makeStarfield(seed: number, w: number, h: number, count = 300): 
 
 const STAR_COLORS = ['#2e3270', '#6a70c0', '#c8d0ff', '#ffffff'];
 
-export function drawStarfield(ctx: Ctx, stars: readonly Star[], t: number, { w, speed = 0 }: { w: number; h: number; speed?: number }): void {
+export function drawStarfield(ctx: FillSink, stars: readonly Star[], t: number, { w, speed = 0 }: { w: number; h: number; speed?: number }): void {
   for (const s of stars) {
     const x = Math.floor(((s.x - t * speed * (s.layer + 1) * 6) % w + w) % w);
     const y = Math.floor(s.y);
