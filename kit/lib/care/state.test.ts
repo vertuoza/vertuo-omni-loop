@@ -191,7 +191,8 @@ describe('CareResponseSchema — the answer GitHub gives CARE_QUERY', () => {
   });
 
   it('refuses a pull request with no number, a number given as text, and a null head branch', () => {
-    const { number: _number, ...noNumber } = pr();
+    const noNumber = pr();
+    delete noNumber.number;
     expect(CareResponseSchema.safeParse(withPr(noNumber)).success).toBe(false);
     expect(CareResponseSchema.safeParse(withPr({ ...pr(), number: '9' })).success).toBe(false);
     expect(CareResponseSchema.safeParse(withPr({ ...pr(), headRefName: null })).success).toBe(false);

@@ -488,7 +488,8 @@ describe('planReplies — pure', () => {
     const item = { id: 's1-01-country', rank: 'medium', file: 'docs/outbox/1071/s1-01-country.md', sections: { whatIDidMeanwhile: 'Kept it.', questionPlain: 'Which one?' } };
     const comments = [prComment(numbering('s1-01-country')), reply('1: yes')];
     expect(planReplies({ comments, items: [item], markers }).settle[0]?.item).toEqual(item);
-    const { rank: _rank, ...noRank } = item;
+    const noRank: Record<string, unknown> = { ...item };
+    delete noRank.rank;
     expect(() => planReplies({ comments, items: [noRank], markers })).toThrow();
     expect(() => planReplies({ comments, items: [{ ...item, sections: { ...item.sections, questionPlain: 7 } }], markers })).toThrow();
     expect(() => planReplies({ comments, items: [{ ...item, id: null }], markers })).toThrow();

@@ -4,7 +4,7 @@
 // claims; the decision (`decide.mjs`) reads what this returns.
 import { z } from 'zod';
 import { readCareVerdict } from './marker.ts';
-import { at } from '../narrow.ts';
+import { at, propertyOf } from '../narrow.ts';
 import type { CareVerdict } from './marker.ts';
 
 // The parts of `CARE_QUERY`'s answer this file reads, as a schema: `kit/bin/commands/care.ts` parses
@@ -25,8 +25,9 @@ const ContextNodeSchema = z.object({
 type ContextNode = z.infer<typeof ContextNodeSchema>;
 const RollupSchema = z.object({ state: text, contexts: nodesOf(ContextNodeSchema.nullish()) });
 type Rollup = z.infer<typeof RollupSchema>;
+const AuthorSchema = z.object({ login: text, avatarUrl: text });
 const CommentNodeSchema = z.object({
-  author: z.object({ login: text, avatarUrl: text }).nullish(),
+  author: AuthorSchema.nullish(),
   body: text,
   createdAt: text,
   url: text,
@@ -159,10 +160,16 @@ function readChecks(pr: PullRequestNode, labels: readonly string[], { needsFixLa
   return { state, failed, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
 
+/** A comment author's field: its text, or null when the comment has no author or no such field. */
+function authorField(node: CommentNode, key: 'login' | 'avatarUrl'): string | null {
+  const value = propertyOf(node.author, key);
+  return typeof value === 'string' ? value : null;
+}
+
 function readComment(node: CommentNode): CareComment {
   return {
-    author: node.author?.login ?? null,
-    avatarUrl: node.author?.avatarUrl ?? null,
+    author: authorField(node, 'login'),
+    avatarUrl: authorField(node, 'avatarUrl'),
     body: node.body ?? '',
     createdAt: node.createdAt ?? null,
     url: node.url ?? null,

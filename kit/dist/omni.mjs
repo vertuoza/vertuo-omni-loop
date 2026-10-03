@@ -33161,8 +33161,9 @@ var ContextNodeSchema = external_exports.object({
   targetUrl: text4
 });
 var RollupSchema = external_exports.object({ state: text4, contexts: nodesOf(ContextNodeSchema.nullish()) });
+var AuthorSchema = external_exports.object({ login: text4, avatarUrl: text4 });
 var CommentNodeSchema = external_exports.object({
-  author: external_exports.object({ login: text4, avatarUrl: text4 }).nullish(),
+  author: AuthorSchema.nullish(),
   body: text4,
   createdAt: text4,
   url: text4
@@ -33238,10 +33239,14 @@ function readChecks(pr, labels, { needsFixLabel, gateContexts }) {
   const fixable = isFixable(state, failed2, gateContexts);
   return { state, failed: failed2, stuck: needsFixLabel ? labels.includes(needsFixLabel) : false, fixable };
 }
+function authorField(node2, key) {
+  const value = propertyOf(node2.author, key);
+  return typeof value === "string" ? value : null;
+}
 function readComment(node2) {
   return {
-    author: node2.author?.login ?? null,
-    avatarUrl: node2.author?.avatarUrl ?? null,
+    author: authorField(node2, "login"),
+    avatarUrl: authorField(node2, "avatarUrl"),
     body: node2.body ?? "",
     createdAt: node2.createdAt ?? null,
     url: node2.url ?? null,
