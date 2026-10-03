@@ -40,6 +40,12 @@ const iso = (d: Date): string => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 // A region as the demo writes it: its repository, how many hours ago it was surveyed, its blockers.
 type RegionRow = [repo: string, surveyedH: number, blockedBy?: number[]];
+// A demo planet with a feature PR names its regions; its feature PR lands in the first one.
+function firstRepo(prd: number, regions: readonly RegionRow[]): string {
+  const [first] = regions;
+  if (!first) throw new Error(`demo planet ${prd} has a feature PR and no region`);
+  return first[0];
+}
 // A feature PR as the demo writes it: hours ago it was opened, made ready, merged, last touched.
 type FeatureRow = { created: number; ready?: number; merged?: number; activity?: number };
 // How an item was settled, hours ago.
@@ -72,7 +78,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     // A region's own feature PR is left to the planet's (game/planet-state.ts falls back to it).
     regions: regions.map(([repo, surveyedH, blockedBy = []]) => ({ repo, surveyedAt: ago(surveyedH), blockedBy, featurePr: null })),
     featurePr: feature && {
-      repo: (regions[0] as RegionRow)[0], number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null), // ts-allow: a demo planet with a feature PR names its regions
+      repo: firstRepo(prd, regions), number: ++prNo, createdAt: ago(feature.created), readyAt: ago(feature.ready ?? null), // ts-allow: a demo planet with a feature PR names its regions
       mergedAt: ago(feature.merged ?? null), lastActivityAt: ago(feature.activity ?? feature.created),
     },
     zones, outbox, bugs,

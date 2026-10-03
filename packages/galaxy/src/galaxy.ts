@@ -4,17 +4,20 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
 import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { planetKeyOf, type GameEvent } from 'vertuo-omni-plan/game/events.ts';
+import { EVENT_TYPES, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
 
-// What an event's data carries, as game/projector.ts writes it: the fields the view reads.
-type EventData = {
-  captain?: string | null; ownerTeam?: string | null; title?: string; blocker: number; wave?: number | null;
-  kind: WoundKind; rank?: string | null; verdict?: string | null; reason?: string | null;
+// An event's data is read field by field, as game/projector.ts writes it: a field of another type
+// reads as absent, so a stray value never reaches the view as something it is not.
+const numberOf = (data: Readonly<Record<string, unknown>>, key: string): number | undefined => {
+  const value = data[key];
+  return typeof value === 'number' ? value : undefined;
 };
-const dataOf = (e: LedgerEvent): EventData => e.data as EventData; // ts-allow: the projector writes each event type's data in this shape
+const woundKindOf = (data: Readonly<Record<string, unknown>>): WoundKind | undefined => WOUND_KINDS.find((k) => k === data.kind);
+// A ledger row whose type is one of the game's event types, which score() reads as a tag.
+const isGameEvent = (e: LedgerEvent): e is LedgerEvent & { type: EventType } => EVENT_TYPES.some((t) => t === e.type);
 
 // A zone and a fire name their region, then their PRD: `<home>#<n>` since PRD 728, the number alone before.
 const ZONE_ID = /^zone:([^:]+):((?:[^:#]+#)?\d+):(.+):(opened|claimed|secured|reverted)$/;
@@ -47,27 +50,30 @@ const LABEL_OF: Readonly<Record<string, string | undefined>> = WOUND_LABEL;
 const woundKey = (id: string): string => id.replace(/:(opened|closed)$/, '');
 
 function logLine(e: LedgerEvent): string {
-  const data = dataOf(e);
+  const { data } = e;
   const who = e.contributor ? `@${e.contributor}` : null;
   const where = e.region ? ` in ${e.region}` : '';
   const zone = ZONE_ID.exec(e.id)?.[3];
-  const kind = LABEL_OF[data.kind] ?? data.kind;
+  const named = textOf(data, 'kind') ?? '';
+  const kind = LABEL_OF[named] ?? named;
+  const blocker = String(numberOf(data, 'blocker'));
+  const verdict = textOf(data, 'verdict');
   switch (e.type) {
-    case 'PLANET_CHARTED': return `Planet charted by @${data.captain ?? 'unknown'}`;
-    case 'REGION_SURVEYED': return `Region surveyed: ${e.region}`;
-    case 'PLANET_LOCKED': return `Locked behind planet #${data.blocker}`;
-    case 'PLANET_UNLOCKED': return `Unlocked: planet #${data.blocker} terraformed`;
+    case 'PLANET_CHARTED': return `Planet charted by @${textOf(data, 'captain') ?? 'unknown'}`;
+    case 'REGION_SURVEYED': return `Region surveyed: ${String(e.region)}`;
+    case 'PLANET_LOCKED': return `Locked behind planet #${blocker}`;
+    case 'PLANET_UNLOCKED': return `Unlocked: planet #${blocker} terraformed`;
     case 'ZONE_OPENED': return `Zone ${zone} opened${where}`;
     case 'ZONE_CLAIMED': return `${who ?? 'Someone'} claimed zone ${zone}${where}`;
     case 'ZONE_SECURED': return `${who ?? 'Someone'} secured zone ${zone}${where}`;
     case 'ZONE_REVERTED': return `Zone ${zone} reverted${where}`;
     case 'WOUND_OPENED': return `Entropy landed: ${kind}${where}`;
-    case 'WOUND_CLOSED': return `${who ?? 'Someone'} cleared ${kind}${data.verdict ? ` (${data.verdict})` : ''}`;
+    case 'WOUND_CLOSED': return `${who ?? 'Someone'} cleared ${kind}${verdict ? ` (${verdict})` : ''}`;
     case 'DISTRESS': return 'Distress call: no claim for 8 working hours';
     case 'RESCUE': return `${who ?? 'Someone'} answered the distress call`;
     case 'PLANET_READY': return 'Every zone secured. Awaiting command';
     case 'PLANET_TERRAFORMED': return 'PLANET TERRAFORMED';
-    case 'PLANET_LOST': return data.reason === 'closed' ? 'Planet lost: PRD closed mid-terraform' : 'Planet lost: 10 working days of silence';
+    case 'PLANET_LOST': return textOf(data, 'reason') === 'closed' ? 'Planet lost: PRD closed mid-terraform' : 'Planet lost: 10 working days of silence';
     case 'PLANET_DECOMMISSIONED': return 'Planet decommissioned';
     default: return e.type;
   }
@@ -117,19 +123,19 @@ function derive(prd: number, home: string | null, events: readonly LedgerEvent[]
     return made;
   };
   for (const e of events) {
-    const data = dataOf(e);
+    const { data } = e;
     switch (e.type) {
       case 'PLANET_CHARTED':
-        p.title = data.title ?? p.title; p.captain = data.captain ?? null; p.ownerTeam = data.ownerTeam ?? null; p.chartedAt = e.at;
+        p.title = textOf(data, 'title') ?? p.title; p.captain = textOf(data, 'captain') ?? null; p.ownerTeam = textOf(data, 'ownerTeam') ?? null; p.chartedAt = e.at;
         break;
-      case 'REGION_SURVEYED': if (!p.regions.includes(e.region as string)) p.regions.push(e.region as string); break; // ts-allow: the projector names a surveyed event's region
-      case 'PLANET_LOCKED': p.blockers.add(data.blocker); break;
-      case 'PLANET_UNLOCKED': p.blockers.delete(data.blocker); break;
+      case 'REGION_SURVEYED': if (e.region !== undefined && !p.regions.includes(e.region)) p.regions.push(e.region); break;
+      case 'PLANET_LOCKED': { const blocker = numberOf(data, 'blocker'); if (blocker !== undefined) p.blockers.add(blocker); break; }
+      case 'PLANET_UNLOCKED': { const blocker = numberOf(data, 'blocker'); if (blocker !== undefined) p.blockers.delete(blocker); break; }
       case 'ZONE_OPENED': case 'ZONE_CLAIMED': case 'ZONE_SECURED': case 'ZONE_REVERTED': {
         const [, region, , id, step] = ZONE_ID.exec(e.id) ?? [];
         if (!region || id === undefined) break;
         const z = zoneOf(region, id);
-        if (data.wave !== undefined) z.wave = data.wave;
+        if (data.wave !== undefined) z.wave = numberOf(data, 'wave') ?? null;
         z.at = e.at;
         if (step === 'claimed') { z.state = 'claimed'; z.contributor = e.contributor ?? null; z.team = e.team ?? null; }
         if (step === 'secured') { z.state = 'secured'; z.contributor = e.contributor ?? z.contributor; z.team = e.team ?? z.team; }
@@ -137,9 +143,12 @@ function derive(prd: number, home: string | null, events: readonly LedgerEvent[]
         if ((step === 'claimed' || step === 'secured') && e.contributor) p.expeditions.add(e.contributor);
         break;
       }
-      case 'WOUND_OPENED':
-        p.wounds.set(woundKey(e.id), { id: woundKey(e.id), kind: data.kind, rank: data.rank ?? null, region: e.region ?? null, openedAt: e.at, closedAt: null, closedBy: null });
+      case 'WOUND_OPENED': {
+        // A wound of a kind the rulebook does not know has no weight or decay to draw, so it is left out.
+        const kind = woundKindOf(data);
+        if (kind) p.wounds.set(woundKey(e.id), { id: woundKey(e.id), kind, rank: textOf(data, 'rank') ?? null, region: e.region ?? null, openedAt: e.at, closedAt: null, closedBy: null });
         break;
+      }
       case 'WOUND_CLOSED': {
         const w = p.wounds.get(woundKey(e.id));
         if (w) { w.closedAt = e.at; w.closedBy = e.contributor ?? null; }
@@ -153,7 +162,7 @@ function derive(prd: number, home: string | null, events: readonly LedgerEvent[]
         break;
       case 'PLANET_READY': p.ready = true; break;
       case 'PLANET_TERRAFORMED': p.terraformedAt = e.at; break;
-      case 'PLANET_LOST': p.lostAt = e.at; p.lostReason = data.reason ?? null; break;
+      case 'PLANET_LOST': p.lostAt = e.at; p.lostReason = textOf(data, 'reason') ?? null; break;
       case 'PLANET_DECOMMISSIONED': p.decommissioned = true; break;
       default: break;
     }
@@ -234,10 +243,12 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
   // A planet is keyed by `<home>#<n>` (PRD 728): two repositories' PRD 88 are two planets.
   for (const e of sorted) { const k = planetKeyOf(e); const found = byPlanet.get(k); if (found) found.push(e); else byPlanet.set(k, [e]); }
   const season = now.toISOString().slice(0, 7);
-  const season_ = score(sorted as GameEvent[], { season, now }); // ts-allow: a ledger row's type is one of the game's event types, which score() reads as a tag
+  const season_ = score(sorted.filter(isGameEvent), { season, now });
 
   const planets: Planet[] = [...byPlanet.entries()].map(([key, evs]) => {
-    const first = evs[0] as LedgerEvent; // ts-allow: a planet is in the map only once it has an event
+    // A planet is in the map only once it has an event.
+    const [first] = evs;
+    if (!first) throw new Error(`planet ${key} has no event`);
     const planet = derive(first.planet, first.home ?? null, evs, { sectorOf, now });
     // Home sector: where most of its regions live, else its owning fleet's home.
     const counts = new Map<string, number>();

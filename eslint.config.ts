@@ -16,10 +16,8 @@ export default defineConfig(
     extends: [tseslint.configs.strictTypeChecked],
     languageOptions: {
       // Each file is read by the tsconfig nearest to it: the root's, or the arcade's.
-      // packages/galaxy's index.d.ts stands beside the index.ts it declares, so no tsconfig's `include`
-      // holds it (TypeScript keeps the .ts): it is read with the root tsconfig's options instead.
       parserOptions: {
-        projectService: { allowDefaultProject: ['packages/galaxy/src/index.d.ts'], defaultProject: 'tsconfig.json' },
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },

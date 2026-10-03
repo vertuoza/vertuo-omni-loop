@@ -55,6 +55,22 @@ describe('buildGalaxy', () => {
     expect(rescued.planets[0]).toMatchObject({ state: 'terraforming', rescuers: [{ login: 'alice', team: 'octopod' }] });
   });
 
+  it('reads each data field only when it holds the type the projector writes, and leaves out a wound of an unknown kind', () => {
+    const g = buildGalaxy([
+      ev('planet:7:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', 7, { data: { captain: 42, ownerTeam: 'beaver', title: ['Seven'] } }),
+      ev('planet:7:locked:3', '2026-09-02T08:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: '3' } }),
+      ev('planet:7:locked:5', '2026-09-02T09:00:00Z', 'PLANET_LOCKED', 7, { data: { blocker: 5 } }),
+      ev('zone:core-repo:7:s1:opened', '2026-09-21T08:00:00Z', 'ZONE_OPENED', 7, { region: 'core-repo', data: { wave: 'one' } }),
+      ev('outbox:core-repo:7/s1-01-x:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'paper-cut' } }),
+      ev('outbox:core-repo:7/s1-02-y:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', 7, { region: 'core-repo', data: { kind: 'beacon', rank: 7 } }),
+    ], { projects, now: NOW });
+    const p = g.planets[0];
+    assertDefined(p, 'the first planet');
+    expect(p).toMatchObject({ title: 'PRD #7', captain: null, ownerTeam: 'beaver', blockers: [5] });
+    expect(p.zones.map((z) => [z.id, z.wave])).toEqual([['s1', null]]);
+    expect(p.openWounds.map((w) => [w.kind, w.rank])).toEqual([['beacon', null]]);
+  });
+
   it('builds the demo galaxy from the real projector with every planet state on show', () => {
     const now = new Date('2026-09-25T10:00:00Z');
     const g = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
