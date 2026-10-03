@@ -40,39 +40,43 @@ export function flybySvg(): string {
 
 const hex = (v: number) => v.toString(16).padStart(2, '0');
 
+/** The canvas planetPixels lends drawPlanet: it keeps the pixels put on it. One class for every
+ * call, as drawPlanet keeps each planet's canvas and copies it again on the next call. */
+class Keeper {
+  image: ImageData | null = null;
+  readonly width: number;
+  readonly height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+  }
+  getContext() {
+    return {
+      createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: (image: ImageData) => { this.image = image; },
+    };
+  }
+}
+
 /**
  * The planet as drawPlanet paints it, as a pixel grid. drawPlanet draws into a canvas it makes
  * itself (an OffscreenCanvas when there is one), then copies it onto the one it is given: on the
  * server there is no canvas, so for the length of the call it is handed one that keeps the pixels.
  */
 export function planetPixels(progress: number): PixelGrid {
-  const g = globalThis as { OffscreenCanvas?: unknown }; // ts-allow: globalThis is lent an OffscreenCanvas for the call, and given its own back after
-  const had = Object.hasOwn(g, 'OffscreenCanvas');
-  const before = g.OffscreenCanvas;
-  class Keeper {
-    image: ImageData | null = null;
-    readonly width: number;
-    readonly height: number;
-    constructor(width: number, height: number) {
-      this.width = width;
-      this.height = height;
-    }
-    getContext() {
-      return {
-        createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
-        putImageData: (image: ImageData) => { this.image = image; },
-      };
-    }
-  }
-  let drawn: Keeper | null = null;
-  g.OffscreenCanvas = Keeper;
+  const had = Object.hasOwn(globalThis, 'OffscreenCanvas');
+  const before: unknown = Reflect.get(globalThis, 'OffscreenCanvas');
+  // drawImage sets it during the call: a holder, so the compiler reads it as it may be after the call.
+  const drawn: { canvas: Keeper | null } = { canvas: null };
+  Reflect.set(globalThis, 'OffscreenCanvas', Keeper);
   try {
-    const onto = { drawImage: (canvas: Keeper) => { drawn = canvas; } };
-    drawPlanet(onto as unknown as CanvasRenderingContext2D, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress }); // ts-allow: drawPlanet calls only drawImage, which this stand-in has
+    // drawPlanet copies the canvas it made, a Keeper while one is lent, onto the context it is given.
+    const onto = { drawImage: (canvas: unknown) => { if (canvas instanceof Keeper) drawn.canvas = canvas; } };
+    drawPlanet(onto, { cx: 0, cy: 0, r: PLANET.r, seed: PLANET.seed, progress });
   } finally {
-    if (had) g.OffscreenCanvas = before; else delete g.OffscreenCanvas;
+    if (had) Reflect.set(globalThis, 'OffscreenCanvas', before); else Reflect.deleteProperty(globalThis, 'OffscreenCanvas');
   }
-  const image = (drawn as Keeper | null)?.image; // ts-allow: TypeScript narrows drawn to null, but drawImage sets it during the call
+  const image = drawn.canvas?.image;
   if (!image) throw new Error('planetPixels: drawPlanet drew nothing');
   const { width: w, height: h, data } = image;
   const pixels: (string | null)[] = [];
@@ -107,7 +111,7 @@ export function starfieldSvg(): string {
       paths.set(this.fillStyle, list);
     },
   };
-  drawStarfield(ctx as unknown as CanvasRenderingContext2D, makeStarfield(seed, w, h, count), 0, { w, h }); // ts-allow: drawStarfield calls only what this stand-in has
+  drawStarfield(ctx, makeStarfield(seed, w, h, count), 0, { w, h });
   stars = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges" aria-hidden="true">${
     [...paths].map(([fill, d]) => `<path fill="${fill}" d="${d.join('')}"/>`).join('')
   }</svg>`;
