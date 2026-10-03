@@ -38,6 +38,19 @@ export function parseFolderName(name: string): { prd: PrdNumber; topic: string }
   return prd.success ? { prd: prd.data, topic } : null;
 }
 
+/** The PRD folders in the directory `absolute`, sorted by name, each with its number: `[]` when the
+ * directory is not there. */
+export function prdFoldersIn(absolute: string): { name: string; prd: PrdNumber }[] {
+  if (!existsSync(absolute)) return [];
+  return readdirSync(absolute, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const parsed = parseFolderName(entry.name);
+      return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
+    })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
 export function foldersLayout(root: string, paths: LayoutPaths) {
   const base = paths.delivery;
   const dirs = {
@@ -48,18 +61,7 @@ export function foldersLayout(root: string, paths: LayoutPaths) {
     concepts: `${base}/inbox/concepts`,
   };
 
-  /** The PRD folders under `dir`, by name, each with its number. */
-  function folders(dir: string): { name: string; prd: PrdNumber }[] {
-    const absolute = join(root, dir);
-    if (!existsSync(absolute)) return [];
-    return readdirSync(absolute, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .flatMap((entry) => {
-        const parsed = parseFolderName(entry.name);
-        return parsed ? [{ name: entry.name, prd: parsed.prd }] : [];
-      })
-      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  }
+  const folders = (dir: string) => prdFoldersIn(join(root, dir));
 
   function find(dir: string, prd: PrdNumber): string | null {
     return folders(dir).find((folder) => folder.prd === prd)?.name ?? null;

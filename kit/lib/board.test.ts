@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boardFor, fillBranch, isClaimedStale, runnableFrontier } from './board.ts';
 import type { BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
 import { assertDefined } from '../test/assert.ts';
+import { parsePr, parseWorkSliceId } from './ids.ts';
 
 /** The board's first row, proved present. */
 function firstRow<R>(result: { slices: readonly R[] }): NonNullable<R> {
@@ -37,12 +38,12 @@ const LIMITS = { claimStaleMinutes: 60 };
 const PRD = { topic: 'widgets' };
 
 function slice(overrides: Partial<BoardSlice> = {}): BoardSlice {
-  return { id: 's1', title: 'A slice', territory: ['a/'], wave: 1, blockedBy: [], ...overrides };
+  return { id: parseWorkSliceId('s1'), title: 'A slice', territory: ['a/'], wave: 1, blockedBy: [], ...overrides };
 }
 
 function pr(overrides: Partial<BoardPr> = {}): BoardPr {
   return {
-    number: 1,
+    number: parsePr(1),
     title: 's1',
     headRefName: 'feat/widgets--s1',
     baseRefName: 'feat/widgets',
@@ -64,7 +65,7 @@ function board(slices: BoardSlice[], prs: BoardPr[], overrides: { repos?: BoardR
 
 describe('fillBranch', () => {
   it('fills {topic} and {slice} from the given values', () => {
-    expect(fillBranch('feat/{topic}--{slice}', { topic: 'widgets', slice: 's3' })).toBe('feat/widgets--s3');
+    expect(fillBranch('feat/{topic}--{slice}', { topic: 'widgets', slice: parseWorkSliceId('s3') })).toBe('feat/widgets--s3');
   });
 
   it('leaves an unfilled placeholder untouched', () => {
@@ -186,8 +187,8 @@ describe('boardFor — states', () => {
 
   it('is runnable once every blocker is merged', () => {
     const slices = [
-      slice({ id: 's1', wave: 1 }),
-      slice({ id: 's2', wave: 2, blockedBy: ['s1'] }),
+      slice({ id: parseWorkSliceId('s1'), wave: 1 }),
+      slice({ id: parseWorkSliceId('s2'), wave: 2, blockedBy: [parseWorkSliceId('s1')] }),
     ];
     const prs = [pr({ headRefName: 'feat/widgets--s1', mergedAt: '2026-09-25T11:00:00Z' })];
     const result = board(slices, prs);
@@ -196,15 +197,15 @@ describe('boardFor — states', () => {
 
   it('is blocked when a blocker is not merged', () => {
     const slices = [
-      slice({ id: 's1', wave: 1 }),
-      slice({ id: 's2', wave: 2, blockedBy: ['s1'] }),
+      slice({ id: parseWorkSliceId('s1'), wave: 1 }),
+      slice({ id: parseWorkSliceId('s2'), wave: 2, blockedBy: [parseWorkSliceId('s1')] }),
     ];
     const result = board(slices, []);
     expect(rowOf(result, 's2').state).toBe('blocked');
   });
 
   it('is blocked when the blocker id names no slice at all — never guessed runnable', () => {
-    const result = board([slice({ blockedBy: ['ghost'] })], []);
+    const result = board([slice({ blockedBy: [parseWorkSliceId('ghost')] })], []);
     expect(firstRow(result).state).toBe('blocked');
   });
 
@@ -255,8 +256,8 @@ describe('boardFor — matching', () => {
 
   it('prefers a merged candidate over an open one for the same slice', () => {
     const prs = [
-      pr({ number: 1, state: 'OPEN', updatedAt: '2026-09-25T11:59:00Z' }),
-      pr({ number: 2, mergedAt: '2026-09-25T10:00:00Z', updatedAt: '2026-09-25T10:05:00Z' }),
+      pr({ number: parsePr(1), state: 'OPEN', updatedAt: '2026-09-25T11:59:00Z' }),
+      pr({ number: parsePr(2), mergedAt: '2026-09-25T10:00:00Z', updatedAt: '2026-09-25T10:05:00Z' }),
     ];
     const result = board([slice()], prs);
     expect(firstRow(result).state).toBe('merged');
@@ -265,8 +266,8 @@ describe('boardFor — matching', () => {
 
   it('prefers the most recently updated candidate among ties', () => {
     const prs = [
-      pr({ number: 1, state: 'CLOSED', mergedAt: null, updatedAt: '2026-09-25T09:00:00Z' }),
-      pr({ number: 2, state: 'OPEN', updatedAt: '2026-09-25T11:00:00Z' }),
+      pr({ number: parsePr(1), state: 'CLOSED', mergedAt: null, updatedAt: '2026-09-25T09:00:00Z' }),
+      pr({ number: parsePr(2), state: 'OPEN', updatedAt: '2026-09-25T11:00:00Z' }),
     ];
     const result = board([slice()], prs);
     expect(prOf(firstRow(result)).number).toBe(2);
@@ -275,7 +276,7 @@ describe('boardFor — matching', () => {
 
 describe('runnableFrontier', () => {
   function row(overrides: Partial<FrontierRow>): FrontierRow {
-    return { id: 's1', territory: ['a/'], wave: 1, state: 'runnable', ...overrides };
+    return { id: parseWorkSliceId('s1'), territory: ['a/'], wave: 1, state: 'runnable', ...overrides };
   }
 
   it('is empty when nothing is runnable or claimed-stale', () => {
@@ -290,9 +291,9 @@ describe('runnableFrontier', () => {
 
   it('is the lowest wave that still has a runnable slice', () => {
     const rows = [
-      row({ id: 's1', wave: 1, state: 'merged' }),
-      row({ id: 's2', wave: 2, territory: ['b/'] }),
-      row({ id: 's3', wave: 3, territory: ['c/'] }),
+      row({ id: parseWorkSliceId('s1'), wave: 1, state: 'merged' }),
+      row({ id: parseWorkSliceId('s2'), wave: 2, territory: ['b/'] }),
+      row({ id: parseWorkSliceId('s3'), wave: 3, territory: ['c/'] }),
     ];
     const frontier = runnableFrontier(rows);
     expect(frontier.wave).toBe(2);
@@ -301,7 +302,7 @@ describe('runnableFrontier', () => {
   });
 
   it('takeable includes a claimed-stale slice — the kit reclaims a cold claim itself', () => {
-    const rows = [row({ id: 's1', wave: 1, state: 'claimed-stale' })];
+    const rows = [row({ id: parseWorkSliceId('s1'), wave: 1, state: 'claimed-stale' })];
     const frontier = runnableFrontier(rows);
     expect(frontier.wave).toBe(1);
     expect(frontier.takeable).toEqual(['s1']);
@@ -310,8 +311,8 @@ describe('runnableFrontier', () => {
 
   it('a claimed-stale slice can set the frontier wave even with no plain-runnable slice there', () => {
     const rows = [
-      row({ id: 's1', wave: 1, state: 'claimed-stale' }),
-      row({ id: 's2', wave: 2, state: 'runnable', territory: ['b/'] }),
+      row({ id: parseWorkSliceId('s1'), wave: 1, state: 'claimed-stale' }),
+      row({ id: parseWorkSliceId('s2'), wave: 2, state: 'runnable', territory: ['b/'] }),
     ];
     const frontier = runnableFrontier(rows);
     expect(frontier.wave).toBe(1);
@@ -320,9 +321,9 @@ describe('runnableFrontier', () => {
 
   it('defers only the later of a colliding pair, in plan order — never drops both', () => {
     const rows = [
-      row({ id: 's1', wave: 1, territory: ['shared/'] }),
-      row({ id: 's2', wave: 1, territory: ['shared/'] }),
-      row({ id: 's3', wave: 1, territory: ['other/'] }),
+      row({ id: parseWorkSliceId('s1'), wave: 1, territory: ['shared/'] }),
+      row({ id: parseWorkSliceId('s2'), wave: 1, territory: ['shared/'] }),
+      row({ id: parseWorkSliceId('s3'), wave: 1, territory: ['other/'] }),
     ];
     const frontier = runnableFrontier(rows);
     expect(frontier.wave).toBe(1);
@@ -334,8 +335,8 @@ describe('runnableFrontier', () => {
 
   it('order in `rows` is plan order — the row that comes first is the one kept', () => {
     const rows = [
-      row({ id: 's2', wave: 1, territory: ['shared/'] }),
-      row({ id: 's1', wave: 1, territory: ['shared/'] }),
+      row({ id: parseWorkSliceId('s2'), wave: 1, territory: ['shared/'] }),
+      row({ id: parseWorkSliceId('s1'), wave: 1, territory: ['shared/'] }),
     ];
     const frontier = runnableFrontier(rows);
     expect(frontier.takeable).toEqual(['s2']);
@@ -344,8 +345,8 @@ describe('runnableFrontier', () => {
 
   it('reads the frontier straight off boardFor’s own rows', () => {
     const slices = [
-      slice({ id: 's1', wave: 1, territory: ['a/'] }),
-      slice({ id: 's2', wave: 2, territory: ['b/'], blockedBy: ['s1'] }),
+      slice({ id: parseWorkSliceId('s1'), wave: 1, territory: ['a/'] }),
+      slice({ id: parseWorkSliceId('s2'), wave: 2, territory: ['b/'], blockedBy: [parseWorkSliceId('s1')] }),
     ];
     const result = board(slices, [pr({ headRefName: 'feat/widgets--s1', mergedAt: '2026-09-25T11:00:00Z' })]);
     expect(result.frontier).toEqual({ wave: 2, runnable: ['s2'], takeable: ['s2'], excluded: [], collisions: [] });
@@ -364,7 +365,7 @@ describe('boardFor — a plan repository (PRD 563)', () => {
   }
 
   it('gives every row its repo and slug', () => {
-    const result = multi([slice({ repo: 'backend' }), slice({ id: 's2', repo: 'widgets-plan' })], []);
+    const result = multi([slice({ repo: 'backend' }), slice({ id: parseWorkSliceId('s2'), repo: 'widgets-plan' })], []);
     expect(result.slices.map(({ id, repo, slug }) => ({ id, repo, slug }))).toEqual([
       { id: 's1', repo: 'backend', slug: 'acme/backend' },
       { id: 's2', repo: 'widgets-plan', slug: 'acme/widgets-plan' },
@@ -373,10 +374,10 @@ describe('boardFor — a plan repository (PRD 563)', () => {
 
   it('matches a slice only to a pull request of its own repository', () => {
     const result = multi(
-      [slice({ id: 's1', repo: 'backend' }), slice({ id: 's2', repo: 'frontend', territory: ['b/'] })],
+      [slice({ id: parseWorkSliceId('s1'), repo: 'backend' }), slice({ id: parseWorkSliceId('s2'), repo: 'frontend', territory: ['b/'] })],
       [
-        pr({ number: 10, slug: 'acme/frontend', headRefName: 'feat/widgets--s1', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
-        pr({ number: 11, slug: 'acme/backend', headRefName: 'feat/widgets--s2', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+        pr({ number: parsePr(10), slug: 'acme/frontend', headRefName: 'feat/widgets--s1', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+        pr({ number: parsePr(11), slug: 'acme/backend', headRefName: 'feat/widgets--s2', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
       ],
     );
     expect(result.slices.map((row) => [row.id, row.state, row.pr])).toEqual([
@@ -386,10 +387,10 @@ describe('boardFor — a plan repository (PRD 563)', () => {
   });
 
   it('matches the same slice branch name in two repositories to two different slices', () => {
-    const slices = [slice({ id: 's1', repo: 'backend' }), slice({ id: 's1', repo: 'frontend', territory: ['b/'] })];
+    const slices = [slice({ id: parseWorkSliceId('s1'), repo: 'backend' }), slice({ id: parseWorkSliceId('s1'), repo: 'frontend', territory: ['b/'] })];
     const result = multi(slices, [
-      pr({ number: 10, slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
-      pr({ number: 20, slug: 'acme/frontend' }),
+      pr({ number: parsePr(10), slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+      pr({ number: parsePr(20), slug: 'acme/frontend' }),
     ]);
     expect(result.slices.map((row) => [row.repo, row.state, prOf(row).number])).toEqual([
       ['backend', 'merged', 10],
@@ -400,9 +401,9 @@ describe('boardFor — a plan repository (PRD 563)', () => {
   it('reads a slice blocked by a merged slice of another repository as runnable, and the frontier across repositories', () => {
     const result = multi(
       [
-        slice({ id: 's1', repo: 'backend', wave: 1 }),
-        slice({ id: 's2', repo: 'frontend', wave: 2, blockedBy: ['s1'] }),
-        slice({ id: 's3', repo: 'widgets-plan', wave: 2, territory: ['c/'] }),
+        slice({ id: parseWorkSliceId('s1'), repo: 'backend', wave: 1 }),
+        slice({ id: parseWorkSliceId('s2'), repo: 'frontend', wave: 2, blockedBy: [parseWorkSliceId('s1')] }),
+        slice({ id: parseWorkSliceId('s3'), repo: 'widgets-plan', wave: 2, territory: ['c/'] }),
       ],
       [pr({ slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' })],
     );
@@ -413,9 +414,9 @@ describe('boardFor — a plan repository (PRD 563)', () => {
   it('makes the slices of a repository it cannot read unreadable, and holds what they block', () => {
     const result = multi(
       [
-        slice({ id: 's1', repo: 'backend', wave: 1 }),
-        slice({ id: 's2', repo: 'frontend', wave: 1, territory: ['b/'] }),
-        slice({ id: 's3', repo: 'widgets-plan', wave: 2, blockedBy: ['s1'] }),
+        slice({ id: parseWorkSliceId('s1'), repo: 'backend', wave: 1 }),
+        slice({ id: parseWorkSliceId('s2'), repo: 'frontend', wave: 1, territory: ['b/'] }),
+        slice({ id: parseWorkSliceId('s3'), repo: 'widgets-plan', wave: 2, blockedBy: [parseWorkSliceId('s1')] }),
       ],
       [],
       { ...REPOS, backend: { slug: 'acme/backend', readable: false } },

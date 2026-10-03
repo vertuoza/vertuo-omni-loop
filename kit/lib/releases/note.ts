@@ -119,6 +119,16 @@ function bodyLines(body: string): string[] {
   return lines;
 }
 
+/** The note's `prd` as a PRD number, or `null`; a `prd` that is none is named in `errors`. */
+function notePrd(fields: Record<string, string>, errors: string[]): PrdNumber | null {
+  if (!Object.hasOwn(fields, 'prd')) return null;
+  const prd = unquote(fields.prd ?? '');
+  const number = PrdNumberSchema.safeParse(Number(prd));
+  if (PRD_NUMBER.test(prd) && number.success) return number.data;
+  errors.push(`prd "${prd}" is not a PRD number`);
+  return null;
+}
+
 /**
  * Parses one note's text: `{ ok: true, note: { prd, title, version, description } }`, `version`
  * `null` when the note carries none, or `{ ok: false, errors }`, one line each: no front matter, a
@@ -135,14 +145,12 @@ export function parseReleaseNote(text: string): ParsedReleaseNote {
   for (const key of REQUIRED) {
     if (!Object.hasOwn(fields, key)) errors.push(`front matter lacks ${key}`);
   }
-  const prd = Object.hasOwn(fields, 'prd') ? unquote(fields.prd ?? '') : null;
-  const number = PrdNumberSchema.safeParse(Number(prd));
-  if (prd !== null && (!PRD_NUMBER.test(prd) || !number.success)) errors.push(`prd "${prd}" is not a PRD number`);
-  if (errors.length || !number.success) return { ok: false, errors };
+  const prd = notePrd(fields, errors);
+  if (errors.length || prd === null) return { ok: false, errors };
   return {
     ok: true,
     note: {
-      prd: number.data,
+      prd,
       title: (fields.title ?? '').split('\n').map(unquote).join('\n'),
       version: Object.hasOwn(fields, 'version') ? unquote(fields.version ?? '') : null,
       description: bodyLines(parts.body).join(' '),

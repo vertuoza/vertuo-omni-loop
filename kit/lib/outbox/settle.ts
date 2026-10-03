@@ -458,40 +458,43 @@ function latestPerId(entries: SettledEntry[]): SettledEntry[] {
   return [...byId.values()];
 }
 
+/** An entry being read: its id, its `- Name: value` lines and its fenced blocks so far. */
+type OpenEntry = { id: OutboxItemId; fields: Record<string, string>; blocks: string[] };
+
+/** The entry an opening marker opens: none when its id is no outbox item's. */
+function openedEntry(id: string | undefined): OpenEntry | null {
+  const read = OutboxItemIdSchema.safeParse(id);
+  return read.success ? { id: read.data, fields: {}, blocks: [] } : null;
+}
+
+/** The entry its closing marker ends, read from its lines and blocks. */
+function closedEntry({ id, fields, blocks }: OpenEntry): SettledEntry {
+  const [answerText = '', itemText = ''] = blocks;
+  const became = (fields.Became ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ''), fields, answerText, itemText, became };
+}
+
 /** Every entry `settled.md` carries, in file order, with no dedup — {@link parseSettledEntries}'s
  * one caller. */
 function rawSettledEntries(text: string, markers: Pick<Markers, 'settledOpenRe' | 'settledClose'>): SettledEntry[] {
   const lines = text.split('\n');
   const entries: SettledEntry[] = [];
-  let current: { id: OutboxItemId; fields: Record<string, string>; blocks: string[] } | null = null;
+  let current: OpenEntry | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? '';
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
-      // An entry is an outbox item's: an opening marker whose id is no item id opens none.
-      const id = OutboxItemIdSchema.safeParse(openMatch[1]);
-      current = id.success ? { id: id.data, fields: {}, blocks: [] } : null;
+      current = openedEntry(openMatch[1]);
       continue;
     }
     if (!current) continue;
 
     if (line === markers.settledClose(current.id)) {
-      const [answerText = '', itemText = ''] = current.blocks;
-      const closed = /^yes\b/.test(current.fields.Closed ?? '');
-      const became = (current.fields.Became ?? '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean);
-      entries.push({
-        id: current.id,
-        verdict: current.fields.Verdict,
-        closed,
-        fields: current.fields,
-        answerText,
-        itemText,
-        became,
-      });
+      entries.push(closedEntry(current));
       current = null;
       continue;
     }

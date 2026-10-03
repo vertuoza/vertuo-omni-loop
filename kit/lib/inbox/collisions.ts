@@ -24,17 +24,17 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/inbox-collisions.mjs — changes in kit/porting/inbox--collisions.md.
 import type { Slice } from '../types.ts';
 import { parsePlanSlices, sharedGround } from './territory.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /** What a plan's slice must carry to be compared: its id and its declared ground. */
-export type PlanSlice = { id: string; territory?: string[] };
+export type PlanSlice = { id: WorkSliceId; territory?: string[] };
 /** One PRD's plan, as already-parsed slices. */
 export type Plan = { prd: PrdNumber; slices?: PlanSlice[] };
 /** Two PRDs whose plans claim the same ground. */
-export type PlanCollision = { left: number | string; right: number | string; shared: string[] };
+export type PlanCollision = { left: PrdNumber; right: PrdNumber; shared: string[] };
 
 /** A plan built from its markdown, by reusing the one parser that reads a slice table. */
-export function planFromMarkdown<P extends number | string>(prd: P, markdown: string): { prd: P; slices: Slice[] } {
+export function planFromMarkdown(prd: PrdNumber, markdown: string): { prd: PrdNumber; slices: Slice[] } {
   return { prd, slices: parsePlanSlices(markdown) };
 }
 

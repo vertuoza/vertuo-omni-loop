@@ -17,6 +17,7 @@ import {
   renderReworkPlan,
   reworkPullRequest,
 } from './rework.ts';
+import { parsePrd } from '../ids.ts';
 
 /** Item `index` of `list`, which must hold it. */
 function nth<T>(list: readonly T[], index: number, what: string): T {
@@ -32,7 +33,7 @@ function parsedItem(text: string) {
   return parsed.item;
 }
 
-const PRD = 985;
+const PRD = parsePrd(985);
 const FEATURE_BRANCH = 'feat/agent-outbox';
 
 /**

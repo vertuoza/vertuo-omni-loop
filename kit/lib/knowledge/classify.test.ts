@@ -16,6 +16,7 @@ import {
 import { candidatesFromLedger } from './harvest.ts';
 import { LOOK_RULE } from './look-rule.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { parsePrd } from '../ids.ts';
 
 /** The fixture's parsed item: every fixture here parses, so a miss is a broken fixture. */
 function itemOf(text: string) {
@@ -149,7 +150,7 @@ function candidate() {
     markers,
   });
   const ctx = { config: { paths: { delivery: '.omni-loop/delivery' } } };
-  const text = `${settledHeader(28, { ctx })}\n${entry}`;
+  const text = `${settledHeader(parsePrd(28), { ctx })}\n${entry}`;
   const [candidate] = candidatesFromLedger(text, { markers, ledgerFile: 'shipped/0028/outbox/settled.md' });
   assertDefined(candidate, 'the candidate');
   return candidate;

@@ -1,9 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { foldersLayout, padPrd, parseFolderName } from './layout.ts';
 import { FORMS } from './playbook/forms.ts';
+import { type PrdNumber, parsePrd } from './ids.ts';
 
 const PATHS = { delivery: '.omni-loop/delivery', knowledge: '.omni-loop/knowledge', adr: 'docs-adr', playbook: '.omni-loop/knowledge/playbook', glossary: null, context: [] };
 
@@ -18,9 +19,9 @@ function tree(files: Record<string, string>) {
 
 describe('padPrd / parseFolderName', () => {
   it('pads to at least four digits and never truncates', () => {
-    expect(padPrd(42)).toBe('0042');
-    expect(padPrd('985')).toBe('0985');
-    expect(padPrd(12345)).toBe('12345');
+    expect(padPrd(parsePrd(42))).toBe('0042');
+    expect(padPrd(parsePrd('985'))).toBe('0985');
+    expect(padPrd(parsePrd(12345))).toBe('12345');
   });
   it('parses a PRD folder name and refuses anything else', () => {
     expect(parseFolderName('0042-delivery-folder')).toEqual({ prd: 42, topic: 'delivery-folder' });
@@ -29,34 +30,38 @@ describe('padPrd / parseFolderName', () => {
     expect(parseFolderName('README.md')).toBeNull();
     expect(parseFolderName('0042-Bad_Topic')).toBeNull();
   });
+  it('gives the folder\'s number as a PRD number, and refuses one no PRD has (PRD 1049)', () => {
+    expectTypeOf(parseFolderName('0042-x')?.prd).toEqualTypeOf<PrdNumber | undefined>();
+    expect(parseFolderName('0000-x')).toBeNull();
+  });
 });
 
 describe('foldersLayout', () => {
   it('finds a PRD in the inbox whatever width it is asked with', () => {
     const root = tree({ '.omni-loop/delivery/inbox/0042-topic/spec.md': 'x' });
     const layout = foldersLayout(root, PATHS);
-    expect(layout.whereIs(42)).toEqual({ name: '0042-topic', state: 'inbox', dir: '.omni-loop/delivery/inbox/0042-topic' });
-    expect(layout.whereIs('0042')?.name).toBe('0042-topic');
-    expect(layout.specPath(42)).toBe('.omni-loop/delivery/inbox/0042-topic/spec.md');
-    expect(layout.planPath(42)).toBe('.omni-loop/delivery/inbox/0042-topic/plan.md');
-    expect(layout.beforeAfterPath(42)).toBe('.omni-loop/delivery/inbox/0042-topic/before-after.html');
+    expect(layout.whereIs(parsePrd(42))).toEqual({ name: '0042-topic', state: 'inbox', dir: '.omni-loop/delivery/inbox/0042-topic' });
+    expect(layout.whereIs(parsePrd('0042'))?.name).toBe('0042-topic');
+    expect(layout.specPath(parsePrd(42))).toBe('.omni-loop/delivery/inbox/0042-topic/spec.md');
+    expect(layout.planPath(parsePrd(42))).toBe('.omni-loop/delivery/inbox/0042-topic/plan.md');
+    expect(layout.beforeAfterPath(parsePrd(42))).toBe('.omni-loop/delivery/inbox/0042-topic/before-after.html');
   });
 
   it('puts an in-flight outbox beside the inbox folder, named the same, even before it exists', () => {
     const root = tree({ '.omni-loop/delivery/inbox/0042-topic/spec.md': 'x' });
-    expect(foldersLayout(root, PATHS).outboxDir(42)).toBe('.omni-loop/delivery/outbox/0042-topic');
+    expect(foldersLayout(root, PATHS).outboxDir(parsePrd(42))).toBe('.omni-loop/delivery/outbox/0042-topic');
   });
 
   it('puts a shipped outbox inside the shipped folder', () => {
     const root = tree({ '.omni-loop/delivery/shipped/0042-topic/outbox/settled.md': 'x' });
     const layout = foldersLayout(root, PATHS);
-    expect(layout.whereIs(42)?.state).toBe('shipped');
-    expect(layout.outboxDir(42)).toBe('.omni-loop/delivery/shipped/0042-topic/outbox');
+    expect(layout.whereIs(parsePrd(42))?.state).toBe('shipped');
+    expect(layout.outboxDir(parsePrd(42))).toBe('.omni-loop/delivery/shipped/0042-topic/outbox');
   });
 
   it('returns null for a PRD it cannot find anywhere', () => {
-    expect(foldersLayout(tree({}), PATHS).whereIs(7)).toBeNull();
-    expect(foldersLayout(tree({}), PATHS).outboxDir(7)).toBeNull();
+    expect(foldersLayout(tree({}), PATHS).whereIs(parsePrd(7))).toBeNull();
+    expect(foldersLayout(tree({}), PATHS).outboxDir(parsePrd(7))).toBeNull();
   });
 
   it('lists every outbox, in flight and shipped, and ignores READMEs', () => {
@@ -85,10 +90,10 @@ describe('foldersLayout', () => {
     });
     const layout = foldersLayout(root, PATHS);
     expect(layout.specFiles()).toEqual(['.omni-loop/delivery/inbox/0042-topic/spec.md']);
-    expect(layout.whereIs(712)).toBeNull();
-    expect(layout.specPath(712)).toBeNull();
-    expect(layout.outboxDir(712)).toBeNull();
-    expect(layout.whereIs(42)?.name).toBe('0042-topic');
+    expect(layout.whereIs(parsePrd(712))).toBeNull();
+    expect(layout.specPath(parsePrd(712))).toBeNull();
+    expect(layout.outboxDir(parsePrd(712))).toBeNull();
+    expect(layout.whereIs(parsePrd(42))?.name).toBe('0042-topic');
   });
 
   it('lists the spec path of every inbox folder, present or not', () => {

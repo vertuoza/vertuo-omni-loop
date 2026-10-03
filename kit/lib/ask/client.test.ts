@@ -4,6 +4,7 @@ import { assertDefined } from '../../test/assert.ts';
 import { startFakeAskServer, type FakeAskServer } from '../../test/fake-ask-server.ts';
 import { askClient as typedClient, AskCallError } from './client.ts';
 import type { Tokens } from './client.ts';
+import { parsePrd } from '../ids.ts';
 
 /** A request as the client builds it: its headers a plain object, its body JSON text. */
 type Init = { method: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };
@@ -278,7 +279,7 @@ describe('the dossier lookup (PRD 413)', () => {
 
   it('asks GET /api/dossiers by repository and number, with the bearer token, and hands back {id, url}', async () => {
     const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-1', url: 'https://omni.example/prd/d-1' }), { status: 200 }));
-    expect(await client.findDossier({ repo: 'acme/widgets', prd: 7 })).toEqual({ id: 'd-1', url: 'https://omni.example/prd/d-1' });
+    expect(await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7) })).toEqual({ id: 'd-1', url: 'https://omni.example/prd/d-1' });
     expect(calls).toEqual([
       { url: 'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7', method: 'GET', authorization: 'Bearer access-1', body: undefined },
     ]);
@@ -286,13 +287,13 @@ describe('the dossier lookup (PRD 413)', () => {
 
   it('a PRD with no dossier is a refusal carrying 404', async () => {
     const { client } = stubbed(() => new Response('{}', { status: 404 }));
-    await expect(client.findDossier({ repo: 'acme/widgets', prd: 7 })).rejects.toMatchObject({ status: 404 });
+    await expect(client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7) })).rejects.toMatchObject({ status: 404 });
   });
 
   it('asks for a fix by its kind, and for a PRD without one (PRD 627)', async () => {
     const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-2', url: 'https://omni.example/bugs/d-2' }), { status: 200 }));
-    await client.findDossier({ repo: 'acme/widgets', prd: 571, kind: 'bug' });
-    await client.findDossier({ repo: 'acme/widgets', prd: 7, kind: 'prd' });
+    await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(571), kind: 'bug' });
+    await client.findDossier({ repo: 'acme/widgets', prd: parsePrd(7), kind: 'prd' });
     expect(calls.map((c) => c.url)).toEqual([
       'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=571&kind=bug',
       'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7',
