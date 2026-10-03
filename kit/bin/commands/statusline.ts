@@ -12,7 +12,7 @@
 // board comes from a file in the main checkout (`board-cache.mjs`): when it is missing or a minute
 // old, the status line starts its refresh, detached, and never waits for it. It runs before a
 // context exists, like `init` and `ask`, so that no checkout, config or folder can turn it into an
-// error; `main()` hands it `{ cwd, stdout, stderr, exec, env }`, and a test also passes `stdin` (the
+// error; `main()` hands it `{ cwd, stdout, stderr, exec, env, vars }`, and a test also passes `stdin` (the
 // text), `now` (a clock in milliseconds), `readFacts` (the reader) and `spawn` (what starts the
 // refresh). Any argument but `--refresh` is not read.
 //
@@ -33,7 +33,7 @@ import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { prdArg } from '../args.ts';
-import type { Env, Exec, FreeCommand, FreeIo } from '../io.ts';
+import type { Env, Exec, FreeCommand, FreeIo, Vars } from '../io.ts';
 import { buildBoard } from './board.ts';
 
 const REFRESH_FLAG = '--refresh';
@@ -63,11 +63,12 @@ async function statusLines({
   cwd,
   exec,
   env,
+  terminal,
   stdin,
   now,
   readFacts,
   spawn,
-}: { cwd: string; exec: Exec; env: Env } & Required<StatuslineOptions>): Promise<string[]> {
+}: { cwd: string; exec: Exec; env: Env; terminal: Vars['terminal'] } & Required<StatuslineOptions>): Promise<string[]> {
   try {
     const input = parseInput(await readText(stdin).catch(() => ''));
     const instant = now();
@@ -79,7 +80,7 @@ async function statusLines({
         facts = null;
       }
     }
-    return renderLines({ input, facts, env, now: instant });
+    return renderLines({ input, facts, terminal, now: instant });
   } catch {
     return [UNREADABLE_LINE];
   }
@@ -124,13 +125,13 @@ export const statusline = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, exec, env, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess }: FreeIo & StatuslineOptions,
+    { cwd, stdout, exec, env, vars, stdin = process.stdin, now = Date.now, readFacts = readCheckoutFacts, spawn = spawnProcess }: FreeIo & StatuslineOptions,
   ) {
     if (args[0] === REFRESH_FLAG) {
       refresh(args[1], { cwd, exec, env, now });
       return 0;
     }
-    const lines = await statusLines({ cwd, exec, env, stdin, now, readFacts, spawn });
+    const lines = await statusLines({ cwd, exec, env, terminal: vars.terminal, stdin, now, readFacts, spawn });
     try {
       stdout.write(`${lines.join('\n')}\n`);
     } catch {

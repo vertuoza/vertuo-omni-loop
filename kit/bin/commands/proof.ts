@@ -36,7 +36,7 @@ import { ProofRunRefused, readRun, RUN_FILE } from '../../lib/proof/run.ts';
 import type { ProofRun } from '../../lib/proof/run.ts';
 import { SessionRefused, storageState } from '../../lib/proof/session.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
-import type { Env, FreeCommand, FreeIo, Out } from '../io.ts';
+import type { FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
 /** What a test hands `omni proof` beyond `main()`'s own. */
@@ -58,11 +58,11 @@ function skipLine(error: unknown): string {
 }
 
 /** What `omni proof push <n> <dir>` or `omni proof session [<file>]` names, or a usage error. */
-function argsOf(args: string[], env: Env): { verb: 'session'; file: string } | { verb: 'push'; prd: PrdNumber; dir: string } {
+function argsOf(args: string[], proof: Vars['proof']): { verb: 'session'; file: string } | { verb: 'push'; prd: PrdNumber; dir: string } {
   const { positional } = parseArgs('proof', args);
   const [verb, first, second, ...rest] = positional;
   if (verb === 'session') {
-    const file = first ?? env.PROOF_STORAGE_STATE;
+    const file = first ?? proof?.storageState;
     if (!file || second !== undefined) throw usageError(`${USAGE} (session needs <file> or PROOF_STORAGE_STATE)`);
     return { verb, file };
   }
@@ -132,14 +132,12 @@ function sessionFor(token: string, host: string): ReturnType<typeof storageState
   }
 }
 
-/** The host of the address a run films (`PROOF_URL`, a preview's), or undefined for ask.url's own. */
+/**
+ * The host of the address a run films (`PROOF_URL`, a preview's), or undefined for ask.url's own. The
+ * address is a URL: `main()` refuses one that is not, naming the variable, before any command runs.
+ */
 function targetHost(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  try {
-    return new URL(url).hostname;
-  } catch {
-    throw usageError(`omni proof session: PROOF_URL is not a URL: ${url}`);
-  }
+  return url ? new URL(url).hostname : undefined;
 }
 
 /** Renews the sign-in and writes the session to `file`, or prints the one line that stopped it; the exit code. */
@@ -160,14 +158,14 @@ async function writeSession(
 
 export const proof = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, stderr, exec, env, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ProofOptions) {
-    const parsed = argsOf(args, env);
+  async run(args: string[], { cwd, stdout, stderr, exec, vars, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & ProofOptions) {
+    const parsed = argsOf(args, vars.proof);
     const ctx = loadContext(cwd, { exec });
     if (parsed.verb === 'session') {
       const askUrl = ctx.config.ask.url;
       if (!askUrl) throw usageError('omni proof session: no sign-in server here — set ask.url in the config.');
       const file = isAbsolute(parsed.file) ? parsed.file : resolve(cwd, parsed.file);
-      return writeSession({ askUrl, file, target: targetHost(env.PROOF_URL) }, { stdout, stderr, tokens, home, fetch, callMs });
+      return writeSession({ askUrl, file, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens, home, fetch, callMs });
     }
     const { prd, dir } = parsed;
     const toggle = dossierSwitch(ctx.config);

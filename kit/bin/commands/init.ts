@@ -95,7 +95,7 @@ async function resolveCommands(
 }
 
 /** This computer's lines: the plugin, then the sign-in to the Omni page. Neither ever fails init. */
-async function thisComputer({ root, config, interactive, stdout, stderr, exec, home, signIn }: Pick<FreeIo, 'stdout' | 'stderr' | 'exec'> & {
+async function thisComputer({ root, config, interactive, stdout, stderr, exec, env, vars, home, signIn }: Pick<FreeIo, 'stdout' | 'stderr' | 'exec' | 'env' | 'vars'> & {
   root: string;
   config: Config;
   interactive: boolean;
@@ -110,7 +110,7 @@ async function thisComputer({ root, config, interactive, stdout, stderr, exec, h
     interactive,
     signIn: signIn ?? (async () => {
       let line: string | undefined;
-      const code = await signin.run([], { cwd: root, stdout, stderr, exec, env: process.env, home, onSignedIn: (said) => { line = said; } });
+      const code = await signin.run([], { cwd: root, stdout, stderr, exec, env, vars, home, onSignedIn: (said) => { line = said; } });
       return { code, line };
     }),
   });
@@ -121,7 +121,7 @@ export const init = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }: FreeIo & InitOptions,
+    { cwd, stdout, stderr, exec, env, vars, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }: FreeIo & InitOptions,
   ) {
     const { positional, flags } = parseArgs('init', args, { values: Object.values(FLAGS), booleans: ['force'] });
     if (positional.length) throw usageError('usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]');
@@ -131,7 +131,7 @@ export const init = {
     const configPath = join(root, CONFIG_FILE);
     const binPath = join(root, BIN_FILE);
     const interactive = Boolean(stdin.isTTY && stdout.isTTY);
-    const computer = (config: Config) => thisComputer({ root, config, interactive, stdout, stderr, exec, home: userHome, signIn });
+    const computer = (config: Config) => thisComputer({ root, config, interactive, stdout, stderr, exec, env, vars, home: userHome, signIn });
 
     // Already installed on the default branch: only this computer's steps, and nothing written.
     const installed = force ? null : detectInstall(root, { exec });

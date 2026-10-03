@@ -3,8 +3,6 @@
 // width and `NO_COLOR`.
 import { describe, expect, it } from 'vitest';
 import {
-  columnsOf,
-  colorOn,
   contextPart,
   fit,
   itemsPart,
@@ -19,6 +17,12 @@ import {
 } from './render.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { parsePrd, parseWorkSliceId } from '../ids.ts';
+import { readEnv } from '../env/read.ts';
+
+/** The terminal `main()` reads from `env`. */
+const t = (env: Record<string, string>) => readEnv(env).terminal;
+const columnsOf = (env: Record<string, string>) => t(env).columns;
+const colorOn = (env: Record<string, string>) => t(env).color;
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -123,30 +127,30 @@ describe('renderLines', () => {
   const PLAIN = { NO_COLOR: '1' };
 
   it('prints line 1, then the no-PRD line where the loop is installed', () => {
-    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
     expect(NO_PRD_LINE).toBe('no PRD · /omni:brainstorm to start');
   });
 
   it('prints line 1 alone where the loop is not installed', () => {
-    expect(renderLines({ input: INPUT, facts: { installed: false, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1]);
+    expect(renderLines({ input: INPUT, facts: { installed: false, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual([LINE_1]);
   });
 
   it('prints line 1 from the JSON alone when nothing could be read', () => {
-    expect(renderLines({ input: INPUT, facts: null, env: PLAIN, now: NOW })).toEqual([
+    expect(renderLines({ input: INPUT, facts: null, terminal: t(PLAIN), now: NOW })).toEqual([
       `Opus 5.5 · context ${bar(5)} 58% · usage 25%, resets in 1h30`,
     ]);
   });
 
   it('prints `omni` for JSON that could not be read', () => {
-    expect(renderLines({ input: null, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual(['omni']);
+    expect(renderLines({ input: null, facts: { installed: true, askOn: true }, terminal: t(PLAIN), now: NOW })).toEqual(['omni']);
   });
 
   it('holds no colour code when NO_COLOR is set to anything but an empty string', () => {
     for (const value of ['1', 'true', '0', 'no']) {
-      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: value }, now: NOW });
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ NO_COLOR: value }), now: NOW });
       expect(lines.join('\n')).not.toContain('\x1b');
     }
-    const coloured = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: '' }, now: NOW });
+    const coloured = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ NO_COLOR: '' }), now: NOW });
     expect(coloured[0]).toContain(YELLOW);
     expect(colorOn({})).toBe(true);
     expect(colorOn({ NO_COLOR: '' })).toBe(true);
@@ -155,7 +159,7 @@ describe('renderLines', () => {
 
   it.each([40, 80, 200])('fits every line within COLUMNS=%i, colour codes not counted', (columns) => {
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env, now: NOW });
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t(env), now: NOW });
       expect(lines).toHaveLength(2);
       for (const line of lines) expect(visibleLength(line)).toBeLessThanOrEqual(columns);
       assertDefined(lines[0], 'lines[0]');
@@ -166,7 +170,7 @@ describe('renderLines', () => {
   });
 
   it('cuts a line too wide at its end with `…`, closing any colour it cut into', () => {
-    const [line] = renderLines({ input: INPUT, facts: null, env: { COLUMNS: '24' }, now: NOW });
+    const [line] = renderLines({ input: INPUT, facts: null, terminal: t({ COLUMNS: '24' }), now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}████${RESET}…`);
     assertDefined(line, 'line');
     expect(visibleLength(line)).toBe(24);
@@ -174,7 +178,7 @@ describe('renderLines', () => {
 
   it('does not cut a coloured line whose visible width fits exactly', () => {
     const exact = String(visibleLength(LINE_1));
-    const [line] = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { COLUMNS: exact }, now: NOW });
+    const [line] = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, terminal: t({ COLUMNS: exact }), now: NOW });
     expect(line).toBe(`Opus 5.5 · context ${YELLOW}${bar(5)} 58%${RESET} · usage 25%, resets in 1h30 · ask on`);
   });
 
@@ -262,17 +266,17 @@ describe('line 2: the PRD', () => {
 
   it('prints the PRD line where the loop is installed and a PRD was read', () => {
     const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: parseWorkSliceId('s2') } };
-    expect(renderLines({ input: INPUT, facts, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
+    expect(renderLines({ input: INPUT, facts, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
     const none = { installed: true, askOn: true, prd: null };
-    expect(renderLines({ input: INPUT, facts: none, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    expect(renderLines({ input: INPUT, facts: none, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
     const notInstalled = { installed: false, askOn: true, prd: BRAVO };
-    expect(renderLines({ input: INPUT, facts: notInstalled, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1]);
+    expect(renderLines({ input: INPUT, facts: notInstalled, terminal: t({ NO_COLOR: '1' }), now: NOW })).toEqual([LINE_1]);
   });
 
   it.each([40, 80, 200])('fits the PRD line within COLUMNS=%i, the topic cut before anything else', (columns) => {
     const facts = { installed: true, askOn: true, prd: LONG };
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
+      const [, line] = renderLines({ input: INPUT, facts, terminal: t(env), now: NOW });
       assertDefined(line, 'line');
       expect(visibleLength(line)).toBeLessThanOrEqual(columns);
       expect(line).not.toContain('\x1b');
@@ -335,9 +339,9 @@ describe('line 2: the slices, from the board (slice s6)', () => {
 
   it('colours the stuck count in the printed line, and nothing under NO_COLOR', () => {
     const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
-    const [, coloured] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200' }, now: NOW });
+    const [, coloured] = renderLines({ input: INPUT, facts, terminal: t({ COLUMNS: '200' }), now: NOW });
     expect(coloured).toBe(`PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, ${RED}1 stuck${RESET} · 2 open items`);
-    const [, plain] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200', NO_COLOR: '1' }, now: NOW });
+    const [, plain] = renderLines({ input: INPUT, facts, terminal: t({ COLUMNS: '200', NO_COLOR: '1' }), now: NOW });
     expect(plain).toBe('PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items');
   });
 
@@ -345,7 +349,7 @@ describe('line 2: the slices, from the board (slice s6)', () => {
     const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
     const full = 'PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items';
     for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
-      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
+      const [, line] = renderLines({ input: INPUT, facts, terminal: t(env), now: NOW });
       assertDefined(line, 'line');
       expect(visibleLength(line)).toBeLessThanOrEqual(columns);
       assertDefined(line, 'line');

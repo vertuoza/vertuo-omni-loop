@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
 import type { ExecText } from '../context.ts';
+import { gitWithoutPrompt } from '../env/read.ts';
 import type { Config } from '../types.ts';
 import { invadedOn, isFilled, playbookOf } from '../playbook/filled.ts';
 import { readRepo } from './repo.ts';
@@ -35,7 +36,7 @@ export function insideLoop(path: string): boolean {
 const QUIET: ExecFileSyncOptionsWithStringEncoding = {
   encoding: 'utf8',
   stdio: ['ignore', 'pipe', 'ignore'],
-  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  env: gitWithoutPrompt(),
 };
 
 function attempt<T>(fn: () => T): T | null {
