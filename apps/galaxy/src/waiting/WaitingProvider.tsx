@@ -78,7 +78,7 @@ export const useAlerts = (): WaitingAlerts | undefined => useContext(AlertsConte
 
 const storage = (): Store => window.localStorage;
 const notifications = (): NotificationApi | null =>
-  typeof Notification === 'undefined' ? null : (Notification as unknown as NotificationApi); // ts-allow: the browser's Notification has every member NotificationApi names
+  typeof Notification === 'undefined' ? null : Notification;
 /** The window as sound is looked for on it: older Safari names its AudioContext webkitAudioContext, and some browsers have none. */
 type AudioWindow = { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
 const audio = () => {
