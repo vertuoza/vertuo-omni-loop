@@ -1,6 +1,8 @@
 import type { Db } from '../ask/page/source';
 import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
 import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { z } from 'zod';
+import { orThrow, parseRows } from '../data/parse-rows';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -84,24 +86,30 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
     .sort((a, b) => b.newestAt - a.newestAt || a.dossierId.localeCompare(b.dossierId));
 }
 
-const SELECT = 'id, kind, created_at, dossier:dossiers!inner(id, prd, title, opened_by)';
+export const DOCUMENT_COLUMNS = 'id, kind, created_at, dossier:dossiers!inner(id, prd, title, opened_by)';
 
-type Raw = { id: string; kind: string; created_at: string; dossier: { id: string; prd: number | null; title: string } | null };
+/** A version as the read answers it, with its dossier: a row of another kind, or of an unnumbered
+ * dossier, is left out by the reader, not refused. */
+export const DocumentRead = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: z.string(),
+  dossier: z.object({ id: z.string(), prd: z.number().int().nullable(), title: z.string() }).nullable(),
+});
 
 /** A reader of the versions pushed to the numbered dossiers `me` opened, in the last 7 days, the 50
  * newest. Throws when a read fails. */
 export function documentsReader(db: Db, me: string): (now: number) => Promise<DocumentRow[]> {
   return async (now) => {
     const { data, error } = await db.from('dossier_versions')
-      .select(SELECT)
+      .select(DOCUMENT_COLUMNS)
       .eq('dossier.opened_by', me)
       .not('dossier.prd', 'is', null)
       .gt('created_at', new Date(now - WINDOW).toISOString())
       .order('created_at', { ascending: false })
       .limit(DOCS_LIMIT);
     if (error) throw new Error(`read the new documents: ${error.message}`);
-    // `data` is widened to null: the rows are read here unparsed, and each is checked on the next line.
-    return ((data as unknown as Raw[] | null) ?? []).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind) // ts-allow: the select names exactly these columns; each is checked on this line
+    return orThrow(parseRows(DocumentRead, data, 'waiting/documents: dossier_versions')).flatMap((r) => (r.dossier && typeof r.dossier.prd === 'number' && isOneOf(DOCUMENT_KINDS, r.kind)
       ? [{ id: r.id, kind: r.kind, created_at: r.created_at, dossier: { id: r.dossier.id, prd: r.dossier.prd, title: r.dossier.title } }]
       : []));
   };

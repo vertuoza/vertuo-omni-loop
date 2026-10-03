@@ -41,7 +41,7 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false); // ts-allow: a pointer event's target is a DOM node
+      if (!(event.target instanceof Node) || !root.current?.contains(event.target)) setOpen(false);
     };
     document.addEventListener('pointerdown', outside);
     return () => { document.removeEventListener('pointerdown', outside); };

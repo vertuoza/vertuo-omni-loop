@@ -8,14 +8,15 @@ import { completePage, DossierStream, type DossierStreamProps } from './DossierS
 // render it to static markup, and read its props, as before the page streamed.
 
 export async function settledPage(node: ReactNode): Promise<ReactElement> {
-  if (isValidElement(node) && node.type === DossierStream) {
-    const props = node.props as DossierStreamProps; // ts-allow: its type is DossierStream, so these are its props
+  if (isValidElement<DossierStreamProps>(node) && node.type === DossierStream) {
+    const { props } = node;
     const [live, page] = await Promise.all([props.live(props.read), completePage(props)]);
     return createElement(Fragment, null, live, page);
   }
-  if (isValidElement(node) && node.type === Streamed) {
-    const { read, children } = node.props as StreamedProps<unknown>; // ts-allow: its type is Streamed, so these are its props
+  if (isValidElement<StreamedProps<unknown>>(node) && node.type === Streamed) {
+    const { read, children } = node.props;
     return settledPage(children(await read));
   }
-  return node as ReactElement; // ts-allow: the page hands its root element; the checks above guard anything else
+  // The page hands its root element; anything else is drawn as itself, in a fragment.
+  return isValidElement(node) ? node : createElement(Fragment, null, node);
 }
