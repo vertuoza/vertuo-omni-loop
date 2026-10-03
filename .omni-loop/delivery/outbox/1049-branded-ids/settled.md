@@ -622,3 +622,237 @@ Branding them later is a type change in game/events.ts and packages/galaxy/src/t
 ```
 
 <!-- /omni-outbox-settled: s4-03-a-ledger-event-keeps-a-plain-planet -->
+
+<!-- omni-outbox-settled: s5-01-reworks-are-slices-too -->
+
+## s5-01-reworks-are-slices-too — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-reworks-are-slices-too
+prd: 1049
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 4
+---
+
+## The question, in plain words
+
+The plan names its pieces of work s1, s2 and so on, but a rework of a decision and the settling of answers are pieces of work too, with names like fix-s1-01-something or settle. Should the strict s1 shape also cover those?
+
+## The decision, in plain words
+
+We added a second, wider kind for any piece of work: a plan's own s1 always fits it, and so do the names reworks and settling use. Plan tables, decision files and their accounts take that wider kind; the strict s1 kind stays as it was.
+
+## The intro, for fun
+
+The plan said every slice is s-and-a-number, then a rework walked in wearing a longer name.
+
+## The punchline, for fun
+
+We gave the longer names a seat of their own, one row behind the s1s.
+
+## The options, in plain words
+
+A. A wider WorkSliceId for any piece of work, which the strict SliceId fits, and an item id that may carry a rework's name (built).
+B. Keep the strict SliceId everywhere and give reworks and settling a reader and a brand of their own.
+C. Widen SliceId itself to admit rework and settle names, with no second kind.
+
+## What I had to decide
+
+Whether the slice and item ids the kit reads (plan tables, outbox front matter, accounts, the settled ledger, item new --slice) take the strict SliceId (s1) or a wider kind that also admits a rework (fix-s1-01-…, from branches.rework) and settle.
+
+## What I did meanwhile
+
+kit/lib/ids.ts gained WorkSliceId (lower-case words joined by hyphens) with parseWorkSliceId; SliceId carries both brands so it fits where a WorkSliceId is expected. OutboxItemId admits a rework's name before s<n>-<nn>-<slug> (fix-s1-01-zod-01-crew), as shipped/0100-workspaces' ledger already holds. parsePlanSlices, the item and account front matter and the board give WorkSliceIds, because renderReworkPlan's table is read back through parsePlanSlices and settle accounts are named settle.md. A malformed id (S1, a blank) is still refused where it is read.
+
+## What it costs to change later
+
+Narrowing back to SliceId is a type change in kit/lib/types.ts, kit/lib/inbox/territory.ts and kit/lib/schema/front-matter.ts, plus a separate reader for rework plans; no data changes, since every id on disk already matches both shapes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says parsePlanSlices gives SliceIds and outbox front matter gives an OutboxItemId shaped s<n>-<nn>-<slug>, but the kit already writes rework slices (fix-<item id>), rework items (fix-s1-01-…-01-…) and settle accounts, and a test reads a rework plan back through parsePlanSlices; the spec does not say how those fit.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-reworks-are-slices-too -->
+
+<!-- omni-outbox-settled: s5-02-malformed-ids-fail-where-read -->
+
+## s5-02-malformed-ids-fail-where-read — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-malformed-ids-fail-where-read
+prd: 1049
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 4
+---
+
+## The question, in plain words
+
+Now that the tool knows the exact shape of each kind of identifier, what should it do when a file or a command gives one in the wrong shape?
+
+## The decision, in plain words
+
+Where a person or an agent wrote the value (a plan table, a decision file, a command's argument), the tool now refuses it and names it. Where the tool reads back what it wrote itself (the answers ledger, its own hidden numbering, a folder named 0000), a wrong value is skipped as if absent.
+
+## The intro, for fun
+
+An identifier spelled S1 used to sneak through and fail three rooms later.
+
+## The punchline, for fun
+
+Now it is stopped at the door, politely, with its name read out loud.
+
+## The options, in plain words
+
+A. Refuse what a person or an agent wrote, by name; skip what the kit reads back of its own (built).
+B. Refuse every malformed value everywhere, the ledger and the hidden numbering included.
+C. Skip every malformed value everywhere, refusing nothing.
+
+## What I had to decide
+
+How each entry parser treats a value its brand refuses: throw (or a usage error) naming it, or read it as absent.
+
+## What I did meanwhile
+
+Refused by name: a plan table id or blocker that is no slice id (parsePlanSlices throws), an outbox item or account whose id or slice is malformed (front matter error), omni item new --slice that is no slice or gives no item id (usage error), a branches.rework template that names no lower-case slice (reworkSliceId throws). Read as absent: a settled.md entry whose id is no item id, a numbering-marker entry whose id is no item id, a PRD folder or knowledge source naming PRD 0, a release note whose prd is 0, a slice branch whose {slice} is no slice id (the status line shows no slice). Every id in this repository's own delivery folder reads as before; the command tests pass unchanged but for how they build values.
+
+## What it costs to change later
+
+Turning any refusal into a skip, or the reverse, is a safeParse versus parse swap at the one reader concerned; nothing is stored differently.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a malformed slice or item id fails where it is read, but not whether reading back the kit's own ledger and hidden markers should stop on one; skipping there keeps old ledgers and comments readable.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-malformed-ids-fail-where-read -->
+
+<!-- omni-outbox-settled: s5-03-id-names-holding-other-things -->
+
+## s5-03-id-names-holding-other-things — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-03
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-03
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-id-names-holding-other-things
+prd: 1049
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-03
+wave: 4
+---
+
+## The question, in plain words
+
+A few places in the tool use an identifier's name for something that is not that identifier: a slot named slice that holds a branch name pattern, and one named prd that holds the name of a label. Should they be renamed, or keep their names and be typed by what they really hold?
+
+## The decision, in plain words
+
+They keep their names and stay plain text, as the earlier pieces of this work did for the same case. The upcoming check that forbids plain identifiers will see them, so it needs to know they are not identifiers.
+
+## The intro, for fun
+
+A field called slice turned out to be a pattern for branch names, not a slice at all.
+
+## The punchline, for fun
+
+We let it keep its name tag and wrote down who it really is.
+
+## The options, in plain words
+
+A. Keep the names, typed by what they hold, and leave them for s6 to settle (built).
+B. Rename them now, to names off the guarded list, so no guard ever sees them.
+C. Brand them anyway, with a brand for branch templates and one for labels.
+
+## What I had to decide
+
+How to type the kit's fields whose name is on s6's list but whose value is no ID of that kind.
+
+## What I did meanwhile
+
+Left typed as string, by what they hold: the branch templates named slice in kit/lib/ask/context.ts (prdOfBranch's branches), kit/lib/ask/heartbeat.ts (Branches) and kit/lib/board.ts (BoardConfig.branches), following s3-02's precedent for Config['branches'].slice; and CreditLabels.prd in kit/lib/credits/classify.ts, the name of the PRD label. fixVerdict's issue parameter became number (an issue's or a concept's), since omni concept grades through it. Fields named number that hold a question's position, not an ID, stay number.
+
+## What it costs to change later
+
+Renaming any of them is a local rename with no data or output change; teaching s6's guard about templates is a rule in scripts/.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's guard polices names, not what they hold, and says nothing of a name on its list that holds a branch template or a label; s6 has to decide between renaming these and an exception.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-id-names-holding-other-things -->
