@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -252,7 +253,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
 
   it('merges a draft numbered to a dossier the fallback already created: versions, Claude session and opener move over, the draft goes', async () => {
     const w = world();
-    const created = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'team-inbox', versions: [{ kind: 'spec', content: SPEC }] });
+    const created = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'team-inbox', versions: [{ kind: 'spec', content: SPEC }] });
     w.clock.now += 60_000;
     const draft = (await w.open({ title: 'A team inbox', repo: 'acme/widgets', claudeSessionId: 'sess-a' })).body;
 
@@ -369,7 +370,7 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
 describe('GET /api/dossiers: a PRD\'s link by its number', () => {
   it('answers 200 {id, url} for a dossier the caller can read, with the link the caller reached', async () => {
     const w = world();
-    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     const { status, body } = await w.find('?repo=acme/widgets&prd=7', { headers: { 'x-forwarded-host': 'omni.vertuoza.dev', 'x-forwarded-proto': 'https' } });
     expect(status).toBe(200);
     expect(body).toEqual({ id: made.id, url: `https://omni.vertuoza.dev/prd/${made.id}` });
@@ -377,7 +378,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
 
   it('compares the repository lower-cased', async () => {
     const w = world();
-    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     const { status, body } = await w.find('?repo=Acme/Widgets&prd=7');
     expect(status).toBe(200);
     expect(body.id).toBe(made.id);
@@ -385,7 +386,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
 
   it('answers 404 when there is none: no such number, a draft, another repository, or another workspace\'s', async () => {
     const w = world();
-    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     await w.open({ title: 'A draft', repo: 'acme/widgets' });
     const cases: Array<[string, string]> = [['?repo=acme/widgets&prd=8', 'ada-token'], ['?repo=acme/gadgets&prd=7', 'ada-token'], ['?repo=acme/widgets&prd=7', 'carl-token'], ['?repo=acme/widgets&prd=7', 'nell-token']];
     for (const [query, token] of cases) {
@@ -397,9 +398,9 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
 
   it('answers the most recently numbered one when two of the caller\'s workspaces hold one', async () => {
     const w = world();
-    w.fake.seedFromGithub({ workspace: OTHER, repo: 'acme/widgets', prd: 7, title: 'Older' });
+    w.fake.seedFromGithub({ workspace: OTHER, repo: 'acme/widgets', prd: parsePrd(7), title: 'Older' });
     w.clock.now += 60_000;
-    const newer = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Newer' });
+    const newer = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Newer' });
     expect((await w.find('?repo=acme/widgets&prd=7', { token: 'dana-token' })).body.id).toBe(newer.id);
   });
 
@@ -432,7 +433,7 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
 
   it('writes nothing', async () => {
     const w = world();
-    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
     const before = JSON.stringify(w.fake.tables);
     await w.find('?repo=acme/widgets&prd=7');
     await w.find('?repo=acme/widgets&prd=8');
@@ -530,9 +531,9 @@ describe('a fix is a dossier with a kind (PRD 627)', () => {
 
   it('a lookup takes the kind: a PRD\'s when none is sent, each linked under its own route', async () => {
     const w = world();
-    const prd = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
-    const visual = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, kind: 'visual', title: 'Sidebar' });
-    const bug = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'Numbers' });
+    const prd = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox' });
+    const visual = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(7), kind: 'visual', title: 'Sidebar' });
+    const bug = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: parsePrd(571), kind: 'bug', title: 'Numbers' });
     expect((await w.find('?repo=acme/widgets&prd=7')).body).toEqual({ id: prd.id, url: `https://omni.example/prd/${prd.id}` });
     expect((await w.find('?repo=acme/widgets&prd=7&kind=prd')).body.id).toBe(prd.id);
     expect((await w.find('?repo=acme/widgets&prd=7&kind=visual')).body).toEqual({ id: visual.id, url: `https://omni.example/visual/${visual.id}` });

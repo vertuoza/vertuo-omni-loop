@@ -3,6 +3,7 @@ import { claimChime, documentAlertOf, raiseEach, type DesktopState, type Notific
 import { defined, isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -34,14 +35,14 @@ export type DocumentRow = {
   id: string;
   kind: DocumentKind;
   created_at: string;
-  dossier: { id: string; prd: number; title: string };
+  dossier: { id: string; prd: PrdNumber; title: string };
 };
 
 /** One PRD's new documents: the kinds that landed, in the order spec, plan, before/after, each once,
  * and its newest version. */
 export type DocumentGroup = {
   dossierId: string;
-  prd: number;
+  prd: PrdNumber;
   title: string;
   kinds: DocumentKind[];
   newestId: string;
@@ -94,7 +95,7 @@ export const DocumentRead = z.object({
   id: z.string(),
   kind: z.string(),
   created_at: z.string(),
-  dossier: z.object({ id: z.string(), prd: z.number().int().nullable(), title: z.string() }).nullable(),
+  dossier: z.object({ id: z.string(), prd: PrdNumberSchema.nullable(), title: z.string() }).nullable(),
 });
 
 /** A reader of the versions pushed to the numbered dossiers `me` opened, in the last 7 days, the 50

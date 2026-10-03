@@ -6,8 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { DEMO_RELEASES } from '../demo';
 import type { ReleaseRow } from '../row';
 import { releasesView } from './source';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-const ROWS: ReleaseRow[] = [{ prd: 262, release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' }];
+const ROWS: ReleaseRow[] = [{ prd: parsePrd(262), release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' }];
 const SUPABASE = { NODE_ENV: 'production', NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_x' };
 const BUILDING = { NEXT_PHASE: 'phase-production-build' };
 

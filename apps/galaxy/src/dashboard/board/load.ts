@@ -16,6 +16,7 @@ import {
   type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
+import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The board's read (PRD 572): five reads, in parallel, as the signed-in person, each on its own. A
 // read that fails leaves only the parts drawn from it saying they could not load, its error logged
@@ -211,9 +212,9 @@ export const StoredOpener: z.ZodType<Pick<Activity, 'repo' | 'number' | 'login'>
 type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null; hero?: unknown };
 
 /** A PRD's key in the stage store (`owner/name#7`) back to its repository and number. */
-function unkey(key: string): { repository: string; prd: number } {
+function unkey(key: string): { repository: string; prd: PrdNumber } {
   const at = key.lastIndexOf('#');
-  return { repository: key.slice(0, at), prd: Number(key.slice(at + 1)) };
+  return { repository: key.slice(0, at), prd: parsePrd(key.slice(at + 1)) };
 }
 
 /** The board's reads of one workspace, as the signed-in person. `galaxy` is the page's, read once;

@@ -66,6 +66,7 @@ import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
   type AskAnswers, type AskAttachmentFiles, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
 export const WAIT_MS = 50_000;
@@ -205,13 +206,13 @@ function field<T>(context: Record<string, unknown>, key: string, ok: (value: unk
 const text = (max: number) => (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const isRepo = (value: unknown): value is string => text(200)(value) && REPO.test(value);
-const isPrd = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
+const isPrd = (value: unknown): value is PrdNumber => PrdNumberSchema.safeParse(value).success;
 const count = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const TOKEN_KEYS = ['cacheRead', 'cacheWrite', 'input', 'output'];
 const isTokens = (value: unknown): value is AskTokens =>
   isRecord(value) && Object.keys(value).sort().join() === TOKEN_KEYS.join() && Object.values(value).every(count);
 
-type RoundContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null;
+type RoundContext = { repo: string | null; branch: string | null; prd: PrdNumber | null; claudeSessionId: string | null;
   skill: string | null; model: string | null; tokens: AskTokens | null };
 type ContextFields = { [K in keyof RoundContext]: Field<RoundContext[K]> };
 

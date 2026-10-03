@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { FakeProofWorld } from '../../proof/store.fake';
 import { proofPath } from '../../proof/store';
 import { PROOF_LINK_SECONDS, readProofs } from './proof-read';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // What /prd/<id> reads for its Proof tab (PRD 798, s4), as the viewer, on the proof store's fake: the
 // runs they may read, and for the shown run only its files' signed links and its scripts' text.
@@ -14,7 +15,7 @@ function world() {
   const w = new FakeProofWorld();
   w.account('tok-pierre', 'u-pierre', ['w1']);
   w.account('tok-stranger', 'u-stranger', ['w2']);
-  w.dossier({ id: D, workspace: 'w1', repo: 'vertuoza/vertuo-omni-loop', prd: 798 });
+  w.dossier({ id: D, workspace: 'w1', repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(798) });
   return w;
 }
 

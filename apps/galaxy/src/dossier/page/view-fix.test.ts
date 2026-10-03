@@ -3,6 +3,7 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { fixPageView } from '../../fixes/timeline';
 import { dossierView, PAGE_TABS, readPick } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A fix's page (PRD 627): the page of /prd/<id>, its tabs chosen by the dossier's kind. A visual fix
 // reads Before/after, Variations — a round each, picked as Round k — and Questions; a bug fix reads Bug
@@ -13,7 +14,7 @@ const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierr
 const ID = '00000000-0000-4000-8000-0000000000f1';
 
 const fix = (kind: 'visual' | 'bug' | 'prd' | undefined, prd = 548): DossierRow => ({
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd, ...(kind ? { kind } : {}), title: 'Darker sidebar',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(prd), ...(kind ? { kind } : {}), title: 'Darker sidebar',
   opened_by: PIERRE.user_id, created_at: '2026-09-29T09:00:00Z', numbered_at: '2026-09-29T09:00:00Z',
 });
 

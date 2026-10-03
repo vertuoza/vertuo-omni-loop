@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Category } from './classify';
 import { type Outcome, StoreError } from '../data/store-error';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;
@@ -62,7 +63,7 @@ export type AskRound = {
   created_at: string;
   answered_at: string | null;
   /** Where the round came from and what the session had cost by then (PRD 144): null when unknown. */
-  prd: number | null;
+  prd: PrdNumber | null;
   skill: string | null;
   model: string | null;
   tokens: AskTokens | null;

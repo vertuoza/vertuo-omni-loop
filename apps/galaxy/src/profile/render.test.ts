@@ -8,6 +8,7 @@ import type { PullRequestRow } from '../engineering/tally';
 import { profileOf, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
 import { sure } from '../arcade/sure';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 const { demoProfile } = await import('./profile');
@@ -29,13 +30,13 @@ const pr = (number: number, day: number, merged: boolean): PullRequestRow => {
   };
 };
 const dossier = (id: string, n: number, kind: DossierListRow['kind'], day: number, opener: string | null = 'u-ada'): DossierListRow => ({
-  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: n, kind, title: `The ${kind} ${n}`, opened_by: opener,
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: parsePrd(n), kind, title: `The ${kind} ${n}`, opened_by: opener,
   created_at: '2026-09-01T08:00:00Z', numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0,
   last_activity: `2026-09-${String(day).padStart(2, '0')}T08:00:00Z`,
 });
 const asked = (author: string): FixSummary => ({
-  issue: { number: 5, url: 'https://github.com/acme/widgets/issues/5', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: null, regression: false },
-  pull: { number: 6, url: 'https://github.com/acme/widgets/pull/6', state: 'merged', mergedAt: '2026-09-25T08:00:00Z', mergedBy: null },
+  issue: { number: parseIssue(5), url: 'https://github.com/acme/widgets/issues/5', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: null, regression: false },
+  pull: { number: parsePr(6), url: 'https://github.com/acme/widgets/pull/6', state: 'merged', mergedAt: '2026-09-25T08:00:00Z', mergedBy: null },
   approvals: [], release: null,
 });
 const DOSSIERS: ProfileRead['dossiers'] = {

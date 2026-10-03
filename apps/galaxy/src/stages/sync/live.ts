@@ -1,6 +1,6 @@
 import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
-import { listOf } from '../../data/unparsed';
+import { listOf, numberOf } from '../../data/unparsed';
 import type { FixRef } from '../../dossier/github/reader';
 import { dossierGithub } from '../../dossier/github/server';
 import { fixFactsStore } from '../../fixes/facts/store';
@@ -10,6 +10,7 @@ import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { stagesReader, type StagesReader } from './github';
 import type { FixSyncDeps, SyncDeps, SyncWorkspace } from './sync';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
 // client (SUPABASE_SERVICE_ROLE_KEY) for the workspaces and the stage store, and GitHub as the Omni Loop
@@ -63,7 +64,7 @@ function fixDeps(): FixSyncDeps {
         .eq('workspace_id', workspace.id).in('kind', ['visual', 'bug']).not('prd', 'is', null);
       if (error) throw new Error(`Supabase refused to read the fix dossiers: ${error.message}`);
       // Each row is read as PostgREST sent it, its columns unparsed.
-      return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: Number(row.prd) }));
+      return listOf(data).map((row: { id: unknown; home_repo: unknown; prd: unknown }): FixRef => ({ id: String(row.id), home_repo: String(row.home_repo), prd: parseIssue(numberOf(row.prd)) }));
     },
     reader: { fix: (ref) => fixReader().fix(ref) },
     store: {

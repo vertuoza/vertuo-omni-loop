@@ -6,6 +6,7 @@ import { UNREAD, type GithubSummary } from '../github/summary';
 import type { DossierRow } from '../store';
 import { DossierPage } from './DossierPage';
 import { dossierView, readPick } from './view';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The PR care tab of /prd/<id> as the server renders it (PRD 790, s4): the CI, Conflicts and Review
 // rows, the threads asked first, the watcher line in both states, and what it says merged, or
@@ -14,11 +15,11 @@ import { dossierView, readPick } from './view';
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 const dossier: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'PRD dossiers',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), title: 'PRD dossiers',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',
 };
 const NOW = Date.parse('2026-09-30T12:00:00Z');
-const FEATURE = { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
+const FEATURE = { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
 const RUN = 'https://github.com/vertuoza/vertuo-omni-loop/actions/runs/9';
 const thread = (verdict: CareState['threads'][number]['verdict'], n: number, reason: string | null = null) => ({
   url: `https://github.com/vertuoza/vertuo-omni-loop/pull/221#discussion_r${n}`, login: `rev${n}`, avatar: null,
@@ -35,7 +36,7 @@ const CARE: CareState = {
   watchingSince: '2026-09-30T10:00:00Z', lastRound: '2026-09-30T11:57:00Z',
 };
 const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
-  repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+  repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
   phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE, ...more,
 });
 const page = (github: GithubSummary | null, tab: 'care' | null = 'care') => {

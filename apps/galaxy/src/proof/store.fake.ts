@@ -8,8 +8,9 @@
 import { proofPath, ProofStoreError, type ProofPublic, type ProofRunNew, type ProofRunRow, type ProofStore, isVerdict, PROOF_FILE_NAME } from './store';
 import { sure } from '../arcade/sure';
 import { settled } from '../stages/settled';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: number };
+export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: PrdNumber };
 
 export class FakeProofWorld {
   dossiers: FakeProofDossier[] = [];

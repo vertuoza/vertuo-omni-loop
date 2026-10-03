@@ -3,6 +3,8 @@
 // builds the graph through the kit (load-knowledge.ts); nothing here touches the disk, so the browser
 // may import it.
 
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
 export type EntryKind = 'principle' | 'rule' | 'invariant';
 export type EntryStatus = 'law' | 'proposed';
 export type LinkKind = 'serves' | 'cites';
@@ -30,9 +32,16 @@ export interface KnowledgeEntry {
   enforced: boolean;
   enforcedBy: string | null;
   /** The PRD its `Source:` line names. */
-  prd: number | null;
+  prd: PrdNumber | null;
   file: string;
 }
+
+/**
+ * An entry of the kit's graph with its PRD parsed into its brand: the kit reads `PRD #<n>` bare (PRD 1049
+ * leaves it so until s5). A number no PRD has (`PRD #0`) names none, as a line naming no PRD does.
+ */
+export const withPrd = <E extends { prd: unknown }>(entry: E): Omit<E, 'prd'> & { prd: PrdNumber | null } =>
+  ({ ...entry, prd: PrdNumberSchema.safeParse(entry.prd).data ?? null });
 
 /** Only ever between two entries that exist. */
 export interface KnowledgeLink { from: string; to: string; kind: LinkKind }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PersonaAvatar } from '@omni/design';
 import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The User voice tab (PRD 822, s3), as pure functions: a version of the PRD's `voice` artifact read
 // through galaxy's own schema (the kit's `kit/lib/voice/` refuses a bad file before it is pushed; this
@@ -141,7 +142,7 @@ export function voiceView(voice: Voice, cast: readonly VoiceCast[]): VoiceView {
 }
 
 /** What Rework with this feedback copies. */
-export const reworkCommand = (prd: number) => `/omni:brainstorm --rework ${prd}`;
+export const reworkCommand = (prd: PrdNumber) => `/omni:brainstorm --rework ${prd}`;
 
 /** What the tab says with no voice artifact. */
 export const VOICE_EMPTY = 'No voice yet: it appears once a brainstorm runs with personas';

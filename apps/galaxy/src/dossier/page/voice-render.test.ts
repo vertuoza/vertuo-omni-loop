@@ -10,6 +10,7 @@ import { DossierPage } from './DossierPage';
 import { readVoice, voiceView, VOICE_EMPTY, type VoiceCast } from './voice';
 import { REWORK_LABEL } from './VoicePane';
 import { dossierView, type DossierRead } from './view';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The User voice tab as the server renders it (PRD 822, s3): its place beside Spec, Plan and
 // Before/after, the empty line, one round, three rounds with ▲ ▼ =, the outlined objection with how it
@@ -18,7 +19,7 @@ import { dossierView, type DossierRead } from './view';
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 const dossier: DossierRow = {
-  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: 822, title: 'The customer voice',
+  id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(822), title: 'The customer voice',
   opened_by: PIERRE.user_id, created_at: '2026-09-30T09:00:00Z', numbered_at: '2026-09-30T10:00:00Z',
 };
 const version = (id: string, kind: DossierVersionRow['kind']): DossierVersionRow => ({

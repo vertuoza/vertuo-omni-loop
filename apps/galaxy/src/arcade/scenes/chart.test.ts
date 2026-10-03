@@ -16,6 +16,7 @@ import { CARD_FIT, cardPages, ChartOverlay, servesLine, SystemOverlay, wrap } fr
 import type { FrameState } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
 import { sure } from '../sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const entry = (id: string, kind: KnowledgeEntry['kind'], domain: string | null, over: Partial<KnowledgeEntry> = {}): KnowledgeEntry => ({
   id, kind, domain, domains: domain ? [domain] : [], statement: `${id} holds.`, why: null, status: 'proposed', serves: null,
@@ -32,9 +33,9 @@ const GRAPH: KnowledgeGraph = {
     { name: 'quote', code: 'QUOTE', scope: 'domain', counts: { principles: 1, rules: 0, invariants: 0, laws: 0, proposed: 1 } },
   ],
   entries: [
-    entry('P-PRODUCT-1', 'principle', 'product', { status: 'law', statement: 'Every change is reviewed by a person.', why: 'Nobody merges alone.', prd: 3 }),
-    entry('P-PRODUCT-2', 'principle', 'product', { statement: LONG, why: `${LONG} It says so in P-PRODUCT-1.`, prd: 7 }),
-    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: 3, enforcedBy: 'unenforced' }),
+    entry('P-PRODUCT-1', 'principle', 'product', { status: 'law', statement: 'Every change is reviewed by a person.', why: 'Nobody merges alone.', prd: parsePrd(3) }),
+    entry('P-PRODUCT-2', 'principle', 'product', { statement: LONG, why: `${LONG} It says so in P-PRODUCT-1.`, prd: parsePrd(7) }),
+    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: parsePrd(3), enforcedBy: 'unenforced' }),
     entry('BR-PRODUCT-2', 'rule', 'product', { serves: 'P-PRODUCT-1', enforced: true, enforcedBy: 'kit/lib/gate.mjs' }),
     entry('N-PRODUCT-1', 'invariant', 'product', { serves: 'P-PRODUCT-9', statement: 'The ledger is append-only.' }),
     entry('P-QUOTE-1', 'principle', 'quote'),

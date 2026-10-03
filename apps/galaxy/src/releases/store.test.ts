@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { ReleaseRow } from './row';
 import { readReleases, releasesEnv } from './store';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
-const ROW: ReleaseRow = { prd: 262, release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' };
+const ROW: ReleaseRow = { prd: parsePrd(262), release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' };
 
 /** A client over `rows`, recording how it was made and every call; `refuse` fails the read. */
 function recording(rows: unknown[], refuse: { message: string } | null = null) {

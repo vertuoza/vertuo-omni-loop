@@ -7,6 +7,7 @@ import {
 } from './send';
 import { sure } from '../arcade/sure';
 import { sentView, UNCOUNTED } from './sent';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Send (PRD 251, "Send posts the reply as you"; s11, ported from the first build's s5): the picks checked
 // against a fresh read of the outbox through PRD 426's GitHub reader, written by the kit's reply writer,
@@ -33,10 +34,10 @@ const ACTION: OutboxItem = { id: 's11-01-secret', rank: 'human-action', question
 /** PRD 7's summary: question 1 needs a person, 2 is high, 3 an adopted medium, 4 settled already. */
 function summary(over: Partial<GithubSummary> = {}): GithubSummary {
   return {
-    repo: 'acme/widgets', prd: 7, folder: '0007-widgets', topic: 'widgets',
-    issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+    repo: 'acme/widgets', prd: parsePrd(7), folder: '0007-widgets', topic: 'widgets',
+    issue: { number: parseIssue(7), url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
     phase0: null,
-    feature: { number: 12, url: 'https://github.com/acme/widgets/pull/12', state: 'open', draft: true, mergedAt: null },
+    feature: { number: parsePr(12), url: 'https://github.com/acme/widgets/pull/12', state: 'open', draft: true, mergedAt: null },
     retro: null,
     mergedSlices: 2,
     outbox: {
@@ -59,8 +60,8 @@ function world({ viewer = 'u-ada', read = summary(), gh = fakeGitHub(), clientId
   viewer?: string; read?: GithubSummary | null; gh?: ReturnType<typeof fakeGitHub>; clientId?: string | null;
 } = {}) {
   const sends = fakeSendStore(viewer, [
-    { id: DOSSIER, homeRepo: 'acme/widgets', prd: 7, members: ['u-ada', 'u-bob'] },
-    { id: ELSEWHERE, homeRepo: 'other/place', prd: 9, members: ['u-eve'] },
+    { id: DOSSIER, homeRepo: 'acme/widgets', prd: parsePrd(7), members: ['u-ada', 'u-bob'] },
+    { id: ELSEWHERE, homeRepo: 'other/place', prd: parsePrd(9), members: ['u-eve'] },
   ]);
   const outbox = fakeOutboxSource(read);
   const deps: SendDeps = {
@@ -96,7 +97,7 @@ describe('the questions a send may answer', () => {
   it('reads them off the fresh summary: every numbered open or adopted item, with its rank and letters', () => {
     const read = questionsOf(summary());
     expect(read).toEqual({
-      ok: true, prd: 7, prNumber: 12,
+      ok: true, prd: parsePrd(7), prNumber: 12,
       questions: [
         { number: 1, rank: 'human-action', options: [] },
         { number: 2, rank: 'high', options: [{ letter: 'A', text: 'A text' }, { letter: 'B', text: 'B text' }, { letter: 'C', text: 'C text' }] },
@@ -113,7 +114,7 @@ describe('the questions a send may answer', () => {
     expect(questionsOf(summary({ feature: null }))).toMatchObject({ ok: false, status: 404 });
     expect(questionsOf(summary({ outbox: null }))).toMatchObject({ ok: false, status: 404 });
     expect(questionsOf(summary({ replies: null }))).toMatchObject({ ok: false, status: 404 });
-    const merged = questionsOf(summary({ feature: { number: 12, url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }));
+    const merged = questionsOf(summary({ feature: { number: parsePr(12), url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }));
     expect(merged).toMatchObject({ ok: false, status: 409, error: matching(/merged/) });
   });
 });
@@ -195,7 +196,7 @@ describe('POST /api/outbox/send: the reply, written once and recorded as a send'
   });
 
   it('refuses once the feature pull request merged, and while GitHub is out of reach, recording nothing', async () => {
-    const merged = world({ read: summary({ feature: { number: 12, url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }) });
+    const merged = world({ read: summary({ feature: { number: parsePr(12), url: 'https://x', state: 'merged', draft: false, mergedAt: '2026-09-28T00:00:00Z' } }) });
     const one = await merged.start({ dossier: DOSSIER, picks: PICKS });
     expect(one.status).toBe(409);
     expect(one.body.error).toMatch(/merged/);
@@ -378,22 +379,22 @@ describe('GET /api/outbox/send: the result, for the tab', () => {
 
 describe('the result on the tab', () => {
   const row = {
-    id: 's1', dossier_id: DOSSIER, pr_number: 12, reply: '2: B\n\n_answered on the Omni page · PRD 7_', nonce_hash: 'h',
+    id: 's1', dossier_id: DOSSIER, pr_number: parsePr(12), reply: '2: B\n\n_answered on the Omni page · PRD 7_', nonce_hash: 'h',
     created_at: '2026-09-28T10:05:00Z', posted_at: null as string | null, comment_url: null as string | null,
     login: null as string | null, counted: null as boolean | null, error: null as string | null,
   };
 
   it('posted: sent as @login, its link, and the next step', () => {
-    expect(sentView({ ...row, posted_at: '2026-09-28T10:06:00Z', comment_url: 'https://x/1', login: 'ada', counted: true }, 7, null)).toEqual({
+    expect(sentView({ ...row, posted_at: '2026-09-28T10:06:00Z', comment_url: 'https://x/1', login: 'ada', counted: true }, parsePrd(7), null)).toEqual({
       state: 'posted', login: 'ada', url: 'https://x/1', counted: true, next: '/omni:yolo-fix 7', reply: row.reply, at: '2026-09-28T10:06:00Z',
     });
   });
 
   it('failed: the error; waiting: nothing recorded yet; a wrong state says why', () => {
-    expect(sentView({ ...row, error: 'GitHub did not answer.' }, 7, null)).toEqual({ state: 'failed', error: 'GitHub did not answer.' });
-    expect(sentView(row, 7, null)).toEqual({ state: 'waiting' });
-    expect(sentView(null, 7, 'state')).toMatchObject({ state: 'failed', error: matching(/did not match/) });
-    expect(sentView(null, 7, null)).toBeNull();
+    expect(sentView({ ...row, error: 'GitHub did not answer.' }, parsePrd(7), null)).toEqual({ state: 'failed', error: 'GitHub did not answer.' });
+    expect(sentView(row, parsePrd(7), null)).toEqual({ state: 'waiting' });
+    expect(sentView(null, parsePrd(7), 'state')).toMatchObject({ state: 'failed', error: matching(/did not match/) });
+    expect(sentView(null, parsePrd(7), null)).toBeNull();
   });
 
   it('an uncounted author is named, with what it means', () => {

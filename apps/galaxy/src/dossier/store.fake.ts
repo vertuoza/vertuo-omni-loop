@@ -49,6 +49,7 @@ import {
   type RoundRule, type WorkKind,
 } from './store';
 import { FAKE_WORKSPACE, userOf, type FakeAccount } from '../ask/store.fake';
+import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -59,7 +60,7 @@ type Result = { data: unknown; error: Failure | null };
 export { FAKE_WORKSPACE, type FakeAccount };
 
 export type FakeDossier = {
-  id: string; workspace_id: string; home_repo: string; prd: number | null; kind: WorkKind; title: string;
+  id: string; workspace_id: string; home_repo: string; prd: PrdNumber | null; kind: WorkKind; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
 };
 export type FakeVersion = {
@@ -80,7 +81,7 @@ export type FakeAskSession = {
 export type FakeAskRound = {
   id: string; session_id: string; questions: unknown; answers: Record<string, string> | null;
   status: 'open' | 'answered' | 'abandoned'; answered_via: 'page' | 'terminal' | null; answered_by: string | null;
-  category: string | null; category_by: string | null; prd: number | null; skill: string | null;
+  category: string | null; category_by: string | null; prd: PrdNumber | null; skill: string | null;
   created_at: string; answered_at: string | null;
 };
 /** A share (PRD 144): a round, the member it is shared with, who shared it and when. */
@@ -100,13 +101,13 @@ const trimmed = (value: unknown): string => (typeof value === 'string' ? value.t
 /** A dossier's title: 1 to TITLE_MAX characters. */
 const titleFits = (title: string): boolean => title.length >= 1 && title.length <= TITLE_MAX;
 /** A PRD number: a positive whole number. */
-const isPrdNumber = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0;
+const isPrdNumber = (value: unknown): value is PrdNumber => PrdNumberSchema.safeParse(value).success;
 /** A Claude session id: none, or 1 to 200 characters. */
 const sessionFits = (session: unknown): session is string | null => session === null || (typeof session === 'string' && session.length >= 1 && session.length <= 200);
 
 type SentArtifact = { kind: ArtifactKind; content: string };
 /** dossier_push()'s arguments, checked. */
-type PushArgs = { repo: string; prd: number; title: string; draftId: unknown; kind: WorkKind; sent: SentArtifact[] };
+type PushArgs = { repo: string; prd: PrdNumber; title: string; draftId: unknown; kind: WorkKind; sent: SentArtifact[] };
 
 /** The artifacts a push sends to a `kind` dossier, each checked, or the refusal of the first that fails. */
 function sentArtifacts(artifacts: unknown, kind: WorkKind): Checked<SentArtifact[]> {
@@ -471,7 +472,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
   /** A dossier the fallback created (no opener, no Claude session), with versions read from GitHub. */
   function seedFromGithub({ workspace = FAKE_WORKSPACE, repo, prd, kind = 'prd', title, versions = [] }: {
-    workspace?: string; repo: string; prd: number; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
+    workspace?: string; repo: string; prd: PrdNumber; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
   }): FakeDossier {
     const dossier: FakeDossier = {
       id: newId(), workspace_id: workspace, home_repo: repo.toLowerCase(), prd, kind, title, opened_by: null,
@@ -509,7 +510,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   /** A workspace's plan repository (a bare name), and PRD `prd`'s planet surveyed in each of `regions`,
    * as the ledger's REGION_SURVEYED events record it. */
   function seedPlanet({ workspace = FAKE_WORKSPACE, planRepo, prd, regions }: {
-    workspace?: string; planRepo: string; prd: number; regions: string[];
+    workspace?: string; planRepo: string; prd: PrdNumber; regions: string[];
   }) {
     tables.plan_repos[workspace] = planRepo;
     for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });

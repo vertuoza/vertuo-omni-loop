@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sentView, type SendRow } from '../../outbox/sent';
 import { ReadAnswer, readAnswerOf, StartAnswer, startAnswerOf } from './outbox-send-answers';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // What /api/outbox/send answers, parsed where the Outbox tab reads it (PRD 1030): the bodies the
 // route writes parse as they are, and a body that does not is the tab's failed read.
 
 const row: SendRow = {
-  id: 'a1', dossier_id: 'd1', pr_number: 12, reply: '1A', nonce_hash: 'h', created_at: '2026-10-03T10:00:00Z',
+  id: 'a1', dossier_id: 'd1', pr_number: parsePr(12), reply: '1A', nonce_hash: 'h', created_at: '2026-10-03T10:00:00Z',
   posted_at: '2026-10-03T10:01:00Z', comment_url: 'https://github.com/acme/widgets/pull/12#issuecomment-1', login: 'ada', counted: true, error: null,
 };
-const posted = sentView(row, 7, null);
+const posted = sentView(row, parsePrd(7), null);
 const started = { send: 'a1', authorize: 'https://github.com/login/oauth/authorize?client_id=x', dropped: [2] };
 
 afterEach(() => {
@@ -18,7 +19,7 @@ afterEach(() => {
 
 describe('the outcome of a send (GET)', () => {
   it('parses every outcome the route writes, and its refusals', () => {
-    for (const answer of [posted, sentView({ ...row, error: 'GitHub said no.' }, 7, null), sentView({ ...row, posted_at: null }, 7, null), { error: 'No such send.' }]) {
+    for (const answer of [posted, sentView({ ...row, error: 'GitHub said no.' }, parsePrd(7), null), sentView({ ...row, posted_at: null }, parsePrd(7), null), { error: 'No such send.' }]) {
       expect(ReadAnswer.parse(answer)).toEqual(answer);
     }
   });

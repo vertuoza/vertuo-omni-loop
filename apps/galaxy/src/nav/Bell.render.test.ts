@@ -8,6 +8,7 @@ import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuesti
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
 import { item } from '../ask/test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.
@@ -19,7 +20,7 @@ const q = (id: string, ago: number, sharedBy: string | null = null): WaitingQues
   kind: 'question', id, sessionTitle: `vertuo-omni-loop · ${id}`, question: `Which ${id}?`, askedAt: NOW - ago, sharedBy,
 });
 const o = (id: string, prd: number, rank: WaitingOutbox['rank']): WaitingOutbox => ({
-  kind: 'outbox', id, prd, dossierId: `d-${prd}`, title: `Gate ${prd}`, rank, question: `Keep ${id}?`,
+  kind: 'outbox', id, prd: parsePrd(prd), dossierId: `d-${prd}`, title: `Gate ${prd}`, rank, question: `Keep ${id}?`,
 });
 
 const render = (list: WaitingList, unread: BellUnread = {}) => renderToStaticMarkup(createElement(BellView, { list, unread, now: NOW }));
@@ -98,7 +99,7 @@ describe('the bell', () => {
 });
 
 describe('its New documents group (PRD 579)', () => {
-  const doc: DocumentGroup = { dossierId: 'd-579', prd: 579, title: 'New documents alert', kinds: ['spec', 'before-after'], newestId: 'v9', newestAt: NOW - 3 * MIN };
+  const doc: DocumentGroup = { dossierId: 'd-579', prd: parsePrd(579), title: 'New documents alert', kinds: ['spec', 'before-after'], newestId: 'v9', newestAt: NOW - 3 * MIN };
   const withDocs = (list: WaitingList, documents: DocumentGroup[]) =>
     renderToStaticMarkup(createElement(BellView, { list, unread: {}, now: NOW, documents }));
 
@@ -113,7 +114,7 @@ describe('its New documents group (PRD 579)', () => {
     const none = button(withDocs(EMPTY_WAITING, [doc]));
     expect(none).toContain('aria-label="Nothing waiting for you"');
     expect(none).not.toContain('bell-badge');
-    const one = button(withDocs({ questions: [q('a', MIN)], outbox: [] }, [doc, { ...doc, dossierId: 'd-572', prd: 572 }]));
+    const one = button(withDocs({ questions: [q('a', MIN)], outbox: [] }, [doc, { ...doc, dossierId: 'd-572', prd: parsePrd(572) }]));
     expect(one).toContain('aria-label="Waiting for you: 1"');
     expect(one).toMatch(/<span class="bell-badge" aria-hidden="true">1<\/span>/);
   });

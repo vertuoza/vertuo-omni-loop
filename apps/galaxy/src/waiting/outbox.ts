@@ -1,6 +1,7 @@
 import { poll, type VisibilityDoc } from '../ask/page/poll';
 import type { WaitingOutbox } from './waiting';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's Outbox part (PRD 499, s3): the open human-action and high outbox items of the PRDs
 // the person opened, read by the browser from GET /api/waiting/outbox (src/outbox-waiting/), never by
@@ -29,9 +30,10 @@ const RANKS: readonly WaitingOutbox['rank'][] = ['human-action', 'high'];
 function itemOf(raw: unknown): WaitingOutbox | null {
   if (!raw || typeof raw !== 'object') return null;
   const [id, prd, dossierId, title, question, rank] = ['id', 'prd', 'dossierId', 'title', 'question', 'rank'].map((key) => propertyOf(raw, key));
-  if (typeof id !== 'string' || typeof prd !== 'number' || typeof dossierId !== 'string' || typeof title !== 'string'
+  const number = PrdNumberSchema.safeParse(prd);
+  if (typeof id !== 'string' || !number.success || typeof dossierId !== 'string' || typeof title !== 'string'
     || typeof question !== 'string' || !isOneOf(RANKS, rank)) return null;
-  return { kind: 'outbox', id, prd, dossierId, title, rank, question };
+  return { kind: 'outbox', id, prd: number.data, dossierId, title, rank, question };
 }
 
 /** Reads the route once. Never throws. */

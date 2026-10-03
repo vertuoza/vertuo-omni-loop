@@ -3,16 +3,17 @@ import { UNREAD } from '../dossier/github/summary';
 import type { FixSummary } from '../dossier/github/fix';
 import { fixState, readPickLine, STATE_LABELS, timelineOf, type PickRead } from './timeline';
 import { sure } from '../arcade/sure';
+import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A fix's state and its Timeline (PRD 627, s5), as pure functions of what GitHub said of it and of the
 // pick line of its latest before/after page: Asked, Picked (a visual fix only), Approved, Merged and
 // Released, each with who and when, or *not yet*, *unknown* or *not recorded*.
 
 const ISSUE = {
-  number: 548, url: 'https://github.com/acme/widgets/issues/548', state: 'open' as const, author: 'anna', createdAt: '2026-09-29T08:00:00Z',
+  number: parseIssue(548), url: 'https://github.com/acme/widgets/issues/548', state: 'open' as const, author: 'anna', createdAt: '2026-09-29T08:00:00Z',
   risk: null, regression: false,
 };
-const OPEN = { number: 562, url: 'https://github.com/acme/widgets/pull/562', state: 'open' as const, mergedAt: null, mergedBy: null };
+const OPEN = { number: parsePr(562), url: 'https://github.com/acme/widgets/pull/562', state: 'open' as const, mergedAt: null, mergedBy: null };
 const MERGED = { ...OPEN, state: 'merged' as const, mergedAt: '2026-09-29T12:00:00Z', mergedBy: 'pierre-derval' };
 const RELEASE = { tag: 'v0.0.79', url: 'https://github.com/acme/widgets/releases/tag/v0.0.79', at: '2026-09-29T12:05:00Z' };
 

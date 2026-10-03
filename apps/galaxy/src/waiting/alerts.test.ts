@@ -6,6 +6,7 @@ import {
 import type { DocumentGroup } from './documents';
 import type { WaitingItem, WaitingOutbox, WaitingQuestion } from './waiting';
 import { sure } from '../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over fakes: what a read announces, the two
 // switches kept per browser, the chime claimed by one tab, and the desktop notifications.
@@ -14,7 +15,7 @@ const q = (id: string): WaitingQuestion => ({
   kind: 'question', id, sessionTitle: `terminal ${id}`, question: `Which ${id}?`, askedAt: 0, sharedBy: null,
 });
 const o = (id: string, prd = 459): WaitingOutbox => ({
-  kind: 'outbox', id, prd, dossierId: `d-${prd}`, title: `Gate ${prd}`, rank: 'high', question: `Keep ${id}?`,
+  kind: 'outbox', id, prd: parsePrd(prd), dossierId: `d-${prd}`, title: `Gate ${prd}`, rank: 'high', question: `Keep ${id}?`,
 });
 const ids = (items: WaitingItem[]) => items.map((i) => i.id);
 
@@ -205,7 +206,7 @@ describe('desktop alerts', () => {
 
 describe('a new documents alert (PRD 579, s2)', () => {
   const group: DocumentGroup = {
-    dossierId: 'd 572', prd: 572, title: 'Dashboards', kinds: ['spec', 'plan', 'before-after'], newestId: 'v9', newestAt: 0,
+    dossierId: 'd 572', prd: parsePrd(572), title: 'Dashboards', kinds: ['spec', 'plan', 'before-after'], newestId: 'v9', newestAt: 0,
   };
 
   it('names the PRD and the kinds, the body its title, tagged by its newest version, opening its page', () => {

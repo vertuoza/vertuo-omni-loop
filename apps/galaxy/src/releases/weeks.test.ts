@@ -5,9 +5,10 @@ import { describe, expect, it } from 'vitest';
 import type { ReleaseRow } from './row';
 import { brusselsDay, mondayOf, OPEN_WEEKS, releasesOf, weeksOf } from './weeks';
 import { sure } from '../arcade/sure';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const row = (prd: number, release: number, released_at: string, title = `PRD ${prd}'s title`): ReleaseRow =>
-  ({ prd, release, released_at, title, description: `What PRD ${prd} changed.` });
+  ({ prd: parsePrd(prd), release, released_at, title, description: `What PRD ${prd} changed.` });
 
 describe('a day in Brussels', () => {
   it('is the calendar day on the Brussels wall clock, not in UTC', () => {

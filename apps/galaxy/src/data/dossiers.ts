@@ -21,6 +21,7 @@ import { dossierPath } from '../dossier/page/view';
 import { ARTIFACT_KINDS, dossierList, dossierRounds, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossierLatest, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
+import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orThrow, parseRows } from './parse-rows';
 import { listOf, numberOf } from './unparsed';
 
@@ -41,7 +42,7 @@ export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
   id: z.string(),
   workspace_id: z.string(),
   home_repo: z.string(),
-  prd: z.number().nullable(),
+  prd: PrdNumberSchema.nullable(),
   kind: z.enum(WORK_KINDS).optional(),
   title: z.string(),
   opened_by: z.string().nullable(),
@@ -164,7 +165,7 @@ const HOUR = 3_600_000;
 
 type DemoRound = { question: string; answer: string | null; more?: Record<string, string>; hoursAgo: number };
 type DemoDossier = {
-  prd: number;
+  prd: PrdNumber;
   title: string;
   /** Each artifact's latest version, and how many hours ago it was added. */
   latest: Partial<Record<DossierKind, { version: number; hoursAgo: number; source?: 'kit' | 'github' }>>;
@@ -175,7 +176,7 @@ type DemoDossier = {
 
 const DEMO: DemoDossier[] = [
   {
-    prd: 2410, title: 'Peppol e-Invoicing',
+    prd: parsePrd(2410), title: 'Peppol e-Invoicing',
     latest: { 'before-after': { version: 1, hoursAgo: 70 }, spec: { version: 2, hoursAgo: 30 } },
     asked: 4, answered: 3,
     rounds: [
@@ -186,7 +187,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 2332, title: 'Generic Import Engine',
+    prd: parsePrd(2332), title: 'Generic Import Engine',
     latest: { 'before-after': { version: 1, hoursAgo: 400 }, spec: { version: 3, hoursAgo: 60 }, plan: { version: 2, hoursAgo: 58 } },
     asked: 12, answered: 11,
     rounds: [
@@ -197,7 +198,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 2520, title: 'Planning Drag & Drop',
+    prd: parsePrd(2520), title: 'Planning Drag & Drop',
     latest: { 'before-after': { version: 2, hoursAgo: 90 }, spec: { version: 1, hoursAgo: 200 }, plan: { version: 1, hoursAgo: 190 } },
     asked: 6, answered: 6,
     rounds: [
@@ -207,14 +208,14 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: 985, title: 'Default Country per Company',
+    prd: parsePrd(985), title: 'Default Country per Company',
     latest: { spec: { version: 1, hoursAgo: 900, source: 'github' }, plan: { version: 1, hoursAgo: 900, source: 'github' } },
     asked: 0, answered: 0, rounds: [],
   },
 ];
 
 /** A demo dossier's id: a uuid of its own, so its link has the shape of a real one. */
-const demoId = (prd: number) => `00000000-0000-4000-8000-${String(prd).padStart(12, '0')}`;
+const demoId = (prd: PrdNumber) => `00000000-0000-4000-8000-${String(prd).padStart(12, '0')}`;
 
 function demoRow(d: DemoDossier, now: number): { row: DossierListRow; rounds: DossierRoundRow[] } {
   const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString();

@@ -14,6 +14,7 @@ import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
 import { item } from '../test-item';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 type Asked = ReturnType<typeof readQuestions>[number];
 
@@ -185,7 +186,7 @@ describe('the context line, rendered (PRD 144)', () => {
   const line = (parts: string[] | undefined) => renderToStaticMarkup(createElement(ContextLine, { parts }));
 
   it('shows every field of a round that has them all, and the time to answer', () => {
-    const round = { ...base, prd: 144, skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
+    const round = { ...base, prd: parsePrd(144), skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
     expect(line(contextParts(session, round))).toBe(
       '<p class="ask-title ask-context" aria-label="Where this question came from">'
       + 'vertuoza/vertuo-omni-loop · feat/question-history · PRD #144 · /omni:brainstorm · claude-opus-4-8 · 30k tokens · $1.23 · answered in 3 min 0 s</p>',

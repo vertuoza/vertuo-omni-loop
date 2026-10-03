@@ -5,7 +5,7 @@ import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
 import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
 import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { KnowledgeGraph } from './knowledge';
+import { withPrd, type KnowledgeGraph } from './knowledge';
 
 // The knowledge map's data (PRD 149): the knowledge of the checkout the app is deployed from, read at
 // request time through the kit's one parser — no Supabase table, no GitHub call. The config and the
@@ -34,7 +34,7 @@ export function loadKnowledge({ cwd = process.cwd(), log = console.error }: { cw
     // The kit's one parser reads the folder; the map reads the version it knows, and nothing else.
     const { version, ...graph } = readGraph({ ctx });
     if (version !== 1) return outOfReach(`the kit's graph is version ${version}, the map reads version 1`);
-    return { ...graph, version };
+    return { ...graph, entries: graph.entries.map(withPrd), version };
   } catch (err) {
     return outOfReach(err instanceof Error ? firstPart(err.message, '\n') : String(err));
   }

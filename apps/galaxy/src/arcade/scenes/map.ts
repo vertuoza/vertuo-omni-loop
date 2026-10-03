@@ -8,6 +8,7 @@ import {
   frameOf, H, nebulaFor, planetLook, pulseRing, space, sprite, type FrameState, type Grid, type MapSlot, type Pages,
   type SceneName,
 } from './common.ts';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The map is laid out on the tall grid: the Game Boy held upright draws it on 320×288 (grid.ts reads this list). */
 export const TALL_SCENES: readonly SceneName[] = ['map'];
@@ -68,10 +69,11 @@ function layoutWide(view: GalaxyView, grid: Grid): MapSlot[] {
     const shrink = Math.min(1, cellH / 62, cellW / 62);
     members.forEach(({ p, index }, j) => {
       const r = Math.max(8, Math.round((10 + p.class * 4) * shrink));
-      const rand = rng(seedOf(p.prd));
+      const prd = parsePrd(p.prd);
+      const rand = rng(seedOf(prd));
       const cx = ci * colW + 12 + cellW * ((j % perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellW - r * 2 - 12) * 0.6;
       const cy = top + cellH * (Math.floor(j / perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellH - r * 2 - 12) * 0.6;
-      slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
+      slots.push({ prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   });
   return slots.sort((a, b) => a.index - b.index);
@@ -132,10 +134,11 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
       const r = Math.max(1, Math.min(room, Math.max(6, Math.round(baseRadius(p.class) * shrink))));
       const discTop = TALL_MAP.top + j * step + TALL_MAP.icon; // the disc's part of the box, under the icon
       const discH = tall - TALL_MAP.icon;
-      const rand = rng(seedOf(p.prd)); // the same drift for a planet on every run
+      const prd = parsePrd(p.prd);
+      const rand = rng(seedOf(prd)); // the same drift for a planet on every run
       const cx = left + (j % lanes + 0.5) * laneW + drift(rand, laneW - r * 2 - 2);
       const cy = discTop + discH / 2 + drift(rand, discH - r * 2 - 2);
-      slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
+      slots.push({ prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   }
   return slots.sort((a, b) => a.index - b.index);
