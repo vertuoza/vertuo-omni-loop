@@ -25,6 +25,7 @@
 // the model.
 import { type Inngest, NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT, inngest } from '../inngest-client.ts';
@@ -127,7 +128,8 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
         if (!prepared.ok) {
           throw new NonRetriableError(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared.errors.join('; ')}`);
         }
-        return { tip, prepared };
+        // The kit's harvest still gives a bare PRD number (PRD 1049, s5 makes it a PrdNumber).
+        return { tip, prepared: { ...prepared, prd: parsePrd(prepared.prd) } };
       });
       const { tip, prepared } = settled;
 

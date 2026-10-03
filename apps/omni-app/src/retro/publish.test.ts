@@ -1,3 +1,4 @@
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
@@ -13,12 +14,12 @@ const scenarioOf = () => widgetScenario();
 
 const config = parseConfig('kit: 1\n');
 const prd = { number: 7, topic: 'widget', title: 'Widgets that remember their colour', folder: '.omni-loop/delivery/shipped/0007-widget', state: 'shipped' };
-const pr = { number: 12, title: 'feat: widgets', url: 'https://github.com/acme/widgets/pull/12', openedAt: 'a', mergedAt: 'b', mergeSha: MERGE_SHA };
+const pr = { number: parsePr(12), title: 'feat: widgets', url: 'https://github.com/acme/widgets/pull/12', openedAt: 'a', mergedAt: 'b', mergeSha: MERGE_SHA };
 
 const record = (reason = 'no model key'): RunRecord => ({
   run: 'merge',
   rules: rulesSheet(),
-  prd: { number: 7, title: prd.title, topic: 'widget', state: 'shipped', folder: prd.folder },
+  prd: { number: parsePrd(7), title: prd.title, topic: 'widget', state: 'shipped', folder: prd.folder },
   featurePr: pr,
   kinds: { timeline: null },
   findings: [],

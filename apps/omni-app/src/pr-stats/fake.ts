@@ -7,6 +7,7 @@
 // one of the GraphQL budget and answering `rateLimit` when asked. The two budgets are separate, as on
 // GitHub; a spent budget answers 403 (REST) or RATE_LIMITED (GraphQL).
 
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { PrStatsStore, RepositoryPatch } from './supabase-store.ts';
 
 /** A user as GitHub's REST API names it. */
@@ -19,7 +20,7 @@ export type FakeUser = { login: string; type?: string };
  * added, oldest first).
  */
 export type FakePull = {
-  number: number;
+  number: PrNumber;
   user: FakeUser | null;
   created_at: string;
   updated_at: string;
@@ -286,7 +287,7 @@ export function fakeStore(repositories: FakeRepository[]) {
 }
 
 /** A pull request as GitHub's REST API returns it, with its reviews and commit messages beside it. */
-export function pull(number: number, fields: Partial<FakePull> = {}): FakePull {
+export function pull(number: PrNumber, fields: Partial<FakePull> = {}): FakePull {
   const created = fields.created_at ?? '2026-09-20T10:00:00Z';
   return {
     number,

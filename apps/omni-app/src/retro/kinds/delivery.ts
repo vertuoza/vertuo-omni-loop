@@ -7,6 +7,7 @@
 // changed paths; for the feature PR and each merged sub-PR, its reviews and review threads
 // (`delivery.reads.mjs`). The plan and the settled file come from `qualify`, through the context.
 // `detect` (`delivery.facts.mjs`) and `describe` are pure.
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   decisionFacts,
   frictionFacts,
@@ -45,7 +46,7 @@ export const delivery: Kind<Records, Facts> = Object.freeze({
     const subs = slicePulls(pulls, config, prd.topic);
     const merged = new Set(mergedSlicePulls(subs).map(({ pull }) => pull.number));
     const read: Record<string, PullReads> = {};
-    const at = (number: number): PullReads => {
+    const at = (number: PrNumber): PullReads => {
       const reads = read[number] ?? {};
       read[number] = reads;
       return reads;

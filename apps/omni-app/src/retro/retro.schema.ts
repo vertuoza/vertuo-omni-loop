@@ -7,6 +7,7 @@
 // parse to, so the two cannot drift.
 import { z } from 'zod';
 import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/schema/config.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { ModelReplySchema } from './narrate.ts';
 
 const text = z.string();
@@ -16,7 +17,7 @@ const maybeText = z.string().nullable();
 export const RunSchema = z.enum(['merge', 'day-14']);
 
 const pullFields = {
-  number: z.number(),
+  number: PrNumberSchema,
   title: text,
   url: maybeText,
   merged: z.boolean(),
@@ -37,7 +38,7 @@ export const FeaturePullSchema = z.object({ ...pullFields, mergeSha: text });
 
 /** A pull request into the feature branch, as the kinds read it (`listPullsInto`). */
 export const PullIntoSchema = z.object({
-  number: z.number(),
+  number: PrNumberSchema,
   title: text,
   url: maybeText,
   state: text,
@@ -52,7 +53,7 @@ export const PullIntoSchema = z.object({
 
 /** The PRD a feature PR delivered, as `qualify` reads it at the merge. */
 export const PrdFactsSchema = z.object({
-  number: z.number(),
+  number: PrdNumberSchema,
   topic: text,
   title: text,
   problem: text,
@@ -109,8 +110,8 @@ export const RulesSheetSchema = z.object({
 const factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z.object({ number: z.number(), title: text, topic: text, state: text, folder: text }),
-  featurePr: z.object({ number: z.number(), title: text, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text }),
+  prd: z.object({ number: PrdNumberSchema, title: text, topic: text, state: text, folder: text }),
+  featurePr: z.object({ number: PrNumberSchema, title: text, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
   kinds: z.record(z.string(), z.unknown()),
   findings: z.array(SheetFindingSchema),
@@ -161,7 +162,7 @@ export const NarratedSchema = z.object({ model: maybeText, reply: ModelReplySche
 export const NarrationSchema = z.object({ model: maybeText, reason: maybeText, dropped: z.array(DroppedFieldSchema) });
 
 /** One issue a finding was published as. */
-export const IssueLinkSchema = z.object({ number: z.number(), url: text, state: z.enum(['open', 'closed']) });
+export const IssueLinkSchema = z.object({ number: IssueNumberSchema, url: text, state: z.enum(['open', 'closed']) });
 
 /** The step "publish-issues": each published finding's issue, by its id. */
 export const IssueLinksSchema = z.record(z.string(), IssueLinkSchema);
@@ -186,11 +187,11 @@ export const PublishedSchema = z.object({
   branch: text,
   committed: z.boolean(),
   commit: text,
-  pr: z.object({ number: z.number(), url: text, created: z.boolean() }).nullable(),
+  pr: z.object({ number: PrNumberSchema, url: text, created: z.boolean() }).nullable(),
 });
 
 /** The step "verdict": the comment kept on the merged feature PR. */
-export const CommentedSchema = z.object({ commentId: z.number(), created: z.boolean() });
+export const CommentedSchema = z.object({ commentId: CommentIdSchema, created: z.boolean() });
 
 /** A step "clock-day-14": the time read, in milliseconds. */
 export const ClockSchema = z.number();

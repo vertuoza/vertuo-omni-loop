@@ -3,6 +3,7 @@
 // in another shape fails by the name of the field, not with an `undefined` three calls later. Each
 // schema names only the fields the units read; GitHub's other fields pass through untouched.
 import { z } from 'zod';
+import { CommentIdSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /**
  * The one seam every unit calls GitHub through: `octokit.request(route, params)`. Every Octokit
@@ -41,8 +42,11 @@ export const IssueSchema = z.looseObject({
 /** Anything GitHub created or wrote: a check run, a comment. */
 export const CreatedSchema = z.looseObject({ id: z.number() });
 
+/** A comment GitHub wrote: `POST /repos/{owner}/{repo}/issues/{issue_number}/comments`. */
+export const CommentWrittenSchema = z.looseObject({ id: CommentIdSchema });
+
 /** One page of `GET /repos/{owner}/{repo}/issues/{issue_number}/comments`. */
-export const CommentsPageSchema = z.array(z.looseObject({ id: z.number(), body: z.string().nullish() }));
+export const CommentsPageSchema = z.array(z.looseObject({ id: CommentIdSchema, body: z.string().nullish() }));
 
 /** One page of `GET /repos/{owner}/{repo}/compare/{basehead}`. */
 export const ComparePageSchema = z.looseObject({
@@ -83,12 +87,12 @@ export const GitCommitSchema = z.looseObject({ tree: z.looseObject({ sha: z.stri
 export const ShaSchema = z.looseObject({ sha: z.string() });
 
 /** A pull request GitHub opened or rewrote. */
-export const PullWrittenSchema = z.looseObject({ number: z.number(), html_url: z.string() });
+export const PullWrittenSchema = z.looseObject({ number: PrNumberSchema, html_url: z.string() });
 
 /** `GET /repos/{owner}/{repo}/pulls`: the pull requests from a branch. */
 export const PullsSchema = z.array(
   z.looseObject({
-    number: z.number(),
+    number: PrNumberSchema,
     html_url: z.string(),
     state: z.string(),
     merged_at: z.string().nullish(),

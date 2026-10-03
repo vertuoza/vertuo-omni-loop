@@ -15,6 +15,7 @@
 // `THRESHOLDS.churnFileLines`; a run of lines each written in `THRESHOLDS.churnRangeCommits` commits or
 // more is one. A file GitHub sent without a patch counts by its totals and is named; its lines are no
 // longer followed. What GitHub did not return is named, never guessed.
+import { SliceIdSchema, type PrNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate, readContent } from '../github.ts';
 import { leftOutAs } from './churn-generated.ts';
@@ -36,9 +37,11 @@ type CommitRecord = NonNullable<PullRecord['commits']>[number];
 type Repo = { owner: string; repo: string };
 
 type Walked = ReturnType<typeof walk>;
-type CommitSeen = { short: string; url: string | null; slice: string; index: number };
+/** Where a commit was made: its slice, or `#<n>`, its pull request, when the head branch names no slice. */
+type MadeIn = SliceId | `#${PrNumber}`;
+type CommitSeen = { short: string; url: string | null; slice: MadeIn; index: number };
 type FileStats = { added: number; commits: Set<string> };
-type NoPatch = { path: string; commit: string; slice: string; additions: number; deletions: number };
+type NoPatch = { path: string; commit: string; slice: MadeIn; additions: number; deletions: number };
 type FileChurn = { path: string; commits: number; added: number; finalAdded: number; churn: number; percent: number | null };
 type Rewritten = { path: string; from: number; to: number; shas: string[]; slices: string[] };
 
@@ -190,14 +193,14 @@ export const churn: Kind<Records | null, Facts> = Object.freeze({
  */
 function walk(
   records: Records,
-  { sliceOf, leftOut }: { sliceOf: (headRef: unknown) => string | null; leftOut: (path: string) => LeftOut | null },
+  { sliceOf, leftOut }: { sliceOf: (headRef: unknown) => SliceId | null; leftOut: (path: string) => LeftOut | null },
 ) {
   const commits = new Map<string, CommitSeen>();
   const files = new Map<string, FileStats>();
   const lines = new Map<string, Line[]>();
   const left: Record<LeftOut, Set<string>> = { generated: new Set(), lockfile: new Set(), delivery: new Set() };
   const noPatch: NoPatch[] = [];
-  const unread: { pulls: number[]; commits: string[] } = { pulls: [], commits: [] };
+  const unread: { pulls: PrNumber[]; commits: string[] } = { pulls: [], commits: [] };
   let pulls = 0;
   let read = 0;
 
@@ -208,7 +211,7 @@ function walk(
       continue;
     }
     pulls += 1;
-    const slice = sliceOf(pull.headRef) ?? `#${pull.number}`;
+    const slice: MadeIn = sliceOf(pull.headRef) ?? `#${pull.number}`;
     for (const commit of pull.commits) {
       if (commits.has(commit.sha)) continue;
       const short = commit.sha.slice(0, SHORT);
@@ -326,18 +329,19 @@ function rename(files: Map<string, FileStats>, lines: Map<string, Line[]>, from:
   }
 }
 
-/** The slice id a head branch names through `branches.slice` (its topic filled), or `null`. */
-function sliceReader(config: Config | undefined, prd: RetroPrd | undefined): (headRef: unknown) => string | null {
+/** The slice id a head branch names through `branches.slice` (its topic filled), or `null`: a slice part that is no slice id names none. */
+function sliceReader(config: Config | undefined, prd: RetroPrd | undefined): (headRef: unknown) => SliceId | null {
   const template = config?.branches.slice.replace('{topic}', prd?.topic ?? '') ?? null;
   const [prefix, suffix = ''] = template?.split('{slice}') ?? [];
   return (headRef) => {
     if (!template || typeof headRef !== 'string' || !headRef.startsWith(prefix ?? '') || !headRef.endsWith(suffix)) return null;
     const slice = headRef.slice((prefix ?? '').length, headRef.length - suffix.length);
-    return slice && !slice.includes('/') ? slice : null;
+    const read = SliceIdSchema.safeParse(slice);
+    return read.success ? read.data : null;
   };
 }
 
-async function listPullCommits(octokit: Octokit, { owner, repo, number }: Repo & { number: number }): Promise<PullCommit[]> {
+async function listPullCommits(octokit: Octokit, { owner, repo, number }: Repo & { number: PrNumber }): Promise<PullCommit[]> {
   return paginate((page: number) =>
     octokit
       .request('GET /repos/{owner}/{repo}/pulls/{pull_number}/commits', { owner, repo, pull_number: number, per_page: PER_PAGE, page })
@@ -345,7 +349,7 @@ async function listPullCommits(octokit: Octokit, { owner, repo, number }: Repo &
   );
 }
 
-async function listPullFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: number }): Promise<ChangedFile[]> {
+async function listPullFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: PrNumber }): Promise<ChangedFile[]> {
   return paginate((page: number) =>
     octokit
       .request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', { owner, repo, pull_number: number, per_page: PER_PAGE, page })

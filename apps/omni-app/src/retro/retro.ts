@@ -56,6 +56,7 @@ import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
+import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { inngest, RETRO_EVENT } from '../inngest-client.ts';
 import { installationOctokit } from '../outbox-check/outbox-check.ts';
 import { listComments } from '../outbox-check/github.ts';
@@ -155,7 +156,7 @@ export const RetroEventSchema = z.object({
   installationId: z.number(),
   owner: z.string(),
   repo: z.string(),
-  prNumber: z.number(),
+  prNumber: PrNumberSchema,
   mergeSha: z.string(),
   mergedAt: z.string().nullish(),
 });
@@ -169,7 +170,7 @@ const FailedEventSchema = z
     installationId: z.number().optional().catch(undefined),
     owner: z.string().optional().catch(undefined),
     repo: z.string().optional().catch(undefined),
-    prNumber: z.number().optional().catch(undefined),
+    prNumber: PrNumberSchema.optional().catch(undefined),
   })
   .catch({});
 

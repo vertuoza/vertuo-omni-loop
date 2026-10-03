@@ -18,6 +18,7 @@
 // `detect` and `describe` are pure. A fix is linked to churn when its change blocks, on the lines of
 // the file it changed, overlap a churn range of that file (or of the file it renamed), or when GitHub
 // sent it no patch for a file holding one: its lines cannot be placed, so the file is enough.
+import { IssueNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
@@ -41,10 +42,10 @@ type Unread = Records['unread'][number];
 type Window = Records['window'];
 type Repo = { owner: string | undefined; repo: string | undefined };
 
-type Link = { fix: number; path: string; from: number; to: number; finding: string; byFile: boolean };
-type BugFacts = { number: number; url: string; daysAfterMerge: number; closed: boolean; fixes: number[]; linked: Link[] };
+type Link = { fix: PrNumber; path: string; from: number; to: number; finding: string; byFile: boolean };
+type BugFacts = { number: IssueNumber; url: string; daysAfterMerge: number; closed: boolean; fixes: PrNumber[]; linked: Link[] };
 type Facts = {
-  prd: number | null;
+  prd: PrdNumber | null;
   days: number;
   from: string;
   to: string;
@@ -52,7 +53,7 @@ type Facts = {
   fixed: number;
   linked: number;
   bugs: BugFacts[];
-  fixes: { number: number; url: string; mergedAt: string }[];
+  fixes: { number: PrNumber; url: string; mergedAt: string }[];
   checks: { commit: string; read: boolean; status: number | null; total: number; green: number; red: number; other: number; jobs: MergeJob[] };
   unread: Unread[];
 };
@@ -284,19 +285,20 @@ function within(window: Window, at: string | null | undefined): at is string {
 }
 
 /** Whether a text names `#<prd>`, or `<owner>/<repo>#<prd>`: not `#70` for `#7`, nor an HTML entity. */
-function namesPrd(prd: number, slug: string): (text: string) => boolean {
+function namesPrd(prd: PrdNumber, slug: string): (text: string) => boolean {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape(slug)})#${prd}(?!\\d)`, 'i');
   return (text: string) => pattern.test(text);
 }
 
 /** The issue numbers of this repository a pull request's text closes. */
-function closedBy(text: string, slug: string): number[] {
-  const numbers: number[] = [];
+function closedBy(text: string, slug: string): IssueNumber[] {
+  const numbers: IssueNumber[] = [];
   for (const match of text.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
-    numbers.push(Number(urlNumber ?? refNumber ?? number));
+    const closed = IssueNumberSchema.safeParse(Number(urlNumber ?? refNumber ?? number));
+    if (closed.success) numbers.push(closed.data);
   }
   return [...new Set(numbers)];
 }
@@ -318,7 +320,7 @@ async function mergedSince(octokit: Octokit, { owner, repo, base, since }: Repo 
 }
 
 /** A pull request's files, each patch reduced to its change blocks (`null` when GitHub sent none). */
-async function listFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: number }): Promise<FixFile[]> {
+async function listFiles(octokit: Octokit, { owner, repo, number }: Repo & { number: PrNumber }): Promise<FixFile[]> {
   const files: ChangedFile[] = await paginate((page: number) =>
     octokit.request(FILES, { owner, repo, pull_number: number, per_page: PER_PAGE, page }).then(({ data }) => ChangedFileSchema.array().parse(data)),
   );

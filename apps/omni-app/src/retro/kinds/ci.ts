@@ -11,6 +11,7 @@
 //
 // Each finding's evidence links the red runs; a red run whose log was read also carries its last
 // lines as the evidence item's `excerpt`, which `narrate` sends to the model and `render` leaves out.
+import type { SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
@@ -34,7 +35,7 @@ type Log = NonNullable<Records['logs'][string]>;
 type RedRun = {
   id: number;
   check: string;
-  slice: string;
+  slice: SliceId;
   commit: string;
   attempt: number;
   url: string | null;
@@ -45,7 +46,7 @@ type RedRun = {
   excerpt?: string;
 };
 
-type Flip = { commit: string; slice: string; red: JobRecord; green: JobRecord };
+type Flip = { commit: string; slice: SliceId; red: JobRecord; green: JobRecord };
 type Check = { check: string; runs: number; red: number; redCommits: string[]; redSlices: string[]; flips: Flip[] };
 type Test = { test: string; runs: number; checks: string[]; slices: string[] };
 
@@ -53,7 +54,7 @@ type Facts = {
   slices: string[];
   unread: Unread[];
   totals: { runs: number; red: number; checks: number; commits: number; slices: number };
-  checks: (Omit<Check, 'flips'> & { redThenGreen: { commit: string; slice: string }[] })[];
+  checks: (Omit<Check, 'flips'> & { redThenGreen: { commit: string; slice: SliceId }[] })[];
   redRuns: RedRun[];
   tests: Test[];
 };
@@ -85,9 +86,9 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     const branches = sliceBranches(pulls ?? [], prd, config);
     if (branches.length === 0) return null;
 
-    const slices: string[] = [];
+    const slices: SliceId[] = [];
     const unread: Unread[] = [];
-    const runs: { run: WorkflowRun; slice: string }[] = [];
+    const runs: { run: WorkflowRun; slice: SliceId }[] = [];
     for (const { slice, branch } of branches) {
       const read = await readOrRefused(() =>
         paginate((page: number) =>
@@ -294,7 +295,7 @@ function testsOf(redRuns: readonly RedRun[]): Test[] {
   return [...byName.values()].sort((a, b) => b.runs - a.runs);
 }
 
-function jobRecord(job: Job, run: WorkflowRun, slice: string): JobRecord {
+function jobRecord(job: Job, run: WorkflowRun, slice: SliceId): JobRecord {
   return {
     id: job.id,
     run: job.run_id ?? run.id,
@@ -311,7 +312,7 @@ function jobRecord(job: Job, run: WorkflowRun, slice: string): JobRecord {
 }
 
 /** A job, or a red run, as a label names it. */
-type RunLike = { check: string; slice: string; attempt: number; commit?: string; sha?: string | null | undefined };
+type RunLike = { check: string; slice: SliceId; attempt: number; commit?: string; sha?: string | null | undefined };
 
 /** `fn()`'s value, or the status GitHub answered when it will not let the app read it; anything else is thrown, so Inngest retries the step. */
 async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
@@ -345,10 +346,10 @@ function asText(data: unknown): string {
 }
 
 /** Each slice branch the pull requests into the feature branch came from, once, with its slice id. */
-function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Config): { slice: string; branch: string }[] {
+function sliceBranches(pulls: readonly RetroPull[], prd: RetroPrd, config: Config): { slice: SliceId; branch: string }[] {
   if (pulls.length === 0) return [];
   const template = config.branches.slice.replace('{topic}', prd.topic);
-  const branches: { slice: string; branch: string }[] = [];
+  const branches: { slice: SliceId; branch: string }[] = [];
   for (const pull of pulls) {
     const slice = sliceOf(pull.headRef, template);
     if (slice !== null && !branches.some((known) => known.branch === pull.headRef)) branches.push({ slice, branch: pull.headRef });

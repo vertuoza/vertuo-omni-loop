@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
 import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import { formatReport, gateResult, type GateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
@@ -109,14 +110,15 @@ export function prdDirs(config: Config): string[] {
 }
 
 /** The PRD whose folder carries `topic`, among the folder names read under `prdDirs` at the head. */
-export function prdOfTopic(topic: string, folderNames: string[], config: Config): { number: number } | { skip: string } {
+export function prdOfTopic(topic: string, folderNames: string[], config: Config): { number: PrdNumber } | { skip: string } {
   const parsed = folderNames.map(parseFolderName).find((folder) => folder?.topic === topic);
-  if (parsed) return { number: parsed.prd };
+  // The kit's folder parser still gives a bare number (PRD 1049, s5 makes it a PrdNumber).
+  if (parsed) return { number: parsePrd(parsed.prd) };
   return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
 }
 
 /** The PRD a pull request is the feature pull request of, read from the head snapshot — or why not. */
-function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: number } | { skip: string } {
+function featurePrd(pr: PrFacts, config: Config, foldersIn: (dir: string) => string[]): { number: PrdNumber } | { skip: string } {
   const feature = featureTopic(pr, config);
   if ('skip' in feature) return feature;
   return prdOfTopic(feature.topic, prdDirs(config).flatMap(foldersIn), config);
@@ -153,7 +155,7 @@ function conclusionOf(result: GateResult): { conclusion: Conclusion; title: stri
  * against the comments already on the pull request, posted by nobody here.
  */
 function planComment(
-  prd: number,
+  prd: PrdNumber,
   { ctx, comments, now }: { ctx: Context; comments: { id: number; body?: string | null }[]; now: () => string },
 ): CommentPlan | null {
   let plan: CommentPlan | null = null;

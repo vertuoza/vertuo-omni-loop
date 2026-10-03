@@ -5,6 +5,7 @@
 // naming the step and the field. A field a kind may leave undefined is optional here, as JSON has no
 // undefined to keep.
 import { z } from 'zod';
+import { IssueNumberSchema, PrNumberSchema, SliceIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 const text = z.string();
 const maybeText = z.string().nullable();
@@ -64,7 +65,7 @@ export const JobRecordSchema = z.object({
   run: z.number(),
   workflow: maybeText,
   check: text,
-  slice: text,
+  slice: SliceIdSchema,
   sha: z.string().nullish(),
   attempt: z.number(),
   status: z.string().nullish(),
@@ -75,8 +76,8 @@ export const JobRecordSchema = z.object({
 
 /** The ci kind: the slices read, what GitHub would not let it read, every job, and each red job's log. */
 export const CiRecordsSchema = z.object({
-  slices: z.array(text),
-  unread: z.array(z.object({ slice: text, run: z.number().exactOptional(), status: z.number() })),
+  slices: z.array(SliceIdSchema),
+  unread: z.array(z.object({ slice: SliceIdSchema, run: z.number().exactOptional(), status: z.number() })),
   jobs: z.array(JobRecordSchema),
   logs: z.record(z.string(), z.object({ tail: maybeText, status: z.number().exactOptional() }).optional()),
 });
@@ -95,7 +96,7 @@ const CommitFileSchema = z.object({
 
 /** One pull request merged into the feature branch, and its commits. */
 const PullRecordSchema = z.object({
-  number: z.number(),
+  number: PrNumberSchema,
   url: maybeText,
   headRef: text,
   mergedAt: maybeText,
@@ -117,13 +118,13 @@ const RangeSchema = z.object({ path: text, from: z.number(), to: z.number() });
 /** The after-merge kind: the window, the bugs and their fixes, the merge commit's jobs and the merge run's churn ranges. */
 export const AfterMergeRecordsSchema = z.object({
   window: z.object({ from: text, to: text }),
-  bugs: z.array(z.object({ number: z.number(), url: text, createdAt: text, closedAt: maybeText })),
+  bugs: z.array(z.object({ number: IssueNumberSchema, url: text, createdAt: text, closedAt: maybeText })),
   fixes: z.array(
     z.object({
-      number: z.number(),
+      number: PrNumberSchema,
       url: text,
       mergedAt: text,
-      closes: z.array(z.number()),
+      closes: z.array(IssueNumberSchema),
       files: z.array(z.object({ path: text, previous: maybeText, blocks: z.array(BlockSchema).nullable() })).nullable(),
     }),
   ),
@@ -134,7 +135,7 @@ export const AfterMergeRecordsSchema = z.object({
   }),
   ranges: z.array(RangeSchema),
   unread: z.array(
-    z.object({ read: z.enum(['bugs', 'fixes', 'files', 'jobs']), pr: z.number().exactOptional(), run: z.number().exactOptional(), status: z.number() }),
+    z.object({ read: z.enum(['bugs', 'fixes', 'files', 'jobs']), pr: PrNumberSchema.exactOptional(), run: z.number().exactOptional(), status: z.number() }),
   ),
 });
 

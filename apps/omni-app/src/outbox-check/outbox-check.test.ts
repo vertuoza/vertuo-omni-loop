@@ -1,3 +1,4 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { InngestTestEngine } from '@inngest/test';
@@ -35,7 +36,7 @@ const event = (over = {}) => ({
 function featureGitHub(over = {}) {
   return fakeGitHub({
     commits: { base1: fixture('base-active'), head1: fixture('head-open') },
-    pull: { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/widget', sha: 'head1' } },
+    pull: { number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/widget', sha: 'head1' } },
     ...over,
   });
 }

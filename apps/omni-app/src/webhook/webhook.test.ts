@@ -1,3 +1,4 @@
+import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
@@ -236,6 +237,13 @@ describe('toCheckRequests', () => {
 
   it('never turns a closed pull request into the outbox check, merged or not', () => {
     expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
+  });
+
+  it('reads the pull request number as one (PRD 1049): a delivery naming no pull request number becomes nothing', () => {
+    const [request] = toCheckRequests('pull_request', pullRequestPayload('synchronize'));
+    expect(request?.data.prNumber).toBe(parsePr(28));
+    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize', { number: 0, pull_request: { number: 0, head: { sha: 'abc123' } } }))).toEqual([]);
+    expect(toRetroRequests('pull_request', mergedPayload({ number: 2.5 }))).toEqual([]);
   });
 });
 

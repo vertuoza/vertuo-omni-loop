@@ -14,6 +14,7 @@
 // The loop's status comment (PRD 714 s3) is read in a second, small query, and only for the pull
 // requests of a batch where a status can hold a run: open, Omni-man-signed and into `main`, `master` or
 // `develop`. A batch with none sends no second query.
+import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
 import type { z } from 'zod';
@@ -29,13 +30,13 @@ export type Budget = z.infer<typeof BudgetSchema>;
 
 type Tables = Database['public']['Tables'];
 /** A `pull_requests` row, as the collector writes it. */
-export type PullRow = Omit<Tables['pull_requests']['Row'], 'status_state'> & { status_state?: string | null };
+export type PullRow = Omit<Tables['pull_requests']['Row'], 'status_state' | 'number'> & { number: PrNumber; status_state?: string | null };
 /** A `pull_request_reviews` row. */
 export type ReviewRow = Tables['pull_request_reviews']['Insert'];
 /** A pull request as the collector stores it: its row and its reviewers' rows. */
 export type PullRecord = { row: PullRow; reviews: ReviewRow[] };
 /** A pull request listed by its last update. */
-export type ListedPull = { number: number; updatedAt: string };
+export type ListedPull = { number: PrNumber; updatedAt: string };
 
 /** Pull requests listed per page. */
 const PER_PAGE = 100;
@@ -157,7 +158,7 @@ const PULL_FIELDS = `number
 export async function readPullRecords(
   octokit: GraphqlOctokit,
   budget: Budget,
-  { workspaceId, fullName, numbers }: { workspaceId: string; fullName: string; numbers: number[] },
+  { workspaceId, fullName, numbers }: { workspaceId: string; fullName: string; numbers: PrNumber[] },
 ): Promise<PullRecord[]> {
   if (numbers.length === 0) return [];
   const [owner, repo] = fullName.split('/');
@@ -187,14 +188,14 @@ function canHoldRun(row: PullRow): boolean {
 /**
  * The `state:` of each pull request's status comment, the first comment carrying `STATUS_MARKER`, in
  * one query; a pull request with no such comment is left out. No query for no pull request.
- * @returns {Promise<Map<number, string>>}
+ * @returns {Promise<Map<PrNumber, string>>}
  */
 async function readStatusStates(
   octokit: GraphqlOctokit,
   budget: Budget,
-  { owner, repo, numbers }: { owner: string | undefined; repo: string | undefined; numbers: number[] },
-): Promise<Map<number, string>> {
-  const states = new Map<number, string>();
+  { owner, repo, numbers }: { owner: string | undefined; repo: string | undefined; numbers: PrNumber[] },
+): Promise<Map<PrNumber, string>> {
+  const states = new Map<PrNumber, string>();
   if (numbers.length === 0) return states;
   const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join('\n    ');
   const query = `query PullStatus($owner: String!, $repo: String!) {
