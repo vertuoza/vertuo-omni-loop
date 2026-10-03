@@ -25,13 +25,14 @@ import { isSafeId, LOCAL_DIR } from './local-state.ts';
 import { HeartbeatWindowSchema } from './schema.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
 import { parseFolderName } from '../layout.ts';
+import type { Config } from '../types.ts';
 
 /** What a Claude session works on: its draft, a PRD, a visual or a bug fix (keyed by its issue); `null`
  * is the session alone. */
 export type Work = { kind: 'draft'; draftId: string } | { kind: 'prd'; number: PrdNumber } | { kind: 'visual' | 'bug'; number: IssueNumber } | null;
 
-/** The branch templates the work finder reads. */
-type Branches = { feature: string; phase0: string; slice: string; fix: string };
+/** The branch templates the work finder reads, as the config declares them. */
+type Branches = Pick<Config['branches'], 'feature' | 'phase0' | 'slice' | 'fix'>;
 
 /** The delivery folders the work finder looks among, by where they sit. */
 type Folders = { inbox?: readonly string[]; shipped?: readonly string[]; visual?: readonly string[]; bugs?: readonly string[] };
