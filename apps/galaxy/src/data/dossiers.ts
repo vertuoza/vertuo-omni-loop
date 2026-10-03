@@ -18,15 +18,41 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
-import { dossierList, dossierRounds, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
-import type { DossierAnswer, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import { ARTIFACT_KINDS, dossierList, dossierRounds, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
+import type { DossierAnswer, DossierLatest, DossiersRead, PlanetDossier, PlanetDossierRead } from '../arcade/types';
+import { z } from 'zod';
+import { orThrow, parseRows } from './parse-rows';
 import { listOf, numberOf } from './unparsed';
 
 /** How many answered rounds the tab lists. */
 export const LAST_ANSWERS = 3;
 
-/** The artifacts, in the order the page to share shows them: the page to look at first, then what to read. */
-const ARTIFACTS: readonly DossierKind[] = ['before-after', 'spec', 'plan'];
+/** An artifact's latest version, as dossier_list() builds it in its `latest` JSON column. */
+const LatestVersionEntry = z.strictObject({
+  id: z.string(),
+  version: z.coerce.number(),
+  source: z.enum(['kit', 'github']),
+  created_at: z.string(),
+});
+
+/** A row of dossier_list(), as the dossier layer's DossierListRow names it (supabase/migrations/
+ * 20261011090000_fix_dossiers.sql). Its counts and versions are read as numbers on purpose. */
+export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
+  id: z.string(),
+  workspace_id: z.string(),
+  home_repo: z.string(),
+  prd: z.number().nullable(),
+  kind: z.enum(WORK_KINDS).optional(),
+  title: z.string(),
+  opened_by: z.string().nullable(),
+  created_at: z.string(),
+  numbered_at: z.string().nullable(),
+  repos: z.array(z.string()),
+  latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
+  asked: z.coerce.number(),
+  answered: z.coerce.number(),
+  last_activity: z.string(),
+});
 
 /** A round's first question with its answer, as one line of the tab; null when it has no answer to show. */
 function answerOf(row: DossierRoundRow): DossierAnswer | null {
@@ -47,10 +73,11 @@ function answerOf(row: DossierRoundRow): DossierAnswer | null {
  * answered, newest answer first. `url` is the page START opens, or null where there is none.
  */
 export function planetDossier(row: DossierListRow, rounds: DossierRoundRow[], url: string | null): PlanetDossier {
-  const latest = Object.fromEntries(ARTIFACTS.map((kind) => {
+  const latestOf = (kind: DossierKind): DossierLatest | null => {
     const v = row.latest[kind];
-    return [kind, v ? { version: numberOf(v.version), at: v.created_at } : null];
-  })) as PlanetDossier['latest']; // ts-allow: fromEntries over ARTIFACTS keeps every kind
+    return v ? { version: numberOf(v.version), at: v.created_at } : null;
+  };
+  const latest: PlanetDossier['latest'] = { 'before-after': latestOf('before-after'), spec: latestOf('spec'), plan: latestOf('plan') };
   const last = rounds
     .flatMap((r) => (r.status === 'answered' && r.answered_at ? [{ round: r, answeredAt: r.answered_at }] : []))
     .sort((a, b) => Date.parse(b.answeredAt) - Date.parse(a.answeredAt) || b.round.round_id.localeCompare(a.round.round_id))
@@ -124,7 +151,7 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
 export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  return listOf(data) as DossierListRow[]; // ts-allow: latest is a JSON column, written by dossier_list() in the shape DossierListRow names
+  return orThrow(parseRows(DossierListEntry, data, 'data/dossiers: dossier_list'));
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────
