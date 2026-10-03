@@ -27,12 +27,12 @@ function checkLine(name: string, violations: readonly string[]): string {
 }
 
 export const harvest: Command = {
-  async run(args: string[], { ctx, stdout, stderr, exec, env }: CommandIo) {
+  async run(args: string[], { ctx, stdout, stderr, exec, env, vars }: CommandIo) {
     const { positional, flags } = parseArgs('harvest', args, { values: ['pr'] });
     if (positional.length !== 1 || flags.pr === undefined) throw usageError(USAGE);
     const prd = prdArg('harvest', '<prd>', positional[0]);
     const number = prArg('harvest', '--pr', flags.pr);
-    if (!env[KEY_VAR]) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
+    if (!vars.openrouter) throw usageError(`omni harvest: ${KEY_VAR} is not set — the harvest asks a model where each decision belongs.`);
     if (ctx.layout.whereIs(prd) === null) throw usageError(`omni harvest: PRD ${prd} has no inbox or shipped folder.`);
 
     const pr = pullRequestFor(ctx, { number, exec, env });
@@ -55,7 +55,7 @@ export const harvest: Command = {
 
     const classified = [];
     for (const candidate of prepared.candidates) {
-      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, env, fetch: globalThis.fetch }));
+      classified.push(await classifyCandidate({ candidate, summary: prepared.summary, openrouter: vars.openrouter, fetch: globalThis.fetch }));
     }
     const result = finishHarvest({ ctx, prepared, classified, merge, date: today() });
     applyHarvestEdits({ root: ctx.root, edits: result.edits });

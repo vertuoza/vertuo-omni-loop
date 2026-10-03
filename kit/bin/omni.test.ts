@@ -27,6 +27,19 @@ describe('omni', () => {
     expect(s.err.join('')).toMatch(/^.*not inside a git repository\.\n$/);
   });
 
+  it('exits 2 before any work when the environment is half set or malformed, naming every variable and no value', async () => {
+    const secret = 'sk-fake-secret-0123456789';
+    const s = io();
+    const env = { OPENROUTER_MODEL: secret, PROOF_URL: secret, PATH: process.env.PATH };
+    expect(await main(['status', '1'], { cwd: mkdtempSync(join(tmpdir(), 'x-')), env, ...s })).toBe(2);
+    const said = s.err.join('');
+    expect(said).toBe(
+      'environment: OPENROUTER_API_KEY is not set while OPENROUTER_MODEL is (OpenRouter: set all of them, or none); PROOF_URL is not valid: Invalid URL\n',
+    );
+    expect(said).not.toContain(secret);
+    expect(s.out).toEqual([]);
+  });
+
   it('exits 2 in a repository that is not installed', async () => {
     const { root } = makeRepo({ git: true });
     const s = io();

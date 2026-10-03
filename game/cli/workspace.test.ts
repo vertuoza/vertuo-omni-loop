@@ -1,31 +1,32 @@
+import { readEnv } from '../../kit/lib/env/read.ts';
 import { describe, it, expect } from 'vitest';
 import { workspaceArg, githubOf } from './workspace.ts';
 
 describe('workspaceArg', () => {
   it('takes --workspace out of the arguments, wherever it stands, and leaves the rest in order', () => {
-    expect(workspaceArg(['--workspace', 'vertuoza'], {})).toEqual({ slug: 'vertuoza', argv: [] });
-    expect(workspaceArg(['2026-08', '--workspace', 'acme', '--rankings', 'out.md'], {})).toEqual({ slug: 'acme', argv: ['2026-08', '--rankings', 'out.md'] });
-    expect(workspaceArg(['backup/', '--workspace=acme'], {})).toEqual({ slug: 'acme', argv: ['backup/'] });
+    expect(workspaceArg(['--workspace', 'vertuoza'], null)).toEqual({ slug: 'vertuoza', argv: [] });
+    expect(workspaceArg(['2026-08', '--workspace', 'acme', '--rankings', 'out.md'], null)).toEqual({ slug: 'acme', argv: ['2026-08', '--rankings', 'out.md'] });
+    expect(workspaceArg(['backup/', '--workspace=acme'], null)).toEqual({ slug: 'acme', argv: ['backup/'] });
   });
 
   it('falls back to OMNI_LOOP_WORKSPACE', () => {
-    expect(workspaceArg(['2332'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })).toEqual({ slug: 'vertuoza', argv: ['2332'] });
+    expect(workspaceArg(['2332'], { slug: 'vertuoza' })).toEqual({ slug: 'vertuoza', argv: ['2332'] });
   });
 
   it('lets --workspace beat OMNI_LOOP_WORKSPACE', () => {
-    expect(workspaceArg(['--workspace', 'acme'], { OMNI_LOOP_WORKSPACE: 'vertuoza' }).slug).toBe('acme');
+    expect(workspaceArg(['--workspace', 'acme'], { slug: 'vertuoza' }).slug).toBe('acme');
   });
 
   it('has no default: with neither, it names both ways to name one', () => {
-    expect(() => workspaceArg([], {})).toThrow(/no workspace named.*--workspace <slug>.*OMNI_LOOP_WORKSPACE/);
-    expect(() => workspaceArg(['2332'], { OMNI_LOOP_WORKSPACE: '' })).toThrow(/no workspace named/);
+    expect(() => workspaceArg([], null)).toThrow(/no workspace named.*--workspace <slug>.*OMNI_LOOP_WORKSPACE/);
+    expect(() => workspaceArg(['2332'], readEnv({ OMNI_LOOP_WORKSPACE: '' }).workspace)).toThrow(/no workspace named/);
   });
 
   it('refuses a --workspace without a slug, or given twice', () => {
-    expect(() => workspaceArg(['--workspace'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })).toThrow(/--workspace needs a slug/);
-    expect(() => workspaceArg(['--workspace', '--rankings', 'out.md'], {})).toThrow(/--workspace needs a slug/);
-    expect(() => workspaceArg(['--workspace='], {})).toThrow(/--workspace needs a slug/);
-    expect(() => workspaceArg(['--workspace', 'a', '--workspace', 'b'], {})).toThrow(/twice/);
+    expect(() => workspaceArg(['--workspace'], { slug: 'vertuoza' })).toThrow(/--workspace needs a slug/);
+    expect(() => workspaceArg(['--workspace', '--rankings', 'out.md'], null)).toThrow(/--workspace needs a slug/);
+    expect(() => workspaceArg(['--workspace='], null)).toThrow(/--workspace needs a slug/);
+    expect(() => workspaceArg(['--workspace', 'a', '--workspace', 'b'], null)).toThrow(/twice/);
   });
 });
 
