@@ -540,7 +540,7 @@ describe('retro — every step read back as Inngest saved it (s19-01)', () => {
   it('fails the run on a saved value of another shape, naming the step and the field', async () => {
     const withoutRules = (id: string, value: unknown) => (id === 'facts' ? { ...z.looseObject({}).parse(value), rules: undefined } : value);
     const { error } = await savingEngine(widgetScenario(), [], { alter: withoutRules }).execute();
-    expect(String(z.looseObject({ message: z.string() }).parse(error).message)).toMatch(/^The step "facts" came back in an unexpected shape: rules: /);
+    expect(z.looseObject({ message: z.string() }).parse(error).message).toMatch(/^The step "facts" came back in an unexpected shape: rules: /);
   });
 });
 

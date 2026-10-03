@@ -61,10 +61,8 @@ function valueOf(saved: Saved, id: string): unknown {
 
 /** A copy of the object `value`, `key` set to `to`, or left out when `to` is `undefined`. */
 function changed(value: unknown, key: string, to: unknown): Record<string, unknown> {
-  const copy = { ...z.record(z.string(), z.unknown()).parse(value) };
-  if (to === undefined) delete copy[key];
-  else copy[key] = to;
-  return copy;
+  const entries = Object.entries(z.record(z.string(), z.unknown()).parse(value)).filter(([name]) => name !== key);
+  return Object.fromEntries(to === undefined ? entries : [...entries, [key, to]]);
 }
 
 /** `schema` parses `value`, and refuses it without `key`, with `key` of another type, and with `key` null. */
