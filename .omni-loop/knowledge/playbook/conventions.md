@@ -5,6 +5,8 @@ state: filled
 points-to: null
 evidence:
   - package.json@39e6355
+  - kit/lib/ids.ts@90d94c1
+  - scripts/id-types-guard.test.ts@943ef10
 terraformed: 2026-09-25
 ---
 
@@ -14,6 +16,15 @@ Use this page when naming things, formatting files, or shaping commits.
 
 ## Naming
 <!-- slot: naming · optional -->
+An ID is parsed into its brand from `kit/lib/ids.ts` where it enters (an argument, a folder name, a
+plan table, front matter, a GitHub payload, a stored row, a route) with its `parse…` function or its
+schema, and never declared bare: `prd: PrdNumber`, `pr: PrNumber`, `issue: IssueNumber`,
+`commentId: CommentId`, `slice: SliceId`, `itemId: OutboxItemId`, never `number` or `string`, not
+even beside `null` or `undefined`. In a zod object, an ID field takes the brand's schema
+(`PrdNumberSchema`), never a plain `z.number()` chain. `scripts/id-types-guard.test.ts` enforces it on
+every source file, with no allowlist and no comment escape: a name on its list that holds something
+else is renamed after what it holds (`sliceLabel`), or typed from the config it comes from. ADR-0056
+records the rule.
 
 ## Formatting
 <!-- slot: formatting · optional · by: terraform -->
