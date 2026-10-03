@@ -483,6 +483,18 @@ describe('planReplies — pure', () => {
     expect(once).toEqual(planReplies({ comments, items, markers }));
     expect(once.settle.map((s) => [s.number, s.judgement.verdict])).toEqual([[1, 'agreed']]);
   });
+
+  it('parses the rows it is handed: an item comes back as it went in, and a malformed row is refused', () => {
+    const item = { id: 's1-01-country', rank: 'medium', file: 'docs/outbox/1071/s1-01-country.md', sections: { whatIDidMeanwhile: 'Kept it.', questionPlain: 'Which one?' } };
+    const comments = [prComment(numbering('s1-01-country')), reply('1: yes')];
+    expect(planReplies({ comments, items: [item], markers }).settle[0]?.item).toEqual(item);
+    const { rank: _rank, ...noRank } = item;
+    expect(() => planReplies({ comments, items: [noRank], markers })).toThrow();
+    expect(() => planReplies({ comments, items: [{ ...item, sections: { ...item.sections, questionPlain: 7 } }], markers })).toThrow();
+    expect(() => planReplies({ comments, items: [{ ...item, id: null }], markers })).toThrow();
+    expect(() => planReplies({ comments: [...comments, { ...reply('1: no'), id: '9' }], items: [item], markers })).toThrow();
+    expect(() => planReplies({ comments: [...comments, { ...reply('1: no'), user: { login: null } }], items: [item], markers })).toThrow();
+  });
 });
 
 describe('formatRoundComment', () => {
