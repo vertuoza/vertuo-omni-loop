@@ -1,6 +1,5 @@
 // Mutation testing of the kit's delivery core (PRD 1072): the code whose bugs would merge or block
 // the wrong work. `pnpm mutation` runs it; the reports land in `reports/mutation/`, which git ignores.
-/** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   // The delivery core, tests excluded. The scope widens in later PRDs as the floors hold.
   mutate: [
@@ -34,6 +33,7 @@ export default {
   htmlReporter: { fileName: 'reports/mutation/mutation.html' },
   tempDirName: '.stryker-tmp',
   cleanTempDir: 'always',
-  // The tests spawn git and node: give a slow mutant room before it counts as timed out.
-  timeoutMS: 60_000,
+  // The tests spawn git and node, so their time varies with the machine's load: a mutant gets 10 s
+  // beyond its tests' measured time before it counts as timed out.
+  timeoutMS: 10_000,
 };
