@@ -8,12 +8,13 @@ import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spri
 import type { SpriteLook } from './draw.ts';
 import { heroLook, heroPose, OMNI_POSES } from './heroes.ts';
 import type { Hero } from './heroes.ts';
-import { WOUND_KINDS as KINDS } from '../../../game/events.ts';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The forge's ramps, read loosely: a test looks any pixel, empty or not, up in the ramps it names.
 const RAMPS = FORGE_RAMPS as unknown as Readonly<Record<'W' | 'N' | 'Z' | 'P' | 'Y' | 'A' | 'O' | 'g', readonly (string | null)[]>>;
-const WOUND_KINDS = KINDS as readonly WoundKind[];
+// The wound kinds the design tints. That they are the game's own, the arcade's test holds: the design
+// never imports the game (PRD 1066).
+const WOUND_KINDS = Object.keys(WOUND_TINT) as WoundKind[];
 const KNOWN = new Set<string | null>([...Object.values(RAMPS).flat(), ...Object.values(FLAT), '#0b0a26']);
 
 /** An image the fake canvases below hold: its size and the bytes put into it. */
@@ -107,9 +108,8 @@ describe('sprites', () => {
     }
   });
 
-  it('draws every mascot of the library, and has a tint for every wound kind', () => {
+  it('draws every mascot of the library, and a four-colour ramp for every wound kind', () => {
     for (const sprite of MASCOTS) expect(SPRITE_DEFS[sprite]).toBeDefined();
-    expect(Object.keys(WOUND_TINT).sort()).toEqual([...WOUND_KINDS].sort());
     for (const k of WOUND_KINDS) expect(woundTint(k).Z).toHaveLength(4);
   });
 });
