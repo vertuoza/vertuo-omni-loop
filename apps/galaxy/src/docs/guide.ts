@@ -1,3 +1,4 @@
+import 'server-only';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';

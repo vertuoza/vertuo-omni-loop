@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { serverEnv } from '../../src/env';

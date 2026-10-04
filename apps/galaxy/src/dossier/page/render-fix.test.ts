@@ -8,6 +8,8 @@ import { fixPageView, type FixPageView } from '../../fixes/timeline';
 import { dossierView, readPick } from './view';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),
   useRouter: () => ({ refresh: () => {} }),

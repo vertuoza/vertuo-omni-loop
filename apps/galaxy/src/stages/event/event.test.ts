@@ -8,6 +8,8 @@ import { fakeStageStore } from '../store.fake';
 import { parseStageEvent, receiveStageEvent, STAGE_SIGNATURE_HEADER, type StageEventDeps, verifySignature } from './event';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 const SECRET = 'stage-secret';
 const WS = 'ws-acme';
 const sign = (body: string, secret = SECRET) => `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;

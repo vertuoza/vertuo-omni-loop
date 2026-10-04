@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Metadata } from 'next';
 import '../../../../src/repositories/repositories.css';
 import { memberSession } from '../../../../src/data/member-session';

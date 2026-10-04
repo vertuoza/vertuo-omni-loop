@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import type { JevDecideDeps } from '../resolve';
 import type { JevCall, JevDecisionSettings, JevMode } from '../store';
 import { decideRoute, placedFrom, type DecideRouteDeps } from './decide-route';
 import { sure } from '../../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // `POST /api/decide/<decision>` (PRD 812 s3): a Claude session asks the workspace's Jev decision, with
 // the terminal's sign-in. A fake world of one workspace, Acme (GitHub org acme), whose Ada is a member;

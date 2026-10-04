@@ -18,6 +18,8 @@ import {
 } from './cli-code';
 import { present } from './test/test-item';
 
+vi.mock('server-only', () => ({}));
+
 // What an answer of the token exchange carries, checked as it is read; any other field is kept for the whole-body checks.
 const Token = z.looseObject({ error: z.string().optional(), refresh_token: z.string().optional(), workspace: z.unknown().optional() });
 // Any text, and any number, as fields of an expected body.

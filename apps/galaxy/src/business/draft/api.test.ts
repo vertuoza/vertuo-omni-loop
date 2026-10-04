@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { addSourceRoute, draftRoute, removeSourceRoute, type SourcesStore, type WebPage } from './api';
 import { PageRefused } from './page';
 import { DraftStoreError, type DraftRow, type DraftStore } from './run';
+
+vi.mock('server-only', () => ({}));
 
 // The draft's routes with fakes (PRD 774, s2): a non-member is refused; a call starts a draft and runs
 // it after the answer; a second call while one runs answers the running one; the sources route adds a

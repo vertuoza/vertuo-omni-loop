@@ -3,6 +3,8 @@ import type { DraftRow } from '../draft/run';
 import { recheckRoute, type RecheckDeps } from './recheck';
 import { answerOf } from '../json.fake';
 
+vi.mock('server-only', () => ({}));
+
 // The weekly recheck with fakes (PRD 774, s4): refused without the secret; with it, every business with
 // a confirmed claim is drafted again as a `recheck`, a failing workspace is skipped and the others still
 // run, and a business with no confirmed claim is never read.

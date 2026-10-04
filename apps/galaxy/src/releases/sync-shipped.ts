@@ -8,6 +8,7 @@
 // spec, or a spec the kit cannot read is refused, each naming its file and rule, and the sync writes
 // nothing until a pull request fixes it: a PRD left out now would be numbered after PRDs that reached
 // main later. A folder main does not hold yet (a checkout ahead of main) is only waiting.
+import 'server-only';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';

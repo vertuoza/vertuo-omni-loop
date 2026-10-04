@@ -16,6 +16,8 @@ import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import { dossierView, readPick, type DossierPick } from './view';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 // A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),

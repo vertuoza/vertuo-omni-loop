@@ -1,3 +1,4 @@
+import 'server-only';
 import { ReleasesPage } from '../../src/releases/page/ReleasesPage';
 import { releasesView } from '../../src/releases/page/source';
 import { serverEnv } from '../../src/env';

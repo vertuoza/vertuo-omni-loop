@@ -1,3 +1,4 @@
+import 'server-only';
 import { isIP } from 'node:net';
 import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 

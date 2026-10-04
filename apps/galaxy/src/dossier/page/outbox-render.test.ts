@@ -12,6 +12,8 @@ import { SEND_OFF } from './outbox-view';
 import { dossierView, readPick } from './view';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/render.test.ts (PRD 251, s9), on PRD
 // 426's GitHub summary. The Outbox tab of /prd/<id> as the server renders it: what a person sees
 // before any script runs, in each state of the spec's table, with each kind of card and group, and the

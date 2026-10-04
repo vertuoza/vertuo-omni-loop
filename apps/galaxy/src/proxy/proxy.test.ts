@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { config } from '../../proxy';
 import { refreshSession } from './session';
+
+vi.mock('server-only', () => ({}));
 
 // The proxy (PRD 657 s2): it keeps the session fresh before a page renders, through
 // auth.getClaims() (a local JWT check with asymmetric keys, never slower than getUser), and it does

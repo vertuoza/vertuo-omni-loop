@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { settled } from '../settled';
 import { stagesReader } from './github';
 
+vi.mock('server-only', () => ({}));
+
 // The stages sync's reader, against a stubbed `fetch`: never GitHub itself. A small fake GitHub answers
 // by route; each test says what the repository holds.
 

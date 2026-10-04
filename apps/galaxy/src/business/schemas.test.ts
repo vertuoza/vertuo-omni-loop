@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
 
 import { OpenedBusiness, Product, StoredCitation, StoredClaim, StoredReceipt } from './model';
@@ -9,6 +9,8 @@ import { FleetLookRow, IsOwner, RosterRow } from './constituents-rows';
 import { ConfirmedClaim } from './recheck/recheck';
 import { DraftRow } from './draft/run';
 import { AddedSource, PastedPage, ProductId, TrackedRepository, WorkspaceRow } from './draft/store';
+
+vi.mock('server-only', () => ({}));
 
 // Every schema the business module parses a Supabase row or a route's JSON with (PRD 1030): each
 // parses a row as the module's tests already hold it, and refuses the same row with a column missing,

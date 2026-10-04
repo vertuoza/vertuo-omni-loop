@@ -26,7 +26,9 @@ import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import type { Browser, BrowserContext, Page, PageScreenshotOptions, Route } from 'playwright';
-import { serverEnv } from '../src/env.ts';
+import './server-only.ts';
+
+const { serverEnv } = await import('../src/env.ts');
 
 // The arcade is at /play since HOME took `/` (PRD 261), the app's home at /app. Another dev server:
 // GALAXY_URL=http://localhost:3001/

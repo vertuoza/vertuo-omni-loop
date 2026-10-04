@@ -1,12 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CareState } from '../github/care';
 import { UNREAD, type GithubSummary } from '../github/summary';
 import type { DossierRow } from '../store';
 import { DossierPage } from './DossierPage';
 import { dossierView, readPick } from './view';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // The PR care tab of /prd/<id> as the server renders it (PRD 790, s4): the CI, Conflicts and Review
 // rows, the threads asked first, the watcher line in both states, and what it says merged, or

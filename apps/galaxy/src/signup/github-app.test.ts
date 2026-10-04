@@ -4,6 +4,8 @@ import { readEnv } from '../env';
 import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl } from './github-app';
 import { item, present } from '../ask/test/test-item';
 
+vi.mock('server-only', () => ({}));
+
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const CREDS = { appId: '123456', privateKey: PEM };

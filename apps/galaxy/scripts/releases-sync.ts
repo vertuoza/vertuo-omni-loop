@@ -9,8 +9,10 @@
 // exits 1 when Supabase refuses. The rules live in src/releases/, which plain Node loads as TypeScript.
 import { fileURLToPath } from 'node:url';
 import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
-import { serverEnv } from '../src/env.ts';
-import { releasesSync } from '../src/releases/sync-run.ts';
+import './server-only.ts';
+
+const { serverEnv } = await import('../src/env.ts');
+const { releasesSync } = await import('../src/releases/sync-run.ts');
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 

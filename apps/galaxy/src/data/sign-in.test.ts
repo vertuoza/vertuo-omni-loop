@@ -9,6 +9,8 @@ import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, settlingExchang
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { joinByGithub } from './workspace';
 
+vi.mock('server-only', () => ({}));
+
 const TOKEN = 'gho_provider-token-of-the-sign-in';
 
 /** GitHub as the provider token reads it: each person's login and orgs. */

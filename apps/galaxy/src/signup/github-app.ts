@@ -4,6 +4,7 @@
 // repositories an installation reaches, and where its access is changed on GitHub. galaxy's server holds the App's id and key
 // (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, server only: never a NEXT_PUBLIC_ variable, never imported
 // by a client component); the install link needs only the App's public slug (GITHUB_APP_SLUG).
+import 'server-only';
 import { createSign } from 'node:crypto';
 import { z } from 'zod';
 import { serverEnv, type GithubAppEnv } from '../env';

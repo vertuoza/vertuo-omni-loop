@@ -1,3 +1,4 @@
+import 'server-only';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 // The secret box (PRD 812, decision 7): a workspace's TypeSafe API key, sealed by Galaxy's server

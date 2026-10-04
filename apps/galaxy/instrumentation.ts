@@ -1,3 +1,4 @@
+import 'server-only';
 import { nextRuntime, serverEnv } from './src/env';
 
 // Next calls register() once when a server instance starts, before it answers a request (PRD 1059).

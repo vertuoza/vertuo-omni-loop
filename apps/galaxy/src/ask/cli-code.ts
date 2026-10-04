@@ -23,6 +23,7 @@
 // gate, and the database keeps it. Nor for being in no workspace: the callback joins the person to
 // their workspaces before it issues the code (joinBeforeIssue, src/data/sign-in.ts), and when the
 // database still will not issue it for someone in none, the server does.
+import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';

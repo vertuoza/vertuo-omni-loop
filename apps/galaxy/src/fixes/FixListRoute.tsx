@@ -1,3 +1,4 @@
+import 'server-only';
 import { Notice } from '../ask/page/Notice';
 import { serverEnv } from '../env';
 import { DEMO_VIEWER, demoHistory } from '../dossier/page/demo';

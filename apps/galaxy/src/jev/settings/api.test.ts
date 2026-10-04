@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../client';
 import { openSecret } from '../secret-box';
 import { JevStoreError, type SealedKey } from '../store';
 import { KEY_CHECK, NOT_AVAILABLE, ONLY_OWNER, keyCheck, removeKeyRoute, saveKeyRoute, testRefusal, type KeyRouteDeps } from './api';
 import { sure } from '../../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // Settings › Jev's key routes with fakes (PRD 812 s1): a key is stored only after one test call
 // answered, sealed; a refused test stores nothing and says TypeSafe's reason; a non-owner's key is never

@@ -9,6 +9,8 @@ import { sure } from '../arcade/test/sure';
 import { sentView, UNCOUNTED } from './sent';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 // Send (PRD 251, "Send posts the reply as you"; s11, ported from the first build's s5): the picks checked
 // against a fresh read of the outbox through PRD 426's GitHub reader, written by the kit's reply writer,
 // recorded as a send, then GitHub's authorisation of the omni-loop App and the callback that posts the

@@ -2,11 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
 import { sure } from '../arcade/test/sure';
+
+vi.mock('server-only', () => ({}));
 
 // The docs guard (PRD 346): docs/guide/ holds its pages in order, each with a title and a Next link
 // to the page to read next, the last one back to Getting started; every /omni:<skill> and
