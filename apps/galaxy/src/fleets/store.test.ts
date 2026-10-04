@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SPRITE_DEFS } from '@omni/design';
 import { databaseFleets, demoFleetsPort, MASCOTS, type FleetsPort } from './store';
 import { COULD_NOT_SAVE } from './refusal';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // /app/settings/fleets's four calls (PRD 400 s3): through the owner-only fleet functions of s1, each answering
 // the public.teams row it saved, or refusing. The demo keeps the same rules in memory.

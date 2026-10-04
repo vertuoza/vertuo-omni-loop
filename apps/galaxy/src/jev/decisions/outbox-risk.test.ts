@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outboxRisk } from './outbox-risk';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The outbox item risk's registry entry (PRD 812 s3): a Noul "hard to revert?", mapped with the
 // decision's threshold; what it sends Jev (decision 10: the item's decision text and options, the

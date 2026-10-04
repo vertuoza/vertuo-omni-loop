@@ -9,7 +9,7 @@ import type { FleetRow } from '../types';
 import { TALL, WIDE, type Grid } from './common.ts';
 import { cardsShown, TALL_SCENES } from './fleets.ts';
 import { FleetsOverlay } from './fleets.tsx';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });

@@ -1,11 +1,13 @@
 // The read behind /releases (PRD 262): public.releases, as nobody. The publishable key the browser
 // already holds, no session kept, no cookie, no sign-in, and never a write. No test reaches Supabase.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ReleaseRow } from './row';
 import { readEnv } from '../env';
 import { readReleases } from './store';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 const ROW: ReleaseRow = { prd: parsePrd(262), release: 2, released_at: '2026-09-28T09:12:00+00:00', title: 'Everything we ship, in plain words', description: 'A public page lists every release.' };
 

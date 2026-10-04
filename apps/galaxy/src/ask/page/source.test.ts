@@ -7,7 +7,7 @@ import {
 } from './source';
 import { stageShots, type Bucket } from './attachments';
 import { peopleOf } from '../../people/load';
-import { item, present } from '../test-item';
+import { item, present } from '../test/test-item';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };

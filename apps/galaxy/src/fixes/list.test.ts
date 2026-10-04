@@ -3,7 +3,7 @@ import type { DossierListRow } from '../dossier/store';
 import { UNREAD } from '../dossier/github/summary';
 import { peopleOf } from '../people/load';
 import { fixAddress, fixChoices, fixItems, readFixFilters } from './list';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /visual and /bugs (PRD 627), as pure functions of the rows dossier_list() gives the viewer and the

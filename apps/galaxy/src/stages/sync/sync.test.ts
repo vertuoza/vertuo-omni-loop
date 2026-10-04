@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { present } from '../../ask/test-item';
+import { present } from '../../ask/test/test-item';
 import type { FixSummary } from '../../dossier/github/fix';
 import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
 import type { GithubSummary } from '../../dossier/github/summary';
@@ -11,6 +11,8 @@ import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
 import { syncStages, type SyncDeps, type SyncWorkspace } from './sync';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // POST /api/stages/sync (PRD 587, s2), on the store's fake and a fake reader: never GitHub, never a
 // database. Two workspaces; the reader answers from the snapshots each test gives.

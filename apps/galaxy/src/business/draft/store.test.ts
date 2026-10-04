@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DraftStoreError } from './run';
 import { draftStore } from './store';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The draft's store against a fake Supabase client: which function of the migration each write calls,
 // with which arguments, and a refusal carried with its code. Never Supabase itself.

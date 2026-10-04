@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { boundaries } from './business.boundary';
+
+vi.mock('server-only', () => ({}));
 
 // The business module's reads, as `pnpm schemas:verify` runs them (PRD 1030), against a client that
 // records what each asks: a name each, a select or an rpc called as a plain read, and nothing written.

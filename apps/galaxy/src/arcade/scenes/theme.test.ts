@@ -6,7 +6,7 @@ import { DEFAULT_THEME, resolveTheme, stripesOf, TOKENS, type Theme, type Token 
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // The canvas in a workspace's theme: every sprite drawn, with the options it was drawn with, and
 // every colour the arcade's own code fills with (the sprite package's planets, stars and nebulae are

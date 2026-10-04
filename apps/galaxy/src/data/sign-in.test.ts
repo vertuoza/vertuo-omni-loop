@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { cliSignInReturn, type CliCallbackDeps, type CliSession } from '../ask/cli-code';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import { settled } from '../stages/settled';
 import type { GithubAccount } from './github-orgs';
 import { afterSignIn, appLanding, joinBeforeIssue, settleSignIn, settlingExchange, type SignedIn, type SignInDeps } from './sign-in';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 import { joinByGithub } from './workspace';
+
+vi.mock('server-only', () => ({}));
 
 const TOKEN = 'gho_provider-token-of-the-sign-in';
 

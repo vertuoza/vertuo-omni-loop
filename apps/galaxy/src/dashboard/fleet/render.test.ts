@@ -6,7 +6,7 @@ import { nestedLinks } from '../../people/nested-links';
 import type { Member } from '../board/tally';
 import { fleetOf } from './load';
 import { FleetScreen, type FleetView } from './FleetScreen';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 vi.mock('server-only', () => ({}));
 const { demoFleetBoard } = await import('./fleet');

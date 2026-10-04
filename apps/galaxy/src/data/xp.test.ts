@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { borrowedXp, demoEvents } from '@omni/galaxy';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import { demoXp } from './xp';
 
 describe('the demo guest\'s XP', () => {

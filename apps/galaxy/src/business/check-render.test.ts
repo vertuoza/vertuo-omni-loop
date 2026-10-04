@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import { ANSWERED, BusinessView, CHECK_TITLE, STILL_TRUE, type BusinessHandlers } from './BusinessView';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings › Business after the weekly recheck (PRD 774 s4), as the server renders it: on top of the
 // page, an addition diff ("Belgium → Belgium + France") and a replacement ("ERP → CRM", the old one

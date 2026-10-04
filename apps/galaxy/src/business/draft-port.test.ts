@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Claim } from './model';
 import { databaseDraft, demoDraftPort, draftDbOver, DRAFT_ROUTE, SOURCES_ROUTE, type DraftDb } from './draft-port';
 import { COULD_NOT_SAVE, NOT_MEMBER } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { sentOf } from './json.fake';
 
 // The draft's calls from Settings › Business (PRD 774 s3): start a draft through its route, read the

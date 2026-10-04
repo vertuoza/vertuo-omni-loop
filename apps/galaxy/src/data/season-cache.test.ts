@@ -5,7 +5,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live cache is never reached in a test'); } }));
 
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { loadGalaxy } from './load-galaxy';
 import { seasonKey, type SeasonCache } from './season-cache';
 

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
 import { fillGeneric, skillNames, skillPage, skillsOverview, type SkillEntry } from './skills';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The skills pages' model (PRD 580): built from the help table's skill entries, the one source, so a
 // skill with an entry has its page and nothing else is written by hand.

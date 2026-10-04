@@ -15,7 +15,7 @@ import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems, type MenuItem } from './menu.tsx';
 import { xpStatus, type XpStatus } from '../games/room';
 import type { KnowledgeGraph } from '../../data/knowledge';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });

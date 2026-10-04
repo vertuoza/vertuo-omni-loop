@@ -12,6 +12,7 @@
 //
 // PRD 657 (s5): each PRD placed then has its open outbox questions recounted into prd_outbox, so /prd
 // sees a feature PR's change before the next sync. A recount that fails is logged; the reply stands.
+import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { StoredStage } from '../stage';

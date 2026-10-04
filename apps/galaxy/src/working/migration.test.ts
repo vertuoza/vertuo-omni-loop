@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PING_COLUMNS } from './store';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261020090000_working_pings.sql', import.meta.url)), 'utf8');
 const oneLine = MIGRATION.replace(/\s+/g, ' ');

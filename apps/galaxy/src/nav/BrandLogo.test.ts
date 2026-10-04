@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BrandLogo } from './BrandLogo';
 import { TopBar } from './TopBar';
-import { item, present } from '../ask/test-item';
+import { item, present } from '../ask/test/test-item';
 
 // The one OMNI LOOP logo (issue 956): the crest and the wordmark, linked to /app, drawn the same in the
 // app's sidebar and on the public bar of /docs and /releases.

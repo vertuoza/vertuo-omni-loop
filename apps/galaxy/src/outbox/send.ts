@@ -29,6 +29,7 @@
 //
 // The comment is the person's own, so `omni replies` counts it like any other when GitHub lists them as
 // OWNER, MEMBER or COLLABORATOR; otherwise the send is recorded as uncounted and the tab says so.
+import 'server-only';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';

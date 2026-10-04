@@ -1,3 +1,4 @@
+import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { reply as json } from '../../business-api/reply';
 import type { DraftRow } from '../draft/run';

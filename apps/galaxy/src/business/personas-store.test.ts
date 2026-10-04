@@ -4,7 +4,7 @@ import {
   databasePersonas, demoPersonasPort, INVALID_PERSONA_FIELD, PERSONA_GONE, PERSONA_NOT_MEMBER, personaRefusalOf,
 } from './personas-store';
 import { COULD_NOT_SAVE } from './store';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings → Business → Personas' calls (PRD 799 s3): the persona functions, called as the signed-in
 // person (stubbed: no test calls Supabase), their refusals as the section says them, and the demo's

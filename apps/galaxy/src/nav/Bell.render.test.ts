@@ -7,7 +7,7 @@ import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its

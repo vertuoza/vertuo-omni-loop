@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { constituentBreak, constituentBreakInput, constituentBreakOld } from './constituent-break';
 import { JEV_DECISIONS, jevEntry } from './index';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The constituent break's registry entry (PRD 871 s4): a Noul "does this spec break the Statement or a
 // Never line?", mapped with the decision's threshold; what it sends Jev (the spec, the constituents and

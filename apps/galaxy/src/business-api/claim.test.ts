@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addClaim, type BusinessDeps } from './api';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { answerOf } from '../business/json.fake';
 
 // A fake database of one workspace, Acme (GitHub org acme), whose business already holds size#3 (2-50,

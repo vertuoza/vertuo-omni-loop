@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LETTERS, letterOf, MARK_SIZE, markFor, type Letter, type Run } from './mark';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 // Today's V, pixel for pixel: the runs the boot screen drew before the mark took a brand's letter,
 // as [x, y, width, row of bars]. Four rows of bars, 10 pixels apart, each a 6-pixel pill.

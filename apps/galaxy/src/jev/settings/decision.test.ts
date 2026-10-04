@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { JevStoreError, type JevDecisionSettings } from '../store';
 import { readDecision, saveDecisionFor } from './decision';
+
+vi.mock('server-only', () => ({}));
 
 // Saving one decision's mode, threshold and floor (PRD 812 s2): as the signed-in person, so the
 // database's owner-only function decides; a malformed or coming decision is refused before it is sent;

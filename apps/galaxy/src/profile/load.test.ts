@@ -3,7 +3,7 @@ import type { Activity, Member } from '../dashboard/board/tally';
 import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { loadProfile, placeOf, type ProfileReads, type ProfileRequest } from './load';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { settled } from '../stages/settled';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 

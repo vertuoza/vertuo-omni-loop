@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SectionTabs } from './SectionTabs.tsx';
 import { QUESTIONS_TABS, SETTINGS_TABS, withCounts } from './section-tabs.ts';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // One row of section tabs (PRD 733): the Fleets · Repositories row on the settings pages and the Open

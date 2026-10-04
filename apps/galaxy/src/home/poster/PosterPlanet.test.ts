@@ -12,7 +12,7 @@ import { Poster } from './Poster';
 import { PosterPlanet } from './PosterPlanet';
 import { PLANET_LABEL, planetAt, planetMoves, REDUCED_MOTION, spinPlanet, type SpinClock } from './PosterPlanetSpin';
 import type { drawPlanet } from '@omni/design';
-import { item, present } from '../../ask/test-item';
+import { item, present } from '../../ask/test/test-item';
 
 const matchMedia = (reduced: boolean) => (query: string) => ({ matches: query === REDUCED_MOTION && reduced });
 

@@ -10,7 +10,7 @@ import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS } from './BusinessScreen';
 import {
   ADD_PAGE, BusinessView, DOCK, DRAFT, DRAFTING, NOTHING_FOUND, NOTHING_NEW, NOTHING_SAVED, PAGES_FULL, SAVED_LINE, THATS_US, THIN_HINT,
 } from './BusinessView';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Settings › Business with the draft (PRD 774 s3), as the server renders it: Draft from my repos on the
 // empty and the filled page, + add a web page (a fourth refused), the scan of sources while a draft

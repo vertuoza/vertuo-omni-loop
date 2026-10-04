@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { WaitingTile } from './WaitingTile';
 import { ASK, FOR_ME, type Waiting } from './counts';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Waiting for you as the server renders it (PRD 328, kept on Home by PRD 572), to static markup: one
 // tile, its label and its number, linking where waitingCount says; out of reach, it says so alone.

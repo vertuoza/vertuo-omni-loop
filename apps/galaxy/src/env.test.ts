@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 import { readEnv } from './env';
+
+vi.mock('server-only', () => ({}));
 
 const FAKE_SECRET = 'sk-fake-do-not-print-0123456789';
 

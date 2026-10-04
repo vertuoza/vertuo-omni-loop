@@ -4,7 +4,7 @@ import type { Action } from '../keys';
 import {
   alienAt, FIELDS, hudOf, LIVES, marchEvery, newGame, pause, press, rowKinds, SCORE_CAP, step, type Game,
 } from './invaders';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 // The close values the view passes in: made up here, so a test sees the engine pay what it is given.

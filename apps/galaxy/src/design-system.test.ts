@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { COLOURS } from '@omni/design';
-import { sure } from './arcade/sure';
+import { sure } from './arcade/test/sure';
 import { TOKENS, type Token } from './arcade/theme';
 
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));

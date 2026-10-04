@@ -2,7 +2,7 @@
 // it asks for, what it prints, and when it stops. No test reaches the network.
 import { describe, expect, it } from 'vitest';
 import { PAGES, parseArgs, timings, type Deps } from './run';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 /** A clock that moves `step` ms each time it is read, and a fetch that answers `status` to every page. */
 function fakes({ status = 200, cookie = 'sb-abc-auth-token=xyz', body = '<html></html>' }: { status?: number; cookie?: string | null; body?: string } = {}) {

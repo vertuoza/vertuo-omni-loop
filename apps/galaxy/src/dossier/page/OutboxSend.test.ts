@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readEnv } from '../../env';
 import { sendOpen } from '../../outbox/open';
 import type { SentView } from '../../outbox/sent';
@@ -9,6 +9,8 @@ import { OutboxPane, sendOffOf } from './OutboxPane';
 import { OutboxSend, SendResult } from './OutboxSend';
 import { outboxView, SEND_OFF } from './outbox-view';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // Send, wired on the Outbox tab (PRD 251, s11): open once this deployment knows the omni-loop App's
 // client, off in the demo and before; and what the tab says once GitHub sent the person back. Rendered as

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { closedAccount } from './account-closed';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 describe('closedAccount', () => {
   it('lets nobody in: no session, and every way in refuses', async () => {

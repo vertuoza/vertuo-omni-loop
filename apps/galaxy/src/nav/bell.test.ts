@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499), as pure functions: its accessible name, how long a question has

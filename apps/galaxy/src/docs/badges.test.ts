@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { badgeLabel, codeKinds, fenceProblem, rehypeCodeBadges, type HastElement, type HastNode } from './badges';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // Where a guide code block goes (PRD 373): the words after the language on its opening fence, read
 // into kinds when the guide is compiled, and turned into the arcade chips drawn above the code.

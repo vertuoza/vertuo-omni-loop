@@ -14,7 +14,7 @@ import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { drawGames, TALL_SCENES } from './games.ts';
 import { GamesOverlay } from './games.tsx';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });

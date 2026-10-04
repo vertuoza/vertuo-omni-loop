@@ -14,7 +14,7 @@ import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common
 import { drawFrame } from './index.ts';
 import { TALL_SCENES } from './join.ts';
 import { CoinOverlay, GateOverlay, IntroOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay } from './join.tsx';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // Every sprite drawn, where and how large: the join scenes' actors on the canvas.
 const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number }[]);

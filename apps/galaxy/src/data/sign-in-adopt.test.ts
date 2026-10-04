@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Installation } from '../signup/installation';
 import { signupWorld } from '../signup/signup.fake';
-import { item } from '../ask/test-item';
+import { item } from '../ask/test/test-item';
 import { afterSignIn } from './sign-in';
 
 // A sign-up that stopped half way: the App is installed, but no workspace was made. The next sign-in

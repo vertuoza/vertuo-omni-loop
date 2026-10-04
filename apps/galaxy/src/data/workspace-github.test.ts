@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { describe, expect, it } from 'vitest';
-import { present } from '../ask/test-item';
+import { present } from '../ask/test/test-item';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces } from './galaxy.fake';
 import { memberGithub } from './workspace';
 

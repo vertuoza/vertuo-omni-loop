@@ -2,7 +2,7 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { describe, expect, it } from 'vitest';
 import { demoBoard, demoRoster, DEMO_VIEWER } from './demo';
 import type { PersonRow } from './tally';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // The board in the demo (PRD 572): every part shows, with members at 0 among them.
 

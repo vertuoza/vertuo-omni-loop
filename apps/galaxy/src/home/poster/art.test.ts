@@ -1,7 +1,7 @@
 import { spritePixels, SURFACES } from '@omni/design';
 import { describe, expect, it } from 'vitest';
 import { crestSvg, FLYBY_POSE, flybySvg, omniSvg, PLANET_PROGRESS, planetPixels, planetSvgs, starfieldSvg } from './art';
-import { present } from '../../ask/test-item';
+import { present } from '../../ask/test/test-item';
 
 // The poster's pictures, drawn on the server from @omni/design and the game's own renderers.
 

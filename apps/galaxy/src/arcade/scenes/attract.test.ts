@@ -13,7 +13,7 @@ import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES } from './attract.ts';
 import { BootOverlay, HeroesOverlay, storyLines, TitleOverlay } from './attract.tsx';
-import { sure } from '../sure';
+import { sure } from '../test/sure';
 
 // The sprites are drawn on a recording context: which sprite, where and how large.
 vi.mock('@omni/design', async (original) => ({

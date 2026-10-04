@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { JevOutcome } from '../../jev/client';
 import type { JevDecideDeps, JevKey } from '../../jev/resolve';
 import type { JevCall, JevMode } from '../../jev/store';
 import { judgeQuestion, questionJudge } from './jev';
+
+vi.mock('server-only', () => ({}));
 
 // Jev's Unknown worth asking after a report (PRD 855 s4): the Jev step runs only when the link's workspace
 // has its Jev key set up (Settings › Jev) and the decision is not Off; otherwise nothing of the question is

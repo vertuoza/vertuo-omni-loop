@@ -5,7 +5,7 @@ import {
   ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen,
   noticeDocuments, readSeen, settled, SETTLE_MS, toAnnounce, type Announced, type DocumentGroup, type DocumentRow, type Seen,
 } from './documents';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed

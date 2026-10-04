@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { answeredTitle, forMeList, questionView, type ForMeRow, type QuestionState } from './question';
 import { HOOK_WAIT_MS, type RoundRow, type SessionRow } from './view';
-import { item } from '../test-item';
+import { item } from '../test/test-item';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;

@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { sure } from './arcade/sure';
+import { sure } from './arcade/test/sure';
 
 const MIGRATION = readFileSync(
   fileURLToPath(new URL('../../../supabase/migrations/20261012110000_rls_once_and_indexes.sql', import.meta.url)),

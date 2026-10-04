@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COLOURS, FLAT, spritePixels, tokensCss } from '@omni/design';
 import { markFor } from './mark';
 import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, TOKENS, type Token } from './theme';
-import { sure } from './sure';
+import { sure } from './test/sure';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');

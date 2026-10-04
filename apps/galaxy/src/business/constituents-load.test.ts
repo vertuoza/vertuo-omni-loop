@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import { loadConstituentsPanel } from './constituents-load';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 // The Constituents panel's read (PRD 871 s2), against a stubbed client: no test calls Supabase.
 

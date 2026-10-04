@@ -6,7 +6,7 @@ import { questionsOf } from './model';
 import { databaseQuestions, demoQuestions } from './port';
 import { BRING_BACK, NO_QUESTIONS, QuestionsCard, setAsideLabel } from './QuestionsCard';
 import { initialQuestionsState, questionsReducer } from './state';
-import { sure } from '../../arcade/sure';
+import { sure } from '../../arcade/test/sure';
 
 // Jev set aside (PRD 855 s4): a question Jev's Unknown worth asking set aside is folded under "Jev set
 // aside N" at the bottom of the card, with Bring back, which reopens it through

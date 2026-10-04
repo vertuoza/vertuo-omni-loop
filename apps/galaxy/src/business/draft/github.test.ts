@@ -1,6 +1,8 @@
 import { generateKeyPairSync } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { repoReader } from './github';
+
+vi.mock('server-only', () => ({}));
 
 // The draft's GitHub reader against a stubbed fetch, never GitHub itself: the listing of a repository
 // with and without the kit layout, and a file's text or null.

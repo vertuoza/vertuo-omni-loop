@@ -5,6 +5,8 @@ import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
+vi.mock('server-only', () => ({}));
+
 // The PRD page's GitHub reader (PRD 426, part 1), against a stubbed `fetch`: never GitHub itself.
 // A small fake GitHub answers by route; each test says what the repository holds.
 

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
 
+vi.mock('server-only', () => ({}));
+
 // The arcade's startup (../instrumentation.ts): register() parses the server's environment, so a
 // broken one stops the server before it answers a request. The environment is a passed object: the
 // test hands register() what `process.env` would hold, through the env module's one read.

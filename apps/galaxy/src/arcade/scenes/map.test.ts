@@ -4,8 +4,8 @@ import { gridFor } from '../grid';
 import { planetAt } from '../Screen';
 import { TALL, WIDE, type MapSlot } from './common.ts';
 import { hyperlanes, layoutMap, neighbour, TALL_MAP, TALL_SCENES } from './map.ts';
-import { twinEvents, twinGalaxy } from '../twins.fake';
-import { sure } from '../sure';
+import { twinEvents, twinGalaxy } from '../test/twins.fake';
+import { sure } from '../test/sure';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });

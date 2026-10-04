@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
@@ -11,6 +11,8 @@ import { readVoice, voiceView, VOICE_EMPTY, type VoiceCast } from './voice';
 import { REWORK_LABEL } from './VoicePane';
 import { dossierView, type DossierRead } from './view';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 // The User voice tab as the server renders it (PRD 822, s3): its place beside Spec, Plan and
 // Before/after, the empty line, one round, three rounds with ▲ ▼ =, the outlined objection with how it

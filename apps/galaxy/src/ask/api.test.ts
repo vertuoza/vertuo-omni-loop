@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
@@ -12,6 +12,8 @@ import { categoryThroughJev } from './classify-jev';
 import type { Placement } from './cli-code';
 import { askStore } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
+
+vi.mock('server-only', () => ({}));
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };

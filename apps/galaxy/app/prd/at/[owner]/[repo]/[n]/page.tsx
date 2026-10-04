@@ -1,3 +1,4 @@
+import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { Notice } from '../../../../../../src/ask/page/Notice';
 import { serverEnv } from '../../../../../../src/env';

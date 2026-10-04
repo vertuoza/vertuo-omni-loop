@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { INITIAL_RELEASE, parseReleaseRows, RELEASE_COLUMNS, RELEASES_TABLE, ReleaseRow, releaseVersion } from './row';
-import { sure } from '../arcade/sure';
+import { sure } from '../arcade/test/sure';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260929090000_releases.sql', import.meta.url)), 'utf8');
 

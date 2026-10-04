@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Advance } from './Advance';
 import { Handheld, type BodyProps } from './Handheld';
-import { sure } from './sure';
+import { sure } from './test/sure';
 
 // The two Game Boy bodies, rendered as the server would: with the app to leave for, each carries the
 // GAME ▮▯ APP switch (PRD 238), the upright one at the right end of its wordmark row, the sideways one

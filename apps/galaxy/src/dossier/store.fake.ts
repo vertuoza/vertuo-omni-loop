@@ -42,6 +42,7 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
+import 'server-only';
 import { createHash } from 'node:crypto';
 import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import {

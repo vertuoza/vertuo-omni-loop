@@ -6,6 +6,7 @@
 // committer date, as the commit writes it (ISO 8601, with its offset).
 //
 // It reads the history of the checkout's HEAD: the releases workflow checks out main.
+import 'server-only';
 import { execFileSync } from 'node:child_process';
 
 /** The commit that first put a file on main, and its committer date. */

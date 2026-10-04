@@ -1,12 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { item } from '../../ask/test-item';
+import { item } from '../../ask/test/test-item';
 import type { GithubSummary } from '../../dossier/github/summary';
 import { recountOutboxes } from '../outbox/recount';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { fakeStageStore } from '../store.fake';
 import { parseStageEvent, receiveStageEvent, STAGE_SIGNATURE_HEADER, type StageEventDeps, verifySignature } from './event';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+
+vi.mock('server-only', () => ({}));
 
 const SECRET = 'stage-secret';
 const WS = 'ws-acme';
